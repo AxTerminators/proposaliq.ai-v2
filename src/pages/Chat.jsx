@@ -1,7 +1,7 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { hasPermission, logActivity } from "@/utils/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,36 +10,31 @@ import {
   Sparkles,
   Bot,
   User,
-  Loader2,
-  Lock
+  Loader2
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Chat() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [organization, setOrganization] = useState(null);
-  const [user, setUser] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadOrg = async () => {
       try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
+        const user = await base44.auth.me();
         const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
+          { created_by: user.email },
           '-created_date',
           1
         );
         if (orgs.length > 0) setOrganization(orgs[0]);
       } catch (error) {
-        console.error("Error loading data:", error);
+        console.error("Error loading org:", error);
       }
     };
-    loadData();
+    loadOrg();
   }, []);
 
   const { data: chatHistory, isLoading } = useQuery({
@@ -50,6 +45,8 @@ export default function Chat() {
 
   const trackTokenUsage = async (tokensUsed, prompt, response, llm) => {
     try {
+      const user = await base44.auth.me();
+      
       if (organization) {
         await base44.entities.TokenUsage.create({
           organization_id: organization.id,
@@ -76,11 +73,6 @@ export default function Chat() {
 
   const sendMutation = useMutation({
     mutationFn: async (userMessage) => {
-      // PERMISSION CHECK: Verify user can access AI features
-      if (!user || !hasPermission(user, 'can_access_ai_features')) {
-        throw new Error("You don't have permission to use AI features.");
-      }
-
       const prompt = `You are a helpful AI assistant for ProposalIQ.ai, a proposal writing platform. 
 The user's organization is: ${organization?.organization_name || 'Not specified'}
 
@@ -106,17 +98,6 @@ Be professional, concise, and actionable.`;
 
       await trackTokenUsage(3000, prompt, aiResponse, preferredLLM);
 
-      // Log activity
-      await logActivity({
-        user,
-        organizationId: organization?.id,
-        actionType: "create",
-        resourceType: "document",
-        resourceId: "chat",
-        resourceName: "AI Chat",
-        details: `Asked AI: ${userMessage.substring(0, 100)}...`
-      });
-
       return await base44.entities.ChatMessage.create({
         organization_id: organization?.id,
         message: userMessage,
@@ -128,9 +109,6 @@ Be professional, concise, and actionable.`;
       setMessage("");
       scrollToBottom();
     },
-    onError: (error) => {
-      alert(error.message || "Error sending message");
-    }
   });
 
   const scrollToBottom = () => {
@@ -143,12 +121,6 @@ Be professional, concise, and actionable.`;
 
   const handleSend = () => {
     if (!message.trim()) return;
-    
-    if (!user || !hasPermission(user, 'can_access_ai_features')) {
-      alert("You don't have permission to use AI features. Please contact your administrator.");
-      return;
-    }
-    
     sendMutation.mutate(message);
   };
 
@@ -158,8 +130,6 @@ Be professional, concise, and actionable.`;
       handleSend();
     }
   };
-
-  const hasAIAccess = user && hasPermission(user, 'can_access_ai_features');
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-indigo-50">
@@ -177,22 +147,9 @@ Be professional, concise, and actionable.`;
         </div>
       </div>
 
-      {!hasAIAccess && (
-        <div className="px-6 pt-4">
-          <div className="max-w-5xl mx-auto">
-            <Alert className="border-amber-300 bg-amber-50">
-              <Lock className="w-4 h-4" />
-              <AlertDescription>
-                Your role ({user?.user_role || 'viewer'}) does not allow AI chat access. Contact your administrator to request this permission.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </div>
-      )}
-
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-5xl mx-auto space-y-6">
-          {chatHistory.length === 0 && !isLoading && hasAIAccess && (
+          {chatHistory.length === 0 && !isLoading && (
             <Card className="border-none shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50">
               <CardContent className="p-8 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -205,7 +162,6 @@ Be professional, concise, and actionable.`;
                     variant="outline"
                     className="h-auto p-4 flex-col items-start"
                     onClick={() => setMessage("What are the key components of a winning proposal?")}
-                    disabled={!hasAIAccess}
                   >
                     <span className="font-semibold mb-1">Proposal Tips</span>
                     <span className="text-xs text-slate-500">Get writing advice</span>
@@ -214,7 +170,6 @@ Be professional, concise, and actionable.`;
                     variant="outline"
                     className="h-auto p-4 flex-col items-start"
                     onClick={() => setMessage("Explain FAR Part 15 about contracting by negotiation")}
-                    disabled={!hasAIAccess}
                   >
                     <span className="font-semibold mb-1">FAR Questions</span>
                     <span className="text-xs text-slate-500">Understand regulations</span>
@@ -223,7 +178,6 @@ Be professional, concise, and actionable.`;
                     variant="outline"
                     className="h-auto p-4 flex-col items-start"
                     onClick={() => setMessage("What's the difference between RFP and RFQ?")}
-                    disabled={!hasAIAccess}
                   >
                     <span className="font-semibold mb-1">Solicitation Types</span>
                     <span className="text-xs text-slate-500">Learn the basics</span>
@@ -285,20 +239,16 @@ Be professional, concise, and actionable.`;
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={hasAIAccess ? "Ask me anything about proposals, FAR, or your projects..." : "AI chat access restricted for your role"}
+              placeholder="Ask me anything about proposals, FAR, or your projects..."
               className="min-h-[60px] resize-none"
-              disabled={sendMutation.isPending || !hasAIAccess}
+              disabled={sendMutation.isPending}
             />
             <Button
               onClick={handleSend}
-              disabled={!message.trim() || sendMutation.isPending || !hasAIAccess}
+              disabled={!message.trim() || sendMutation.isPending}
               className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-6"
             >
-              {hasAIAccess ? (
-                <Send className="w-5 h-5" />
-              ) : (
-                <Lock className="w-5 h-5" />
-              )}
+              <Send className="w-5 h-5" />
             </Button>
           </div>
         </div>
