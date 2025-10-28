@@ -41,39 +41,88 @@ export default function ProposalBuilder() {
     teaming_partner_ids: [],
     status: "draft"
   });
+  const [currentOrgId, setCurrentOrgId] = useState(null);
+
+  // SECURITY: Load current user's organization
+  useEffect(() => {
+    const loadOrgId = async () => {
+      try {
+        const user = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setCurrentOrgId(orgs[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading org:", error);
+      }
+    };
+    loadOrgId();
+  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
-    if (id) {
+    if (id && currentOrgId) {
       loadProposal(id);
     }
-  }, []);
+  }, [currentOrgId]);
 
   const loadProposal = async (id) => {
     try {
-      const proposals = await base44.entities.Proposal.filter({ id }, '-created_date', 1);
+      // SECURITY FIX: Verify the proposal belongs to the current organization
+      const proposals = await base44.entities.Proposal.filter({ 
+        id,
+        organization_id: currentOrgId 
+      }, '-created_date', 1);
+      
       if (proposals.length > 0) {
         const proposal = proposals[0];
         setProposalId(id);
         setProposalData(proposal);
         setCurrentPhase(proposal.current_phase || "phase1");
+      } else {
+        // Proposal not found or doesn't belong to this organization
+        alert("Proposal not found or you don't have access to it.");
+        navigate(createPageUrl("Proposals"));
       }
     } catch (error) {
       console.error("Error loading proposal:", error);
+      navigate(createPageUrl("Proposals"));
     }
   };
 
   const saveProposal = async () => {
+    if (!currentOrgId) {
+      alert("Organization not found. Please complete onboarding first.");
+      return;
+    }
+
     try {
       if (proposalId) {
+        // SECURITY: Verify ownership before update
+        const existing = await base44.entities.Proposal.filter({
+          id: proposalId,
+          organization_id: currentOrgId
+        });
+        
+        if (existing.length === 0) {
+          alert("You don't have permission to edit this proposal.");
+          return;
+        }
+
         await base44.entities.Proposal.update(proposalId, {
           ...proposalData,
           current_phase: currentPhase
         });
       } else {
+        // SECURITY: Always include organization_id when creating
         const created = await base44.entities.Proposal.create({
           ...proposalData,
+          organization_id: currentOrgId,
           current_phase: currentPhase
         });
         setProposalId(created.id);

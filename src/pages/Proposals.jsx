@@ -21,11 +21,40 @@ export default function Proposals() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [currentOrgId, setCurrentOrgId] = useState(null);
 
+  // SECURITY: Load current user's organization for data filtering
+  React.useEffect(() => {
+    const loadOrgId = async () => {
+      try {
+        const user = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setCurrentOrgId(orgs[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading org:", error);
+      }
+    };
+    loadOrgId();
+  }, []);
+
+  // SECURITY FIX: Filter proposals by organization_id to ensure data isolation
   const { data: proposals, isLoading } = useQuery({
-    queryKey: ['proposals'],
-    queryFn: () => base44.entities.Proposal.list('-created_date'),
+    queryKey: ['proposals', currentOrgId],
+    queryFn: async () => {
+      if (!currentOrgId) return [];
+      return base44.entities.Proposal.filter(
+        { organization_id: currentOrgId },
+        '-created_date'
+      );
+    },
     initialData: [],
+    enabled: !!currentOrgId,
   });
 
   const filteredProposals = proposals.filter(proposal => {

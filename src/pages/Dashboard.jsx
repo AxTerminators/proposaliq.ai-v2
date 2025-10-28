@@ -47,10 +47,18 @@ export default function Dashboard() {
     loadUserAndOrg();
   }, [navigate]);
 
+  // SECURITY FIX: Filter proposals by organization_id to ensure data isolation
   const { data: proposals, isLoading } = useQuery({
-    queryKey: ['proposals'],
-    queryFn: () => base44.entities.Proposal.list('-created_date'),
+    queryKey: ['proposals', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Proposal.filter(
+        { organization_id: organization.id },
+        '-created_date'
+      );
+    },
     initialData: [],
+    enabled: !!organization?.id,
   });
 
   const stats = React.useMemo(() => {

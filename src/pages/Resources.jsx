@@ -20,23 +20,68 @@ export default function Resources() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [currentOrgId, setCurrentOrgId] = useState(null);
 
+  // SECURITY: Load current user's organization for data filtering
+  React.useEffect(() => {
+    const loadOrgId = async () => {
+      try {
+        const user = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setCurrentOrgId(orgs[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading org:", error);
+      }
+    };
+    loadOrgId();
+  }, []);
+
+  // SECURITY FIX: Filter resources by organization_id
   const { data: resources, isLoading } = useQuery({
-    queryKey: ['resources'],
-    queryFn: () => base44.entities.ProposalResource.list('-created_date'),
+    queryKey: ['resources', currentOrgId],
+    queryFn: async () => {
+      if (!currentOrgId) return [];
+      return base44.entities.ProposalResource.filter(
+        { organization_id: currentOrgId },
+        '-created_date'
+      );
+    },
     initialData: [],
+    enabled: !!currentOrgId,
   });
 
+  // SECURITY FIX: Filter organizations by current user
   const { data: organizations } = useQuery({
-    queryKey: ['organizations'],
-    queryFn: () => base44.entities.Organization.list('-created_date'),
+    queryKey: ['organizations', currentOrgId],
+    queryFn: async () => {
+      if (!currentOrgId) return [];
+      return base44.entities.Organization.filter(
+        { id: currentOrgId },
+        '-created_date'
+      );
+    },
     initialData: [],
+    enabled: !!currentOrgId,
   });
 
+  // SECURITY FIX: Filter partners by organization_id
   const { data: partners } = useQuery({
-    queryKey: ['partners'],
-    queryFn: () => base44.entities.TeamingPartner.list('-created_date'),
+    queryKey: ['partners', currentOrgId],
+    queryFn: async () => {
+      if (!currentOrgId) return [];
+      return base44.entities.TeamingPartner.filter(
+        { organization_id: currentOrgId },
+        '-created_date'
+      );
+    },
     initialData: [],
+    enabled: !!currentOrgId,
   });
 
   const deleteMutation = useMutation({
@@ -47,13 +92,19 @@ export default function Resources() {
   });
 
   const handleFileUpload = async (files, resourceType, entityType, entityId) => {
+    if (!currentOrgId) {
+      alert("Organization not found. Please complete onboarding first.");
+      return;
+    }
+
     setUploading(true);
     for (const file of files) {
       try {
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
+        // SECURITY: Always include organization_id
         await base44.entities.ProposalResource.create({
-          organization_id: entityId,
+          organization_id: currentOrgId,
           resource_type: resourceType,
           file_name: file.name,
           file_url: file_url,
@@ -231,7 +282,7 @@ export default function Resources() {
                         <div>
                           <p className="font-medium text-slate-900">{resource.file_name}</p>
                           <div className="flex gap-2 mt-1">
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-xs capitalize">
                               {resource.resource_type?.replace(/_/g, ' ')}
                             </Badge>
                             <span className="text-xs text-slate-500">
@@ -241,7 +292,12 @@ export default function Resources() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <a href={resource.file_url} target="_blank" rel="noopener noreferrer">
+                        <a 
+                          href={resource.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Button variant="ghost" size="icon">
                             <ExternalLink className="w-4 h-4" />
                           </Button>
