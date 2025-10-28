@@ -1,0 +1,69 @@
+{
+  "name": "Organization",
+  "type": "object",
+  "properties": {
+    "organization_name": {
+      "type": "string",
+      "description": "Name of the organization"
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Primary contact name"
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Primary contact email"
+    },
+    "address": {
+      "type": "string",
+      "description": "Organization address"
+    },
+    "uei": {
+      "type": "string",
+      "description": "Unique Entity Identifier"
+    },
+    "cage_code": {
+      "type": "string",
+      "description": "Commercial and Government Entity Code"
+    },
+    "website_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Organization website"
+    },
+    "primary_naics": {
+      "type": "string",
+      "description": "Primary NAICS code"
+    },
+    "secondary_naics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Additional NAICS codes"
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Small business and other certifications"
+    },
+    "is_primary": {
+      "type": "boolean",
+      "default": false,
+      "description": "Is this the primary organization for this user"
+    },
+    "onboarding_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Has onboarding been completed"
+    }
+  },
+  "required": [
+    "organization_name",
+    "contact_name",
+    "contact_email"
+  ]
+}

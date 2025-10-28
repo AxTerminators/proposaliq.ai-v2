@@ -1,0 +1,33 @@
+{
+  "name": "ChatMessage",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization this chat belongs to"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User who sent the message"
+    },
+    "message": {
+      "type": "string",
+      "description": "User's message"
+    },
+    "response": {
+      "type": "string",
+      "description": "AI's response"
+    },
+    "context_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "File URLs provided for context"
+    }
+  },
+  "required": [
+    "message",
+    "response"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "name": "TeamingPartner",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to the parent organization"
+    },
+    "partner_name": {
+      "type": "string",
+      "description": "Teaming partner or subcontractor name"
+    },
+    "address": {
+      "type": "string",
+      "description": "Partner address"
+    },
+    "poc_name": {
+      "type": "string",
+      "description": "Point of contact full name"
+    },
+    "poc_phone": {
+      "type": "string",
+      "description": "Point of contact phone"
+    },
+    "poc_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Point of contact email"
+    },
+    "uei": {
+      "type": "string",
+      "description": "Unique Entity Identifier"
+    },
+    "cage_code": {
+      "type": "string",
+      "description": "Commercial and Government Entity Code"
+    },
+    "website_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Partner website"
+    },
+    "primary_naics": {
+      "type": "string",
+      "description": "Primary NAICS code"
+    },
+    "secondary_naics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Additional NAICS codes"
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Small business and other certifications"
+    }
+  },
+  "required": [
+    "partner_name"
+  ]
+}

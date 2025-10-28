@@ -1,0 +1,46 @@
+{
+  "name": "SolicitationDocument",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "document_type": {
+      "type": "string",
+      "enum": [
+        "rfp",
+        "rfq",
+        "rfi",
+        "ifb",
+        "sow",
+        "pws",
+        "pricing_sheet",
+        "other"
+      ],
+      "description": "Type of solicitation document"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Original file name"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to the uploaded file"
+    },
+    "file_size": {
+      "type": "number",
+      "description": "File size in bytes"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "file_name",
+    "file_url",
+    "document_type"
+  ]
+}

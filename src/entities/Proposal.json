@@ -1,0 +1,92 @@
+{
+  "name": "Proposal",
+  "type": "object",
+  "properties": {
+    "proposal_name": {
+      "type": "string",
+      "description": "Internal name for the proposal"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to the user's organization"
+    },
+    "prime_contractor_id": {
+      "type": "string",
+      "description": "ID of organization acting as prime (can be own org or partner)"
+    },
+    "prime_contractor_name": {
+      "type": "string",
+      "description": "Name of prime contractor"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": [
+        "RFP",
+        "RFQ",
+        "RFI",
+        "IFB",
+        "Other"
+      ],
+      "description": "Type of solicitation"
+    },
+    "project_type_other": {
+      "type": "string",
+      "description": "If Other selected, specify here"
+    },
+    "solicitation_number": {
+      "type": "string",
+      "description": "Official solicitation number"
+    },
+    "agency_name": {
+      "type": "string",
+      "description": "Government agency name"
+    },
+    "project_title": {
+      "type": "string",
+      "description": "Title of the project"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Proposal due date"
+    },
+    "current_phase": {
+      "type": "string",
+      "enum": [
+        "phase1",
+        "phase2",
+        "phase3",
+        "phase4",
+        "completed"
+      ],
+      "default": "phase1",
+      "description": "Current phase in the proposal builder"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "in_progress",
+        "submitted",
+        "won",
+        "lost"
+      ],
+      "default": "draft",
+      "description": "Overall proposal status"
+    },
+    "match_score": {
+      "type": "number",
+      "description": "AI-generated match score (0-100)"
+    },
+    "teaming_partner_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of teaming partner IDs involved"
+    }
+  },
+  "required": [
+    "proposal_name"
+  ]
+}

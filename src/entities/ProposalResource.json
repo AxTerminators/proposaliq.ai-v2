@@ -1,0 +1,49 @@
+{
+  "name": "ProposalResource",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to organization or teaming partner"
+    },
+    "resource_type": {
+      "type": "string",
+      "enum": [
+        "capability_statement",
+        "marketing_collateral",
+        "past_proposal",
+        "other"
+      ],
+      "description": "Type of resource document"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Original file name"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to the uploaded file"
+    },
+    "file_size": {
+      "type": "number",
+      "description": "File size in bytes"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the resource"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "teaming_partner"
+      ],
+      "description": "Whether this belongs to org or partner"
+    }
+  },
+  "required": [
+    "file_name",
+    "file_url",
+    "resource_type"
+  ]
+}
