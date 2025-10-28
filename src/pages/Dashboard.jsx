@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   FileText, 
   Plus, 
-  TrendingUp, 
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -79,7 +78,7 @@ export default function Dashboard() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}!
+            Welcome back!
           </h1>
           <p className="text-slate-600">
             {organization.organization_name} Dashboard
