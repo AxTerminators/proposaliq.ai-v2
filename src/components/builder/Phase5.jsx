@@ -2,15 +2,151 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Lightbulb, Sparkles, Target, TrendingUp, Shield, Zap, Loader2, Edit2, Save } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Lightbulb, Sparkles, Settings, Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const PROPOSAL_SECTIONS = [
+  {
+    id: "executive_summary",
+    name: "Executive Summary",
+    defaultWordCount: 500,
+    subsections: []
+  },
+  {
+    id: "volume_1_technical",
+    name: "Volume I - Technical Approach",
+    defaultWordCount: 3000,
+    subsections: [
+      { id: "technical_capability", name: "Technical Capability", defaultWordCount: 400 },
+      { id: "understanding_problem", name: "Understanding the Problem", defaultWordCount: 400 },
+      { id: "proposed_methodology", name: "Proposed Methodology and Solution", defaultWordCount: 600 },
+      { id: "work_plan", name: "Work Plan", defaultWordCount: 500 },
+      { id: "tools_technologies", name: "Tools and Technologies", defaultWordCount: 300 },
+      { id: "standards_practices", name: "Standards and Practices", defaultWordCount: 300 },
+      { id: "risk_management", name: "Risk Management", defaultWordCount: 400 },
+      { id: "innovation_value", name: "Innovation and Value", defaultWordCount: 300 },
+      { id: "innovation_discriminators", name: "Innovation Discriminators", defaultWordCount: 300 },
+      { id: "benefits", name: "Benefits", defaultWordCount: 300 }
+    ]
+  },
+  {
+    id: "volume_1_management",
+    name: "Volume I - Management Plan",
+    defaultWordCount: 2500,
+    subsections: [
+      { id: "management_description", name: "Management Plan Description", defaultWordCount: 400 },
+      { id: "management_flowchart", name: "Management Plan Flowchart", defaultWordCount: 200 },
+      { id: "organizational_structure", name: "Organizational Structure", defaultWordCount: 300 },
+      { id: "key_personnel", name: "Key Personnel", defaultWordCount: 300 },
+      { id: "roles_responsibilities", name: "Roles and Responsibilities", defaultWordCount: 400 },
+      { id: "subcontractor_integration", name: "Subcontractor Integration", defaultWordCount: 300 },
+      { id: "project_control", name: "Project Control and Management Systems", defaultWordCount: 400 },
+      { id: "schedule_management", name: "Schedule Management", defaultWordCount: 300 },
+      { id: "cost_financial", name: "Cost and Financial Management", defaultWordCount: 300 },
+      { id: "quality_assurance", name: "Quality Assurance (QA) / (QC)", defaultWordCount: 400 },
+      { id: "communications_reporting", name: "Communications and Reporting Plan", defaultWordCount: 300 },
+      { id: "internal_comms", name: "Internal Communications", defaultWordCount: 200 },
+      { id: "external_comms", name: "External Communications", defaultWordCount: 200 }
+    ]
+  },
+  {
+    id: "volume_1_staffing",
+    name: "Volume I - Staffing Plan",
+    defaultWordCount: 1500,
+    subsections: [
+      { id: "recruiting_plan", name: "Recruiting Plan", defaultWordCount: 300 },
+      { id: "retention_plan", name: "Retention Plan", defaultWordCount: 300 },
+      { id: "training", name: "Training", defaultWordCount: 300 },
+      { id: "resume_pm", name: "Resume of Program Manager", defaultWordCount: 200 },
+      { id: "resume_proj", name: "Resume of Project Manager", defaultWordCount: 200 },
+      { id: "resume_sme1", name: "Resume of SME 1", defaultWordCount: 200 },
+      { id: "resume_sme2", name: "Resume of SME 2", defaultWordCount: 200 }
+    ]
+  },
+  {
+    id: "volume_3_past_performance",
+    name: "Volume III - Past Performance",
+    defaultWordCount: 2000,
+    subsections: [
+      { id: "contract_id", name: "Contract Identification", defaultWordCount: 200 },
+      { id: "scope_objectives", name: "Scope and Objectives", defaultWordCount: 300 },
+      { id: "relevance", name: "Relevance to Current Requirement", defaultWordCount: 300 },
+      { id: "performance_outcomes", name: "Performance Outcomes and Results", defaultWordCount: 400 },
+      { id: "key_personnel_involved", name: "Key Personnel Involved", defaultWordCount: 200 },
+      { id: "customer_reference", name: "Customer Reference - POC", defaultWordCount: 200 },
+      { id: "cpars", name: "CPARS / Evaluation Summary", defaultWordCount: 200 },
+      { id: "role_contribution", name: "Role (Prime/Sub) and Contribution", defaultWordCount: 200 },
+      { id: "risk_lessons", name: "Risk Mitigation and Lessons Learned", defaultWordCount: 300 }
+    ]
+  },
+  {
+    id: "quality_control_plan",
+    name: "Quality Control Plan",
+    defaultWordCount: 1800,
+    subsections: [
+      { id: "qc_org_roles", name: "QC Organization & Roles", defaultWordCount: 300 },
+      { id: "qc_processes", name: "Quality Control Processes", defaultWordCount: 400 },
+      { id: "metrics_monitoring", name: "Metrics and Performance Monitoring", defaultWordCount: 300 },
+      { id: "inspections_audits", name: "Inspections and Audits", defaultWordCount: 300 },
+      { id: "capa", name: "Corrective and Preventive Actions-CAPA", defaultWordCount: 300 },
+      { id: "reporting_comms", name: "Reporting and Communication", defaultWordCount: 200 },
+      { id: "continuous_improvement", name: "Continuous Improvement Program", defaultWordCount: 300 },
+      { id: "documentation", name: "Documentation and Traceability", defaultWordCount: 200 }
+    ]
+  },
+  {
+    id: "transition_plan",
+    name: "Transition Plan",
+    defaultWordCount: 1500,
+    subsections: [
+      { id: "objectives_strategy", name: "Objectives & Strategy", defaultWordCount: 300 },
+      { id: "phased_timeline", name: "Phased Timeline", defaultWordCount: 300 },
+      { id: "staffing_key", name: "Staffing & Key Personnel", defaultWordCount: 300 },
+      { id: "comms_plan", name: "Communications Plan", defaultWordCount: 200 },
+      { id: "risk_mitigation", name: "Risk Management & Mitigation", defaultWordCount: 300 },
+      { id: "performance_measurement", name: "Performance Measurement", defaultWordCount: 200 },
+      { id: "deliverables", name: "Deliverables", defaultWordCount: 200 }
+    ]
+  },
+  {
+    id: "compliance",
+    name: "Compliance",
+    defaultWordCount: 1200,
+    subsections: [
+      { id: "safety_plan", name: "Safety Plan", defaultWordCount: 200 },
+      { id: "quality_plan", name: "Quality Plan", defaultWordCount: 200 },
+      { id: "insurance", name: "Insurance (GL, Cyber, etc)", defaultWordCount: 200 },
+      { id: "bonding", name: "Bonding", defaultWordCount: 200 },
+      { id: "cyber_cmmc", name: "Cyber / CMMC Requirements", defaultWordCount: 200 },
+      { id: "facility_clearance", name: "Facility Clearance Requirements", defaultWordCount: 200 },
+      { id: "socio_economic", name: "Socio-Economic Status/Certifications", defaultWordCount: 200 },
+      { id: "small_business", name: "Small Business Plan", defaultWordCount: 200 }
+    ]
+  }
+];
 
 export default function Phase5({ proposalData, setProposalData, proposalId }) {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [strategy, setStrategy] = useState(null);
+  const [strategy, setStrategy] = useState({
+    tone: "clear",
+    readingLevel: "government_plain",
+    requestCitations: false,
+    aiModel: "gemini",
+    temperature: 0.70,
+    topP: 0.70,
+    maxTokens: 2048,
+    sections: {},
+    winThemes: null
+  });
+  
+  const [isLoadingSuggestWordCount, setIsLoadingSuggestWordCount] = useState(false);
+  const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
   const [currentOrgId, setCurrentOrgId] = useState(null);
-  const [editingSection, setEditingSection] = useState(null);
 
   React.useEffect(() => {
     const loadOrgId = async () => {
@@ -29,340 +165,479 @@ export default function Phase5({ proposalData, setProposalData, proposalId }) {
       }
     };
     loadOrgId();
+
+    // Initialize sections with defaults
+    const initialSections = {};
+    PROPOSAL_SECTIONS.forEach(section => {
+      initialSections[section.id] = {
+        included: true,
+        tone: "default",
+        wordCount: section.defaultWordCount,
+        subsections: {}
+      };
+      section.subsections.forEach(sub => {
+        initialSections[section.id].subsections[sub.id] = {
+          included: true,
+          tone: "default",
+          wordCount: sub.defaultWordCount
+        };
+      });
+    });
+    setStrategy(prev => ({ ...prev, sections: initialSections }));
   }, []);
 
-  const trackTokenUsage = async (tokens, prompt, response) => {
+  const suggestWordCounts = async () => {
+    setIsLoadingSuggestWordCount(true);
     try {
-      const user = await base44.auth.me();
-      await base44.entities.TokenUsage.create({
-        organization_id: currentOrgId,
-        user_email: user.email,
-        feature_type: "proposal_generation",
-        tokens_used: tokens,
-        llm_provider: "gemini",
-        prompt: prompt?.substring(0, 500),
-        response_preview: response?.substring(0, 200),
-        cost_estimate: (tokens / 1000000) * 0.5
-      });
+      const prompt = `Based on this ${proposalData.project_type} for ${proposalData.agency_name}, suggest optimal word counts for each proposal section. Consider government contracting standards and the complexity of: ${proposalData.project_title}.
 
-      const subs = await base44.entities.Subscription.filter({ organization_id: currentOrgId }, '-created_date', 1);
-      if (subs.length > 0) {
-        await base44.entities.Subscription.update(subs[0].id, {
-          token_credits_used: (subs[0].token_credits_used || 0) + tokens
-        });
-      }
-    } catch (error) {
-      console.error("Error tracking tokens:", error);
-    }
-  };
-
-  const generateStrategy = async () => {
-    if (!proposalId || !currentOrgId) {
-      alert("Please save the proposal first");
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const org = await base44.entities.Organization.filter(
-        { id: proposalData.prime_contractor_id || currentOrgId },
-        '-created_date',
-        1
-      );
-
-      const partners = proposalData.teaming_partner_ids ? 
-        await base44.entities.TeamingPartner.filter({ 
-          id: { $in: proposalData.teaming_partner_ids } 
-        }) : [];
-
-      const prompt = `You are an expert proposal strategist. Develop a comprehensive win strategy for this government contract proposal.
-
-**PROPOSAL INFORMATION:**
-- Solicitation: ${proposalData.solicitation_number}
-- Agency: ${proposalData.agency_name}
-- Project: ${proposalData.project_title}
-- Type: ${proposalData.project_type}
-- Prime Contractor: ${proposalData.prime_contractor_name}
-- Teaming Partners: ${partners.map(p => p.partner_name).join(', ') || 'None'}
-
-**ORGANIZATION DETAILS:**
-${org.length > 0 ? `
-- Name: ${org[0].organization_name}
-- Certifications: ${org[0].certifications?.join(', ') || 'None'}
-- Primary NAICS: ${org[0].primary_naics || 'Not specified'}
-` : ''}
-
-**TASK:**
-Develop a detailed win strategy with:
-
-1. **Win Themes** (3-5 key themes that differentiate this proposal)
-2. **Competitive Advantages** (unique strengths to emphasize)
-3. **Differentiators** (what sets you apart from competitors)
-4. **Risk Mitigation** (potential risks and how to address them)
-5. **Value Proposition** (core value you bring to the agency)
-6. **Technical Strategy** (approach to technical requirements)
-7. **Management Strategy** (approach to project management)
-
-Provide specific, actionable strategies tailored to this opportunity.`;
+Return JSON with section IDs and recommended word counts.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
           properties: {
-            win_themes: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" } } } },
-            competitive_advantages: { type: "array", items: { type: "string" } },
-            differentiators: { type: "array", items: { type: "string" } },
-            risk_mitigation: { type: "array", items: { type: "object", properties: { risk: { type: "string" }, mitigation: { type: "string" } } } },
-            value_proposition: { type: "string" },
-            technical_strategy: { type: "string" },
-            management_strategy: { type: "string" }
+            sections: {
+              type: "object",
+              additionalProperties: { type: "number" }
+            }
           }
         }
       });
 
-      await trackTokenUsage(6000, prompt, JSON.stringify(result));
-      setStrategy(result);
-
+      // Update word counts with AI suggestions
+      const updatedSections = { ...strategy.sections };
+      Object.keys(result.sections || {}).forEach(sectionId => {
+        if (updatedSections[sectionId]) {
+          updatedSections[sectionId].wordCount = result.sections[sectionId];
+        }
+      });
+      setStrategy(prev => ({ ...prev, sections: updatedSections }));
+      alert("✓ AI suggested word counts applied!");
     } catch (error) {
-      console.error("Error generating strategy:", error);
-      alert("Error generating strategy. Please try again.");
+      console.error("Error suggesting word counts:", error);
+      alert("Error getting AI suggestions. Please try again.");
     }
-    setIsGenerating(false);
+    setIsLoadingSuggestWordCount(false);
   };
 
-  const saveEdit = (section) => {
-    setStrategy({...strategy, [section]: editingSection});
-    setEditingSection(null);
+  const suggestStrategy = async () => {
+    setIsLoadingStrategy(true);
+    try {
+      const prompt = `Develop win themes and strategic recommendations for this proposal:
+- Agency: ${proposalData.agency_name}
+- Project: ${proposalData.project_title}
+- Type: ${proposalData.project_type}
+- Prime: ${proposalData.prime_contractor_name}
+
+Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            win_themes: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  theme: { type: "string" },
+                  strategy: { type: "string" },
+                  evaluation_tie: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      setStrategy(prev => ({ ...prev, winThemes: result.win_themes }));
+    } catch (error) {
+      console.error("Error suggesting strategy:", error);
+      alert("Error generating strategy. Please try again.");
+    }
+    setIsLoadingStrategy(false);
+  };
+
+  const saveStrategy = async () => {
+    if (!proposalId) return;
+    
+    try {
+      await base44.entities.Proposal.update(proposalId, {
+        strategy_config: JSON.stringify(strategy)
+      });
+      alert("✓ Strategy saved!");
+    } catch (error) {
+      console.error("Error saving strategy:", error);
+      alert("Error saving strategy.");
+    }
   };
 
   return (
-    <Card className="border-none shadow-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-amber-600" />
-          Phase 5: AI Win Strategy
-        </CardTitle>
-        <CardDescription>
-          AI will suggest winning strategies for your proposal
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {!strategy && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Lightbulb className="w-8 h-8 text-amber-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Generate Win Strategy</h3>
-            <p className="text-slate-600 mb-6 max-w-md mx-auto">
-              AI will analyze your organization, the solicitation requirements, and your competitive position to develop a comprehensive win strategy.
-            </p>
-            <Button 
-              onClick={generateStrategy}
-              disabled={isGenerating}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating Strategy...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Win Strategy
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {strategy && (
-          <div className="space-y-6">
-            {/* Value Proposition */}
-            <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-200">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="w-5 h-5 text-amber-600" />
-                  Value Proposition
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-700 leading-relaxed">{strategy.value_proposition}</p>
-              </CardContent>
-            </Card>
-
-            {/* Win Themes */}
-            {strategy.win_themes && strategy.win_themes.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Zap className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-semibold text-slate-900 text-lg">Win Themes</h3>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {strategy.win_themes.map((theme, idx) => (
-                    <Card key={idx} className="border-blue-200 bg-blue-50">
-                      <CardContent className="p-4">
-                        <h4 className="font-semibold text-blue-900 mb-2">{theme.title}</h4>
-                        <p className="text-sm text-blue-800">{theme.description}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Competitive Advantages */}
-            {strategy.competitive_advantages && strategy.competitive_advantages.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  <h3 className="font-semibold text-slate-900">Competitive Advantages</h3>
-                </div>
-                <div className="space-y-2">
-                  {strategy.competitive_advantages.map((advantage, idx) => (
-                    <div key={idx} className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-                      <Badge className="bg-green-600 text-white flex-shrink-0">{idx + 1}</Badge>
-                      <p className="text-sm text-green-900">{advantage}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Differentiators */}
-            {strategy.differentiators && strategy.differentiators.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                  <h3 className="font-semibold text-slate-900">Key Differentiators</h3>
-                </div>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {strategy.differentiators.map((diff, idx) => (
-                    <div key={idx} className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <p className="text-sm text-purple-900">{diff}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Risk Mitigation */}
-            {strategy.risk_mitigation && strategy.risk_mitigation.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Shield className="w-5 h-5 text-red-600" />
-                  <h3 className="font-semibold text-slate-900">Risk Mitigation</h3>
-                </div>
-                <div className="space-y-3">
-                  {strategy.risk_mitigation.map((item, idx) => (
-                    <Card key={idx} className="border-red-200">
-                      <CardContent className="p-4">
-                        <p className="font-semibold text-red-900 mb-2">⚠️ {item.risk}</p>
-                        <p className="text-sm text-slate-700">✓ {item.mitigation}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Technical Strategy */}
-            <Card className="border-indigo-200">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Target className="w-5 h-5 text-indigo-600" />
-                    Technical Strategy
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingSection(strategy.technical_strategy)}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {editingSection === strategy.technical_strategy ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={editingSection}
-                      onChange={(e) => setEditingSection(e.target.value)}
-                      rows={6}
-                      className="font-mono text-sm"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => saveEdit('technical_strategy')}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingSection(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{strategy.technical_strategy}</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Management Strategy */}
-            <Card className="border-blue-200">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Target className="w-5 h-5 text-blue-600" />
-                    Management Strategy
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingSection(strategy.management_strategy)}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {editingSection === strategy.management_strategy ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={editingSection}
-                      onChange={(e) => setEditingSection(e.target.value)}
-                      rows={6}
-                      className="font-mono text-sm"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => saveEdit('management_strategy')}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingSection(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{strategy.management_strategy}</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Button 
-              onClick={generateStrategy}
-              disabled={isGenerating}
+    <div className="space-y-6">
+      <Card className="border-none shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Proposal Strategy</CardTitle>
+          <CardDescription>
+            Configure the tone, style, and structure of your proposal
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Action Buttons */}
+          <div className="flex gap-3 flex-wrap">
+            <Button
+              onClick={suggestWordCounts}
+              disabled={isLoadingSuggestWordCount}
               variant="outline"
-              className="w-full"
             >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Regenerate Strategy
+              {isLoadingSuggestWordCount ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-2" />
+              )}
+              Suggest Word Counts
+            </Button>
+
+            <Button
+              onClick={suggestStrategy}
+              disabled={isLoadingStrategy}
+              variant="outline"
+            >
+              {isLoadingStrategy ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Lightbulb className="w-4 h-4 mr-2" />
+              )}
+              Suggest Strategy
+            </Button>
+
+            <Button
+              onClick={() => setShowAISettings(!showAISettings)}
+              variant="outline"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              AI Model Settings
             </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* AI Model Settings Panel */}
+          {showAISettings && (
+            <Card className="bg-slate-50 border-slate-300">
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>AI Model</Label>
+                    <Select
+                      value={strategy.aiModel}
+                      onValueChange={(value) => setStrategy(prev => ({ ...prev, aiModel: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gemini">Google Gemini (Most cost-effective)</SelectItem>
+                        <SelectItem value="claude">Anthropic Claude (Best for writing)</SelectItem>
+                        <SelectItem value="chatgpt">OpenAI ChatGPT (Balanced performance)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Temperature: {strategy.temperature.toFixed(2)}</Label>
+                      <span className="text-xs text-slate-500">Controls randomness. Lower is more deterministic.</span>
+                    </div>
+                    <Slider
+                      value={[strategy.temperature]}
+                      onValueChange={([value]) => setStrategy(prev => ({ ...prev, temperature: value }))}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Top-P: {strategy.topP.toFixed(2)}</Label>
+                      <span className="text-xs text-slate-500">Nucleus sampling. Considers tokens with top_p probability mass.</span>
+                    </div>
+                    <Slider
+                      value={[strategy.topP]}
+                      onValueChange={([value]) => setStrategy(prev => ({ ...prev, topP: value }))}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Max Output Tokens</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={strategy.maxTokens}
+                        onChange={(e) => setStrategy(prev => ({ ...prev, maxTokens: parseInt(e.target.value) }))}
+                        className="w-32"
+                      />
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => setStrategy(prev => ({ ...prev, maxTokens: prev.maxTokens + 128 }))}
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => setStrategy(prev => ({ ...prev, maxTokens: Math.max(128, prev.maxTokens - 128) }))}
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Win Themes */}
+          {strategy.winThemes && (
+            <Card className="bg-amber-50 border-amber-300">
+              <CardHeader>
+                <CardTitle className="text-lg">Suggested Win Themes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {strategy.winThemes.map((theme, idx) => (
+                    <div key={idx} className="p-3 bg-white rounded-lg border">
+                      <h4 className="font-semibold text-amber-900 mb-1">{theme.theme}</h4>
+                      <p className="text-sm text-slate-700 mb-2">{theme.strategy}</p>
+                      <p className="text-xs text-slate-500">Ties to: {theme.evaluation_tie}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Overall Drafting Style */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Overall Drafting Style (default settings)</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Tone</Label>
+                <Select
+                  value={strategy.tone}
+                  onValueChange={(value) => setStrategy(prev => ({ ...prev, tone: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clear">Clear (default)</SelectItem>
+                    <SelectItem value="formal">Formal</SelectItem>
+                    <SelectItem value="concise">Concise</SelectItem>
+                    <SelectItem value="courteous">Courteous</SelectItem>
+                    <SelectItem value="confident">Confident</SelectItem>
+                    <SelectItem value="persuasive">Persuasive</SelectItem>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="humanized">Humanized</SelectItem>
+                    <SelectItem value="conversational">Conversational</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Reading Level</Label>
+                <Select
+                  value={strategy.readingLevel}
+                  onValueChange={(value) => setStrategy(prev => ({ ...prev, readingLevel: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="government_plain">Government Plain Language</SelectItem>
+                    <SelectItem value="flesch_60">Flesch–Kincaid Grade Level ~10 (Flesch 60+)</SelectItem>
+                    <SelectItem value="flesch_70">Flesch–Kincaid Grade Level ~8 (Flesch 70+)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Citations</Label>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox
+                    checked={strategy.requestCitations}
+                    onCheckedChange={(checked) => setStrategy(prev => ({ ...prev, requestCitations: checked }))}
+                  />
+                  <label className="text-sm text-slate-700">
+                    Request Citations (Ask model to cite sources if applicable)
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Proposal Sections */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Proposal Sections</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Select which sections to include in the next step, Proposal Writer, and optionally override the overall tone for each specific section or subsection.
+            </p>
+
+            <div className="space-y-4">
+              {PROPOSAL_SECTIONS.map((section) => (
+                <Card key={section.id} className="border-slate-300">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3 mb-3">
+                      <Checkbox
+                        checked={strategy.sections[section.id]?.included}
+                        onCheckedChange={(checked) => {
+                          setStrategy(prev => ({
+                            ...prev,
+                            sections: {
+                              ...prev.sections,
+                              [section.id]: { ...prev.sections[section.id], included: checked }
+                            }
+                          }));
+                        }}
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-slate-900">{section.name}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={strategy.sections[section.id]?.tone || "default"}
+                          onValueChange={(value) => {
+                            setStrategy(prev => ({
+                              ...prev,
+                              sections: {
+                                ...prev.sections,
+                                [section.id]: { ...prev.sections[section.id], tone: value }
+                              }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="formal">Formal</SelectItem>
+                            <SelectItem value="persuasive">Persuasive</SelectItem>
+                            <SelectItem value="concise">Concise</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          value={strategy.sections[section.id]?.wordCount || section.defaultWordCount}
+                          onChange={(e) => {
+                            setStrategy(prev => ({
+                              ...prev,
+                              sections: {
+                                ...prev.sections,
+                                [section.id]: { ...prev.sections[section.id], wordCount: parseInt(e.target.value) }
+                              }
+                            }));
+                          }}
+                          className="w-24"
+                          placeholder="Words"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Subsections */}
+                    {section.subsections.length > 0 && (
+                      <div className="ml-8 space-y-2 mt-2 pt-2 border-t">
+                        {section.subsections.map((sub) => (
+                          <div key={sub.id} className="flex items-center gap-3">
+                            <Checkbox
+                              checked={strategy.sections[section.id]?.subsections[sub.id]?.included}
+                              onCheckedChange={(checked) => {
+                                setStrategy(prev => ({
+                                  ...prev,
+                                  sections: {
+                                    ...prev.sections,
+                                    [section.id]: {
+                                      ...prev.sections[section.id],
+                                      subsections: {
+                                        ...prev.sections[section.id].subsections,
+                                        [sub.id]: { ...prev.sections[section.id].subsections[sub.id], included: checked }
+                                      }
+                                    }
+                                  }
+                                }));
+                              }}
+                            />
+                            <span className="text-sm flex-1">{sub.name}</span>
+                            <Select
+                              value={strategy.sections[section.id]?.subsections[sub.id]?.tone || "default"}
+                              onValueChange={(value) => {
+                                setStrategy(prev => ({
+                                  ...prev,
+                                  sections: {
+                                    ...prev.sections,
+                                    [section.id]: {
+                                      ...prev.sections[section.id],
+                                      subsections: {
+                                        ...prev.sections[section.id].subsections,
+                                        [sub.id]: { ...prev.sections[section.id].subsections[sub.id], tone: value }
+                                      }
+                                    }
+                                  }
+                                }));
+                              }}
+                            >
+                              <SelectTrigger className="w-28">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="default">Default</SelectItem>
+                                <SelectItem value="formal">Formal</SelectItem>
+                                <SelectItem value="persuasive">Persuasive</SelectItem>
+                                <SelectItem value="concise">Concise</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              value={strategy.sections[section.id]?.subsections[sub.id]?.wordCount || sub.defaultWordCount}
+                              onChange={(e) => {
+                                setStrategy(prev => ({
+                                  ...prev,
+                                  sections: {
+                                    ...prev.sections,
+                                    [section.id]: {
+                                      ...prev.sections[section.id],
+                                      subsections: {
+                                        ...prev.sections[section.id].subsections,
+                                        [sub.id]: { ...prev.sections[section.id].subsections[sub.id], wordCount: parseInt(e.target.value) }
+                                      }
+                                    }
+                                  }
+                                }));
+                              }}
+                              className="w-20"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <Button onClick={saveStrategy} className="w-full" size="lg">
+            Save Strategy Configuration
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
