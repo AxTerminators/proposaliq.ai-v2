@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,8 +22,6 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
     const loadOrgId = async () => {
       try {
         const user = await base44.auth.me();
-        // Assuming an organization is created for each user upon onboarding or is linked to the user.
-        // Filter by 'created_by' as specified in the outline, assuming this is how organizations are linked to users.
         const orgs = await base44.entities.Organization.filter(
           { created_by: user.email },
           '-created_date',
@@ -32,11 +29,9 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
         );
         if (orgs.length > 0) {
           setCurrentOrgId(orgs[0].id);
-        } else {
-            console.warn("No organization found for the current user. Data isolation might be affected for new document uploads.");
         }
       } catch (error) {
-        console.error("Error loading organization ID:", error);
+        console.error("Error loading org:", error);
       }
     };
     loadOrgId();
@@ -46,121 +41,130 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
     try {
       setIsExtracting(true);
       
-      const prompt = `Extract key information from this solicitation/RFP document. Return structured data.`;
-      
-      const schema = {
-        type: "object",
-        properties: {
-          solicitation_number: { type: "string" },
-          agency_name: { type: "string" },
-          project_title: { type: "string" },
-          due_date: { type: "string" },
-          project_type: { type: "string" },
-          evaluation_factors: {
-            type: "array",
-            items: { type: "string" }
-          },
-          key_requirements: {
-            type: "array",
-            items: { type: "string" }
-          }
-        }
-      };
+      // Check file extension - ExtractDataFromUploadedFile only supports: csv, png, jpg, jpeg, pdf
+      const lowerFileName = fileName.toLowerCase();
+      const supportedByExtractor = lowerFileName.endsWith('.pdf') || 
+                                   lowerFileName.endsWith('.csv') || 
+                                   lowerFileName.endsWith('.png') || 
+                                   lowerFileName.endsWith('.jpg') || 
+                                   lowerFileName.endsWith('.jpeg');
 
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url: fileUrl,
-        json_schema: schema
-      });
-
-      if (result.status === "success" && result.output) {
-        const data = result.output;
-        
-        // Auto-populate fields if they're empty
-        if (data.solicitation_number && !proposalData.solicitation_number) {
-          setProposalData(prev => ({...prev, solicitation_number: data.solicitation_number}));
-        }
-        if (data.agency_name && !proposalData.agency_name) {
-          setProposalData(prev => ({...prev, agency_name: data.agency_name}));
-        }
-        if (data.project_title && !proposalData.project_title) {
-          setProposalData(prev => ({...prev, project_title: data.project_title}));
-        }
-        if (data.due_date && !proposalData.due_date) {
-          const dateStr = new Date(data.due_date).toISOString().split('T')[0];
-          setProposalData(prev => ({...prev, due_date: dateStr}));
-        }
-        if (data.project_type && !proposalData.project_type) {
-          setProposalData(prev => ({...prev, project_type: data.project_type}));
-        }
-        
-        // Add evaluation factors
-        if (data.evaluation_factors && data.evaluation_factors.length > 0) {
-          setEvaluationFactors(prev => {
-            const combined = [...prev, ...data.evaluation_factors];
-            return [...new Set(combined)]; // Remove duplicates
-          });
-        }
-
-        alert(`✓ Auto-populated fields from ${fileName}!`);
-      }
-    } catch (error) {
-      console.error("Error extracting data:", error);
-      // Fallback to AI extraction if structured extraction fails
-      try {
-        const aiPrompt = `Analyze this solicitation document and extract:
-- Solicitation Number
-- Agency Name  
-- Project Title
-- Due Date
-- Project Type (RFP, RFQ, etc)
-- Evaluation Factors (list)
-
-Return as JSON.`;
-
-        const aiResult = await base44.integrations.Core.InvokeLLM({
-          prompt: aiPrompt,
-          file_urls: [fileUrl],
-          response_json_schema: {
-            type: "object",
-            properties: {
-              solicitation_number: { type: "string" },
-              agency_name: { type: "string" },
-              project_title: { type: "string" },
-              due_date: { type: "string" },
-              project_type: { type: "string" },
-              evaluation_factors: { type: "array", items: { type: "string" } }
+      if (supportedByExtractor) {
+        // Try structured extraction first for supported files
+        const schema = {
+          type: "object",
+          properties: {
+            solicitation_number: { type: "string" },
+            agency_name: { type: "string" },
+            project_title: { type: "string" },
+            due_date: { type: "string" },
+            project_type: { type: "string" },
+            evaluation_factors: {
+              type: "array",
+              items: { type: "string" }
+            },
+            key_requirements: {
+              type: "array",
+              items: { type: "string" }
             }
           }
+        };
+
+        const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+          file_url: fileUrl,
+          json_schema: schema
         });
 
-        if (aiResult) {
-          if (aiResult.solicitation_number && !proposalData.solicitation_number) {
-            setProposalData(prev => ({...prev, solicitation_number: aiResult.solicitation_number}));
+        if (result.status === "success" && result.output) {
+          const data = result.output;
+          
+          if (data.solicitation_number && !proposalData.solicitation_number) {
+            setProposalData(prev => ({...prev, solicitation_number: data.solicitation_number}));
           }
-          if (aiResult.agency_name && !proposalData.agency_name) {
-            setProposalData(prev => ({...prev, agency_name: aiResult.agency_name}));
+          if (data.agency_name && !proposalData.agency_name) {
+            setProposalData(prev => ({...prev, agency_name: data.agency_name}));
           }
-          if (aiResult.project_title && !proposalData.project_title) {
-            setProposalData(prev => ({...prev, project_title: aiResult.project_title}));
+          if (data.project_title && !proposalData.project_title) {
+            setProposalData(prev => ({...prev, project_title: data.project_title}));
           }
-          if (aiResult.due_date && !proposalData.due_date) {
-            try {
-              const dateStr = new Date(aiResult.due_date).toISOString().split('T')[0];
-              setProposalData(prev => ({...prev, due_date: dateStr}));
-            } catch (e) {}
+          if (data.due_date && !proposalData.due_date) {
+            const dateStr = new Date(data.due_date).toISOString().split('T')[0];
+            setProposalData(prev => ({...prev, due_date: dateStr}));
           }
-          if (aiResult.evaluation_factors && aiResult.evaluation_factors.length > 0) {
+          if (data.project_type && !proposalData.project_type) {
+            setProposalData(prev => ({...prev, project_type: data.project_type}));
+          }
+          
+          if (data.evaluation_factors && data.evaluation_factors.length > 0) {
             setEvaluationFactors(prev => {
-              const combined = [...prev, ...aiResult.evaluation_factors];
+              const combined = [...prev, ...data.evaluation_factors];
               return [...new Set(combined)];
             });
           }
-          
-          alert(`✓ AI extracted data from ${fileName}!`);
+
+          alert(`✓ Auto-populated fields from ${fileName}!`);
+          return; // Success, no need for fallback
         }
-      } catch (aiError) {
-        console.error("AI extraction also failed:", aiError);
       }
+      
+      // Fallback to AI extraction for all files (especially DOCX, XLSX, PPTX, TXT)
+      const aiPrompt = `Analyze this solicitation document and extract the following information in JSON format:
+- Solicitation Number
+- Agency Name  
+- Project Title
+- Due Date (in YYYY-MM-DD format if possible)
+- Project Type (RFP, RFQ, RFI, IFB, or other)
+- Evaluation Factors (list of factors used to evaluate proposals)
+
+Return as valid JSON.`;
+
+      const aiResult = await base44.integrations.Core.InvokeLLM({
+        prompt: aiPrompt,
+        file_urls: [fileUrl],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            solicitation_number: { type: "string" },
+            agency_name: { type: "string" },
+            project_title: { type: "string" },
+            due_date: { type: "string" },
+            project_type: { type: "string" },
+            evaluation_factors: { type: "array", items: { type: "string" } }
+          }
+        }
+      });
+
+      if (aiResult) {
+        if (aiResult.solicitation_number && !proposalData.solicitation_number) {
+          setProposalData(prev => ({...prev, solicitation_number: aiResult.solicitation_number}));
+        }
+        if (aiResult.agency_name && !proposalData.agency_name) {
+          setProposalData(prev => ({...prev, agency_name: aiResult.agency_name}));
+        }
+        if (aiResult.project_title && !proposalData.project_title) {
+          setProposalData(prev => ({...prev, project_title: aiResult.project_title}));
+        }
+        if (aiResult.due_date && !proposalData.due_date) {
+          try {
+            const dateStr = new Date(aiResult.due_date).toISOString().split('T')[0];
+            setProposalData(prev => ({...prev, due_date: dateStr}));
+          } catch (e) {}
+        }
+        if (aiResult.project_type && !proposalData.project_type) {
+          setProposalData(prev => ({...prev, project_type: aiResult.project_type}));
+        }
+        if (aiResult.evaluation_factors && aiResult.evaluation_factors.length > 0) {
+          setEvaluationFactors(prev => {
+            const combined = [...prev, ...aiResult.evaluation_factors];
+            return [...new Set(combined)];
+          });
+        }
+        
+        alert(`✓ AI extracted data from ${fileName}!`);
+      }
+    } catch (error) {
+      console.error("Error extracting data:", error);
+      alert(`Note: Could not auto-extract data from ${fileName}. You can still manually enter the details.`);
     } finally {
       setIsExtracting(false);
     }
@@ -182,7 +186,6 @@ Return as JSON.`;
         setUploadingFiles(prev => [...prev, file.name]);
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
-        // Determine document type based on file name
         let docType = "other";
         const lowerName = file.name.toLowerCase();
         if (lowerName.includes('rfp') || lowerName.includes('request for proposal')) {
@@ -208,7 +211,6 @@ Return as JSON.`;
         setUploadedDocs(prev => [...prev, { name: file.name, url: file_url, type: docType }]);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
         
-        // Auto-extract data from RFP, RFQ, SOW, PWS documents
         if (['rfp', 'rfq', 'sow', 'pws'].includes(docType)) {
           await extractSolicitationData(file_url, file.name);
         }
@@ -409,7 +411,7 @@ Return a JSON array of evaluation factor names.`;
               <div>
                 <p className="text-sm font-medium text-indigo-900">Smart Document Reading + Data Privacy</p>
                 <p className="text-xs text-indigo-700 mt-1">
-                  AI will automatically read RFP, RFQ, SOW, and PWS documents and auto-populate fields above
+                  AI will automatically read all document types and auto-populate fields above
                 </p>
                 <p className="text-xs text-indigo-700 mt-1">
                   🔒 <strong>Your documents stay private to your organization - never shared with others</strong>
@@ -443,7 +445,8 @@ Return a JSON array of evaluation factor names.`;
               <p className="text-sm text-slate-600 mb-2">Uploading...</p>
               {uploadingFiles.map((name, idx) => (
                 <Badge key={idx} variant="secondary" className="mr-2 mb-2">
-                  {name}</Badge>
+                  {name}
+                </Badge>
               ))}
             </div>
           )}
