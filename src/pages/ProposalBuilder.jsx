@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
 import Phase3 from "../components/builder/Phase3";
+import Phase4 from "../components/builder/Phase4";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -97,7 +98,7 @@ export default function ProposalBuilder() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <Button
             variant="ghost"
@@ -123,9 +124,10 @@ export default function ProposalBuilder() {
               {PHASES.map((phase, index) => (
                 <div
                   key={phase.id}
-                  className={`flex items-center gap-2 ${
+                  className={`flex items-center gap-2 cursor-pointer ${
                     index <= currentPhaseIndex ? "text-blue-600" : "text-slate-400"
                   }`}
+                  onClick={() => setCurrentPhase(phase.id)}
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -156,35 +158,30 @@ export default function ProposalBuilder() {
             <Phase3 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
           )}
           {currentPhase === "phase4" && (
-            <Card className="border-none shadow-xl">
-              <CardHeader>
-                <CardTitle>Phase 4: Proposal Writer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-600">Coming soon - AI-powered proposal writing interface</p>
-              </CardContent>
-            </Card>
+            <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
           )}
         </div>
 
-        <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentPhaseIndex === 0}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Previous
-          </Button>
-          <Button
-            onClick={handleNext}
-            disabled={currentPhaseIndex === PHASES.length - 1}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Next
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
+        {currentPhase !== "phase4" && (
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentPhaseIndex === 0}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Previous
+            </Button>
+            <Button
+              onClick={handleNext}
+              disabled={currentPhaseIndex === PHASES.length - 1}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Next
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

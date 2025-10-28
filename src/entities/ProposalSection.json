@@ -1,0 +1,63 @@
+{
+  "name": "ProposalSection",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "section_name": {
+      "type": "string",
+      "description": "Name of the section"
+    },
+    "section_type": {
+      "type": "string",
+      "enum": [
+        "executive_summary",
+        "technical_approach",
+        "management_plan",
+        "past_performance",
+        "key_personnel",
+        "corporate_experience",
+        "quality_assurance",
+        "transition_plan",
+        "pricing",
+        "custom"
+      ],
+      "description": "Type of proposal section"
+    },
+    "content": {
+      "type": "string",
+      "description": "The actual content of the section"
+    },
+    "order": {
+      "type": "number",
+      "description": "Order of the section in the proposal",
+      "default": 0
+    },
+    "word_count": {
+      "type": "number",
+      "description": "Number of words in the section"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ai_generated",
+        "reviewed",
+        "approved"
+      ],
+      "default": "draft",
+      "description": "Status of the section"
+    },
+    "ai_prompt_used": {
+      "type": "string",
+      "description": "The prompt used to generate this section"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "section_name",
+    "section_type"
+  ]
+}
