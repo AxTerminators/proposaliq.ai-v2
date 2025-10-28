@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { hasPermission, logActivity } from "@/utils/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -42,14 +44,18 @@ export default function ProposalBuilder() {
     status: "draft"
   });
   const [currentOrgId, setCurrentOrgId] = useState(null);
+  const [user, setUser] = useState(null);
+  const [isNewProposal, setIsNewProposal] = useState(true);
 
-  // SECURITY: Load current user's organization
+  // SECURITY: Load current user's organization and check permissions
   useEffect(() => {
-    const loadOrgId = async () => {
+    const loadUserData = async () => {
       try {
-        const user = await base44.auth.me();
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
         const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
+          { created_by: currentUser.email },
           '-created_date',
           1
         );
@@ -57,19 +63,20 @@ export default function ProposalBuilder() {
           setCurrentOrgId(orgs[0].id);
         }
       } catch (error) {
-        console.error("Error loading org:", error);
+        console.error("Error loading user:", error);
       }
     };
-    loadOrgId();
+    loadUserData();
   }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
-    if (id && currentOrgId) {
+    if (id && currentOrgId && user) {
+      setIsNewProposal(false);
       loadProposal(id);
     }
-  }, [currentOrgId]);
+  }, [currentOrgId, user]);
 
   const loadProposal = async (id) => {
     try {
@@ -84,6 +91,17 @@ export default function ProposalBuilder() {
         setProposalId(id);
         setProposalData(proposal);
         setCurrentPhase(proposal.current_phase || "phase1");
+        
+        // Log activity
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "view",
+          resourceType: "proposal",
+          resourceId: id,
+          resourceName: proposal.proposal_name,
+          details: `Opened proposal in builder: ${proposal.proposal_name}`
+        });
       } else {
         // Proposal not found or doesn't belong to this organization
         alert("Proposal not found or you don't have access to it.");
@@ -98,6 +116,13 @@ export default function ProposalBuilder() {
   const saveProposal = async () => {
     if (!currentOrgId) {
       alert("Organization not found. Please complete onboarding first.");
+      return;
+    }
+
+    // Check permissions for new proposals
+    if (!proposalId && !hasPermission(user, 'can_create_proposals')) {
+      alert("You don't have permission to create proposals.");
+      navigate(createPageUrl("Proposals"));
       return;
     }
 
@@ -118,6 +143,17 @@ export default function ProposalBuilder() {
           ...proposalData,
           current_phase: currentPhase
         });
+        
+        // Log activity
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "edit",
+          resourceType: "proposal",
+          resourceId: proposalId,
+          resourceName: proposalData.proposal_name,
+          details: `Updated proposal at ${currentPhase}`
+        });
       } else {
         // SECURITY: Always include organization_id when creating
         const created = await base44.entities.Proposal.create({
@@ -126,6 +162,18 @@ export default function ProposalBuilder() {
           current_phase: currentPhase
         });
         setProposalId(created.id);
+        
+        // Log activity
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "create",
+          resourceType: "proposal",
+          resourceId: created.id,
+          resourceName: proposalData.proposal_name,
+          details: `Created new proposal: ${proposalData.proposal_name}`
+        });
+        
         return created.id;
       }
       return proposalId;
@@ -155,6 +203,32 @@ export default function ProposalBuilder() {
 
   const currentPhaseIndex = PHASES.findIndex(p => p.id === currentPhase);
   const progress = ((currentPhaseIndex + 1) / PHASES.length) * 100;
+
+  // Check if user can create proposals
+  const canCreate = user && hasPermission(user, 'can_create_proposals');
+  
+  if (isNewProposal && !canCreate && user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <Card className="border-none shadow-xl">
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Lock className="w-10 h-10 text-red-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Access Denied</h2>
+              <p className="text-slate-600 mb-6">
+                Your role ({user.user_role || 'viewer'}) does not allow creating new proposals.
+              </p>
+              <Button onClick={() => navigate(createPageUrl("Proposals"))}>
+                Back to Proposals
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -209,25 +283,25 @@ export default function ProposalBuilder() {
 
         <div className="mb-6">
           {currentPhase === "phase1" && (
-            <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
           {currentPhase === "phase2" && (
-            <Phase2 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase2 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
           {currentPhase === "phase3" && (
-            <Phase3 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase3 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
           {currentPhase === "phase4" && (
-            <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
           {currentPhase === "phase5" && (
-            <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
           {currentPhase === "phase6" && (
-            <Phase6 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase6 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
           {currentPhase === "phase7" && (
-            <Phase7 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+            <Phase7 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} user={user} />
           )}
         </div>
 
