@@ -13,7 +13,7 @@
         "viewer"
       ],
       "default": "proposal_writer",
-      "description": "User role for organization-level permissions"
+      "description": "Organization-level role for permissions within their org"
     },
     "super_admin_role": {
       "type": "string",
@@ -28,7 +28,7 @@
         "tech_support",
         "marketing_manager"
       ],
-      "description": "Platform super admin role - only for platform administrators"
+      "description": "Platform-wide super admin role for managing the entire app"
     },
     "organization_id": {
       "type": "string",
