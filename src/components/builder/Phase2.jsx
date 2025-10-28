@@ -21,8 +21,8 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [selectedReferences, setSelectedReferences] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [processingFiles, setProcessingFiles] = useState([]);
 
-  // Load previously submitted/completed proposals
   const { data: pastProposals } = useQuery({
     queryKey: ['past-proposals'],
     queryFn: async () => {
@@ -35,7 +35,6 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     initialData: []
   });
 
-  // Load proposal resources (templates and samples)
   const { data: resources } = useQuery({
     queryKey: ['proposal-resources'],
     queryFn: () => base44.entities.ProposalResource.filter(
@@ -45,7 +44,6 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     initialData: []
   });
 
-  // Load existing reference docs for this proposal
   const { data: existingRefs } = useQuery({
     queryKey: ['reference-docs', proposalId],
     queryFn: () => proposalId 
@@ -64,6 +62,36 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     }
   }, [existingRefs]);
 
+  const extractTextFromFile = async (fileUrl, fileName) => {
+    try {
+      setProcessingFiles(prev => [...prev, fileName]);
+      
+      // Use AI to extract and summarize key content
+      const prompt = `Analyze this document and extract:
+1. Document type and purpose
+2. Key information, facts, and data
+3. Writing style and tone
+4. Technical capabilities or expertise mentioned
+5. Past performance examples
+6. Key personnel information
+7. Any other relevant content
+
+Provide a comprehensive summary that can be used as reference for proposal writing.`;
+
+      const summary = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: [fileUrl]
+      });
+
+      return summary;
+    } catch (error) {
+      console.error("Error extracting text:", error);
+      return null;
+    } finally {
+      setProcessingFiles(prev => prev.filter(name => name !== fileName));
+    }
+  };
+
   const handleFileUpload = async (files) => {
     if (!proposalId) {
       alert("Please complete Phase 1 first to save the proposal");
@@ -75,13 +103,16 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
         setUploadingFiles(prev => [...prev, file.name]);
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
+        // Extract content from the file for better AI understanding
+        const extractedContent = await extractTextFromFile(file_url, file.name);
+        
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
           document_type: "reference",
           file_name: file.name,
           file_url: file_url,
           file_size: file.size,
-          description: "Reference document for proposal writing"
+          description: extractedContent ? `AI Summary: ${extractedContent.substring(0, 500)}...` : "Reference document for proposal writing"
         });
         
         setSelectedReferences(prev => [...prev, file_url]);
@@ -100,13 +131,11 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     }
 
     try {
-      // Get all sections from the past proposal
       const sections = await base44.entities.ProposalSection.filter(
         { proposal_id: proposal.id },
         'order'
       );
 
-      // Create a reference document that links to this past proposal
       await base44.entities.SolicitationDocument.create({
         proposal_id: proposalId,
         document_type: "reference",
@@ -177,15 +206,24 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
             <FileCheck className="w-4 h-4" />
-            Why Add References?
+            Smart Document Reading
           </h3>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• AI will analyze your reference documents to match writing style and tone</li>
-            <li>• Past winning proposals help generate similar high-quality content</li>
-            <li>• Templates ensure compliance with required formats</li>
-            <li>• References improve relevance and accuracy of AI-generated sections</li>
+            <li>• AI reads and analyzes your reference documents (PDF, DOCX, XLSX, PNG, JPG, TXT, PPTX)</li>
+            <li>• Extracts writing style, tone, and key information</li>
+            <li>• Uses this knowledge to generate proposal sections that match your style</li>
+            <li>• Supports capability statements, past proposals, and marketing materials</li>
           </ul>
         </div>
+
+        {processingFiles.length > 0 && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <p className="text-indigo-900 font-medium mb-2">📖 AI is reading documents...</p>
+            {processingFiles.map((name, idx) => (
+              <p key={idx} className="text-sm text-indigo-700">• {name}</p>
+            ))}
+          </div>
+        )}
 
         {selectedReferences.length > 0 && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -193,7 +231,7 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
               ✓ {selectedReferences.length} reference document(s) selected
             </p>
             <p className="text-xs text-green-700">
-              These will be used by AI in Phase 5 to generate proposal content
+              AI will use these references in Phase 6 to generate proposal content
             </p>
           </div>
         )}
@@ -343,7 +381,7 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
               <input
                 type="file"
                 multiple
-                accept=".pdf,.docx,.xlsx,.txt"
+                accept=".pdf,.docx,.xlsx,.txt,.pptx,.png,.jpg,.jpeg,.csv"
                 onChange={(e) => handleFileUpload(Array.from(e.target.files))}
                 className="hidden"
                 id="reference-upload"
@@ -355,7 +393,10 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                   {!proposalId ? 'Complete Phase 1 first' : 'Click to upload reference documents'}
                 </p>
                 <p className="text-sm text-slate-500">
-                  PDF, DOCX, XLSX, TXT up to 30MB
+                  PDF, DOCX, XLSX, TXT, PPTX, PNG, JPG, CSV up to 30MB
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  AI will read and analyze each document
                 </p>
               </label>
             </div>
@@ -380,6 +421,7 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                 <li>• Upload your best past proposals as templates</li>
                 <li>• Include capability statements and past performance docs</li>
                 <li>• Add style guides or company-specific writing samples</li>
+                <li>• AI will read all file types and extract relevant information</li>
                 <li>• The more quality references, the better AI will perform</li>
               </ul>
             </div>
