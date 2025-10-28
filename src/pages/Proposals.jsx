@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { hasPermission, logActivity } from "@/utils/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,24 +13,29 @@ import {
   Search,
   Calendar,
   Building2,
-  TrendingUp
+  TrendingUp,
+  Lock
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Proposals() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [currentOrgId, setCurrentOrgId] = useState(null);
+  const [user, setUser] = useState(null);
 
-  // SECURITY: Load current user's organization for data filtering
+  // SECURITY: Load current user's organization and permissions
   React.useEffect(() => {
-    const loadOrgId = async () => {
+    const loadUserData = async () => {
       try {
-        const user = await base44.auth.me();
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
         const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
+          { created_by: currentUser.email },
           '-created_date',
           1
         );
@@ -37,10 +43,10 @@ export default function Proposals() {
           setCurrentOrgId(orgs[0].id);
         }
       } catch (error) {
-        console.error("Error loading org:", error);
+        console.error("Error loading user:", error);
       }
     };
-    loadOrgId();
+    loadUserData();
   }, []);
 
   // SECURITY FIX: Filter proposals by organization_id to ensure data isolation
@@ -48,6 +54,20 @@ export default function Proposals() {
     queryKey: ['proposals', currentOrgId],
     queryFn: async () => {
       if (!currentOrgId) return [];
+      
+      // Log activity
+      if (user) {
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "view",
+          resourceType: "proposal",
+          resourceId: "list",
+          resourceName: "Proposals List",
+          details: "Viewed proposals list"
+        });
+      }
+      
       return base44.entities.Proposal.filter(
         { organization_id: currentOrgId },
         '-created_date'
@@ -73,6 +93,31 @@ export default function Proposals() {
     lost: { label: "Lost", color: "bg-red-100 text-red-700" }
   };
 
+  const canCreateProposals = user && hasPermission(user, 'can_create_proposals');
+
+  const handleCreateProposal = () => {
+    if (!canCreateProposals) {
+      alert("You don't have permission to create proposals. Please contact your administrator.");
+      return;
+    }
+    navigate(createPageUrl("ProposalBuilder"));
+  };
+
+  const handleViewProposal = async (proposal) => {
+    if (user && currentOrgId) {
+      await logActivity({
+        user,
+        organizationId: currentOrgId,
+        actionType: "view",
+        resourceType: "proposal",
+        resourceId: proposal.id,
+        resourceName: proposal.proposal_name,
+        details: `Opened proposal: ${proposal.proposal_name}`
+      });
+    }
+    navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`));
+  };
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -81,13 +126,32 @@ export default function Proposals() {
           <p className="text-slate-600">Manage your proposal pipeline</p>
         </div>
         <Button 
-          onClick={() => navigate(createPageUrl("ProposalBuilder"))}
+          onClick={handleCreateProposal}
+          disabled={!canCreateProposals}
           className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30"
         >
-          <Plus className="w-5 h-5 mr-2" />
-          New Proposal
+          {canCreateProposals ? (
+            <>
+              <Plus className="w-5 h-5 mr-2" />
+              New Proposal
+            </>
+          ) : (
+            <>
+              <Lock className="w-5 h-5 mr-2" />
+              No Permission
+            </>
+          )}
         </Button>
       </div>
+
+      {!canCreateProposals && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <Lock className="w-4 h-4" />
+          <AlertDescription>
+            Your role ({user?.user_role || 'viewer'}) does not allow creating new proposals. Contact your administrator to request access.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-none shadow-lg">
         <CardHeader className="border-b">
@@ -132,8 +196,8 @@ export default function Proposals() {
               <p className="text-slate-500 mb-6">
                 {searchQuery || filterStatus !== "all" ? "Try adjusting your search or filters" : "Create your first proposal to get started"}
               </p>
-              {!searchQuery && filterStatus === "all" && (
-                <Button onClick={() => navigate(createPageUrl("ProposalBuilder"))}>
+              {!searchQuery && filterStatus === "all" && canCreateProposals && (
+                <Button onClick={handleCreateProposal}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Proposal
                 </Button>
@@ -145,7 +209,7 @@ export default function Proposals() {
                 <div
                   key={proposal.id}
                   className="p-6 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer bg-white"
-                  onClick={() => navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`))}
+                  onClick={() => handleViewProposal(proposal)}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex-1">
