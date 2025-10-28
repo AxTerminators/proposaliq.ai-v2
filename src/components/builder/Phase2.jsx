@@ -105,7 +105,6 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     try {
       setProcessingFiles(prev => [...prev, fileName]);
       
-      // Use AI to extract and summarize key content
       const prompt = `Analyze this document and extract:
 1. Document type and purpose
 2. Key information, facts, and data
@@ -147,7 +146,6 @@ Provide a comprehensive summary that can be used as reference for proposal writi
         setUploadingFiles(prev => [...prev, file.name]);
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
-        // Extract content from the file for better AI understanding
         const extractedContent = await extractTextFromFile(file_url, file.name);
         
         // SECURITY: Always include organization_id to ensure data isolation
@@ -402,4 +400,105 @@ Provide a comprehensive summary that can be used as reference for proposal writi
                       isSelected(resource.file_url)
                         ? 'border-green-500 bg-green-50'
                         : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
-                    }
+                    }`}
+                    onClick={() => !isSelected(resource.file_url) && handleSelectResource(resource)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <FileText className="w-8 h-8 text-indigo-500" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-slate-900">{resource.file_name}</h3>
+                            {isSelected(resource.file_url) && (
+                              <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            )}
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {resource.resource_type?.replace(/_/g, ' ')}
+                            </Badge>
+                            <span className="text-xs text-slate-500">
+                              {(resource.file_size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a 
+                          href={resource.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button variant="ghost" size="icon">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </a>
+                        {!isSelected(resource.file_url) ? (
+                          <Circle className="w-6 h-6 text-slate-300" />
+                        ) : (
+                          <CheckCircle2 className="w-6 h-6 text-green-600" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="upload" className="space-y-4">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-indigo-400 transition-colors bg-white">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.xlsx,.txt,.pptx,.png,.jpg,.jpeg,.csv"
+                onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+                className="hidden"
+                id="reference-upload"
+                disabled={!proposalId}
+              />
+              <label htmlFor="reference-upload" className={!proposalId ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                <Upload className="w-16 h-16 mx-auto text-slate-400 mb-4" />
+                <p className="text-slate-700 font-medium mb-2">
+                  {!proposalId ? 'Complete Phase 1 first' : 'Click to upload reference documents'}
+                </p>
+                <p className="text-sm text-slate-500">
+                  PDF, DOCX, XLSX, TXT, PPTX, PNG, JPG, CSV up to 30MB
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  AI will read and analyze each document
+                </p>
+              </label>
+            </div>
+
+            {uploadingFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">Uploading...</p>
+                {uploadingFiles.map((name, idx) => (
+                  <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                      <span className="text-sm text-blue-900">{name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+              <h4 className="font-semibold text-indigo-900 mb-2">Upload Tips</h4>
+              <ul className="text-sm text-indigo-800 space-y-1">
+                <li>• Upload your best past proposals as templates</li>
+                <li>• Include capability statements and past performance docs</li>
+                <li>• Add style guides or company-specific writing samples</li>
+                <li>• AI will read all file types and extract relevant information</li>
+                <li>• The more quality references, the better AI will perform</li>
+              </ul>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
