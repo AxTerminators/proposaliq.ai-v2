@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -71,6 +72,37 @@ export default function Phase4({ proposalData, proposalId }) {
     enabled: !!proposalData.prime_contractor_id
   });
 
+  const trackTokenUsage = async (tokensUsed, prompt, response, llm) => {
+    try {
+      const user = await base44.auth.me();
+      // Assuming a user can only be part of one organization for simplicity or take the first one
+      const orgs = await base44.entities.Organization.filter({ created_by: user.email }, '-created_date', 1);
+      
+      if (orgs.length > 0) {
+        await base44.entities.TokenUsage.create({
+          organization_id: orgs[0].id,
+          user_email: user.email,
+          feature_type: "proposal_generation",
+          tokens_used: tokensUsed,
+          llm_provider: llm,
+          prompt: prompt.substring(0, 500), // Truncate prompt for storage
+          response_preview: response?.substring(0, 200), // Truncate response for storage
+          cost_estimate: (tokensUsed / 1000000) * 0.5 // Example cost, adjust as per actual LLM pricing
+        });
+
+        // Update token_credits_used on the most recent subscription for the organization
+        const subs = await base44.entities.Subscription.filter({ organization_id: orgs[0].id }, '-created_date', 1);
+        if (subs.length > 0) {
+          await base44.entities.Subscription.update(subs[0].id, {
+            token_credits_used: (subs[0].token_credits_used || 0) + tokensUsed
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error tracking token usage:", error);
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: (sectionData) => base44.entities.ProposalSection.create({
       ...sectionData,
@@ -133,10 +165,19 @@ Proposal Details:
 
       const fileUrls = solicitationDocs.map(doc => doc.file_url).filter(Boolean);
 
+      // Fetch preferred LLM from the most recent subscription
+      const subs = await base44.entities.Subscription.list('-created_date', 1);
+      const preferredLLM = subs.length > 0 ? subs[0].preferred_llm : 'gemini'; // Default to 'gemini' if no subscription found
+
       const content = await base44.integrations.Core.InvokeLLM({
         prompt: contextPrompt,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined
       });
+
+      // Estimate tokens used (e.g., based on average word count and character-to-token ratio)
+      // A simple estimation: 1 word ~ 1.3 tokens. Target 500-800 words => ~650-1040 tokens for output.
+      // Input prompt tokens can vary greatly. For this exercise, use a fixed estimate like 8000.
+      await trackTokenUsage(8000, contextPrompt, content, preferredLLM);
 
       return content;
     } catch (error) {
@@ -172,7 +213,7 @@ Proposal Details:
     let docContent = `${proposalData.proposal_name}\n\n`;
     docContent += `Solicitation: ${proposalData.solicitation_number}\n`;
     docContent += `Agency: ${proposalData.agency_name}\n\n`;
-    docContent += "=" .repeat(50) + "\n\n";
+    docContent += "=".repeat(50) + "\n\n";
 
     sortedSections.forEach(section => {
       docContent += `\n${section.section_name.toUpperCase()}\n`;

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,6 +26,35 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
     { name: "", points: 5 },
     { name: "", points: 5 }
   ]);
+
+  const trackTokenUsage = async (tokensUsed, prompt, response, llm) => {
+    try {
+      const user = await base44.auth.me();
+      const orgs = await base44.entities.Organization.filter({ created_by: user.email }, '-created_date', 1);
+      
+      if (orgs.length > 0) {
+        await base44.entities.TokenUsage.create({
+          organization_id: orgs[0].id,
+          user_email: user.email,
+          feature_type: "evaluation",
+          tokens_used: tokensUsed,
+          llm_provider: llm,
+          prompt: prompt,
+          response_preview: response?.substring(0, 200),
+          cost_estimate: (tokensUsed / 1000000) * 0.5
+        });
+
+        const subs = await base44.entities.Subscription.filter({ organization_id: orgs[0].id }, '-created_date', 1);
+        if (subs.length > 0) {
+          await base44.entities.Subscription.update(subs[0].id, {
+            token_credits_used: (subs[0].token_credits_used || 0) + tokensUsed
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error tracking token usage:", error);
+    }
+  };
 
   const handleEvaluate = async () => {
     if (!proposalId) {
@@ -63,8 +93,11 @@ Based on the information provided, evaluate the match quality and provide scores
 
 Provide detailed reasoning for each score.`;
 
+      const fileUrls = solDocs.map(doc => doc.file_url).filter(Boolean);
+
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
+        file_urls: fileUrls.length > 0 ? fileUrls : undefined,
         response_json_schema: {
           type: "object",
           properties: {
@@ -85,6 +118,8 @@ Provide detailed reasoning for each score.`;
           }
         }
       });
+
+      await trackTokenUsage(5000, prompt, JSON.stringify(result), "gemini");
 
       setEvaluationResult(result);
       

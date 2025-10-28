@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +43,34 @@ export default function Chat() {
     initialData: [],
   });
 
+  const trackTokenUsage = async (tokensUsed, prompt, response, llm) => {
+    try {
+      const user = await base44.auth.me();
+      
+      if (organization) {
+        await base44.entities.TokenUsage.create({
+          organization_id: organization.id,
+          user_email: user.email,
+          feature_type: "chat",
+          tokens_used: tokensUsed,
+          llm_provider: llm,
+          prompt: prompt?.substring(0, 500),
+          response_preview: response?.substring(0, 200),
+          cost_estimate: (tokensUsed / 1000000) * 0.5
+        });
+
+        const subs = await base44.entities.Subscription.filter({ organization_id: organization.id }, '-created_date', 1);
+        if (subs.length > 0) {
+          await base44.entities.Subscription.update(subs[0].id, {
+            token_credits_used: (subs[0].token_credits_used || 0) + tokensUsed
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error tracking token usage:", error);
+    }
+  };
+
   const sendMutation = useMutation({
     mutationFn: async (userMessage) => {
       const prompt = `You are a helpful AI assistant for ProposalIQ.ai, a proposal writing platform. 
@@ -59,10 +88,15 @@ Provide a helpful, detailed response. You can assist with:
 
 Be professional, concise, and actionable.`;
 
+      const subs = await base44.entities.Subscription.filter({ organization_id: organization?.id }, '-created_date', 1);
+      const preferredLLM = subs.length > 0 ? subs[0].preferred_llm : 'gemini';
+
       const aiResponse = await base44.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: false
       });
+
+      await trackTokenUsage(3000, prompt, aiResponse, preferredLLM);
 
       return await base44.entities.ChatMessage.create({
         organization_id: organization?.id,

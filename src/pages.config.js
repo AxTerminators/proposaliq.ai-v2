@@ -6,6 +6,7 @@ import Resources from './pages/Resources';
 import Chat from './pages/Chat';
 import Subscription from './pages/Subscription';
 import Discussions from './pages/Discussions';
+import AdminPortal from './pages/AdminPortal';
 import Layout from './Layout.jsx';
 
 
@@ -18,6 +19,7 @@ export const PAGES = {
     "Chat": Chat,
     "Subscription": Subscription,
     "Discussions": Discussions,
+    "AdminPortal": AdminPortal,
 }
 
 export const pagesConfig = {
