@@ -1,37 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { PenTool, Sparkles, Plus, Edit2, Trash2, Loader2, FileText, CheckCircle2 } from "lucide-react";
+import { PenTool, Upload, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-const SECTION_TYPES = [
-  { value: "executive_summary", label: "Executive Summary" },
-  { value: "technical_approach", label: "Technical Approach" },
-  { value: "management_plan", label: "Management Plan" },
-  { value: "past_performance", label: "Past Performance" },
-  { value: "key_personnel", label: "Key Personnel" },
-  { value: "corporate_experience", label: "Corporate Experience" },
-  { value: "quality_assurance", label: "Quality Assurance" },
-  { value: "transition_plan", label: "Transition Plan" },
-  { value: "custom", label: "Custom Section" }
-];
-
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
-  const [selectedSection, setSelectedSection] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [newSectionName, setNewSectionName] = useState("");
-  const [showNewSection, setShowNewSection] = useState(false);
-  const [selectedSectionType, setSelectedSectionType] = useState("executive_summary");
+  const [strategy, setStrategy] = useState(null);
+  const [activeSections, setActiveSections] = useState([]);
+  const [isGenerating, setIsGenerating] = useState({});
+  const [sectionContent, setSectionContent] = useState({});
   const [currentOrgId, setCurrentOrgId] = useState(null);
 
-  React.useEffect(() => {
-    const loadOrgId = async () => {
+  useEffect(() => {
+    const loadStrategy = async () => {
+      if (!proposalId) return;
+      
       try {
         const user = await base44.auth.me();
         const orgs = await base44.entities.Organization.filter(
@@ -42,43 +30,42 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
         if (orgs.length > 0) {
           setCurrentOrgId(orgs[0].id);
         }
+
+        const proposals = await base44.entities.Proposal.filter({ id: proposalId }, '-created_date', 1);
+        if (proposals.length > 0 && proposals[0].strategy_config) {
+          const config = JSON.parse(proposals[0].strategy_config);
+          setStrategy(config);
+          
+          // Build active sections list
+          const sections = [];
+          Object.entries(config.sections || {}).forEach(([sectionId, sectionData]) => {
+            if (sectionData.included) {
+              sections.push({ id: sectionId, ...sectionData, subsections: [] });
+              
+              Object.entries(sectionData.subsections || {}).forEach(([subId, subData]) => {
+                if (subData.included) {
+                  sections[sections.length - 1].subsections.push({ id: subId, ...subData });
+                }
+              });
+            }
+          });
+          setActiveSections(sections);
+
+          // Load existing content
+          const existingSections = await base44.entities.ProposalSection.filter({ proposal_id: proposalId });
+          const contentMap = {};
+          existingSections.forEach(sec => {
+            contentMap[sec.section_id] = sec.content;
+          });
+          setSectionContent(contentMap);
+        }
       } catch (error) {
-        console.error("Error loading org:", error);
+        console.error("Error loading strategy:", error);
       }
     };
-    loadOrgId();
-  }, []);
 
-  const { data: sections, isLoading } = useQuery({
-    queryKey: ['proposal-sections', proposalId],
-    queryFn: () => proposalId ? base44.entities.ProposalSection.filter({ proposal_id: proposalId }, 'order') : [],
-    initialData: [],
-    enabled: !!proposalId
-  });
-
-  const createSectionMutation = useMutation({
-    mutationFn: (data) => base44.entities.ProposalSection.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
-      setShowNewSection(false);
-      setNewSectionName("");
-    }
-  });
-
-  const updateSectionMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProposalSection.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
-    }
-  });
-
-  const deleteSectionMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProposalSection.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
-      setSelectedSection(null);
-    }
-  });
+    loadStrategy();
+  }, [proposalId]);
 
   const trackTokenUsage = async (tokens, prompt, response) => {
     try {
@@ -88,7 +75,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
         user_email: user.email,
         feature_type: "proposal_generation",
         tokens_used: tokens,
-        llm_provider: "gemini",
+        llm_provider: strategy?.aiModel || "gemini",
         prompt: prompt?.substring(0, 500),
         response_preview: response?.substring(0, 200),
         cost_estimate: (tokens / 1000000) * 0.5
@@ -105,13 +92,38 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     }
   };
 
-  const generateSection = async (section) => {
+  const getToneInstructions = (tone) => {
+    const tones = {
+      clear: "Write in clear, straightforward language that is easy to understand.",
+      formal: "Use formal, professional language appropriate for government contracting.",
+      concise: "Be brief and to the point, avoiding unnecessary words.",
+      courteous: "Use respectful and courteous language throughout.",
+      confident: "Write with confidence, emphasizing your capabilities and experience.",
+      persuasive: "Use persuasive language that convinces the reader of your value.",
+      professional: "Maintain a professional tone throughout.",
+      humanized: "Write in a warm, human tone while maintaining professionalism.",
+      conversational: "Use a conversational style that engages the reader."
+    };
+    return tones[tone] || tones.clear;
+  };
+
+  const getReadingLevelInstructions = (level) => {
+    const levels = {
+      government_plain: "Write using Government Plain Language standards - clear, concise, and well-organized.",
+      flesch_60: "Target Flesch-Kincaid Grade Level 10 (Flesch Reading Ease 60+) - accessible to most adults.",
+      flesch_70: "Target Flesch-Kincaid Grade Level 8 (Flesch Reading Ease 70+) - easy to read for broad audience."
+    };
+    return levels[level] || levels.government_plain;
+  };
+
+  const autoDraft = async (sectionId, sectionName, wordCount, tone, isSubsection = false) => {
     if (!proposalId || !currentOrgId) {
       alert("Please save the proposal first");
       return;
     }
 
-    setIsGenerating(true);
+    setIsGenerating(prev => ({ ...prev, [sectionId]: true }));
+
     try {
       // Get reference documents
       const referenceDocs = await base44.entities.SolicitationDocument.filter({
@@ -131,7 +143,11 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
         .map(doc => doc.file_url)
         .filter(url => url && !url.startsWith('proposal:'));
 
-      const prompt = `You are an expert proposal writer for government contracts. Generate a comprehensive ${section.section_name} section for this proposal.
+      const effectiveTone = tone === "default" ? strategy.tone : tone;
+      const toneInstruction = getToneInstructions(effectiveTone);
+      const readingLevelInstruction = getReadingLevelInstructions(strategy.readingLevel);
+
+      const prompt = `You are an expert proposal writer for government contracts. Generate a comprehensive "${sectionName}" section for this proposal.
 
 **PROPOSAL DETAILS:**
 - Name: ${proposalData.proposal_name}
@@ -140,274 +156,310 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
 - Project: ${proposalData.project_title}
 - Prime: ${proposalData.prime_contractor_name}
 
-**SECTION TYPE:** ${section.section_type}
-**SECTION NAME:** ${section.section_name}
+**WRITING INSTRUCTIONS:**
+- Target word count: ${wordCount} words
+- Tone: ${toneInstruction}
+- Reading Level: ${readingLevelInstruction}
+${strategy.requestCitations ? '- Include citations to source materials where applicable' : ''}
 
-**INSTRUCTIONS:**
+**SECTION:** ${sectionName}
+
+**REQUIREMENTS:**
 1. Review the reference documents and solicitation requirements provided
-2. Extract writing style, tone, and relevant information from reference docs
+2. Extract relevant information, writing style, and tone from reference docs
 3. Generate compelling content that addresses the solicitation requirements
 4. Use specific examples and details from the reference materials
-5. Match the professional tone and style of the reference documents
+5. Match the professional tone specified above
 6. Make it persuasive and focused on value to the government
+7. Target the specified word count
 
 **IMPORTANT:** 
 - Write in a professional, government proposal style
-- Be specific and detailed (aim for 500-1000 words)
+- Be specific and detailed
 - Include concrete examples where possible
 - Focus on benefits to the agency
 - Use active voice and clear language
+${strategy.requestCitations ? '- Cite sources in [Source: Document Name] format when using specific information' : ''}
 
-Generate the section content now:`;
+Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <strong> tags):`;
 
       const content = await base44.integrations.Core.InvokeLLM({
         prompt,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined
+        file_urls: fileUrls.length > 0 ? fileUrls.slice(0, 10) : undefined,
+        response_json_schema: undefined
       });
 
-      await trackTokenUsage(8000, prompt, content);
+      await trackTokenUsage(wordCount * 4, prompt, content);
 
-      const wordCount = content.split(/\s+/).length;
+      // Save to database
+      const existing = await base44.entities.ProposalSection.filter({
+        proposal_id: proposalId,
+        section_id: sectionId
+      });
 
-      updateSectionMutation.mutate({
-        id: section.id,
-        data: {
+      if (existing.length > 0) {
+        await base44.entities.ProposalSection.update(existing[0].id, {
           content,
-          word_count: wordCount,
+          word_count: content.split(/\s+/).length,
+          status: "ai_generated"
+        });
+      } else {
+        await base44.entities.ProposalSection.create({
+          proposal_id: proposalId,
+          section_id: sectionId,
+          section_name: sectionName,
+          section_type: "custom",
+          content,
+          word_count: content.split(/\s+/).length,
           status: "ai_generated",
-          ai_prompt_used: prompt.substring(0, 500)
-        }
-      });
+          order: 0
+        });
+      }
 
-      setSelectedSection({...section, content, word_count: wordCount, status: "ai_generated"});
-
+      setSectionContent(prev => ({ ...prev, [sectionId]: content }));
+      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
+      
     } catch (error) {
       console.error("Error generating section:", error);
       alert("Error generating section. Please try again.");
     }
-    setIsGenerating(false);
+
+    setIsGenerating(prev => ({ ...prev, [sectionId]: false }));
   };
 
-  const createNewSection = () => {
-    if (!newSectionName || !proposalId) return;
-
-    createSectionMutation.mutate({
-      proposal_id: proposalId,
-      section_name: newSectionName,
-      section_type: selectedSectionType,
-      order: sections.length,
-      status: "draft"
-    });
+  const handleContentChange = (sectionId, content) => {
+    setSectionContent(prev => ({ ...prev, [sectionId]: content }));
   };
 
-  const saveContent = (content) => {
-    if (!selectedSection) return;
+  const saveContent = async (sectionId, sectionName, content) => {
+    if (!proposalId) return;
 
-    const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).length;
+    try {
+      const existing = await base44.entities.ProposalSection.filter({
+        proposal_id: proposalId,
+        section_id: sectionId
+      });
 
-    updateSectionMutation.mutate({
-      id: selectedSection.id,
-      data: {
-        content,
-        word_count: wordCount,
-        status: "reviewed"
+      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).length;
+
+      if (existing.length > 0) {
+        await base44.entities.ProposalSection.update(existing[0].id, {
+          content,
+          word_count: wordCount,
+          status: "reviewed"
+        });
+      } else {
+        await base44.entities.ProposalSection.create({
+          proposal_id: proposalId,
+          section_id: sectionId,
+          section_name: sectionName,
+          section_type: "custom",
+          content,
+          word_count: wordCount,
+          status: "draft",
+          order: 0
+        });
       }
-    });
+
+      alert("✓ Content saved!");
+    } catch (error) {
+      console.error("Error saving content:", error);
+      alert("Error saving content.");
+    }
   };
+
+  const saveAll = async () => {
+    for (const [sectionId, content] of Object.entries(sectionContent)) {
+      if (content) {
+        const section = activeSections.find(s => s.id === sectionId);
+        if (section) {
+          await saveContent(sectionId, section.id, content);
+        }
+      }
+    }
+    alert("✓ All sections saved!");
+  };
+
+  const handleUploadContext = async (sectionId) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.docx,.txt';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        
+        await base44.entities.SolicitationDocument.create({
+          proposal_id: proposalId,
+          organization_id: currentOrgId,
+          document_type: "reference",
+          file_name: file.name,
+          file_url: file_url,
+          file_size: file.size,
+          description: `Context for section: ${sectionId}`
+        });
+
+        alert(`✓ Context file "${file.name}" uploaded! It will be used when regenerating this section.`);
+      } catch (error) {
+        console.error("Error uploading context:", error);
+        alert("Error uploading file.");
+      }
+    };
+    input.click();
+  };
+
+  if (!strategy) {
+    return (
+      <Card className="border-none shadow-xl">
+        <CardContent className="py-12 text-center">
+          <PenTool className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+          <p className="text-slate-600 mb-4">Please complete Phase 5 (Strategy) first to configure your proposal structure.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="border-none shadow-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <PenTool className="w-5 h-5 text-green-600" />
-          Phase 6: AI Proposal Writer
-        </CardTitle>
-        <CardDescription>
-          AI will generate proposal content based on your references
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {!proposalId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-amber-800 text-sm">
-              ⚠️ Please complete Phase 1 and save your proposal first
-            </p>
-          </div>
-        )}
-
-        {/* Section List */}
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-slate-900">Proposal Sections</h3>
-          <Button
-            onClick={() => setShowNewSection(true)}
-            size="sm"
-            disabled={!proposalId}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Section
-          </Button>
-        </div>
-
-        {showNewSection && (
-          <Card className="bg-slate-50 border-slate-300">
-            <CardContent className="p-4 space-y-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Section Type</label>
-                <select
-                  value={selectedSectionType}
-                  onChange={(e) => setSelectedSectionType(e.target.value)}
-                  className="w-full p-2 border rounded-lg"
-                >
-                  {SECTION_TYPES.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Section Name</label>
-                <Input
-                  value={newSectionName}
-                  onChange={(e) => setNewSectionName(e.target.value)}
-                  placeholder="e.g., Executive Summary"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={createNewSection} size="sm">
-                  Create Section
-                </Button>
-                <Button onClick={() => setShowNewSection(false)} variant="ghost" size="sm">
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {isLoading ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400 mb-2" />
-            <p className="text-slate-600">Loading sections...</p>
-          </div>
-        ) : sections.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed border-slate-300 rounded-lg">
-            <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-            <p className="text-slate-600 mb-2">No sections yet</p>
-            <p className="text-sm text-slate-500">Click "Add Section" to get started</p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Section List */}
-            <div className="space-y-2">
-              {sections.map((section) => (
-                <div
-                  key={section.id}
-                  onClick={() => setSelectedSection(section)}
-                  className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                    selectedSection?.id === section.id
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-slate-200 hover:border-green-300 hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-semibold text-sm text-slate-900">{section.section_name}</h4>
-                    {section.status === 'ai_generated' && (
-                      <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    )}
+    <div className="space-y-6">
+      <Card className="border-none shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <PenTool className="w-6 h-6 text-green-600" />
+            Proposal Writer
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          {activeSections.map((section) => (
+            <div key={section.id} className="space-y-4">
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{section.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
+                      <div className="flex gap-2 mt-2">
+                        <Badge variant="outline">{section.wordCount} words target</Badge>
+                        <Badge variant="secondary">{section.tone === "default" ? strategy.tone : section.tone}</Badge>
+                      </div>
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {section.section_type?.replace(/_/g, ' ')}
-                  </Badge>
-                  {section.word_count > 0 && (
-                    <p className="text-xs text-slate-500 mt-1">{section.word_count} words</p>
-                  )}
-                </div>
-              ))}
-            </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <ReactQuill
+                    value={sectionContent[section.id] || ""}
+                    onChange={(content) => handleContentChange(section.id, content)}
+                    theme="snow"
+                    className="bg-white min-h-[300px]"
+                  />
+                  
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleUploadContext(section.id)}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Context
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => autoDraft(section.id, section.id.replace(/_/g, ' '), section.wordCount, section.tone)}
+                      disabled={isGenerating[section.id]}
+                    >
+                      {isGenerating[section.id] ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      {sectionContent[section.id] ? 'Regenerate' : 'Auto-Draft'}
+                    </Button>
 
-            {/* Section Editor */}
-            <div className="md:col-span-2">
-              {!selectedSection ? (
-                <div className="text-center py-12 border-2 border-dashed border-slate-300 rounded-lg">
-                  <PenTool className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                  <p className="text-slate-600">Select a section to edit or generate</p>
-                </div>
-              ) : (
-                <Card>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => saveContent(section.id, section.id, sectionContent[section.id])}
+                    >
+                      Save Section
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Subsections */}
+              {section.subsections && section.subsections.map((sub) => (
+                <Card key={sub.id} className="ml-8 border-slate-300">
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{selectedSection.section_name}</CardTitle>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => generateSection(selectedSection)}
-                          disabled={isGenerating}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          {isGenerating ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4 mr-2" />
-                              {selectedSection.content ? 'Regenerate' : 'Generate'}
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => deleteSectionMutation.mutate(selectedSection.id)}
-                          variant="ghost"
-                          size="sm"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
+                      <div>
+                        <CardTitle className="text-base">{sub.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{sub.wordCount} words</Badge>
+                          <Badge variant="secondary" className="text-xs">{sub.tone === "default" ? strategy.tone : sub.tone}</Badge>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <Badge className="capitalize">
-                        {selectedSection.section_type?.replace(/_/g, ' ')}
-                      </Badge>
-                      <Badge variant={selectedSection.status === 'ai_generated' ? 'default' : 'secondary'}>
-                        {selectedSection.status?.replace(/_/g, ' ')}
-                      </Badge>
-                      {selectedSection.word_count > 0 && (
-                        <Badge variant="outline">{selectedSection.word_count} words</Badge>
-                      )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    {selectedSection.content ? (
-                      <div className="space-y-4">
-                        <ReactQuill
-                          value={selectedSection.content}
-                          onChange={saveContent}
-                          theme="snow"
-                          className="min-h-[400px]"
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 border-2 border-dashed border-slate-300 rounded-lg">
-                        <Sparkles className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                        <p className="text-slate-600 mb-4">No content yet</p>
-                        <Button
-                          onClick={() => generateSection(selectedSection)}
-                          disabled={isGenerating}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                        >
+                  <CardContent className="space-y-4">
+                    <ReactQuill
+                      value={sectionContent[`${section.id}_${sub.id}`] || ""}
+                      onChange={(content) => handleContentChange(`${section.id}_${sub.id}`, content)}
+                      theme="snow"
+                      className="bg-white min-h-[250px]"
+                    />
+                    
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUploadContext(`${section.id}_${sub.id}`)}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Context
+                      </Button>
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => autoDraft(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '), sub.wordCount, sub.tone, true)}
+                        disabled={isGenerating[`${section.id}_${sub.id}`]}
+                      >
+                        {isGenerating[`${section.id}_${sub.id}`] ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
                           <Sparkles className="w-4 h-4 mr-2" />
-                          Generate with AI
-                        </Button>
-                      </div>
-                    )}
+                        )}
+                        Auto-Draft
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
-              )}
+              ))}
             </div>
+          ))}
+
+          <div className="flex gap-4 pt-6 border-t">
+            <Button onClick={saveAll} size="lg" className="flex-1">
+              Save All Sections
+            </Button>
+            <Button 
+              size="lg" 
+              className="flex-1 bg-green-600 hover:bg-green-700"
+              onClick={() => {
+                saveAll().then(() => {
+                  // Move to next phase
+                  const event = new CustomEvent('navigateToPhase', { detail: 'phase7' });
+                  window.dispatchEvent(event);
+                });
+              }}
+            >
+              Continue to Finalize
+            </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
