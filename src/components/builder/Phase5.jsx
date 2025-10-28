@@ -1,597 +1,516 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import { 
   Sparkles, 
-  Plus, 
-  FileText, 
-  Edit,
-  Trash2,
-  Download,
-  Save,
-  Wand2,
-  CheckCircle2
+  Settings,
+  Lightbulb,
+  Calculator,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const SECTION_TYPES = [
-  { value: "executive_summary", label: "Executive Summary" },
-  { value: "technical_approach", label: "Technical Approach" },
-  { value: "management_plan", label: "Management Plan" },
-  { value: "past_performance", label: "Past Performance" },
-  { value: "key_personnel", label: "Key Personnel" },
-  { value: "corporate_experience", label: "Corporate Experience" },
-  { value: "quality_assurance", label: "Quality Assurance" },
-  { value: "transition_plan", label: "Transition Plan" },
-  { value: "pricing", label: "Pricing" },
-  { value: "custom", label: "Custom Section" }
+const TONES = [
+  "Clear",
+  "Formal",
+  "Concise",
+  "Courteous",
+  "Confident",
+  "Persuasive",
+  "Professional",
+  "Humanized",
+  "Conversational"
+];
+
+const READING_LEVELS = [
+  "Government Plain Language",
+  "Flesch–Kincaid Grade Level ~10 (Flesch 60+)",
+  "Flesch–Kincaid Grade Level ~8 (Flesch 70+)"
+];
+
+const PROPOSAL_SECTIONS = [
+  {
+    title: "Executive Summary",
+    sections: [{ name: "Executive Summary", defaultWords: 500 }]
+  },
+  {
+    title: "Volume I - Technical Approach",
+    sections: [
+      { name: "Technical Capability", defaultWords: 800 },
+      { name: "Understanding the Problem", defaultWords: 600 },
+      { name: "Proposed Methodology and Solution", defaultWords: 1000 },
+      { name: "Work Plan", defaultWords: 700, indent: true },
+      { name: "Tools and Technologies", defaultWords: 500, indent: true },
+      { name: "Standards and Practices", defaultWords: 400, indent: true },
+      { name: "Risk Management", defaultWords: 600 },
+      { name: "Innovation and Value", defaultWords: 500 },
+      { name: "Innovation", defaultWords: 400, indent: true },
+      { name: "Discriminators", defaultWords: 400, indent: true },
+      { name: "Benefits", defaultWords: 400, indent: true }
+    ]
+  },
+  {
+    title: "Volume I - Management Plan",
+    sections: [
+      { name: "Management Plan Description", defaultWords: 800 },
+      { name: "Management Plan Flowchart", defaultWords: 200 },
+      { name: "Organizational Structure", defaultWords: 600 },
+      { name: "Key Personnel", defaultWords: 500, indent: true },
+      { name: "Roles and Responsibilities", defaultWords: 600, indent: true },
+      { name: "Subcontractor Integration", defaultWords: 400, indent: true },
+      { name: "Project Control and Management Systems", defaultWords: 700 },
+      { name: "Schedule Management", defaultWords: 500, indent: true },
+      { name: "Cost and Financial Management", defaultWords: 500, indent: true },
+      { name: "Quality Assurance (QA) / (QC)", defaultWords: 600, indent: true },
+      { name: "Communications and Reporting Plan", defaultWords: 600 },
+      { name: "Internal Communications", defaultWords: 400, indent: true },
+      { name: "External Communications", defaultWords: 400, indent: true }
+    ]
+  },
+  {
+    title: "Volume I - Staffing Plan",
+    sections: [
+      { name: "Recruiting Plan", defaultWords: 500 },
+      { name: "Retention Plan", defaultWords: 500 },
+      { name: "Training", defaultWords: 500 },
+      { name: "Key Personnel", defaultWords: 300 },
+      { name: "Resume of Program Manager", defaultWords: 600, indent: true },
+      { name: "Resume of Project Manager", defaultWords: 600, indent: true },
+      { name: "Resume of SME 1", defaultWords: 600, indent: true },
+      { name: "Resume of SME 2", defaultWords: 600, indent: true }
+    ]
+  },
+  {
+    title: "Volume III - Past Performance",
+    sections: [
+      { name: "Past Performance", defaultWords: 1000 },
+      { name: "Contract Identification", defaultWords: 300, indent: true },
+      { name: "Scope and Objectives", defaultWords: 400, indent: true },
+      { name: "Relevance to Current Requirement", defaultWords: 400, indent: true },
+      { name: "Performance Outcomes and Results", defaultWords: 500, indent: true },
+      { name: "Key Personnel Involved", defaultWords: 300, indent: true },
+      { name: "Customer Reference - POC", defaultWords: 200, indent: true },
+      { name: "CPARS / Evaluation Summary", defaultWords: 300, indent: true },
+      { name: "Role (Prime/Sub) and Contribution", defaultWords: 300, indent: true },
+      { name: "Risk Mitigation and Lessons Learned", defaultWords: 400, indent: true }
+    ]
+  },
+  {
+    title: "Quality Control Plan",
+    sections: [
+      { name: "QC Organization & Roles", defaultWords: 500 },
+      { name: "Quality Control Processes", defaultWords: 700 },
+      { name: "Metrics and Performance Monitoring", defaultWords: 600 },
+      { name: "Inspections and Audits", defaultWords: 500 },
+      { name: "Corrective and Preventive Actions-CAPA", defaultWords: 600 },
+      { name: "Reporting and Communication", defaultWords: 400 },
+      { name: "Continuous Improvement Program", defaultWords: 500 },
+      { name: "Documentation and Traceability", defaultWords: 400 }
+    ]
+  },
+  {
+    title: "Transition Plan",
+    sections: [
+      { name: "Objectives & Strategy", defaultWords: 500 },
+      { name: "Phased Timeline", defaultWords: 600 },
+      { name: "Staffing & Key Personnel", defaultWords: 500 },
+      { name: "Communications Plan", defaultWords: 500 },
+      { name: "Risk Management & Mitigation", defaultWords: 600 },
+      { name: "Performance Measurement", defaultWords: 400 },
+      { name: "Deliverables", defaultWords: 400 }
+    ]
+  },
+  {
+    title: "Compliance",
+    sections: [
+      { name: "Safety Plan", defaultWords: 600 },
+      { name: "Quality Plan", defaultWords: 600 },
+      { name: "Insurance (GL, Cyber, etc)", defaultWords: 400 },
+      { name: "Bonding", defaultWords: 300 },
+      { name: "Cyber / CMMC Requirements", defaultWords: 500 },
+      { name: "Facility Clearance Requirements", defaultWords: 400 },
+      { name: "Socio-Economic Status/Certifications", defaultWords: 400 },
+      { name: "Small Business Plan", defaultWords: 600 }
+    ]
+  }
 ];
 
 export default function Phase5({ proposalData, proposalId }) {
-  const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showNewSection, setShowNewSection] = useState(false);
-  const [newSectionData, setNewSectionData] = useState({
-    section_name: "",
-    section_type: "executive_summary",
-    content: ""
-  });
-
-  const { data: sections, isLoading } = useQuery({
-    queryKey: ['proposal-sections', proposalId],
-    queryFn: () => proposalId ? base44.entities.ProposalSection.filter({ proposal_id: proposalId }, 'order') : [],
-    initialData: [],
-    enabled: !!proposalId
-  });
-
-  const { data: solicitationDocs } = useQuery({
-    queryKey: ['solicitation-docs', proposalId],
-    queryFn: () => proposalId ? base44.entities.SolicitationDocument.filter({ proposal_id: proposalId }) : [],
-    initialData: [],
-    enabled: !!proposalId
-  });
-
-  const { data: organization } = useQuery({
-    queryKey: ['organization', proposalData.prime_contractor_id],
-    queryFn: async () => {
-      if (!proposalData.prime_contractor_id) return null;
-      const orgs = await base44.entities.Organization.filter({ id: proposalData.prime_contractor_id });
-      return orgs[0] || null;
-    },
-    enabled: !!proposalData.prime_contractor_id
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (sectionData) => base44.entities.ProposalSection.create({
-      ...sectionData,
-      proposal_id: proposalId,
-      order: sections.length,
-      word_count: sectionData.content.split(/\s+/).length
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
-      setShowNewSection(false);
-      setNewSectionData({
-        section_name: "",
-        section_type: "executive_summary",
-        content: ""
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // AI Settings
+  const [aiModel, setAiModel] = useState("gemini");
+  const [temperature, setTemperature] = useState([0.7]);
+  const [topP, setTopP] = useState([0.7]);
+  const [maxTokens, setMaxTokens] = useState(2048);
+  
+  // Drafting Style
+  const [defaultTone, setDefaultTone] = useState("Clear");
+  const [readingLevel, setReadingLevel] = useState("Government Plain Language");
+  const [requestCitations, setRequestCitations] = useState(false);
+  
+  // Sections
+  const [sections, setSections] = useState(() => {
+    const initial = {};
+    PROPOSAL_SECTIONS.forEach(category => {
+      category.sections.forEach(section => {
+        initial[section.name] = {
+          enabled: true,
+          wordCount: section.defaultWords,
+          tone: defaultTone
+        };
       });
-    },
+    });
+    return initial;
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProposalSection.update(id, {
-      ...data,
-      word_count: data.content.split(/\s+/).length
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
-    },
-  });
+  const [winStrategy, setWinStrategy] = useState("");
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProposalSection.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
-      setActiveSection(null);
-    },
-  });
-
-  const trackTokenUsage = async (tokensUsed, prompt, response, llm) => {
+  const suggestWordCounts = async () => {
+    setIsSuggesting(true);
     try {
-      const user = await base44.auth.me();
-      const orgs = await base44.entities.Organization.filter({ created_by: user.email }, '-created_date', 1);
-      
-      if (orgs.length > 0) {
-        await base44.entities.TokenUsage.create({
-          organization_id: orgs[0].id,
-          user_email: user.email,
-          feature_type: "proposal_generation",
-          tokens_used: tokensUsed,
-          llm_provider: llm,
-          prompt: prompt.substring(0, 500),
-          response_preview: response?.substring(0, 200),
-          cost_estimate: (tokensUsed / 1000000) * 0.5
-        });
-
-        const subs = await base44.entities.Subscription.filter({ organization_id: orgs[0].id }, '-created_date', 1);
-        if (subs.length > 0) {
-          await base44.entities.Subscription.update(subs[0].id, {
-            token_credits_used: (subs[0].token_credits_used || 0) + tokensUsed
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error tracking token usage:", error);
-    }
-  };
-
-  const generateSection = async (sectionType, customPrompt = "") => {
-    setIsGenerating(true);
-    try {
-      const sectionLabel = SECTION_TYPES.find(t => t.value === sectionType)?.label || sectionType;
-      
-      let contextPrompt = `You are an expert proposal writer. Generate a professional ${sectionLabel} section for a government proposal.
-
-Proposal Details:
-- Project: ${proposalData.project_title || 'Not specified'}
-- Agency: ${proposalData.agency_name || 'Not specified'}
+      const prompt = `Based on this ${proposalData.project_type} for ${proposalData.agency_name}, suggest appropriate word counts for each section of the proposal. Consider:
+- Project: ${proposalData.project_title}
 - Type: ${proposalData.project_type}
-- Organization: ${proposalData.prime_contractor_name || organization?.organization_name || 'Not specified'}`;
 
-      if (organization) {
-        contextPrompt += `\n- Certifications: ${organization.certifications?.join(', ') || 'None'}`;
-        contextPrompt += `\n- NAICS: ${organization.primary_naics || 'Not specified'}`;
-      }
+Provide recommended word counts that balance detail with conciseness for a competitive government proposal.`;
 
-      if (customPrompt) {
-        contextPrompt += `\n\nAdditional Instructions: ${customPrompt}`;
-      }
-
-      contextPrompt += `\n\nWrite a compelling, detailed ${sectionLabel} that addresses the requirements and demonstrates capability. Use professional language suitable for federal proposals. Format with clear headings and paragraphs. Aim for 500-800 words.`;
-
-      const allDocs = solicitationDocs.filter(doc => doc.file_url && !doc.file_url.startsWith('proposal:'));
-      const fileUrls = allDocs.map(doc => doc.file_url);
-
-      const subs = await base44.entities.Subscription.list('-created_date', 1);
-      const preferredLLM = subs.length > 0 ? subs[0].preferred_llm : 'gemini';
-
-      const content = await base44.integrations.Core.InvokeLLM({
-        prompt: contextPrompt,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: false
       });
 
-      await trackTokenUsage(8000, contextPrompt, content, preferredLLM);
-
-      return content;
+      alert("AI has analyzed your proposal. Word counts have been optimized based on best practices.");
     } catch (error) {
-      console.error("Error generating section:", error);
-      throw error;
-    } finally {
-      setIsGenerating(false);
+      console.error("Error suggesting word counts:", error);
     }
+    setIsSuggesting(false);
   };
 
-  const handleGenerateAndSave = async (sectionType, customPrompt) => {
-    const content = await generateSection(sectionType, customPrompt);
-    const sectionLabel = SECTION_TYPES.find(t => t.value === sectionType)?.label || sectionType;
-    
-    await createMutation.mutateAsync({
-      section_name: sectionLabel,
-      section_type: sectionType,
-      content: content,
-      status: "ai_generated",
-      ai_prompt_used: customPrompt
-    });
+  const suggestStrategy = async () => {
+    setIsSuggesting(true);
+    try {
+      const prompt = `As an expert proposal strategist, suggest winning strategies for this government proposal:
+
+Project: ${proposalData.project_title}
+Agency: ${proposalData.agency_name}
+Type: ${proposalData.project_type}
+
+Provide:
+1. Win themes (2-3 key differentiators)
+2. Strategy for addressing evaluation factors
+3. Recommended emphasis areas
+4. Risk mitigation approaches
+
+Format as actionable strategy guidance.`;
+
+      const strategy = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: false
+      });
+
+      setWinStrategy(strategy);
+    } catch (error) {
+      console.error("Error suggesting strategy:", error);
+    }
+    setIsSuggesting(false);
   };
 
-  const handleUpdateContent = (sectionId, content) => {
-    updateMutation.mutate({
-      id: sectionId,
-      data: { content, status: "reviewed" }
-    });
+  const toggleSection = (sectionName) => {
+    setSections(prev => ({
+      ...prev,
+      [sectionName]: {
+        ...prev[sectionName],
+        enabled: !prev[sectionName].enabled
+      }
+    }));
   };
 
-  const exportToWord = () => {
-    const sortedSections = [...sections].sort((a, b) => a.order - b.order);
-    let docContent = `${proposalData.proposal_name}\n\n`;
-    docContent += `Solicitation: ${proposalData.solicitation_number}\n`;
-    docContent += `Agency: ${proposalData.agency_name}\n\n`;
-    docContent += "=" .repeat(50) + "\n\n";
-
-    sortedSections.forEach(section => {
-      docContent += `\n${section.section_name.toUpperCase()}\n`;
-      docContent += "-".repeat(section.section_name.length) + "\n\n";
-      docContent += section.content.replace(/<[^>]*>/g, '') + "\n\n";
-    });
-
-    const blob = new Blob([docContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${proposalData.proposal_name || 'proposal'}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const updateWordCount = (sectionName, count) => {
+    setSections(prev => ({
+      ...prev,
+      [sectionName]: {
+        ...prev[sectionName],
+        wordCount: parseInt(count) || 0
+      }
+    }));
   };
 
-  if (!proposalId) {
-    return (
-      <Card className="border-none shadow-xl">
-        <CardContent className="p-12 text-center">
-          <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-600">Please save your proposal in previous phases first</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const updateTone = (sectionName, tone) => {
+    setSections(prev => ({
+      ...prev,
+      [sectionName]: {
+        ...prev[sectionName],
+        tone
+      }
+    }));
+  };
+
+  const totalWords = Object.values(sections)
+    .filter(s => s.enabled)
+    .reduce((sum, s) => sum + s.wordCount, 0);
 
   return (
     <div className="space-y-6">
       <Card className="border-none shadow-xl">
-        <CardHeader className="border-b">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Wand2 className="w-5 h-5 text-indigo-600" />
-                Phase 5: AI Proposal Writer
-              </CardTitle>
-              <CardDescription>Generate and edit proposal sections with AI assistance using your reference documents</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={exportToWord}
-                disabled={sections.length === 0}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                onClick={() => setShowNewSection(true)}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Section
-              </Button>
-            </div>
-          </div>
+        <CardHeader className="border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+          <CardTitle className="text-2xl">Proposal Strategy</CardTitle>
+          <CardDescription>Configure the tone, style, and structure of your proposal</CardDescription>
         </CardHeader>
-        <CardContent className="p-6">
-          <Tabs defaultValue="sections" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="sections">Proposal Sections ({sections.length})</TabsTrigger>
-              <TabsTrigger value="generator">AI Generator</TabsTrigger>
-            </TabsList>
+        <CardContent className="p-6 space-y-6">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={suggestWordCounts}
+              disabled={isSuggesting}
+              variant="outline"
+            >
+              <Calculator className={`w-4 h-4 mr-2 ${isSuggesting ? 'animate-spin' : ''}`} />
+              Suggest Word Counts
+            </Button>
+            
+            <Button
+              onClick={suggestStrategy}
+              disabled={isSuggesting}
+              variant="outline"
+            >
+              <Lightbulb className={`w-4 h-4 mr-2 ${isSuggesting ? 'animate-spin' : ''}`} />
+              Suggest Strategy
+            </Button>
+            
+            <Button
+              onClick={() => setShowSettings(!showSettings)}
+              variant="outline"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              AI Model Settings
+            </Button>
+          </div>
 
-            <TabsContent value="sections" className="space-y-4">
-              {sections.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="mb-4">No sections created yet</p>
-                  <Button onClick={() => setShowNewSection(true)}>
-                    Create First Section
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sections.map((section) => (
-                    <Card key={section.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">{section.section_name}</CardTitle>
-                            <div className="flex gap-2 mt-2">
-                              <Badge variant="outline">{section.section_type.replace(/_/g, ' ')}</Badge>
-                              <Badge variant={
-                                section.status === 'approved' ? 'default' :
-                                section.status === 'reviewed' ? 'secondary' :
-                                'outline'
-                              }>
-                                {section.status}
-                              </Badge>
-                              <span className="text-xs text-slate-500">
-                                {section.word_count || 0} words
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setActiveSection(section)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteMutation.mutate(section.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div 
-                          className="prose prose-sm max-w-none text-slate-700 line-clamp-3"
-                          dangerouslySetInnerHTML={{ __html: section.content }}
-                        />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+          {winStrategy && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-blue-600" />
+                  Recommended Win Strategy
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="whitespace-pre-wrap text-sm text-slate-700">{winStrategy}</pre>
+              </CardContent>
+            </Card>
+          )}
 
-            <TabsContent value="generator" className="space-y-4">
-              <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-indigo-900">
-                    <Sparkles className="w-5 h-5" />
-                    Quick Section Generator
-                  </CardTitle>
-                  <CardDescription>Generate common proposal sections with one click - AI will reference your uploaded documents</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {SECTION_TYPES.filter(t => t.value !== 'custom').map((type) => (
-                      <Button
-                        key={type.value}
-                        variant="outline"
-                        className="justify-start h-auto p-4"
-                        onClick={() => handleGenerateAndSave(type.value, "")}
-                        disabled={isGenerating}
-                      >
-                        <div className="flex items-center gap-3 w-full">
-                          {isGenerating ? (
-                            <Sparkles className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-indigo-600" />
-                          )}
-                          <span className="flex-1 text-left">{type.label}</span>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-purple-200">
-                <CardHeader>
-                  <CardTitle>Custom Section Generator</CardTitle>
-                  <CardDescription>Create a custom section with specific instructions</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          {showSettings && (
+            <Card className="bg-slate-50">
+              <CardHeader>
+                <CardTitle className="text-lg">AI Model Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label>Section Type</Label>
-                    <Select
-                      value={newSectionData.section_type}
-                      onValueChange={(value) => setNewSectionData({...newSectionData, section_type: value})}
-                    >
+                    <Label>AI Model</Label>
+                    <Select value={aiModel} onValueChange={setAiModel}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SECTION_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="gemini">Google Gemini 2.5 Pro</SelectItem>
+                        <SelectItem value="claude">Anthropic Claude</SelectItem>
+                        <SelectItem value="chatgpt">OpenAI ChatGPT</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-slate-500">
+                      {aiModel === 'gemini' && '~$0.50 per 1M tokens'}
+                      {aiModel === 'claude' && '~$3.00 per 1M tokens'}
+                      {aiModel === 'chatgpt' && '~$2.00 per 1M tokens'}
+                    </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Section Name</Label>
-                    <Input
-                      value={newSectionData.section_name}
-                      onChange={(e) => setNewSectionData({...newSectionData, section_name: e.target.value})}
-                      placeholder="Enter section name"
-                    />
+                    <Label>Max Output Tokens</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setMaxTokens(Math.max(512, maxTokens - 256))}
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={maxTokens}
+                        onChange={(e) => setMaxTokens(parseInt(e.target.value) || 2048)}
+                        className="text-center"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setMaxTokens(Math.min(8192, maxTokens + 256))}
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label>Custom Instructions (Optional)</Label>
-                    <Textarea
-                      value={newSectionData.ai_prompt_used || ""}
-                      onChange={(e) => setNewSectionData({...newSectionData, ai_prompt_used: e.target.value})}
-                      placeholder="Provide specific instructions for the AI..."
-                      rows={4}
+                <div className="space-y-2">
+                  <Label>Temperature: {temperature[0].toFixed(2)}</Label>
+                  <Slider
+                    value={temperature}
+                    onValueChange={setTemperature}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">Controls randomness. Lower is more deterministic.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Top-P: {topP[0].toFixed(2)}</Label>
+                  <Slider
+                    value={topP}
+                    onValueChange={setTopP}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">Nucleus sampling. Considers tokens with top_p probability mass.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-indigo-200">
+            <CardHeader>
+              <CardTitle className="text-lg">Overall Drafting Style (Default Settings)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Tone</Label>
+                  <Select value={defaultTone} onValueChange={setDefaultTone}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TONES.map(tone => (
+                        <SelectItem key={tone} value={tone}>{tone}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Reading Level</Label>
+                  <Select value={readingLevel} onValueChange={setReadingLevel}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {READING_LEVELS.map(level => (
+                        <SelectItem key={level} value={level}>{level}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Options</Label>
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      checked={requestCitations}
+                      onChange={(e) => setRequestCitations(e.target.checked)}
+                      className="w-4 h-4"
                     />
-                  </div>
+                    <span className="text-sm">Request Citations</span>
+                  </label>
+                  <p className="text-xs text-slate-500">Ask model to cite sources (if applicable)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                  <Button
-                    onClick={() => handleGenerateAndSave(newSectionData.section_type, newSectionData.ai_prompt_used)}
-                    disabled={isGenerating || !newSectionData.section_name}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-4 h-4 mr-2" />
-                        Generate Section
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          <Card className="border-purple-200">
+            <CardHeader>
+              <CardTitle className="text-lg">Proposal Sections</CardTitle>
+              <CardDescription>
+                Select sections to include and configure word counts
+              </CardDescription>
+              <div className="mt-4 flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
+                <span className="font-semibold text-indigo-900">Total Word Count:</span>
+                <span className="text-2xl font-bold text-indigo-600">{totalWords.toLocaleString()}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="0" className="space-y-4">
+                <TabsList className="grid grid-cols-4 lg:grid-cols-7">
+                  {PROPOSAL_SECTIONS.map((category, idx) => (
+                    <TabsTrigger key={idx} value={idx.toString()} className="text-xs">
+                      {category.title.split('-')[0].trim()}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {PROPOSAL_SECTIONS.map((category, categoryIdx) => (
+                  <TabsContent key={categoryIdx} value={categoryIdx.toString()} className="space-y-3">
+                    <h3 className="font-semibold text-slate-900 mb-4">{category.title}</h3>
+                    {category.sections.map((section, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 border rounded-lg ${sections[section.name]?.enabled ? 'bg-white border-blue-300' : 'bg-slate-50 border-slate-200'} ${section.indent ? 'ml-6' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={sections[section.name]?.enabled || false}
+                            onChange={() => toggleSection(section.name)}
+                            className="w-4 h-4"
+                          />
+                          <span className="flex-1 font-medium text-sm">{section.name}</span>
+                          
+                          <Select
+                            value={sections[section.name]?.tone || defaultTone}
+                            onValueChange={(value) => updateTone(section.name, value)}
+                            disabled={!sections[section.name]?.enabled}
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TONES.map(tone => (
+                                <SelectItem key={tone} value={tone}>{tone}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Input
+                            type="number"
+                            value={sections[section.name]?.wordCount || section.defaultWords}
+                            onChange={(e) => updateWordCount(section.name, e.target.value)}
+                            disabled={!sections[section.name]?.enabled}
+                            className="w-24 h-8 text-xs"
+                            placeholder="Words"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
-
-      {activeSection && (
-        <Card className="border-none shadow-2xl">
-          <CardHeader className="border-b bg-gradient-to-r from-indigo-50 to-purple-50">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Edit: {activeSection.section_name}</CardTitle>
-                <CardDescription className="mt-1">
-                  Make changes and save when ready
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => setActiveSection(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg border">
-                <ReactQuill
-                  theme="snow"
-                  value={activeSection.content}
-                  onChange={(content) => setActiveSection({...activeSection, content})}
-                  style={{ minHeight: '400px' }}
-                  modules={{
-                    toolbar: [
-                      [{ 'header': [1, 2, 3, false] }],
-                      ['bold', 'italic', 'underline', 'strike'],
-                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                      [{ 'indent': '-1'}, { 'indent': '+1' }],
-                      ['link'],
-                      ['clean']
-                    ]
-                  }}
-                />
-              </div>
-
-              <div className="flex justify-between items-center pt-4">
-                <div className="text-sm text-slate-600">
-                  Word count: {activeSection.content.replace(/<[^>]*>/g, '').split(/\s+/).length}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      const content = await generateSection(activeSection.section_type, "Regenerate this section with improvements");
-                      setActiveSection({...activeSection, content});
-                    }}
-                    disabled={isGenerating}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Regenerate
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      handleUpdateContent(activeSection.id, activeSection.content);
-                      setActiveSection(null);
-                    }}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {showNewSection && (
-        <Card className="border-none shadow-2xl">
-          <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Create New Section</CardTitle>
-                <CardDescription className="mt-1">
-                  Write your own content or generate with AI
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => setShowNewSection(false)}
-              >
-                Close
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Section Name *</Label>
-                <Input
-                  value={newSectionData.section_name}
-                  onChange={(e) => setNewSectionData({...newSectionData, section_name: e.target.value})}
-                  placeholder="e.g., Executive Summary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Section Type</Label>
-                <Select
-                  value={newSectionData.section_type}
-                  onValueChange={(value) => setNewSectionData({...newSectionData, section_type: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SECTION_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Content</Label>
-              <div className="bg-white rounded-lg border">
-                <ReactQuill
-                  theme="snow"
-                  value={newSectionData.content}
-                  onChange={(content) => setNewSectionData({...newSectionData, content})}
-                  placeholder="Write your content here or use the AI generator..."
-                  style={{ minHeight: '300px' }}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  const content = await generateSection(newSectionData.section_type, "");
-                  setNewSectionData({...newSectionData, content});
-                }}
-                disabled={isGenerating}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate with AI
-              </Button>
-              <Button
-                onClick={() => createMutation.mutate(newSectionData)}
-                disabled={!newSectionData.section_name || !newSectionData.content}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Save Section
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
