@@ -1,0 +1,55 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "admin_email": {
+      "type": "string",
+      "description": "Email of admin who performed action"
+    },
+    "admin_role": {
+      "type": "string",
+      "description": "Role of admin at time of action"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "user_created",
+        "user_updated",
+        "user_deleted",
+        "role_assigned",
+        "subscription_modified",
+        "content_created",
+        "content_updated",
+        "content_deleted",
+        "ai_settings_changed",
+        "security_settings_changed",
+        "impersonation_started",
+        "impersonation_ended",
+        "billing_action",
+        "system_configuration"
+      ],
+      "description": "Type of action performed"
+    },
+    "target_entity": {
+      "type": "string",
+      "description": "Entity that was affected (user email, org id, etc)"
+    },
+    "details": {
+      "type": "string",
+      "description": "JSON string with action details"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address of admin"
+    },
+    "success": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether action succeeded"
+    }
+  },
+  "required": [
+    "admin_email",
+    "action_type"
+  ]
+}

@@ -1,38 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Shield, 
-  Database,
-  Users,
-  FileText,
-  Upload,
-  Trash2,
-  Eye,
-  Building2,
-  TrendingUp
-} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Shield, 
+  Users,
+  FileText,
+  TrendingUp,
+  Settings,
+  Lock,
+  Megaphone,
+  Activity,
+  ScrollText,
+  Brain,
+  DollarSign
+} from "lucide-react";
+import { ROLE_PERMISSIONS, canAccessModule } from "../components/admin/PermissionChecker";
+import SubscribersModule from "../components/admin/SubscribersModule";
+import AuditLogModule from "../components/admin/AuditLogModule";
 
 export default function AdminPortal() {
-  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
-  const [showNewData, setShowNewData] = useState(false);
-  const [newData, setNewData] = useState({
-    data_type: "far_regulation",
-    title: "",
-    content: "",
-    category: "",
-    is_public: true,
-    is_proprietary: false
-  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -40,446 +30,240 @@ export default function AdminPortal() {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
         
-        if (currentUser.role !== 'admin') {
+        // Check if user has any admin role
+        const isAdmin = currentUser.role === 'admin' || currentUser.admin_role;
+        if (!isAdmin) {
           window.location.href = '/';
         }
       } catch (error) {
         console.error("Error loading user:", error);
+        window.location.href = '/';
+      } finally {
+        setLoading(false);
       }
     };
     loadUser();
   }, []);
 
-  const { data: adminData } = useQuery({
-    queryKey: ['admin-data'],
-    queryFn: () => base44.entities.AdminData.list('-created_date'),
-    initialData: []
-  });
-
-  const { data: organizations } = useQuery({
-    queryKey: ['all-organizations'],
-    queryFn: () => base44.entities.Organization.list('-created_date'),
-    initialData: []
-  });
-
-  const { data: subscriptions } = useQuery({
-    queryKey: ['all-subscriptions'],
-    queryFn: () => base44.entities.Subscription.list('-created_date'),
-    initialData: []
-  });
-
-  const { data: proposals } = useQuery({
-    queryKey: ['all-proposals'],
-    queryFn: () => base44.entities.Proposal.list('-created_date'),
-    initialData: []
-  });
-
-  const { data: tokenUsage } = useQuery({
-    queryKey: ['all-token-usage'],
-    queryFn: () => base44.entities.TokenUsage.list('-created_date', 100),
-    initialData: []
-  });
-
-  const createDataMutation = useMutation({
-    mutationFn: (data) => base44.entities.AdminData.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-data'] });
-      setShowNewData(false);
-      setNewData({
-        data_type: "far_regulation",
-        title: "",
-        content: "",
-        category: "",
-        is_public: true,
-        is_proprietary: false
-      });
-    }
-  });
-
-  const deleteDataMutation = useMutation({
-    mutationFn: (id) => base44.entities.AdminData.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-data'] });
-    }
-  });
-
-  const handleFileUpload = async (files) => {
-    for (const file of files) {
-      try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        
-        const content = await base44.integrations.Core.InvokeLLM({
-          prompt: `Extract and summarize the key information from this document. Provide a structured summary.`,
-          file_urls: [file_url]
-        });
-
-        await base44.entities.AdminData.create({
-          data_type: "training_material",
-          title: file.name,
-          content: content,
-          file_url: file_url,
-          category: "uploaded",
-          is_public: true
-        });
-      } catch (error) {
-        console.error("Error uploading file:", error);
-      }
-    }
-    queryClient.invalidateQueries({ queryKey: ['admin-data'] });
-  };
-
-  const totalTokensUsed = tokenUsage.reduce((sum, usage) => sum + (usage.tokens_used || 0), 0);
-  const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
-  const totalRevenue = subscriptions.reduce((sum, sub) => sum + (sub.monthly_price || 0), 0);
-
-  if (!user || user.role !== 'admin') {
-    return null;
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Shield className="w-16 h-16 mx-auto text-slate-300 mb-4 animate-pulse" />
+          <p className="text-slate-600">Loading Admin Portal...</p>
+        </div>
+      </div>
+    );
   }
+
+  const userRole = user.admin_role || 'super_admin';
+  const roleInfo = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.super_admin;
+
+  // Define all available modules
+  const adminModules = [
+    {
+      id: "subscribers",
+      label: "Subscribers",
+      icon: Users,
+      description: "Manage users and organizations",
+      component: <SubscribersModule currentUser={user} />
+    },
+    {
+      id: "roles",
+      label: "Roles & Permissions",
+      icon: Shield,
+      description: "Manage admin roles",
+      component: <div className="p-8 text-center text-slate-500">Role management module - Coming soon</div>
+    },
+    {
+      id: "content",
+      label: "Content Library",
+      icon: FileText,
+      description: "Templates and assets",
+      component: <div className="p-8 text-center text-slate-500">Content library module - Coming soon</div>
+    },
+    {
+      id: "workflow",
+      label: "Workflow Dashboard",
+      icon: Activity,
+      description: "Proposal tracking",
+      component: <div className="p-8 text-center text-slate-500">Workflow dashboard - Coming soon</div>
+    },
+    {
+      id: "billing",
+      label: "Billing & Invoices",
+      icon: DollarSign,
+      description: "Payment management",
+      component: <div className="p-8 text-center text-slate-500">Billing module - Coming soon</div>
+    },
+    {
+      id: "ai",
+      label: "AI & Automation",
+      icon: Brain,
+      description: "AI settings and models",
+      component: <div className="p-8 text-center text-slate-500">AI configuration - Coming soon</div>
+    },
+    {
+      id: "security",
+      label: "Security",
+      icon: Lock,
+      description: "Security settings",
+      component: <div className="p-8 text-center text-slate-500">Security module - Coming soon</div>
+    },
+    {
+      id: "marketing",
+      label: "Marketing",
+      icon: Megaphone,
+      description: "Public pages and comms",
+      component: <div className="p-8 text-center text-slate-500">Marketing module - Coming soon</div>
+    },
+    {
+      id: "system",
+      label: "System Health",
+      icon: Settings,
+      description: "Logs and maintenance",
+      component: <div className="p-8 text-center text-slate-500">System health - Coming soon</div>
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      icon: TrendingUp,
+      description: "Analytics and KPIs",
+      component: <div className="p-8 text-center text-slate-500">Reports module - Coming soon</div>
+    },
+    {
+      id: "audit",
+      label: "Audit Logs",
+      icon: ScrollText,
+      description: "Admin action history",
+      component: <AuditLogModule />
+    }
+  ];
+
+  // Filter modules based on role permissions
+  const accessibleModules = adminModules.filter(module => 
+    canAccessModule(userRole, module.id)
+  );
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center">
-          <Shield className="w-7 h-7 text-white" />
-        </div>
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Admin Portal</h1>
-          <p className="text-slate-600">Manage platform data and monitor system health</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-12 h-12 bg-gradient-to-br from-${roleInfo.color}-600 to-${roleInfo.color}-700 rounded-xl flex items-center justify-center`}>
+              <Shield className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Admin Portal</h1>
+              <p className="text-slate-600">Role-Based Access Control System</p>
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <Badge className={`bg-${roleInfo.color}-600 text-white mb-2`}>
+            {roleInfo.label}
+          </Badge>
+          <p className="text-sm text-slate-600">{user.email}</p>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <Building2 className="w-4 h-4" />
-              Organizations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-slate-900">{organizations.length}</p>
-            <p className="text-xs text-slate-500 mt-1">Total registered</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg bg-gradient-to-br from-green-50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Active Subscriptions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{activeSubscriptions}</p>
-            <p className="text-xs text-slate-500 mt-1">Currently active</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Total Proposals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-purple-600">{proposals.length}</p>
-            <p className="text-xs text-slate-500 mt-1">Platform-wide</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg bg-gradient-to-br from-amber-50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              MRR
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-amber-600">${totalRevenue}</p>
-            <p className="text-xs text-slate-500 mt-1">Monthly recurring</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="data" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="data">Training Data</TabsTrigger>
-          <TabsTrigger value="organizations">Organizations</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="usage">Token Usage</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="data" className="space-y-4">
-          <Card className="border-none shadow-lg">
-            <CardHeader className="border-b">
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Platform Training Data</CardTitle>
-                  <CardDescription>Manage FAR, DFARS, templates, and training materials</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx,.txt"
-                    onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-                    className="hidden"
-                    id="admin-upload"
-                  />
-                  <label htmlFor="admin-upload">
-                    <Button asChild>
-                      <span className="cursor-pointer">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Files
-                      </span>
-                    </Button>
-                  </label>
-                  <Button onClick={() => setShowNewData(true)}>
-                    <Database className="w-4 h-4 mr-2" />
-                    Add Data
-                  </Button>
-                </div>
+      {/* Role Info Card */}
+      <Card className="border-none shadow-lg bg-gradient-to-br from-slate-50 to-white">
+        <CardHeader>
+          <CardTitle className="text-lg">Your Permissions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-slate-600 mb-2">Accessible Modules</p>
+              <div className="flex flex-wrap gap-1">
+                {accessibleModules.map(module => (
+                  <Badge key={module.id} variant="secondary" className="text-xs">
+                    {module.label}
+                  </Badge>
+                ))}
               </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {showNewData && (
-                <Card className="mb-6 bg-slate-50">
-                  <CardContent className="p-6 space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Data Type</Label>
-                        <Select
-                          value={newData.data_type}
-                          onValueChange={(value) => setNewData({...newData, data_type: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="far_regulation">FAR Regulation</SelectItem>
-                            <SelectItem value="dfars">DFARS</SelectItem>
-                            <SelectItem value="training_material">Training Material</SelectItem>
-                            <SelectItem value="template">Template</SelectItem>
-                            <SelectItem value="guideline">Guideline</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Category</Label>
-                        <Input
-                          value={newData.category}
-                          onChange={(e) => setNewData({...newData, category: e.target.value})}
-                          placeholder="e.g., FAR Part 15"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Title</Label>
-                      <Input
-                        value={newData.title}
-                        onChange={(e) => setNewData({...newData, title: e.target.value})}
-                        placeholder="Data title..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Content</Label>
-                      <Textarea
-                        value={newData.content}
-                        onChange={(e) => setNewData({...newData, content: e.target.value})}
-                        rows={6}
-                        placeholder="Enter content..."
-                      />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={newData.is_public}
-                          onChange={(e) => setNewData({...newData, is_public: e.target.checked})}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">Public (available to all users)</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={newData.is_proprietary}
-                          onChange={(e) => setNewData({...newData, is_proprietary: e.target.checked})}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">Proprietary (PIQ only)</span>
-                      </label>
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" onClick={() => setShowNewData(false)}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={() => createDataMutation.mutate(newData)}
-                        disabled={!newData.title || !newData.content}
-                      >
-                        Save Data
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="space-y-3">
-                {adminData.length === 0 ? (
-                  <p className="text-center py-8 text-slate-500">No training data yet</p>
-                ) : (
-                  adminData.map((item) => (
-                    <div key={item.id} className="p-4 border rounded-lg hover:border-blue-300 hover:shadow-md transition-all">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-slate-900">{item.title}</h3>
-                            <Badge variant="outline" className="capitalize text-xs">
-                              {item.data_type?.replace(/_/g, ' ')}
-                            </Badge>
-                            {item.is_proprietary && (
-                              <Badge className="bg-red-100 text-red-700 text-xs">Proprietary</Badge>
-                            )}
-                            {item.is_public && (
-                              <Badge className="bg-green-100 text-green-700 text-xs">Public</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-slate-600 line-clamp-2">{item.content}</p>
-                          {item.category && (
-                            <p className="text-xs text-slate-500 mt-1">Category: {item.category}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteDataMutation.mutate(item.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+            </div>
+            <div>
+              <p className="text-sm text-slate-600 mb-2">Edit Permissions</p>
+              <div className="flex flex-wrap gap-1">
+                {roleInfo.canEdit.map((entity, idx) => (
+                  <Badge key={idx} variant="outline" className="text-xs">
+                    {entity}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-slate-600 mb-2">Special Access</p>
+              <div className="space-y-1 text-sm">
+                {roleInfo.canImpersonate && (
+                  <p className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Can Impersonate Users
+                  </p>
+                )}
+                {roleInfo.canManageRoles && (
+                  <p className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Can Manage Roles
+                  </p>
+                )}
+                {roleInfo.canAccessBilling && (
+                  <p className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Can Access Billing
+                  </p>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="organizations" className="space-y-4">
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>All Organizations</CardTitle>
-              <CardDescription>View and manage registered organizations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {organizations.map((org) => (
-                  <div key={org.id} className="p-4 border rounded-lg">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{org.organization_name}</h3>
-                        <p className="text-sm text-slate-600 mt-1">{org.contact_email}</p>
-                        <div className="flex gap-2 mt-2">
-                          {org.certifications?.slice(0, 3).map((cert, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {cert}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">
-                          Created: {new Date(org.created_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {/* Admin Modules */}
+      <Card className="border-none shadow-lg">
+        <Tabs defaultValue={accessibleModules[0]?.id} className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 bg-slate-100 p-2">
+            {accessibleModules.map((module) => {
+              const Icon = module.icon;
+              return (
+                <TabsTrigger 
+                  key={module.id} 
+                  value={module.id}
+                  className="flex items-center gap-2 data-[state=active]:bg-white"
+                >
+                  <Icon className="w-4 h-4" />
+                  {module.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        <TabsContent value="subscriptions" className="space-y-4">
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>Subscription Management</CardTitle>
-              <CardDescription>Monitor all subscriptions and billing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {subscriptions.map((sub) => (
-                  <div key={sub.id} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge className="capitalize">{sub.plan_type}</Badge>
-                          <Badge variant={sub.status === 'active' ? 'default' : 'secondary'}>
-                            {sub.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-600">
-                          {((sub.token_credits - sub.token_credits_used) / 1000).toFixed(0)}K / {(sub.token_credits / 1000).toFixed(0)}K tokens
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-slate-900">
-                          ${sub.monthly_price}/mo
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {sub.max_users} users
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {accessibleModules.map((module) => (
+            <TabsContent key={module.id} value={module.id} className="p-6">
+              {module.component}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </Card>
 
-        <TabsContent value="usage" className="space-y-4">
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>Token Usage Analytics</CardTitle>
-              <CardDescription>
-                Total tokens used: {(totalTokensUsed / 1000000).toFixed(2)}M
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {tokenUsage.slice(0, 20).map((usage) => (
-                  <div key={usage.id} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="capitalize text-xs">
-                            {usage.feature_type?.replace(/_/g, ' ')}
-                          </Badge>
-                          <Badge className="text-xs">{usage.llm_provider}</Badge>
-                        </div>
-                        <p className="text-xs text-slate-600 line-clamp-1">
-                          {usage.prompt?.substring(0, 100)}...
-                        </p>
-                      </div>
-                      <div className="text-right ml-4">
-                        <p className="font-semibold text-slate-900">
-                          {(usage.tokens_used / 1000).toFixed(1)}K
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(usage.created_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Security Notice */}
+      <Card className="border-none shadow-lg bg-amber-50 border-amber-200">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Lock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-900 mb-1">Security Notice</p>
+              <p className="text-sm text-amber-800">
+                All admin actions are logged and auditable. MFA is required for all admin roles. 
+                {userRole !== 'super_admin' && ' You cannot modify Super Admin accounts or system configurations.'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

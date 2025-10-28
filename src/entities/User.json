@@ -1,0 +1,36 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "admin_role": {
+      "type": "string",
+      "enum": [
+        "super_admin",
+        "operations_admin",
+        "content_manager",
+        "billing_manager",
+        "ai_manager",
+        "security_officer",
+        "reviewer",
+        "tech_support",
+        "marketing_manager"
+      ],
+      "description": "Admin role with specific permissions"
+    },
+    "mfa_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Multi-factor authentication enabled"
+    },
+    "last_login": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last login timestamp"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Account active status"
+    }
+  }
+}
