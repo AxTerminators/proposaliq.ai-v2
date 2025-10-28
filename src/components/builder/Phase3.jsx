@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, X, Plus, Sparkles } from "lucide-react";
+import { FileText, Upload, X, Plus, Sparkles, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function Phase3({ proposalData, setProposalData, proposalId }) {
@@ -15,6 +15,131 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
   const [evaluationFactors, setEvaluationFactors] = useState([]);
   const [newFactor, setNewFactor] = useState("");
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const extractSolicitationData = async (fileUrl, fileName) => {
+    try {
+      setIsExtracting(true);
+      
+      const prompt = `Extract key information from this solicitation/RFP document. Return structured data.`;
+      
+      const schema = {
+        type: "object",
+        properties: {
+          solicitation_number: { type: "string" },
+          agency_name: { type: "string" },
+          project_title: { type: "string" },
+          due_date: { type: "string" },
+          project_type: { type: "string" },
+          evaluation_factors: {
+            type: "array",
+            items: { type: "string" }
+          },
+          key_requirements: {
+            type: "array",
+            items: { type: "string" }
+          }
+        }
+      };
+
+      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url: fileUrl,
+        json_schema: schema
+      });
+
+      if (result.status === "success" && result.output) {
+        const data = result.output;
+        
+        // Auto-populate fields if they're empty
+        if (data.solicitation_number && !proposalData.solicitation_number) {
+          setProposalData(prev => ({...prev, solicitation_number: data.solicitation_number}));
+        }
+        if (data.agency_name && !proposalData.agency_name) {
+          setProposalData(prev => ({...prev, agency_name: data.agency_name}));
+        }
+        if (data.project_title && !proposalData.project_title) {
+          setProposalData(prev => ({...prev, project_title: data.project_title}));
+        }
+        if (data.due_date && !proposalData.due_date) {
+          const dateStr = new Date(data.due_date).toISOString().split('T')[0];
+          setProposalData(prev => ({...prev, due_date: dateStr}));
+        }
+        if (data.project_type && !proposalData.project_type) {
+          setProposalData(prev => ({...prev, project_type: data.project_type}));
+        }
+        
+        // Add evaluation factors
+        if (data.evaluation_factors && data.evaluation_factors.length > 0) {
+          setEvaluationFactors(prev => {
+            const combined = [...prev, ...data.evaluation_factors];
+            return [...new Set(combined)]; // Remove duplicates
+          });
+        }
+
+        alert(`✓ Auto-populated fields from ${fileName}!`);
+      }
+    } catch (error) {
+      console.error("Error extracting data:", error);
+      // Fallback to AI extraction if structured extraction fails
+      try {
+        const aiPrompt = `Analyze this solicitation document and extract:
+- Solicitation Number
+- Agency Name  
+- Project Title
+- Due Date
+- Project Type (RFP, RFQ, etc)
+- Evaluation Factors (list)
+
+Return as JSON.`;
+
+        const aiResult = await base44.integrations.Core.InvokeLLM({
+          prompt: aiPrompt,
+          file_urls: [fileUrl],
+          response_json_schema: {
+            type: "object",
+            properties: {
+              solicitation_number: { type: "string" },
+              agency_name: { type: "string" },
+              project_title: { type: "string" },
+              due_date: { type: "string" },
+              project_type: { type: "string" },
+              evaluation_factors: { type: "array", items: { type: "string" } }
+            }
+          }
+        });
+
+        if (aiResult) {
+          if (aiResult.solicitation_number && !proposalData.solicitation_number) {
+            setProposalData(prev => ({...prev, solicitation_number: aiResult.solicitation_number}));
+          }
+          if (aiResult.agency_name && !proposalData.agency_name) {
+            setProposalData(prev => ({...prev, agency_name: aiResult.agency_name}));
+          }
+          if (aiResult.project_title && !proposalData.project_title) {
+            setProposalData(prev => ({...prev, project_title: aiResult.project_title}));
+          }
+          if (aiResult.due_date && !proposalData.due_date) {
+            try {
+              const dateStr = new Date(aiResult.due_date).toISOString().split('T')[0];
+              setProposalData(prev => ({...prev, due_date: dateStr}));
+            } catch (e) {}
+          }
+          if (aiResult.evaluation_factors && aiResult.evaluation_factors.length > 0) {
+            setEvaluationFactors(prev => {
+              const combined = [...prev, ...aiResult.evaluation_factors];
+              return [...new Set(combined)];
+            });
+          }
+          
+          alert(`✓ AI extracted data from ${fileName}!`);
+        }
+      } catch (aiError) {
+        console.error("AI extraction also failed:", aiError);
+      }
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   const handleFileUpload = async (files) => {
     if (!proposalId) {
@@ -27,16 +152,34 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
         setUploadingFiles(prev => [...prev, file.name]);
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
+        // Determine document type based on file name
+        let docType = "other";
+        const lowerName = file.name.toLowerCase();
+        if (lowerName.includes('rfp') || lowerName.includes('request for proposal')) {
+          docType = "rfp";
+        } else if (lowerName.includes('rfq') || lowerName.includes('request for quote')) {
+          docType = "rfq";
+        } else if (lowerName.includes('sow') || lowerName.includes('statement of work')) {
+          docType = "sow";
+        } else if (lowerName.includes('pws') || lowerName.includes('performance work')) {
+          docType = "pws";
+        }
+        
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
-          document_type: "other",
+          document_type: docType,
           file_name: file.name,
           file_url: file_url,
           file_size: file.size
         });
         
-        setUploadedDocs(prev => [...prev, { name: file.name, url: file_url }]);
+        setUploadedDocs(prev => [...prev, { name: file.name, url: file_url, type: docType }]);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
+        
+        // Auto-extract data from RFP, RFQ, SOW, PWS documents
+        if (['rfp', 'rfq', 'sow', 'pws'].includes(docType)) {
+          await extractSolicitationData(file_url, file.name);
+        }
       } catch (error) {
         console.error("Error uploading file:", error);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
@@ -99,6 +242,15 @@ Return a JSON array of evaluation factor names.`;
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {isExtracting && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-blue-600 animate-spin" />
+              <p className="text-blue-900 font-medium">AI is reading and extracting data from your documents...</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="project_type">Project Type</Label>
@@ -218,16 +370,28 @@ Return a JSON array of evaluation factor names.`;
         </div>
 
         <div className="border-t pt-6">
-          <h3 className="font-semibold mb-4">Upload Solicitation Documents</h3>
+          <h3 className="font-semibold mb-2">Upload Solicitation Documents</h3>
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-indigo-900">Smart Document Reading</p>
+                <p className="text-xs text-indigo-700 mt-1">
+                  AI will automatically read RFP, RFQ, SOW, and PWS documents and auto-populate fields above
+                </p>
+              </div>
+            </div>
+          </div>
+          
           <p className="text-sm text-slate-600 mb-4">
-            Upload RFP, SOW, PWS, pricing sheets, and other relevant documents (PDF, DOCX, XLSX, CSV, PNG, JPG up to 30MB)
+            Supported: PDF, DOCX, XLSX, CSV, PNG, JPG, JPEG, TXT, PPTX (up to 30MB)
           </p>
           
           <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
             <input
               type="file"
               multiple
-              accept=".pdf,.docx,.xlsx,.csv,.png,.jpg,.jpeg"
+              accept=".pdf,.docx,.xlsx,.csv,.png,.jpg,.jpeg,.txt,.pptx"
               onChange={(e) => handleFileUpload(Array.from(e.target.files))}
               className="hidden"
               id="file-upload"
@@ -254,8 +418,16 @@ Return a JSON array of evaluation factor names.`;
             <div className="mt-4 space-y-2">
               <p className="text-sm font-medium text-slate-700">Uploaded Documents:</p>
               {uploadedDocs.map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                  <span className="text-sm">{doc.name}</span>
+                <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <span className="text-sm font-medium">{doc.name}</span>
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {doc.type}
+                      </Badge>
+                    </div>
+                  </div>
                   <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
                     View
                   </a>
