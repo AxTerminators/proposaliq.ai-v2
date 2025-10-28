@@ -9,6 +9,7 @@ import Discussions from './pages/Discussions';
 import AdminPortal from './pages/AdminPortal';
 import LandingPage from './pages/LandingPage';
 import Home from './pages/Home';
+import Pricing from './pages/Pricing';
 import Layout from './Layout.jsx';
 
 
@@ -24,6 +25,7 @@ export const PAGES = {
     "AdminPortal": AdminPortal,
     "LandingPage": LandingPage,
     "Home": Home,
+    "Pricing": Pricing,
 }
 
 export const pagesConfig = {
