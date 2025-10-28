@@ -1,0 +1,67 @@
+{
+  "name": "UserActivity",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "User who performed the action"
+    },
+    "user_role": {
+      "type": "string",
+      "description": "User's role at time of action"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization context"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "view",
+        "create",
+        "edit",
+        "delete",
+        "approve",
+        "reject",
+        "comment",
+        "share",
+        "download",
+        "upload"
+      ],
+      "description": "Type of action performed"
+    },
+    "resource_type": {
+      "type": "string",
+      "enum": [
+        "proposal",
+        "section",
+        "document",
+        "template",
+        "user",
+        "organization"
+      ],
+      "description": "What was acted upon"
+    },
+    "resource_id": {
+      "type": "string",
+      "description": "ID of the resource"
+    },
+    "resource_name": {
+      "type": "string",
+      "description": "Name of the resource"
+    },
+    "details": {
+      "type": "string",
+      "description": "Additional details about the action"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "User IP address"
+    }
+  },
+  "required": [
+    "user_email",
+    "action_type",
+    "resource_type"
+  ]
+}

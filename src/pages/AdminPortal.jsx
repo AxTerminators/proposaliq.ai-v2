@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,16 +16,129 @@ import {
   Trash2,
   Eye,
   Building2,
-  TrendingUp
+  TrendingUp,
+  UserCog,
+  Activity,
+  Edit
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+
+const ROLE_DEFINITIONS = {
+  admin: {
+    name: "Admin / System Owner",
+    color: "bg-red-100 text-red-700",
+    icon: Shield,
+    description: "Full system access - manage all users, data, security, billing",
+    defaultPermissions: {
+      can_create_proposals: true,
+      can_delete_proposals: true,
+      can_assign_tasks: true,
+      can_approve_sections: true,
+      can_access_ai_features: true,
+      can_manage_templates: true,
+      can_view_analytics: true,
+      can_manage_library: true
+    }
+  },
+  proposal_manager: {
+    name: "Proposal Manager",
+    color: "bg-blue-100 text-blue-700",
+    icon: FileText,
+    description: "Create proposals, assign roles, approve drafts, control versions",
+    defaultPermissions: {
+      can_create_proposals: true,
+      can_delete_proposals: true,
+      can_assign_tasks: true,
+      can_approve_sections: true,
+      can_access_ai_features: true,
+      can_manage_templates: true,
+      can_view_analytics: true,
+      can_manage_library: false
+    }
+  },
+  proposal_writer: {
+    name: "Proposal Writer",
+    color: "bg-green-100 text-green-700",
+    icon: Edit,
+    description: "Write and edit assigned sections, upload materials, comment",
+    defaultPermissions: {
+      can_create_proposals: false,
+      can_delete_proposals: false,
+      can_assign_tasks: false,
+      can_approve_sections: false,
+      can_access_ai_features: true,
+      can_manage_templates: false,
+      can_view_analytics: false,
+      can_manage_library: false
+    }
+  },
+  reviewer: {
+    name: "Reviewer / Approver",
+    color: "bg-purple-100 text-purple-700",
+    icon: Eye,
+    description: "Review, comment, approve or reject sections",
+    defaultPermissions: {
+      can_create_proposals: false,
+      can_delete_proposals: false,
+      can_assign_tasks: false,
+      can_approve_sections: true,
+      can_access_ai_features: false,
+      can_manage_templates: false,
+      can_view_analytics: true,
+      can_manage_library: false
+    }
+  },
+  guest: {
+    name: "Guest / External Partner",
+    color: "bg-amber-100 text-amber-700",
+    icon: Users,
+    description: "Limited access to specific proposals only",
+    defaultPermissions: {
+      can_create_proposals: false,
+      can_delete_proposals: false,
+      can_assign_tasks: false,
+      can_approve_sections: false,
+      can_access_ai_features: false,
+      can_manage_templates: false,
+      can_view_analytics: false,
+      can_manage_library: false
+    }
+  },
+  viewer: {
+    name: "Viewer / Read-Only",
+    color: "bg-slate-100 text-slate-700",
+    icon: Eye,
+    description: "View-only access to approved proposals",
+    defaultPermissions: {
+      can_create_proposals: false,
+      can_delete_proposals: false,
+      can_assign_tasks: false,
+      can_approve_sections: false,
+      can_access_ai_features: false,
+      can_manage_templates: false,
+      can_view_analytics: false,
+      can_manage_library: false
+    }
+  }
+};
 
 export default function AdminPortal() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [showNewData, setShowNewData] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [newData, setNewData] = useState({
     data_type: "far_regulation",
     title: "",
@@ -80,6 +194,18 @@ export default function AdminPortal() {
     initialData: []
   });
 
+  const { data: allUsers } = useQuery({
+    queryKey: ['all-users'],
+    queryFn: () => base44.entities.User.list('-created_date'),
+    initialData: []
+  });
+
+  const { data: userActivity } = useQuery({
+    queryKey: ['user-activity'],
+    queryFn: () => base44.entities.UserActivity.list('-created_date', 50),
+    initialData: []
+  });
+
   const createDataMutation = useMutation({
     mutationFn: (data) => base44.entities.AdminData.create(data),
     onSuccess: () => {
@@ -100,6 +226,20 @@ export default function AdminPortal() {
     mutationFn: (id) => base44.entities.AdminData.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-data'] });
+    }
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ userId, userData }) => base44.entities.User.update(userId, userData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-users'] });
+      setShowEditUser(false);
+      setEditingUser(null);
+      alert("✓ User updated successfully!");
+    },
+    onError: (error) => {
+      console.error("Error updating user:", error);
+      alert("Error updating user: " + error.message);
     }
   });
 
@@ -128,6 +268,15 @@ export default function AdminPortal() {
     queryClient.invalidateQueries({ queryKey: ['admin-data'] });
   };
 
+  const handleEditUser = (userData) => {
+    setEditingUser({
+      ...userData,
+      // Ensure permissions_override is an object, default to role's default permissions if not present
+      permissions_override: userData.permissions_override || ROLE_DEFINITIONS[userData.user_role]?.defaultPermissions || {}
+    });
+    setShowEditUser(true);
+  };
+
   const totalTokensUsed = tokenUsage.reduce((sum, usage) => sum + (usage.tokens_used || 0), 0);
   const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
   const totalRevenue = subscriptions.reduce((sum, sub) => sum + (sub.monthly_price || 0), 0);
@@ -144,7 +293,7 @@ export default function AdminPortal() {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Admin Portal</h1>
-          <p className="text-slate-600">Manage platform data and monitor system health</p>
+          <p className="text-slate-600">Manage platform data, users, and monitor system health</p>
         </div>
       </div>
 
@@ -202,13 +351,149 @@ export default function AdminPortal() {
         </Card>
       </div>
 
-      <Tabs defaultValue="data" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="users">Users & Roles</TabsTrigger>
+          <TabsTrigger value="activity">Activity Log</TabsTrigger>
           <TabsTrigger value="data">Training Data</TabsTrigger>
-          <TabsTrigger value="organizations">Organizations</TabsTrigger>
           <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="usage">Token Usage</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="users" className="space-y-4">
+          <Card className="border-none shadow-lg">
+            <CardHeader className="border-b">
+              <CardTitle>User Management & Role-Based Access Control</CardTitle>
+              <CardDescription>Manage user roles and permissions across the platform</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              {/* Role Definitions */}
+              <div className="mb-8">
+                <h3 className="font-semibold text-lg mb-4">Role Definitions</h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(ROLE_DEFINITIONS).map(([roleId, roleDef]) => {
+                    const RoleIcon = roleDef.icon;
+                    const usersWithRole = allUsers.filter(u => u.user_role === roleId).length;
+                    
+                    return (
+                      <Card key={roleId} className="border-2">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className={`p-2 rounded-lg ${roleDef.color}`}>
+                              <RoleIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm">{roleDef.name}</h4>
+                              <Badge variant="outline" className="mt-1">{usersWithRole} users</Badge>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-600">{roleDef.description}</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Users List */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">All Users</h3>
+                {allUsers.length === 0 ? (
+                  <p className="text-center py-8 text-slate-500">No users found</p>
+                ) : (
+                  allUsers.map((userData) => {
+                    const roleDef = ROLE_DEFINITIONS[userData.user_role] || ROLE_DEFINITIONS.proposal_writer;
+                    const RoleIcon = roleDef.icon;
+                    
+                    return (
+                      <div key={userData.id} className="p-4 border rounded-lg hover:border-blue-300 hover:shadow-md transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {userData.full_name?.[0]?.toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-semibold text-slate-900">{userData.full_name || 'Unknown'}</p>
+                                <Badge className={roleDef.color}>
+                                  <RoleIcon className="w-3 h-3 mr-1" />
+                                  {roleDef.name}
+                                </Badge>
+                                {userData.role === 'admin' && ( // This is for base44 'role' which is different from user_role
+                                  <Badge className="bg-red-100 text-red-700">System Admin</Badge>
+                                )}
+                                {!userData.is_active && (
+                                  <Badge variant="outline" className="text-red-600">Inactive</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-600">{userData.email}</p>
+                              {userData.title && (
+                                <p className="text-xs text-slate-500">{userData.title}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditUser(userData)}
+                          >
+                            <UserCog className="w-4 h-4 mr-2" />
+                            Edit Role
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4">
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                User Activity & Audit Log
+              </CardTitle>
+              <CardDescription>Track all user actions for security and compliance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {userActivity.length === 0 ? (
+                  <p className="text-center py-8 text-slate-500">No activity recorded yet</p>
+                ) : (
+                  userActivity.map((activity) => (
+                    <div key={activity.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="capitalize">
+                            {activity.action_type}
+                          </Badge>
+                          <Badge variant="secondary" className="capitalize">
+                            {activity.resource_type}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-slate-500">
+                          {new Date(activity.created_date).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-900 mb-1">
+                        <strong>{activity.user_email}</strong> {activity.action_type} {activity.resource_name || activity.resource_type}
+                      </p>
+                      {activity.details && (
+                        <p className="text-xs text-slate-600">{activity.details}</p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="data" className="space-y-4">
           <Card className="border-none shadow-lg">
@@ -367,41 +652,6 @@ export default function AdminPortal() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="organizations" className="space-y-4">
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>All Organizations</CardTitle>
-              <CardDescription>View and manage registered organizations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {organizations.map((org) => (
-                  <div key={org.id} className="p-4 border rounded-lg">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{org.organization_name}</h3>
-                        <p className="text-sm text-slate-600 mt-1">{org.contact_email}</p>
-                        <div className="flex gap-2 mt-2">
-                          {org.certifications?.slice(0, 3).map((cert, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {cert}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">
-                          Created: {new Date(org.created_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="subscriptions" className="space-y-4">
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -480,6 +730,99 @@ export default function AdminPortal() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditUser} onOpenChange={setShowEditUser}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit User Role & Permissions</DialogTitle>
+            <DialogDescription>
+              Manage {editingUser?.full_name}'s role and custom permissions
+            </DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label>User Role</Label>
+                <Select
+                  value={editingUser.user_role}
+                  onValueChange={(value) => setEditingUser({
+                    ...editingUser,
+                    user_role: value,
+                    permissions_override: ROLE_DEFINITIONS[value]?.defaultPermissions || {}
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(ROLE_DEFINITIONS).map(([roleId, roleDef]) => (
+                      <SelectItem key={roleId} value={roleId}>
+                        {roleDef.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">
+                  {ROLE_DEFINITIONS[editingUser.user_role]?.description}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Account Status</Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={editingUser.is_active}
+                    onCheckedChange={(checked) => setEditingUser({...editingUser, is_active: checked})}
+                  />
+                  <label className="text-sm">User account is active</label>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3">Custom Permission Overrides</h4>
+                <div className="space-y-2">
+                  {Object.entries(editingUser.permissions_override || {}).map(([perm, value]) => (
+                    <div key={perm} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={value}
+                        onCheckedChange={(checked) => setEditingUser({
+                          ...editingUser,
+                          permissions_override: {
+                            ...editingUser.permissions_override,
+                            [perm]: checked
+                          }
+                        })}
+                      />
+                      <label className="text-sm capitalize">
+                        {perm.replace(/_/g, ' ')}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditUser(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateUserMutation.mutate({
+                userId: editingUser.id,
+                userData: {
+                  user_role: editingUser.user_role,
+                  is_active: editingUser.is_active,
+                  permissions_override: editingUser.permissions_override
+                }
+              })}
+              disabled={updateUserMutation.isPending}
+            >
+              {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
