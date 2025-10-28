@@ -6,7 +6,6 @@ import {
   FileText, 
   MessageSquare, 
   Library,
-  Settings,
   LogOut,
   Menu,
   Sparkles,
@@ -68,7 +67,7 @@ const adminItems = [
   },
 ];
 
-export default function Layout({ children, currentPageName }) {
+export default function Layout({ children }) {
   const location = useLocation();
   const [user, setUser] = React.useState(null);
   const [subscription, setSubscription] = React.useState(null);
