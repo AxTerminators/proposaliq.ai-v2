@@ -12,6 +12,8 @@ import Phase2 from "../components/builder/Phase2";
 import Phase3 from "../components/builder/Phase3";
 import Phase4 from "../components/builder/Phase4";
 import Phase5 from "../components/builder/Phase5";
+import Phase6 from "../components/builder/Phase6";
+import Phase7 from "../components/builder/Phase7";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -172,12 +174,11 @@ export default function ProposalBuilder() {
           {currentPhase === "phase5" && (
             <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
           )}
-          {(currentPhase === "phase6" || currentPhase === "phase7") && (
-            <Card className="border-none shadow-xl">
-              <CardContent className="p-12 text-center">
-                <p className="text-slate-600">Phase {currentPhase === "phase6" ? "6" : "7"} coming up next...</p>
-              </CardContent>
-            </Card>
+          {currentPhase === "phase6" && (
+            <Phase6 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+          )}
+          {currentPhase === "phase7" && (
+            <Phase7 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
           )}
         </div>
 
