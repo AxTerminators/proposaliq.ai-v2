@@ -11,7 +11,8 @@ import {
   Sparkles,
   MessageCircle,
   Shield,
-  CreditCard
+  CreditCard,
+  DollarSign
 } from "lucide-react";
 import {
   Sidebar,
@@ -56,6 +57,11 @@ const navigationItems = [
     title: "Discussions",
     url: createPageUrl("Discussions"),
     icon: MessageCircle,
+  },
+  {
+    title: "Pricing",
+    url: createPageUrl("Pricing"),
+    icon: DollarSign,
   },
 ];
 
@@ -197,7 +203,7 @@ export default function Layout({ children }) {
                         />
                       </div>
                     </div>
-                    <Link to={createPageUrl("Subscription")}>
+                    <Link to={createPageUrl("Pricing")}>
                       <Button variant="outline" size="sm" className="w-full">
                         <CreditCard className="w-4 h-4 mr-2" />
                         Manage Plan
