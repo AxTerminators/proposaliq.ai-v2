@@ -12,7 +12,8 @@ import {
   Wrench,
   Megaphone,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Crown
 } from "lucide-react";
 import { ROLE_PERMISSIONS } from "./PermissionChecker";
 
@@ -233,6 +234,3 @@ export default function RolesModule() {
     </div>
   );
 }
-
-// Import Crown at the top
-import { Crown } from "lucide-react";
