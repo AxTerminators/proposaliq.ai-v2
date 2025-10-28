@@ -1,14 +1,56 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PenTool, Upload, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { PenTool, Upload, Sparkles, Loader2, RefreshCw, Lock } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import { Alert, AlertDescription } from "@/components/ui/alert"; // Import Alert components
 
-export default function Phase6({ proposalData, setProposalData, proposalId }) {
+// Helper function for permission checks
+const hasPermission = (user, permissionKey) => {
+  if (!user || !user.user_role) {
+    return false;
+  }
+  // This is a simplified example. In a real application, you would
+  // likely fetch or define granular permissions for each role.
+  // For 'can_access_ai_features', we'll assume 'admin' and 'editor' roles have it.
+  const rolePermissions = {
+    admin: ['can_access_ai_features', 'can_manage_users', 'can_edit_proposals'],
+    editor: ['can_access_ai_features', 'can_edit_proposals'],
+    contributor: ['can_edit_own_sections'],
+    viewer: [],
+  };
+  return rolePermissions[user.user_role]?.includes(permissionKey) || false;
+};
+
+// Helper function to log activities
+const logActivity = async ({ user, organizationId, actionType, resourceType, resourceId, resourceName, details }) => {
+  try {
+    if (!user || !organizationId || !actionType || !resourceType || !resourceId) {
+      console.warn("Missing required fields for activity log.");
+      return;
+    }
+    await base44.entities.ActivityLog.create({
+      organization_id: organizationId,
+      user_email: user.email,
+      action_type: actionType,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      resource_name: resourceName,
+      details: details,
+      created_date: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+};
+
+
+export default function Phase6({ proposalData, setProposalData, proposalId, user }) {
   const queryClient = useQueryClient();
   const [strategy, setStrategy] = useState(null);
   const [activeSections, setActiveSections] = useState([]);
@@ -21,9 +63,12 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
       if (!proposalId) return;
       
       try {
-        const user = await base44.auth.me();
+        // The user prop passed down should already contain this info,
+        // but this part of the original code was fetching it directly.
+        // Keeping it for consistency with the original `currentOrgId` logic.
+        const currentUser = user || await base44.auth.me(); 
         const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
+          { created_by: currentUser.email },
           '-created_date',
           1
         );
@@ -65,14 +110,14 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     };
 
     loadStrategy();
-  }, [proposalId]);
+  }, [proposalId, user]); // Added user to dependencies
 
   const trackTokenUsage = async (tokens, prompt, response) => {
     try {
-      const user = await base44.auth.me();
+      const currentUser = user || await base44.auth.me(); // Ensure user data is available
       await base44.entities.TokenUsage.create({
         organization_id: currentOrgId,
-        user_email: user.email,
+        user_email: currentUser.email,
         feature_type: "proposal_generation",
         tokens_used: tokens,
         llm_provider: strategy?.aiModel || "gemini",
@@ -119,6 +164,12 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const autoDraft = async (sectionId, sectionName, wordCount, tone, isSubsection = false) => {
     if (!proposalId || !currentOrgId) {
       alert("Please save the proposal first");
+      return;
+    }
+
+    // PERMISSION CHECK: Verify user can access AI features
+    if (!user || !hasPermission(user, 'can_access_ai_features')) {
+      alert("You don't have permission to use AI features. Please contact your administrator.");
       return;
     }
 
@@ -216,6 +267,17 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         });
       }
 
+      // Log activity
+      await logActivity({
+        user,
+        organizationId: currentOrgId,
+        actionType: "create",
+        resourceType: "proposal_section", // Changed from "section" to "proposal_section" for clarity
+        resourceId: sectionId,
+        resourceName: sectionName,
+        details: `AI generated section: ${sectionName} (${wordCount} words)`
+      });
+
       setSectionContent(prev => ({ ...prev, [sectionId]: content }));
       queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
       
@@ -261,6 +323,17 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         });
       }
 
+      // Log activity for manual save
+      await logActivity({
+        user,
+        organizationId: currentOrgId,
+        actionType: "update",
+        resourceType: "proposal_section",
+        resourceId: sectionId,
+        resourceName: sectionName,
+        details: `Manually saved section: ${sectionName} (${wordCount} words)`
+      });
+
       alert("✓ Content saved!");
     } catch (error) {
       console.error("Error saving content:", error);
@@ -271,10 +344,25 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
   const saveAll = async () => {
     for (const [sectionId, content] of Object.entries(sectionContent)) {
       if (content) {
-        const section = activeSections.find(s => s.id === sectionId);
-        if (section) {
-          await saveContent(sectionId, section.id, content);
+        // Find the section (or subsection) data to get its name
+        let sectionName = sectionId; // Default to sectionId
+        const mainSection = activeSections.find(s => s.id === sectionId);
+        if (mainSection) {
+          sectionName = mainSection.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        } else {
+          // Check if it's a subsection (e.g., "main_sub")
+          const parts = sectionId.split('_');
+          if (parts.length > 1) {
+            const parentId = parts[0];
+            const subId = parts.slice(1).join('_');
+            const parentSection = activeSections.find(s => s.id === parentId);
+            const subsection = parentSection?.subsections?.find(sub => sub.id === subId);
+            if (subsection) {
+              sectionName = subsection.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+          }
         }
+        await saveContent(sectionId, sectionName, content);
       }
     }
     alert("✓ All sections saved!");
@@ -301,6 +389,17 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           description: `Context for section: ${sectionId}`
         });
 
+        // Log activity for context upload
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "upload",
+          resourceType: "solicitation_document",
+          resourceId: file.name, // Use file name as a temporary resourceId, or file_url ID if available
+          resourceName: `Context for section ${sectionId}`,
+          details: `Uploaded context file "${file.name}" for section ${sectionId}`
+        });
+
         alert(`✓ Context file "${file.name}" uploaded! It will be used when regenerating this section.`);
       } catch (error) {
         console.error("Error uploading context:", error);
@@ -321,8 +420,20 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
     );
   }
 
+  // Check AI access permission for UI
+  const hasAIAccess = user && hasPermission(user, 'can_access_ai_features');
+
   return (
     <div className="space-y-6">
+      {!hasAIAccess && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <Lock className="w-4 h-4" />
+          <AlertDescription>
+            Your role ({user?.user_role || 'viewer'}) does not allow AI content generation. You can still edit sections manually. Contact your administrator for AI access.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <Card className="border-none shadow-xl">
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center gap-2">
@@ -358,6 +469,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                       size="sm"
                       variant="outline"
                       onClick={() => handleUploadContext(section.id)}
+                      disabled={!hasAIAccess} // Disable if no AI access
                     >
                       <Upload className="w-4 h-4 mr-2" />
                       Upload Context
@@ -367,7 +479,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                       size="sm"
                       variant="outline"
                       onClick={() => autoDraft(section.id, section.id.replace(/_/g, ' '), section.wordCount, section.tone)}
-                      disabled={isGenerating[section.id]}
+                      disabled={isGenerating[section.id] || !hasAIAccess} // Disable if generating or no AI access
                     >
                       {isGenerating[section.id] ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -380,7 +492,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => saveContent(section.id, section.id, sectionContent[section.id])}
+                      onClick={() => saveContent(section.id, section.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), sectionContent[section.id])}
                     >
                       Save Section
                     </Button>
@@ -415,6 +527,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                         size="sm"
                         variant="outline"
                         onClick={() => handleUploadContext(`${section.id}_${sub.id}`)}
+                        disabled={!hasAIAccess} // Disable if no AI access
                       >
                         <Upload className="w-4 h-4 mr-2" />
                         Upload Context
@@ -424,7 +537,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                         size="sm"
                         variant="outline"
                         onClick={() => autoDraft(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '), sub.wordCount, sub.tone, true)}
-                        disabled={isGenerating[`${section.id}_${sub.id}`]}
+                        disabled={isGenerating[`${section.id}_${sub.id}`] || !hasAIAccess} // Disable if generating or no AI access
                       >
                         {isGenerating[`${section.id}_${sub.id}`] ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -432,6 +545,14 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                           <Sparkles className="w-4 h-4 mr-2" />
                         )}
                         Auto-Draft
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => saveContent(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), sectionContent[`${section.id}_${sub.id}`])}
+                      >
+                        Save Section
                       </Button>
                     </div>
                   </CardContent>
