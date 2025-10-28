@@ -18,7 +18,9 @@ const PHASES = [
   { id: "phase2", label: "Referenced Docs" },
   { id: "phase3", label: "Solicitation Details" },
   { id: "phase4", label: "Evaluator" },
-  { id: "phase5", label: "Proposal Writer" }
+  { id: "phase5", label: "Strategy" },
+  { id: "phase6", label: "Proposal Writer" },
+  { id: "phase7", label: "Finalize" }
 ];
 
 export default function ProposalBuilder() {
@@ -127,7 +129,7 @@ export default function ProposalBuilder() {
           </CardHeader>
           <CardContent>
             <Progress value={progress} className="h-3 mb-4" />
-            <div className="flex justify-between overflow-x-auto pb-2">
+            <div className="flex justify-between overflow-x-auto pb-2 gap-2">
               {PHASES.map((phase, index) => (
                 <div
                   key={phase.id}
@@ -147,7 +149,7 @@ export default function ProposalBuilder() {
                   >
                     {index < currentPhaseIndex ? <Check className="w-4 h-4" /> : index + 1}
                   </div>
-                  <span className="text-xs font-medium text-center">{phase.label}</span>
+                  <span className="text-xs font-medium text-center whitespace-nowrap">{phase.label}</span>
                 </div>
               ))}
             </div>
@@ -170,9 +172,16 @@ export default function ProposalBuilder() {
           {currentPhase === "phase5" && (
             <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
           )}
+          {(currentPhase === "phase6" || currentPhase === "phase7") && (
+            <Card className="border-none shadow-xl">
+              <CardContent className="p-12 text-center">
+                <p className="text-slate-600">Phase {currentPhase === "phase6" ? "6" : "7"} coming up next...</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {currentPhase !== "phase5" && (
+        {currentPhase !== "phase7" && (
           <div className="flex justify-between">
             <Button
               variant="outline"

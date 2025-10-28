@@ -3,14 +3,18 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, X } from "lucide-react";
+import { FileText, Upload, X, Plus, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function Phase3({ proposalData, setProposalData, proposalId }) {
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [evaluationFactors, setEvaluationFactors] = useState([]);
+  const [newFactor, setNewFactor] = useState("");
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   const handleFileUpload = async (files) => {
     if (!proposalId) {
@@ -38,6 +42,49 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
       }
     }
+  };
+
+  const suggestEvaluationFactors = async () => {
+    setIsSuggesting(true);
+    try {
+      const prompt = `Based on this ${proposalData.project_type} solicitation for ${proposalData.agency_name}, suggest 5-8 key evaluation factors that are typically used in government proposals. 
+
+Project: ${proposalData.project_title}
+Type: ${proposalData.project_type}
+
+Return a JSON array of evaluation factor names.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            factors: {
+              type: "array",
+              items: { type: "string" }
+            }
+          }
+        }
+      });
+
+      if (result.factors) {
+        setEvaluationFactors(result.factors);
+      }
+    } catch (error) {
+      console.error("Error suggesting factors:", error);
+    }
+    setIsSuggesting(false);
+  };
+
+  const addFactor = () => {
+    if (newFactor.trim()) {
+      setEvaluationFactors([...evaluationFactors, newFactor.trim()]);
+      setNewFactor("");
+    }
+  };
+
+  const removeFactor = (index) => {
+    setEvaluationFactors(evaluationFactors.filter((_, i) => i !== index));
   };
 
   return (
@@ -125,6 +172,49 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
             value={proposalData.due_date}
             onChange={(e) => setProposalData({...proposalData, due_date: e.target.value})}
           />
+        </div>
+
+        <div className="border-t pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Evaluation Factors</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={suggestEvaluationFactors}
+              disabled={isSuggesting}
+            >
+              <Sparkles className={`w-4 h-4 mr-2 ${isSuggesting ? 'animate-spin' : ''}`} />
+              {isSuggesting ? 'Suggesting...' : 'AI Suggest Factors'}
+            </Button>
+          </div>
+          
+          <p className="text-sm text-slate-600 mb-4">
+            Add evaluation factors that will be used to assess your proposal
+          </p>
+
+          <div className="flex gap-2 mb-4">
+            <Input
+              value={newFactor}
+              onChange={(e) => setNewFactor(e.target.value)}
+              placeholder="e.g., Technical Capability"
+              onKeyPress={(e) => e.key === 'Enter' && addFactor()}
+            />
+            <Button onClick={addFactor}>
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {evaluationFactors.map((factor, idx) => (
+              <Badge key={idx} variant="secondary" className="gap-2 py-2 px-3">
+                {factor}
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-red-600"
+                  onClick={() => removeFactor(idx)}
+                />
+              </Badge>
+            ))}
+          </div>
         </div>
 
         <div className="border-t pt-6">
