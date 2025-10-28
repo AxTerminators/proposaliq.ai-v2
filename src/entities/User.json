@@ -13,7 +13,22 @@
         "viewer"
       ],
       "default": "proposal_writer",
-      "description": "User role for permissions"
+      "description": "User role for organization-level permissions"
+    },
+    "super_admin_role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "ops_admin",
+        "content_manager",
+        "billing_manager",
+        "ai_manager",
+        "security_officer",
+        "reviewer",
+        "tech_support",
+        "marketing_manager"
+      ],
+      "description": "Platform super admin role - only for platform administrators"
     },
     "organization_id": {
       "type": "string",
@@ -81,5 +96,6 @@
       "type": "string",
       "description": "User job title"
     }
-  }
+  },
+  "required": []
 }
