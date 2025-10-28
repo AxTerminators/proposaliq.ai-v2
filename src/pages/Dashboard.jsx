@@ -20,6 +20,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = React.useState(null);
   const [organization, setOrganization] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const loadUserAndOrg = async () => {
@@ -40,6 +41,8 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error("Error loading data:", error);
+      } finally {
+        setLoading(false);
       }
     };
     loadUserAndOrg();
@@ -60,10 +63,13 @@ export default function Dashboard() {
     };
   }, [proposals]);
 
-  if (!organization) {
+  if (loading || !organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Skeleton className="h-32 w-32 rounded-xl" />
+        <div className="text-center">
+          <Skeleton className="h-32 w-32 rounded-xl mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
       </div>
     );
   }
