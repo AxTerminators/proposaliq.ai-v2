@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { hasPermission, logActivity } from "@/utils/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,24 +12,29 @@ import {
   ExternalLink,
   Trash2,
   Building2,
-  Users
+  Users,
+  Lock
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Resources() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [uploading, setUploading] = useState(false);
   const [currentOrgId, setCurrentOrgId] = useState(null);
+  const [user, setUser] = useState(null);
 
-  // SECURITY: Load current user's organization for data filtering
+  // SECURITY: Load current user's organization and permissions
   React.useEffect(() => {
-    const loadOrgId = async () => {
+    const loadUserData = async () => {
       try {
-        const user = await base44.auth.me();
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
         const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
+          { created_by: currentUser.email },
           '-created_date',
           1
         );
@@ -36,10 +42,10 @@ export default function Resources() {
           setCurrentOrgId(orgs[0].id);
         }
       } catch (error) {
-        console.error("Error loading org:", error);
+        console.error("Error loading user:", error);
       }
     };
-    loadOrgId();
+    loadUserData();
   }, []);
 
   // SECURITY FIX: Filter resources by organization_id
@@ -85,15 +91,46 @@ export default function Resources() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProposalResource.delete(id),
+    mutationFn: async (id) => {
+      // PERMISSION CHECK
+      if (!user || !hasPermission(user, 'can_manage_library')) {
+        throw new Error("You don't have permission to delete resources.");
+      }
+      
+      const resource = resources.find(r => r.id === id);
+      
+      await base44.entities.ProposalResource.delete(id);
+      
+      // Log activity
+      if (resource) {
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "delete",
+          resourceType: "document",
+          resourceId: id,
+          resourceName: resource.file_name,
+          details: `Deleted resource: ${resource.file_name}`
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
+    onError: (error) => {
+      alert(error.message || "Error deleting resource");
+    }
   });
 
   const handleFileUpload = async (files, resourceType, entityType, entityId) => {
     if (!currentOrgId) {
       alert("Organization not found. Please complete onboarding first.");
+      return;
+    }
+
+    // PERMISSION CHECK for library management
+    if (!user || !hasPermission(user, 'can_manage_library')) {
+      alert("You don't have permission to upload resources. Contact your administrator.");
       return;
     }
 
@@ -111,12 +148,36 @@ export default function Resources() {
           file_size: file.size,
           entity_type: entityType
         });
+        
+        // Log activity
+        await logActivity({
+          user,
+          organizationId: currentOrgId,
+          actionType: "upload",
+          resourceType: "document",
+          resourceId: file_url,
+          resourceName: file.name,
+          details: `Uploaded ${entityType} resource: ${file.name}`
+        });
       } catch (error) {
         console.error("Error uploading file:", error);
       }
     }
     queryClient.invalidateQueries({ queryKey: ['resources'] });
     setUploading(false);
+  };
+
+  const handleDownload = async (resource) => {
+    // Log activity
+    await logActivity({
+      user,
+      organizationId: currentOrgId,
+      actionType: "download",
+      resourceType: "document",
+      resourceId: resource.id,
+      resourceName: resource.file_name,
+      details: `Downloaded resource: ${resource.file_name}`
+    });
   };
 
   const filteredResources = resources.filter(resource =>
@@ -126,12 +187,23 @@ export default function Resources() {
   const orgResources = filteredResources.filter(r => r.entity_type === 'organization');
   const partnerResources = filteredResources.filter(r => r.entity_type === 'teaming_partner');
 
+  const canManageLibrary = user && hasPermission(user, 'can_manage_library');
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Resource Library</h1>
         <p className="text-slate-600">Manage capability statements, marketing collateral, and proposal documents</p>
       </div>
+
+      {!canManageLibrary && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <Lock className="w-4 h-4" />
+          <AlertDescription>
+            Your role ({user?.user_role || 'viewer'}) allows viewing resources but not uploading or deleting. Contact your administrator for library management access.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-none shadow-lg">
         <CardHeader className="border-b">
@@ -162,7 +234,7 @@ export default function Resources() {
             </TabsList>
 
             <TabsContent value="organization" className="space-y-4">
-              {organizations.length > 0 && (
+              {organizations.length > 0 && canManageLibrary && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h3 className="font-semibold text-blue-900 mb-2">Upload Organization Resources</h3>
                   <input
@@ -217,18 +289,25 @@ export default function Resources() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <a href={resource.file_url} target="_blank" rel="noopener noreferrer">
+                        <a 
+                          href={resource.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={() => handleDownload(resource)}
+                        >
                           <Button variant="ghost" size="icon">
                             <ExternalLink className="w-4 h-4" />
                           </Button>
                         </a>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(resource.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
+                        {canManageLibrary && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(resource.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -237,7 +316,7 @@ export default function Resources() {
             </TabsContent>
 
             <TabsContent value="partners" className="space-y-4">
-              {partners.length > 0 && (
+              {partners.length > 0 && canManageLibrary && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <h3 className="font-semibold text-purple-900 mb-2">Upload Partner Resources</h3>
                   <input
@@ -296,19 +375,21 @@ export default function Resources() {
                           href={resource.file_url} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={() => handleDownload(resource)}
                         >
                           <Button variant="ghost" size="icon">
                             <ExternalLink className="w-4 h-4" />
                           </Button>
                         </a>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(resource.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
+                        {canManageLibrary && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(resource.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
