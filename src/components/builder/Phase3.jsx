@@ -41,73 +41,8 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
     try {
       setIsExtracting(true);
       
-      // Check file extension - ExtractDataFromUploadedFile only supports: csv, png, jpg, jpeg, pdf
-      const lowerFileName = fileName.toLowerCase();
-      const supportedByExtractor = lowerFileName.endsWith('.pdf') || 
-                                   lowerFileName.endsWith('.csv') || 
-                                   lowerFileName.endsWith('.png') || 
-                                   lowerFileName.endsWith('.jpg') || 
-                                   lowerFileName.endsWith('.jpeg');
-
-      if (supportedByExtractor) {
-        // Try structured extraction first for supported files
-        const schema = {
-          type: "object",
-          properties: {
-            solicitation_number: { type: "string" },
-            agency_name: { type: "string" },
-            project_title: { type: "string" },
-            due_date: { type: "string" },
-            project_type: { type: "string" },
-            evaluation_factors: {
-              type: "array",
-              items: { type: "string" }
-            },
-            key_requirements: {
-              type: "array",
-              items: { type: "string" }
-            }
-          }
-        };
-
-        const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-          file_url: fileUrl,
-          json_schema: schema
-        });
-
-        if (result.status === "success" && result.output) {
-          const data = result.output;
-          
-          if (data.solicitation_number && !proposalData.solicitation_number) {
-            setProposalData(prev => ({...prev, solicitation_number: data.solicitation_number}));
-          }
-          if (data.agency_name && !proposalData.agency_name) {
-            setProposalData(prev => ({...prev, agency_name: data.agency_name}));
-          }
-          if (data.project_title && !proposalData.project_title) {
-            setProposalData(prev => ({...prev, project_title: data.project_title}));
-          }
-          if (data.due_date && !proposalData.due_date) {
-            const dateStr = new Date(data.due_date).toISOString().split('T')[0];
-            setProposalData(prev => ({...prev, due_date: dateStr}));
-          }
-          if (data.project_type && !proposalData.project_type) {
-            setProposalData(prev => ({...prev, project_type: data.project_type}));
-          }
-          
-          if (data.evaluation_factors && data.evaluation_factors.length > 0) {
-            setEvaluationFactors(prev => {
-              const combined = [...prev, ...data.evaluation_factors];
-              return [...new Set(combined)];
-            });
-          }
-
-          alert(`✓ Auto-populated fields from ${fileName}!`);
-          return; // Success, no need for fallback
-        }
-      }
-      
-      // Fallback to AI extraction for all files (especially DOCX, XLSX, PPTX, TXT)
+      // IMPORTANT: Only use AI LLM extraction for ALL file types to avoid compatibility issues
+      // The InvokeLLM integration supports: PDF, DOCX, XLSX, PPTX, TXT, PNG, JPG, JPEG, CSV
       const aiPrompt = `Analyze this solicitation document and extract the following information in JSON format:
 - Solicitation Number
 - Agency Name  
@@ -116,7 +51,7 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
 - Project Type (RFP, RFQ, RFI, IFB, or other)
 - Evaluation Factors (list of factors used to evaluate proposals)
 
-Return as valid JSON.`;
+Return as valid JSON with these exact keys: solicitation_number, agency_name, project_title, due_date, project_type, evaluation_factors`;
 
       const aiResult = await base44.integrations.Core.InvokeLLM({
         prompt: aiPrompt,
@@ -148,7 +83,9 @@ Return as valid JSON.`;
           try {
             const dateStr = new Date(aiResult.due_date).toISOString().split('T')[0];
             setProposalData(prev => ({...prev, due_date: dateStr}));
-          } catch (e) {}
+          } catch (e) {
+            console.error("Error parsing date:", e);
+          }
         }
         if (aiResult.project_type && !proposalData.project_type) {
           setProposalData(prev => ({...prev, project_type: aiResult.project_type}));
@@ -211,12 +148,14 @@ Return as valid JSON.`;
         setUploadedDocs(prev => [...prev, { name: file.name, url: file_url, type: docType }]);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
         
+        // Auto-extract data from RFP, RFQ, SOW, PWS documents
         if (['rfp', 'rfq', 'sow', 'pws'].includes(docType)) {
           await extractSolicitationData(file_url, file.name);
         }
       } catch (error) {
         console.error("Error uploading file:", error);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
+        alert(`Error uploading ${file.name}. Please try again.`);
       }
     }
   };
