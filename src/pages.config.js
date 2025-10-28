@@ -7,6 +7,7 @@ import Chat from './pages/Chat';
 import Subscription from './pages/Subscription';
 import Discussions from './pages/Discussions';
 import AdminPortal from './pages/AdminPortal';
+import LandingPage from './pages/LandingPage';
 import Layout from './Layout.jsx';
 
 
@@ -20,6 +21,7 @@ export const PAGES = {
     "Subscription": Subscription,
     "Discussions": Discussions,
     "AdminPortal": AdminPortal,
+    "LandingPage": LandingPage,
 }
 
 export const pagesConfig = {
