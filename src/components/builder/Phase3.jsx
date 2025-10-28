@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Upload, X, Plus, Sparkles, CheckCircle2 } from "lucide-react";
@@ -16,6 +16,31 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
   const [newFactor, setNewFactor] = useState("");
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [currentOrgId, setCurrentOrgId] = useState(null);
+
+  // SECURITY: Get current user's organization for data isolation
+  useEffect(() => {
+    const loadOrgId = async () => {
+      try {
+        const user = await base44.auth.me();
+        // Assuming an organization is created for each user upon onboarding or is linked to the user.
+        // Filter by 'created_by' as specified in the outline, assuming this is how organizations are linked to users.
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setCurrentOrgId(orgs[0].id);
+        } else {
+            console.warn("No organization found for the current user. Data isolation might be affected for new document uploads.");
+        }
+      } catch (error) {
+        console.error("Error loading organization ID:", error);
+      }
+    };
+    loadOrgId();
+  }, []);
 
   const extractSolicitationData = async (fileUrl, fileName) => {
     try {
@@ -147,6 +172,11 @@ Return as JSON.`;
       return;
     }
 
+    if (!currentOrgId) {
+      alert("Organization not found. Please complete onboarding first.");
+      return;
+    }
+
     for (const file of files) {
       try {
         setUploadingFiles(prev => [...prev, file.name]);
@@ -165,8 +195,10 @@ Return as JSON.`;
           docType = "pws";
         }
         
+        // SECURITY: Always include organization_id to ensure data isolation
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
+          organization_id: currentOrgId,
           document_type: docType,
           file_name: file.name,
           file_url: file_url,
@@ -375,9 +407,12 @@ Return a JSON array of evaluation factor names.`;
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-indigo-900">Smart Document Reading</p>
+                <p className="text-sm font-medium text-indigo-900">Smart Document Reading + Data Privacy</p>
                 <p className="text-xs text-indigo-700 mt-1">
                   AI will automatically read RFP, RFQ, SOW, and PWS documents and auto-populate fields above
+                </p>
+                <p className="text-xs text-indigo-700 mt-1">
+                  🔒 <strong>Your documents stay private to your organization - never shared with others</strong>
                 </p>
               </div>
             </div>
@@ -408,8 +443,7 @@ Return a JSON array of evaluation factor names.`;
               <p className="text-sm text-slate-600 mb-2">Uploading...</p>
               {uploadingFiles.map((name, idx) => (
                 <Badge key={idx} variant="secondary" className="mr-2 mb-2">
-                  {name}
-                </Badge>
+                  {name}</Badge>
               ))}
             </div>
           )}
