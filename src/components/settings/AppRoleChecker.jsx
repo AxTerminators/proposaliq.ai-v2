@@ -1,5 +1,30 @@
 // Application role permissions for subscriber team members
 export const APP_ROLE_PERMISSIONS = {
+  organization_owner: {
+    label: "Organization Owner",
+    description: "Full administrative control: billing, subscriptions, team management, and all proposal capabilities",
+    color: "indigo",
+    capabilities: {
+      // Organization-level admin
+      canManageSubscription: true,
+      canAccessBilling: true,
+      canEditOrganization: true,
+      canDeleteAccount: true,
+      canManageAllUsers: true,
+      canAssignAnyRole: true,
+      
+      // Inherited from Proposal Manager
+      canCreateProposal: true,
+      canDeleteProposal: true,
+      canAssignRoles: true,
+      canManageTeam: true,
+      canEditAllSections: true,
+      canApprove: true,
+      canViewReports: true,
+      canManageResources: true,
+      canInviteUsers: true
+    }
+  },
   proposal_manager: {
     label: "Proposal Manager",
     description: "Create proposals, assign roles, set deadlines, approve final drafts",
@@ -98,6 +123,9 @@ export const hasAppPermission = (userRole, permission) => {
 };
 
 export const canAccessProposal = (userRole, proposal, userId) => {
+  // Organization owners have access to everything
+  if (userRole === 'organization_owner') return true;
+  
   // Proposal managers and their org members can access their org's proposals
   if (userRole === 'proposal_manager') return true;
   if (userRole === 'writer' || userRole === 'reviewer') return true;
@@ -107,4 +135,8 @@ export const canAccessProposal = (userRole, proposal, userId) => {
     return false; // Implement explicit sharing logic later
   }
   return false;
+};
+
+export const isOrganizationOwner = (userRole) => {
+  return userRole === 'organization_owner';
 };

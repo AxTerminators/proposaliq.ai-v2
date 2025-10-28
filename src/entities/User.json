@@ -20,6 +20,7 @@
     "organization_app_role": {
       "type": "string",
       "enum": [
+        "organization_owner",
         "proposal_manager",
         "writer",
         "reviewer",
