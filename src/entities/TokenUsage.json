@@ -1,0 +1,54 @@
+{
+  "name": "TokenUsage",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to the organization"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User who used the tokens"
+    },
+    "feature_type": {
+      "type": "string",
+      "enum": [
+        "chat",
+        "proposal_generation",
+        "evaluation",
+        "file_extraction"
+      ],
+      "description": "Which feature used the tokens"
+    },
+    "tokens_used": {
+      "type": "number",
+      "description": "Number of tokens consumed"
+    },
+    "llm_provider": {
+      "type": "string",
+      "enum": [
+        "gemini",
+        "claude",
+        "chatgpt"
+      ],
+      "description": "Which LLM was used"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt sent (for audit)"
+    },
+    "response_preview": {
+      "type": "string",
+      "description": "First 200 chars of response"
+    },
+    "cost_estimate": {
+      "type": "number",
+      "description": "Estimated cost in USD"
+    }
+  },
+  "required": [
+    "organization_id",
+    "feature_type",
+    "tokens_used"
+  ]
+}

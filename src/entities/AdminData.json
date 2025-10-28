@@ -1,0 +1,52 @@
+{
+  "name": "AdminData",
+  "type": "object",
+  "properties": {
+    "data_type": {
+      "type": "string",
+      "enum": [
+        "far_regulation",
+        "dfars",
+        "training_material",
+        "template",
+        "guideline"
+      ],
+      "description": "Type of admin data"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the data"
+    },
+    "content": {
+      "type": "string",
+      "description": "Actual content"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Optional file URL"
+    },
+    "category": {
+      "type": "string",
+      "description": "Category for organization"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": true,
+      "description": "Available to all users"
+    },
+    "is_proprietary": {
+      "type": "boolean",
+      "default": false,
+      "description": "PIQ proprietary information"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version number"
+    }
+  },
+  "required": [
+    "data_type",
+    "title",
+    "content"
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "name": "Discussion",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization this discussion belongs to"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "Optional: linked proposal"
+    },
+    "title": {
+      "type": "string",
+      "description": "Discussion title"
+    },
+    "content": {
+      "type": "string",
+      "description": "Discussion content"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Who created this discussion"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Author's display name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "general",
+        "proposal",
+        "question",
+        "announcement"
+      ],
+      "default": "general",
+      "description": "Discussion category"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Discussion tags"
+    },
+    "is_pinned": {
+      "type": "boolean",
+      "default": false,
+      "description": "Pinned to top"
+    },
+    "comment_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of comments"
+    },
+    "last_activity": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last comment time"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "author_email"
+  ]
+}

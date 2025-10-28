@@ -1,0 +1,75 @@
+{
+  "name": "Subscription",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to the organization"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "free",
+        "pro",
+        "power",
+        "enterprise"
+      ],
+      "default": "free",
+      "description": "Subscription tier"
+    },
+    "token_credits": {
+      "type": "number",
+      "default": 200000,
+      "description": "Available token credits"
+    },
+    "token_credits_used": {
+      "type": "number",
+      "default": 0,
+      "description": "Tokens used this period"
+    },
+    "max_users": {
+      "type": "number",
+      "default": 1,
+      "description": "Maximum users allowed"
+    },
+    "monthly_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Monthly price in USD"
+    },
+    "billing_cycle_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Start of current billing cycle"
+    },
+    "billing_cycle_end": {
+      "type": "string",
+      "format": "date",
+      "description": "End of current billing cycle"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "suspended",
+        "cancelled"
+      ],
+      "default": "active",
+      "description": "Subscription status"
+    },
+    "preferred_llm": {
+      "type": "string",
+      "enum": [
+        "gemini",
+        "claude",
+        "chatgpt"
+      ],
+      "default": "gemini",
+      "description": "Preferred LLM for AI features"
+    }
+  },
+  "required": [
+    "organization_id",
+    "plan_type"
+  ]
+}

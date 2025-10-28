@@ -1,0 +1,38 @@
+{
+  "name": "DiscussionComment",
+  "type": "object",
+  "properties": {
+    "discussion_id": {
+      "type": "string",
+      "description": "Parent discussion"
+    },
+    "content": {
+      "type": "string",
+      "description": "Comment content"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Who wrote this comment"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Author's display name"
+    },
+    "mentions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of mentioned user emails"
+    },
+    "parent_comment_id": {
+      "type": "string",
+      "description": "For nested replies"
+    }
+  },
+  "required": [
+    "discussion_id",
+    "content",
+    "author_email"
+  ]
+}
