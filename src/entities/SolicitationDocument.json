@@ -6,6 +6,10 @@
       "type": "string",
       "description": "Reference to the proposal"
     },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this document - CRITICAL for data isolation"
+    },
     "document_type": {
       "type": "string",
       "enum": [
@@ -16,6 +20,7 @@
         "sow",
         "pws",
         "pricing_sheet",
+        "reference",
         "other"
       ],
       "description": "Type of solicitation document"
@@ -39,6 +44,7 @@
   },
   "required": [
     "proposal_id",
+    "organization_id",
     "file_name",
     "file_url",
     "document_type"

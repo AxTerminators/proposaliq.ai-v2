@@ -22,38 +22,77 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const [selectedReferences, setSelectedReferences] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [processingFiles, setProcessingFiles] = useState([]);
+  const [currentOrgId, setCurrentOrgId] = useState(null);
 
+  // Get current user's organization for security filtering
+  useEffect(() => {
+    const loadOrgId = async () => {
+      try {
+        const user = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setCurrentOrgId(orgs[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading org:", error);
+      }
+    };
+    loadOrgId();
+  }, []);
+
+  // SECURITY: Only fetch proposals from current user's organization
   const { data: pastProposals } = useQuery({
-    queryKey: ['past-proposals'],
+    queryKey: ['past-proposals', currentOrgId],
     queryFn: async () => {
+      if (!currentOrgId) return [];
       const proposals = await base44.entities.Proposal.filter(
-        { status: { $in: ['submitted', 'won'] } },
+        { 
+          organization_id: currentOrgId,
+          status: { $in: ['submitted', 'won'] } 
+        },
         '-created_date'
       );
       return proposals;
     },
-    initialData: []
-  });
-
-  const { data: resources } = useQuery({
-    queryKey: ['proposal-resources'],
-    queryFn: () => base44.entities.ProposalResource.filter(
-      { resource_type: { $in: ['past_proposal', 'capability_statement', 'marketing_collateral'] } },
-      '-created_date'
-    ),
-    initialData: []
-  });
-
-  const { data: existingRefs } = useQuery({
-    queryKey: ['reference-docs', proposalId],
-    queryFn: () => proposalId 
-      ? base44.entities.SolicitationDocument.filter({ 
-          proposal_id: proposalId,
-          document_type: 'reference'
-        })
-      : [],
     initialData: [],
-    enabled: !!proposalId
+    enabled: !!currentOrgId
+  });
+
+  // SECURITY: Only fetch resources from current user's organization
+  const { data: resources } = useQuery({
+    queryKey: ['proposal-resources', currentOrgId],
+    queryFn: () => {
+      if (!currentOrgId) return [];
+      return base44.entities.ProposalResource.filter(
+        { 
+          organization_id: currentOrgId,
+          resource_type: { $in: ['past_proposal', 'capability_statement', 'marketing_collateral'] } 
+        },
+        '-created_date'
+      );
+    },
+    initialData: [],
+    enabled: !!currentOrgId
+  });
+
+  // SECURITY: Only fetch reference docs from current proposal (which is org-scoped)
+  const { data: existingRefs } = useQuery({
+    queryKey: ['reference-docs', proposalId, currentOrgId],
+    queryFn: async () => {
+      if (!proposalId || !currentOrgId) return [];
+      const refs = await base44.entities.SolicitationDocument.filter({ 
+        proposal_id: proposalId,
+        organization_id: currentOrgId,
+        document_type: 'reference'
+      });
+      return refs;
+    },
+    initialData: [],
+    enabled: !!proposalId && !!currentOrgId
   });
 
   useEffect(() => {
@@ -98,6 +137,11 @@ Provide a comprehensive summary that can be used as reference for proposal writi
       return;
     }
 
+    if (!currentOrgId) {
+      alert("Organization not found. Please complete onboarding first.");
+      return;
+    }
+
     for (const file of files) {
       try {
         setUploadingFiles(prev => [...prev, file.name]);
@@ -106,8 +150,10 @@ Provide a comprehensive summary that can be used as reference for proposal writi
         // Extract content from the file for better AI understanding
         const extractedContent = await extractTextFromFile(file_url, file.name);
         
+        // SECURITY: Always include organization_id to ensure data isolation
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
+          organization_id: currentOrgId,
           document_type: "reference",
           file_name: file.name,
           file_url: file_url,
@@ -130,14 +176,27 @@ Provide a comprehensive summary that can be used as reference for proposal writi
       return;
     }
 
+    if (!currentOrgId) {
+      alert("Organization not found.");
+      return;
+    }
+
     try {
+      // SECURITY: Verify the proposal belongs to the same organization
+      if (proposal.organization_id !== currentOrgId) {
+        alert("Security error: Cannot access proposal from different organization");
+        return;
+      }
+
       const sections = await base44.entities.ProposalSection.filter(
         { proposal_id: proposal.id },
         'order'
       );
 
+      // SECURITY: Always include organization_id
       await base44.entities.SolicitationDocument.create({
         proposal_id: proposalId,
+        organization_id: currentOrgId,
         document_type: "reference",
         file_name: `Reference: ${proposal.proposal_name}`,
         file_url: `proposal:${proposal.id}`,
@@ -156,9 +215,22 @@ Provide a comprehensive summary that can be used as reference for proposal writi
       return;
     }
 
+    if (!currentOrgId) {
+      alert("Organization not found.");
+      return;
+    }
+
     try {
+      // SECURITY: Verify the resource belongs to the same organization
+      if (resource.organization_id !== currentOrgId) {
+        alert("Security error: Cannot access resource from different organization");
+        return;
+      }
+
+      // SECURITY: Always include organization_id
       await base44.entities.SolicitationDocument.create({
         proposal_id: proposalId,
+        organization_id: currentOrgId,
         document_type: "reference",
         file_name: resource.file_name,
         file_url: resource.file_url,
@@ -206,13 +278,14 @@ Provide a comprehensive summary that can be used as reference for proposal writi
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
             <FileCheck className="w-4 h-4" />
-            Smart Document Reading
+            Smart Document Reading + Data Privacy
           </h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• AI reads and analyzes your reference documents (PDF, DOCX, XLSX, PNG, JPG, TXT, PPTX)</li>
             <li>• Extracts writing style, tone, and key information</li>
             <li>• Uses this knowledge to generate proposal sections that match your style</li>
-            <li>• Supports capability statements, past proposals, and marketing materials</li>
+            <li>• 🔒 <strong>Your documents are private to your organization only</strong></li>
+            <li>• 🔒 <strong>AI never uses your docs when generating for other companies</strong></li>
           </ul>
         </div>
 
@@ -329,105 +402,4 @@ Provide a comprehensive summary that can be used as reference for proposal writi
                       isSelected(resource.file_url)
                         ? 'border-green-500 bg-green-50'
                         : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
-                    }`}
-                    onClick={() => !isSelected(resource.file_url) && handleSelectResource(resource)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <FileText className="w-8 h-8 text-indigo-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-slate-900">{resource.file_name}</h3>
-                            {isSelected(resource.file_url) && (
-                              <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            )}
-                          </div>
-                          <div className="flex gap-2 items-center">
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {resource.resource_type?.replace(/_/g, ' ')}
-                            </Badge>
-                            <span className="text-xs text-slate-500">
-                              {(resource.file_size / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <a 
-                          href={resource.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button variant="ghost" size="icon">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </a>
-                        {!isSelected(resource.file_url) ? (
-                          <Circle className="w-6 h-6 text-slate-300" />
-                        ) : (
-                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="upload" className="space-y-4">
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-indigo-400 transition-colors bg-white">
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.docx,.xlsx,.txt,.pptx,.png,.jpg,.jpeg,.csv"
-                onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-                className="hidden"
-                id="reference-upload"
-                disabled={!proposalId}
-              />
-              <label htmlFor="reference-upload" className={!proposalId ? 'cursor-not-allowed' : 'cursor-pointer'}>
-                <Upload className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-                <p className="text-slate-700 font-medium mb-2">
-                  {!proposalId ? 'Complete Phase 1 first' : 'Click to upload reference documents'}
-                </p>
-                <p className="text-sm text-slate-500">
-                  PDF, DOCX, XLSX, TXT, PPTX, PNG, JPG, CSV up to 30MB
-                </p>
-                <p className="text-xs text-slate-400 mt-2">
-                  AI will read and analyze each document
-                </p>
-              </label>
-            </div>
-
-            {uploadingFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-700">Uploading...</p>
-                {uploadingFiles.map((name, idx) => (
-                  <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-                      <span className="text-sm text-blue-900">{name}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-              <h4 className="font-semibold text-indigo-900 mb-2">Upload Tips</h4>
-              <ul className="text-sm text-indigo-800 space-y-1">
-                <li>• Upload your best past proposals as templates</li>
-                <li>• Include capability statements and past performance docs</li>
-                <li>• Add style guides or company-specific writing samples</li>
-                <li>• AI will read all file types and extract relevant information</li>
-                <li>• The more quality references, the better AI will perform</li>
-              </ul>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
-  );
-}
+                    }

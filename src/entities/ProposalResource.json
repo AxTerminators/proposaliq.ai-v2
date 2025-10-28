@@ -4,7 +4,7 @@
   "properties": {
     "organization_id": {
       "type": "string",
-      "description": "Reference to organization or teaming partner"
+      "description": "Organization that owns this resource - CRITICAL for data isolation"
     },
     "resource_type": {
       "type": "string",
@@ -42,6 +42,7 @@
     }
   },
   "required": [
+    "organization_id",
     "file_name",
     "file_url",
     "resource_type"
