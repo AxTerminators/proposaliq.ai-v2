@@ -11,12 +11,14 @@ import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
 import Phase3 from "../components/builder/Phase3";
 import Phase4 from "../components/builder/Phase4";
+import Phase5 from "../components/builder/Phase5";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
-  { id: "phase2", label: "Solicitation Details" },
-  { id: "phase3", label: "Evaluator" },
-  { id: "phase4", label: "Proposal Writer" }
+  { id: "phase2", label: "Referenced Docs" },
+  { id: "phase3", label: "Solicitation Details" },
+  { id: "phase4", label: "Evaluator" },
+  { id: "phase5", label: "Proposal Writer" }
 ];
 
 export default function ProposalBuilder() {
@@ -71,14 +73,19 @@ export default function ProposalBuilder() {
           current_phase: currentPhase
         });
         setProposalId(created.id);
+        return created.id;
       }
+      return proposalId;
     } catch (error) {
       console.error("Error saving proposal:", error);
     }
   };
 
   const handleNext = async () => {
-    await saveProposal();
+    const savedId = await saveProposal();
+    if (!proposalId && savedId) {
+      setProposalId(savedId);
+    }
     const currentIndex = PHASES.findIndex(p => p.id === currentPhase);
     if (currentIndex < PHASES.length - 1) {
       setCurrentPhase(PHASES[currentIndex + 1].id);
@@ -120,11 +127,11 @@ export default function ProposalBuilder() {
           </CardHeader>
           <CardContent>
             <Progress value={progress} className="h-3 mb-4" />
-            <div className="flex justify-between">
+            <div className="flex justify-between overflow-x-auto pb-2">
               {PHASES.map((phase, index) => (
                 <div
                   key={phase.id}
-                  className={`flex items-center gap-2 cursor-pointer ${
+                  className={`flex flex-col items-center gap-2 cursor-pointer min-w-fit px-2 ${
                     index <= currentPhaseIndex ? "text-blue-600" : "text-slate-400"
                   }`}
                   onClick={() => setCurrentPhase(phase.id)}
@@ -140,7 +147,7 @@ export default function ProposalBuilder() {
                   >
                     {index < currentPhaseIndex ? <Check className="w-4 h-4" /> : index + 1}
                   </div>
-                  <span className="hidden lg:block text-sm font-medium">{phase.label}</span>
+                  <span className="text-xs font-medium text-center">{phase.label}</span>
                 </div>
               ))}
             </div>
@@ -160,9 +167,12 @@ export default function ProposalBuilder() {
           {currentPhase === "phase4" && (
             <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
           )}
+          {currentPhase === "phase5" && (
+            <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+          )}
         </div>
 
-        {currentPhase !== "phase4" && (
+        {currentPhase !== "phase5" && (
           <div className="flex justify-between">
             <Button
               variant="outline"

@@ -1,96 +1,48 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Sparkles, 
-  Plus, 
-  FileText, 
-  Edit,
-  Trash2,
-  Download,
-  Save,
-  Wand2,
-  CheckCircle2
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import { Sparkles, TrendingUp, CheckCircle2, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
-const SECTION_TYPES = [
-  { value: "executive_summary", label: "Executive Summary" },
-  { value: "technical_approach", label: "Technical Approach" },
-  { value: "management_plan", label: "Management Plan" },
-  { value: "past_performance", label: "Past Performance" },
-  { value: "key_personnel", label: "Key Personnel" },
-  { value: "corporate_experience", label: "Corporate Experience" },
-  { value: "quality_assurance", label: "Quality Assurance" },
-  { value: "transition_plan", label: "Transition Plan" },
-  { value: "pricing", label: "Pricing" },
-  { value: "custom", label: "Custom Section" }
+const EVALUATION_CRITERIA = [
+  { name: "Technical Requirement Match", maxPoints: 30, description: "Alignment with technical requirements" },
+  { name: "Past Performance Match", maxPoints: 15, description: "Relevant past performance references" },
+  { name: "Existing Relationship", maxPoints: 15, description: "Previous work with agency" },
+  { name: "Compliance Match", maxPoints: 10, description: "Bonding, certifications, clearances" },
+  { name: "Due Date", maxPoints: 5, description: "Time available to prepare" },
+  { name: "Qualified Staff/Team", maxPoints: 5, description: "Management team expertise" },
 ];
 
-export default function Phase4({ proposalData, proposalId }) {
-  const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showNewSection, setShowNewSection] = useState(false);
-  const [newSectionData, setNewSectionData] = useState({
-    section_name: "",
-    section_type: "executive_summary",
-    content: ""
-  });
-
-  const { data: sections, isLoading } = useQuery({
-    queryKey: ['proposal-sections', proposalId],
-    queryFn: () => proposalId ? base44.entities.ProposalSection.filter({ proposal_id: proposalId }, 'order') : [],
-    initialData: [],
-    enabled: !!proposalId
-  });
-
-  const { data: solicitationDocs } = useQuery({
-    queryKey: ['solicitation-docs', proposalId],
-    queryFn: () => proposalId ? base44.entities.SolicitationDocument.filter({ proposal_id: proposalId }) : [],
-    initialData: [],
-    enabled: !!proposalId
-  });
-
-  const { data: organization } = useQuery({
-    queryKey: ['organization', proposalData.prime_contractor_id],
-    queryFn: async () => {
-      if (!proposalData.prime_contractor_id) return null;
-      const orgs = await base44.entities.Organization.filter({ id: proposalData.prime_contractor_id });
-      return orgs[0] || null;
-    },
-    enabled: !!proposalData.prime_contractor_id
-  });
+export default function Phase4({ proposalData, setProposalData, proposalId }) {
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState(null);
+  const [customCriteria, setCustomCriteria] = useState([
+    { name: "", points: 5 },
+    { name: "", points: 5 },
+    { name: "", points: 5 },
+    { name: "", points: 5 }
+  ]);
 
   const trackTokenUsage = async (tokensUsed, prompt, response, llm) => {
     try {
       const user = await base44.auth.me();
-      // Assuming a user can only be part of one organization for simplicity or take the first one
       const orgs = await base44.entities.Organization.filter({ created_by: user.email }, '-created_date', 1);
       
       if (orgs.length > 0) {
         await base44.entities.TokenUsage.create({
           organization_id: orgs[0].id,
           user_email: user.email,
-          feature_type: "proposal_generation",
+          feature_type: "evaluation",
           tokens_used: tokensUsed,
           llm_provider: llm,
-          prompt: prompt.substring(0, 500), // Truncate prompt for storage
-          response_preview: response?.substring(0, 200), // Truncate response for storage
-          cost_estimate: (tokensUsed / 1000000) * 0.5 // Example cost, adjust as per actual LLM pricing
+          prompt: prompt,
+          response_preview: response?.substring(0, 200),
+          cost_estimate: (tokensUsed / 1000000) * 0.5
         });
 
-        // Update token_credits_used on the most recent subscription for the organization
         const subs = await base44.entities.Subscription.filter({ organization_id: orgs[0].id }, '-created_date', 1);
         if (subs.length > 0) {
           await base44.entities.Subscription.update(subs[0].id, {
@@ -103,501 +55,230 @@ export default function Phase4({ proposalData, proposalId }) {
     }
   };
 
-  const createMutation = useMutation({
-    mutationFn: (sectionData) => base44.entities.ProposalSection.create({
-      ...sectionData,
-      proposal_id: proposalId,
-      order: sections.length,
-      word_count: sectionData.content.split(/\s+/).length
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
-      setShowNewSection(false);
-      setNewSectionData({
-        section_name: "",
-        section_type: "executive_summary",
-        content: ""
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProposalSection.update(id, {
-      ...data,
-      word_count: data.content.split(/\s+/).length
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProposalSection.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
-      setActiveSection(null);
-    },
-  });
-
-  const generateSection = async (sectionType, customPrompt = "") => {
-    setIsGenerating(true);
-    try {
-      const sectionLabel = SECTION_TYPES.find(t => t.value === sectionType)?.label || sectionType;
-      
-      let contextPrompt = `You are an expert proposal writer. Generate a professional ${sectionLabel} section for a government proposal.
-
-Proposal Details:
-- Project: ${proposalData.project_title || 'Not specified'}
-- Agency: ${proposalData.agency_name || 'Not specified'}
-- Type: ${proposalData.project_type}
-- Organization: ${proposalData.prime_contractor_name || organization?.organization_name || 'Not specified'}`;
-
-      if (organization) {
-        contextPrompt += `\n- Certifications: ${organization.certifications?.join(', ') || 'None'}`;
-        contextPrompt += `\n- NAICS: ${organization.primary_naics || 'Not specified'}`;
-      }
-
-      if (customPrompt) {
-        contextPrompt += `\n\nAdditional Instructions: ${customPrompt}`;
-      }
-
-      contextPrompt += `\n\nWrite a compelling, detailed ${sectionLabel} that addresses the requirements and demonstrates capability. Use professional language suitable for federal proposals. Format with clear headings and paragraphs. Aim for 500-800 words.`;
-
-      const fileUrls = solicitationDocs.map(doc => doc.file_url).filter(Boolean);
-
-      // Fetch preferred LLM from the most recent subscription
-      const subs = await base44.entities.Subscription.list('-created_date', 1);
-      const preferredLLM = subs.length > 0 ? subs[0].preferred_llm : 'gemini'; // Default to 'gemini' if no subscription found
-
-      const content = await base44.integrations.Core.InvokeLLM({
-        prompt: contextPrompt,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined
-      });
-
-      // Estimate tokens used (e.g., based on average word count and character-to-token ratio)
-      // A simple estimation: 1 word ~ 1.3 tokens. Target 500-800 words => ~650-1040 tokens for output.
-      // Input prompt tokens can vary greatly. For this exercise, use a fixed estimate like 8000.
-      await trackTokenUsage(8000, contextPrompt, content, preferredLLM);
-
-      return content;
-    } catch (error) {
-      console.error("Error generating section:", error);
-      throw error;
-    } finally {
-      setIsGenerating(false);
+  const handleEvaluate = async () => {
+    if (!proposalId) {
+      alert("Please save the proposal first");
+      return;
     }
+
+    setIsEvaluating(true);
+    try {
+      const orgDetails = await base44.entities.Organization.filter(
+        { id: proposalData.prime_contractor_id },
+        '-created_date',
+        1
+      );
+      
+      const solDocs = await base44.entities.SolicitationDocument.filter(
+        { proposal_id: proposalId },
+        '-created_date'
+      );
+
+      const prompt = `You are an expert proposal evaluator. Analyze the match between this organization and the solicitation opportunity.
+
+Organization: ${proposalData.prime_contractor_name}
+Project Type: ${proposalData.project_type}
+Agency: ${proposalData.agency_name}
+Project Title: ${proposalData.project_title}
+Due Date: ${proposalData.due_date}
+
+Based on the information provided, evaluate the match quality and provide scores for:
+1. Technical Requirement Match (0-30 points)
+2. Past Performance Match (0-15 points)
+3. Existing Relationship with Agency (0-15 points)
+4. Compliance Match (0-10 points)
+5. Due Date/Timeline (0-5 points)
+6. Qualified Staff/Team (0-5 points)
+
+Provide detailed reasoning for each score.`;
+
+      const fileUrls = solDocs.map(doc => doc.file_url).filter(Boolean);
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: fileUrls.length > 0 ? fileUrls : undefined,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            technical_match: { type: "number" },
+            technical_reasoning: { type: "string" },
+            past_performance: { type: "number" },
+            past_performance_reasoning: { type: "string" },
+            relationship: { type: "number" },
+            relationship_reasoning: { type: "string" },
+            compliance: { type: "number" },
+            compliance_reasoning: { type: "string" },
+            timeline: { type: "number" },
+            timeline_reasoning: { type: "string" },
+            staff: { type: "number" },
+            staff_reasoning: { type: "string" },
+            total_score: { type: "number" },
+            recommendation: { type: "string" }
+          }
+        }
+      });
+
+      await trackTokenUsage(5000, prompt, JSON.stringify(result), "gemini");
+
+      setEvaluationResult(result);
+      
+      await base44.entities.Proposal.update(proposalId, {
+        match_score: result.total_score
+      });
+      
+      setProposalData({...proposalData, match_score: result.total_score});
+    } catch (error) {
+      console.error("Error evaluating:", error);
+      alert("Error during evaluation. Please try again.");
+    }
+    setIsEvaluating(false);
   };
-
-  const handleGenerateAndSave = async (sectionType, customPrompt) => {
-    const content = await generateSection(sectionType, customPrompt);
-    const sectionLabel = SECTION_TYPES.find(t => t.value === sectionType)?.label || sectionType;
-    
-    await createMutation.mutateAsync({
-      section_name: sectionLabel,
-      section_type: sectionType,
-      content: content,
-      status: "ai_generated",
-      ai_prompt_used: customPrompt
-    });
-  };
-
-  const handleUpdateContent = (sectionId, content) => {
-    updateMutation.mutate({
-      id: sectionId,
-      data: { content, status: "reviewed" }
-    });
-  };
-
-  const exportToWord = () => {
-    const sortedSections = [...sections].sort((a, b) => a.order - b.order);
-    let docContent = `${proposalData.proposal_name}\n\n`;
-    docContent += `Solicitation: ${proposalData.solicitation_number}\n`;
-    docContent += `Agency: ${proposalData.agency_name}\n\n`;
-    docContent += "=".repeat(50) + "\n\n";
-
-    sortedSections.forEach(section => {
-      docContent += `\n${section.section_name.toUpperCase()}\n`;
-      docContent += "-".repeat(section.section_name.length) + "\n\n";
-      docContent += section.content.replace(/<[^>]*>/g, '') + "\n\n";
-    });
-
-    const blob = new Blob([docContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${proposalData.proposal_name || 'proposal'}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  if (!proposalId) {
-    return (
-      <Card className="border-none shadow-xl">
-        <CardContent className="p-12 text-center">
-          <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-600">Please save your proposal in previous phases first</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <Card className="border-none shadow-xl">
-        <CardHeader className="border-b">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Wand2 className="w-5 h-5 text-indigo-600" />
-                Phase 4: AI Proposal Writer
-              </CardTitle>
-              <CardDescription>Generate and edit proposal sections with AI assistance</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={exportToWord}
-                disabled={sections.length === 0}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                onClick={() => setShowNewSection(true)}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Section
-              </Button>
+    <Card className="border-none shadow-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-purple-600" />
+          Phase 4: AI Evaluator
+        </CardTitle>
+        <CardDescription>
+          Get an AI-powered match score to qualify this opportunity
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <h3 className="font-semibold text-purple-900 mb-2">Evaluation Criteria (100 points total)</h3>
+          <div className="space-y-2">
+            {EVALUATION_CRITERIA.map((criteria, idx) => (
+              <div key={idx} className="flex justify-between text-sm">
+                <span className="text-purple-700">{criteria.name}</span>
+                <span className="font-medium text-purple-900">{criteria.maxPoints} pts</span>
+              </div>
+            ))}
+            <div className="border-t border-purple-200 pt-2 mt-2">
+              <p className="text-sm text-purple-600 mb-2">Custom Criteria (4 categories x 5 points each)</p>
+              {customCriteria.map((custom, idx) => (
+                <div key={idx} className="flex gap-2 mb-2">
+                  <Input
+                    placeholder={`Custom criterion ${idx + 1}`}
+                    value={custom.name}
+                    onChange={(e) => {
+                      const updated = [...customCriteria];
+                      updated[idx].name = e.target.value;
+                      setCustomCriteria(updated);
+                    }}
+                    className="text-sm"
+                  />
+                  <Input
+                    type="number"
+                    value={custom.points}
+                    className="w-20 text-sm"
+                    min="0"
+                    max="5"
+                    onChange={(e) => {
+                      const updated = [...customCriteria];
+                      updated[idx].points = parseInt(e.target.value) || 0;
+                      setCustomCriteria(updated);
+                    }}
+                  />
+                </div>
+              ))}
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <Tabs defaultValue="sections" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="sections">Proposal Sections ({sections.length})</TabsTrigger>
-              <TabsTrigger value="generator">AI Generator</TabsTrigger>
-            </TabsList>
+        </div>
 
-            <TabsContent value="sections" className="space-y-4">
-              {sections.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="mb-4">No sections created yet</p>
-                  <Button onClick={() => setShowNewSection(true)}>
-                    Create First Section
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sections.map((section) => (
-                    <Card key={section.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">{section.section_name}</CardTitle>
-                            <div className="flex gap-2 mt-2">
-                              <Badge variant="outline">{section.section_type.replace(/_/g, ' ')}</Badge>
-                              <Badge variant={
-                                section.status === 'approved' ? 'default' :
-                                section.status === 'reviewed' ? 'secondary' :
-                                'outline'
-                              }>
-                                {section.status}
-                              </Badge>
-                              <span className="text-xs text-slate-500">
-                                {section.word_count || 0} words
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setActiveSection(section)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteMutation.mutate(section.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div 
-                          className="prose prose-sm max-w-none text-slate-700 line-clamp-3"
-                          dangerouslySetInnerHTML={{ __html: section.content }}
-                        />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+        <Button
+          onClick={handleEvaluate}
+          disabled={isEvaluating}
+          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+          size="lg"
+        >
+          {isEvaluating ? (
+            <>
+              <Sparkles className="w-5 h-5 mr-2 animate-spin" />
+              Evaluating with AI...
+            </>
+          ) : (
+            <>
+              <TrendingUp className="w-5 h-5 mr-2" />
+              Start AI Evaluation
+            </>
+          )}
+        </Button>
 
-            <TabsContent value="generator" className="space-y-4">
-              <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-indigo-900">
-                    <Sparkles className="w-5 h-5" />
-                    Quick Section Generator
-                  </CardTitle>
-                  <CardDescription>Generate common proposal sections with one click</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {SECTION_TYPES.filter(t => t.value !== 'custom').map((type) => (
-                      <Button
-                        key={type.value}
-                        variant="outline"
-                        className="justify-start h-auto p-4"
-                        onClick={() => handleGenerateAndSave(type.value, "")}
-                        disabled={isGenerating}
-                      >
-                        <div className="flex items-center gap-3 w-full">
-                          {isGenerating ? (
-                            <Sparkles className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-indigo-600" />
-                          )}
-                          <span className="flex-1 text-left">{type.label}</span>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-purple-200">
-                <CardHeader>
-                  <CardTitle>Custom Section Generator</CardTitle>
-                  <CardDescription>Create a custom section with specific instructions</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Section Type</Label>
-                    <Select
-                      value={newSectionData.section_type}
-                      onValueChange={(value) => setNewSectionData({...newSectionData, section_type: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECTION_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Section Name</Label>
-                    <Input
-                      value={newSectionData.section_name}
-                      onChange={(e) => setNewSectionData({...newSectionData, section_name: e.target.value})}
-                      placeholder="Enter section name"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Custom Instructions (Optional)</Label>
-                    <Textarea
-                      value={newSectionData.ai_prompt_used || ""}
-                      onChange={(e) => setNewSectionData({...newSectionData, ai_prompt_used: e.target.value})}
-                      placeholder="Provide specific instructions for the AI..."
-                      rows={4}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={() => handleGenerateAndSave(newSectionData.section_type, newSectionData.ai_prompt_used)}
-                    disabled={isGenerating || !newSectionData.section_name}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-4 h-4 mr-2" />
-                        Generate Section
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      {activeSection && (
-        <Card className="border-none shadow-2xl">
-          <CardHeader className="border-b bg-gradient-to-r from-indigo-50 to-purple-50">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Edit: {activeSection.section_name}</CardTitle>
-                <CardDescription className="mt-1">
-                  Make changes and save when ready
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => setActiveSection(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg border">
-                <ReactQuill
-                  theme="snow"
-                  value={activeSection.content}
-                  onChange={(content) => setActiveSection({...activeSection, content})}
-                  style={{ minHeight: '400px' }}
-                  modules={{
-                    toolbar: [
-                      [{ 'header': [1, 2, 3, false] }],
-                      ['bold', 'italic', 'underline', 'strike'],
-                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                      [{ 'indent': '-1'}, { 'indent': '+1' }],
-                      ['link'],
-                      ['clean']
-                    ]
-                  }}
-                />
-              </div>
-
-              <div className="flex justify-between items-center pt-4">
-                <div className="text-sm text-slate-600">
-                  Word count: {activeSection.content.replace(/<[^>]*>/g, '').split(/\s+/).length}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      const content = await generateSection(activeSection.section_type, "Regenerate this section with improvements");
-                      setActiveSection({...activeSection, content});
-                    }}
-                    disabled={isGenerating}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Regenerate
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      handleUpdateContent(activeSection.id, activeSection.content);
-                      setActiveSection(null);
-                    }}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </Button>
+        {evaluationResult && (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-bold text-slate-900">Match Score</h3>
+                <div className="text-5xl font-bold text-green-600">
+                  {evaluationResult.total_score}/100
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {showNewSection && (
-        <Card className="border-none shadow-2xl">
-          <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Create New Section</CardTitle>
-                <CardDescription className="mt-1">
-                  Write your own content or generate with AI
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => setShowNewSection(false)}
-              >
-                Close
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Section Name *</Label>
-                <Input
-                  value={newSectionData.section_name}
-                  onChange={(e) => setNewSectionData({...newSectionData, section_name: e.target.value})}
-                  placeholder="e.g., Executive Summary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Section Type</Label>
-                <Select
-                  value={newSectionData.section_type}
-                  onValueChange={(value) => setNewSectionData({...newSectionData, section_type: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SECTION_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Progress value={evaluationResult.total_score} className="h-3" />
+              <p className="text-sm text-slate-600 mt-4">
+                {evaluationResult.total_score >= 70 ? (
+                  <span className="flex items-center gap-2 text-green-700">
+                    <CheckCircle2 className="w-5 h-5" />
+                    Strong match - Recommended to pursue
+                  </span>
+                ) : evaluationResult.total_score >= 50 ? (
+                  <span className="flex items-center gap-2 text-amber-700">
+                    <AlertCircle className="w-5 h-5" />
+                    Moderate match - Consider carefully
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-red-700">
+                    <AlertCircle className="w-5 h-5" />
+                    Weak match - May not be ideal
+                  </span>
+                )}
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Content</Label>
-              <div className="bg-white rounded-lg border">
-                <ReactQuill
-                  theme="snow"
-                  value={newSectionData.content}
-                  onChange={(content) => setNewSectionData({...newSectionData, content})}
-                  placeholder="Write your content here or use the AI generator..."
-                  style={{ minHeight: '300px' }}
-                />
+            <div className="space-y-3">
+              <h4 className="font-semibold text-slate-900">Detailed Breakdown</h4>
+              
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex justify-between mb-1">
+                  <span className="font-medium">Technical Match</span>
+                  <span>{evaluationResult.technical_match}/30</span>
+                </div>
+                <p className="text-sm text-slate-600">{evaluationResult.technical_reasoning}</p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex justify-between mb-1">
+                  <span className="font-medium">Past Performance</span>
+                  <span>{evaluationResult.past_performance}/15</span>
+                </div>
+                <p className="text-sm text-slate-600">{evaluationResult.past_performance_reasoning}</p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex justify-between mb-1">
+                  <span className="font-medium">Agency Relationship</span>
+                  <span>{evaluationResult.relationship}/15</span>
+                </div>
+                <p className="text-sm text-slate-600">{evaluationResult.relationship_reasoning}</p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex justify-between mb-1">
+                  <span className="font-medium">Compliance</span>
+                  <span>{evaluationResult.compliance}/10</span>
+                </div>
+                <p className="text-sm text-slate-600">{evaluationResult.compliance_reasoning}</p>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  const content = await generateSection(newSectionData.section_type, "");
-                  setNewSectionData({...newSectionData, content});
-                }}
-                disabled={isGenerating}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate with AI
-              </Button>
-              <Button
-                onClick={() => createMutation.mutate(newSectionData)}
-                disabled={!newSectionData.section_name || !newSectionData.content}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Save Section
-              </Button>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-2">AI Recommendation</h4>
+              <p className="text-sm text-blue-800">{evaluationResult.recommendation}</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

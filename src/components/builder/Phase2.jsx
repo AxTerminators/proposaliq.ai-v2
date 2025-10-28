@@ -1,20 +1,72 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { 
+  FileText, 
+  Upload, 
+  CheckCircle2,
+  Circle,
+  BookOpen,
+  FileCheck,
+  Search,
+  Eye
+} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const [uploadingFiles, setUploadingFiles] = useState([]);
-  const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [selectedReferences, setSelectedReferences] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Load previously submitted/completed proposals
+  const { data: pastProposals } = useQuery({
+    queryKey: ['past-proposals'],
+    queryFn: async () => {
+      const proposals = await base44.entities.Proposal.filter(
+        { status: { $in: ['submitted', 'won'] } },
+        '-created_date'
+      );
+      return proposals;
+    },
+    initialData: []
+  });
+
+  // Load proposal resources (templates and samples)
+  const { data: resources } = useQuery({
+    queryKey: ['proposal-resources'],
+    queryFn: () => base44.entities.ProposalResource.filter(
+      { resource_type: { $in: ['past_proposal', 'capability_statement', 'marketing_collateral'] } },
+      '-created_date'
+    ),
+    initialData: []
+  });
+
+  // Load existing reference docs for this proposal
+  const { data: existingRefs } = useQuery({
+    queryKey: ['reference-docs', proposalId],
+    queryFn: () => proposalId 
+      ? base44.entities.SolicitationDocument.filter({ 
+          proposal_id: proposalId,
+          document_type: 'reference'
+        })
+      : [],
+    initialData: [],
+    enabled: !!proposalId
+  });
+
+  useEffect(() => {
+    if (existingRefs.length > 0) {
+      setSelectedReferences(existingRefs.map(ref => ref.file_url));
+    }
+  }, [existingRefs]);
 
   const handleFileUpload = async (files) => {
     if (!proposalId) {
-      alert("Please save the proposal first (complete Phase 1)");
+      alert("Please complete Phase 1 first to save the proposal");
       return;
     }
 
@@ -25,13 +77,14 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
         
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
-          document_type: "other",
+          document_type: "reference",
           file_name: file.name,
           file_url: file_url,
-          file_size: file.size
+          file_size: file.size,
+          description: "Reference document for proposal writing"
         });
         
-        setUploadedDocs(prev => [...prev, { name: file.name, url: file_url }]);
+        setSelectedReferences(prev => [...prev, file_url]);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
       } catch (error) {
         console.error("Error uploading file:", error);
@@ -40,140 +93,298 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     }
   };
 
+  const handleSelectPastProposal = async (proposal) => {
+    if (!proposalId) {
+      alert("Please complete Phase 1 first");
+      return;
+    }
+
+    try {
+      // Get all sections from the past proposal
+      const sections = await base44.entities.ProposalSection.filter(
+        { proposal_id: proposal.id },
+        'order'
+      );
+
+      // Create a reference document that links to this past proposal
+      await base44.entities.SolicitationDocument.create({
+        proposal_id: proposalId,
+        document_type: "reference",
+        file_name: `Reference: ${proposal.proposal_name}`,
+        file_url: `proposal:${proposal.id}`,
+        description: `Past proposal: ${proposal.proposal_name} - ${sections.length} sections`
+      });
+
+      setSelectedReferences(prev => [...prev, `proposal:${proposal.id}`]);
+    } catch (error) {
+      console.error("Error selecting past proposal:", error);
+    }
+  };
+
+  const handleSelectResource = async (resource) => {
+    if (!proposalId) {
+      alert("Please complete Phase 1 first");
+      return;
+    }
+
+    try {
+      await base44.entities.SolicitationDocument.create({
+        proposal_id: proposalId,
+        document_type: "reference",
+        file_name: resource.file_name,
+        file_url: resource.file_url,
+        file_size: resource.file_size,
+        description: `Resource: ${resource.resource_type}`
+      });
+
+      setSelectedReferences(prev => [...prev, resource.file_url]);
+    } catch (error) {
+      console.error("Error selecting resource:", error);
+    }
+  };
+
+  const isSelected = (identifier) => selectedReferences.includes(identifier);
+
+  const filteredProposals = pastProposals.filter(p =>
+    p.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.agency_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredResources = resources.filter(r =>
+    r.file_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-blue-600" />
-          Phase 2: Solicitation Details
+          <BookOpen className="w-5 h-5 text-indigo-600" />
+          Phase 2: Referenced Documents
         </CardTitle>
         <CardDescription>
-          Add information about the opportunity and upload documents
+          Select past proposals, templates, or upload reference documents to guide AI generation
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="project_type">Project Type</Label>
-            <Select
-              value={proposalData.project_type}
-              onValueChange={(value) => setProposalData({...proposalData, project_type: value})}
-            >
-              <SelectTrigger id="project_type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="RFP">RFP - Request for Proposal</SelectItem>
-                <SelectItem value="RFQ">RFQ - Request for Quotation</SelectItem>
-                <SelectItem value="RFI">RFI - Request for Information</SelectItem>
-                <SelectItem value="IFB">IFB - Invitation for Bid</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+        {!proposalId && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-amber-800 text-sm">
+              ⚠️ Please complete Phase 1 and save your proposal before adding references
+            </p>
+          </div>
+        )}
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+            <FileCheck className="w-4 h-4" />
+            Why Add References?
+          </h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• AI will analyze your reference documents to match writing style and tone</li>
+            <li>• Past winning proposals help generate similar high-quality content</li>
+            <li>• Templates ensure compliance with required formats</li>
+            <li>• References improve relevance and accuracy of AI-generated sections</li>
+          </ul>
+        </div>
+
+        {selectedReferences.length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-800 font-medium mb-2">
+              ✓ {selectedReferences.length} reference document(s) selected
+            </p>
+            <p className="text-xs text-green-700">
+              These will be used by AI in Phase 5 to generate proposal content
+            </p>
+          </div>
+        )}
+
+        <Tabs defaultValue="past" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="past">Past Proposals</TabsTrigger>
+            <TabsTrigger value="resources">Templates & Samples</TabsTrigger>
+            <TabsTrigger value="upload">Upload New</TabsTrigger>
+          </TabsList>
+
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Input
+              placeholder="Search references..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
-          {proposalData.project_type === "Other" && (
-            <div className="space-y-2">
-              <Label htmlFor="project_type_other">Specify Type</Label>
-              <Input
-                id="project_type_other"
-                value={proposalData.project_type_other || ""}
-                onChange={(e) => setProposalData({...proposalData, project_type_other: e.target.value})}
-                placeholder="Enter project type"
+          <TabsContent value="past" className="space-y-3">
+            {filteredProposals.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p className="mb-2">No past proposals found</p>
+                <p className="text-sm text-slate-400">
+                  Complete more proposals to build your reference library
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {filteredProposals.map((proposal) => (
+                  <div
+                    key={proposal.id}
+                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                      isSelected(`proposal:${proposal.id}`)
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
+                    }`}
+                    onClick={() => !isSelected(`proposal:${proposal.id}`) && handleSelectPastProposal(proposal)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-slate-900">{proposal.proposal_name}</h3>
+                          {isSelected(`proposal:${proposal.id}`) && (
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-600 mb-2">
+                          {proposal.agency_name} • {proposal.project_type}
+                        </p>
+                        <div className="flex gap-2">
+                          <Badge className={
+                            proposal.status === 'won' ? 'bg-green-100 text-green-700' :
+                            'bg-purple-100 text-purple-700'
+                          }>
+                            {proposal.status}
+                          </Badge>
+                          {proposal.match_score && (
+                            <Badge variant="outline">
+                              Match: {proposal.match_score}/100
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {!isSelected(`proposal:${proposal.id}`) ? (
+                        <Circle className="w-6 h-6 text-slate-300" />
+                      ) : (
+                        <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="resources" className="space-y-3">
+            {filteredResources.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p className="mb-2">No templates or samples found</p>
+                <p className="text-sm text-slate-400">
+                  Upload resources in the Resources page
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {filteredResources.map((resource) => (
+                  <div
+                    key={resource.id}
+                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                      isSelected(resource.file_url)
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
+                    }`}
+                    onClick={() => !isSelected(resource.file_url) && handleSelectResource(resource)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <FileText className="w-8 h-8 text-indigo-500" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-slate-900">{resource.file_name}</h3>
+                            {isSelected(resource.file_url) && (
+                              <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            )}
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {resource.resource_type?.replace(/_/g, ' ')}
+                            </Badge>
+                            <span className="text-xs text-slate-500">
+                              {(resource.file_size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a 
+                          href={resource.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button variant="ghost" size="icon">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </a>
+                        {!isSelected(resource.file_url) ? (
+                          <Circle className="w-6 h-6 text-slate-300" />
+                        ) : (
+                          <CheckCircle2 className="w-6 h-6 text-green-600" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="upload" className="space-y-4">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-indigo-400 transition-colors bg-white">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.xlsx,.txt"
+                onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+                className="hidden"
+                id="reference-upload"
+                disabled={!proposalId}
               />
+              <label htmlFor="reference-upload" className={!proposalId ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                <Upload className="w-16 h-16 mx-auto text-slate-400 mb-4" />
+                <p className="text-slate-700 font-medium mb-2">
+                  {!proposalId ? 'Complete Phase 1 first' : 'Click to upload reference documents'}
+                </p>
+                <p className="text-sm text-slate-500">
+                  PDF, DOCX, XLSX, TXT up to 30MB
+                </p>
+              </label>
             </div>
-          )}
-        </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="solicitation_number">Solicitation Number</Label>
-            <Input
-              id="solicitation_number"
-              value={proposalData.solicitation_number}
-              onChange={(e) => setProposalData({...proposalData, solicitation_number: e.target.value})}
-              placeholder="e.g., W912DY24R0001"
-            />
-          </div>
+            {uploadingFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">Uploading...</p>
+                {uploadingFiles.map((name, idx) => (
+                  <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                      <span className="text-sm text-blue-900">{name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="agency_name">Agency Name</Label>
-            <Input
-              id="agency_name"
-              value={proposalData.agency_name}
-              onChange={(e) => setProposalData({...proposalData, agency_name: e.target.value})}
-              placeholder="e.g., Department of Defense"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="project_title">Project Title</Label>
-          <Input
-            id="project_title"
-            value={proposalData.project_title}
-            onChange={(e) => setProposalData({...proposalData, project_title: e.target.value})}
-            placeholder="Brief description of the project"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="due_date">Due Date</Label>
-          <Input
-            id="due_date"
-            type="date"
-            value={proposalData.due_date}
-            onChange={(e) => setProposalData({...proposalData, due_date: e.target.value})}
-          />
-        </div>
-
-        <div className="border-t pt-6">
-          <h3 className="font-semibold mb-4">Upload Solicitation Documents</h3>
-          <p className="text-sm text-slate-600 mb-4">
-            Upload RFP, SOW, PWS, pricing sheets, and other relevant documents (PDF, DOCX, XLSX, CSV, PNG, JPG up to 30MB)
-          </p>
-          
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.docx,.xlsx,.csv,.png,.jpg,.jpeg"
-              onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-              className="hidden"
-              id="file-upload"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-              <p className="text-slate-700 font-medium mb-1">Click to upload files</p>
-              <p className="text-sm text-slate-500">or drag and drop</p>
-            </label>
-          </div>
-
-          {uploadingFiles.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-slate-600 mb-2">Uploading...</p>
-              {uploadingFiles.map((name, idx) => (
-                <Badge key={idx} variant="secondary" className="mr-2 mb-2">
-                  {name}
-                </Badge>
-              ))}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+              <h4 className="font-semibold text-indigo-900 mb-2">Upload Tips</h4>
+              <ul className="text-sm text-indigo-800 space-y-1">
+                <li>• Upload your best past proposals as templates</li>
+                <li>• Include capability statements and past performance docs</li>
+                <li>• Add style guides or company-specific writing samples</li>
+                <li>• The more quality references, the better AI will perform</li>
+              </ul>
             </div>
-          )}
-
-          {uploadedDocs.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium text-slate-700">Uploaded Documents:</p>
-              {uploadedDocs.map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                  <span className="text-sm">{doc.name}</span>
-                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
-                    View
-                  </a>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
