@@ -15,7 +15,19 @@
         "tech_support",
         "marketing_manager"
       ],
-      "description": "Admin role with specific permissions"
+      "description": "Admin role with specific permissions for platform management"
+    },
+    "organization_app_role": {
+      "type": "string",
+      "enum": [
+        "proposal_manager",
+        "writer",
+        "reviewer",
+        "guest",
+        "viewer"
+      ],
+      "default": "viewer",
+      "description": "Application role within their subscribing organization for proposal collaboration"
     },
     "mfa_enabled": {
       "type": "boolean",
@@ -32,5 +44,6 @@
       "default": true,
       "description": "Account active status"
     }
-  }
+  },
+  "required": []
 }

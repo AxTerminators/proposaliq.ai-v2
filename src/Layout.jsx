@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -12,7 +13,8 @@ import {
   MessageCircle,
   Shield,
   CreditCard,
-  DollarSign
+  DollarSign,
+  Settings // Added Settings icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +64,11 @@ const navigationItems = [
     title: "Pricing",
     url: createPageUrl("Pricing"),
     icon: DollarSign,
+  },
+  {
+    title: "Settings", // Added Settings item
+    url: createPageUrl("Settings"),
+    icon: Settings,
   },
 ];
 
