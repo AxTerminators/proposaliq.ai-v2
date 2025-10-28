@@ -19,6 +19,15 @@ import {
 import { ROLE_PERMISSIONS, canAccessModule } from "../components/admin/PermissionChecker";
 import SubscribersModule from "../components/admin/SubscribersModule";
 import AuditLogModule from "../components/admin/AuditLogModule";
+import BillingModule from "../components/admin/BillingModule";
+import AIConfigModule from "../components/admin/AIConfigModule";
+import ContentLibraryModule from "../components/admin/ContentLibraryModule";
+import SecurityModule from "../components/admin/SecurityModule";
+import SystemHealthModule from "../components/admin/SystemHealthModule";
+import ReportsModule from "../components/admin/ReportsModule";
+import RolesModule from "../components/admin/RolesModule";
+import WorkflowModule from "../components/admin/WorkflowModule";
+import MarketingModule from "../components/admin/MarketingModule";
 
 export default function AdminPortal() {
   const [user, setUser] = useState(null);
@@ -73,70 +82,70 @@ export default function AdminPortal() {
       label: "Roles & Permissions",
       icon: Shield,
       description: "Manage admin roles",
-      component: <div className="p-8 text-center text-slate-500">Role management module - Coming soon</div>
+      component: <RolesModule currentUser={user} />
     },
     {
       id: "content",
       label: "Content Library",
       icon: FileText,
       description: "Templates and assets",
-      component: <div className="p-8 text-center text-slate-500">Content library module - Coming soon</div>
+      component: <ContentLibraryModule currentUser={user} />
     },
     {
       id: "workflow",
       label: "Workflow Dashboard",
       icon: Activity,
       description: "Proposal tracking",
-      component: <div className="p-8 text-center text-slate-500">Workflow dashboard - Coming soon</div>
+      component: <WorkflowModule currentUser={user} />
     },
     {
       id: "billing",
       label: "Billing & Invoices",
       icon: DollarSign,
       description: "Payment management",
-      component: <div className="p-8 text-center text-slate-500">Billing module - Coming soon</div>
+      component: <BillingModule currentUser={user} />
     },
     {
       id: "ai",
       label: "AI & Automation",
       icon: Brain,
       description: "AI settings and models",
-      component: <div className="p-8 text-center text-slate-500">AI configuration - Coming soon</div>
+      component: <AIConfigModule currentUser={user} />
     },
     {
       id: "security",
       label: "Security",
       icon: Lock,
       description: "Security settings",
-      component: <div className="p-8 text-center text-slate-500">Security module - Coming soon</div>
+      component: <SecurityModule currentUser={user} />
     },
     {
       id: "marketing",
       label: "Marketing",
       icon: Megaphone,
       description: "Public pages and comms",
-      component: <div className="p-8 text-center text-slate-500">Marketing module - Coming soon</div>
+      component: <MarketingModule currentUser={user} />
     },
     {
       id: "system",
       label: "System Health",
       icon: Settings,
       description: "Logs and maintenance",
-      component: <div className="p-8 text-center text-slate-500">System health - Coming soon</div>
+      component: <SystemHealthModule currentUser={user} />
     },
     {
       id: "reports",
       label: "Reports",
       icon: TrendingUp,
       description: "Analytics and KPIs",
-      component: <div className="p-8 text-center text-slate-500">Reports module - Coming soon</div>
+      component: <ReportsModule currentUser={user} />
     },
     {
       id: "audit",
       label: "Audit Logs",
       icon: ScrollText,
       description: "Admin action history",
-      component: <AuditLogModule />
+      component: <AuditLogModule currentUser={user} />
     }
   ];
 
