@@ -13,22 +13,7 @@
         "viewer"
       ],
       "default": "proposal_writer",
-      "description": "Organization-level role for permissions within their org"
-    },
-    "super_admin_role": {
-      "type": "string",
-      "enum": [
-        "owner",
-        "ops_admin",
-        "content_manager",
-        "billing_manager",
-        "ai_manager",
-        "security_officer",
-        "reviewer",
-        "tech_support",
-        "marketing_manager"
-      ],
-      "description": "Platform-wide super admin role for managing the entire app"
+      "description": "User role for permissions"
     },
     "organization_id": {
       "type": "string",
@@ -96,6 +81,5 @@
       "type": "string",
       "description": "User job title"
     }
-  },
-  "required": []
+  }
 }
