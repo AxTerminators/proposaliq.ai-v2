@@ -26,13 +26,11 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
   // New AI Scoring state
   const [isScoring, setIsScoring] = useState(false);
   const [aiScore, setAiScore] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
 
   React.useEffect(() => {
     const loadOrgId = async () => {
       try {
         const user = await base44.auth.me();
-        setCurrentUser(user);
         const orgs = await base44.entities.Organization.filter(
           { created_by: user.email },
           '-created_date',
@@ -67,14 +65,10 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
 
   const trackTokenUsage = async (tokens, prompt, response) => {
     try {
-      if (!currentUser || !currentOrgId) {
-        console.warn("Cannot track tokens: missing user or org");
-        return;
-      }
-
+      const user = await base44.auth.me();
       await base44.entities.TokenUsage.create({
         organization_id: currentOrgId,
-        user_email: currentUser.email,
+        user_email: user.email,
         feature_type: "evaluation",
         tokens_used: tokens,
         llm_provider: "gemini",
@@ -96,23 +90,15 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
 
   const runEvaluation = async () => {
     if (!proposalId || !currentOrgId) {
-      alert("Please save the proposal first before running evaluation");
+      alert("Please save the proposal first");
       return;
     }
 
     setIsEvaluating(true);
     try {
-      console.log("Starting evaluation...", { proposalId, currentOrgId });
-
       // Get organization details
       const orgs = await base44.entities.Organization.filter({ id: currentOrgId });
       const organization = orgs.length > 0 ? orgs[0] : null;
-
-      if (!organization) {
-        throw new Error("Organization not found");
-      }
-
-      console.log("Organization loaded:", organization.organization_name);
 
       // Get solicitation documents
       const solicitationDocs = await base44.entities.SolicitationDocument.filter({
@@ -120,28 +106,20 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
         organization_id: currentOrgId
       });
 
-      console.log("Solicitation documents:", solicitationDocs.length);
-
       // Get teaming partners
       const partners = await base44.entities.TeamingPartner.filter({
         organization_id: currentOrgId
       });
-
-      console.log("Teaming partners:", partners.length);
 
       // Get capability statements and resources
       const resources = await base44.entities.ProposalResource.filter({
         organization_id: currentOrgId
       });
 
-      console.log("Resources:", resources.length);
-
       const fileUrls = solicitationDocs
         .filter(doc => doc.file_url)
         .map(doc => doc.file_url)
         .slice(0, 10);
-
-      console.log("File URLs for AI:", fileUrls.length);
 
       const prompt = `You are an expert proposal evaluator and capture manager for government contracts. Conduct a comprehensive strategic analysis of this opportunity.
 
@@ -255,8 +233,6 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 - Provide honest assessment - don't sugarcoat weaknesses
 - Extract ALL mandatory requirements and deadlines from the solicitation`;
 
-      console.log("Sending prompt to AI...");
-
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
@@ -278,8 +254,6 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         }
       });
 
-      console.log("AI response received:", result);
-
       await trackTokenUsage(15000, prompt, JSON.stringify(result));
       setEvaluation(result);
 
@@ -290,25 +264,21 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         evaluation_date: new Date().toISOString()
       });
 
-      console.log("Evaluation saved successfully");
-
     } catch (error) {
       console.error("Error running evaluation:", error);
-      alert(`Error running evaluation: ${error.message}. Please try again.`);
+      alert("Error running evaluation. Please try again.");
     }
     setIsEvaluating(false);
   };
 
   const runAIScoring = async () => {
     if (!proposalId || !currentOrgId) {
-      alert("Please save the proposal first before running AI scoring");
+      alert("Please save the proposal first");
       return;
     }
 
     setIsScoring(true);
     try {
-      console.log("Starting AI confidence scoring...", { proposalId, currentOrgId });
-
       // Gather comprehensive data
       const [
         organization,
@@ -332,21 +302,6 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         base44.entities.PricingStrategy.filter({ proposal_id: proposalId }).then(r => r.length > 0 ? r[0] : null)
       ]);
 
-      if (!organization) {
-        throw new Error("Organization not found");
-      }
-
-      console.log("Data loaded:", {
-        organization: organization.organization_name,
-        solicitationDocs: solicitationDocs.length,
-        proposalSections: proposalSections.length,
-        pastPerformance: pastPerformance.length,
-        competitors: competitors.length,
-        winThemes: winThemes.length,
-        complianceReqs: complianceReqs.length,
-        allProposals: allProposals.length
-      });
-
       // Calculate historical win rate
       const completedProposals = allProposals.filter(p => ['won', 'lost'].includes(p.status));
       const wonProposals = completedProposals.filter(p => p.status === 'won');
@@ -359,8 +314,6 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         .filter(doc => doc.file_url)
         .map(doc => doc.file_url)
         .slice(0, 8);
-
-      console.log("File URLs for AI:", fileUrls.length);
 
       const prompt = `You are an elite AI proposal evaluator with expertise in government contracting, bid/no-bid analysis, and predictive win probability modeling.
 
@@ -497,8 +450,6 @@ Return a comprehensive JSON analysis with:
 
 **CRITICAL:** Be brutally honest. Identify real weaknesses. Provide specific, actionable feedback. Base all analysis on the actual data and documents provided.`;
 
-      console.log("Sending prompt to AI for confidence scoring...");
-
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
@@ -525,8 +476,6 @@ Return a comprehensive JSON analysis with:
         }
       });
 
-      console.log("AI confidence score received:", result);
-
       await trackTokenUsage(20000, prompt, JSON.stringify(result));
       setAiScore(result);
 
@@ -536,11 +485,9 @@ Return a comprehensive JSON analysis with:
         ai_score_date: new Date().toISOString()
       });
 
-      console.log("AI confidence score saved successfully");
-
     } catch (error) {
       console.error("Error running AI scoring:", error);
-      alert(`Error running AI scoring: ${error.message}. Please try again.`);
+      alert("Error running AI scoring. Please try again.");
     }
     setIsScoring(false);
   };
@@ -607,15 +554,6 @@ Return a comprehensive JSON analysis with:
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {!currentOrgId && (
-                <Alert className="bg-amber-50 border-amber-200">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
-                  <AlertDescription className="text-amber-900">
-                    Loading organization data... Please wait.
-                  </AlertDescription>
-                </Alert>
-              )}
-
               {!aiScore && (
                 <div className="text-center py-12">
                   <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -628,7 +566,7 @@ Return a comprehensive JSON analysis with:
                   </p>
                   <Button
                     onClick={runAIScoring}
-                    disabled={isScoring || !currentOrgId}
+                    disabled={isScoring}
                     size="lg"
                     className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                   >
@@ -968,7 +906,7 @@ Return a comprehensive JSON analysis with:
                   <div className="flex gap-3 pt-6 border-t">
                     <Button
                       onClick={runAIScoring}
-                      disabled={isScoring || !currentOrgId}
+                      disabled={isScoring}
                       variant="outline"
                       className="flex-1"
                     >
@@ -995,16 +933,7 @@ Return a comprehensive JSON analysis with:
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {!currentOrgId && (
-                <Alert className="bg-amber-50 border-amber-200">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
-                  <AlertDescription className="text-amber-900">
-                    Loading organization data... Please wait.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {!evaluation && !isEvaluating && (
+              {!evaluation && (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <Target className="w-8 h-8 text-purple-600" />
@@ -1016,7 +945,7 @@ Return a comprehensive JSON analysis with:
                   </p>
                   <Button
                     onClick={runEvaluation}
-                    disabled={isEvaluating || !currentOrgId}
+                    disabled={isEvaluating}
                     size="lg"
                     className="bg-purple-600 hover:bg-purple-700"
                   >
@@ -1035,17 +964,16 @@ Return a comprehensive JSON analysis with:
                 </div>
               )}
 
-              {isEvaluating && (
-                <Alert className="bg-purple-50 border-purple-200">
-                  <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
-                  <AlertDescription className="text-purple-900">
-                    AI is analyzing your proposal's strategic position... This may take 15-30 seconds.
-                  </AlertDescription>
-                </Alert>
-              )}
-
               {evaluation && (
                 <Tabs defaultValue="overview" className="space-y-6">
+                  <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="requirements">Requirements</TabsTrigger>
+                    <TabsTrigger value="competitive">Competitive</TabsTrigger>
+                    <TabsTrigger value="compliance">Compliance</TabsTrigger>
+                    <TabsTrigger value="strategy">Strategy</TabsTrigger>
+                  </TabsList>
+
                   {/* Overview Tab */}
                   <TabsContent value="overview" className="space-y-6">
                     {/* Score Cards */}
@@ -1513,7 +1441,7 @@ Return a comprehensive JSON analysis with:
                 <div className="flex gap-3 pt-6 border-t">
                   <Button
                     onClick={runEvaluation}
-                    disabled={isEvaluating || !currentOrgId}
+                    disabled={isEvaluating}
                     variant="outline"
                     className="flex-1"
                   >
