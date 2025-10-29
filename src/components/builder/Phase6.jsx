@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import CollaborationPanel from "../collaboration/CollaborationPanel";
 
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -466,9 +468,14 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
   const saveAll = async () => {
     for (const [sectionId, content] of Object.entries(sectionContent)) {
       if (content) {
-        const section = activeSections.find(s => s.id === sectionId);
+        const section = activeSections.find(s => s.id === sectionId) || 
+                        activeSections.flatMap(s => s.subsections).find(s => `${s.parent_id}_${s.id}` === sectionId);
+
         if (section) {
-          await saveContent(sectionId, section.id, content);
+          // Determine the correct sectionName to pass to saveContent
+          // For main sections, it's section.id. For subsections, it might be sub.id or `${parent.id}_${sub.id}`
+          const sectionName = section.id.includes('_') ? section.id.split('_').pop() : section.id;
+          await saveContent(sectionId, sectionName, content);
         }
       }
     }
@@ -601,150 +608,163 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
-          {activeSections.map((section) => (
-            <div key={section.id} className="space-y-4">
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{section.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
-                      <div className="flex gap-2 mt-2">
-                        <Badge variant="outline">{section.wordCount} words target</Badge>
-                        <Badge variant="secondary">{section.tone === "default" ? strategy.tone : section.tone}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => findContentSuggestions(section.id, section.id.replace(/_/g, ' '))}
-                      >
-                        <Lightbulb className="w-4 h-4 mr-2" />
-                        Suggest Content
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewHistory(section.id, section.id.replace(/_/g, ' '))}
-                      >
-                        <History className="w-4 h-4 mr-2" />
-                        History
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ReactQuill
-                    value={sectionContent[section.id] || ""}
-                    onChange={(content) => handleContentChange(section.id, content)}
-                    theme="snow"
-                    className="bg-white min-h-[300px]"
-                  />
-                  
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleUploadContext(section.id)}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Context
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => autoDraft(section.id, section.id.replace(/_/g, ' '), section.wordCount, section.tone)}
-                      disabled={isGenerating[section.id]}
-                    >
-                      {isGenerating[section.id] ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                      )}
-                      {sectionContent[section.id] ? 'Regenerate' : 'Auto-Draft'}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => saveContent(section.id, section.id, sectionContent[section.id])}
-                    >
-                      Save Section
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Subsections */}
-              {section.subsections && section.subsections.map((sub) => (
-                <Card key={sub.id} className="ml-8 border-slate-300">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">{sub.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
-                        <div className="flex gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">{sub.wordCount} words</Badge>
-                          <Badge variant="secondary" className="text-xs">{sub.tone === "default" ? strategy.tone : sub.tone}</Badge>
+          {/* Main Content Grid - Split between Editor and Collaboration */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Sections Editor - Takes 2/3 width */}
+            <div className="lg:col-span-2 space-y-4">
+              {activeSections.map((section) => (
+                <div key={section.id} className="space-y-4">
+                  <Card className="border-blue-200 bg-blue-50">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{section.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
+                          <div className="flex gap-2 mt-2">
+                            <Badge variant="outline">{section.wordCount} words target</Badge>
+                            <Badge variant="secondary">{section.tone === "default" ? strategy.tone : section.tone}</Badge>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => findContentSuggestions(section.id, section.id.replace(/_/g, ' '))}
+                          >
+                            <Lightbulb className="w-4 h-4 mr-2" />
+                            Suggest Content
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewHistory(section.id, section.id.replace(/_/g, ' '))}
+                          >
+                            <History className="w-4 h-4 mr-2" />
+                            History
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <ReactQuill
+                        value={sectionContent[section.id] || ""}
+                        onChange={(content) => handleContentChange(section.id, content)}
+                        theme="snow"
+                        className="bg-white min-h-[300px]"
+                      />
+                      
+                      <div className="flex gap-2 flex-wrap">
                         <Button
-                          variant="ghost"
                           size="sm"
-                          onClick={() => findContentSuggestions(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                          variant="outline"
+                          onClick={() => handleUploadContext(section.id)}
                         >
-                          <Lightbulb className="w-4 h-4 mr-2" />
-                          Suggest
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload Context
                         </Button>
+                        
                         <Button
-                          variant="ghost"
                           size="sm"
-                          onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                          variant="outline"
+                          onClick={() => autoDraft(section.id, section.id.replace(/_/g, ' '), section.wordCount, section.tone)}
+                          disabled={isGenerating[section.id]}
                         >
-                          <History className="w-4 h-4 mr-2" />
-                          History
+                          {isGenerating[section.id] ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                          )}
+                          {sectionContent[section.id] ? 'Regenerate' : 'Auto-Draft'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => saveContent(section.id, section.id, sectionContent[section.id])}
+                        >
+                          Save Section
                         </Button>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ReactQuill
-                      value={sectionContent[`${section.id}_${sub.id}`] || ""}
-                      onChange={(content) => handleContentChange(`${section.id}_${sub.id}`, content)}
-                      theme="snow"
-                      className="bg-white min-h-[250px]"
-                    />
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUploadContext(`${section.id}_${sub.id}`)}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Context
-                      </Button>
-                      
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => autoDraft(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '), sub.wordCount, sub.tone, true)}
-                        disabled={isGenerating[`${section.id}_${sub.id}`]}
-                      >
-                        {isGenerating[`${section.id}_${sub.id}`] ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-4 h-4 mr-2" />
-                        )}
-                        Auto-Draft
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                  {/* Subsections */}
+                  {section.subsections && section.subsections.map((sub) => (
+                    <Card key={sub.id} className="ml-8 border-slate-300">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-base">{sub.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
+                            <div className="flex gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">{sub.wordCount} words</Badge>
+                              <Badge variant="secondary" className="text-xs">{sub.tone === "default" ? strategy.tone : sub.tone}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => findContentSuggestions(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                            >
+                              <Lightbulb className="w-4 h-4 mr-2" />
+                              Suggest
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                            >
+                              <History className="w-4 h-4 mr-2" />
+                              History
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <ReactQuill
+                          value={sectionContent[`${section.id}_${sub.id}`] || ""}
+                          onChange={(content) => handleContentChange(`${section.id}_${sub.id}`, content)}
+                          theme="snow"
+                          className="bg-white min-h-[250px]"
+                        />
+                        
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUploadContext(`${section.id}_${sub.id}`)}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Context
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => autoDraft(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '), sub.wordCount, sub.tone, true)}
+                            disabled={isGenerating[`${section.id}_${sub.id}`]}
+                          >
+                            {isGenerating[`${section.id}_${sub.id}`] ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 mr-2" />
+                            )}
+                            Auto-Draft
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
+
+            {/* Collaboration Panel - Takes 1/3 width */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">
+                <CollaborationPanel proposalId={proposalId} />
+              </div>
+            </div>
+          </div>
 
           <div className="flex gap-4 pt-6 border-t">
             <Button onClick={saveAll} size="lg" className="flex-1">
