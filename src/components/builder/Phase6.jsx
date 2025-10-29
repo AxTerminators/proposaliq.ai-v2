@@ -4,9 +4,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PenTool, Upload, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -15,15 +24,24 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [isGenerating, setIsGenerating] = useState({});
   const [sectionContent, setSectionContent] = useState({});
   const [currentOrgId, setCurrentOrgId] = useState(null);
+  const [user, setUser] = useState(null);
+  
+  // History viewer state
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [selectedSectionForHistory, setSelectedSectionForHistory] = useState(null);
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     const loadStrategy = async () => {
       if (!proposalId) return;
       
       try {
-        const user = await base44.auth.me();
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
         const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
+          { created_by: currentUser.email },
           '-created_date',
           1
         );
@@ -116,6 +134,42 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     return levels[level] || levels.government_plain;
   };
 
+  const createVersionHistory = async (sectionId, sectionName, content, changeType, changeSummary = null) => {
+    try {
+      // Get the section record
+      const sections = await base44.entities.ProposalSection.filter({
+        proposal_id: proposalId,
+        section_id: sectionId
+      });
+
+      if (sections.length === 0) return;
+
+      const section = sections[0];
+
+      // Get existing history to determine next version number
+      const existingHistory = await base44.entities.ProposalSectionHistory.filter({
+        proposal_section_id: section.id
+      }, '-version_number', 1);
+
+      const nextVersion = existingHistory.length > 0 ? existingHistory[0].version_number + 1 : 1;
+      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+
+      // Create history record
+      await base44.entities.ProposalSectionHistory.create({
+        proposal_section_id: section.id,
+        version_number: nextVersion,
+        content: content,
+        changed_by_user_email: user.email,
+        changed_by_user_name: user.full_name || user.email,
+        change_summary: changeSummary || `${changeType.replace(/_/g, ' ')}`,
+        word_count: wordCount,
+        change_type: changeType
+      });
+    } catch (error) {
+      console.error("Error creating version history:", error);
+    }
+  };
+
   const autoDraft = async (sectionId, sectionName, wordCount, tone, isSubsection = false) => {
     if (!proposalId || !currentOrgId) {
       alert("Please save the proposal first");
@@ -197,23 +251,31 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         section_id: sectionId
       });
 
+      const wordCountActual = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+
       if (existing.length > 0) {
+        // Create version history before updating
+        await createVersionHistory(sectionId, sectionName, content, existing[0].content ? "ai_regenerated" : "ai_generated");
+
         await base44.entities.ProposalSection.update(existing[0].id, {
           content,
-          word_count: content.split(/\s+/).length,
+          word_count: wordCountActual,
           status: "ai_generated"
         });
       } else {
-        await base44.entities.ProposalSection.create({
+        const newSection = await base44.entities.ProposalSection.create({
           proposal_id: proposalId,
           section_id: sectionId,
           section_name: sectionName,
           section_type: "custom",
           content,
-          word_count: content.split(/\s+/).length,
+          word_count: wordCountActual,
           status: "ai_generated",
           order: 0
         });
+
+        // Create initial version history
+        await createVersionHistory(sectionId, sectionName, content, "initial_creation");
       }
 
       setSectionContent(prev => ({ ...prev, [sectionId]: content }));
@@ -240,16 +302,19 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         section_id: sectionId
       });
 
-      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).length;
+      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
 
       if (existing.length > 0) {
+        // Create version history before updating
+        await createVersionHistory(sectionId, sectionName, content, "user_edit", "Manual edit by user");
+
         await base44.entities.ProposalSection.update(existing[0].id, {
           content,
           word_count: wordCount,
           status: "reviewed"
         });
       } else {
-        await base44.entities.ProposalSection.create({
+        const newSection = await base44.entities.ProposalSection.create({
           proposal_id: proposalId,
           section_id: sectionId,
           section_name: sectionName,
@@ -259,6 +324,9 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           status: "draft",
           order: 0
         });
+
+        // Create initial version history
+        await createVersionHistory(sectionId, sectionName, content, "initial_creation");
       }
 
       alert("✓ Content saved!");
@@ -310,6 +378,81 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
     input.click();
   };
 
+  const loadHistory = async (sectionId) => {
+    setLoadingHistory(true);
+    try {
+      // Get the section record
+      const sections = await base44.entities.ProposalSection.filter({
+        proposal_id: proposalId,
+        section_id: sectionId
+      });
+
+      if (sections.length === 0) {
+        setHistoryRecords([]);
+        return;
+      }
+
+      // Load all history for this section
+      const history = await base44.entities.ProposalSectionHistory.filter({
+        proposal_section_id: sections[0].id
+      }, '-version_number');
+
+      setHistoryRecords(history);
+    } catch (error) {
+      console.error("Error loading history:", error);
+      setHistoryRecords([]);
+    }
+    setLoadingHistory(false);
+  };
+
+  const handleViewHistory = (sectionId, sectionName) => {
+    setSelectedSectionForHistory({ id: sectionId, name: sectionName });
+    setShowHistoryDialog(true);
+    loadHistory(sectionId);
+  };
+
+  const handleRestoreVersion = async (historyRecord) => {
+    if (!confirm(`Restore version ${historyRecord.version_number}? This will replace the current content.`)) {
+      return;
+    }
+
+    try {
+      // Create a new version history record for the restoration
+      await createVersionHistory(
+        selectedSectionForHistory.id,
+        selectedSectionForHistory.name,
+        historyRecord.content,
+        "restored_from_history",
+        `Restored from version ${historyRecord.version_number}`
+      );
+
+      // Update the current section content
+      const sections = await base44.entities.ProposalSection.filter({
+        proposal_id: proposalId,
+        section_id: selectedSectionForHistory.id
+      });
+
+      if (sections.length > 0) {
+        await base44.entities.ProposalSection.update(sections[0].id, {
+          content: historyRecord.content,
+          word_count: historyRecord.word_count,
+          status: "reviewed"
+        });
+      }
+
+      // Update local state
+      setSectionContent(prev => ({ ...prev, [selectedSectionForHistory.id]: historyRecord.content }));
+      
+      // Reload history
+      await loadHistory(selectedSectionForHistory.id);
+      
+      alert("✓ Version restored successfully!");
+    } catch (error) {
+      console.error("Error restoring version:", error);
+      alert("Error restoring version.");
+    }
+  };
+
   if (!strategy) {
     return (
       <Card className="border-none shadow-xl">
@@ -343,6 +486,14 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                         <Badge variant="secondary">{section.tone === "default" ? strategy.tone : section.tone}</Badge>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewHistory(section.id, section.id.replace(/_/g, ' '))}
+                    >
+                      <History className="w-4 h-4 mr-2" />
+                      History
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -400,6 +551,14 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                           <Badge variant="secondary" className="text-xs">{sub.tone === "default" ? strategy.tone : sub.tone}</Badge>
                         </div>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                      >
+                        <History className="w-4 h-4 mr-2" />
+                        History
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -460,6 +619,82 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           </div>
         </CardContent>
       </Card>
+
+      {/* History Viewer Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Version History: {selectedSectionForHistory?.name}</DialogTitle>
+            <DialogDescription>
+              View and restore previous versions of this section
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            ) : historyRecords.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <History className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p>No version history yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historyRecords.map((record) => (
+                  <Card key={record.id} className="border-slate-200">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline">Version {record.version_number}</Badge>
+                            <Badge className={
+                              record.change_type === 'ai_generated' ? 'bg-purple-100 text-purple-700' :
+                              record.change_type === 'ai_regenerated' ? 'bg-indigo-100 text-indigo-700' :
+                              record.change_type === 'user_edit' ? 'bg-blue-100 text-blue-700' :
+                              record.change_type === 'restored_from_history' ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-700'
+                            }>
+                              {record.change_type.replace(/_/g, ' ')}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-600">
+                            {record.changed_by_user_name} • {new Date(record.created_date).toLocaleString()} • {record.word_count} words
+                          </p>
+                          {record.change_summary && (
+                            <p className="text-sm text-slate-500 mt-1">{record.change_summary}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRestoreVersion(record)}
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Restore
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div 
+                        className="prose prose-sm max-w-none text-slate-700 p-3 bg-slate-50 rounded border"
+                        dangerouslySetInnerHTML={{ __html: record.content }}
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowHistoryDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
