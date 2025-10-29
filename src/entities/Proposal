@@ -108,6 +108,28 @@
         "type": "string"
       },
       "description": "Array of teaming partner IDs involved"
+    },
+    "evaluation_results": {
+      "type": "string",
+      "description": "JSON string containing strategic evaluation results"
+    },
+    "evaluation_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the evaluation was last run"
+    },
+    "ai_confidence_score": {
+      "type": "string",
+      "description": "JSON string containing comprehensive AI confidence scoring analysis"
+    },
+    "ai_score_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the AI confidence score was last calculated"
+    },
+    "strategy_config": {
+      "type": "string",
+      "description": "JSON string of strategy configuration from Phase 5"
     }
   },
   "required": [
