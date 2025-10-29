@@ -1,0 +1,130 @@
+{
+  "name": "WorkflowRule",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this workflow rule"
+    },
+    "rule_name": {
+      "type": "string",
+      "description": "Name of the workflow rule"
+    },
+    "rule_type": {
+      "type": "string",
+      "enum": [
+        "task_completion",
+        "status_change",
+        "due_date_reminder",
+        "approval_required",
+        "time_based"
+      ],
+      "description": "Type of workflow trigger"
+    },
+    "trigger_conditions": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "task_status": {
+          "type": "string"
+        },
+        "proposal_status": {
+          "type": "string"
+        },
+        "days_before_due": {
+          "type": "number"
+        },
+        "all_tasks_status": {
+          "type": "string"
+        },
+        "percentage_complete": {
+          "type": "number"
+        }
+      },
+      "description": "Conditions that trigger this rule"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "enum": [
+              "change_status",
+              "send_notification",
+              "create_task",
+              "require_approval",
+              "send_reminder"
+            ]
+          },
+          "target_status": {
+            "type": "string"
+          },
+          "notification_recipients": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notification_message": {
+            "type": "string"
+          },
+          "task_template": {
+            "type": "object"
+          },
+          "approval_workflow_id": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Actions to take when rule is triggered"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this rule is currently active"
+    },
+    "applies_to": {
+      "type": "string",
+      "enum": [
+        "all_proposals",
+        "specific_proposal",
+        "proposal_type"
+      ],
+      "default": "all_proposals",
+      "description": "What proposals this rule applies to"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "Specific proposal ID if applies_to is 'specific_proposal'"
+    },
+    "proposal_type": {
+      "type": "string",
+      "description": "Proposal type if applies_to is 'proposal_type'"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0,
+      "description": "Priority order for rule execution (higher = runs first)"
+    },
+    "last_triggered": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time this rule was triggered"
+    },
+    "trigger_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of times this rule has been triggered"
+    }
+  },
+  "required": [
+    "organization_id",
+    "rule_name",
+    "rule_type",
+    "actions"
+  ]
+}

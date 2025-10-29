@@ -1,0 +1,129 @@
+{
+  "name": "ApprovalWorkflow",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this workflow"
+    },
+    "workflow_name": {
+      "type": "string",
+      "description": "Name of the approval workflow"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what this workflow is for"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "Proposal this workflow is attached to"
+    },
+    "milestone": {
+      "type": "string",
+      "enum": [
+        "phase_completion",
+        "section_completion",
+        "final_review",
+        "submission",
+        "custom"
+      ],
+      "description": "Proposal milestone this workflow is for"
+    },
+    "custom_milestone_name": {
+      "type": "string",
+      "description": "If milestone is 'custom', specify the name"
+    },
+    "approval_steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step_order": {
+            "type": "number"
+          },
+          "step_name": {
+            "type": "string"
+          },
+          "approver_email": {
+            "type": "string"
+          },
+          "approver_name": {
+            "type": "string"
+          },
+          "approver_role": {
+            "type": "string"
+          },
+          "approval_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "skipped"
+            ]
+          },
+          "approval_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comments": {
+            "type": "string"
+          },
+          "is_required": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "description": "Sequential approval steps"
+    },
+    "current_step": {
+      "type": "number",
+      "default": 0,
+      "description": "Current step in the approval process"
+    },
+    "workflow_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "rejected"
+      ],
+      "default": "not_started",
+      "description": "Overall workflow status"
+    },
+    "requires_all_approvals": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether all steps must be approved or just one"
+    },
+    "auto_advance": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically advance to next step when approved"
+    },
+    "started_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When workflow was started"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When workflow was completed"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this workflow is currently active"
+    }
+  },
+  "required": [
+    "organization_id",
+    "workflow_name",
+    "proposal_id",
+    "milestone",
+    "approval_steps"
+  ]
+}
