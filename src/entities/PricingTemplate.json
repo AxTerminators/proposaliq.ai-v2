@@ -1,0 +1,157 @@
+{
+  "name": "PricingTemplate",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this template"
+    },
+    "template_name": {
+      "type": "string",
+      "description": "Name of the pricing template"
+    },
+    "template_type": {
+      "type": "string",
+      "enum": [
+        "contract_type",
+        "agency_specific",
+        "service_offering",
+        "custom"
+      ],
+      "description": "Type of pricing template"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of when to use this template"
+    },
+    "contract_type": {
+      "type": "string",
+      "enum": [
+        "fixed_price",
+        "time_and_materials",
+        "cost_plus",
+        "labor_hour",
+        "hybrid"
+      ],
+      "description": "Contract type this template is for"
+    },
+    "service_category": {
+      "type": "string",
+      "enum": [
+        "IT_services",
+        "consulting",
+        "engineering",
+        "R&D",
+        "construction",
+        "healthcare",
+        "education",
+        "other"
+      ],
+      "description": "Service category"
+    },
+    "labor_categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category_name": {
+            "type": "string"
+          },
+          "labor_level": {
+            "type": "string"
+          },
+          "base_hourly_rate": {
+            "type": "number"
+          },
+          "fringe_rate": {
+            "type": "number"
+          },
+          "overhead_rate": {
+            "type": "number"
+          },
+          "ga_rate": {
+            "type": "number"
+          },
+          "typical_hours": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Labor categories included in template"
+    },
+    "typical_clins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "clin_number": {
+            "type": "string"
+          },
+          "clin_title": {
+            "type": "string"
+          },
+          "clin_type": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Typical CLIN structure for this template"
+    },
+    "typical_odc_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "odc_category": {
+            "type": "string"
+          },
+          "item_name": {
+            "type": "string"
+          },
+          "typical_cost": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Common ODC items for this template"
+    },
+    "default_fee_percentage": {
+      "type": "number",
+      "description": "Default fee percentage for this template"
+    },
+    "pricing_notes": {
+      "type": "string",
+      "description": "Notes about pricing strategy for this type"
+    },
+    "usage_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of times this template has been used"
+    },
+    "last_used_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time this template was used"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this template is available to all users"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for categorizing templates"
+    }
+  },
+  "required": [
+    "organization_id",
+    "template_name",
+    "template_type"
+  ]
+}
