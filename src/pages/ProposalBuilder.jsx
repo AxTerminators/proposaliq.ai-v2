@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import Phase1 from "../components/builder/Phase1";
@@ -17,6 +16,7 @@ import Phase5 from "../components/builder/Phase5";
 import Phase6 from "../components/builder/Phase6";
 import Phase7 from "../components/builder/Phase7";
 import TaskManager from "../components/tasks/TaskManager";
+import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -210,11 +210,15 @@ export default function ProposalBuilder() {
 
         {proposalId && (
           <Tabs defaultValue="builder" className="mb-6">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="builder">Proposal Builder</TabsTrigger>
               <TabsTrigger value="tasks">
                 <CheckSquare className="w-4 h-4 mr-2" />
                 Tasks
+              </TabsTrigger>
+              <TabsTrigger value="discussions">
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Discussions
               </TabsTrigger>
             </TabsList>
 
@@ -267,6 +271,14 @@ export default function ProposalBuilder() {
 
             <TabsContent value="tasks">
               <TaskManager 
+                proposal={{ id: proposalId, ...proposalData }}
+                user={user}
+                organization={organization}
+              />
+            </TabsContent>
+
+            <TabsContent value="discussions">
+              <ProposalDiscussion
                 proposal={{ id: proposalId, ...proposalData }}
                 user={user}
                 organization={organization}
