@@ -1,0 +1,171 @@
+{
+  "name": "CompetitorIntel",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization tracking this competitor"
+    },
+    "competitor_name": {
+      "type": "string",
+      "description": "Name of the competitor company"
+    },
+    "competitor_type": {
+      "type": "string",
+      "enum": [
+        "prime_contractor",
+        "subcontractor",
+        "teaming_partner",
+        "incumbent"
+      ],
+      "description": "Type of competitor"
+    },
+    "naics_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "NAICS codes they compete in"
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Small business and other certifications"
+    },
+    "past_wins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string"
+          },
+          "agency": {
+            "type": "string"
+          },
+          "contract_value": {
+            "type": "number"
+          },
+          "award_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "project_type": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Past contract wins"
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Known strengths and competitive advantages"
+    },
+    "weaknesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Known weaknesses or gaps"
+    },
+    "key_personnel": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "expertise": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Known key personnel"
+    },
+    "typical_pricing_strategy": {
+      "type": "string",
+      "enum": [
+        "low_cost",
+        "value_based",
+        "premium",
+        "competitive"
+      ],
+      "description": "Their typical pricing approach"
+    },
+    "win_rate": {
+      "type": "number",
+      "description": "Estimated win rate percentage"
+    },
+    "average_contract_value": {
+      "type": "number",
+      "description": "Average contract size they win"
+    },
+    "preferred_agencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Agencies they frequently work with"
+    },
+    "recent_news": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "headline": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "source": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "negative",
+              "neutral"
+            ]
+          }
+        }
+      },
+      "description": "Recent news and developments"
+    },
+    "relationship_status": {
+      "type": "string",
+      "enum": [
+        "competitor",
+        "potential_teaming_partner",
+        "past_partner",
+        "avoided"
+      ],
+      "default": "competitor",
+      "description": "Relationship with this company"
+    },
+    "competitive_intelligence_notes": {
+      "type": "string",
+      "description": "General notes and intelligence"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this intel was last updated"
+    }
+  },
+  "required": [
+    "organization_id",
+    "competitor_name"
+  ]
+}
