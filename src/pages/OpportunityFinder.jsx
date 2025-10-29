@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { showSuccess, showError } from "../components/ui/notification";
 
 export default function OpportunityFinder() {
   const navigate = useNavigate();
@@ -229,10 +231,10 @@ export default function OpportunityFinder() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['sam-opportunities'] });
-      alert(`✓ Found ${oppsWithScores.length} new opportunities!`);
+      showSuccess(`✓ Found ${oppsWithScores.length} new opportunities!`);
     } catch (error) {
       console.error("Error searching:", error);
-      alert("Error searching SAM.gov");
+      showError("Error searching SAM.gov");
     }
     setIsSearching(false);
   };
