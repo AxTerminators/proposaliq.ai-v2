@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// NAICS Codes Data - Official SBA List
 const naicsData = [
   {"code": "111110", "description": "Soybean Farming"},
   {"code": "111120", "description": "Oilseed (except Soybean) Farming"},
@@ -158,15 +159,6 @@ const naicsData = [
   {"code": "611410", "description": "Business and Secretarial Schools"},
   {"code": "611420", "description": "Computer Training"},
   {"code": "611430", "description": "Professional and Management Development Training"},
-  {"code": "611511", "description": "Cosmetology and Barber Schools"},
-  {"code": "611512", "description": "Flight Training"},
-  {"code": "611513", "description": "Apprenticeship Training"},
-  {"code": "611519", "description": "Other Technical and Trade Schools"},
-  {"code": "611610", "description": "Fine Arts Schools"},
-  {"code": "611620", "description": "Sports and Recreation Instruction"},
-  {"code": "611630", "description": "Language Schools"},
-  {"code": "611691", "description": "Exam Preparation and Tutoring"},
-  {"code": "611692", "description": "Automobile Driving Schools"},
   {"code": "611699", "description": "All Other Miscellaneous Schools and Instruction"},
   {"code": "611710", "description": "Educational Support Services"},
   {"code": "621111", "description": "Offices of Physicians (except Mental Health Specialists)"},
@@ -212,22 +204,18 @@ const naicsData = [
   {"code": "711120", "description": "Dance Companies"},
   {"code": "711130", "description": "Musical Groups and Artists"},
   {"code": "711190", "description": "Other Performing Arts Companies"},
-  {"code": "711211", "description": "Sports Teams and Clubs"},
-  {"code": "711212", "description": "Race Tracks"},
-  {"code": "711219", "description": "Other Spectator Sports"},
   {"code": "712110", "description": "Museums"},
   {"code": "712120", "description": "Historical Sites"},
   {"code": "712130", "description": "Zoos and Botanical Gardens"},
+  {"code": "712190", "description": "Nature Parks and Other Similar Institutions"},
   {"code": "713110", "description": "Amusement and Theme Parks"},
-  {"code": "713210", "description": "Casinos (except Casino Hotels)"},
-  {"code": "713910", "description": "Golf Courses and Country Clubs"},
-  {"code": "713920", "description": "Skiing Facilities"},
-  {"code": "713930", "description": "Marinas"},
-  {"code": "713940", "description": "Fitness and Recreational Sports Centers"},
+  {"code": "713120", "description": "Amusement Arcades"},
   {"code": "721110", "description": "Hotels (except Casino Hotels) and Motels"},
   {"code": "721120", "description": "Casino Hotels"},
   {"code": "722310", "description": "Food Service Contractors"},
   {"code": "722320", "description": "Caterers"},
+  {"code": "722330", "description": "Mobile Food Services"},
+  {"code": "722410", "description": "Drinking Places (Alcoholic Beverages)"},
   {"code": "722511", "description": "Full-Service Restaurants"},
   {"code": "722513", "description": "Limited-Service Restaurants"},
   {"code": "811111", "description": "General Automotive Repair"},
@@ -237,10 +225,10 @@ const naicsData = [
   {"code": "811310", "description": "Commercial and Industrial Machinery and Equipment (except Automotive and Electronic) Repair and Maintenance"},
   {"code": "812111", "description": "Barber Shops"},
   {"code": "812112", "description": "Beauty Salons"},
+  {"code": "812113", "description": "Nail Salons"},
   {"code": "812210", "description": "Funeral Homes and Funeral Services"},
   {"code": "812310", "description": "Coin Operated Laundries and Drycleaners"},
-  {"code": "812320", "description": "Drycleaning and Laundry Services (except Coin Operated)"},
-  {"code": "812910", "description": "Pet Care (except Veterinary) Services"}
+  {"code": "812320", "description": "Drycleaning and Laundry Services (except Coin Operated)"}
 ];
 
 export default function NAICSAutocomplete({ 
