@@ -27,6 +27,23 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
   const [isScoring, setIsScoring] = useState(false);
   const [aiScore, setAiScore] = useState(null);
 
+  // Helper function to filter supported file types
+  const getSupportedFileUrls = (documents) => {
+    if (!documents || documents.length === 0) return [];
+    
+    const supportedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    
+    return documents
+      .filter(doc => {
+        if (!doc.file_url) return false;
+        const fileName = doc.file_name || doc.file_url;
+        const lowerFileName = fileName.toLowerCase();
+        return supportedExtensions.some(ext => lowerFileName.endsWith(ext));
+      })
+      .map(doc => doc.file_url)
+      .slice(0, 10); // Limit to 10 files
+  };
+
   React.useEffect(() => {
     const loadOrgId = async () => {
       try {
@@ -116,10 +133,15 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
         organization_id: currentOrgId
       });
 
-      const fileUrls = solicitationDocs
-        .filter(doc => doc.file_url)
-        .map(doc => doc.file_url)
-        .slice(0, 10);
+      // Filter to only supported file types (PDF and images)
+      const fileUrls = getSupportedFileUrls(solicitationDocs);
+
+      // Inform user about file filtering if needed
+      const totalDocs = solicitationDocs.filter(doc => doc.file_url).length;
+      const supportedDocs = fileUrls.length;
+      if (totalDocs > supportedDocs) {
+        console.log(`Note: ${totalDocs - supportedDocs} document(s) skipped (only PDF and image files are supported for AI analysis)`);
+      }
 
       const prompt = `You are an expert proposal evaluator and capture manager for government contracts. Conduct a comprehensive strategic analysis of this opportunity.
 
@@ -143,6 +165,7 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
 - Teaming Partners: ${partners.length}
 - Capability Statements Available: ${resources.length}
 - Solicitation Documents Uploaded: ${solicitationDocs.length}
+- Documents Available for Analysis: ${supportedDocs} (PDF/images only)
 
 **YOUR TASK:**
 Analyze the uploaded solicitation documents thoroughly and provide a comprehensive strategic evaluation. Return a JSON object with the following structure:
@@ -227,7 +250,8 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 
 **IMPORTANT:**
 - Be specific and actionable in all recommendations
-- Base analysis on actual content from solicitation documents
+- Base analysis on actual content from solicitation documents when available
+- If no documents are available for analysis, provide general best practices and recommendations based on the opportunity information provided
 - Identify concrete gaps and provide realistic mitigation strategies
 - Consider the organization's size, certifications, and capabilities
 - Provide honest assessment - don't sugarcoat weaknesses
@@ -266,7 +290,7 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 
     } catch (error) {
       console.error("Error running evaluation:", error);
-      alert("Error running evaluation. Please try again.");
+      alert(`Error running evaluation: ${error.message || 'Please try again.'}`);
     }
     setIsEvaluating(false);
   };
@@ -309,11 +333,15 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         ? (wonProposals.length / completedProposals.length) * 100 
         : 0;
 
-      // Get file URLs for context
-      const fileUrls = solicitationDocs
-        .filter(doc => doc.file_url)
-        .map(doc => doc.file_url)
-        .slice(0, 8);
+      // Filter to only supported file types (PDF and images)
+      const fileUrls = getSupportedFileUrls(solicitationDocs);
+
+      // Inform user about file filtering if needed
+      const totalDocs = solicitationDocs.filter(doc => doc.file_url).length;
+      const supportedDocs = fileUrls.length;
+      if (totalDocs > supportedDocs) {
+        console.log(`Note: ${totalDocs - supportedDocs} document(s) skipped (only PDF and image files are supported for AI analysis)`);
+      }
 
       const prompt = `You are an elite AI proposal evaluator with expertise in government contracting, bid/no-bid analysis, and predictive win probability modeling.
 
@@ -349,6 +377,10 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 **PRICING:**
 - Pricing Strategy: ${pricingStrategy?.pricing_approach || 'Not defined'}
 - Win Probability at Price: ${pricingStrategy?.win_probability_at_price || 'N/A'}
+
+**DOCUMENTS AVAILABLE:**
+- Total Documents: ${totalDocs}
+- Available for Analysis: ${supportedDocs} (PDF/images only)
 
 **ANALYZE THE FOLLOWING:**
 1. Requirements coverage & compliance
@@ -487,7 +519,7 @@ Return a comprehensive JSON analysis with:
 
     } catch (error) {
       console.error("Error running AI scoring:", error);
-      alert("Error running AI scoring. Please try again.");
+      alert(`Error running AI scoring: ${error.message || 'Please try again.'}`);
     }
     setIsScoring(false);
   };
