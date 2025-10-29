@@ -6,8 +6,18 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -38,6 +48,8 @@ export default function ProposalBuilder() {
   const [user, setUser] = React.useState(null);
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
     prime_contractor_id: "",
@@ -139,6 +151,20 @@ export default function ProposalBuilder() {
     }
   };
 
+  const handleDeleteProposal = async () => {
+    if (!proposalId) return;
+    
+    setIsDeleting(true);
+    try {
+      await base44.entities.Proposal.delete(proposalId);
+      navigate(createPageUrl("Proposals"));
+    } catch (error) {
+      console.error("Error deleting proposal:", error);
+      alert("Error deleting proposal. Please try again.");
+      setIsDeleting(false);
+    }
+  };
+
   const handleNext = async () => {
     const savedId = await saveProposal();
     if (!proposalId && savedId) {
@@ -168,14 +194,26 @@ export default function ProposalBuilder() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(createPageUrl("Proposals"))}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Proposals
-          </Button>
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(createPageUrl("Proposals"))}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Proposals
+            </Button>
+            
+            {proposalId && (
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteWarning(true)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Proposal
+              </Button>
+            )}
+          </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             {proposalData.proposal_name || "New Proposal"}
           </h1>
@@ -350,6 +388,75 @@ export default function ProposalBuilder() {
 
       {/* Floating AI Chat Button */}
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-xl">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+              Permanently Delete This Proposal?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 pt-4">
+              <p className="font-medium text-slate-900 text-base">
+                You are about to permanently delete: <span className="font-bold text-red-600">{proposalData.proposal_name}</span>
+              </p>
+              
+              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p className="text-red-900 font-bold text-base mb-3">⚠️ WARNING: This action CANNOT be undone!</p>
+                <p className="text-red-800 font-medium mb-2">All associated data will be permanently destroyed:</p>
+                <ul className="list-disc pl-5 space-y-1.5 text-red-800">
+                  <li>All proposal sections and written content</li>
+                  <li>Comments, discussions, and collaboration history</li>
+                  <li>Tasks and assignments</li>
+                  <li>Uploaded solicitation documents and files</li>
+                  <li>AI evaluation and confidence scoring data</li>
+                  <li>Win themes and competitive strategies</li>
+                  <li>Compliance requirements and tracking</li>
+                  <li>Pricing strategies and cost data</li>
+                  <li>Review rounds and feedback</li>
+                </ul>
+              </div>
+
+              <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg">
+                <p className="text-amber-900 font-semibold text-base flex items-start gap-2">
+                  <span>💡</span>
+                  <span>
+                    <strong>Alternative:</strong> Consider moving this proposal to "Archived" status instead. 
+                    This preserves all data while removing it from active view, allowing you to reference it later if needed.
+                  </span>
+                </p>
+              </div>
+
+              <p className="text-slate-700 font-medium text-base">
+                Are you absolutely sure you want to proceed with permanent deletion?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProposal}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Yes, Delete Permanently
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

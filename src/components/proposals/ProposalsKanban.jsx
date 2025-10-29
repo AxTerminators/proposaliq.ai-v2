@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import KanbanColumn from "./KanbanColumn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Settings2, RotateCcw, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Settings2, RotateCcw, AlertTriangle, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,8 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   const [collapsedColumns, setCollapsedColumns] = useState([]);
   const [configId, setConfigId] = useState(null);
   const [showResetWarning, setShowResetWarning] = useState(false);
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [proposalToDelete, setProposalToDelete] = useState(null);
 
   const defaultColumns = [
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0 },
@@ -196,6 +199,17 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     },
   });
 
+  const deleteProposalMutation = useMutation({
+    mutationFn: async (proposalId) => {
+      await base44.entities.Proposal.delete(proposalId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      setShowDeleteWarning(false);
+      setProposalToDelete(null);
+    },
+  });
+
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
@@ -247,6 +261,17 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     setCollapsedColumns(newCollapsedColumns);
     
     saveCollapsedStateMutation.mutate(newCollapsedColumns);
+  };
+
+  const handleDeleteProposal = (proposal) => {
+    setProposalToDelete(proposal);
+    setShowDeleteWarning(true);
+  };
+
+  const confirmDelete = () => {
+    if (proposalToDelete) {
+      deleteProposalMutation.mutate(proposalToDelete.id);
+    }
   };
 
   const groupedProposals = columns.reduce((acc, column) => {
@@ -392,6 +417,58 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              Permanently Delete Proposal?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="font-medium text-slate-900">
+                You are about to permanently delete: <span className="font-bold text-red-600">{proposalToDelete?.proposal_name}</span>
+              </p>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-900 font-semibold mb-2">⚠️ This action cannot be undone!</p>
+                <p className="text-red-800 text-sm">All associated data will be irretrievably lost, including:</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1 text-red-800 text-sm">
+                  <li>All proposal sections and content</li>
+                  <li>Comments and discussions</li>
+                  <li>Tasks and assignments</li>
+                  <li>Uploaded documents and files</li>
+                  <li>Evaluation and scoring data</li>
+                  <li>Win themes and strategies</li>
+                </ul>
+              </div>
+              <p className="text-amber-700 font-medium">
+                💡 Consider moving to "Archived" status instead if you might need this data later.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteProposalMutation.isPending}
+            >
+              {deleteProposalMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Permanently
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((column) => {
@@ -410,6 +487,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
                       column={column}
                       proposals={groupedProposals[column.id] || []}
                       onProposalClick={onProposalClick}
+                      onDeleteProposal={handleDeleteProposal}
                       isDraggingOver={snapshot.isDraggingOver}
                       isCollapsed={isColumnCollapsed}
                       onToggleCollapse={handleToggleCollapse}
