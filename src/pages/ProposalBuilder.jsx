@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useClient } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -28,7 +27,7 @@ const PHASES = [
 
 export default function ProposalBuilder() {
   const navigate = useNavigate();
-  const { activeClientId } = useClient();
+  const [organization, setOrganization] = React.useState(null);
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
   const [proposalData, setProposalData] = useState({
@@ -45,19 +44,37 @@ export default function ProposalBuilder() {
   });
 
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: currentUser.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setOrganization(orgs[0]);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
-    if (id && activeClientId) {
+    if (id && organization?.id) {
       loadProposal(id);
     }
-  }, [activeClientId]);
+  }, [organization?.id]);
 
   const loadProposal = async (id) => {
     try {
-      // Verify the proposal belongs to the active client
       const proposals = await base44.entities.Proposal.filter({ 
         id,
-        organization_id: activeClientId 
+        organization_id: organization.id 
       }, '-created_date', 1);
       
       if (proposals.length > 0) {
@@ -76,17 +93,16 @@ export default function ProposalBuilder() {
   };
 
   const saveProposal = async () => {
-    if (!activeClientId) {
-      alert("No active client selected. Please select a client first.");
+    if (!organization?.id) {
+      alert("No organization found. Please complete onboarding first.");
       return;
     }
 
     try {
       if (proposalId) {
-        // Verify ownership before update
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
-          organization_id: activeClientId
+          organization_id: organization.id
         });
         
         if (existing.length === 0) {
@@ -99,10 +115,9 @@ export default function ProposalBuilder() {
           current_phase: currentPhase
         });
       } else {
-        // Always include organization_id when creating
         const created = await base44.entities.Proposal.create({
           ...proposalData,
-          organization_id: activeClientId,
+          organization_id: organization.id,
           current_phase: currentPhase,
           status: "evaluating"
         });
