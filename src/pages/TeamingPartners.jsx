@@ -26,7 +26,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  Tag
+  Tag,
+  Sparkles
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -43,6 +44,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
@@ -88,6 +90,8 @@ export default function TeamingPartners() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadingCapStatement, setUploadingCapStatement] = useState(false);
   const [capabilityStatementFile, setCapabilityStatementFile] = useState(null);
+  const [extractedData, setExtractedData] = useState(null);
+  const [isExtractingData, setIsExtractingData] = useState(false);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -238,6 +242,195 @@ export default function TeamingPartners() {
     }
   };
 
+  const extractDataFromCapabilityStatement = async (fileUrl, fileName) => {
+    setIsExtractingData(true);
+    setExtractedData(null);
+
+    try {
+      const prompt = `You are an AI assistant that extracts information from capability statements and company documents.
+
+Analyze this document and extract the following information in structured JSON format:
+
+**COMPANY INFORMATION:**
+- Company/Partner Name
+- Address (full address)
+- Website URL
+- UEI (Unique Entity Identifier)
+- CAGE Code
+- Primary NAICS Code (6-digit code)
+- Secondary NAICS Codes (array of codes)
+
+**CONTACT INFORMATION:**
+- Point of Contact Name
+- POC Email
+- POC Phone Number
+
+**CERTIFICATIONS:**
+- Small Business Certifications (8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO, CMMI, etc.)
+- Look for both standard SBA certifications and other industry certifications
+
+**CAPABILITIES & STRENGTHS:**
+- Core Capabilities (array of 5-10 key services/capabilities)
+- Key Differentiators (array of 3-7 competitive advantages)
+- Past Performance Summary (brief 2-3 sentence overview of their experience)
+- Target Agencies (array of government agencies they work with)
+
+**COMPANY DETAILS:**
+- Employee Count (approximate number)
+- Years in Business
+- Revenue Range (e.g., "$1M-$5M")
+
+**IMPORTANT:**
+- Extract only information that is explicitly stated in the document
+- Return null/empty for fields not found
+- For certifications, list all found (not just the pre-defined ones)
+- For NAICS codes, extract the numeric codes only
+- For core capabilities, focus on technical/service areas, not buzzwords
+
+Return as valid JSON matching this exact structure:
+{
+  "partner_name": "string or null",
+  "address": "string or null",
+  "website_url": "string or null",
+  "uei": "string or null",
+  "cage_code": "string or null",
+  "primary_naics": "string or null",
+  "secondary_naics": ["string"],
+  "poc_name": "string or null",
+  "poc_email": "string or null",
+  "poc_phone": "string or null",
+  "certifications": ["string"],
+  "core_capabilities": ["string"],
+  "differentiators": ["string"],
+  "past_performance_summary": "string or null",
+  "target_agencies": ["string"],
+  "employee_count": number or null,
+  "years_in_business": number or null,
+  "revenue_range": "string or null"
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: [fileUrl],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            partner_name: { type: ["string", "null"] },
+            address: { type: ["string", "null"] },
+            website_url: { type: ["string", "null"] },
+            uei: { type: ["string", "null"] },
+            cage_code: { type: ["string", "null"] },
+            primary_naics: { type: ["string", "null"] },
+            secondary_naics: { type: "array", items: { type: "string" } },
+            poc_name: { type: ["string", "null"] },
+            poc_email: { type: ["string", "null"] },
+            poc_phone: { type: ["string", "null"] },
+            certifications: { type: "array", items: { type: "string" } },
+            core_capabilities: { type: "array", items: { type: "string" } },
+            differentiators: { type: "array", items: { type: "string" } },
+            past_performance_summary: { type: ["string", "null"] },
+            target_agencies: { type: "array", items: { type: "string" } },
+            employee_count: { type: ["number", "null"] },
+            years_in_business: { type: ["number", "null"] },
+            revenue_range: { type: ["string", "null"] }
+          }
+        }
+      });
+
+      // Auto-populate form with extracted data
+      const updatedFormData = { ...formData };
+      let fieldsPopulated = [];
+
+      if (result.partner_name && !formData.partner_name) {
+        updatedFormData.partner_name = result.partner_name;
+        fieldsPopulated.push("Partner Name");
+      }
+      if (result.address && !formData.address) {
+        updatedFormData.address = result.address;
+        fieldsPopulated.push("Address");
+      }
+      if (result.website_url && !formData.website_url) {
+        updatedFormData.website_url = result.website_url;
+        fieldsPopulated.push("Website");
+      }
+      if (result.uei && !formData.uei) {
+        updatedFormData.uei = result.uei;
+        fieldsPopulated.push("UEI");
+      }
+      if (result.cage_code && !formData.cage_code) {
+        updatedFormData.cage_code = result.cage_code;
+        fieldsPopulated.push("CAGE Code");
+      }
+      if (result.primary_naics && !formData.primary_naics) {
+        updatedFormData.primary_naics = result.primary_naics;
+        fieldsPopulated.push("Primary NAICS");
+      }
+      if (result.secondary_naics && result.secondary_naics.length > 0 && formData.secondary_naics?.length === 0) {
+        updatedFormData.secondary_naics = result.secondary_naics;
+        fieldsPopulated.push("Secondary NAICS");
+      }
+      if (result.poc_name && !formData.poc_name) {
+        updatedFormData.poc_name = result.poc_name;
+        fieldsPopulated.push("POC Name");
+      }
+      if (result.poc_email && !formData.poc_email) {
+        updatedFormData.poc_email = result.poc_email;
+        fieldsPopulated.push("POC Email");
+      }
+      if (result.poc_phone && !formData.poc_phone) {
+        updatedFormData.poc_phone = result.poc_phone;
+        fieldsPopulated.push("POC Phone");
+      }
+      if (result.certifications && result.certifications.length > 0) {
+        const uniqueNewCerts = result.certifications.filter(cert => !formData.certifications?.includes(cert));
+        if (uniqueNewCerts.length > 0) {
+          updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...uniqueNewCerts])];
+          fieldsPopulated.push(`${uniqueNewCerts.length} Certifications`);
+        }
+      }
+      if (result.core_capabilities && result.core_capabilities.length > 0 && formData.core_capabilities?.length === 0) {
+        updatedFormData.core_capabilities = result.core_capabilities;
+        fieldsPopulated.push(`${result.core_capabilities.length} Core Capabilities`);
+      }
+      if (result.differentiators && result.differentiators.length > 0 && formData.differentiators?.length === 0) {
+        updatedFormData.differentiators = result.differentiators;
+        fieldsPopulated.push(`${result.differentiators.length} Differentiators`);
+      }
+      if (result.past_performance_summary && !formData.past_performance_summary) {
+        updatedFormData.past_performance_summary = result.past_performance_summary;
+        fieldsPopulated.push("Past Performance Summary");
+      }
+      if (result.target_agencies && result.target_agencies.length > 0 && formData.target_agencies?.length === 0) {
+        updatedFormData.target_agencies = result.target_agencies;
+        fieldsPopulated.push("Target Agencies");
+      }
+      if (result.employee_count && !formData.employee_count) {
+        updatedFormData.employee_count = result.employee_count;
+        fieldsPopulated.push("Employee Count");
+      }
+      if (result.years_in_business && !formData.years_in_business) {
+        updatedFormData.years_in_business = result.years_in_business;
+        fieldsPopulated.push("Years in Business");
+      }
+      if (result.revenue_range && !formData.revenue_range) {
+        updatedFormData.revenue_range = result.revenue_range;
+        fieldsPopulated.push("Revenue Range");
+      }
+
+      setFormData(updatedFormData);
+      setExtractedData({
+        fieldsPopulated,
+        rawData: result
+      });
+
+    } catch (error) {
+      console.error("Error extracting data from capability statement:", error);
+      // alert(`Note: Could not auto-extract data from ${fileName}. You can manually enter the partner information.`);
+    } finally {
+      setIsExtractingData(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       partner_name: "",
@@ -267,6 +460,8 @@ export default function TeamingPartners() {
     setShowOtherCertInput(false);
     setOtherCertification("");
     setNewTag("");
+    setExtractedData(null);
+    setIsExtractingData(false);
   };
 
   const handleSavePartner = () => {
@@ -357,10 +552,20 @@ export default function TeamingPartners() {
     }
   };
 
-  const handleCapabilityStatementSelect = (e) => {
+  const handleCapabilityStatementSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       setCapabilityStatementFile(file);
+      
+      // Upload and extract data immediately
+      try {
+        setIsExtractingData(true); // Indicate that processing has started
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        await extractDataFromCapabilityStatement(file_url, file.name);
+      } catch (error) {
+        console.error("Error processing capability statement:", error);
+        setIsExtractingData(false); // Ensure loading state is cleared on error
+      }
     }
   };
 
@@ -567,6 +772,30 @@ export default function TeamingPartners() {
                               <div>
                                 <span className="text-slate-600">Primary NAICS:</span>
                                 <span className="ml-2">{selectedPartner.primary_naics}</span>
+                              </div>
+                            )}
+                            {selectedPartner.secondary_naics?.length > 0 && (
+                              <div>
+                                <span className="text-slate-600">Secondary NAICS:</span>
+                                <span className="ml-2">{selectedPartner.secondary_naics.join(', ')}</span>
+                              </div>
+                            )}
+                            {selectedPartner.employee_count && (
+                              <div>
+                                <span className="text-slate-600">Employees:</span>
+                                <span className="ml-2">{selectedPartner.employee_count}</span>
+                              </div>
+                            )}
+                            {selectedPartner.years_in_business && (
+                              <div>
+                                <span className="text-slate-600">Years in Business:</span>
+                                <span className="ml-2">{selectedPartner.years_in_business}</span>
+                              </div>
+                            )}
+                             {selectedPartner.revenue_range && (
+                              <div>
+                                <span className="text-slate-600">Revenue Range:</span>
+                                <span className="ml-2">{selectedPartner.revenue_range}</span>
                               </div>
                             )}
                           </div>
@@ -803,7 +1032,7 @@ export default function TeamingPartners() {
                 </div>
               </div>
 
-              {/* Capability Statement Upload - MOVED TO TOP */}
+              {/* Capability Statement Upload - AT TOP WITH AI EXTRACTION */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <FileText className="w-4 h-4" />
@@ -812,6 +1041,45 @@ export default function TeamingPartners() {
                 <p className="text-sm text-blue-600 font-medium">
                   The AI will auto-populate the relevant information.
                 </p>
+                
+                {isExtractingData && (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                    <AlertDescription>
+                      <p className="font-semibold text-blue-900">AI is analyzing the capability statement...</p>
+                      <p className="text-xs text-blue-700 mt-1">Extracting contact info, certifications, capabilities, and more.</p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!isExtractingData && extractedData && extractedData.fieldsPopulated.length > 0 && (
+                  <Alert className="bg-green-50 border-green-200">
+                    <Sparkles className="w-4 h-4 text-green-600" />
+                    <AlertDescription>
+                      <p className="font-semibold text-green-900 mb-1">✓ AI Auto-Populated {extractedData.fieldsPopulated.length} Fields!</p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {extractedData.fieldsPopulated.map((field, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                            {field}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-xs text-green-700 mt-2">Please review and adjust the information below as needed.</p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!isExtractingData && extractedData && extractedData.fieldsPopulated.length === 0 && (
+                  <Alert variant="default" className="bg-amber-50 border-amber-200">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription>
+                      <p className="font-semibold text-amber-900">AI analysis complete, but no new fields could be populated.</p>
+                      <p className="text-xs text-amber-700 mt-1">This might happen if the document is too sparse or all fields were already filled. Please review manually.</p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+
                 <div className="border-2 border-dashed rounded-lg p-6 text-center bg-blue-50">
                   {capabilityStatementFile ? (
                     <div className="space-y-3">
@@ -825,7 +1093,12 @@ export default function TeamingPartners() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setCapabilityStatementFile(null)}
+                        onClick={() => {
+                          setCapabilityStatementFile(null);
+                          setExtractedData(null);
+                          setIsExtractingData(false);
+                        }}
+                        disabled={isExtractingData}
                       >
                         <X className="w-3 h-3 mr-2" />
                         Remove
@@ -840,8 +1113,9 @@ export default function TeamingPartners() {
                         className="hidden"
                         accept=".pdf,.doc,.docx"
                         onChange={handleCapabilityStatementSelect}
+                        disabled={isExtractingData}
                       />
-                      <Button size="sm" variant="outline" asChild>
+                      <Button size="sm" variant="outline" asChild disabled={isExtractingData}>
                         <label htmlFor="cap-statement-upload" className="cursor-pointer">
                           <Upload className="w-3 h-3 mr-2" />
                           Upload Capability Statement
@@ -933,6 +1207,35 @@ export default function TeamingPartners() {
                     placeholder="https://partner.com"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Revenue Range</Label>
+                  <Input
+                    value={formData.revenue_range}
+                    onChange={(e) => setFormData({...formData, revenue_range: e.target.value})}
+                    placeholder="$1M-$5M, $500K, etc."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Employee Count</Label>
+                  <Input
+                    type="number"
+                    value={formData.employee_count || ""}
+                    onChange={(e) => setFormData({...formData, employee_count: e.target.value ? parseInt(e.target.value) : null})}
+                    placeholder="e.g., 50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Years in Business</Label>
+                  <Input
+                    type="number"
+                    value={formData.years_in_business || ""}
+                    onChange={(e) => setFormData({...formData, years_in_business: e.target.value ? parseInt(e.target.value) : null})}
+                    placeholder="e.g., 10"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -942,6 +1245,36 @@ export default function TeamingPartners() {
                   onChange={(e) => setFormData({...formData, address: e.target.value})}
                   placeholder="Street, City, State, ZIP"
                 />
+              </div>
+
+              {/* Secondary NAICS Codes */}
+              <div className="space-y-2">
+                <Label>Secondary NAICS Codes</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newItem} // Reusing newItem state for simplicity, or could create new state
+                    onChange={(e) => setNewItem(e.target.value)}
+                    placeholder="Add secondary NAICS code"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('secondary_naics'))}
+                  />
+                  <Button type="button" onClick={() => addArrayItem('secondary_naics')}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
+                  {formData.secondary_naics?.length > 0 ? (
+                    formData.secondary_naics.map((naics, idx) => (
+                      <Badge key={idx} variant="secondary" className="gap-1">
+                        {naics}
+                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('secondary_naics', idx)} />
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 flex items-center h-full">
+                      No secondary NAICS codes added yet.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Small Business Certifications with "Other" option */}
@@ -1074,6 +1407,66 @@ export default function TeamingPartners() {
                 </div>
               </div>
 
+              {/* Differentiators */}
+              <div className="space-y-2">
+                <Label>Key Differentiators</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newItem} // Reusing newItem
+                    onChange={(e) => setNewItem(e.target.value)}
+                    placeholder="Add a key differentiator"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('differentiators'))}
+                  />
+                  <Button type="button" onClick={() => addArrayItem('differentiators')}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
+                  {formData.differentiators?.length > 0 ? (
+                    formData.differentiators.map((diff, idx) => (
+                      <Badge key={idx} variant="secondary" className="gap-1">
+                        {diff}
+                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('differentiators', idx)} />
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 flex items-center h-full">
+                      No differentiators added yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Target Agencies */}
+              <div className="space-y-2">
+                <Label>Target Agencies</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newItem} // Reusing newItem
+                    onChange={(e) => setNewItem(e.target.value)}
+                    placeholder="Add target agency (e.g., DoD, VA)"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('target_agencies'))}
+                  />
+                  <Button type="button" onClick={() => addArrayItem('target_agencies')}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
+                  {formData.target_agencies?.length > 0 ? (
+                    formData.target_agencies.map((agency, idx) => (
+                      <Badge key={idx} variant="secondary" className="gap-1">
+                        {agency}
+                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('target_agencies', idx)} />
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 flex items-center h-full">
+                      No target agencies added yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Past Performance Summary</Label>
                 <Textarea
@@ -1101,12 +1494,12 @@ export default function TeamingPartners() {
               </Button>
               <Button 
                 onClick={handleSavePartner}
-                disabled={!formData.partner_name || createPartnerMutation.isPending || updatePartnerMutation.isPending || uploadingCapStatement}
+                disabled={!formData.partner_name || createPartnerMutation.isPending || updatePartnerMutation.isPending || uploadingCapStatement || isExtractingData}
               >
-                {(createPartnerMutation.isPending || updatePartnerMutation.isPending || uploadingCapStatement) ? (
+                {(createPartnerMutation.isPending || updatePartnerMutation.isPending || uploadingCapStatement || isExtractingData) ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {uploadingCapStatement ? "Uploading..." : "Saving..."}
+                    {isExtractingData ? "Extracting..." : uploadingCapStatement ? "Uploading..." : "Saving..."}
                   </>
                 ) : (
                   editingPartner ? "Update Partner" : "Add Partner"
