@@ -11,6 +11,7 @@ import LandingPage from './pages/LandingPage';
 import Home from './pages/Home';
 import Pricing from './pages/Pricing';
 import Settings from './pages/Settings';
+import Analytics from './pages/Analytics';
 import Layout from './Layout.jsx';
 
 
@@ -28,6 +29,7 @@ export const PAGES = {
     "Home": Home,
     "Pricing": Pricing,
     "Settings": Settings,
+    "Analytics": Analytics,
 }
 
 export const pagesConfig = {
