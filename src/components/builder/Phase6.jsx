@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-
+import { showSuccess, showError, showWarning } from "../../components/ui/notification";
 
 const PROPOSAL_SECTIONS = [
   {
@@ -181,7 +181,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
 
   const autoDraft = async (sectionConfig) => {
     if (!proposalId || !currentOrgId) {
-      alert("Please save the proposal first");
+      showWarning("Please save the proposal first");
       return;
     }
 
@@ -336,11 +336,11 @@ The content should be ready to insert into the proposal document. Use HTML forma
         setContent(newSection.content);
       }
 
-      alert(`✓ AI generated ${wordCount} words for ${sectionConfig.name}`);
+      showSuccess(`AI generated ${wordCount} words for ${sectionConfig.name}`);
 
     } catch (error) {
       console.error("Error generating content:", error);
-      alert("Error generating content. Please try again.");
+      showError("Error generating content. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -348,7 +348,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
 
   const checkCompliance = async () => {
     if (!editingSection || !editingSection.content) {
-      alert("Please open a section with content for editing first");
+      showWarning("Please open a section with content for editing first");
       return;
     }
 
@@ -419,7 +419,7 @@ Return JSON with this structure:
 
     } catch (error) {
       console.error("Error checking compliance:", error);
-      alert("Error checking compliance. Please try again.");
+      showError("Error checking compliance. Please try again.");
     } finally {
       setIsCheckingCompliance(false);
     }
@@ -427,7 +427,7 @@ Return JSON with this structure:
 
   const checkQuality = async () => {
     if (!editingSection || !editingSection.content) {
-      alert("Please open a section with content for editing first");
+      showWarning("Please open a section with content for editing first");
       return;
     }
 
@@ -502,7 +502,7 @@ Return JSON with this structure:
 
     } catch (error) {
       console.error("Error checking quality:", error);
-      alert("Error checking quality. Please try again.");
+      showError("Error checking quality. Please try again.");
     } finally {
       setIsCheckingQuality(false);
     }
@@ -510,7 +510,7 @@ Return JSON with this structure:
 
   const generateContentSuggestions = async () => {
     if (!editingSection) {
-      alert("Please open a section for editing first");
+      showWarning("Please open a section for editing first");
       return;
     }
 
@@ -581,7 +581,7 @@ Return JSON:
 
     } catch (error) {
       console.error("Error generating suggestions:", error);
-      alert("Error generating suggestions. Please try again.");
+      showError("Error generating suggestions. Please try again.");
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -589,7 +589,7 @@ Return JSON:
 
   const insertSuggestion = (suggestion) => {
     if (!editingSection) {
-      alert("Please open the section for editing first");
+      showWarning("Please open the section for editing first");
       return;
     }
 
@@ -605,7 +605,7 @@ Return JSON:
     }
 
     setContent(newContent);
-    alert('✓ Suggestion inserted! Review and adjust as needed.');
+    showSuccess('Suggestion inserted! Review and adjust as needed.');
   };
 
   const handleSave = async () => {
@@ -625,10 +625,10 @@ Return JSON:
 
       setSelectedSection({ ...editingSection, content, word_count: wordCount, status: 'reviewed' });
       setEditingSection(null);
-      alert("✓ Section saved successfully!");
+      showSuccess("Section saved successfully!");
     } catch (error) {
       console.error("Error saving section:", error);
-      alert("Error saving section. Please try again.");
+      showError("Error saving section. Please try again.");
     } finally {
       setIsSaving(false);
     }

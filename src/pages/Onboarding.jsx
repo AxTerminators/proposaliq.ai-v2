@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Sparkles, Upload, Plus, X, Building2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { showError, showWarning } from "../components/ui/notification";
 
 const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
@@ -78,7 +80,7 @@ export default function Onboarding() {
 
   const handleOrgSubmit = async () => {
     if (!orgData.organization_name || !orgData.contact_name || !orgData.contact_email) {
-      alert("Please fill in all required fields");
+      showWarning("Please fill in all required fields");
       return;
     }
     
@@ -103,14 +105,14 @@ export default function Onboarding() {
       navigate(createPageUrl("Dashboard"));
     } catch (error) {
       console.error("Error completing onboarding:", error);
-      alert("There was an error completing onboarding. Please try again.");
+      showError("There was an error completing onboarding. Please try again.");
     }
     setIsSubmitting(false);
   };
 
   const addPartner = () => {
     if (!currentPartner.partner_name) {
-      alert("Please enter partner name");
+      showWarning("Please enter partner name");
       return;
     }
     setPartners([...partners, currentPartner]);
