@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, X, Plus, Sparkles, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { FileText, Upload, X, Plus, Sparkles, CheckCircle2, AlertCircle, Loader2, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -143,6 +144,7 @@ Return as valid JSON with these exact keys: solicitation_number, agency_name, pr
 4. **Risk Factors:** Identify potential risks, challenges, or red flags in the solicitation.
 5. **Key Dates & Milestones:** All important dates beyond just the due date (pre-proposal conference, question deadline, etc.)
 6. **Special Requirements:** Any unique or unusual requirements (security clearances, certifications, insurance, bonding).
+7. **PRICING STRUCTURE:** Extract pricing requirements, CLIN structure, contract type, pricing periods, option years, and any cost constraints.
 
 Return as detailed JSON following this schema:
 
@@ -193,7 +195,42 @@ Return as detailed JSON following this schema:
       "type": "clearance|certification|insurance|bonding|other",
       "details": "string"
     }
-  ]
+  ],
+  "pricing_structure": {
+    "contract_type": "FFP|T&M|CPFF|CPAF|Hybrid|Other",
+    "pricing_model_preference": "string (agency's stated preference)",
+    "clin_structure": {
+      "base_period": "string (description)",
+      "option_years": number,
+      "clin_breakdown": ["string (list of expected CLINs)"]
+    },
+    "budget_constraints": {
+      "stated_budget": number,
+      "budget_range_low": number,
+      "budget_range_high": number,
+      "budget_notes": "string"
+    },
+    "pricing_submission_requirements": {
+      "format": "string",
+      "separate_pricing_volume": boolean,
+      "required_cost_breakdown": ["string"],
+      "required_justifications": ["string"]
+    },
+    "labor_requirements": {
+      "labor_categories_specified": boolean,
+      "rates_specified": boolean,
+      "escalation_allowed": boolean,
+      "loaded_vs_unloaded": "string"
+    },
+    "odc_requirements": {
+      "travel_allowed": boolean,
+      "materials_allowed": boolean,
+      "subcontracting_allowed": boolean,
+      "fee_on_odc": boolean
+    },
+    "pricing_risks": ["string"],
+    "competitive_pricing_indicators": "string"
+  }
 }`;
 
       const result = await base44.integrations.Core.InvokeLLM({
@@ -207,7 +244,8 @@ Return as detailed JSON following this schema:
             format_requirements: { type: "object" },
             risk_factors: { type: "array" },
             key_dates: { type: "array" },
-            special_requirements: { type: "array" }
+            special_requirements: { type: "array" },
+            pricing_structure: { type: "object" }
           }
         }
       });
@@ -234,7 +272,30 @@ Return as detailed JSON following this schema:
         }
       }
 
-      alert(`✓ Deep analysis complete! Created ${result.mandatory_requirements?.length || 0} compliance requirements.`);
+      // Create PricingStrategy with extracted pricing structure
+      if (result.pricing_structure) {
+        const strategies = await base44.entities.PricingStrategy.filter({ proposal_id: proposalId });
+        
+        const pricingData = {
+          proposal_id: proposalId,
+          organization_id: currentOrgId.id,
+          pricing_approach: result.pricing_structure.contract_type || 'competitive',
+          basis_of_estimate: result.pricing_structure.pricing_model_preference || '',
+          pricing_assumptions: [
+            ...(result.pricing_structure.pricing_risks || []),
+            result.pricing_structure.competitive_pricing_indicators || ''
+          ].filter(Boolean),
+          indirect_rates: result.pricing_structure.labor_requirements || {} // Store labor requirements here
+        };
+
+        if (strategies.length > 0) {
+          await base44.entities.PricingStrategy.update(strategies[0].id, pricingData);
+        } else {
+          await base44.entities.PricingStrategy.create(pricingData);
+        }
+      }
+
+      alert(`✓ Deep analysis complete! Created ${result.mandatory_requirements?.length || 0} compliance requirements and extracted pricing structure.`);
 
     } catch (error) {
       console.error("Error analyzing solicitation:", error);
@@ -571,24 +632,92 @@ Return a JSON array of evaluation factor names.`;
         </div>
 
         {extractionResults && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle2 className="w-4 h-4 text-green-600" />
-            <AlertDescription>
-              <div className="space-y-2">
-                <p className="font-semibold text-green-900">Deep Analysis Complete!</p>
-                <ul className="text-sm text-green-800 space-y-1">
-                  <li>✓ {extractionResults.mandatory_requirements?.length || 0} mandatory requirements identified</li>
-                  <li>✓ {extractionResults.evaluation_criteria?.length || 0} evaluation criteria extracted</li>
-                  <li>✓ {extractionResults.risk_factors?.length || 0} risk factors flagged</li>
-                  <li>✓ {extractionResults.key_dates?.length || 0} key dates captured</li>
-                  <li>✓ Compliance requirements automatically created</li>
-                </ul>
-                <p className="text-xs text-green-700 mt-2">
-                  View detailed analysis in Phase 4: Evaluator
-                </p>
-              </div>
-            </AlertDescription>
-          </Alert>
+          <>
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-semibold text-green-900">Deep Analysis Complete!</p>
+                  <ul className="text-sm text-green-800 space-y-1">
+                    <li>✓ {extractionResults.mandatory_requirements?.length || 0} mandatory requirements identified</li>
+                    <li>✓ {extractionResults.evaluation_criteria?.length || 0} evaluation criteria extracted</li>
+                    <li>✓ {extractionResults.risk_factors?.length || 0} risk factors flagged</li>
+                    <li>✓ {extractionResults.key_dates?.length || 0} key dates captured</li>
+                    <li>✓ Compliance requirements automatically created</li>
+                    {extractionResults.pricing_structure && (
+                      <li>✓ Pricing structure and requirements extracted</li>
+                    )}
+                  </ul>
+                  <p className="text-xs text-green-700 mt-2">
+                    View detailed analysis in Phase 4: Evaluator and Pricing Module
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+
+            {extractionResults.pricing_structure && (
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-purple-600" />
+                    Extracted Pricing Structure
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="p-3 bg-white border rounded-lg">
+                      <p className="text-xs text-slate-600 mb-1">Contract Type</p>
+                      <Badge className="bg-purple-600 text-white">
+                        {extractionResults.pricing_structure.contract_type || 'Not specified'}
+                      </Badge>
+                    </div>
+
+                    {extractionResults.pricing_structure.clin_structure && (
+                      <div className="p-3 bg-white border rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Option Years</p>
+                        <p className="font-semibold text-slate-900">
+                          {extractionResults.pricing_structure.clin_structure.option_years ?? 'Not specified'}
+                        </p>
+                      </div>
+                    )}
+
+                    {extractionResults.pricing_structure.budget_constraints?.stated_budget && (
+                      <div className="p-3 bg-white border rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Stated Budget</p>
+                        <p className="font-semibold text-slate-900">
+                          ${extractionResults.pricing_structure.budget_constraints.stated_budget.toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+
+                    {extractionResults.pricing_structure.pricing_model_preference && (
+                      <div className="p-3 bg-white border rounded-lg">
+                        <p className="text-xs text-slate-600 mb-1">Agency Preference</p>
+                        <p className="text-sm text-slate-900">
+                          {extractionResults.pricing_structure.pricing_model_preference}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {extractionResults.pricing_structure.pricing_risks?.length > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs font-semibold text-amber-900 mb-1">⚠️ Pricing Risks Identified:</p>
+                      <ul className="text-xs text-amber-800 space-y-1">
+                        {extractionResults.pricing_structure.pricing_risks.slice(0, 3).map((risk, idx) => (
+                          <li key={idx}>• {risk}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-purple-700">
+                    💡 Use this data in the Pricing Module for AI-powered pricing recommendations
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
