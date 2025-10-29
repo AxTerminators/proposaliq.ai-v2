@@ -3,9 +3,15 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, ChevronLeft, Edit2, Trash2, Check, X, Lock } from "lucide-react";
+import { ChevronRight, ChevronDown, ChevronLeft, Edit2, Trash2, Check, X, Lock, Filter } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
 import KanbanCard from "./KanbanCard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function KanbanColumn({ 
   column, 
@@ -17,6 +23,7 @@ export default function KanbanColumn({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(column.label || column.display_name || "Untitled");
+  const [sortBy, setSortBy] = useState("date_added"); // date_added, alphabetical, due_date
 
   const handleSaveRename = () => {
     if (editedName.trim()) {
@@ -30,7 +37,26 @@ export default function KanbanColumn({
     setIsEditing(false);
   };
 
+  const handleSortChange = (newSortBy) => {
+    setSortBy(newSortBy);
+  };
+
   const columnName = column.label || column.display_name || "Untitled";
+
+  // Sort proposals based on selected sort option
+  const sortedProposals = [...proposals].sort((a, b) => {
+    switch (sortBy) {
+      case "alphabetical":
+        return (a.proposal_name || "").localeCompare(b.proposal_name || "");
+      case "due_date":
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date) - new Date(b.due_date);
+      case "date_added":
+      default:
+        return new Date(b.created_date) - new Date(a.created_date);
+    }
+  });
 
   if (isCollapsed) {
     return (
@@ -112,6 +138,46 @@ export default function KanbanColumn({
                   <Badge variant="secondary" className="ml-auto flex-shrink-0">
                     {proposals.length}
                   </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0"
+                      >
+                        <Filter className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem 
+                        onClick={() => handleSortChange("date_added")}
+                        className={sortBy === "date_added" ? "bg-slate-100" : ""}
+                      >
+                        <div className="flex items-center gap-2">
+                          {sortBy === "date_added" && <Check className="w-4 h-4" />}
+                          <span>Date Added (Newest)</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleSortChange("alphabetical")}
+                        className={sortBy === "alphabetical" ? "bg-slate-100" : ""}
+                      >
+                        <div className="flex items-center gap-2">
+                          {sortBy === "alphabetical" && <Check className="w-4 h-4" />}
+                          <span>Alphabetical (A-Z)</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleSortChange("due_date")}
+                        className={sortBy === "due_date" ? "bg-slate-100" : ""}
+                      >
+                        <div className="flex items-center gap-2">
+                          {sortBy === "due_date" && <Check className="w-4 h-4" />}
+                          <span>Due Date (Earliest)</span>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               )}
             </div>
@@ -128,7 +194,7 @@ export default function KanbanColumn({
               }`}
               style={{ minHeight: "200px", maxHeight: "calc(100vh - 300px)" }}
             >
-              {proposals.map((proposal, index) => (
+              {sortedProposals.map((proposal, index) => (
                 <KanbanCard
                   key={proposal.id}
                   proposal={proposal}
