@@ -1,0 +1,107 @@
+{
+  "name": "CLIN",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this CLIN"
+    },
+    "clin_number": {
+      "type": "string",
+      "description": "Contract Line Item Number (e.g., 0001, 0001AA)"
+    },
+    "clin_type": {
+      "type": "string",
+      "enum": [
+        "labor",
+        "material",
+        "travel",
+        "odc",
+        "fixed_price",
+        "time_and_materials",
+        "cost_plus"
+      ],
+      "description": "Type of CLIN"
+    },
+    "clin_title": {
+      "type": "string",
+      "description": "Title/description of the CLIN"
+    },
+    "period_of_performance": {
+      "type": "string",
+      "description": "Period this CLIN covers (e.g., Base Year, Option Year 1)"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Start date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "End date"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Total cost for this CLIN"
+    },
+    "labor_cost": {
+      "type": "number",
+      "description": "Total labor cost"
+    },
+    "odc_cost": {
+      "type": "number",
+      "description": "Total ODC cost"
+    },
+    "travel_cost": {
+      "type": "number",
+      "description": "Total travel cost"
+    },
+    "material_cost": {
+      "type": "number",
+      "description": "Total material cost"
+    },
+    "fee_percentage": {
+      "type": "number",
+      "description": "Fee/profit percentage"
+    },
+    "fee_amount": {
+      "type": "number",
+      "description": "Fee/profit dollar amount"
+    },
+    "total_price": {
+      "type": "number",
+      "description": "Total price including fee"
+    },
+    "is_option": {
+      "type": "boolean",
+      "default": false,
+      "description": "Is this an option period"
+    },
+    "parent_clin_id": {
+      "type": "string",
+      "description": "Parent CLIN if this is a sub-CLIN"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about this CLIN"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Pricing assumptions"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "organization_id",
+    "clin_number",
+    "clin_title"
+  ]
+}
