@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import ExportCenter from './pages/ExportCenter';
 import OpportunityFinder from './pages/OpportunityFinder';
+import PersonnelManager from './pages/PersonnelManager';
 import Layout from './Layout.jsx';
 
 
@@ -34,6 +35,7 @@ export const PAGES = {
     "Analytics": Analytics,
     "ExportCenter": ExportCenter,
     "OpportunityFinder": OpportunityFinder,
+    "PersonnelManager": PersonnelManager,
 }
 
 export const pagesConfig = {
