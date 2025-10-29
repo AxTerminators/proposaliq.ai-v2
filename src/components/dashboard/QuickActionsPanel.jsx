@@ -11,7 +11,8 @@ import {
   FileText,
   Users,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +78,7 @@ export default function QuickActionsPanel() {
             <button
               key={idx}
               onClick={action.onClick}
-              className="group relative p-4 rounded-lg border-2 border-slate-200 hover:border-blue-300 hover:shadow-md transition-all text-left"
+              className="group relative p-4 rounded-lg border-2 border-slate-200 hover:border-blue-300 hover:shadow-md transition-all text-left min-h-[80px]"
             >
               <div className="flex items-start gap-3">
                 <div className={cn(
@@ -95,6 +96,20 @@ export default function QuickActionsPanel() {
               </div>
             </button>
           ))}
+        </div>
+
+        <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <div className="flex items-start gap-3">
+            <Bell className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-sm text-blue-900 mb-1">
+                💡 Pro Tip: Stay Notified
+              </h4>
+              <p className="text-xs text-blue-700">
+                Use <span className="font-mono bg-blue-100 px-1 rounded">@email@domain.com</span> in comments to mention team members. They'll get instant notifications!
+              </p>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
