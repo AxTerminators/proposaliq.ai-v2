@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,8 +39,7 @@ import ExportDialog from "../export/ExportDialog";
 
 export default function Phase7({ proposalData, setProposalData, proposalId }) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [isExporting, setIsExporting] = useState(false);
+  // queryClient removed as its usage was removed
   const [isReviewing, setIsReviewing] = useState(false);
   const [qualityReview, setQualityReview] = useState(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -56,14 +55,8 @@ export default function Phase7({ proposalData, setProposalData, proposalId }) {
     contactPhone: ""
   });
 
-  const [exportOptions, setExportOptions] = useState({
-    saveToLibrary: true,
-    exportAsDocx: true, // This option isn't directly used in current generateDocument, but kept for UI
-    includeTOC: true,
-    includePageNumbers: true, // This option isn't directly used in current generateDocument (Markdown)
-    includeHeaderFooter: true, // This option isn't directly used in current generateDocument (Markdown)
-    generateComplianceMatrix: true
-  });
+  // exportOptions state and its related useEffect were removed
+  // isExporting state and its related useEffect were removed
 
   const { data: sections } = useQuery({
     queryKey: ['proposal-sections', proposalId],
@@ -227,13 +220,9 @@ Be thorough and specific. This is a final quality check before submission to the
     preview += `**Contact Information:**  \n${coverPage.contactName}  \n${coverPage.contactEmail}  \n${coverPage.contactPhone}\n\n`;
     preview += `---\n\n`;
 
-    if (exportOptions.includeTOC) {
-      preview += `## TABLE OF CONTENTS\n\n`;
-      sections.forEach((section, idx) => {
-        preview += `${idx + 1}. ${section.section_name}  \n`;
-      });
-      preview += `\n---\n\n`;
-    }
+    // Removed exportOptions.includeTOC check as exportOptions state was removed
+    // If TOC is desired in preview, it should be hardcoded here.
+    // For now, it's removed as per the outline.
 
     sections.forEach((section, idx) => {
       const sectionNumber = idx + 1;
@@ -264,13 +253,7 @@ Be thorough and specific. This is a final quality check before submission to the
     setShowPreviewDialog(true);
   };
 
-  const generateDocument = async () => {
-    if (!proposalId || !readyToExport) {
-      alert("Please complete all required fields and sections");
-      return;
-    }
-    setShowExportDialog(true);
-  };
+  // generateDocument function was removed, replaced by direct call to setShowExportDialog(true)
 
   const getReadinessColor = (level) => {
     if (level === 'ready') return 'text-green-600';
@@ -372,7 +355,7 @@ Be thorough and specific. This is a final quality check before submission to the
                     )}
                     <div className="flex-1">
                       <h3 className={`font-semibold mb-2 ${readyToExport ? 'text-green-900' : 'text-amber-900'}`}>
-                        {readyToExport ? 'Ready to Generate!' : 'Not Ready Yet'}
+                        {readyToExport ? 'Ready to Export!' : 'Not Ready Yet'}
                       </h3>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
@@ -448,16 +431,12 @@ Be thorough and specific. This is a final quality check before submission to the
                 </Button>
                 <Button
                   size="lg"
-                  onClick={generateDocument}
-                  disabled={!readyToExport || isExporting}
+                  onClick={() => setShowExportDialog(true)} // Modified to open export dialog
+                  disabled={!readyToExport}
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                 >
-                  {isExporting ? (
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="w-5 h-5 mr-2" />
-                  )}
-                  Generate Document
+                  <Download className="w-5 h-5 mr-2" />
+                  Export Proposal
                 </Button>
               </div>
             </CardContent>
@@ -744,93 +723,95 @@ Be thorough and specific. This is a final quality check before submission to the
         <TabsContent value="export" className="space-y-6">
           <Card className="border-none shadow-xl">
             <CardHeader>
-              <CardTitle>Export Options</CardTitle>
-              <CardDescription>Configure document generation settings</CardDescription>
+              <CardTitle>Export Your Proposal</CardTitle>
+              <CardDescription>Generate professional documents for submission</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={exportOptions.saveToLibrary}
-                    onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, saveToLibrary: checked }))}
-                  />
-                  <label className="text-sm text-slate-700">
-                    Mark proposal as "Submitted" in library
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={exportOptions.includeTOC}
-                    onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeTOC: checked }))}
-                  />
-                  <label className="text-sm text-slate-700">
-                    Include Table of Contents
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={exportOptions.includePageNumbers}
-                    onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includePageNumbers: checked }))}
-                  />
-                  <label className="text-sm text-slate-700">
-                    Include page numbers (when converted to DOCX/PDF)
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={exportOptions.includeHeaderFooter}
-                    onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeHeaderFooter: checked }))}
-                  />
-                  <label className="text-sm text-slate-700">
-                    Include header/footer with proposal info
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={exportOptions.generateComplianceMatrix}
-                    onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, generateComplianceMatrix: checked }))}
-                  />
-                  <label className="text-sm text-slate-700">
-                    Generate compliance matrix appendix
-                  </label>
-                </div>
-              </div>
-
               <Alert className="bg-blue-50 border-blue-200">
+                <Download className="w-4 h-4 text-blue-600" />
                 <AlertDescription className="text-sm text-blue-900">
-                  <strong>Format Note:</strong> Documents are generated in Markdown format for maximum compatibility.
-                  To convert to DOCX: Open in Microsoft Word or use Pandoc (pandoc file.md -o output.docx)
+                  <strong>Professional Export System</strong><br/>
+                  Export your proposal in multiple formats with customizable templates, cover pages, table of contents, and more.
                 </AlertDescription>
               </Alert>
 
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-red-600" />
+                      Print-Ready HTML → PDF
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Professional HTML document that you can print to PDF. Perfect for final submission with proper formatting.
+                    </p>
+                    <Badge variant="secondary">Recommended for Submission</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      Markdown → Word (DOCX)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Export as Markdown for easy conversion to Microsoft Word. Great for further editing.
+                    </p>
+                    <Badge variant="outline">Editable Format</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-green-600" />
+                      Compliance Matrix (CSV)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Generate a compliance tracking matrix. Opens in Excel or Google Sheets.
+                    </p>
+                    <Badge variant="outline">Tracking Tool</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-purple-600" />
+                      Styled HTML Package
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Complete HTML with embedded styles for web viewing or archiving.
+                    </p>
+                    <Badge variant="outline">Web Ready</Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
               <Button
-                onClick={generateDocument}
-                disabled={!readyToExport || isExporting}
+                onClick={() => setShowExportDialog(true)} // Modified to open export dialog
+                disabled={!readyToExport}
                 size="lg"
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
               >
-                {isExporting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Generating Document...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5 mr-2" />
-                    Generate Final Document
-                  </>
-                )}
+                <Download className="w-5 h-5 mr-2" />
+                Open Export Dialog
               </Button>
 
               {!readyToExport && (
                 <Alert className="border-amber-300">
                   <AlertCircle className="w-4 h-4" />
                   <AlertDescription>
-                    Complete all requirements in the Overview tab to generate the final document.
+                    Complete all requirements in the Overview tab to export the final document.
                   </AlertDescription>
                 </Alert>
               )}
@@ -871,14 +852,11 @@ Be thorough and specific. This is a final quality check before submission to the
         onOpenChange={setShowExportDialog}
         proposalId={proposalId}
         proposalData={proposalData}
-        exportOptions={exportOptions}
-        coverPage={coverPage}
-        sections={sections}
-        completionStats={completionStats}
-        completionPercentage={completionPercentage}
+        // exportOptions, coverPage, sections, completionStats, completionPercentage props were removed
         onExportComplete={() => {
-          queryClient.invalidateQueries({ queryKey: ['export-history'] });
-          queryClient.invalidateQueries({ queryKey: ['proposal', proposalId] }); // Invalidate proposal data to reflect status change
+          // queryClient.invalidateQueries was removed as useQueryClient is no longer imported
+          // Refresh export history or show success message
+          alert("✓ Export completed successfully!");
         }}
       />
     </div>
