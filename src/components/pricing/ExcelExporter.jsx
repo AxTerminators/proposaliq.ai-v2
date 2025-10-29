@@ -84,7 +84,8 @@ export default function ExcelExporter({
         csvContent += "CLIN,Labor Category,Hours,Rate,Total Cost,FTE\n";
         laborAllocations.forEach(alloc => {
           const clin = clins.find(c => c.id === alloc.clin_id);
-          csvContent += `"${clin?.clin_number || 'N/A'}","${alloc.labor_category_name}",${alloc.hours},$${alloc.hourly_rate},$${alloc.total_cost},${alloc.fte?.toFixed(2)}\n`;
+          const clinNumber = clin?.clin_number || "N/A";
+          csvContent += `"${clinNumber}","${alloc.labor_category_name}",${alloc.hours},$${alloc.hourly_rate},$${alloc.total_cost},${alloc.fte?.toFixed(2)}\n`;
         });
         csvContent += "\n";
       }
@@ -95,7 +96,8 @@ export default function ExcelExporter({
         csvContent += "CLIN,Category,Item,Quantity,Unit Cost,Total Cost\n";
         odcItems.forEach(odc => {
           const clin = clins.find(c => c.id === odc.clin_id);
-          csvContent += `"${clin?.clin_number || 'N/A}","${odc.odc_category}","${odc.item_name}",${odc.quantity},$${odc.unit_cost},$${odc.total_cost}\n`;
+          const clinNumber = clin?.clin_number || "N/A";
+          csvContent += `"${clinNumber}","${odc.odc_category}","${odc.item_name}",${odc.quantity},$${odc.unit_cost},$${odc.total_cost}\n`;
         });
         csvContent += "\n";
       }
