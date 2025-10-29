@@ -37,7 +37,7 @@
           },
           "default_status_mapping": {
             "type": "string",
-            "description": "If type is default_status, maps to actual proposal status"
+            "description": "If type is default_status, maps to actual proposal status (e.g., 'evaluating', 'draft', 'won')"
           }
         }
       },
