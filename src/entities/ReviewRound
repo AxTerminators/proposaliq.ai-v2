@@ -1,0 +1,133 @@
+{
+  "name": "ReviewRound",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization conducting the review"
+    },
+    "round_name": {
+      "type": "string",
+      "enum": [
+        "pink_team",
+        "red_team",
+        "gold_team",
+        "final_review",
+        "custom"
+      ],
+      "description": "Type of review round"
+    },
+    "custom_round_name": {
+      "type": "string",
+      "description": "If custom, specify the name"
+    },
+    "round_number": {
+      "type": "number",
+      "description": "Sequential round number (1, 2, 3...)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ],
+      "default": "scheduled",
+      "description": "Current status of review round"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When review round starts"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When reviews must be completed"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When round was completed"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of review objectives"
+    },
+    "review_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What to evaluate (e.g., 'Technical Approach', 'Compliance', 'Writing Quality')"
+    },
+    "assigned_reviewers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string"
+          },
+          "user_name": {
+            "type": "string"
+          },
+          "sections_assigned": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "lead_reviewer",
+              "reviewer",
+              "subject_matter_expert"
+            ]
+          }
+        }
+      },
+      "description": "Reviewers assigned to this round"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "Average score across all sections (0-5)"
+    },
+    "total_comments": {
+      "type": "number",
+      "default": 0,
+      "description": "Total comments submitted"
+    },
+    "critical_issues": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of critical issues found"
+    },
+    "high_issues": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of high priority issues"
+    },
+    "issues_resolved": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of issues that have been resolved"
+    },
+    "review_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "All reviewers have submitted"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "organization_id",
+    "round_name"
+  ]
+}
