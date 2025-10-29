@@ -1,0 +1,52 @@
+{
+  "name": "ProposalSectionHistory",
+  "type": "object",
+  "properties": {
+    "proposal_section_id": {
+      "type": "string",
+      "description": "Reference to the parent ProposalSection"
+    },
+    "version_number": {
+      "type": "number",
+      "description": "Version number for this content snapshot"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content at this version"
+    },
+    "changed_by_user_email": {
+      "type": "string",
+      "description": "Email of user who made this change"
+    },
+    "changed_by_user_name": {
+      "type": "string",
+      "description": "Display name of user who made this change"
+    },
+    "change_summary": {
+      "type": "string",
+      "description": "Brief description of what was changed"
+    },
+    "word_count": {
+      "type": "number",
+      "description": "Word count at this version"
+    },
+    "change_type": {
+      "type": "string",
+      "enum": [
+        "user_edit",
+        "ai_generated",
+        "ai_regenerated",
+        "restored_from_history",
+        "initial_creation"
+      ],
+      "description": "Type of change that created this version"
+    }
+  },
+  "required": [
+    "proposal_section_id",
+    "version_number",
+    "content",
+    "changed_by_user_email",
+    "change_type"
+  ]
+}
