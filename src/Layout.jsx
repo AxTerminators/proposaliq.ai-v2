@@ -1,7 +1,7 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useClient } from "@/contexts/ClientContext";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -40,7 +40,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
-import ClientSwitcher from "./components/layout/ClientSwitcher";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 
@@ -66,21 +65,43 @@ const adminItems = [
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const { user, activeClientId, activeClientRole, loading: clientLoading } = useClient();
+  const [user, setUser] = React.useState(null);
+  const [organization, setOrganization] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        // Assuming user.email is available and unique for created_by
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: currentUser.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setOrganization(orgs[0]);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
+    };
+    loadData();
+  }, []);
+
   const { data: subscription } = useQuery({
-    queryKey: ['subscription', activeClientId],
+    queryKey: ['subscription', organization?.id],
     queryFn: async () => {
-      if (!activeClientId) return null;
+      if (!organization?.id) return null;
       const subs = await base44.entities.Subscription.filter(
-        { organization_id: activeClientId },
+        { organization_id: organization.id },
         '-created_date',
         1
       );
       return subs.length > 0 ? subs[0] : null;
     },
-    enabled: !!activeClientId,
+    enabled: !!organization?.id,
   });
 
   // Close mobile menu on route change
@@ -108,7 +129,6 @@ export default function Layout({ children }) {
     ? ((subscription.token_credits - subscription.token_credits_used) / subscription.token_credits) * 100 
     : 100;
 
-  const userIsOwner = activeClientRole === 'organization_owner';
   const userIsAdmin = user?.role === 'admin';
 
   return (
@@ -127,8 +147,11 @@ export default function Layout({ children }) {
               </div>
             </div>
             
-            {/* Client Switcher */}
-            {!clientLoading && <ClientSwitcher />}
+            {organization && (
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+              </div>
+            )}
           </SidebarHeader>
           
           <SidebarContent className="p-3">
@@ -289,10 +312,12 @@ export default function Layout({ children }) {
             </button>
           </div>
 
-          {/* Mobile Client Switcher */}
-          {!clientLoading && (
+          {/* Mobile Organization Display */}
+          {organization && (
             <div className="p-4 border-b border-slate-200">
-              <ClientSwitcher />
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+              </div>
             </div>
           )}
 
