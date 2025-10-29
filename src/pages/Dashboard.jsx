@@ -1,4 +1,3 @@
-
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,22 +28,12 @@ import {
   Activity
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts';
 import { MobileContainer, MobileGrid, MobileSection } from "../components/ui/mobile-container";
+import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
+import ProposalPipeline from "../components/dashboard/ProposalPipeline";
+import AIInsightsCard from "../components/dashboard/AIInsightsCard";
+import ActivityTimeline from "../components/dashboard/ActivityTimeline";
+import RevenueChart from "../components/dashboard/RevenueChart";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -95,7 +84,7 @@ export default function Dashboard() {
     queryKey: ['activity-log', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      const activities = await base44.entities.ActivityLog.list('-created_date', 20);
+      const activities = await base44.entities.ActivityLog.list('-created_date', 50);
       return activities.filter(a => {
         const proposal = proposals.find(p => p.id === a.proposal_id);
         return proposal?.organization_id === organization.id;
@@ -112,7 +101,7 @@ export default function Dashboard() {
       return base44.entities.SAMOpportunity.filter(
         { organization_id: organization.id, status: 'new' },
         '-match_score',
-        5
+        10
       );
     },
     initialData: [],
@@ -160,57 +149,22 @@ export default function Dashboard() {
     };
   }, [proposals]);
 
-  // Win/Loss Trend (last 6 months)
-  const winLossTrend = React.useMemo(() => {
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthKey = date.toLocaleString('default', { month: 'short' });
-      
-      const monthProposals = proposals.filter(p => {
-        if (!p.updated_date) return false;
-        const pDate = new Date(p.updated_date);
-        return pDate.getMonth() === date.getMonth() && pDate.getFullYear() === date.getFullYear();
-      });
-
-      months.push({
-        month: monthKey,
-        won: monthProposals.filter(p => p.status === 'won').length,
-        lost: monthProposals.filter(p => p.status === 'lost').length,
-        submitted: monthProposals.filter(p => p.status === 'submitted').length
-      });
-    }
-    return months;
-  }, [proposals]);
-
   // Proposal Health Scores
   const proposalHealthData = React.useMemo(() => {
     return proposals
       .filter(p => ['in_progress', 'draft', 'evaluating'].includes(p.status))
       .map(p => {
-        let health = 50; // Base score
-        
-        // Has due date
+        let health = 50;
         if (p.due_date) health += 15;
-        
-        // Time to deadline
         if (p.due_date) {
           const daysUntilDue = Math.floor((new Date(p.due_date) - new Date()) / (1000 * 60 * 60 * 24));
           if (daysUntilDue > 30) health += 20;
           else if (daysUntilDue > 14) health += 10;
           else if (daysUntilDue < 7) health -= 20;
         }
-        
-        // Phase progress
         const phaseNumber = parseInt(p.current_phase?.replace('phase', '') || '1');
         health += Math.min(phaseNumber * 5, 20);
-        
-        // Match score
-        if (p.match_score) {
-          health += Math.floor(p.match_score / 10);
-        }
-
+        if (p.match_score) health += Math.floor(p.match_score / 10);
         return {
           id: p.id,
           name: p.proposal_name,
@@ -271,35 +225,6 @@ export default function Dashboard() {
           </span>
         }
         description={organization.organization_name}
-        actions={
-          <>
-            <Button 
-              onClick={() => navigate(createPageUrl("ProposalBuilder"))}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 min-h-[44px]"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              <span className="hidden sm:inline">New Proposal</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => navigate(createPageUrl("OpportunityFinder"))}
-              className="min-h-[44px]"
-            >
-              <Search className="w-5 h-5 mr-2" />
-              <span className="hidden sm:inline">Find Opportunities</span>
-              <span className="sm:hidden">Find</span>
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => navigate(createPageUrl("Chat"))}
-              className="min-h-[44px] hidden md:flex"
-            >
-              <MessageSquare className="w-5 h-5 mr-2" />
-              Ask AI
-            </Button>
-          </>
-        }
       />
 
       {/* Key Metrics Cards */}
@@ -322,7 +247,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-amber-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Proposals"))}>
+        <Card className="border-none shadow-lg bg-gradient-to-br from-amber-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Calendar"))}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -362,40 +287,29 @@ export default function Dashboard() {
         </Card>
       </MobileGrid>
 
-      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Main Content - 2 columns */}
-        <div className="lg:col-span-2 space-y-4 md:space-y-6">
-          {/* Win/Loss Trends */}
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-                Win/Loss Trends
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={winLossTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="won" fill="#10b981" name="Won" />
-                  <Bar dataKey="submitted" fill="#8b5cf6" name="Submitted" />
-                  <Bar dataKey="lost" fill="#ef4444" name="Lost" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+      {/* Quick Actions */}
+      <QuickActionsPanel />
 
-          {/* Proposal Health Scores */}
+      {/* Main Dashboard Grid */}
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Left Column - 2 units wide */}
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
+          {/* AI Insights */}
+          <AIInsightsCard proposals={proposals} opportunities={opportunities} />
+
+          {/* Proposal Pipeline */}
+          <ProposalPipeline proposals={proposals} />
+
+          {/* Revenue Chart */}
+          <RevenueChart proposals={proposals} />
+
+          {/* Proposal Health Dashboard */}
           <Card className="border-none shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <Activity className="w-5 h-5 text-blue-600" />
-                  Proposal Health Dashboard
+                  Proposal Health
                 </span>
                 <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl("Proposals"))}>
                   View All
@@ -448,52 +362,13 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-
-          {/* Recent Activity Feed */}
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-amber-600" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activityLog.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <Activity className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <p className="text-sm">No recent activity</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {activityLog.slice(0, 8).map((activity) => {
-                    const proposal = proposals.find(p => p.id === activity.proposal_id);
-                    const timeAgo = getTimeAgo(activity.created_date);
-                    
-                    return (
-                      <div key={activity.id} className="flex gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                          {getActivityIcon(activity.action_type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-900">
-                            <strong>{activity.user_name}</strong> {activity.action_description}
-                          </p>
-                          {proposal && (
-                            <p className="text-xs text-slate-600 truncate">{proposal.proposal_name}</p>
-                          )}
-                          <p className="text-xs text-slate-400 mt-1">{timeAgo}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Sidebar - 1 column */}
+        {/* Right Column - 1 unit wide */}
         <div className="space-y-4 md:space-y-6">
+          {/* Activity Timeline */}
+          <ActivityTimeline activityLog={activityLog} proposals={proposals} />
+
           {/* Upcoming Deadlines */}
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -576,34 +451,6 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Quick Stats */}
-          <Card className="border-none shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-600" />
-                Quick Stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <span className="text-sm text-slate-700">Active Proposals</span>
-                <span className="text-lg font-bold text-blue-600">{stats.active}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                <span className="text-sm text-slate-700">Submitted</span>
-                <span className="text-lg font-bold text-purple-600">{stats.submitted}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-sm text-slate-700">Won</span>
-                <span className="text-lg font-bold text-green-600">{stats.won}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                <span className="text-sm text-slate-700">Win Rate</span>
-                <span className="text-lg font-bold text-amber-600">{stats.winRate}%</span>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Notifications Preview */}
           {notifications.length > 0 && (
             <Card className="border-none shadow-lg border-l-4 border-l-blue-500">
@@ -632,36 +479,4 @@ export default function Dashboard() {
       </div>
     </MobileContainer>
   );
-}
-
-// Helper functions
-function getActivityIcon(actionType) {
-  const iconClass = "w-4 h-4 text-white";
-  switch (actionType) {
-    case 'proposal_created':
-      return <Plus className={iconClass} />;
-    case 'section_updated':
-    case 'section_created':
-      return <Edit className={iconClass} />;
-    case 'comment_added':
-      return <MessageSquare className={iconClass} />;
-    case 'status_changed':
-      return <CheckCircle2 className={iconClass} />;
-    case 'file_uploaded':
-      return <FileText className={iconClass} />;
-    default:
-      return <Activity className={iconClass} />;
-  }
-}
-
-function getTimeAgo(dateString) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now - date) / 1000);
-  
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  return date.toLocaleDateString();
 }
