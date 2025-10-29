@@ -1,4 +1,3 @@
-
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -35,7 +34,6 @@ import ProposalPipeline from "../components/dashboard/ProposalPipeline";
 import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
-import { showInfo } from "../components/ui/notification";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -277,7 +275,7 @@ export default function Dashboard() {
 
         <Card 
           className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white hover:shadow-xl transition-all cursor-pointer" 
-          onClick={() => showInfo("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+          onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
         >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
@@ -427,7 +425,7 @@ export default function Dashboard() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => showInfo("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+                    onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
                   >
                     View All
                   </Button>
@@ -439,7 +437,7 @@ export default function Dashboard() {
                     <div
                       key={opp.id}
                       className="p-3 bg-white rounded-lg border border-purple-200 hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => showInfo("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+                      onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-semibold text-sm line-clamp-2">{opp.title}</h4>
