@@ -22,7 +22,9 @@ import {
   Award,
   Users,
   Calendar,
-  CheckSquare // Added CheckSquare import
+  CheckSquare,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react";
 import {
   Sidebar,
@@ -49,7 +51,7 @@ const navigationItems = [
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe },
   { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
-  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare }, // Added Tasks item
+  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
   { title: "Team", url: createPageUrl("Team"), icon: Users },
   { title: "Resources", url: createPageUrl("Resources"), icon: Library },
@@ -70,13 +72,13 @@ export default function Layout({ children }) {
   const [user, setUser] = React.useState(null);
   const [organization, setOrganization] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   React.useEffect(() => {
     const loadData = async () => {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        // Assuming user.email is available and unique for created_by
         const orgs = await base44.entities.Organization.filter(
           { created_by: currentUser.email },
           '-created_date',
@@ -137,30 +139,61 @@ export default function Layout({ children }) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
         {/* Desktop Sidebar */}
-        <Sidebar className="border-r border-slate-200 bg-white hidden lg:flex">
-          <SidebarHeader className="border-b border-slate-200 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
-                <p className="text-xs text-slate-500">AI-Powered Proposals</p>
-              </div>
-            </div>
-            
-            {organization && (
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+        <Sidebar className={cn(
+          "border-r border-slate-200 bg-white hidden lg:flex transition-all duration-300",
+          sidebarCollapsed ? "w-16" : "w-64"
+        )}>
+          <SidebarHeader className="border-b border-slate-200 p-6 relative">
+            {/* Collapse/Expand Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="absolute -right-3 top-6 h-6 w-6 rounded-full border bg-white shadow-md hover:bg-slate-100 z-10"
+            >
+              {sidebarCollapsed ? (
+                <ChevronsRight className="h-4 w-4" />
+              ) : (
+                <ChevronsLeft className="h-4 w-4" />
+              )}
+            </Button>
+
+            {!sidebarCollapsed && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
+                    <p className="text-xs text-slate-500">AI-Powered Proposals</p>
+                  </div>
+                </div>
+                
+                {organization && (
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {sidebarCollapsed && (
+              <div className="flex justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
               </div>
             )}
           </SidebarHeader>
           
           <SidebarContent className="p-3">
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
-                Navigation
-              </SidebarGroupLabel>
+              {!sidebarCollapsed && (
+                <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
+                  Navigation
+                </SidebarGroupLabel>
+              )}
               <SidebarGroupContent>
                 <SidebarMenu>
                   {navigationItems.map((item) => (
@@ -169,12 +202,17 @@ export default function Layout({ children }) {
                         asChild 
                         className={cn(
                           "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
-                          location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
+                          location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
+                          sidebarCollapsed ? 'justify-center px-0' : 'px-3'
                         )}
+                        title={sidebarCollapsed ? item.title : undefined}
                       >
-                        <Link to={item.url} className="flex items-center gap-3 px-3 py-2.5">
+                        <Link to={item.url} className={cn(
+                          "flex items-center gap-3 py-2.5",
+                          sidebarCollapsed ? 'justify-center' : ''
+                        )}>
                           <item.icon className="w-5 h-5" />
-                          <span>{item.title}</span>
+                          {!sidebarCollapsed && <span>{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -185,9 +223,11 @@ export default function Layout({ children }) {
 
             {userIsAdmin && (
               <SidebarGroup>
-                <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
-                  Admin
-                </SidebarGroupLabel>
+                {!sidebarCollapsed && (
+                  <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
+                    Admin
+                  </SidebarGroupLabel>
+                )}
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {adminItems.map((item) => (
@@ -196,12 +236,17 @@ export default function Layout({ children }) {
                           asChild 
                           className={cn(
                             "hover:bg-red-50 hover:text-red-700 transition-all duration-200 rounded-lg mb-1",
-                            location.pathname === item.url ? 'bg-red-50 text-red-700 font-medium' : 'text-slate-600'
+                            location.pathname === item.url ? 'bg-red-50 text-red-700 font-medium' : 'text-slate-600',
+                            sidebarCollapsed ? 'justify-center px-0' : 'px-3'
                           )}
+                          title={sidebarCollapsed ? item.title : undefined}
                         >
-                          <Link to={item.url} className="flex items-center gap-3 px-3 py-2.5">
+                          <Link to={item.url} className={cn(
+                            "flex items-center gap-3 py-2.5",
+                            sidebarCollapsed ? 'justify-center' : ''
+                          )}>
                             <item.icon className="w-5 h-5" />
-                            <span>{item.title}</span>
+                            {!sidebarCollapsed && <span>{item.title}</span>}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -211,7 +256,7 @@ export default function Layout({ children }) {
               </SidebarGroup>
             )}
 
-            {subscription && (
+            {subscription && !sidebarCollapsed && (
               <SidebarGroup>
                 <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
                   Subscription
@@ -256,29 +301,48 @@ export default function Layout({ children }) {
           </SidebarContent>
 
           <SidebarFooter className="border-t border-slate-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+            {!sidebarCollapsed ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">
+                      {user?.full_name?.[0]?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 text-sm truncate">
+                      {user?.full_name || 'User'}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                   <span className="text-white font-semibold text-sm">
                     {user?.full_name?.[0]?.toUpperCase() || 'U'}
                   </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900 text-sm truncate">
-                    {user?.full_name || 'User'}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </div>
+            )}
           </SidebarFooter>
         </Sidebar>
 
