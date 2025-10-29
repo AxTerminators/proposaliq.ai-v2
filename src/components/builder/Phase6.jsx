@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw, Lightbulb, Plus, GitCompare } from "lucide-react";
+import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw, Lightbulb, Plus, GitCompare, MessageCircle, Send, Users, CheckCircle2, Clock, AlertCircle, Filter, Calendar } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import {
@@ -19,18 +21,28 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import CollaborationPanel from "../collaboration/CollaborationPanel";
 import VersionComparison from "./VersionComparison";
 import { parseMentions, notifyMention } from "@/utils/notificationHelpers";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import MentionHelper from "../collaboration/MentionHelper";
+import moment from "moment";
 
-export default function Phase6({ proposalData, setProposalData, proposalId }) {
+
+export default function Phase6({ proposal, user, organization, teamMembers }) {
   const queryClient = useQueryClient();
   const [strategy, setStrategy] = useState(null);
   const [activeSections, setActiveSections] = useState([]);
   const [isGenerating, setIsGenerating] = useState({});
   const [sectionContent, setSectionContent] = useState({});
-  const [currentOrgId, setCurrentOrgId] = useState(null);
-  const [user, setUser] = useState(null);
   
   // History viewer state
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -48,24 +60,61 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
-  const [commentText, setCommentText] = useState(""); // Assuming this state exists for CollaborationPanel
+  // Collaboration Panel States
+  const [newComment, setNewComment] = useState("");
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    assigned_to_email: "",
+    priority: "medium",
+    due_date: ""
+  });
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterAssignee, setFilterAssignee] = useState("all");
 
+  const { data: comments, isLoading: commentsLoading } = useQuery({
+    queryKey: ['proposal-comments', proposal.id],
+    queryFn: async () => {
+      return base44.entities.ProposalComment.filter(
+        { proposal_id: proposal.id },
+        'created_date'
+      );
+    },
+    initialData: [],
+  });
+
+  const { data: tasks, isLoading: tasksLoading } = useQuery({
+    queryKey: ['proposal-tasks', proposal.id],
+    queryFn: async () => {
+      return base44.entities.ProposalTask.filter(
+        { proposal_id: proposal.id },
+        '-created_date'
+      );
+    },
+    initialData: [],
+  });
+  
   const createCommentMutation = useMutation({
-    mutationFn: async (commentData) => {
+    mutationFn: async (content) => {
+      const commentData = {
+        proposal_id: proposal.id,
+        content,
+        author_email: user.email,
+        author_name: user.full_name
+      };
       const comment = await base44.entities.ProposalComment.create(commentData);
       
-      // Handle @mentions in comments
-      const mentions = parseMentions(commentData.content);
+      const mentions = parseMentions(content);
       if (mentions.length > 0) {
-        const currentUser = await base44.auth.me();
         for (const email of mentions) {
           await notifyMention({
             mentionedEmail: email,
-            commentText: commentData.content,
-            authorEmail: currentUser.email,
-            authorName: currentUser.full_name,
-            proposalId: proposalId,
-            proposalName: proposalData.proposal_name || "Proposal"
+            commentText: content,
+            authorEmail: user.email,
+            authorName: user.full_name,
+            proposalId: proposal.id,
+            proposalName: proposal.proposal_name || "Proposal"
           });
         }
       }
@@ -74,31 +123,54 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal-comments'] });
-      setCommentText("");
+      setNewComment("");
     }
   });
 
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskData) => {
+      const assignee = teamMembers.find(m => m.email === taskData.assigned_to_email);
+      
+      const task = await base44.entities.ProposalTask.create({
+        ...taskData,
+        proposal_id: proposal.id,
+        assigned_by_email: user.email,
+        assigned_by_name: user.full_name,
+        assigned_to_name: assignee?.full_name || taskData.assigned_to_email,
+        status: "pending"
+      });
+
+      return task;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+      setShowNewTask(false);
+      setNewTask({
+        title: "",
+        description: "",
+        assigned_to_email: "",
+        priority: "medium",
+        due_date: ""
+      });
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, updates }) => {
+      return base44.entities.ProposalTask.update(taskId, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+    },
+  });
 
   useEffect(() => {
-    const loadStrategy = async () => {
-      if (!proposalId) return;
-      
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
-        }
+    const loadStrategyAndSections = async () => {
+      if (!proposal?.id || !user || !organization) return; 
 
-        const proposals = await base44.entities.Proposal.filter({ id: proposalId }, '-created_date', 1);
-        if (proposals.length > 0 && proposals[0].strategy_config) {
-          const config = JSON.parse(proposals[0].strategy_config);
+      if (proposal.strategy_config) {
+        try {
+          const config = JSON.parse(proposal.strategy_config);
           setStrategy(config);
           
           // Build active sections list
@@ -117,26 +189,25 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
           setActiveSections(sections);
 
           // Load existing content
-          const existingSections = await base44.entities.ProposalSection.filter({ proposal_id: proposalId });
+          const existingSections = await base44.entities.ProposalSection.filter({ proposal_id: proposal.id });
           const contentMap = {};
           existingSections.forEach(sec => {
             contentMap[sec.section_id] = sec.content;
           });
           setSectionContent(contentMap);
+        } catch (error) {
+          console.error("Error loading strategy or sections:", error);
         }
-      } catch (error) {
-        console.error("Error loading strategy:", error);
       }
     };
 
-    loadStrategy();
-  }, [proposalId]);
+    loadStrategyAndSections();
+  }, [proposal?.id, proposal?.strategy_config, user, organization]);
 
   const trackTokenUsage = async (tokens, prompt, response) => {
     try {
-      const user = await base44.auth.me();
       await base44.entities.TokenUsage.create({
-        organization_id: currentOrgId,
+        organization_id: organization.id,
         user_email: user.email,
         feature_type: "proposal_generation",
         tokens_used: tokens,
@@ -146,7 +217,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
         cost_estimate: (tokens / 1000000) * 0.5
       });
 
-      const subs = await base44.entities.Subscription.filter({ organization_id: currentOrgId }, '-created_date', 1);
+      const subs = await base44.entities.Subscription.filter({ organization_id: organization.id }, '-created_date', 1);
       if (subs.length > 0) {
         await base44.entities.Subscription.update(subs[0].id, {
           token_credits_used: (subs[0].token_credits_used || 0) + tokens
@@ -184,7 +255,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const createVersionHistory = async (sectionId, sectionName, content, changeType, changeSummary = null) => {
     try {
       const sections = await base44.entities.ProposalSection.filter({
-        proposal_id: proposalId,
+        proposal_id: proposal.id,
         section_id: sectionId
       });
 
@@ -215,7 +286,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   };
 
   const findContentSuggestions = async (sectionId, sectionName) => {
-    if (!currentOrgId) return;
+    if (!organization.id) return;
 
     setLoadingSuggestions(true);
     setCurrentSectionId(sectionId);
@@ -223,7 +294,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
 
     try {
       const allResources = await base44.entities.ProposalResource.filter({
-        organization_id: currentOrgId,
+        organization_id: organization.id,
         resource_type: "boilerplate_text"
       }, '-usage_count');
 
@@ -315,7 +386,7 @@ Example: [
       await base44.entities.ProposalResource.update(resource.id, {
         usage_count: (resource.usage_count || 0) + 1,
         last_used_date: new Date().toISOString(),
-        linked_proposal_ids: [...new Set([...(resource.linked_proposal_ids || []), proposalId])]
+        linked_proposal_ids: [...new Set([...(resource.linked_proposal_ids || []), proposal.id])]
       });
 
       queryClient.invalidateQueries({ queryKey: ['resources'] });
@@ -327,7 +398,7 @@ Example: [
   };
 
   const autoDraft = async (sectionId, sectionName, wordCount, tone, isSubsection = false) => {
-    if (!proposalId || !currentOrgId) {
+    if (!proposal.id || !organization.id) {
       alert("Please save the proposal first");
       return;
     }
@@ -336,14 +407,14 @@ Example: [
 
     try {
       const referenceDocs = await base44.entities.SolicitationDocument.filter({
-        proposal_id: proposalId,
-        organization_id: currentOrgId,
+        proposal_id: proposal.id,
+        organization_id: organization.id,
         document_type: "reference"
       });
 
       const solicitationDocs = await base44.entities.SolicitationDocument.filter({
-        proposal_id: proposalId,
-        organization_id: currentOrgId,
+        proposal_id: proposal.id,
+        organization_id: organization.id,
         document_type: { $in: ["rfp", "rfq", "sow", "pws"] }
       });
 
@@ -358,11 +429,11 @@ Example: [
       const prompt = `You are an expert proposal writer for government contracts. Generate a comprehensive "${sectionName}" section for this proposal.
 
 **PROPOSAL DETAILS:**
-- Name: ${proposalData.proposal_name}
-- Type: ${proposalData.project_type}
-- Agency: ${proposalData.agency_name}
-- Project: ${proposalData.project_title}
-- Prime: ${proposalData.prime_contractor_name}
+- Name: ${proposal.proposal_name}
+- Type: ${proposal.project_type}
+- Agency: ${proposal.agency_name}
+- Project: ${proposal.project_title}
+- Prime: ${proposal.prime_contractor_name}
 
 **WRITING INSTRUCTIONS:**
 - Target word count: ${wordCount} words
@@ -400,7 +471,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
       await trackTokenUsage(wordCount * 4, prompt, content);
 
       const existing = await base44.entities.ProposalSection.filter({
-        proposal_id: proposalId,
+        proposal_id: proposal.id,
         section_id: sectionId
       });
 
@@ -416,7 +487,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         });
       } else {
         const newSection = await base44.entities.ProposalSection.create({
-          proposal_id: proposalId,
+          proposal_id: proposal.id,
           section_id: sectionId,
           section_name: sectionName,
           section_type: "custom",
@@ -445,11 +516,11 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
   };
 
   const saveContent = async (sectionId, sectionName, content) => {
-    if (!proposalId) return;
+    if (!proposal.id) return;
 
     try {
       const existing = await base44.entities.ProposalSection.filter({
-        proposal_id: proposalId,
+        proposal_id: proposal.id,
         section_id: sectionId
       });
 
@@ -465,7 +536,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         });
       } else {
         const newSection = await base44.entities.ProposalSection.create({
-          proposal_id: proposalId,
+          proposal_id: proposal.id,
           section_id: sectionId,
           section_name: sectionName,
           section_type: "custom",
@@ -512,8 +583,8 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
         await base44.entities.SolicitationDocument.create({
-          proposal_id: proposalId,
-          organization_id: currentOrgId,
+          proposal_id: proposal.id,
+          organization_id: organization.id,
           document_type: "reference",
           file_name: file.name,
           file_url: file_url,
@@ -534,7 +605,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
     setLoadingHistory(true);
     try {
       const sections = await base44.entities.ProposalSection.filter({
-        proposal_id: proposalId,
+        proposal_id: proposal.id,
         section_id: sectionId
       });
 
@@ -581,7 +652,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
       );
 
       const sections = await base44.entities.ProposalSection.filter({
-        proposal_id: proposalId,
+        proposal_id: proposal.id,
         section_id: selectedSectionForHistory.id
       });
 
@@ -603,6 +674,59 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
       alert("Error restoring version.");
     }
   };
+
+  // Collaboration Panel Handlers
+  const handleSendComment = () => {
+    if (!newComment.trim()) return;
+    createCommentMutation.mutate(newComment);
+  };
+
+  const handleCreateTask = () => {
+    if (!newTask.title.trim() || !newTask.assigned_to_email) return;
+    createTaskMutation.mutate(newTask);
+  };
+
+  const handleToggleTaskStatus = (task) => {
+    const newStatus = task.status === "completed" ? "pending" : "completed";
+    updateTaskMutation.mutate({
+      taskId: task.id,
+      updates: {
+        status: newStatus,
+        completed_date: newStatus === "completed" ? new Date().toISOString() : null
+      }
+    });
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    if (filterStatus !== "all" && task.status !== filterStatus) return false;
+    if (filterAssignee !== "all" && task.assigned_to_email !== filterAssignee) return false;
+    return true;
+  });
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      low: "bg-blue-100 text-blue-800",
+      medium: "bg-yellow-100 text-yellow-800",
+      high: "bg-red-100 text-red-800"
+    };
+    return colors[priority] || colors.medium;
+  };
+
+  const getStatusIcon = (status) => {
+    return status === "completed" 
+      ? <CheckCircle2 className="w-4 h-4 text-green-600" />
+      : <Clock className="w-4 h-4 text-amber-600" />;
+  };
+
+  const isOverdue = (dueDate) => {
+    if (!dueDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize today to start of day
+    const taskDueDate = new Date(dueDate);
+    taskDueDate.setHours(0, 0, 0, 0); // Normalize task due date to start of day
+    return taskDueDate < today;
+  };
+
 
   if (!strategy) {
     return (
@@ -789,10 +913,275 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
               ))}
             </div>
 
-            <div className="lg:col-span-1">
-              <div className="sticky top-6">
-                <CollaborationPanel proposalId={proposalId} />
-              </div>
+            <div className="lg:col-span-1 space-y-6"> {/* Changed to space-y-6 for vertical spacing between cards */}
+              {/* Comments Section */}
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5" />
+                    Comments & Discussions
+                  </CardTitle>
+                  <CardDescription>
+                    Collaborate with your team and share feedback
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                    {commentsLoading ? (
+                      [1, 2, 3].map(i => <Skeleton key={i} className="h-20" />)
+                    ) : comments.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">
+                        <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                        <p className="text-sm">No comments yet</p>
+                        <p className="text-xs mt-1">Start the conversation</p>
+                      </div>
+                    ) : (
+                      comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
+                          <Avatar className="w-10 h-10 flex-shrink-0">
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                              {comment.author_name?.[0]?.toUpperCase() || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-semibold text-slate-900">{comment.author_name}</span>
+                              <span className="text-xs text-slate-500">
+                                {moment(comment.created_date).fromNow()}
+                              </span>
+                            </div>
+                            <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="border-t pt-4 space-y-3">
+                    <Textarea
+                      placeholder="Add a comment... (Use @email to mention someone)"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={3}
+                    />
+                    <MentionHelper 
+                      text={newComment}
+                      teamMembers={teamMembers}
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleSendComment}
+                        disabled={!newComment.trim() || createCommentMutation.isPending}
+                        size="sm"
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        {createCommentMutation.isPending ? 'Sending...' : 'Send'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Tasks Section */}
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Tasks & Action Items
+                      </CardTitle>
+                      <CardDescription>
+                        Track progress and assign work
+                      </CardDescription>
+                    </div>
+                    <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="w-4 h-4 mr-2" />
+                          New Task
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Create New Task</DialogTitle>
+                          <DialogDescription>
+                            Assign a task to a team member
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Title</label>
+                            <Input
+                              placeholder="Task title"
+                              value={newTask.title}
+                              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Description</label>
+                            <Textarea
+                              placeholder="Task description"
+                              value={newTask.description}
+                              onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                              rows={3}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Assign To</label>
+                            <Select
+                              value={newTask.assigned_to_email}
+                              onValueChange={(value) => setNewTask({ ...newTask, assigned_to_email: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select team member" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {teamMembers.map((member) => (
+                                  <SelectItem key={member.email} value={member.email}>
+                                    {member.full_name} ({member.email})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">Priority</label>
+                              <Select
+                                value={newTask.priority}
+                                onValueChange={(value) => setNewTask({ ...newTask, priority: value })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">Due Date</label>
+                              <Input
+                                type="date"
+                                value={newTask.due_date}
+                                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setShowNewTask(false)}>
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleCreateTask}
+                            disabled={!newTask.title.trim() || !newTask.assigned_to_email || createTaskMutation.isPending}
+                          >
+                            {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <Filter className="w-4 h-4 text-slate-500" />
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member.email} value={member.email}>
+                            {member.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                    {tasksLoading ? (
+                      [1, 2, 3].map(i => <Skeleton key={i} className="h-20" />)
+                    ) : filteredTasks.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">
+                        <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                        <p className="text-sm">No tasks yet</p>
+                        <p className="text-xs mt-1">Create a task to get started</p>
+                      </div>
+                    ) : (
+                      filteredTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`p-4 border rounded-lg ${
+                            task.status === "completed" ? 'bg-green-50 border-green-200' : 'bg-white'
+                          } ${isOverdue(task.due_date) && task.status !== "completed" ? 'border-red-300' : ''}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={task.status === "completed"}
+                              onCheckedChange={() => handleToggleTaskStatus(task)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <h4 className={`font-semibold ${
+                                  task.status === "completed" ? 'line-through text-slate-500' : 'text-slate-900'
+                                }`}>
+                                  {task.title}
+                                </h4>
+                                <div className="flex items-center gap-1">
+                                  {getStatusIcon(task.status)}
+                                </div>
+                              </div>
+                              {task.description && (
+                                <p className="text-sm text-slate-600 mb-2">{task.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className={getPriorityColor(task.priority)}>
+                                  {task.priority}
+                                </Badge>
+                                <div className="flex items-center gap-1 text-xs text-slate-500">
+                                  <Users className="w-3 h-3" />
+                                  {task.assigned_to_name}
+                                </div>
+                                {task.due_date && (
+                                  <div className={`flex items-center gap-1 text-xs ${
+                                    isOverdue(task.due_date) && task.status !== "completed"
+                                      ? 'text-red-600 font-semibold'
+                                      : 'text-slate-500'
+                                  }`}>
+                                    <Calendar className="w-3 h-3" />
+                                    {isOverdue(task.due_date) && task.status !== "completed" && (
+                                      <AlertCircle className="w-3 h-3" />
+                                    )}
+                                    {moment(task.due_date).format('MMM D, YYYY')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
@@ -934,7 +1323,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
               <VersionComparison
                 sectionId={selectedSectionForComparison.id}
                 sectionName={selectedSectionForComparison.name}
-                proposalId={proposalId}
+                proposalId={proposal.id}
                 onRestore={handleRestoreVersion}
                 currentContent={sectionContent[selectedSectionForComparison.id]}
               />
