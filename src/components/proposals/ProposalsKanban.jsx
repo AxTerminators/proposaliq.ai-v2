@@ -29,7 +29,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0 },
     { id: "watch_list", label: "Watch List", color: "bg-yellow-100", order: 1 },
     { id: "draft", label: "Draft", color: "bg-blue-100", order: 2 },
-    { id: "in_progress", label: "In Progress", color: "bg-purple-100", order: 3 },
+    { id: "in_progress", label: "In Review", color: "bg-purple-100", order: 3 }, // Changed from "In Progress" to "In Review"
     { id: "submitted", label: "Submitted", color: "bg-indigo-100", order: 4 },
     { id: "won", label: "Won", color: "bg-green-100", order: 5 },
     { id: "lost", label: "Lost", color: "bg-red-100", order: 6 },
@@ -248,7 +248,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
             <DialogHeader>
               <DialogTitle>Customize Kanban Columns</DialogTitle>
               <DialogDescription>
-                Edit column labels and colors to match your workflow. Default order: Evaluating → Watch List → Draft → In Progress → Submitted → Won → Lost → Archived
+                Edit column labels and colors to match your workflow. Default order: Evaluating → Watch List → Draft → In Review → Submitted → Won → Lost → Archived
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
