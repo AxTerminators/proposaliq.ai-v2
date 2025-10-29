@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ExportDialog from "../export/ExportDialog";
+import SubmissionReadinessChecker from "./SubmissionReadinessChecker";
 
 export default function Phase7({ proposalData, setProposalData, proposalId }) {
   const navigate = useNavigate();
@@ -263,14 +264,13 @@ Be thorough and specific. This is a final quality check before submission to the
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="cover">Cover Page</TabsTrigger>
-          <TabsTrigger value="quality">Quality Review</TabsTrigger>
-          <TabsTrigger value="export">Export</TabsTrigger>
-        </TabsList>
+      {/* Submission Readiness Checker - NEW! */}
+      <SubmissionReadinessChecker 
+        proposalData={proposalData}
+        proposalId={proposalId}
+      />
 
+      <Tabs defaultValue="overview" className="space-y-6">
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           <Card className="border-none shadow-xl">
