@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -80,6 +81,8 @@ export default function TeamingPartners() {
 
   const [newItem, setNewItem] = useState("");
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [uploadingCapStatement, setUploadingCapStatement] = useState(false);
+  const [capabilityStatementFile, setCapabilityStatementFile] = useState(null);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -133,7 +136,12 @@ export default function TeamingPartners() {
         organization_id: organization.id
       });
     },
-    onSuccess: () => {
+    onSuccess: async (createdPartner) => {
+      // If there's a capability statement to upload, do it now
+      if (capabilityStatementFile) {
+        await uploadCapabilityStatement(createdPartner.id);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
       setShowCreateDialog(false);
       resetForm();
@@ -144,7 +152,12 @@ export default function TeamingPartners() {
     mutationFn: async ({ id, data }) => {
       return base44.entities.TeamingPartner.update(id, data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // If there's a new capability statement to upload, do it now
+      if (capabilityStatementFile && editingPartner) {
+        await uploadCapabilityStatement(editingPartner.id);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
       setEditingPartner(null);
       resetForm();
@@ -192,6 +205,36 @@ export default function TeamingPartners() {
     },
   });
 
+  const uploadCapabilityStatement = async (partnerId) => {
+    if (!capabilityStatementFile) return;
+    
+    try {
+      setUploadingCapStatement(true);
+      const { file_url } = await base44.integrations.Core.UploadFile({ 
+        file: capabilityStatementFile 
+      });
+      
+      await base44.entities.ProposalResource.create({
+        organization_id: organization.id,
+        teaming_partner_id: partnerId,
+        is_partner_document: true,
+        temporary_storage: false,
+        resource_type: "partner_capability",
+        file_name: capabilityStatementFile.name,
+        file_url: file_url,
+        file_size: capabilityStatementFile.size,
+        entity_type: "teaming_partner"
+      });
+      
+      setCapabilityStatementFile(null);
+      queryClient.invalidateQueries({ queryKey: ['partner-documents'] });
+    } catch (error) {
+      console.error("Error uploading capability statement:", error);
+    } finally {
+      setUploadingCapStatement(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       partner_name: "",
@@ -216,6 +259,7 @@ export default function TeamingPartners() {
       employee_count: null,
       years_in_business: null
     });
+    setCapabilityStatementFile(null);
   };
 
   const handleSavePartner = () => {
@@ -255,11 +299,33 @@ export default function TeamingPartners() {
     });
   };
 
+  const toggleCertification = (cert) => {
+    const certs = formData.certifications || [];
+    if (certs.includes(cert)) {
+      setFormData({
+        ...formData,
+        certifications: certs.filter(c => c !== cert)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        certifications: [...certs, cert]
+      });
+    }
+  };
+
   const handleDocumentUpload = async (e, resourceType, temporaryStorage) => {
     const file = e.target.files[0];
     if (file) {
       setUploadingDoc(true);
       await uploadDocumentMutation.mutateAsync({ file, resourceType, temporaryStorage });
+    }
+  };
+
+  const handleCapabilityStatementSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCapabilityStatementFile(file);
     }
   };
 
@@ -704,6 +770,16 @@ export default function TeamingPartners() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>Primary NAICS Code</Label>
+                  <Input
+                    value={formData.primary_naics}
+                    onChange={(e) => setFormData({...formData, primary_naics: e.target.value})}
+                    placeholder="e.g., 541330"
+                  />
+                  <p className="text-xs text-slate-500">North American Industry Classification System code</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label>POC Name</Label>
                   <Input
                     value={formData.poc_name}
@@ -736,6 +812,7 @@ export default function TeamingPartners() {
                   <Input
                     value={formData.uei}
                     onChange={(e) => setFormData({...formData, uei: e.target.value})}
+                    placeholder="Unique Entity Identifier"
                   />
                 </div>
 
@@ -744,6 +821,16 @@ export default function TeamingPartners() {
                   <Input
                     value={formData.cage_code}
                     onChange={(e) => setFormData({...formData, cage_code: e.target.value})}
+                    placeholder="Commercial and Government Entity Code"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Website URL</Label>
+                  <Input
+                    value={formData.website_url}
+                    onChange={(e) => setFormData({...formData, website_url: e.target.value})}
+                    placeholder="https://partner.com"
                   />
                 </div>
               </div>
@@ -755,6 +842,80 @@ export default function TeamingPartners() {
                   onChange={(e) => setFormData({...formData, address: e.target.value})}
                   placeholder="Street, City, State, ZIP"
                 />
+              </div>
+
+              {/* Small Business Certifications */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Award className="w-4 h-4" />
+                  Small Business Certifications
+                </Label>
+                <div className="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-lg">
+                  {CERTIFICATIONS.map((cert) => (
+                    <Badge
+                      key={cert}
+                      variant={formData.certifications?.includes(cert) ? "default" : "outline"}
+                      className="cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => toggleCertification(cert)}
+                    >
+                      {formData.certifications?.includes(cert) && (
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                      )}
+                      {cert}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">Click to select/deselect certifications</p>
+              </div>
+
+              {/* Capability Statement Upload */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Capability Statement
+                </Label>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center bg-blue-50">
+                  {capabilityStatementFile ? (
+                    <div className="space-y-3">
+                      <FileText className="w-12 h-12 mx-auto text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-sm">{capabilityStatementFile.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {(capabilityStatementFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCapabilityStatementFile(null)}
+                      >
+                        <X className="w-3 h-3 mr-2" />
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <FileText className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                      <input
+                        type="file"
+                        id="cap-statement-upload"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleCapabilityStatementSelect}
+                      />
+                      <Button size="sm" variant="outline" asChild>
+                        <label htmlFor="cap-statement-upload" className="cursor-pointer">
+                          <Upload className="w-3 h-3 mr-2" />
+                          Upload Capability Statement
+                        </label>
+                      </Button>
+                      <p className="text-xs text-slate-500 mt-2">PDF or Word document (optional)</p>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Upload their capability statement for reference in proposals
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -802,17 +963,17 @@ export default function TeamingPartners() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingPartner(null); }}>
+              <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingPartner(null); resetForm(); }}>
                 Cancel
               </Button>
               <Button 
                 onClick={handleSavePartner}
-                disabled={!formData.partner_name || createPartnerMutation.isPending || updatePartnerMutation.isPending}
+                disabled={!formData.partner_name || createPartnerMutation.isPending || updatePartnerMutation.isPending || uploadingCapStatement}
               >
-                {(createPartnerMutation.isPending || updatePartnerMutation.isPending) ? (
+                {(createPartnerMutation.isPending || updatePartnerMutation.isPending || uploadingCapStatement) ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    {uploadingCapStatement ? "Uploading..." : "Saving..."}
                   </>
                 ) : (
                   editingPartner ? "Update Partner" : "Add Partner"
