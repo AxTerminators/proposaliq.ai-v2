@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,9 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  MessageSquare, 
-  CheckSquare, 
+import {
+  MessageSquare,
+  CheckSquare,
   Activity,
   Send,
   CheckCircle2,
@@ -30,7 +31,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function CollaborationPanel({ proposalId, sectionId = null }) {
+import { parseMentions, notifyMention, notifyCommentReply } from "@/utils/notificationHelpers";
+
+export default function CollaborationPanel({ proposalId, sectionId = null, proposalName }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("comments");
@@ -137,45 +140,53 @@ export default function CollaborationPanel({ proposalId, sectionId = null }) {
   // Create comment mutation
   const createCommentMutation = useMutation({
     mutationFn: async (commentData) => {
-      return base44.entities.ProposalComment.create(commentData);
-    },
-    onSuccess: async (newCommentData) => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-comments'] });
-      setNewComment("");
-      setReplyingTo(null);
+      const comment = await base44.entities.ProposalComment.create(commentData);
 
       // Log activity
       await logActivity(
         "comment_added",
         `Added a comment${sectionId ? ' on a section' : ''}`,
-        newCommentData.id
+        comment.id
       );
 
-      // Create notifications for mentions
-      if (newCommentData.mentions && newCommentData.mentions.length > 0) {
-        for (const mentionedEmail of newCommentData.mentions) {
-          await createNotification(
-            mentionedEmail,
-            "mention",
-            "You were mentioned",
-            `${user.full_name || user.email} mentioned you in a comment`,
-            newCommentData.id,
-            "comment"
-          );
+      // Handle @mentions
+      const mentions = parseMentions(commentData.content);
+      if (mentions.length > 0 && user) { // Ensure user is loaded before sending notifications
+        for (const email of mentions) {
+          await notifyMention({
+            mentionedEmail: email,
+            commentText: commentData.content,
+            authorEmail: user.email,
+            authorName: user.full_name || user.email,
+            proposalId: proposalId,
+            proposalName: proposalName,
+            commentId: comment.id
+          });
         }
       }
 
-      // Notify parent comment author if replying
-      if (replyingTo && replyingTo.author_email !== user.email) {
-        await createNotification(
-          replyingTo.author_email,
-          "comment_reply",
-          "New reply to your comment",
-          `${user.full_name || user.email} replied to your comment`,
-          newCommentData.id,
-          "comment"
-        );
+      // Handle comment replies
+      if (commentData.parent_comment_id && user) { // Ensure user is loaded
+        const parentComment = comments.find(c => c.id === commentData.parent_comment_id);
+        if (parentComment && parentComment.author_email !== commentData.author_email) {
+          await notifyCommentReply({
+            originalCommentAuthorEmail: parentComment.author_email,
+            replyAuthorEmail: commentData.author_email,
+            replyAuthorName: commentData.author_name,
+            replyText: commentData.content,
+            proposalId: proposalId,
+            proposalName: proposalName,
+            commentId: comment.id
+          });
+        }
       }
+
+      return comment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-comments'] });
+      setNewComment("");
+      setReplyingTo(null);
     }
   });
 
@@ -226,7 +237,7 @@ export default function CollaborationPanel({ proposalId, sectionId = null }) {
     mutationFn: ({ taskId, updates }) => base44.entities.ProposalTask.update(taskId, updates),
     onSuccess: async (updatedTask) => {
       queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
-      
+
       if (updatedTask.status === 'completed') {
         await logActivity(
           "task_updated",
@@ -240,10 +251,16 @@ export default function CollaborationPanel({ proposalId, sectionId = null }) {
   const handleCommentSubmit = () => {
     if (!newComment.trim() || !user) return;
 
-    // Extract mentions
+    // Extract mentions (Note: the parseMentions helper is used inside the mutationFn,
+    // so this client-side extraction is no longer strictly necessary here for the mutation payload)
+    // However, if we wanted to filter teamMembers for @mentions *before* sending to backend,
+    // this could be used. For now, the backend will validate/process mentions based on parsed content.
+    // Keeping this local filter logic commented out for clarity that the heavy lifting is in mutationFn.
+    /*
     const mentions = (newComment.match(/@(\S+)/g) || [])
       .map(m => m.substring(1))
       .filter(email => teamMembers.some(tm => tm.email === email));
+    */
 
     const commentData = {
       proposal_id: proposalId,
@@ -252,7 +269,7 @@ export default function CollaborationPanel({ proposalId, sectionId = null }) {
       author_email: user.email,
       author_name: user.full_name || user.email,
       content: newComment,
-      mentions,
+      // mentions, // Mentions are now parsed inside mutationFn from content
       comment_type: "general"
     };
 
@@ -378,7 +395,7 @@ export default function CollaborationPanel({ proposalId, sectionId = null }) {
                             )}
                           </div>
                           <p className="text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                          
+
                           {/* Replies */}
                           {getReplies(comment.id).length > 0 && (
                             <div className="mt-3 space-y-2 pl-4 border-l-2 border-slate-200">
