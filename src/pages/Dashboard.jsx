@@ -1,3 +1,4 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -64,7 +65,7 @@ export default function Dashboard() {
   const stats = React.useMemo(() => {
     return {
       total: proposals.length,
-      inProgress: proposals.filter(p => p.status === 'in_progress' || p.status === 'draft').length,
+      inProgress: proposals.filter(p => p.status === 'in_progress' || p.status === 'draft' || p.status === 'evaluating' || p.status === 'watch_list').length,
       submitted: proposals.filter(p => p.status === 'submitted').length,
       won: proposals.filter(p => p.status === 'won').length,
     };
@@ -200,7 +201,7 @@ export default function Dashboard() {
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         proposal.status === 'won' ? 'bg-green-100 text-green-700' :
                         proposal.status === 'submitted' ? 'bg-purple-100 text-purple-700' :
-                        proposal.status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
+                        proposal.status === 'in_progress' || proposal.status === 'draft' || proposal.status === 'evaluating' || proposal.status === 'watch_list' ? 'bg-amber-100 text-amber-700' :
                         'bg-slate-100 text-slate-700'
                       }`}>
                         {proposal.status?.replace('_', ' ')}

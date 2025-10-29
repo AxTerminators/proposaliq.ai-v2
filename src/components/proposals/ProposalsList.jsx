@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -6,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Building2, TrendingUp, FileText } from "lucide-react";
 
 const statusConfig = {
+  evaluating: { label: "Evaluating", color: "bg-blue-100 text-blue-700" },
+  watch_list: { label: "Watch List", color: "bg-yellow-100 text-yellow-700" },
   draft: { label: "Draft", color: "bg-slate-100 text-slate-700" },
   in_progress: { label: "In Progress", color: "bg-amber-100 text-amber-700" },
   submitted: { label: "Submitted", color: "bg-purple-100 text-purple-700" },

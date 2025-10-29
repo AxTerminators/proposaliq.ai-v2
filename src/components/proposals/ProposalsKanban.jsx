@@ -4,6 +4,8 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import KanbanColumn from "./KanbanColumn";
 import {
   Dialog,
@@ -17,16 +19,19 @@ import { Label } from "@/components/ui/label";
 import { hasAppPermission } from "../settings/AppRoleChecker";
 
 const DEFAULT_COLUMNS = [
-  { id: "draft", display_name: "Draft", order: 0, type: "default_status", default_status_mapping: "draft", is_collapsed: false },
-  { id: "in_progress", display_name: "In Progress", order: 1, type: "default_status", default_status_mapping: "in_progress", is_collapsed: false },
-  { id: "submitted", display_name: "Submitted", order: 2, type: "default_status", default_status_mapping: "submitted", is_collapsed: false },
-  { id: "won", display_name: "Won", order: 3, type: "default_status", default_status_mapping: "won", is_collapsed: false },
-  { id: "lost", display_name: "Lost", order: 4, type: "default_status", default_status_mapping: "lost", is_collapsed: false },
-  { id: "archived", display_name: "Archived", order: 5, type: "default_status", default_status_mapping: "archived", is_collapsed: false }
+  { id: "evaluating", display_name: "Evaluating", order: 0, type: "default_status", default_status_mapping: "evaluating", is_collapsed: false },
+  { id: "watch_list", display_name: "Watch List", order: 1, type: "default_status", default_status_mapping: "watch_list", is_collapsed: false },
+  { id: "draft", display_name: "Drafting", order: 2, type: "default_status", default_status_mapping: "draft", is_collapsed: false },
+  { id: "in_progress", display_name: "In Progress", order: 3, type: "default_status", default_status_mapping: "in_progress", is_collapsed: false },
+  { id: "submitted", display_name: "Submitted", order: 4, type: "default_status", default_status_mapping: "submitted", is_collapsed: false },
+  { id: "won", display_name: "Won", order: 5, type: "default_status", default_status_mapping: "won", is_collapsed: false },
+  { id: "lost", display_name: "Lost", order: 6, type: "default_status", default_status_mapping: "lost", is_collapsed: false },
+  { id: "archived", display_name: "Archived", order: 7, type: "default_status", default_status_mapping: "archived", is_collapsed: false }
 ];
 
 export default function ProposalsKanban({ proposals, organizationId, userRole }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [kanbanConfig, setKanbanConfig] = useState(null);
   const [showAddColumnDialog, setShowAddColumnDialog] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
@@ -84,7 +89,7 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
     }
   });
 
-  const handleDragEnd = (result) => {
+  const handleDragEnd = async (result) => {
     if (!result.destination || !canEdit) return;
 
     const { source, destination, draggableId } = result;
@@ -99,6 +104,14 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
     const proposal = proposals.find(p => p.id === draggableId);
     if (!proposal) return;
 
+    // Check if we're moving FROM Evaluating or Watch List TO any other active column
+    const isFromPreDraft = sourceColumn.default_status_mapping === "evaluating" || 
+                           sourceColumn.default_status_mapping === "watch_list";
+    
+    const isToActiveColumn = destColumn.default_status_mapping && 
+                             destColumn.default_status_mapping !== "evaluating" && 
+                             destColumn.default_status_mapping !== "watch_list";
+
     // Update proposal status or custom stage
     const updates = {};
     if (destColumn.type === "default_status") {
@@ -108,7 +121,15 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
       updates.custom_workflow_stage_id = destColumn.id;
     }
 
-    updateProposalMutation.mutate({ proposalId: proposal.id, updates });
+    // Perform the update
+    await updateProposalMutation.mutateAsync({ proposalId: proposal.id, updates });
+
+    // Trigger navigation to ProposalBuilder if conditions are met
+    if (isFromPreDraft && (isToActiveColumn || destColumn.type === "custom_stage")) {
+      setTimeout(() => {
+        navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`));
+      }, 300); // Small delay for smooth transition
+    }
   };
 
   const handleToggleCollapse = (columnId) => {
@@ -152,21 +173,27 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
     if (!canEdit) return;
     
     const column = kanbanConfig.columns.find(col => col.id === columnId);
-    if (!column || column.type === "default_status") return;
+    if (!column) return;
 
-    // Check if any proposals are in this column
+    // Prevent deletion of default status columns
+    if (column.type === "default_status") {
+      alert("Default workflow columns cannot be deleted. You can rename or collapse them instead.");
+      return;
+    }
+
+    // Check if any proposals are in this custom column
     const proposalsInColumn = proposals.filter(p => p.custom_workflow_stage_id === columnId);
     
     if (proposalsInColumn.length > 0) {
-      if (!confirm(`This column has ${proposalsInColumn.length} proposal(s). They will be moved to Draft. Continue?`)) {
+      if (!confirm(`This column has ${proposalsInColumn.length} proposal(s). They will be moved to Evaluating. Continue?`)) {
         return;
       }
       
-      // Move proposals to draft
+      // Move proposals to evaluating status
       for (const proposal of proposalsInColumn) {
         await updateProposalMutation.mutateAsync({
           proposalId: proposal.id,
-          updates: { status: "draft", custom_workflow_stage_id: null }
+          updates: { status: "evaluating", custom_workflow_stage_id: null }
         });
       }
     }
@@ -202,7 +229,7 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
         <div className="flex justify-end">
           <Button onClick={() => setShowAddColumnDialog(true)} variant="outline">
             <Plus className="w-4 h-4 mr-2" />
-            Add Column
+            Add Custom Column
           </Button>
         </div>
       )}
@@ -237,6 +264,9 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
                 placeholder="e.g., Client Review, Legal Approval"
                 onKeyPress={(e) => e.key === 'Enter' && handleAddColumn()}
               />
+              <p className="text-xs text-slate-500">
+                Custom columns can be added between default workflow stages for additional tracking.
+              </p>
             </div>
           </div>
           <DialogFooter>

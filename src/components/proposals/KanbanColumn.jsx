@@ -3,7 +3,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, Edit2, Trash2, Check, X } from "lucide-react";
+import { ChevronRight, ChevronDown, Edit2, Trash2, Check, X, Lock } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
 import KanbanCard from "./KanbanCard";
 
@@ -31,6 +31,7 @@ export default function KanbanColumn({
   };
 
   const isCustomColumn = column.type === "custom_stage";
+  const isDefaultColumn = column.type === "default_status";
 
   return (
     <div className="flex-shrink-0 w-80">
@@ -96,6 +97,7 @@ export default function KanbanColumn({
                   size="icon"
                   className="h-6 w-6"
                   onClick={() => setIsEditing(true)}
+                  title="Rename column"
                 >
                   <Edit2 className="w-3 h-3" />
                 </Button>
@@ -105,8 +107,20 @@ export default function KanbanColumn({
                     size="icon"
                     className="h-6 w-6"
                     onClick={() => onDeleteColumn(column.id)}
+                    title="Delete custom column"
                   >
                     <Trash2 className="w-3 h-3 text-red-500" />
+                  </Button>
+                )}
+                {isDefaultColumn && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-30 cursor-not-allowed"
+                    disabled
+                    title="Default columns cannot be deleted"
+                  >
+                    <Lock className="w-3 h-3" />
                   </Button>
                 )}
               </div>

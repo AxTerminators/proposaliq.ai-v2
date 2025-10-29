@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -98,7 +99,7 @@ export default function Proposals() {
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0">
-              {["all", "draft", "in_progress", "submitted", "won", "lost", "archived"].map((status) => (
+              {["all", "evaluating", "watch_list", "draft", "in_progress", "submitted", "won", "lost", "archived"].map((status) => (
                 <Button
                   key={status}
                   variant={filterStatus === status ? "default" : "outline"}

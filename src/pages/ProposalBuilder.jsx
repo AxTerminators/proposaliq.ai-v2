@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -39,7 +40,7 @@ export default function ProposalBuilder() {
     project_title: "",
     due_date: "",
     teaming_partner_ids: [],
-    status: "draft"
+    status: "evaluating" // Changed from "draft" to "evaluating"
   });
   const [currentOrgId, setCurrentOrgId] = useState(null);
 
@@ -123,7 +124,8 @@ export default function ProposalBuilder() {
         const created = await base44.entities.Proposal.create({
           ...proposalData,
           organization_id: currentOrgId,
-          current_phase: currentPhase
+          current_phase: currentPhase,
+          status: "evaluating" // Added "status: "evaluating"" for new proposals
         });
         setProposalId(created.id);
         return created.id;
