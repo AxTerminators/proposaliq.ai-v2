@@ -1,0 +1,145 @@
+{
+  "name": "ExportTemplate",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this template"
+    },
+    "template_name": {
+      "type": "string",
+      "description": "Name of the export template"
+    },
+    "template_type": {
+      "type": "string",
+      "enum": [
+        "agency_specific",
+        "rfp",
+        "rfq",
+        "standard",
+        "custom"
+      ],
+      "description": "Type of template"
+    },
+    "agency_name": {
+      "type": "string",
+      "description": "Specific agency this template is for (if agency_specific)"
+    },
+    "page_size": {
+      "type": "string",
+      "enum": [
+        "letter",
+        "legal",
+        "a4"
+      ],
+      "default": "letter",
+      "description": "Page size for export"
+    },
+    "font_family": {
+      "type": "string",
+      "default": "Arial",
+      "description": "Font family to use"
+    },
+    "font_size": {
+      "type": "number",
+      "default": 12,
+      "description": "Base font size in points"
+    },
+    "line_spacing": {
+      "type": "number",
+      "default": 1.5,
+      "description": "Line spacing multiplier"
+    },
+    "margin_top": {
+      "type": "number",
+      "default": 1,
+      "description": "Top margin in inches"
+    },
+    "margin_bottom": {
+      "type": "number",
+      "default": 1,
+      "description": "Bottom margin in inches"
+    },
+    "margin_left": {
+      "type": "number",
+      "default": 1,
+      "description": "Left margin in inches"
+    },
+    "margin_right": {
+      "type": "number",
+      "default": 1,
+      "description": "Right margin in inches"
+    },
+    "include_cover_page": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include professional cover page"
+    },
+    "include_toc": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include table of contents"
+    },
+    "include_header": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include header on each page"
+    },
+    "include_footer": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include footer with page numbers"
+    },
+    "include_compliance_matrix": {
+      "type": "boolean",
+      "default": false,
+      "description": "Include compliance matrix as appendix"
+    },
+    "header_content": {
+      "type": "string",
+      "description": "Header text template (supports variables like {proposal_name}, {date})"
+    },
+    "footer_content": {
+      "type": "string",
+      "description": "Footer text template"
+    },
+    "cover_page_logo_url": {
+      "type": "string",
+      "description": "URL to logo for cover page"
+    },
+    "watermark_text": {
+      "type": "string",
+      "description": "Optional watermark text (e.g., 'DRAFT', 'CONFIDENTIAL')"
+    },
+    "section_numbering_style": {
+      "type": "string",
+      "enum": [
+        "numeric",
+        "alpha",
+        "roman",
+        "none"
+      ],
+      "default": "numeric",
+      "description": "How to number sections"
+    },
+    "custom_css": {
+      "type": "string",
+      "description": "Custom CSS for advanced styling"
+    },
+    "is_default": {
+      "type": "boolean",
+      "default": false,
+      "description": "Is this the default template for this organization"
+    },
+    "usage_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of times this template has been used"
+    }
+  },
+  "required": [
+    "organization_id",
+    "template_name",
+    "template_type"
+  ]
+}

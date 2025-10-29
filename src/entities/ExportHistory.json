@@ -1,0 +1,80 @@
+{
+  "name": "ExportHistory",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that performed the export"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "Proposal that was exported"
+    },
+    "proposal_name": {
+      "type": "string",
+      "description": "Name of the proposal at time of export"
+    },
+    "exported_by_email": {
+      "type": "string",
+      "description": "User who performed the export"
+    },
+    "exported_by_name": {
+      "type": "string",
+      "description": "Name of user who exported"
+    },
+    "export_format": {
+      "type": "string",
+      "enum": [
+        "pdf_html",
+        "docx_markdown",
+        "excel_compliance",
+        "html_package",
+        "json_data"
+      ],
+      "description": "Format that was exported"
+    },
+    "template_id": {
+      "type": "string",
+      "description": "Template used for export"
+    },
+    "template_name": {
+      "type": "string",
+      "description": "Name of template used"
+    },
+    "file_size_bytes": {
+      "type": "number",
+      "description": "Size of exported file in bytes"
+    },
+    "total_pages": {
+      "type": "number",
+      "description": "Total pages in export"
+    },
+    "total_words": {
+      "type": "number",
+      "description": "Total word count at time of export"
+    },
+    "sections_included": {
+      "type": "number",
+      "description": "Number of sections included"
+    },
+    "export_options": {
+      "type": "object",
+      "description": "Export options used (JSON)"
+    },
+    "download_url": {
+      "type": "string",
+      "description": "URL to download the exported file (temporary)"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the download link expires"
+    }
+  },
+  "required": [
+    "organization_id",
+    "proposal_id",
+    "exported_by_email",
+    "export_format"
+  ]
+}
