@@ -57,6 +57,9 @@
         "phase2",
         "phase3",
         "phase4",
+        "phase5",
+        "phase6",
+        "phase7",
         "completed"
       ],
       "default": "phase1",
@@ -69,10 +72,15 @@
         "in_progress",
         "submitted",
         "won",
-        "lost"
+        "lost",
+        "archived"
       ],
       "default": "draft",
       "description": "Overall proposal status"
+    },
+    "custom_workflow_stage_id": {
+      "type": "string",
+      "description": "ID of a custom Kanban column this proposal is currently in, if applicable"
     },
     "match_score": {
       "type": "number",
