@@ -11,6 +11,7 @@ import {
   Upload,
   Zap
 } from "lucide-react";
+import { showInfo } from "../ui/notification";
 
 export default function QuickActionsPanel() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function QuickActionsPanel() {
       label: "Find Opportunities",
       description: "Search SAM.gov (Coming Soon)",
       color: "bg-purple-500 hover:bg-purple-600",
-      onClick: () => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")
+      onClick: () => showInfo("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")
     },
     {
       icon: MessageSquare,
