@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useClient } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -28,6 +28,7 @@ const PHASES = [
 
 export default function ProposalBuilder() {
   const navigate = useNavigate();
+  const { activeClientId } = useClient();
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
   const [proposalData, setProposalData] = useState({
@@ -40,44 +41,23 @@ export default function ProposalBuilder() {
     project_title: "",
     due_date: "",
     teaming_partner_ids: [],
-    status: "evaluating" // Changed from "draft" to "evaluating"
+    status: "evaluating"
   });
-  const [currentOrgId, setCurrentOrgId] = useState(null);
-
-  // SECURITY: Load current user's organization
-  useEffect(() => {
-    const loadOrgId = async () => {
-      try {
-        const user = await base44.auth.me();
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
-        }
-      } catch (error) {
-        console.error("Error loading org:", error);
-      }
-    };
-    loadOrgId();
-  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
-    if (id && currentOrgId) {
+    if (id && activeClientId) {
       loadProposal(id);
     }
-  }, [currentOrgId]);
+  }, [activeClientId]);
 
   const loadProposal = async (id) => {
     try {
-      // SECURITY FIX: Verify the proposal belongs to the current organization
+      // Verify the proposal belongs to the active client
       const proposals = await base44.entities.Proposal.filter({ 
         id,
-        organization_id: currentOrgId 
+        organization_id: activeClientId 
       }, '-created_date', 1);
       
       if (proposals.length > 0) {
@@ -86,7 +66,6 @@ export default function ProposalBuilder() {
         setProposalData(proposal);
         setCurrentPhase(proposal.current_phase || "phase1");
       } else {
-        // Proposal not found or doesn't belong to this organization
         alert("Proposal not found or you don't have access to it.");
         navigate(createPageUrl("Proposals"));
       }
@@ -97,17 +76,17 @@ export default function ProposalBuilder() {
   };
 
   const saveProposal = async () => {
-    if (!currentOrgId) {
-      alert("Organization not found. Please complete onboarding first.");
+    if (!activeClientId) {
+      alert("No active client selected. Please select a client first.");
       return;
     }
 
     try {
       if (proposalId) {
-        // SECURITY: Verify ownership before update
+        // Verify ownership before update
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
-          organization_id: currentOrgId
+          organization_id: activeClientId
         });
         
         if (existing.length === 0) {
@@ -120,12 +99,12 @@ export default function ProposalBuilder() {
           current_phase: currentPhase
         });
       } else {
-        // SECURITY: Always include organization_id when creating
+        // Always include organization_id when creating
         const created = await base44.entities.Proposal.create({
           ...proposalData,
-          organization_id: currentOrgId,
+          organization_id: activeClientId,
           current_phase: currentPhase,
-          status: "evaluating" // Added "status: "evaluating"" for new proposals
+          status: "evaluating"
         });
         setProposalId(created.id);
         return created.id;
