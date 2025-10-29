@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,12 +23,13 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   const [isEditingColumns, setIsEditingColumns] = useState(false);
   const [columnConfig, setColumnConfig] = useState([]);
   const [collapsedColumns, setCollapsedColumns] = useState([]);
+  const [configId, setConfigId] = useState(null);
 
   const defaultColumns = [
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0 },
     { id: "watch_list", label: "Watch List", color: "bg-yellow-100", order: 1 },
     { id: "draft", label: "Draft", color: "bg-blue-100", order: 2 },
-    { id: "in_progress", label: "In Review", color: "bg-purple-100", order: 3 }, // Changed from "In Progress" to "In Review"
+    { id: "in_progress", label: "In Review", color: "bg-purple-100", order: 3 },
     { id: "submitted", label: "Submitted", color: "bg-indigo-100", order: 4 },
     { id: "won", label: "Won", color: "bg-green-100", order: 5 },
     { id: "lost", label: "Lost", color: "bg-red-100", order: 6 },
@@ -46,7 +46,10 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         });
 
         if (configs.length > 0) {
-          let savedColumns = configs[0].columns || defaultColumns;
+          const config = configs[0];
+          setConfigId(config.id);
+          
+          let savedColumns = config.columns || defaultColumns;
           
           // Validate and fix order and label if missing
           savedColumns = savedColumns.map((col, idx) => {
@@ -65,6 +68,11 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
           
           setColumns(sortedColumns);
           setColumnConfig(sortedColumns);
+          
+          // Load collapsed state
+          if (config.collapsed_column_ids) {
+            setCollapsedColumns(config.collapsed_column_ids);
+          }
         } else {
           setColumns(defaultColumns);
           setColumnConfig(defaultColumns);
@@ -115,13 +123,36 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
 
       if (configs.length > 0) {
         await base44.entities.KanbanConfig.update(configs[0].id, {
-          columns: columnsWithOrder
+          columns: columnsWithOrder,
+          collapsed_column_ids: collapsedColumns
         });
       } else {
-        await base44.entities.KanbanConfig.create({
+        const created = await base44.entities.KanbanConfig.create({
           organization_id: organization.id,
-          columns: columnsWithOrder
+          columns: columnsWithOrder,
+          collapsed_column_ids: collapsedColumns
         });
+        setConfigId(created.id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    },
+  });
+
+  const saveCollapsedStateMutation = useMutation({
+    mutationFn: async (newCollapsedColumns) => {
+      if (configId) {
+        await base44.entities.KanbanConfig.update(configId, {
+          collapsed_column_ids: newCollapsedColumns
+        });
+      } else {
+        const created = await base44.entities.KanbanConfig.create({
+          organization_id: organization.id,
+          columns: columns,
+          collapsed_column_ids: newCollapsedColumns
+        });
+        setConfigId(created.id);
       }
     },
     onSuccess: () => {
@@ -137,20 +168,24 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
 
       if (configs.length > 0) {
         await base44.entities.KanbanConfig.update(configs[0].id, {
-          columns: defaultColumns
+          columns: defaultColumns,
+          collapsed_column_ids: []
         });
       } else {
-        await base44.entities.KanbanConfig.create({
+        const created = await base44.entities.KanbanConfig.create({
           organization_id: organization.id,
-          columns: defaultColumns
+          columns: defaultColumns,
+          collapsed_column_ids: []
         });
+        setConfigId(created.id);
       }
     },
     onSuccess: () => {
       setColumns(defaultColumns);
       setColumnConfig(defaultColumns);
+      setCollapsedColumns([]);
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-      alert('✓ Kanban board reset to default order!');
+      alert('✓ Kanban board reset to default!');
     },
   });
 
@@ -182,7 +217,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   };
 
   const handleResetToDefault = () => {
-    if (confirm('Reset Kanban board to default column order? This will replace your current customization.')) {
+    if (confirm('Reset Kanban board to default? This will reset columns and clear all collapsed states.')) {
       resetToDefaultMutation.mutate();
       setIsEditingColumns(false);
     }
@@ -197,11 +232,14 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   };
 
   const handleToggleCollapse = (columnId) => {
-    setCollapsedColumns(prev => 
-      prev.includes(columnId) 
-        ? prev.filter(id => id !== columnId)
-        : [...prev, columnId]
-    );
+    const newCollapsedColumns = collapsedColumns.includes(columnId) 
+      ? collapsedColumns.filter(id => id !== columnId)
+      : [...collapsedColumns, columnId];
+    
+    setCollapsedColumns(newCollapsedColumns);
+    
+    // Save collapsed state immediately
+    saveCollapsedStateMutation.mutate(newCollapsedColumns);
   };
 
   const groupedProposals = columns.reduce((acc, column) => {
@@ -248,7 +286,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
             <DialogHeader>
               <DialogTitle>Customize Kanban Columns</DialogTitle>
               <DialogDescription>
-                Edit column labels and colors to match your workflow. Default order: Evaluating → Watch List → Draft → In Review → Submitted → Won → Lost → Archived
+                Edit column labels and colors to match your workflow. Changes are saved automatically.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
