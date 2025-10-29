@@ -1,0 +1,337 @@
+{
+  "name": "PastPerformance",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this past performance record"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Name of the project"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Name of the client organization"
+    },
+    "client_agency": {
+      "type": "string",
+      "description": "Government agency if applicable (e.g., DoD, DHS, GSA)"
+    },
+    "client_type": {
+      "type": "string",
+      "enum": [
+        "federal",
+        "state",
+        "local",
+        "commercial",
+        "international"
+      ],
+      "description": "Type of client"
+    },
+    "contract_number": {
+      "type": "string",
+      "description": "Official contract number"
+    },
+    "contract_value": {
+      "type": "number",
+      "description": "Total contract value in USD"
+    },
+    "contract_type": {
+      "type": "string",
+      "enum": [
+        "FFP",
+        "T&M",
+        "CPFF",
+        "CPAF",
+        "IDIQ",
+        "BPA",
+        "Other"
+      ],
+      "description": "Type of contract"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Project start date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Project end date"
+    },
+    "period_of_performance_months": {
+      "type": "number",
+      "description": "Duration in months"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "in_progress",
+        "on_hold"
+      ],
+      "default": "completed",
+      "description": "Current project status"
+    },
+    "naics_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Relevant NAICS codes for this project"
+    },
+    "project_description": {
+      "type": "string",
+      "description": "Full project description"
+    },
+    "services_provided": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of services/capabilities demonstrated"
+    },
+    "technologies_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Technologies, tools, platforms used"
+    },
+    "team_size": {
+      "type": "number",
+      "description": "Number of team members"
+    },
+    "key_personnel": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Key personnel on the project"
+    },
+    "outcomes": {
+      "type": "object",
+      "properties": {
+        "on_time_delivery_pct": {
+          "type": "number",
+          "description": "% of milestones delivered on time"
+        },
+        "on_budget_pct": {
+          "type": "number",
+          "description": "% within budget (100 = on budget)"
+        },
+        "uptime_pct": {
+          "type": "number",
+          "description": "System uptime percentage"
+        },
+        "cost_savings": {
+          "type": "number",
+          "description": "Cost savings delivered in USD"
+        },
+        "quality_score": {
+          "type": "number",
+          "description": "Quality score (0-5)"
+        },
+        "customer_satisfaction": {
+          "type": "number",
+          "description": "Customer satisfaction score (0-5)"
+        },
+        "sla_compliance_pct": {
+          "type": "number",
+          "description": "SLA compliance percentage"
+        }
+      },
+      "description": "Quantifiable project outcomes"
+    },
+    "cpars_rating": {
+      "type": "string",
+      "enum": [
+        "Exceptional",
+        "Very Good",
+        "Satisfactory",
+        "Marginal",
+        "Unsatisfactory",
+        "N/A"
+      ],
+      "description": "CPARS rating if applicable"
+    },
+    "award_fee_score": {
+      "type": "number",
+      "description": "Award fee score if applicable"
+    },
+    "client_poc": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        }
+      },
+      "description": "Client point of contact"
+    },
+    "testimonial": {
+      "type": "string",
+      "description": "Client testimonial or feedback"
+    },
+    "testimonial_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date testimonial was provided"
+    },
+    "reference_permission": {
+      "type": "boolean",
+      "default": false,
+      "description": "Permission to use as reference"
+    },
+    "awards_received": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Awards or recognition received"
+    },
+    "challenges_overcome": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Major challenges overcome"
+    },
+    "innovations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Innovations or unique solutions"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable keywords"
+    },
+    "geographic_location": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        }
+      },
+      "description": "Where work was performed"
+    },
+    "prime_or_sub": {
+      "type": "string",
+      "enum": [
+        "prime",
+        "subcontractor",
+        "teaming_partner"
+      ],
+      "description": "Role in the project"
+    },
+    "subcontractor_percentage": {
+      "type": "number",
+      "description": "If prime, % of work subcontracted"
+    },
+    "supporting_documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string"
+          },
+          "file_url": {
+            "type": "string"
+          },
+          "document_type": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Supporting documents (contracts, letters, etc.)"
+    },
+    "relevance_scores": {
+      "type": "object",
+      "description": "AI-calculated relevance scores for different proposal types"
+    },
+    "used_in_proposals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs of proposals where this was used"
+    },
+    "usage_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of times used in proposals"
+    },
+    "win_rate_when_used": {
+      "type": "number",
+      "description": "Win rate % when this project is included"
+    },
+    "generated_narratives": {
+      "type": "object",
+      "properties": {
+        "technical": {
+          "type": "string"
+        },
+        "executive": {
+          "type": "string"
+        },
+        "brief": {
+          "type": "string"
+        }
+      },
+      "description": "AI-generated narrative versions"
+    },
+    "is_featured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Featured/highlight project"
+    },
+    "lessons_learned": {
+      "type": "string",
+      "description": "Key lessons learned from project"
+    },
+    "custom_fields": {
+      "type": "object",
+      "description": "Custom organization-specific fields"
+    }
+  },
+  "required": [
+    "organization_id",
+    "project_name",
+    "client_name"
+  ]
+}
