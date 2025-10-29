@@ -1,6 +1,7 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { 
-  CheckCircle, 
-  Download, 
-  FileText, 
+import {
+  CheckCircle,
+  Download,
+  FileText,
   Send,
   AlertCircle,
   CheckCircle2,
@@ -34,15 +35,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import ExportDialog from "../export/ExportDialog";
 
 export default function Phase7({ proposalData, setProposalData, proposalId }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isExporting, setIsExporting] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [qualityReview, setQualityReview] = useState(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewContent, setPreviewContent] = useState("");
-  
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
   const [coverPage, setCoverPage] = useState({
     preparedFor: proposalData.agency_name || "",
     preparedBy: proposalData.prime_contractor_name || "",
@@ -51,13 +55,13 @@ export default function Phase7({ proposalData, setProposalData, proposalId }) {
     contactEmail: "",
     contactPhone: ""
   });
-  
+
   const [exportOptions, setExportOptions] = useState({
     saveToLibrary: true,
-    exportAsDocx: true,
+    exportAsDocx: true, // This option isn't directly used in current generateDocument, but kept for UI
     includeTOC: true,
-    includePageNumbers: true,
-    includeHeaderFooter: true,
+    includePageNumbers: true, // This option isn't directly used in current generateDocument (Markdown)
+    includeHeaderFooter: true, // This option isn't directly used in current generateDocument (Markdown)
     generateComplianceMatrix: true
   });
 
@@ -87,6 +91,13 @@ export default function Phase7({ proposalData, setProposalData, proposalId }) {
             contactEmail: orgs[0].contact_email || user.email || "",
             contactPhone: orgs[0].contact_phone || ""
           }));
+        } else {
+           setCoverPage(prev => ({
+            ...prev,
+            contactName: user.full_name || "",
+            contactEmail: user.email || "",
+            contactPhone: ""
+          }));
         }
       } catch (error) {
         console.error("Error loading contact info:", error);
@@ -100,16 +111,16 @@ export default function Phase7({ proposalData, setProposalData, proposalId }) {
     completedSections: sections.filter(s => s.content && s.status !== 'draft').length,
     totalWords: sections.reduce((sum, s) => sum + (s.word_count || 0), 0),
     uploadedDocs: solicitationDocs.length,
-    averageQuality: sections.length > 0 ? 
+    averageQuality: sections.length > 0 ?
       sections.filter(s => s.status === 'approved').length / sections.length * 100 : 0
   };
 
-  const completionPercentage = completionStats.totalSections > 0 
+  const completionPercentage = completionStats.totalSections > 0
     ? Math.round((completionStats.completedSections / completionStats.totalSections) * 100)
     : 0;
 
-  const readyToExport = completionPercentage >= 80 && 
-                        coverPage.preparedFor && 
+  const readyToExport = completionPercentage >= 80 &&
+                        coverPage.preparedFor &&
                         coverPage.preparedBy &&
                         coverPage.submissionDate;
 
@@ -143,36 +154,36 @@ Perform a thorough quality review and provide:
 {
   "overall_quality_score": <number 0-100>,
   "readiness_level": <string: "ready", "needs_minor_fixes", "needs_major_revision">,
-  
+
   "spelling_grammar": {
     "issues_found": <number>,
     "critical_issues": [<string: describe each critical issue>],
     "suggestions": [<string: specific fixes>]
   },
-  
+
   "consistency_check": {
     "terminology_issues": [<string: inconsistent terms used>],
     "formatting_issues": [<string: formatting inconsistencies>],
     "tone_issues": [<string: tone shifts or problems>]
   },
-  
+
   "completeness": {
     "missing_elements": [<string: required elements not found>],
     "weak_sections": [<string: sections that need strengthening>],
     "strong_sections": [<string: sections that are excellent>]
   },
-  
+
   "compliance": {
     "potential_issues": [<string: compliance concerns>],
     "recommendations": [<string: how to address compliance>]
   },
-  
+
   "readability": {
     "score": <number 0-100>,
     "issues": [<string: readability problems>],
     "suggestions": [<string: how to improve readability>]
   },
-  
+
   "final_recommendations": [
     <string: prioritized list of actions before submission>
   ]
@@ -198,7 +209,7 @@ Be thorough and specific. This is a final quality check before submission to the
       });
 
       setQualityReview(result);
-      
+
     } catch (error) {
       console.error("Error running quality review:", error);
       alert("Error running quality review. Please try again.");
@@ -227,7 +238,7 @@ Be thorough and specific. This is a final quality check before submission to the
     sections.forEach((section, idx) => {
       const sectionNumber = idx + 1;
       preview += `## ${sectionNumber}. ${section.section_name}\n\n`;
-      
+
       if (section.content) {
         const plainText = section.content
           .replace(/<h3>/g, '\n### ')
@@ -241,7 +252,7 @@ Be thorough and specific. This is a final quality check before submission to the
           .replace(/<li>/g, '- ')
           .replace(/<\/li>/g, '\n')
           .replace(/<[^>]*>/g, '');
-        
+
         preview += plainText;
       } else {
         preview += '[Content not yet generated]';
@@ -258,118 +269,7 @@ Be thorough and specific. This is a final quality check before submission to the
       alert("Please complete all required fields and sections");
       return;
     }
-
-    setIsExporting(true);
-    try {
-      // Build the full document content
-      let fullContent = `# ${proposalData.proposal_name}\n\n`;
-      fullContent += `---\n\n`;
-      fullContent += `## COVER PAGE\n\n`;
-      fullContent += `**Prepared For:**  \n${coverPage.preparedFor}\n\n`;
-      fullContent += `**Prepared By:**  \n${coverPage.preparedBy}\n\n`;
-      fullContent += `**Submission Date:**  \n${new Date(coverPage.submissionDate).toLocaleDateString()}\n\n`;
-      fullContent += `**Contact Information:**  \n${coverPage.contactName}  \n${coverPage.contactEmail}  \n${coverPage.contactPhone || 'N/A'}\n\n`;
-      fullContent += `---\n\n`;
-      fullContent += `## PROPOSAL DETAILS\n\n`;
-      fullContent += `**Solicitation Number:** ${proposalData.solicitation_number || 'N/A'}  \n`;
-      fullContent += `**Agency:** ${proposalData.agency_name || 'N/A'}  \n`;
-      fullContent += `**Project Title:** ${proposalData.project_title || 'N/A'}  \n`;
-      fullContent += `**Prime Contractor:** ${proposalData.prime_contractor_name || 'N/A'}  \n`;
-      fullContent += `**Project Type:** ${proposalData.project_type || 'N/A'}  \n\n`;
-      fullContent += `---\n\n`;
-
-      // Table of Contents
-      if (exportOptions.includeTOC) {
-        fullContent += `## TABLE OF CONTENTS\n\n`;
-        sections.forEach((section, idx) => {
-          fullContent += `${idx + 1}. ${section.section_name}  \n`;
-        });
-        fullContent += `\n---\n\n`;
-      }
-
-      // Add all sections
-      sections.forEach((section, idx) => {
-        const sectionNumber = idx + 1;
-        fullContent += `## ${sectionNumber}. ${section.section_name.toUpperCase()}\n\n`;
-        
-        if (section.content) {
-          // Convert HTML to markdown
-          const plainText = section.content
-            .replace(/<h3>/g, '\n### ')
-            .replace(/<\/h3>/g, '\n')
-            .replace(/<h4>/g, '\n#### ')
-            .replace(/<\/h4>/g, '\n')
-            .replace(/<p>/g, '\n')
-            .replace(/<\/p>/g, '\n')
-            .replace(/<strong>/g, '**')
-            .replace(/<\/strong>/g, '**')
-            .replace(/<em>/g, '*')
-            .replace(/<\/em>/g, '*')
-            .replace(/<ul>/g, '\n')
-            .replace(/<\/ul>/g, '\n')
-            .replace(/<ol>/g, '\n')
-            .replace(/<\/ol>/g, '\n')
-            .replace(/<li>/g, '- ')
-            .replace(/<\/li>/g, '\n')
-            .replace(/<br\s*\/?>/g, '\n')
-            .replace(/<[^>]*>/g, '');
-          
-          fullContent += plainText;
-        } else {
-          fullContent += '[Content not yet generated]';
-        }
-        fullContent += `\n\n---\n\n`;
-      });
-
-      // Generate compliance matrix if requested
-      if (exportOptions.generateComplianceMatrix) {
-        fullContent += `## APPENDIX A: COMPLIANCE MATRIX\n\n`;
-        fullContent += `| Section | Requirement | Location in Proposal | Status |\n`;
-        fullContent += `|---------|-------------|---------------------|--------|\n`;
-        sections.forEach((section, idx) => {
-          const status = section.content && section.status !== 'draft' ? '✓ Complete' : '⚠ Pending';
-          fullContent += `| ${idx + 1} | ${section.section_name} | Section ${idx + 1} | ${status} |\n`;
-        });
-        fullContent += `\n---\n\n`;
-      }
-
-      // Add document metadata footer
-      fullContent += `\n\n---\n\n`;
-      fullContent += `**Document Information**\n\n`;
-      fullContent += `- Generated: ${new Date().toLocaleString()}\n`;
-      fullContent += `- Total Sections: ${completionStats.totalSections}\n`;
-      fullContent += `- Total Words: ${completionStats.totalWords.toLocaleString()}\n`;
-      fullContent += `- Completion: ${completionPercentage}%\n`;
-      fullContent += `- Generated by ProposalIQ.ai\n`;
-
-      // Create a blob and download
-      const blob = new Blob([fullContent], { type: 'text/markdown' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const fileName = `${proposalData.proposal_name.replace(/\s+/g, '_')}_FINAL_${new Date().toISOString().split('T')[0]}.md`;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      // Save to library if checked
-      if (exportOptions.saveToLibrary) {
-        await base44.entities.Proposal.update(proposalId, {
-          status: "submitted",
-          final_document_generated: true,
-          submission_date: new Date().toISOString()
-        });
-      }
-
-      alert(`✓ Proposal document generated successfully!\n\nFile: ${fileName}\n\n${exportOptions.exportAsDocx ? 'To convert to DOCX:\n1. Open in Microsoft Word or Google Docs\n2. Save As > Word Document (.docx)\n\nOr use Pandoc command line:\npandoc ' + fileName + ' -o output.docx' : ''}`);
-
-    } catch (error) {
-      console.error("Error exporting:", error);
-      alert("Error generating document. Please try again.");
-    }
-    setIsExporting(false);
+    setShowExportDialog(true);
   };
 
   const getReadinessColor = (level) => {
@@ -418,7 +318,7 @@ Be thorough and specific. This is a final quality check before submission to the
                     </div>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-3">
-                    <div 
+                    <div
                       className="bg-gradient-to-r from-blue-600 to-indigo-600 h-3 rounded-full transition-all"
                       style={{ width: `${completionPercentage}%` }}
                     />
@@ -902,7 +802,7 @@ Be thorough and specific. This is a final quality check before submission to the
 
               <Alert className="bg-blue-50 border-blue-200">
                 <AlertDescription className="text-sm text-blue-900">
-                  <strong>Format Note:</strong> Documents are generated in Markdown format for maximum compatibility. 
+                  <strong>Format Note:</strong> Documents are generated in Markdown format for maximum compatibility.
                   To convert to DOCX: Open in Microsoft Word or use Pandoc (pandoc file.md -o output.docx)
                 </AlertDescription>
               </Alert>
@@ -948,7 +848,7 @@ Be thorough and specific. This is a final quality check before submission to the
               Preview of your final proposal document
             </DialogDescription>
           </DialogHeader>
-          
+
           <ScrollArea className="h-[500px] pr-4">
             <div className="prose prose-sm max-w-none">
               <pre className="whitespace-pre-wrap text-sm bg-slate-50 p-4 rounded border">
@@ -956,7 +856,7 @@ Be thorough and specific. This is a final quality check before submission to the
               </pre>
             </div>
           </ScrollArea>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Close
@@ -964,6 +864,23 @@ Be thorough and specific. This is a final quality check before submission to the
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        proposalId={proposalId}
+        proposalData={proposalData}
+        exportOptions={exportOptions}
+        coverPage={coverPage}
+        sections={sections}
+        completionStats={completionStats}
+        completionPercentage={completionPercentage}
+        onExportComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['export-history'] });
+          queryClient.invalidateQueries({ queryKey: ['proposal', proposalId] }); // Invalidate proposal data to reflect status change
+        }}
+      />
     </div>
   );
 }
