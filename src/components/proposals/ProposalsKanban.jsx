@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -64,9 +63,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
           
           let savedColumns = config.columns || defaultColumns;
           
-          // Validate and fix order and label if missing
           savedColumns = savedColumns.map((col, idx) => {
-            // Find matching default column
             const defaultCol = defaultColumns.find(dc => dc.id === col.id);
             return {
               ...col,
@@ -76,13 +73,11 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
             };
           });
           
-          // Sort columns by order property to ensure correct display
           const sortedColumns = [...savedColumns].sort((a, b) => (a.order || 0) - (b.order || 0));
           
           setColumns(sortedColumns);
           setColumnConfig(sortedColumns);
           
-          // Load collapsed state
           if (config.collapsed_column_ids) {
             setCollapsedColumns(config.collapsed_column_ids);
           }
@@ -106,7 +101,6 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         status: newStatus
       });
 
-      // Get team members for notifications
       const allUsers = await base44.entities.User.list();
       const teamEmails = allUsers
         .filter(u => {
@@ -128,7 +122,6 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         organization_id: organization.id
       });
 
-      // Ensure columns have correct order property
       const columnsWithOrder = newColumns.map((col, idx) => ({
         ...col,
         order: idx
@@ -199,7 +192,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
       setCollapsedColumns([]);
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       setShowResetWarning(false);
-      setIsEditingColumns(false); // Close the customization dialog if open
+      setIsEditingColumns(false);
     },
   });
 
@@ -253,7 +246,6 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     
     setCollapsedColumns(newCollapsedColumns);
     
-    // Save collapsed state immediately
     saveCollapsedStateMutation.mutate(newCollapsedColumns);
   };
 
@@ -362,7 +354,6 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         </Dialog>
       </div>
 
-      {/* Reset Warning Dialog */}
       <AlertDialog open={showResetWarning} onOpenChange={setShowResetWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
