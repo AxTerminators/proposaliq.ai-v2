@@ -1,0 +1,124 @@
+{
+  "name": "SectionReview",
+  "type": "object",
+  "properties": {
+    "review_round_id": {
+      "type": "string",
+      "description": "Reference to the review round"
+    },
+    "proposal_section_id": {
+      "type": "string",
+      "description": "Reference to the proposal section"
+    },
+    "section_name": {
+      "type": "string",
+      "description": "Name of section being reviewed"
+    },
+    "reviewer_email": {
+      "type": "string",
+      "description": "Email of reviewer"
+    },
+    "reviewer_name": {
+      "type": "string",
+      "description": "Name of reviewer"
+    },
+    "overall_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "Overall score for this section (0-5 stars)"
+    },
+    "criteria_scores": {
+      "type": "object",
+      "properties": {
+        "technical_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "compliance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "writing_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "persuasiveness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "clarity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      "description": "Detailed scoring by criteria"
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What's good about this section"
+    },
+    "weaknesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What needs improvement"
+    },
+    "critical_issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Critical problems that must be fixed"
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Specific recommendations for improvement"
+    },
+    "review_notes": {
+      "type": "string",
+      "description": "General review notes"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "submitted"
+      ],
+      "default": "not_started",
+      "description": "Review submission status"
+    },
+    "time_spent_minutes": {
+      "type": "number",
+      "description": "Time spent reviewing this section"
+    },
+    "submitted_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When review was submitted"
+    }
+  },
+  "required": [
+    "review_round_id",
+    "proposal_section_id",
+    "reviewer_email"
+  ]
+}
