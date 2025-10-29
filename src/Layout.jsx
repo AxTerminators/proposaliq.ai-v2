@@ -50,6 +50,11 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Calendar",
+    url: createPageUrl("Calendar"),
+    icon: Calendar,
+  },
+  {
     title: "Opportunities",
     url: createPageUrl("OpportunityFinder"),
     icon: Globe,
@@ -60,7 +65,7 @@ const navigationItems = [
     icon: FileText,
   },
   {
-    title: "Past Performance", // Added new navigation item
+    title: "Past Performance",
     url: createPageUrl("PastPerformance"),
     icon: Award,
   },
