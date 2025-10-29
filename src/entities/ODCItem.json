@@ -1,0 +1,101 @@
+{
+  "name": "ODCItem",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "clin_id": {
+      "type": "string",
+      "description": "Reference to the CLIN"
+    },
+    "odc_category": {
+      "type": "string",
+      "enum": [
+        "travel",
+        "materials",
+        "subcontract",
+        "equipment",
+        "software",
+        "facilities",
+        "consultants",
+        "other"
+      ],
+      "description": "Category of ODC"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Name/description of the ODC item"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Quantity"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Cost per unit"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Total cost (quantity * unit_cost)"
+    },
+    "vendor": {
+      "type": "string",
+      "description": "Vendor/supplier name"
+    },
+    "basis_of_estimate": {
+      "type": "string",
+      "description": "How this cost was estimated"
+    },
+    "quote_reference": {
+      "type": "string",
+      "description": "Reference to quote or historical data"
+    },
+    "travel_details": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "travelers": {
+          "type": "number"
+        },
+        "trips": {
+          "type": "number"
+        },
+        "days_per_trip": {
+          "type": "number"
+        },
+        "per_diem_rate": {
+          "type": "number"
+        },
+        "airfare": {
+          "type": "number"
+        },
+        "lodging": {
+          "type": "number"
+        },
+        "ground_transportation": {
+          "type": "number"
+        }
+      },
+      "description": "Detailed travel breakdown if applicable"
+    },
+    "is_pass_through": {
+      "type": "boolean",
+      "default": false,
+      "description": "Is this a pass-through cost (no fee applied)"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "clin_id",
+    "odc_category",
+    "item_name",
+    "total_cost"
+  ]
+}
