@@ -243,10 +243,29 @@ export default function TeamingPartners() {
     }
   };
 
-  const extractDataFromCapabilityStatement = async (fileUrl, fileName) => {
-    console.log('Starting extraction for:', fileName);
+  const handleCapabilityStatementSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
+
+    console.log('=== STARTING CAPABILITY STATEMENT PROCESSING ===');
+    console.log('File selected:', file.name, 'Size:', file.size);
+    
+    setCapabilityStatementFile(file);
+    setIsExtractingData(true);
+    setExtractedData(null);
     
     try {
+      console.log('Step 1: Uploading file...');
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      console.log('Step 2: File uploaded successfully:', uploadResult.file_url);
+      
+      const fileUrl = uploadResult.file_url;
+      
+      console.log('Step 3: Calling AI for extraction...');
+      
       const prompt = `You are an AI assistant that extracts information from capability statements and company documents.
 
 Analyze this document and extract the following information in structured JSON format:
@@ -267,25 +286,17 @@ Analyze this document and extract the following information in structured JSON f
 
 **CERTIFICATIONS:**
 - Small Business Certifications (8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO, CMMI, etc.)
-- Look for both standard SBA certifications and other industry certifications
 
 **CAPABILITIES & STRENGTHS:**
 - Core Capabilities (array of 5-10 key services/capabilities)
 - Key Differentiators (array of 3-7 competitive advantages)
-- Past Performance Summary (brief 2-3 sentence overview of their experience)
+- Past Performance Summary (brief 2-3 sentence overview)
 - Target Agencies (array of government agencies they work with)
 
 **COMPANY DETAILS:**
 - Employee Count (approximate number)
 - Years in Business
 - Revenue Range (e.g., "$1M-$5M")
-
-**IMPORTANT:**
-- Extract only information that is explicitly stated in the document
-- Return null/empty for fields not found
-- For certifications, list all found (not just the pre-defined ones)
-- For NAICS codes, extract the numeric codes only
-- For core capabilities, focus on technical/service areas, not buzzwords
 
 Return as valid JSON matching this exact structure:
 {
@@ -309,9 +320,7 @@ Return as valid JSON matching this exact structure:
   "revenue_range": "string or null"
 }`;
 
-      console.log('Calling AI with file URL:', fileUrl);
-
-      const result = await base44.integrations.Core.InvokeLLM({
+      const aiResult = await base44.integrations.Core.InvokeLLM({
         prompt,
         file_urls: [fileUrl],
         response_json_schema: {
@@ -339,101 +348,135 @@ Return as valid JSON matching this exact structure:
         }
       });
 
-      console.log('AI extraction result:', result);
+      console.log('Step 4: AI extraction completed. Result:', aiResult);
 
       // Auto-populate form with extracted data
+      console.log('Step 5: Starting form population. Current formData:', formData);
+      
       const updatedFormData = { ...formData };
       let fieldsPopulated = [];
 
-      if (result.partner_name && !formData.partner_name) {
-        updatedFormData.partner_name = result.partner_name;
+      if (aiResult.partner_name && !formData.partner_name) {
+        updatedFormData.partner_name = aiResult.partner_name;
         fieldsPopulated.push("Partner Name");
+        console.log('✓ Populated Partner Name:', aiResult.partner_name);
       }
-      if (result.address && !formData.address) {
-        updatedFormData.address = result.address;
+      if (aiResult.address && !formData.address) {
+        updatedFormData.address = aiResult.address;
         fieldsPopulated.push("Address");
+        console.log('✓ Populated Address:', aiResult.address);
       }
-      if (result.website_url && !formData.website_url) {
-        updatedFormData.website_url = result.website_url;
+      if (aiResult.website_url && !formData.website_url) {
+        updatedFormData.website_url = aiResult.website_url;
         fieldsPopulated.push("Website");
+        console.log('✓ Populated Website:', aiResult.website_url);
       }
-      if (result.uei && !formData.uei) {
-        updatedFormData.uei = result.uei;
+      if (aiResult.uei && !formData.uei) {
+        updatedFormData.uei = aiResult.uei;
         fieldsPopulated.push("UEI");
+        console.log('✓ Populated UEI:', aiResult.uei);
       }
-      if (result.cage_code && !formData.cage_code) {
-        updatedFormData.cage_code = result.cage_code;
+      if (aiResult.cage_code && !formData.cage_code) {
+        updatedFormData.cage_code = aiResult.cage_code;
         fieldsPopulated.push("CAGE Code");
+        console.log('✓ Populated CAGE Code:', aiResult.cage_code);
       }
-      if (result.primary_naics && !formData.primary_naics) {
-        updatedFormData.primary_naics = result.primary_naics;
+      if (aiResult.primary_naics && !formData.primary_naics) {
+        updatedFormData.primary_naics = aiResult.primary_naics;
         fieldsPopulated.push("Primary NAICS");
+        console.log('✓ Populated Primary NAICS:', aiResult.primary_naics);
       }
-      // Note: For array fields, the outline implies overwriting if AI finds data, rather than only populating if empty.
-      // For Certifications, it explicitly merges.
-      if (result.secondary_naics && result.secondary_naics.length > 0) { // Changed as per outline: removed `&& formData.secondary_naics?.length === 0`
-        updatedFormData.secondary_naics = result.secondary_naics;
+      if (aiResult.secondary_naics && aiResult.secondary_naics.length > 0) {
+        updatedFormData.secondary_naics = aiResult.secondary_naics;
         fieldsPopulated.push("Secondary NAICS");
+        console.log('✓ Populated Secondary NAICS:', aiResult.secondary_naics);
       }
-      if (result.poc_name && !formData.poc_name) {
-        updatedFormData.poc_name = result.poc_name;
+      if (aiResult.poc_name && !formData.poc_name) {
+        updatedFormData.poc_name = aiResult.poc_name;
         fieldsPopulated.push("POC Name");
+        console.log('✓ Populated POC Name:', aiResult.poc_name);
       }
-      if (result.poc_email && !formData.poc_email) {
-        updatedFormData.poc_email = result.poc_email;
+      if (aiResult.poc_email && !formData.poc_email) {
+        updatedFormData.poc_email = aiResult.poc_email;
         fieldsPopulated.push("POC Email");
+        console.log('✓ Populated POC Email:', aiResult.poc_email);
       }
-      if (result.poc_phone && !formData.poc_phone) {
-        updatedFormData.poc_phone = result.poc_phone;
+      if (aiResult.poc_phone && !formData.poc_phone) {
+        updatedFormData.poc_phone = aiResult.poc_phone;
         fieldsPopulated.push("POC Phone");
+        console.log('✓ Populated POC Phone:', aiResult.poc_phone);
       }
-      if (result.certifications && result.certifications.length > 0) {
-        // Changed as per outline to simplify merge
-        updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...result.certifications])];
-        fieldsPopulated.push(`${result.certifications.length} Certifications`);
+      if (aiResult.certifications && aiResult.certifications.length > 0) {
+        updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...aiResult.certifications])];
+        fieldsPopulated.push(`${aiResult.certifications.length} Certifications`);
+        console.log('✓ Populated Certifications:', aiResult.certifications);
       }
-      if (result.core_capabilities && result.core_capabilities.length > 0) { // Changed as per outline: removed `&& formData.core_capabilities?.length === 0`
-        updatedFormData.core_capabilities = result.core_capabilities;
-        fieldsPopulated.push(`${result.core_capabilities.length} Core Capabilities`);
+      if (aiResult.core_capabilities && aiResult.core_capabilities.length > 0) {
+        updatedFormData.core_capabilities = aiResult.core_capabilities;
+        fieldsPopulated.push(`${aiResult.core_capabilities.length} Core Capabilities`);
+        console.log('✓ Populated Core Capabilities:', aiResult.core_capabilities);
       }
-      if (result.differentiators && result.differentiators.length > 0) { // Changed as per outline: removed `&& formData.differentiators?.length === 0`
-        updatedFormData.differentiators = result.differentiators;
-        fieldsPopulated.push(`${result.differentiators.length} Differentiators`);
+      if (aiResult.differentiators && aiResult.differentiators.length > 0) {
+        updatedFormData.differentiators = aiResult.differentiators;
+        fieldsPopulated.push(`${aiResult.differentiators.length} Differentiators`);
+        console.log('✓ Populated Differentiators:', aiResult.differentiators);
       }
-      if (result.past_performance_summary && !formData.past_performance_summary) {
-        updatedFormData.past_performance_summary = result.past_performance_summary;
+      if (aiResult.past_performance_summary && !formData.past_performance_summary) {
+        updatedFormData.past_performance_summary = aiResult.past_performance_summary;
         fieldsPopulated.push("Past Performance Summary");
+        console.log('✓ Populated Past Performance Summary');
       }
-      if (result.target_agencies && result.target_agencies.length > 0) { // Changed as per outline: removed `&& formData.target_agencies?.length === 0`
-        updatedFormData.target_agencies = result.target_agencies;
+      if (aiResult.target_agencies && aiResult.target_agencies.length > 0) {
+        updatedFormData.target_agencies = aiResult.target_agencies;
         fieldsPopulated.push("Target Agencies");
+        console.log('✓ Populated Target Agencies:', aiResult.target_agencies);
       }
-      if (result.employee_count && !formData.employee_count) {
-        updatedFormData.employee_count = result.employee_count;
+      if (aiResult.employee_count && !formData.employee_count) {
+        updatedFormData.employee_count = aiResult.employee_count;
         fieldsPopulated.push("Employee Count");
+        console.log('✓ Populated Employee Count:', aiResult.employee_count);
       }
-      if (result.years_in_business && !formData.years_in_business) {
-        updatedFormData.years_in_business = result.years_in_business;
+      if (aiResult.years_in_business && !formData.years_in_business) {
+        updatedFormData.years_in_business = aiResult.years_in_business;
         fieldsPopulated.push("Years in Business");
+        console.log('✓ Populated Years in Business:', aiResult.years_in_business);
       }
-      if (result.revenue_range && !formData.revenue_range) {
-        updatedFormData.revenue_range = result.revenue_range;
+      if (aiResult.revenue_range && !formData.revenue_range) {
+        updatedFormData.revenue_range = aiResult.revenue_range;
         fieldsPopulated.push("Revenue Range");
+        console.log('✓ Populated Revenue Range:', aiResult.revenue_range);
       }
 
-      console.log('Fields populated:', fieldsPopulated);
-
+      console.log('Step 6: Total fields populated:', fieldsPopulated.length);
+      console.log('Step 7: Updating form state...');
+      
       setFormData(updatedFormData);
       setExtractedData({
         fieldsPopulated,
-        rawData: result
+        rawData: aiResult
       });
 
+      console.log('Step 8: Form state updated successfully');
+      console.log('=== EXTRACTION COMPLETE ===');
+
+      if (fieldsPopulated.length > 0) {
+        alert(`✓ AI extracted and populated ${fieldsPopulated.length} fields from ${file.name}!\n\nFields: ${fieldsPopulated.join(', ')}\n\nPlease review and adjust as needed.`);
+      } else {
+        alert(`AI analyzed ${file.name} but couldn't find data to auto-populate. The document may not contain extractable information, or all fields are already filled.`);
+      }
+
     } catch (error) {
-      console.error("Error extracting data from capability statement:", error);
-      // alert(`Note: Could not auto-extract data from ${fileName}. You can manually enter the partner information.`);
+      console.error('=== ERROR DURING EXTRACTION ===');
+      console.error('Error type:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Full error:', error);
+      
+      alert(`Error processing ${file.name}: ${error.message}\n\nPlease check the browser console for details, then try again or enter information manually.`);
     } finally {
+      console.log('Step 9: Cleaning up...');
       setIsExtractingData(false);
+      console.log('=== PROCESSING COMPLETE ===');
     }
   };
 
@@ -555,29 +598,6 @@ Return as valid JSON matching this exact structure:
     if (file) {
       setUploadingDoc(true);
       await uploadDocumentMutation.mutateAsync({ file, resourceType, temporaryStorage });
-    }
-  };
-
-  const handleCapabilityStatementSelect = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    console.log('File selected:', file.name);
-    setCapabilityStatementFile(file);
-    setIsExtractingData(true);
-    setExtractedData(null);
-    
-    try {
-      console.log('Starting file upload...');
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      console.log('File uploaded successfully:', file_url);
-      
-      await extractDataFromCapabilityStatement(file_url, file.name);
-    } catch (error) {
-      console.error("Error processing capability statement:", error);
-      alert(`Error processing ${file.name}: ${error.message}\n\nPlease try again or enter information manually.`);
-    } finally {
-      setIsExtractingData(false);
     }
   };
 
