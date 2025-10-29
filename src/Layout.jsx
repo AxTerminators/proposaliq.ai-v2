@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -14,7 +15,8 @@ import {
   CreditCard,
   DollarSign,
   Settings,
-  BarChart3
+  BarChart3,
+  Download // Added Download icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -60,6 +62,11 @@ const navigationItems = [
     title: "Discussions",
     url: createPageUrl("Discussions"),
     icon: MessageCircle,
+  },
+  {
+    title: "Export Center",
+    url: createPageUrl("ExportCenter"),
+    icon: Download,
   },
   {
     title: "Analytics",
