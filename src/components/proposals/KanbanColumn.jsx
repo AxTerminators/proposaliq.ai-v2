@@ -3,7 +3,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, ChevronLeft, Edit2, Trash2, Check, X, Lock, Filter } from "lucide-react";
+import { ChevronRight, ChevronDown, ChevronLeft, Edit2, Trash2, Check, X, Lock, Filter, DollarSign } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
 import KanbanCard from "./KanbanCard";
 import {
@@ -42,6 +42,11 @@ export default function KanbanColumn({
   };
 
   const columnName = column.label || column.display_name || "Untitled";
+
+  // Calculate total contract value for this column
+  const totalValue = proposals.reduce((sum, proposal) => {
+    return sum + (proposal.contract_value || 0);
+  }, 0);
 
   // Sort proposals based on selected sort option
   const sortedProposals = [...proposals].sort((a, b) => {
@@ -83,6 +88,11 @@ export default function KanbanColumn({
             <Badge variant="secondary" className="text-xs">
               {proposals.length}
             </Badge>
+            {totalValue > 0 && (
+              <div className="text-xs font-semibold text-green-700 transform rotate-90 whitespace-nowrap mt-4">
+                ${(totalValue / 1000000).toFixed(1)}M
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -182,6 +192,25 @@ export default function KanbanColumn({
               )}
             </div>
           </div>
+          
+          {/* Total Value Display */}
+          {totalValue > 0 && (
+            <div className="mt-2 pt-2 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-xs text-slate-600">
+                  <DollarSign className="w-3 h-3" />
+                  <span>Total Value</span>
+                </div>
+                <div className="font-bold text-green-700">
+                  ${totalValue >= 1000000 
+                    ? `${(totalValue / 1000000).toFixed(2)}M` 
+                    : totalValue >= 1000 
+                    ? `${(totalValue / 1000).toFixed(0)}K`
+                    : totalValue.toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
         </CardHeader>
 
         <Droppable droppableId={column.id}>
