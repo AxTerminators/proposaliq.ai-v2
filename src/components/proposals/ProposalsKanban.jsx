@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import KanbanColumn from "./KanbanColumn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Settings2, RotateCcw } from "lucide-react";
+import { Loader2, Plus, Settings2, RotateCcw, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProposalsKanban({ proposals, onProposalClick, isLoading, user, organization }) {
@@ -24,6 +36,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   const [columnConfig, setColumnConfig] = useState([]);
   const [collapsedColumns, setCollapsedColumns] = useState([]);
   const [configId, setConfigId] = useState(null);
+  const [showResetWarning, setShowResetWarning] = useState(false);
 
   const defaultColumns = [
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0 },
@@ -185,7 +198,8 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
       setColumnConfig(defaultColumns);
       setCollapsedColumns([]);
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-      alert('✓ Kanban board reset to default!');
+      setShowResetWarning(false);
+      setIsEditingColumns(false); // Close the customization dialog if open
     },
   });
 
@@ -217,10 +231,11 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   };
 
   const handleResetToDefault = () => {
-    if (confirm('Reset Kanban board to default? This will reset columns and clear all collapsed states.')) {
-      resetToDefaultMutation.mutate();
-      setIsEditingColumns(false);
-    }
+    setShowResetWarning(true);
+  };
+
+  const confirmReset = () => {
+    resetToDefaultMutation.mutate();
   };
 
   const handleColumnChange = (columnId, field, value) => {
@@ -346,6 +361,45 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Reset Warning Dialog */}
+      <AlertDialog open={showResetWarning} onOpenChange={setShowResetWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+              Reset Kanban Board to Default?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="font-medium text-slate-900">This action will reset your Kanban board and you will lose the following customizations:</p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                <li>All custom column names will revert to original names (e.g., "Evaluating", "Watch List", "Draft", "In Review", etc.)</li>
+                <li>All custom column colors will revert to default colors</li>
+                <li>All collapsed columns will be expanded</li>
+                <li>Column order will be reset to the default sequence</li>
+              </ul>
+              <p className="text-amber-700 font-medium pt-2">⚠️ This action cannot be undone. Your proposals and data will remain safe.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmReset}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={resetToDefaultMutation.isPending}
+            >
+              {resetToDefaultMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                'Reset to Default'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
