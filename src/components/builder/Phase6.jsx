@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CollaborationPanel from "../collaboration/CollaborationPanel";
 import VersionComparison from "./VersionComparison";
+import { parseMentions, notifyMention } from "@/utils/notificationHelpers";
 
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -45,6 +47,37 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  const [commentText, setCommentText] = useState(""); // Assuming this state exists for CollaborationPanel
+
+  const createCommentMutation = useMutation({
+    mutationFn: async (commentData) => {
+      const comment = await base44.entities.ProposalComment.create(commentData);
+      
+      // Handle @mentions in comments
+      const mentions = parseMentions(commentData.content);
+      if (mentions.length > 0) {
+        const currentUser = await base44.auth.me();
+        for (const email of mentions) {
+          await notifyMention({
+            mentionedEmail: email,
+            commentText: commentData.content,
+            authorEmail: currentUser.email,
+            authorName: currentUser.full_name,
+            proposalId: proposalId,
+            proposalName: proposalData.proposal_name || "Proposal"
+          });
+        }
+      }
+      
+      return comment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-comments'] });
+      setCommentText("");
+    }
+  });
+
 
   useEffect(() => {
     const loadStrategy = async () => {
