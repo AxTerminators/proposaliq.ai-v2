@@ -22,6 +22,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   const [columns, setColumns] = useState([]);
   const [isEditingColumns, setIsEditingColumns] = useState(false);
   const [columnConfig, setColumnConfig] = useState([]);
+  const [collapsedColumns, setCollapsedColumns] = useState([]);
 
   const defaultColumns = [
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0 },
@@ -192,6 +193,14 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     );
   };
 
+  const handleToggleCollapse = (columnId) => {
+    setCollapsedColumns(prev => 
+      prev.includes(columnId) 
+        ? prev.filter(id => id !== columnId)
+        : [...prev, columnId]
+    );
+  };
+
   const groupedProposals = columns.reduce((acc, column) => {
     acc[column.id] = proposals.filter(p => p.status === column.id);
     return acc;
@@ -312,6 +321,8 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
                     proposals={groupedProposals[column.id] || []}
                     onProposalClick={onProposalClick}
                     isDraggingOver={snapshot.isDraggingOver}
+                    isCollapsed={collapsedColumns.includes(column.id)}
+                    onToggleCollapse={handleToggleCollapse}
                   />
                   {provided.placeholder}
                 </div>
