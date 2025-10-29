@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -5,7 +6,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import Phase1 from "../components/builder/Phase1";
@@ -18,6 +19,7 @@ import Phase7 from "../components/builder/Phase7";
 import TaskManager from "../components/tasks/TaskManager";
 import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
 import ProposalFiles from "../components/collaboration/ProposalFiles";
+import AutomationHub from "../components/workflows/AutomationHub";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -211,7 +213,7 @@ export default function ProposalBuilder() {
 
         {proposalId && (
           <Tabs defaultValue="builder" className="mb-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="builder">Builder</TabsTrigger>
               <TabsTrigger value="tasks">
                 <CheckSquare className="w-4 h-4 mr-2" />
@@ -224,6 +226,10 @@ export default function ProposalBuilder() {
               <TabsTrigger value="files">
                 <Paperclip className="w-4 h-4 mr-2" />
                 Files
+              </TabsTrigger>
+              <TabsTrigger value="automation">
+                <Zap className="w-4 h-4 mr-2" />
+                Automation
               </TabsTrigger>
             </TabsList>
 
@@ -295,6 +301,14 @@ export default function ProposalBuilder() {
                 proposal={{ id: proposalId, ...proposalData }}
                 user={user}
                 organization={organization}
+              />
+            </TabsContent>
+
+            <TabsContent value="automation">
+              <AutomationHub
+                proposal={{ id: proposalId, ...proposalData }}
+                organization={organization}
+                user={user}
               />
             </TabsContent>
           </Tabs>
