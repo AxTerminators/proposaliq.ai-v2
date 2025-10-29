@@ -311,27 +311,32 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((column) => (
-            <Droppable key={column.id} droppableId={column.id}>
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className="flex-shrink-0 w-80"
-                >
-                  <KanbanColumn
-                    column={column}
-                    proposals={groupedProposals[column.id] || []}
-                    onProposalClick={onProposalClick}
-                    isDraggingOver={snapshot.isDraggingOver}
-                    isCollapsed={collapsedColumns.includes(column.id)}
-                    onToggleCollapse={handleToggleCollapse}
-                  />
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          ))}
+          {columns.map((column) => {
+            const isColumnCollapsed = collapsedColumns.includes(column.id);
+            return (
+              <Droppable key={column.id} droppableId={column.id}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`flex-shrink-0 transition-all duration-300 ${
+                      isColumnCollapsed ? 'w-16' : 'w-80'
+                    }`}
+                  >
+                    <KanbanColumn
+                      column={column}
+                      proposals={groupedProposals[column.id] || []}
+                      onProposalClick={onProposalClick}
+                      isDraggingOver={snapshot.isDraggingOver}
+                      isCollapsed={isColumnCollapsed}
+                      onToggleCollapse={handleToggleCollapse}
+                    />
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
         </div>
       </DragDropContext>
     </div>
