@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Sparkles, Upload, Plus, X, Building2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import NAICSAutocomplete from "../components/ui/NAICSAutocomplete"; // Added import
 
 const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
@@ -235,11 +237,11 @@ export default function Onboarding() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="primary_naics">Primary NAICS Code</Label>
-                  <Input
+                  <NAICSAutocomplete
                     id="primary_naics"
                     value={orgData.primary_naics}
-                    onChange={(e) => setOrgData({...orgData, primary_naics: e.target.value})}
-                    placeholder="541330"
+                    onChange={(code) => setOrgData({...orgData, primary_naics: code})}
+                    placeholder="Type code or keyword (e.g., 541330 or 'Engineering')"
                   />
                 </div>
               </div>
@@ -247,21 +249,15 @@ export default function Onboarding() {
               <div className="space-y-2">
                 <Label>Secondary NAICS Codes</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <NAICSAutocomplete
                     value={newNaics}
-                    onChange={(e) => setNewNaics(e.target.value)}
-                    placeholder="Add NAICS code"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && newNaics) {
-                        setOrgData({...orgData, secondary_naics: [...orgData.secondary_naics, newNaics]});
-                        setNewNaics("");
-                      }
-                    }}
+                    onChange={setNewNaics}
+                    placeholder="Search and add NAICS code"
                   />
                   <Button
                     type="button"
                     onClick={() => {
-                      if (newNaics) {
+                      if (newNaics && !orgData.secondary_naics.includes(newNaics)) {
                         setOrgData({...orgData, secondary_naics: [...orgData.secondary_naics, newNaics]});
                         setNewNaics("");
                       }
