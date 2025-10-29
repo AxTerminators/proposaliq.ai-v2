@@ -1,11 +1,10 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import {
-  LayoutDashboard,
-  FileText,
-  MessageSquare,
+import { 
+  LayoutDashboard, 
+  FileText, 
+  MessageSquare, 
   Library,
   LogOut,
   Menu,
@@ -15,7 +14,7 @@ import {
   CreditCard,
   DollarSign,
   Settings,
-  BarChart3 // Added Analytics icon
+  BarChart3
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,7 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import NotificationCenter from "../components/collaboration/NotificationCenter";
+import NotificationCenter from "./components/collaboration/NotificationCenter";
 
 const navigationItems = [
   {
@@ -63,7 +62,7 @@ const navigationItems = [
     icon: MessageCircle,
   },
   {
-    title: "Analytics", // Added Analytics
+    title: "Analytics",
     url: createPageUrl("Analytics"),
     icon: BarChart3,
   },
@@ -97,7 +96,7 @@ export default function Layout({ children }) {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-
+        
         const subs = await base44.entities.Subscription.list('-created_date', 1);
         if (subs.length > 0) {
           setSubscription(subs[0]);
@@ -113,8 +112,8 @@ export default function Layout({ children }) {
     base44.auth.logout();
   };
 
-  const tokenPercentage = subscription
-    ? ((subscription.token_credits - subscription.token_credits_used) / subscription.token_credits) * 100
+  const tokenPercentage = subscription 
+    ? ((subscription.token_credits - subscription.token_credits_used) / subscription.token_credits) * 100 
     : 100;
 
   return (
@@ -132,7 +131,7 @@ export default function Layout({ children }) {
               </div>
             </div>
           </SidebarHeader>
-
+          
           <SidebarContent className="p-3">
             <SidebarGroup>
               <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
@@ -142,8 +141,8 @@ export default function Layout({ children }) {
                 <SidebarMenu>
                   {navigationItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
+                      <SidebarMenuButton 
+                        asChild 
                         className={`hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1 ${
                           location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
                         }`}
@@ -168,8 +167,8 @@ export default function Layout({ children }) {
                   <SidebarMenu>
                     {adminItems.map((item) => (
                       <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                          asChild
+                        <SidebarMenuButton 
+                          asChild 
                           className={`hover:bg-red-50 hover:text-red-700 transition-all duration-200 rounded-lg mb-1 ${
                             location.pathname === item.url ? 'bg-red-50 text-red-700 font-medium' : 'text-slate-600'
                           }`}
@@ -207,7 +206,7 @@ export default function Layout({ children }) {
                         </span>
                       </div>
                       <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div
+                        <div 
                           className={`h-2 rounded-full transition-all ${
                             tokenPercentage > 50 ? 'bg-green-500' :
                             tokenPercentage > 20 ? 'bg-amber-500' :
