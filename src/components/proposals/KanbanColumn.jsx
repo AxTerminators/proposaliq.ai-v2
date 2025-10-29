@@ -10,28 +10,27 @@ import KanbanCard from "./KanbanCard";
 export default function KanbanColumn({ 
   column, 
   proposals, 
-  onToggleCollapse, 
-  onRenameColumn,
-  onDeleteColumn,
-  canEdit 
+  onProposalClick,
+  isDraggingOver,
+  isCollapsed,
+  onToggleCollapse
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(column.display_name);
+  const [editedName, setEditedName] = useState(column.label || column.display_name || "Untitled");
 
   const handleSaveRename = () => {
     if (editedName.trim()) {
-      onRenameColumn(column.id, editedName.trim());
+      // For now, just update locally - you can add a mutation here if needed
       setIsEditing(false);
     }
   };
 
   const handleCancelRename = () => {
-    setEditedName(column.display_name);
+    setEditedName(column.label || column.display_name || "Untitled");
     setIsEditing(false);
   };
 
-  const isCustomColumn = column.type === "custom_stage";
-  const isDefaultColumn = column.type === "default_status";
+  const columnName = column.label || column.display_name || "Untitled";
 
   return (
     <div className="flex-shrink-0 w-80">
@@ -42,10 +41,10 @@ export default function KanbanColumn({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6"
-                onClick={() => onToggleCollapse(column.id)}
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => onToggleCollapse && onToggleCollapse(column.id)}
               >
-                {column.is_collapsed ? (
+                {isCollapsed ? (
                   <ChevronRight className="w-4 h-4" />
                 ) : (
                   <ChevronDown className="w-4 h-4" />
@@ -64,7 +63,7 @@ export default function KanbanColumn({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6"
+                    className="h-6 w-6 flex-shrink-0"
                     onClick={handleSaveRename}
                   >
                     <Check className="w-3 h-3 text-green-600" />
@@ -72,7 +71,7 @@ export default function KanbanColumn({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6"
+                    className="h-6 w-6 flex-shrink-0"
                     onClick={handleCancelRename}
                   >
                     <X className="w-3 h-3 text-red-600" />
@@ -81,61 +80,25 @@ export default function KanbanColumn({
               ) : (
                 <>
                   <h3 className="font-semibold text-slate-900 truncate">
-                    {column.display_name}
+                    {columnName}
                   </h3>
-                  <Badge variant="secondary" className="ml-auto">
+                  <Badge variant="secondary" className="ml-auto flex-shrink-0">
                     {proposals.length}
                   </Badge>
                 </>
               )}
             </div>
-
-            {!isEditing && canEdit && (
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setIsEditing(true)}
-                  title="Rename column"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </Button>
-                {isCustomColumn && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => onDeleteColumn(column.id)}
-                    title="Delete custom column"
-                  >
-                    <Trash2 className="w-3 h-3 text-red-500" />
-                  </Button>
-                )}
-                {isDefaultColumn && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-30 cursor-not-allowed"
-                    disabled
-                    title="Default columns cannot be deleted"
-                  >
-                    <Lock className="w-3 h-3" />
-                  </Button>
-                )}
-              </div>
-            )}
           </div>
         </CardHeader>
 
-        {!column.is_collapsed && (
+        {!isCollapsed && (
           <Droppable droppableId={column.id}>
             {(provided, snapshot) => (
               <CardContent
                 ref={provided.innerRef}
                 {...provided.droppableProps}
                 className={`flex-1 p-3 overflow-y-auto ${
-                  snapshot.isDraggingOver ? "bg-blue-50" : ""
+                  isDraggingOver ? "bg-blue-50" : ""
                 }`}
                 style={{ minHeight: "200px", maxHeight: "calc(100vh - 300px)" }}
               >
@@ -144,10 +107,11 @@ export default function KanbanColumn({
                     key={proposal.id}
                     proposal={proposal}
                     index={index}
+                    onProposalClick={onProposalClick}
                   />
                 ))}
                 {provided.placeholder}
-                {proposals.length === 0 && !snapshot.isDraggingOver && (
+                {proposals.length === 0 && !isDraggingOver && (
                   <div className="text-center text-slate-400 text-sm py-8">
                     No proposals here
                   </div>
@@ -157,7 +121,7 @@ export default function KanbanColumn({
           </Droppable>
         )}
 
-        {column.is_collapsed && (
+        {isCollapsed && (
           <CardContent className="p-2">
             <div className="text-xs text-slate-500 text-center">Collapsed</div>
           </CardContent>
