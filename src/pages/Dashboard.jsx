@@ -1,8 +1,10 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useClient } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,75 +39,54 @@ import RevenueChart from "../components/dashboard/RevenueChart";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = React.useState(null);
-  const [organization, setOrganization] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
+  const { user, activeClientId, activeClientName, loading: clientLoading } = useClient();
 
+  // Redirect to onboarding if no active client
   React.useEffect(() => {
-    const loadUserAndOrg = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        
-        if (orgs.length === 0) {
-          navigate(createPageUrl("Onboarding"));
-        } else {
-          setOrganization(orgs[0]);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUserAndOrg();
-  }, [navigate]);
+    if (!clientLoading && !activeClientId) {
+      navigate(createPageUrl("Onboarding"));
+    }
+  }, [clientLoading, activeClientId, navigate]);
 
   const { data: proposals } = useQuery({
-    queryKey: ['proposals', organization?.id],
+    queryKey: ['proposals', activeClientId],
     queryFn: async () => {
-      if (!organization?.id) return [];
+      if (!activeClientId) return [];
       return base44.entities.Proposal.filter(
-        { organization_id: organization.id },
+        { organization_id: activeClientId },
         '-updated_date'
       );
     },
     initialData: [],
-    enabled: !!organization?.id,
+    enabled: !!activeClientId,
   });
 
   const { data: activityLog } = useQuery({
-    queryKey: ['activity-log', organization?.id],
+    queryKey: ['activity-log', activeClientId],
     queryFn: async () => {
-      if (!organization?.id) return [];
+      if (!activeClientId) return [];
       const activities = await base44.entities.ActivityLog.list('-created_date', 50);
       return activities.filter(a => {
         const proposal = proposals.find(p => p.id === a.proposal_id);
-        return proposal?.organization_id === organization.id;
+        return proposal?.organization_id === activeClientId;
       });
     },
     initialData: [],
-    enabled: !!organization?.id && proposals.length > 0,
+    enabled: !!activeClientId && proposals.length > 0,
   });
 
   const { data: opportunities } = useQuery({
-    queryKey: ['opportunities-count', organization?.id],
+    queryKey: ['opportunities-count', activeClientId],
     queryFn: async () => {
-      if (!organization?.id) return [];
+      if (!activeClientId) return [];
       return base44.entities.SAMOpportunity.filter(
-        { organization_id: organization.id, status: 'new' },
+        { organization_id: activeClientId, status: 'new' },
         '-match_score',
         10
       );
     },
     initialData: [],
-    enabled: !!organization?.id,
+    enabled: !!activeClientId,
   });
 
   const { data: notifications } = useQuery({
@@ -149,7 +130,6 @@ export default function Dashboard() {
     };
   }, [proposals]);
 
-  // Proposal Health Scores
   const proposalHealthData = React.useMemo(() => {
     return proposals
       .filter(p => ['in_progress', 'draft', 'evaluating'].includes(p.status))
@@ -204,7 +184,7 @@ export default function Dashboard() {
     return "bg-slate-100 text-slate-700 border-slate-300";
   };
 
-  if (loading || !organization) {
+  if (clientLoading || !activeClientId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -224,7 +204,7 @@ export default function Dashboard() {
             <span className="text-2xl md:text-3xl">Welcome back, {user?.full_name?.split(' ')[0]}!</span>
           </span>
         }
-        description={organization.organization_name}
+        description={activeClientName}
       />
 
       {/* Key Metrics Cards */}
