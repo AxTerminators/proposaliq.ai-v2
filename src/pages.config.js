@@ -13,6 +13,7 @@ import Pricing from './pages/Pricing';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import ExportCenter from './pages/ExportCenter';
+import OpportunityFinder from './pages/OpportunityFinder';
 import Layout from './Layout.jsx';
 
 
@@ -32,6 +33,7 @@ export const PAGES = {
     "Settings": Settings,
     "Analytics": Analytics,
     "ExportCenter": ExportCenter,
+    "OpportunityFinder": OpportunityFinder,
 }
 
 export const pagesConfig = {
