@@ -1,0 +1,153 @@
+{
+  "name": "PricingStrategy",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this strategy"
+    },
+    "pricing_approach": {
+      "type": "string",
+      "enum": [
+        "low_price_technically_acceptable",
+        "best_value",
+        "competitive",
+        "price_to_win",
+        "cost_plus",
+        "target_price"
+      ],
+      "description": "Overall pricing approach"
+    },
+    "target_total_price": {
+      "type": "number",
+      "description": "Target total price based on strategy"
+    },
+    "calculated_total_cost": {
+      "type": "number",
+      "description": "Calculated total cost from bottom-up"
+    },
+    "calculated_total_price": {
+      "type": "number",
+      "description": "Calculated price including fee"
+    },
+    "blended_fee_percentage": {
+      "type": "number",
+      "description": "Overall fee percentage"
+    },
+    "estimated_competitor_pricing": {
+      "type": "object",
+      "properties": {
+        "low_estimate": {
+          "type": "number"
+        },
+        "mid_estimate": {
+          "type": "number"
+        },
+        "high_estimate": {
+          "type": "number"
+        }
+      },
+      "description": "Estimated competitor pricing range"
+    },
+    "price_to_win_analysis": {
+      "type": "object",
+      "properties": {
+        "recommended_price": {
+          "type": "number"
+        },
+        "confidence_level": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "risk_assessment": {
+          "type": "string"
+        }
+      },
+      "description": "AI-powered price-to-win recommendation"
+    },
+    "discount_percentage": {
+      "type": "number",
+      "description": "Overall discount applied"
+    },
+    "discount_rationale": {
+      "type": "string",
+      "description": "Justification for discount"
+    },
+    "competitive_positioning": {
+      "type": "string",
+      "enum": [
+        "premium",
+        "competitive",
+        "aggressive",
+        "lowest_price"
+      ],
+      "description": "How we're positioning price competitively"
+    },
+    "pricing_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Key pricing assumptions"
+    },
+    "basis_of_estimate": {
+      "type": "string",
+      "description": "Overall basis of estimate narrative"
+    },
+    "indirect_rates": {
+      "type": "object",
+      "properties": {
+        "fringe": {
+          "type": "number"
+        },
+        "overhead": {
+          "type": "number"
+        },
+        "g_and_a": {
+          "type": "number"
+        },
+        "cost_of_money": {
+          "type": "number"
+        }
+      },
+      "description": "Indirect cost rates used"
+    },
+    "escalation_assumptions": {
+      "type": "object",
+      "properties": {
+        "labor_escalation": {
+          "type": "number"
+        },
+        "odc_escalation": {
+          "type": "number"
+        },
+        "years_covered": {
+          "type": "number"
+        }
+      },
+      "description": "Multi-year escalation assumptions"
+    },
+    "ai_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "AI-generated pricing recommendations"
+    },
+    "win_probability_at_price": {
+      "type": "number",
+      "description": "Estimated win probability at this price (0-100)"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "organization_id",
+    "pricing_approach"
+  ]
+}
