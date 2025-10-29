@@ -42,20 +42,20 @@ export default function ExcelExporter({
       let csvContent = "";
       
       // Header
-      csvContent += `Pricing Data Export - ${proposalData.proposal_name}\n`;
-      csvContent += `Generated: ${new Date().toLocaleString()}\n`;
-      csvContent += `Agency: ${proposalData.agency_name}\n`;
-      csvContent += `Solicitation: ${proposalData.solicitation_number}\n\n`;
+      csvContent += "Pricing Data Export - " + proposalData.proposal_name + "\n";
+      csvContent += "Generated: " + new Date().toLocaleString() + "\n";
+      csvContent += "Agency: " + proposalData.agency_name + "\n";
+      csvContent += "Solicitation: " + proposalData.solicitation_number + "\n\n";
 
       // Summary
       if (includeOptions.summary) {
         csvContent += "PRICING SUMMARY\n";
         csvContent += "Metric,Value\n";
-        csvContent += `Total Price,$${totalPrice.toLocaleString()}\n`;
-        csvContent += `Total Cost,$${totalCost.toLocaleString()}\n`;
-        csvContent += `Fee/Profit,$${(totalPrice - totalCost).toLocaleString()}\n`;
-        csvContent += `Fee Percentage,${totalCost > 0 ? ((totalPrice - totalCost) / totalCost * 100).toFixed(2) : 0}%\n`;
-        csvContent += `Number of CLINs,${clins.length}\n\n`;
+        csvContent += "Total Price,$" + totalPrice.toLocaleString() + "\n";
+        csvContent += "Total Cost,$" + totalCost.toLocaleString() + "\n";
+        csvContent += "Fee/Profit,$" + (totalPrice - totalCost).toLocaleString() + "\n";
+        csvContent += "Fee Percentage," + (totalCost > 0 ? ((totalPrice - totalCost) / totalCost * 100).toFixed(2) : 0) + "%\n";
+        csvContent += "Number of CLINs," + clins.length + "\n\n";
       }
 
       // Labor Rates
@@ -63,7 +63,7 @@ export default function ExcelExporter({
         csvContent += "LABOR RATES\n";
         csvContent += "Category,Level,Base Rate,Fringe %,OH %,G&A %,Loaded Rate,Annual Salary\n";
         laborCategories.forEach(cat => {
-          csvContent += `"${cat.category_name}",${cat.labor_level},$${cat.base_hourly_rate},${cat.fringe_rate}%,${cat.overhead_rate}%,${cat.ga_rate}%,$${cat.loaded_hourly_rate},$${cat.annual_salary_equivalent}\n`;
+          csvContent += '"' + cat.category_name + '",' + cat.labor_level + ',$' + cat.base_hourly_rate + ',' + cat.fringe_rate + '%,' + cat.overhead_rate + '%,' + cat.ga_rate + '%,$' + cat.loaded_hourly_rate + ',$' + cat.annual_salary_equivalent + '\n';
         });
         csvContent += "\n";
       }
@@ -73,7 +73,7 @@ export default function ExcelExporter({
         csvContent += "CLIN BREAKDOWN\n";
         csvContent += "CLIN #,Title,Period,Labor Cost,ODC Cost,Total Cost,Fee %,Fee Amount,Total Price\n";
         clins.forEach(clin => {
-          csvContent += `"${clin.clin_number}","${clin.clin_title}","${clin.period_of_performance}",$${clin.labor_cost || 0},$${clin.odc_cost || 0},$${clin.total_cost || 0},${clin.fee_percentage}%,$${clin.fee_amount || 0},$${clin.total_price || 0}\n`;
+          csvContent += '"' + clin.clin_number + '","' + clin.clin_title + '","' + clin.period_of_performance + '",$' + (clin.labor_cost || 0) + ',$' + (clin.odc_cost || 0) + ',$' + (clin.total_cost || 0) + ',' + clin.fee_percentage + '%,$' + (clin.fee_amount || 0) + ',$' + (clin.total_price || 0) + '\n';
         });
         csvContent += "\n";
       }
@@ -84,8 +84,8 @@ export default function ExcelExporter({
         csvContent += "CLIN,Labor Category,Hours,Rate,Total Cost,FTE\n";
         laborAllocations.forEach(alloc => {
           const clin = clins.find(c => c.id === alloc.clin_id);
-          const clinNumber = clin?.clin_number || "N/A";
-          csvContent += `"${clinNumber}","${alloc.labor_category_name}",${alloc.hours},$${alloc.hourly_rate},$${alloc.total_cost},${alloc.fte?.toFixed(2)}\n`;
+          const clinNumber = clin ? clin.clin_number : "N/A";
+          csvContent += '"' + clinNumber + '","' + alloc.labor_category_name + '",' + alloc.hours + ',$' + alloc.hourly_rate + ',$' + alloc.total_cost + ',' + (alloc.fte ? alloc.fte.toFixed(2) : 0) + '\n';
         });
         csvContent += "\n";
       }
@@ -96,8 +96,8 @@ export default function ExcelExporter({
         csvContent += "CLIN,Category,Item,Quantity,Unit Cost,Total Cost\n";
         odcItems.forEach(odc => {
           const clin = clins.find(c => c.id === odc.clin_id);
-          const clinNumber = clin?.clin_number || "N/A";
-          csvContent += `"${clinNumber}","${odc.odc_category}","${odc.item_name}",${odc.quantity},$${odc.unit_cost},$${odc.total_cost}\n`;
+          const clinNumber = clin ? clin.clin_number : "N/A";
+          csvContent += '"' + clinNumber + '","' + odc.odc_category + '","' + odc.item_name + '",' + odc.quantity + ',$' + odc.unit_cost + ',$' + odc.total_cost + '\n';
         });
         csvContent += "\n";
       }
@@ -106,11 +106,11 @@ export default function ExcelExporter({
       if (includeOptions.pricingStrategy && pricingStrategy) {
         csvContent += "PRICING STRATEGY\n";
         csvContent += "Attribute,Value\n";
-        csvContent += `Approach,"${pricingStrategy.pricing_approach?.replace(/_/g, ' ')}"\n`;
-        csvContent += `Competitive Positioning,"${pricingStrategy.competitive_positioning}"\n`;
-        if (pricingStrategy.price_to_win_analysis) {
-          csvContent += `Recommended Price,$${pricingStrategy.price_to_win_analysis.recommended_price?.toLocaleString()}\n`;
-          csvContent += `Win Probability,${pricingStrategy.win_probability_at_price}%\n`;
+        csvContent += 'Approach,"' + (pricingStrategy.pricing_approach ? pricingStrategy.pricing_approach.replace(/_/g, ' ') : '') + '"\n';
+        csvContent += 'Competitive Positioning,"' + (pricingStrategy.competitive_positioning || '') + '"\n';
+        if (pricingStrategy.price_to_win_analysis && pricingStrategy.price_to_win_analysis.recommended_price) {
+          csvContent += "Recommended Price,$" + pricingStrategy.price_to_win_analysis.recommended_price.toLocaleString() + "\n";
+          csvContent += "Win Probability," + (pricingStrategy.win_probability_at_price || 0) + "%\n";
         }
         csvContent += "\n";
       }
@@ -120,7 +120,7 @@ export default function ExcelExporter({
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
-      link.setAttribute("download", `${proposalData.proposal_name.replace(/[^a-z0-9]/gi, '_')}_pricing_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute("download", proposalData.proposal_name.replace(/[^a-z0-9]/gi, '_') + '_pricing_' + new Date().toISOString().split('T')[0] + '.csv');
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -136,8 +136,6 @@ export default function ExcelExporter({
   };
 
   const exportToExcel = () => {
-    // For now, CSV export is sufficient
-    // In production, you'd use a library like xlsx or ExcelJS
     exportToCSV();
   };
 
