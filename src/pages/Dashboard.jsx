@@ -34,12 +34,14 @@ import ProposalPipeline from "../components/dashboard/ProposalPipeline";
 import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
+import CustomAlertDialog from "../components/ui/CustomAlertDialog";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = React.useState(null);
   const [organization, setOrganization] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const [showComingSoonDialog, setShowComingSoonDialog] = React.useState(false);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -275,7 +277,7 @@ export default function Dashboard() {
 
         <Card 
           className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white hover:shadow-xl transition-all cursor-pointer" 
-          onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+          onClick={() => setShowComingSoonDialog(true)}
         >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
@@ -425,7 +427,7 @@ export default function Dashboard() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+                    onClick={() => setShowComingSoonDialog(true)}
                   >
                     View All
                   </Button>
@@ -437,7 +439,7 @@ export default function Dashboard() {
                     <div
                       key={opp.id}
                       className="p-3 bg-white rounded-lg border border-purple-200 hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+                      onClick={() => setShowComingSoonDialog(true)}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-semibold text-sm line-clamp-2">{opp.title}</h4>
@@ -484,6 +486,15 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Coming Soon Dialog */}
+      <CustomAlertDialog
+        isOpen={showComingSoonDialog}
+        onClose={() => setShowComingSoonDialog(false)}
+        title="Opportunity Finder Coming Soon!"
+        description="We're working on direct SAM.gov integration to help you discover the perfect opportunities. Stay tuned for this exciting feature!"
+        icon={Sparkles}
+      />
     </MobileContainer>
   );
 }

@@ -11,9 +11,11 @@ import {
   Upload,
   Zap
 } from "lucide-react";
+import CustomAlertDialog from "../ui/CustomAlertDialog";
 
 export default function QuickActionsPanel() {
   const navigate = useNavigate();
+  const [showComingSoonDialog, setShowComingSoonDialog] = React.useState(false);
 
   const quickActions = [
     {
@@ -28,7 +30,7 @@ export default function QuickActionsPanel() {
       label: "Find Opportunities",
       description: "Search SAM.gov (Coming Soon)",
       color: "bg-purple-500 hover:bg-purple-600",
-      onClick: () => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")
+      onClick: () => setShowComingSoonDialog(true)
     },
     {
       icon: MessageSquare,
@@ -47,28 +49,39 @@ export default function QuickActionsPanel() {
   ];
 
   return (
-    <Card className="border-none shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Zap className="w-5 h-5 text-amber-500" />
-          Quick Actions
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {quickActions.map((action, idx) => (
-            <button
-              key={idx}
-              onClick={action.onClick}
-              className={`${action.color} text-white rounded-lg p-4 flex flex-col items-center gap-2 transition-all hover:shadow-lg active:scale-95`}
-            >
-              <action.icon className="w-6 h-6" />
-              <span className="font-semibold text-sm text-center">{action.label}</span>
-              <span className="text-xs opacity-90 text-center">{action.description}</span>
-            </button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      <Card className="border-none shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-amber-500" />
+            Quick Actions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {quickActions.map((action, idx) => (
+              <button
+                key={idx}
+                onClick={action.onClick}
+                className={`${action.color} text-white rounded-lg p-4 flex flex-col items-center gap-2 transition-all hover:shadow-lg active:scale-95`}
+              >
+                <action.icon className="w-6 h-6" />
+                <span className="font-semibold text-sm text-center">{action.label}</span>
+                <span className="text-xs opacity-90 text-center">{action.description}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Coming Soon Dialog */}
+      <CustomAlertDialog
+        isOpen={showComingSoonDialog}
+        onClose={() => setShowComingSoonDialog(false)}
+        title="Opportunity Finder Coming Soon!"
+        description="We're working on direct SAM.gov integration to help you discover the perfect opportunities. Stay tuned for this exciting feature!"
+        icon={Search}
+      />
+    </>
   );
 }
