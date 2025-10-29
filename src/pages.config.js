@@ -15,6 +15,7 @@ import Analytics from './pages/Analytics';
 import ExportCenter from './pages/ExportCenter';
 import OpportunityFinder from './pages/OpportunityFinder';
 import PastPerformance from './pages/PastPerformance';
+import Team from './pages/Team';
 import Layout from './Layout.jsx';
 
 
@@ -36,6 +37,7 @@ export const PAGES = {
     "ExportCenter": ExportCenter,
     "OpportunityFinder": OpportunityFinder,
     "PastPerformance": PastPerformance,
+    "Team": Team,
 }
 
 export const pagesConfig = {
