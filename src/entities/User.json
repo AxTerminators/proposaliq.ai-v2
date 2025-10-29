@@ -28,7 +28,49 @@
         "viewer"
       ],
       "default": "viewer",
-      "description": "Application role within their subscribing organization for proposal collaboration"
+      "description": "DEPRECATED: Use client_accesses instead. Legacy role for backward compatibility"
+    },
+    "client_accesses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "description": "The ID of the client organization"
+          },
+          "organization_name": {
+            "type": "string",
+            "description": "The name of the client organization (for display)"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "organization_owner",
+              "proposal_manager",
+              "writer",
+              "reviewer",
+              "guest",
+              "viewer"
+            ],
+            "description": "The user's role within this specific client organization"
+          },
+          "added_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this access was granted"
+          },
+          "added_by": {
+            "type": "string",
+            "description": "Email of user who granted access"
+          }
+        }
+      },
+      "description": "List of client organizations this user has access to, with respective roles"
+    },
+    "active_client_id": {
+      "type": "string",
+      "description": "Currently selected/active client organization ID"
     },
     "mfa_enabled": {
       "type": "boolean",
