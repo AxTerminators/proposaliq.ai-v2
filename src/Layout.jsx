@@ -1,7 +1,7 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useClient } from "@/contexts/ClientContext";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -19,9 +19,9 @@ import {
   Download,
   Globe,
   X,
-  Award, // Added Award icon
-  Users, // Added Users icon
-  Calendar // Added Calendar icon
+  Award,
+  Users,
+  Calendar
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,112 +35,53 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
+import ClientSwitcher from "./components/layout/ClientSwitcher";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 const navigationItems = [
-  {
-    title: "Dashboard",
-    url: createPageUrl("Dashboard"),
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Calendar",
-    url: createPageUrl("Calendar"),
-    icon: Calendar,
-  },
-  {
-    title: "Opportunities",
-    url: createPageUrl("OpportunityFinder"),
-    icon: Globe,
-  },
-  {
-    title: "Proposals",
-    url: createPageUrl("Proposals"),
-    icon: FileText,
-  },
-  {
-    title: "Past Performance",
-    url: createPageUrl("PastPerformance"),
-    icon: Award,
-  },
-  {
-    title: "Team",
-    url: createPageUrl("Team"),
-    icon: Users,
-  },
-  {
-    title: "Resources",
-    url: createPageUrl("Resources"),
-    icon: Library,
-  },
-  {
-    title: "AI Chat",
-    url: createPageUrl("Chat"),
-    icon: MessageSquare,
-  },
-  {
-    title: "Discussions",
-    url: createPageUrl("Discussions"),
-    icon: MessageCircle,
-  },
-  {
-    title: "Export Center",
-    url: createPageUrl("ExportCenter"),
-    icon: Download,
-  },
-  {
-    title: "Analytics",
-    url: createPageUrl("Analytics"),
-    icon: BarChart3,
-  },
-  {
-    title: "Pricing",
-    url: createPageUrl("Pricing"),
-    icon: DollarSign,
-  },
-  {
-    title: "Settings",
-    url: createPageUrl("Settings"),
-    icon: Settings,
-  },
+  { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
+  { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
+  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe },
+  { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
+  { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
+  { title: "Team", url: createPageUrl("Team"), icon: Users },
+  { title: "Resources", url: createPageUrl("Resources"), icon: Library },
+  { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare },
+  { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },
+  { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
+  { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
+  { title: "Pricing", url: createPageUrl("Pricing"), icon: DollarSign },
+  { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
 ];
 
 const adminItems = [
-  {
-    title: "Admin Portal",
-    url: createPageUrl("AdminPortal"),
-    icon: Shield,
-  },
+  { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
 ];
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const [user, setUser] = React.useState(null);
-  const [subscription, setSubscription] = React.useState(null);
+  const { user, activeClientId, activeClientRole, loading: clientLoading } = useClient();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    const loadUserAndSubscription = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        const subs = await base44.entities.Subscription.list('-created_date', 1);
-        if (subs.length > 0) {
-          setSubscription(subs[0]);
-        }
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-    loadUserAndSubscription();
-  }, []);
+  const { data: subscription } = useQuery({
+    queryKey: ['subscription', activeClientId],
+    queryFn: async () => {
+      if (!activeClientId) return null;
+      const subs = await base44.entities.Subscription.filter(
+        { organization_id: activeClientId },
+        '-created_date',
+        1
+      );
+      return subs.length > 0 ? subs[0] : null;
+    },
+    enabled: !!activeClientId,
+  });
 
   // Close mobile menu on route change
   React.useEffect(() => {
@@ -167,13 +108,16 @@ export default function Layout({ children }) {
     ? ((subscription.token_credits - subscription.token_credits_used) / subscription.token_credits) * 100 
     : 100;
 
+  const userIsOwner = activeClientRole === 'organization_owner';
+  const userIsAdmin = user?.role === 'admin';
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
         {/* Desktop Sidebar */}
         <Sidebar className="border-r border-slate-200 bg-white hidden lg:flex">
           <SidebarHeader className="border-b border-slate-200 p-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
@@ -182,6 +126,9 @@ export default function Layout({ children }) {
                 <p className="text-xs text-slate-500">AI-Powered Proposals</p>
               </div>
             </div>
+            
+            {/* Client Switcher */}
+            {!clientLoading && <ClientSwitcher />}
           </SidebarHeader>
           
           <SidebarContent className="p-3">
@@ -211,7 +158,7 @@ export default function Layout({ children }) {
               </SidebarGroupContent>
             </SidebarGroup>
 
-            {user?.role === 'admin' && (
+            {userIsAdmin && (
               <SidebarGroup>
                 <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
                   Admin
@@ -342,6 +289,13 @@ export default function Layout({ children }) {
             </button>
           </div>
 
+          {/* Mobile Client Switcher */}
+          {!clientLoading && (
+            <div className="p-4 border-b border-slate-200">
+              <ClientSwitcher />
+            </div>
+          )}
+
           {/* Mobile Navigation */}
           <div className="p-4 space-y-6">
             <div>
@@ -367,7 +321,7 @@ export default function Layout({ children }) {
               </nav>
             </div>
 
-            {user?.role === 'admin' && (
+            {userIsAdmin && (
               <div>
                 <h3 className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
                   Admin
