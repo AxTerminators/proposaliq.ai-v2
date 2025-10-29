@@ -67,6 +67,10 @@ export default function Proposals() {
     return matchesSearch && matchesStatus;
   });
 
+  const handleProposalClick = (proposal) => {
+    navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`));
+  };
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -137,8 +141,10 @@ export default function Proposals() {
               <TabsContent value="kanban">
                 <ProposalsKanban 
                   proposals={filteredProposals} 
-                  organizationId={organization?.id}
-                  userRole="organization_owner"
+                  onProposalClick={handleProposalClick}
+                  isLoading={isLoading}
+                  user={user}
+                  organization={organization}
                 />
               </TabsContent>
 
