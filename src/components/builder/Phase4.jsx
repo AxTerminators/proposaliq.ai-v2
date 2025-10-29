@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Target, Sparkles, AlertCircle, CheckCircle2, XCircle, Loader2, TrendingUp, Shield, Lightbulb, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Target, Sparkles, AlertCircle, CheckCircle2, XCircle, Loader2, TrendingUp, Shield, Lightbulb, FileText, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import ComplianceChecker from "./ComplianceChecker";
+import RedTeamReview from "./RedTeamReview";
 
 export default function Phase4({ proposalData, setProposalData, proposalId }) {
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -284,542 +285,570 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
   };
 
   return (
-    <Card className="border-none shadow-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-purple-600" />
-          Phase 4: Strategic AI Evaluator & Compliance
-        </CardTitle>
-        <CardDescription>
-          Comprehensive AI-powered analysis of opportunity fit, competitive positioning, and compliance verification
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {!evaluation && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Target className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Ready for Strategic Evaluation</h3>
-            <p className="text-slate-600 mb-6 max-w-2xl mx-auto">
-              Our AI will conduct a comprehensive capture management analysis including requirement mapping, 
-              competitive positioning, gap analysis, compliance checking, and strategic recommendations.
-            </p>
-            <Button 
-              onClick={runEvaluation}
-              disabled={isEvaluating}
-              size="lg"
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {isEvaluating ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyzing Opportunity...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Run Strategic Evaluation
-                </>
-              )}
-            </Button>
-          </div>
-        )}
+    <div className="space-y-6">
+      <Tabs defaultValue="evaluation" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="evaluation">
+            <FileText className="w-4 h-4 mr-2" />
+            Evaluation
+          </TabsTrigger>
+          <TabsTrigger value="compliance">
+            <Shield className="w-4 h-4 mr-2" />
+            Compliance Matrix
+          </TabsTrigger>
+          <TabsTrigger value="review">
+            <Users className="w-4 h-4 mr-2" />
+            Red Team Review
+          </TabsTrigger>
+        </TabsList>
 
-        {evaluation && (
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="requirements">Requirements</TabsTrigger>
-              <TabsTrigger value="competitive">Competitive</TabsTrigger>
-              <TabsTrigger value="compliance">Compliance</TabsTrigger>
-              <TabsTrigger value="strategy">Strategy</TabsTrigger>
-              <TabsTrigger value="full-compliance">
-                <Shield className="w-4 h-4 mr-2" />
-                FAR/DFARS
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              {/* Score Cards */}
-              <div className="grid md:grid-cols-3 gap-4">
-                <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-slate-600">Overall Score</p>
-                      <TrendingUp className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <p className={`text-4xl font-bold ${getScoreColor(evaluation.overall_score)}`}>
-                      {evaluation.overall_score}%
-                    </p>
-                    <Progress value={evaluation.overall_score} className="mt-3" />
-                  </CardContent>
-                </Card>
-
-                <Card className={`bg-gradient-to-br ${
-                  evaluation.win_probability === 'high' ? 'from-green-50 to-white border-green-200' :
-                  evaluation.win_probability === 'medium' ? 'from-amber-50 to-white border-amber-200' :
-                  'from-red-50 to-white border-red-200'
-                }`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-slate-600">Win Probability</p>
-                      <Target className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <p className="text-3xl font-bold capitalize">{evaluation.win_probability}</p>
-                    <p className="text-xs text-slate-500 mt-2">Based on capability fit</p>
-                  </CardContent>
-                </Card>
-
-                <Card className={`bg-gradient-to-br ${
-                  evaluation.go_no_go_recommendation === 'go' ? 'from-green-50 to-white border-green-200' :
-                  evaluation.go_no_go_recommendation === 'cautious_go' ? 'from-amber-50 to-white border-amber-200' :
-                  'from-red-50 to-white border-red-200'
-                }`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-slate-600">Recommendation</p>
-                      {evaluation.go_no_go_recommendation === 'go' ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      ) : evaluation.go_no_go_recommendation === 'cautious_go' ? (
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-red-600" />
-                      )}
-                    </div>
-                    <p className="text-2xl font-bold capitalize">{evaluation.go_no_go_recommendation.replace('_', ' ')}</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Executive Summary */}
-              <Alert>
-                <Sparkles className="w-4 h-4" />
-                <AlertDescription className="text-sm">
-                  <strong>Executive Summary:</strong> {evaluation.executive_summary}
-                </AlertDescription>
-              </Alert>
-
-              {/* Win Themes */}
-              {evaluation.competitive_analysis?.win_themes && (
-                <Card className="border-indigo-200 bg-indigo-50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Lightbulb className="w-5 h-5 text-indigo-600" />
-                      Recommended Win Themes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.competitive_analysis.win_themes.map((theme, idx) => (
-                        <div key={idx} className="p-3 bg-white border border-indigo-200 rounded-lg">
-                          <p className="text-sm font-medium text-indigo-900">{theme}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Key Dates */}
-              {evaluation.key_dates_extracted && evaluation.key_dates_extracted.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Key Dates & Deadlines</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.key_dates_extracted.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-slate-900">{item.event}</p>
-                            <p className="text-sm text-slate-600">{item.date}</p>
-                          </div>
-                          <Badge className={getPriorityColor(item.importance)}>
-                            {item.importance}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Requirements Tab */}
-            <TabsContent value="requirements" className="space-y-6">
-              {/* Key Requirements */}
-              {evaluation.requirement_analysis?.key_requirements && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Key Requirements Analysis</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Accordion type="single" collapsible className="w-full">
-                      {evaluation.requirement_analysis.key_requirements.map((req, idx) => (
-                        <AccordionItem key={idx} value={`req-${idx}`}>
-                          <AccordionTrigger>
-                            <div className="flex items-center gap-3 flex-1 text-left">
-                              <Badge className={getPriorityColor(req.priority)}>
-                                {req.priority}
-                              </Badge>
-                              <span className="font-medium">{req.requirement}</span>
-                              <span className={`ml-auto mr-4 ${getScoreColor(req.alignment_score)}`}>
-                                {req.alignment_score}%
-                              </span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-                              <div>
-                                <p className="text-xs font-semibold text-slate-600 mb-1">Alignment Score</p>
-                                <Progress value={req.alignment_score} className="h-2" />
-                              </div>
-                              <div>
-                                <p className="text-xs font-semibold text-slate-600 mb-1">Gap Analysis</p>
-                                <p className="text-sm text-slate-700">{req.gap_description}</p>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Evaluation Criteria */}
-              {evaluation.requirement_analysis?.evaluation_criteria && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Evaluation Criteria</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {evaluation.requirement_analysis.evaluation_criteria.map((criterion, idx) => (
-                        <div key={idx} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <p className="font-semibold text-slate-900">{criterion.criterion}</p>
-                              <p className="text-sm text-slate-600 mt-1">{criterion.notes}</p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <Badge variant={
-                                criterion.our_strength === 'strong' ? 'default' :
-                                criterion.our_strength === 'moderate' ? 'secondary' :
-                                'outline'
-                              }>
-                                {criterion.our_strength}
-                              </Badge>
-                              {criterion.weight_percentage && (
-                                <p className="text-xs text-slate-500 mt-1">{criterion.weight_percentage}% weight</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Gap Analysis */}
-              {evaluation.gap_analysis?.critical_gaps && (
-                <Card className="border-red-200 bg-red-50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-red-600" />
-                      Critical Gaps & Mitigation
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {evaluation.gap_analysis.critical_gaps.map((gap, idx) => (
-                        <div key={idx} className="p-4 bg-white border border-red-200 rounded-lg">
-                          <div className="flex items-start justify-between mb-2">
-                            <p className="font-semibold text-red-900 flex-1">{gap.gap}</p>
-                            <Badge className={
-                              gap.impact === 'high' ? 'bg-red-600 text-white' :
-                              gap.impact === 'medium' ? 'bg-amber-600 text-white' :
-                              'bg-blue-600 text-white'
-                            }>
-                              {gap.impact} impact
-                            </Badge>
-                          </div>
-                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                            <p className="text-xs font-semibold text-green-800 mb-1">Mitigation Strategy:</p>
-                            <p className="text-sm text-green-900">{gap.mitigation_strategy}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Competitive Tab */}
-            <TabsContent value="competitive" className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Strengths */}
-                <Card className="border-green-200 bg-green-50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      Our Strengths
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.competitive_analysis?.our_strengths?.map((strength, idx) => (
-                        <div key={idx} className="p-3 bg-white border border-green-200 rounded-lg">
-                          <p className="text-sm text-green-900">{strength}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Weaknesses */}
-                <Card className="border-red-200 bg-red-50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <XCircle className="w-5 h-5 text-red-600" />
-                      Our Weaknesses
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.competitive_analysis?.our_weaknesses?.map((weakness, idx) => (
-                        <div key={idx} className="p-3 bg-white border border-red-200 rounded-lg">
-                          <p className="text-sm text-red-900">{weakness}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Differentiators */}
-              {evaluation.competitive_analysis?.differentiators && (
-                <Card className="border-blue-200 bg-blue-50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-blue-600" />
-                      Key Differentiators
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.competitive_analysis.differentiators.map((diff, idx) => (
-                        <div key={idx} className="p-3 bg-white border border-blue-200 rounded-lg">
-                          <p className="text-sm font-medium text-blue-900">{diff}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Likely Competitors */}
-              {evaluation.competitive_analysis?.likely_competitors && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Likely Competitors</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {evaluation.competitive_analysis.likely_competitors.map((competitor, idx) => (
-                        <Badge key={idx} variant="outline" className="px-3 py-1">
-                          {competitor}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Compliance Tab */}
-            <TabsContent value="compliance" className="space-y-6">
-              {evaluation.compliance_checklist && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-blue-600" />
-                      Compliance Checklist
-                    </CardTitle>
-                    <CardDescription>
-                      Track mandatory requirements and submission elements
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {evaluation.compliance_checklist.map((item, idx) => (
-                        <div key={idx} className="p-4 border rounded-lg hover:bg-slate-50 transition-colors">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline" className="capitalize">
-                                  {item.category}
-                                </Badge>
-                                <Badge className={getStatusColor(item.status)}>
-                                  {item.status.replace('_', ' ')}
-                                </Badge>
-                              </div>
-                              <p className="font-medium text-slate-900 mb-1">{item.requirement}</p>
-                              {item.notes && (
-                                <p className="text-sm text-slate-600">{item.notes}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Risk Assessment */}
-              {evaluation.risk_assessment && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {Object.entries(evaluation.risk_assessment).map(([category, risks]) => (
-                    <Card key={category}>
-                      <CardHeader>
-                        <CardTitle className="text-base capitalize">
-                          {category.replace('_', ' ')}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {risks.map((risk, idx) => (
-                            <div key={idx} className="p-3 bg-slate-50 border rounded-lg">
-                              <div className="flex items-start justify-between mb-2">
-                                <p className="font-medium text-sm text-slate-900 flex-1">{risk.risk}</p>
-                                <Badge variant={
-                                  risk.severity === 'high' ? 'destructive' :
-                                  risk.severity === 'medium' ? 'secondary' :
-                                  'outline'
-                                } className="ml-2">
-                                  {risk.severity}
-                                </Badge>
-                              </div>
-                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                                <p className="text-xs font-semibold text-blue-800 mb-1">Mitigation:</p>
-                                <p className="text-xs text-blue-900">{risk.mitigation}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+        {/* Evaluation Tab Content */}
+        <TabsContent value="evaluation">
+          <Card className="border-none shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-purple-600" />
+                Strategic AI Evaluator
+              </CardTitle>
+              <CardDescription>
+                Comprehensive AI-powered analysis of opportunity fit, competitive positioning, and strategic planning
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!evaluation && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Target className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Ready for Strategic Evaluation</h3>
+                  <p className="text-slate-600 mb-6 max-w-2xl mx-auto">
+                    Our AI will conduct a comprehensive capture management analysis including requirement mapping,
+                    competitive positioning, gap analysis, compliance checking, and strategic recommendations.
+                  </p>
+                  <Button
+                    onClick={runEvaluation}
+                    disabled={isEvaluating}
+                    size="lg"
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isEvaluating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Analyzing Opportunity...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Run Strategic Evaluation
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
-            </TabsContent>
 
-            {/* Strategy Tab */}
-            <TabsContent value="strategy" className="space-y-6">
-              {/* Immediate Actions */}
-              {evaluation.strategic_recommendations?.immediate_actions && (
-                <Card className="border-amber-200 bg-amber-50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-amber-600" />
-                      Immediate Actions Required
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.strategic_recommendations.immediate_actions.map((action, idx) => (
-                        <div key={idx} className="p-3 bg-white border border-amber-200 rounded-lg flex items-start gap-3">
-                          <div className="w-6 h-6 rounded-full bg-amber-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-bold">{idx + 1}</span>
+              {evaluation && (
+                <Tabs defaultValue="overview" className="space-y-6">
+                  <TabsList className="grid w-full grid-cols-5"> {/* Adjusted col-span as 'full-compliance' is removed */}
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="requirements">Requirements</TabsTrigger>
+                    <TabsTrigger value="competitive">Competitive</TabsTrigger>
+                    <TabsTrigger value="compliance">Compliance</TabsTrigger>
+                    <TabsTrigger value="strategy">Strategy</TabsTrigger>
+                    {/* Removed the 'full-compliance' trigger from here */}
+                  </TabsList>
+
+                  {/* Overview Tab */}
+                  <TabsContent value="overview" className="space-y-6">
+                    {/* Score Cards */}
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-200">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-slate-600">Overall Score</p>
+                            <TrendingUp className="w-5 h-5 text-purple-600" />
                           </div>
-                          <p className="text-sm text-amber-900 flex-1">{action}</p>
-                        </div>
-                      ))}
+                          <p className={`text-4xl font-bold ${getScoreColor(evaluation.overall_score)}`}>
+                            {evaluation.overall_score}%
+                          </p>
+                          <Progress value={evaluation.overall_score} className="mt-3" />
+                        </CardContent>
+                      </Card>
+
+                      <Card className={`bg-gradient-to-br ${
+                        evaluation.win_probability === 'high' ? 'from-green-50 to-white border-green-200' :
+                        evaluation.win_probability === 'medium' ? 'from-amber-50 to-white border-amber-200' :
+                        'from-red-50 to-white border-red-200'
+                      }`}>
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-slate-600">Win Probability</p>
+                            <Target className="w-5 h-5 text-slate-600" />
+                          </div>
+                          <p className="text-3xl font-bold capitalize">{evaluation.win_probability}</p>
+                          <p className="text-xs text-slate-500 mt-2">Based on capability fit</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className={`bg-gradient-to-br ${
+                        evaluation.go_no_go_recommendation === 'go' ? 'from-green-50 to-white border-green-200' :
+                        evaluation.go_no_go_recommendation === 'cautious_go' ? 'from-amber-50 to-white border-amber-200' :
+                        'from-red-50 to-white border-red-200'
+                      }`}>
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-slate-600">Recommendation</p>
+                            {evaluation.go_no_go_recommendation === 'go' ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            ) : evaluation.go_no_go_recommendation === 'cautious_go' ? (
+                              <AlertCircle className="w-5 h-5 text-amber-600" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-600" />
+                            )}
+                          </div>
+                          <p className="text-2xl font-bold capitalize">{evaluation.go_no_go_recommendation.replace('_', ' ')}</p>
+                        </CardContent>
+                      </Card>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
 
-              {/* Team Building */}
-              {evaluation.strategic_recommendations?.team_building && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Team Building Recommendations</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.strategic_recommendations.team_building.map((rec, idx) => (
-                        <div key={idx} className="p-3 bg-slate-50 border rounded-lg">
-                          <p className="text-sm text-slate-900">{rec}</p>
-                        </div>
-                      ))}
+                    {/* Executive Summary */}
+                    <Alert>
+                      <Sparkles className="w-4 h-4" />
+                      <AlertDescription className="text-sm">
+                        <strong>Executive Summary:</strong> {evaluation.executive_summary}
+                      </AlertDescription>
+                    </Alert>
+
+                    {/* Win Themes */}
+                    {evaluation.competitive_analysis?.win_themes && (
+                      <Card className="border-indigo-200 bg-indigo-50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Lightbulb className="w-5 h-5 text-indigo-600" />
+                            Recommended Win Themes
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.competitive_analysis.win_themes.map((theme, idx) => (
+                              <div key={idx} className="p-3 bg-white border border-indigo-200 rounded-lg">
+                                <p className="text-sm font-medium text-indigo-900">{theme}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Key Dates */}
+                    {evaluation.key_dates_extracted && evaluation.key_dates_extracted.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Key Dates & Deadlines</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.key_dates_extracted.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium text-slate-900">{item.event}</p>
+                                  <p className="text-sm text-slate-600">{item.date}</p>
+                                </div>
+                                <Badge className={getPriorityColor(item.importance)}>
+                                  {item.importance}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+
+                  {/* Requirements Tab */}
+                  <TabsContent value="requirements" className="space-y-6">
+                    {/* Key Requirements */}
+                    {evaluation.requirement_analysis?.key_requirements && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Key Requirements Analysis</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Accordion type="single" collapsible className="w-full">
+                            {evaluation.requirement_analysis.key_requirements.map((req, idx) => (
+                              <AccordionItem key={idx} value={`req-${idx}`}>
+                                <AccordionTrigger>
+                                  <div className="flex items-center gap-3 flex-1 text-left">
+                                    <Badge className={getPriorityColor(req.priority)}>
+                                      {req.priority}
+                                    </Badge>
+                                    <span className="font-medium">{req.requirement}</span>
+                                    <span className={`ml-auto mr-4 ${getScoreColor(req.alignment_score)}`}>
+                                      {req.alignment_score}%
+                                    </span>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="p-4 bg-slate-50 rounded-lg space-y-2">
+                                    <div>
+                                      <p className="text-xs font-semibold text-slate-600 mb-1">Alignment Score</p>
+                                      <Progress value={req.alignment_score} className="h-2" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold text-slate-600 mb-1">Gap Analysis</p>
+                                      <p className="text-sm text-slate-700">{req.gap_description}</p>
+                                    </div>
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Evaluation Criteria */}
+                    {evaluation.requirement_analysis?.evaluation_criteria && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Evaluation Criteria</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {evaluation.requirement_analysis.evaluation_criteria.map((criterion, idx) => (
+                              <div key={idx} className="p-4 border rounded-lg">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1">
+                                    <p className="font-semibold text-slate-900">{criterion.criterion}</p>
+                                    <p className="text-sm text-slate-600 mt-1">{criterion.notes}</p>
+                                  </div>
+                                  <div className="text-right ml-4">
+                                    <Badge variant={
+                                      criterion.our_strength === 'strong' ? 'default' :
+                                      criterion.our_strength === 'moderate' ? 'secondary' :
+                                      'outline'
+                                    }>
+                                      {criterion.our_strength}
+                                    </Badge>
+                                    {criterion.weight_percentage && (
+                                      <p className="text-xs text-slate-500 mt-1">{criterion.weight_percentage}% weight</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Gap Analysis */}
+                    {evaluation.gap_analysis?.critical_gaps && (
+                      <Card className="border-red-200 bg-red-50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
+                            Critical Gaps & Mitigation
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {evaluation.gap_analysis.critical_gaps.map((gap, idx) => (
+                              <div key={idx} className="p-4 bg-white border border-red-200 rounded-lg">
+                                <div className="flex items-start justify-between mb-2">
+                                  <p className="font-semibold text-red-900 flex-1">{gap.gap}</p>
+                                  <Badge className={
+                                    gap.impact === 'high' ? 'bg-red-600 text-white' :
+                                    gap.impact === 'medium' ? 'bg-amber-600 text-white' :
+                                    'bg-blue-600 text-white'
+                                  }>
+                                    {gap.impact} impact
+                                  </Badge>
+                                </div>
+                                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                  <p className="text-xs font-semibold text-green-800 mb-1">Mitigation Strategy:</p>
+                                  <p className="text-sm text-green-900">{gap.mitigation_strategy}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+
+                  {/* Competitive Tab */}
+                  <TabsContent value="competitive" className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Strengths */}
+                      <Card className="border-green-200 bg-green-50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            Our Strengths
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.competitive_analysis?.our_strengths?.map((strength, idx) => (
+                              <div key={idx} className="p-3 bg-white border border-green-200 rounded-lg">
+                                <p className="text-sm text-green-900">{strength}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Weaknesses */}
+                      <Card className="border-red-200 bg-red-50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-red-600" />
+                            Our Weaknesses
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.competitive_analysis?.our_weaknesses?.map((weakness, idx) => (
+                              <div key={idx} className="p-3 bg-white border border-red-200 rounded-lg">
+                                <p className="text-sm text-red-900">{weakness}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  </CardContent>
-                </Card>
+
+                    {/* Differentiators */}
+                    {evaluation.competitive_analysis?.differentiators && (
+                      <Card className="border-blue-200 bg-blue-50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-blue-600" />
+                            Key Differentiators
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.competitive_analysis.differentiators.map((diff, idx) => (
+                              <div key={idx} className="p-3 bg-white border border-blue-200 rounded-lg">
+                                <p className="text-sm font-medium text-blue-900">{diff}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Likely Competitors */}
+                    {evaluation.competitive_analysis?.likely_competitors && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Likely Competitors</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex flex-wrap gap-2">
+                            {evaluation.competitive_analysis.likely_competitors.map((competitor, idx) => (
+                              <Badge key={idx} variant="outline" className="px-3 py-1">
+                                {competitor}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+
+                  {/* Compliance Tab (Inner) */}
+                  <TabsContent value="compliance" className="space-y-6">
+                    {evaluation.compliance_checklist && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Shield className="w-5 h-5 text-blue-600" />
+                            Compliance Checklist
+                          </CardTitle>
+                          <CardDescription>
+                            Track mandatory requirements and submission elements
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {evaluation.compliance_checklist.map((item, idx) => (
+                              <div key={idx} className="p-4 border rounded-lg hover:bg-slate-50 transition-colors">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Badge variant="outline" className="capitalize">
+                                        {item.category}
+                                      </Badge>
+                                      <Badge className={getStatusColor(item.status)}>
+                                        {item.status.replace('_', ' ')}
+                                      </Badge>
+                                    </div>
+                                    <p className="font-medium text-slate-900 mb-1">{item.requirement}</p>
+                                    {item.notes && (
+                                      <p className="text-sm text-slate-600">{item.notes}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Risk Assessment */}
+                    {evaluation.risk_assessment && (
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {Object.entries(evaluation.risk_assessment).map(([category, risks]) => (
+                          <Card key={category}>
+                            <CardHeader>
+                              <CardTitle className="text-base capitalize">
+                                {category.replace('_', ' ')}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                {risks.map((risk, idx) => (
+                                  <div key={idx} className="p-3 bg-slate-50 border rounded-lg">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <p className="font-medium text-sm text-slate-900 flex-1">{risk.risk}</p>
+                                      <Badge variant={
+                                        risk.severity === 'high' ? 'destructive' :
+                                        risk.severity === 'medium' ? 'secondary' :
+                                        'outline'
+                                      } className="ml-2">
+                                        {risk.severity}
+                                      </Badge>
+                                    </div>
+                                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                                      <p className="text-xs font-semibold text-blue-800 mb-1">Mitigation:</p>
+                                      <p className="text-xs text-blue-900">{risk.mitigation}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Strategy Tab */}
+                  <TabsContent value="strategy" className="space-y-6">
+                    {/* Immediate Actions */}
+                    {evaluation.strategic_recommendations?.immediate_actions && (
+                      <Card className="border-amber-200 bg-amber-50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-amber-600" />
+                            Immediate Actions Required
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.strategic_recommendations.immediate_actions.map((action, idx) => (
+                              <div key={idx} className="p-3 bg-white border border-amber-200 rounded-lg flex items-start gap-3">
+                                <div className="w-6 h-6 rounded-full bg-amber-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <span className="text-xs font-bold">{idx + 1}</span>
+                                </div>
+                                <p className="text-sm text-amber-900 flex-1">{action}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Team Building */}
+                    {evaluation.strategic_recommendations?.team_building && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Team Building Recommendations</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.strategic_recommendations.team_building.map((rec, idx) => (
+                              <div key={idx} className="p-3 bg-slate-50 border rounded-lg">
+                                <p className="text-sm text-slate-900">{rec}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Content Priorities */}
+                    {evaluation.strategic_recommendations?.content_priorities && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Content Development Priorities</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {evaluation.strategic_recommendations.content_priorities.map((priority, idx) => (
+                              <div key={idx} className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex items-start gap-3">
+                                <FileText className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-indigo-900">{priority}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Pricing Strategy */}
+                    {evaluation.strategic_recommendations?.pricing_strategy && (
+                      <Card className="border-green-200 bg-green-50">
+                        <CardHeader>
+                          <CardTitle className="text-base">Pricing Strategy Guidance</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-green-900">{evaluation.strategic_recommendations.pricing_strategy}</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+                </Tabs>
               )}
 
-              {/* Content Priorities */}
-              {evaluation.strategic_recommendations?.content_priorities && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Content Development Priorities</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {evaluation.strategic_recommendations.content_priorities.map((priority, idx) => (
-                        <div key={idx} className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex items-start gap-3">
-                          <FileText className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-sm text-indigo-900">{priority}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              {evaluation && (
+                <div className="flex gap-3 pt-6 border-t">
+                  <Button
+                    onClick={runEvaluation}
+                    disabled={isEvaluating}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Re-run Evaluation
+                  </Button>
+                </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              {/* Pricing Strategy */}
-              {evaluation.strategic_recommendations?.pricing_strategy && (
-                <Card className="border-green-200 bg-green-50">
-                  <CardHeader>
-                    <CardTitle className="text-base">Pricing Strategy Guidance</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-green-900">{evaluation.strategic_recommendations.pricing_strategy}</p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+        {/* Full Compliance Checker Tab */}
+        <TabsContent value="compliance">
+          <ComplianceChecker
+            proposalId={proposalId}
+            proposalData={proposalData}
+            organizationId={currentOrgId}
+          />
+        </TabsContent>
 
-            {/* Full Compliance Checker Tab */}
-            <TabsContent value="full-compliance">
-              <ComplianceChecker
-                proposalId={proposalId}
-                proposalData={proposalData}
-                organizationId={currentOrgId}
-              />
-            </TabsContent>
-          </Tabs>
-        )}
-
-        {evaluation && (
-          <div className="flex gap-3 pt-6 border-t">
-            <Button 
-              onClick={runEvaluation}
-              disabled={isEvaluating}
-              variant="outline"
-              className="flex-1"
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Re-run Evaluation
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        {/* Red Team Review Tab */}
+        <TabsContent value="review">
+          <RedTeamReview
+            proposalId={proposalId}
+            proposalData={proposalData}
+            organizationId={currentOrgId}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
