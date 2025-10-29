@@ -1,0 +1,107 @@
+{
+  "name": "LaborCategory",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this labor category"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Name of the labor category (e.g., Senior Software Engineer)"
+    },
+    "labor_level": {
+      "type": "string",
+      "enum": [
+        "junior",
+        "mid",
+        "senior",
+        "principal",
+        "executive",
+        "other"
+      ],
+      "description": "Experience level"
+    },
+    "base_hourly_rate": {
+      "type": "number",
+      "description": "Base hourly rate before burdens"
+    },
+    "fringe_rate": {
+      "type": "number",
+      "description": "Fringe benefits rate as percentage (e.g., 35.5 for 35.5%)"
+    },
+    "overhead_rate": {
+      "type": "number",
+      "description": "Overhead rate as percentage"
+    },
+    "ga_rate": {
+      "type": "number",
+      "description": "General & Administrative rate as percentage"
+    },
+    "loaded_hourly_rate": {
+      "type": "number",
+      "description": "Fully burdened hourly rate (auto-calculated)"
+    },
+    "annual_salary_equivalent": {
+      "type": "number",
+      "description": "Annual salary equivalent"
+    },
+    "job_description": {
+      "type": "string",
+      "description": "Description of role and responsibilities"
+    },
+    "required_clearance": {
+      "type": "string",
+      "enum": [
+        "none",
+        "public_trust",
+        "secret",
+        "top_secret",
+        "ts_sci"
+      ],
+      "description": "Required security clearance"
+    },
+    "required_education": {
+      "type": "string",
+      "description": "Required education level"
+    },
+    "required_experience_years": {
+      "type": "number",
+      "description": "Required years of experience"
+    },
+    "certifications_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Required certifications"
+    },
+    "escalation_rate": {
+      "type": "number",
+      "description": "Annual escalation rate as percentage (e.g., 3.0 for 3%)"
+    },
+    "is_standard_rate": {
+      "type": "boolean",
+      "default": false,
+      "description": "Is this a standard GSA or contract rate"
+    },
+    "gsm_schedule_number": {
+      "type": "string",
+      "description": "GSA Schedule number if applicable"
+    },
+    "sin_number": {
+      "type": "string",
+      "description": "Special Item Number if applicable"
+    },
+    "last_used_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last time this rate was used in a proposal"
+    }
+  },
+  "required": [
+    "organization_id",
+    "category_name",
+    "base_hourly_rate"
+  ]
+}
