@@ -1,9 +1,9 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useClient } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,44 +22,22 @@ import ProposalsTable from "../components/proposals/ProposalsTable";
 
 export default function Proposals() {
   const navigate = useNavigate();
+  const { activeClientId, activeClientRole } = useClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [currentOrgId, setCurrentOrgId] = useState(null);
-  const [user, setUser] = useState(null);
 
-  // SECURITY: Load current user's organization for data filtering
-  React.useEffect(() => {
-    const loadOrgId = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
-        }
-      } catch (error) {
-        console.error("Error loading org:", error);
-      }
-    };
-    loadOrgId();
-  }, []);
-
-  // SECURITY FIX: Filter proposals by organization_id to ensure data isolation
+  // Filter proposals by active client
   const { data: proposals, isLoading } = useQuery({
-    queryKey: ['proposals', currentOrgId],
+    queryKey: ['proposals', activeClientId],
     queryFn: async () => {
-      if (!currentOrgId) return [];
+      if (!activeClientId) return [];
       return base44.entities.Proposal.filter(
-        { organization_id: currentOrgId },
+        { organization_id: activeClientId },
         '-created_date'
       );
     },
     initialData: [],
-    enabled: !!currentOrgId,
+    enabled: !!activeClientId,
   });
 
   const filteredProposals = proposals.filter(proposal => {
@@ -140,8 +118,8 @@ export default function Proposals() {
               <TabsContent value="kanban">
                 <ProposalsKanban 
                   proposals={filteredProposals} 
-                  organizationId={currentOrgId}
-                  userRole={user?.organization_app_role}
+                  organizationId={activeClientId}
+                  userRole={activeClientRole}
                 />
               </TabsContent>
 
