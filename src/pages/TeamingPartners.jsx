@@ -69,7 +69,7 @@ export default function TeamingPartners() {
     primary_naics: "",
     secondary_naics: [],
     certifications: [],
-    tags: [], // Added tags field
+    tags: [],
     core_capabilities: [],
     differentiators: [],
     past_performance_summary: "",
@@ -82,9 +82,9 @@ export default function TeamingPartners() {
   });
 
   const [newItem, setNewItem] = useState("");
-  const [newTag, setNewTag] = useState(""); // State for new tag input
-  const [otherCertification, setOtherCertification] = useState(""); // State for "Other" certification input
-  const [showOtherCertInput, setShowOtherCertInput] = useState(false); // State to control visibility of "Other" certification input
+  const [newTag, setNewTag] = useState("");
+  const [otherCertification, setOtherCertification] = useState("");
+  const [showOtherCertInput, setShowOtherCertInput] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadingCapStatement, setUploadingCapStatement] = useState(false);
   const [capabilityStatementFile, setCapabilityStatementFile] = useState(null);
@@ -252,7 +252,7 @@ export default function TeamingPartners() {
       primary_naics: "",
       secondary_naics: [],
       certifications: [],
-      tags: [], // Reset tags
+      tags: [],
       core_capabilities: [],
       differentiators: [],
       past_performance_summary: "",
@@ -264,9 +264,9 @@ export default function TeamingPartners() {
       years_in_business: null
     });
     setCapabilityStatementFile(null);
-    setShowOtherCertInput(false); // Reset other cert input visibility
-    setOtherCertification(""); // Reset other cert input value
-    setNewTag(""); // Reset new tag input value
+    setShowOtherCertInput(false);
+    setOtherCertification("");
+    setNewTag("");
   };
 
   const handleSavePartner = () => {
@@ -368,7 +368,7 @@ export default function TeamingPartners() {
     p.partner_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.poc_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.core_capabilities?.some(cap => cap.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    p.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) // Include tags in search
+    p.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const getStatusColor = (status) => {
@@ -801,7 +801,59 @@ export default function TeamingPartners() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              {/* Capability Statement Upload - MOVED TO TOP */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Upload Capability Statement
+                </Label>
+                <p className="text-sm text-blue-600 font-medium">
+                  The AI will auto-populate the relevant information.
+                </p>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center bg-blue-50">
+                  {capabilityStatementFile ? (
+                    <div className="space-y-3">
+                      <FileText className="w-12 h-12 mx-auto text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-sm">{capabilityStatementFile.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {(capabilityStatementFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCapabilityStatementFile(null)}
+                      >
+                        <X className="w-3 h-3 mr-2" />
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <FileText className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                      <input
+                        type="file"
+                        id="cap-statement-upload"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleCapabilityStatementSelect}
+                      />
+                      <Button size="sm" variant="outline" asChild>
+                        <label htmlFor="cap-statement-upload" className="cursor-pointer">
+                          <Upload className="w-3 h-3 mr-2" />
+                          Upload Capability Statement
+                        </label>
+                      </Button>
+                      <p className="text-xs text-slate-500 mt-2">PDF or Word document (optional)</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
@@ -996,56 +1048,6 @@ export default function TeamingPartners() {
                 </div>
                 <p className="text-xs text-slate-500">
                   Add tags for states (GA, NC), certifications (PMP, CMMC), or any custom categorization
-                </p>
-              </div>
-
-              {/* Capability Statement Upload */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Capability Statement
-                </Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center bg-blue-50">
-                  {capabilityStatementFile ? (
-                    <div className="space-y-3">
-                      <FileText className="w-12 h-12 mx-auto text-blue-600" />
-                      <div>
-                        <p className="font-semibold text-sm">{capabilityStatementFile.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {(capabilityStatementFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setCapabilityStatementFile(null)}
-                      >
-                        <X className="w-3 h-3 mr-2" />
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <FileText className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                      <input
-                        type="file"
-                        id="cap-statement-upload"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx"
-                        onChange={handleCapabilityStatementSelect}
-                      />
-                      <Button size="sm" variant="outline" asChild>
-                        <label htmlFor="cap-statement-upload" className="cursor-pointer">
-                          <Upload className="w-3 h-3 mr-2" />
-                          Upload Capability Statement
-                        </label>
-                      </Button>
-                      <p className="text-xs text-slate-500 mt-2">PDF or Word document (optional)</p>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500">
-                  Upload their capability statement for reference in proposals
                 </p>
               </div>
 
