@@ -46,6 +46,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
+import { cn } from "@/lib/utils";
 
 export default function PastPerformance() {
   const queryClient = useQueryClient();
