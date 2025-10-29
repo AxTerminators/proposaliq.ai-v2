@@ -1,970 +1,1068 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw, Lightbulb, Plus, GitCompare } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  FileText,
+  Sparkles,
+  Save,
+  Loader2,
+  Eye,
+  Edit,
+  Trash2,
+  Plus,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  TrendingUp,
+  Shield,
+  Lightbulb,
+  RefreshCw,
+  ZapIcon
+} from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import VersionComparison from "./VersionComparison";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 
-export default function Phase6({ proposal, user, organization, teamMembers }) {
+
+const PROPOSAL_SECTIONS = [
+  {
+    id: "executive_summary",
+    name: "Executive Summary",
+    defaultWordCount: 500,
+    description: "High-level overview of your proposal and value proposition"
+  },
+  {
+    id: "volume_1_technical",
+    name: "Volume I - Technical Approach",
+    defaultWordCount: 3000,
+    description: "Detailed technical solution and methodology"
+  },
+  {
+    id: "volume_1_management",
+    name: "Volume I - Management Plan",
+    defaultWordCount: 2500,
+    description: "Project management approach and organizational structure"
+  },
+  {
+    id: "volume_1_staffing",
+    name: "Volume I - Staffing Plan",
+    defaultWordCount: 1500,
+    description: "Personnel and staffing strategy"
+  },
+  {
+    id: "volume_3_past_performance",
+    name: "Volume III - Past Performance",
+    defaultWordCount: 2000,
+    description: "Relevant past performance examples"
+  },
+  {
+    id: "quality_control_plan",
+    name: "Quality Control Plan",
+    defaultWordCount: 1800,
+    description: "Quality assurance and control processes"
+  },
+  {
+    id: "transition_plan",
+    name: "Transition Plan",
+    defaultWordCount: 1500,
+    description: "Transition strategy and timeline"
+  },
+  {
+    id: "compliance",
+    name: "Compliance",
+    defaultWordCount: 1200,
+    description: "Compliance with requirements and regulations"
+  }
+];
+
+export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [editingSection, setEditingSection] = useState(null);
+  const [content, setContent] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentOrgId, setCurrentOrgId] = useState(null);
   const [strategy, setStrategy] = useState(null);
-  const [activeSections, setActiveSections] = useState([]);
-  const [isGenerating, setIsGenerating] = useState({});
-  const [sectionContent, setSectionContent] = useState({});
-  
-  // History viewer state
-  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
-  const [selectedSectionForHistory, setSelectedSectionForHistory] = useState(null);
-  const [historyRecords, setHistoryRecords] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Version comparison state
-  const [showComparisonDialog, setShowComparisonDialog] = useState(false);
-  const [selectedSectionForComparison, setSelectedSectionForComparison] = useState(null);
-
-  // Content suggestions state
-  const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
-  const [currentSectionId, setCurrentSectionId] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  // AI Enhancement States
+  const [isCheckingCompliance, setIsCheckingCompliance] = useState(false);
+  const [isCheckingQuality, setIsCheckingQuality] = useState(false);
+  const [complianceResults, setComplianceResults] = useState(null);
+  const [qualityResults, setQualityResults] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   useEffect(() => {
-    const loadStrategyAndSections = async () => {
-      if (!proposal?.id || !user || !organization) return; 
-
-      if (proposal.strategy_config) {
-        try {
-          const config = JSON.parse(proposal.strategy_config);
-          setStrategy(config);
-          
-          // Build active sections list
-          const sections = [];
-          Object.entries(config.sections || {}).forEach(([sectionId, sectionData]) => {
-            if (sectionData.included) {
-              sections.push({ id: sectionId, ...sectionData, subsections: [] });
-              
-              Object.entries(sectionData.subsections || {}).forEach(([subId, subData]) => {
-                if (subData.included) {
-                  sections[sections.length - 1].subsections.push({ id: subId, ...subData });
-                }
-              });
-            }
-          });
-          setActiveSections(sections);
-
-          // Load existing content
-          const existingSections = await base44.entities.ProposalSection.filter({ proposal_id: proposal.id });
-          const contentMap = {};
-          existingSections.forEach(sec => {
-            contentMap[sec.section_id] = sec.content;
-          });
-          setSectionContent(contentMap);
-        } catch (error) {
-          console.error("Error loading strategy or sections:", error);
+    const loadData = async () => {
+      try {
+        const user = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setCurrentOrgId(orgs[0]);
         }
+
+        if (proposalId) {
+          const proposals = await base44.entities.Proposal.filter({ id: proposalId });
+          if (proposals.length > 0 && proposals[0].strategy_config) {
+            try {
+              setStrategy(JSON.parse(proposals[0].strategy_config));
+            } catch (e) {
+              console.error("Error parsing strategy:", e);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
       }
     };
+    loadData();
+  }, [proposalId]);
 
-    loadStrategyAndSections();
-  }, [proposal?.id, proposal?.strategy_config, user, organization]);
+  const { data: sections, isLoading } = useQuery({
+    queryKey: ['proposal-sections', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      return base44.entities.ProposalSection.filter(
+        { proposal_id: proposalId },
+        'order'
+      );
+    },
+    initialData: [],
+    enabled: !!proposalId,
+  });
 
-  const trackTokenUsage = async (tokens, prompt, response) => {
+  const createSectionMutation = useMutation({
+    mutationFn: async (data) => {
+      return base44.entities.ProposalSection.create(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
+    },
+  });
+
+  const updateSectionMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      return base44.entities.ProposalSection.update(id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
+    },
+  });
+
+  const deleteSectionMutation = useMutation({
+    mutationFn: async (id) => {
+      await base44.entities.ProposalSection.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
+      setSelectedSection(null);
+      setEditingSection(null);
+    },
+  });
+
+  const autoDraft = async (sectionConfig) => {
+    if (!proposalId || !currentOrgId) {
+      alert("Please save the proposal first");
+      return;
+    }
+
+    setIsGenerating(true);
+
     try {
-      await base44.entities.TokenUsage.create({
-        organization_id: organization.id,
-        user_email: user.email,
-        feature_type: "proposal_generation",
-        tokens_used: tokens,
-        llm_provider: strategy?.aiModel || "gemini",
-        prompt: prompt?.substring(0, 500),
-        response_preview: response?.substring(0, 200),
-        cost_estimate: (tokens / 1000000) * 0.5
+      // Gather comprehensive context
+      const [solicitationDocs, teamingPartners, resources, complianceReqs, winThemes, pastPerformance] = await Promise.all([
+        base44.entities.SolicitationDocument.filter({
+          proposal_id: proposalId,
+          organization_id: currentOrgId.id
+        }),
+        base44.entities.TeamingPartner.filter({
+          organization_id: currentOrgId.id
+        }).then(partners => {
+          const partnerIds = proposalData.teaming_partner_ids || [];
+          return partners.filter(p => partnerIds.includes(p.id));
+        }),
+        base44.entities.ProposalResource.filter({
+          organization_id: currentOrgId.id,
+          resource_type: { $in: ['boilerplate_text', 'capability_statement', 'past_proposal'] }
+        }),
+        base44.entities.ComplianceRequirement.filter({
+          proposal_id: proposalId,
+          organization_id: currentOrgId.id
+        }),
+        base44.entities.WinTheme.filter({
+          proposal_id: proposalId,
+          organization_id: currentOrgId.id
+        }),
+        base44.entities.PastPerformance.filter({
+          organization_id: currentOrgId.id
+        }).then(pp => pp.slice(0, 5))
+      ]);
+
+      // Build context for AI
+      const teamingPartnerContext = teamingPartners.map(p => `
+**Partner: ${p.partner_name}**
+- Type: ${p.partner_type}
+- Core Capabilities: ${p.core_capabilities?.join(', ') || 'N/A'}
+- Differentiators: ${p.differentiators?.join(', ') || 'N/A'}
+- Past Performance: ${p.past_performance_summary || 'N/A'}
+- Certifications: ${p.certifications?.join(', ') || 'N/A'}
+`).join('\n');
+
+      const complianceContext = complianceReqs
+        .filter(req => req.addressed_in_sections?.includes(sectionConfig.id) || req.requirement_category === 'mandatory')
+        .slice(0, 10)
+        .map(req => `- ${req.requirement_title}: ${req.requirement_description}`)
+        .join('\n');
+
+      const winThemeContext = winThemes
+        .filter(wt => wt.status === 'approved' || wt.priority === 'primary')
+        .map(wt => `- ${wt.theme_title}: ${wt.theme_statement}`)
+        .join('\n');
+
+      const pastPerformanceContext = pastPerformance.map(pp => `
+**Project: ${pp.project_name}**
+- Client: ${pp.client_name}
+- Description: ${pp.project_description}
+- Key Outcomes: On-time: ${pp.outcomes?.on_time_delivery_pct}%, Quality: ${pp.outcomes?.quality_score}/5
+`).join('\n');
+
+      // Get file URLs for context
+      const fileUrls = solicitationDocs
+        .filter(doc => doc.file_url)
+        .map(doc => doc.file_url)
+        .slice(0, 10);
+
+      // Get strategy settings
+      const sectionTone = strategy?.sections?.[sectionConfig.id]?.tone || strategy?.tone || "clear";
+      const readingLevel = strategy?.readingLevel || "government_plain";
+      const targetWordCount = strategy?.sections?.[sectionConfig.id]?.wordCount || sectionConfig.defaultWordCount;
+
+      const prompt = `You are an expert proposal writer for government contracts. Write a compelling ${sectionConfig.name} section for this proposal.
+
+**PROPOSAL DETAILS:**
+- Proposal Name: ${proposalData.proposal_name}
+- Agency: ${proposalData.agency_name}
+- Project: ${proposalData.project_title}
+- Type: ${proposalData.project_type}
+- Solicitation #: ${proposalData.solicitation_number}
+- Prime Contractor: ${proposalData.prime_contractor_name}
+
+**TEAMING PARTNERS:**
+${teamingPartnerContext || 'N/A'}
+
+**WIN THEMES TO EMPHASIZE:**
+${winThemeContext || 'N/A'}
+
+**KEY MANDATORY REQUIREMENTS:**
+${complianceContext || 'N/A'}
+
+**RELEVANT PAST PERFORMANCE:**
+${pastPerformanceContext || 'N/A'}
+
+**WRITING REQUIREMENTS:**
+- Tone: ${sectionTone}
+- Reading Level: ${readingLevel}
+- Target Word Count: ${targetWordCount} words
+- Section Purpose: ${sectionConfig.description}
+${strategy?.requestCitations ? '- Include citations to source documents where applicable' : ''}
+
+**YOUR TASK:**
+Write a professional, persuasive ${sectionConfig.name} section that:
+1. Directly addresses the mandatory requirements listed above
+2. Emphasizes our win themes throughout
+3. Showcases our team's strengths and our teaming partners' capabilities
+4. Uses relevant past performance examples as proof points
+5. Maintains the specified tone and reading level
+6. Is approximately ${targetWordCount} words
+7. Uses clear headings and bullet points for readability
+8. Follows government proposal writing best practices
+
+The content should be ready to insert into the proposal document. Use HTML formatting for structure.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: fileUrls.length > 0 ? fileUrls : undefined
       });
 
-      const subs = await base44.entities.Subscription.filter({ organization_id: organization.id }, '-created_date', 1);
-      if (subs.length > 0) {
-        await base44.entities.Subscription.update(subs[0].id, {
-          token_credits_used: (subs[0].token_credits_used || 0) + tokens
+      // Create or update the section
+      const wordCount = result.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+
+      const existingSection = sections.find(s => s.section_type === sectionConfig.id);
+
+      if (existingSection) {
+        await updateSectionMutation.mutateAsync({
+          id: existingSection.id,
+          data: {
+            content: result,
+            word_count: wordCount,
+            status: 'ai_generated'
+          }
         });
+        setSelectedSection({ ...existingSection, content: result, word_count: wordCount, status: 'ai_generated' });
+        setEditingSection({ ...existingSection, content: result, word_count: wordCount, status: 'ai_generated' });
+        setContent(result);
+      } else {
+        const newSection = await createSectionMutation.mutateAsync({
+          proposal_id: proposalId,
+          section_name: sectionConfig.name,
+          section_type: sectionConfig.id,
+          content: result,
+          word_count: wordCount,
+          order: sections.length,
+          status: 'ai_generated',
+          ai_prompt_used: prompt.substring(0, 500)
+        });
+        setSelectedSection(newSection);
+        setEditingSection(newSection);
+        setContent(newSection.content);
       }
+
+      alert(`✓ AI generated ${wordCount} words for ${sectionConfig.name}`);
+
     } catch (error) {
-      console.error("Error tracking tokens:", error);
+      console.error("Error generating content:", error);
+      alert("Error generating content. Please try again.");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const getToneInstructions = (tone) => {
-    const tones = {
-      clear: "Write in clear, straightforward language that is easy to understand.",
-      formal: "Use formal, professional language appropriate for government contracting.",
-      concise: "Be brief and to the point, avoiding unnecessary words.",
-      courteous: "Use respectful and courteous language throughout.",
-      confident: "Write with confidence, emphasizing your capabilities and experience.",
-      persuasive: "Use persuasive language that convinces the reader of your value.",
-      professional: "Maintain a professional tone throughout.",
-      humanized: "Write in a warm, human tone while maintaining professionalism.",
-      conversational: "Use a conversational style that engages the reader."
-    };
-    return tones[tone] || tones.clear;
-  };
-
-  const getReadingLevelInstructions = (level) => {
-    const levels = {
-      government_plain: "Write using Government Plain Language standards - clear, concise, and well-organized.",
-      flesch_60: "Target Flesch-Kincaid Grade Level 10 (Flesch Reading Ease 60+) - accessible to most adults.",
-      flesch_70: "Target Flesch-Kincaid Grade Level 8 (Flesch Reading Ease 70+) - easy to read for broad audience."
-    };
-    return levels[level] || levels.government_plain;
-  };
-
-  const createVersionHistory = async (sectionId, sectionName, content, changeType, changeSummary = null) => {
-    try {
-      const sections = await base44.entities.ProposalSection.filter({
-        proposal_id: proposal.id,
-        section_id: sectionId
-      });
-
-      if (sections.length === 0) return;
-
-      const section = sections[0];
-
-      const existingHistory = await base44.entities.ProposalSectionHistory.filter({
-        proposal_section_id: section.id
-      }, '-version_number', 1);
-
-      const nextVersion = existingHistory.length > 0 ? existingHistory[0].version_number + 1 : 1;
-      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
-
-      await base44.entities.ProposalSectionHistory.create({
-        proposal_section_id: section.id,
-        version_number: nextVersion,
-        content: content,
-        changed_by_user_email: user.email,
-        changed_by_user_name: user.full_name || user.email,
-        change_summary: changeSummary || `${changeType.replace(/_/g, ' ')}`,
-        word_count: wordCount,
-        change_type: changeType
-      });
-    } catch (error) {
-      console.error("Error creating version history:", error);
+  const checkCompliance = async () => {
+    if (!editingSection || !editingSection.content) {
+      alert("Please open a section with content for editing first");
+      return;
     }
-  };
 
-  const findContentSuggestions = async (sectionId, sectionName) => {
-    if (!organization.id) return;
-
-    setLoadingSuggestions(true);
-    setCurrentSectionId(sectionId);
-    setShowSuggestionsPanel(true);
+    setIsCheckingCompliance(true);
 
     try {
-      const allResources = await base44.entities.ProposalResource.filter({
-        organization_id: organization.id,
-        resource_type: "boilerplate_text"
-      }, '-usage_count');
+      const complianceReqs = await base44.entities.ComplianceRequirement.filter({
+        proposal_id: proposalId,
+        organization_id: currentOrgId.id
+      });
 
-      if (allResources.length === 0) {
-        setSuggestions([]);
-        setLoadingSuggestions(false);
-        return;
-      }
+      const relevantReqs = complianceReqs.filter(req =>
+        req.addressed_in_sections?.includes(editingSection.section_type) ||
+        req.requirement_category === 'mandatory'
+      );
 
-      const currentContent = sectionContent[sectionId] || "";
-      const contentPreview = currentContent.replace(/<[^>]*>/g, '').substring(0, 500);
+      const prompt = `You are a proposal compliance analyst. Review this proposal section against the listed mandatory requirements.
 
-      const prompt = `You are analyzing a proposal section to find the most relevant boilerplate content from a library.
+**SECTION: ${editingSection.section_name}**
 
-**SECTION BEING WRITTEN:**
-Section Name: ${sectionName}
-Current Content: ${contentPreview || "Not yet written"}
+**CONTENT:**
+${editingSection.content}
 
-**AVAILABLE BOILERPLATE CONTENT:**
-${allResources.map((r, idx) => `
-${idx + 1}. Title: ${r.title}
-   Category: ${r.content_category}
-   Tags: ${r.tags?.join(', ') || 'none'}
-   Content Preview: ${r.boilerplate_content?.replace(/<[^>]*>/g, '').substring(0, 200)}
+**MANDATORY REQUIREMENTS TO CHECK:**
+${relevantReqs.map(req => `
+- ${req.requirement_id}: ${req.requirement_title}
+  Description: ${req.requirement_description}
 `).join('\n')}
 
 **YOUR TASK:**
-Analyze the section being written and identify the 3-5 most relevant boilerplate pieces that would be helpful. Consider:
-- Topic relevance
-- Content category alignment
-- Tag matches
-- Quality and usefulness of the content
+Analyze the section content and determine:
+1. Which requirements are fully addressed
+2. Which requirements are partially addressed
+3. Which requirements are missing or not addressed
+4. Specific recommendations for improving compliance
 
-Return a JSON array of resource IDs (zero-indexed, 0 to ${allResources.length - 1}) ranked by relevance, with a brief explanation of why each is relevant.
-
-Example: [
-  {"index": 2, "reason": "Directly addresses quality assurance processes relevant to this technical section"},
-  {"index": 0, "reason": "Contains company overview that could strengthen the introduction"}
-]`;
+Return JSON with this structure:
+{
+  "overall_compliance_score": number (0-100),
+  "requirements_checked": [
+    {
+      "requirement_id": "string",
+      "requirement_title": "string",
+      "status": "fully_addressed|partially_addressed|not_addressed",
+      "confidence": number (0-100),
+      "evidence": "string (quote from section that addresses this)",
+      "recommendation": "string (what to add/improve)"
+    }
+  ],
+  "missing_critical_elements": ["string"],
+  "overall_recommendation": "string"
+}`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
           properties: {
-            suggestions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  index: { type: "number" },
-                  reason: { type: "string" }
-                }
-              }
-            }
+            overall_compliance_score: { type: "number" },
+            requirements_checked: { type: "array" },
+            missing_critical_elements: { type: "array" },
+            overall_recommendation: { type: "string" }
           }
         }
       });
 
-      await trackTokenUsage(3000, prompt, JSON.stringify(result));
+      setComplianceResults(result);
 
-      const suggestedResources = (result.suggestions || [])
-        .filter(s => s.index >= 0 && s.index < allResources.length)
-        .map(s => ({
-          ...allResources[s.index],
-          relevance_reason: s.reason
-        }))
-        .slice(0, 5);
-
-      setSuggestions(suggestedResources);
     } catch (error) {
-      console.error("Error finding suggestions:", error);
-      setSuggestions([]);
+      console.error("Error checking compliance:", error);
+      alert("Error checking compliance. Please try again.");
+    } finally {
+      setIsCheckingCompliance(false);
     }
-
-    setLoadingSuggestions(false);
   };
 
-  const insertBoilerplate = async (resource, sectionId) => {
-    const currentContent = sectionContent[sectionId] || "";
-    
-    const newContent = currentContent + 
-      (currentContent ? '<p><br></p>' : '') + 
-      resource.boilerplate_content;
-    
-    setSectionContent(prev => ({ ...prev, [sectionId]: newContent }));
-
-    try {
-      await base44.entities.ProposalResource.update(resource.id, {
-        usage_count: (resource.usage_count || 0) + 1,
-        last_used_date: new Date().toISOString(),
-        linked_proposal_ids: [...new Set([...(resource.linked_proposal_ids || []), proposal.id])]
-      });
-
-      queryClient.invalidateQueries({ queryKey: ['resources'] });
-    } catch (error) {
-      console.error("Error updating usage:", error);
-    }
-
-    alert(`✓ Inserted "${resource.title}" into section!`);
-  };
-
-  const autoDraft = async (sectionId, sectionName, wordCount, tone, isSubsection = false) => {
-    if (!proposal.id || !organization.id) {
-      alert("Please save the proposal first");
+  const checkQuality = async () => {
+    if (!editingSection || !editingSection.content) {
+      alert("Please open a section with content for editing first");
       return;
     }
 
-    setIsGenerating(prev => ({ ...prev, [sectionId]: true }));
+    setIsCheckingQuality(true);
 
     try {
-      const referenceDocs = await base44.entities.SolicitationDocument.filter({
-        proposal_id: proposal.id,
-        organization_id: organization.id,
-        document_type: "reference"
-      });
+      const prompt = `You are a proposal quality analyst and editor. Review this proposal section for quality, clarity, and persuasiveness.
 
-      const solicitationDocs = await base44.entities.SolicitationDocument.filter({
-        proposal_id: proposal.id,
-        organization_id: organization.id,
-        document_type: { $in: ["rfp", "rfq", "sow", "pws"] }
-      });
+**SECTION: ${editingSection.section_name}**
 
-      const fileUrls = [...referenceDocs, ...solicitationDocs]
-        .map(doc => doc.file_url)
-        .filter(url => url && !url.startsWith('proposal:'));
+**CONTENT:**
+${content}
 
-      const effectiveTone = tone === "default" ? strategy.tone : tone;
-      const toneInstruction = getToneInstructions(effectiveTone);
-      const readingLevelInstruction = getReadingLevelInstructions(strategy.readingLevel);
+**EVALUATE:**
+1. Writing Quality (grammar, clarity, professionalism)
+2. Persuasiveness (compelling arguments, benefits-focused)
+3. Structure & Flow (logical organization, transitions)
+4. Technical Accuracy (if technical content)
+5. Compliance with Government Plain Language guidelines
+6. Reading Level (appropriate for evaluators)
+7. Use of Evidence (data, examples, proof points)
 
-      const prompt = `You are an expert proposal writer for government contracts. Generate a comprehensive "${sectionName}" section for this proposal.
+**PROVIDE:**
+- Scores (0-100) for each criterion
+- Specific issues found
+- Actionable recommendations for improvement
+- Suggested edits or rewrites for weak areas
 
-**PROPOSAL DETAILS:**
-- Name: ${proposal.proposal_name}
-- Type: ${proposal.project_type}
-- Agency: ${proposal.agency_name}
-- Project: ${proposal.project_title}
-- Prime: ${proposal.prime_contractor_name}
+Return JSON with this structure:
+{
+  "overall_quality_score": number (0-100),
+  "criteria_scores": {
+    "writing_quality": number,
+    "persuasiveness": number,
+    "structure_flow": number,
+    "technical_accuracy": number,
+    "plain_language": number,
+    "reading_level": number,
+    "evidence_use": number
+  },
+  "issues_found": [
+    {
+      "severity": "high|medium|low",
+      "issue": "string",
+      "location": "string (specific excerpt)",
+      "recommendation": "string"
+    }
+  ],
+  "strengths": ["string"],
+  "weaknesses": ["string"],
+  "suggested_improvements": ["string"],
+  "overall_recommendation": "string"
+}`;
 
-**WRITING INSTRUCTIONS:**
-- Target word count: ${wordCount} words
-- Tone: ${toneInstruction}
-- Reading Level: ${readingLevelInstruction}
-${strategy.requestCitations ? '- Include citations to source materials where applicable' : ''}
-
-**SECTION:** ${sectionName}
-
-**REQUIREMENTS:**
-1. Review the reference documents and solicitation requirements provided
-2. Extract relevant information, writing style, and tone from reference docs
-3. Generate compelling content that addresses the solicitation requirements
-4. Use specific examples and details from the reference materials
-5. Match the professional tone specified above
-6. Make it persuasive and focused on value to the government
-7. Target the specified word count
-
-**IMPORTANT:** 
-- Write in a professional, government proposal style
-- Be specific and detailed
-- Include concrete examples where possible
-- Focus on benefits to the agency
-- Use active voice and clear language
-${strategy.requestCitations ? '- Cite sources in [Source: Document Name] format when using specific information' : ''}
-
-Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <strong> tags):`;
-
-      const content = await base44.integrations.Core.InvokeLLM({
+      const result = await base44.integrations.Core.InvokeLLM({
         prompt,
-        file_urls: fileUrls.length > 0 ? fileUrls.slice(0, 10) : undefined,
-        response_json_schema: undefined
-      });
-
-      await trackTokenUsage(wordCount * 4, prompt, content);
-
-      const existing = await base44.entities.ProposalSection.filter({
-        proposal_id: proposal.id,
-        section_id: sectionId
-      });
-
-      const wordCountActual = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
-
-      if (existing.length > 0) {
-        await createVersionHistory(sectionId, sectionName, content, existing[0].content ? "ai_regenerated" : "ai_generated");
-
-        await base44.entities.ProposalSection.update(existing[0].id, {
-          content,
-          word_count: wordCountActual,
-          status: "ai_generated"
-        });
-      } else {
-        await base44.entities.ProposalSection.create({
-          proposal_id: proposal.id,
-          section_id: sectionId,
-          section_name: sectionName,
-          section_type: "custom",
-          content,
-          word_count: wordCountActual,
-          status: "ai_generated",
-          order: 0
-        });
-
-        await createVersionHistory(sectionId, sectionName, content, "initial_creation");
-      }
-
-      setSectionContent(prev => ({ ...prev, [sectionId]: content }));
-      queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
-      
-    } catch (error) {
-      console.error("Error generating section:", error);
-      alert("Error generating section. Please try again.");
-    }
-
-    setIsGenerating(prev => ({ ...prev, [sectionId]: false }));
-  };
-
-  const handleContentChange = (sectionId, content) => {
-    setSectionContent(prev => ({ ...prev, [sectionId]: content }));
-  };
-
-  const saveContent = async (sectionId, sectionName, content) => {
-    if (!proposal.id) return;
-
-    try {
-      const existing = await base44.entities.ProposalSection.filter({
-        proposal_id: proposal.id,
-        section_id: sectionId
-      });
-
-      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
-
-      if (existing.length > 0) {
-        await createVersionHistory(sectionId, sectionName, content, "user_edit", "Manual edit by user");
-
-        await base44.entities.ProposalSection.update(existing[0].id, {
-          content,
-          word_count: wordCount,
-          status: "reviewed"
-        });
-      } else {
-        const newSection = await base44.entities.ProposalSection.create({
-          proposal_id: proposal.id,
-          section_id: sectionId,
-          section_name: sectionName,
-          section_type: "custom",
-          content,
-          word_count: wordCount,
-          status: "draft",
-          order: 0
-        });
-
-        await createVersionHistory(sectionId, sectionName, content, "initial_creation");
-      }
-
-      alert("✓ Content saved!");
-    } catch (error) {
-      console.error("Error saving content:", error);
-      alert("Error saving content.");
-    }
-  };
-
-  const saveAll = async () => {
-    for (const [sectionId, content] of Object.entries(sectionContent)) {
-      if (content) {
-        const section = activeSections.find(s => s.id === sectionId) || 
-                        activeSections.flatMap(s => s.subsections).find(s => `${s.parent_id}_${s.id}` === sectionId);
-
-        if (section) {
-          const sectionName = section.id.includes('_') ? section.id.split('_').pop() : section.id;
-          await saveContent(sectionId, sectionName, content);
+        response_json_schema: {
+          type: "object",
+          properties: {
+            overall_quality_score: { type: "number" },
+            criteria_scores: { type: "object" },
+            issues_found: { type: "array" },
+            strengths: { type: "array" },
+            weaknesses: { type: "array" },
+            suggested_improvements: { type: "array" },
+            overall_recommendation: { type: "string" }
+          }
         }
-      }
-    }
-    alert("✓ All sections saved!");
-  };
-
-  const handleUploadContext = async (sectionId) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,.docx,.txt';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        
-        await base44.entities.SolicitationDocument.create({
-          proposal_id: proposal.id,
-          organization_id: organization.id,
-          document_type: "reference",
-          file_name: file.name,
-          file_url: file_url,
-          file_size: file.size,
-          description: `Context for section: ${sectionId}`
-        });
-
-        alert(`✓ Context file "${file.name}" uploaded! It will be used when regenerating this section.`);
-      } catch (error) {
-        console.error("Error uploading context:", error);
-        alert("Error uploading file.");
-      }
-    };
-    input.click();
-  };
-
-  const loadHistory = async (sectionId) => {
-    setLoadingHistory(true);
-    try {
-      const sections = await base44.entities.ProposalSection.filter({
-        proposal_id: proposal.id,
-        section_id: sectionId
       });
 
-      if (sections.length === 0) {
-        setHistoryRecords([]);
-        return;
-      }
+      setQualityResults(result);
 
-      const history = await base44.entities.ProposalSectionHistory.filter({
-        proposal_section_id: sections[0].id
-      }, '-version_number');
-
-      setHistoryRecords(history);
     } catch (error) {
-      console.error("Error loading history:", error);
-      setHistoryRecords([]);
+      console.error("Error checking quality:", error);
+      alert("Error checking quality. Please try again.");
+    } finally {
+      setIsCheckingQuality(false);
     }
-    setLoadingHistory(false);
   };
 
-  const handleViewHistory = (sectionId, sectionName) => {
-    setSelectedSectionForHistory({ id: sectionId, name: sectionName });
-    setShowHistoryDialog(true);
-    loadHistory(sectionId);
-  };
-
-  const handleViewComparison = (sectionId, sectionName) => {
-    setSelectedSectionForComparison({ id: sectionId, name: sectionName });
-    setShowComparisonDialog(true);
-  };
-
-  const handleRestoreVersion = async (historyRecord) => {
-    if (!confirm(`Restore version ${historyRecord.version_number}? This will replace the current content.`)) {
+  const generateContentSuggestions = async () => {
+    if (!editingSection) {
+      alert("Please open a section for editing first");
       return;
     }
 
-    try {
-      await createVersionHistory(
-        selectedSectionForHistory.id,
-        selectedSectionForHistory.name,
-        historyRecord.content,
-        "restored_from_history",
-        `Restored from version ${historyRecord.version_number}`
-      );
+    setIsLoadingSuggestions(true);
 
-      const sections = await base44.entities.ProposalSection.filter({
-        proposal_id: proposal.id,
-        section_id: selectedSectionForHistory.id
+    try {
+      const [complianceReqs, winThemes, resources] = await Promise.all([
+        base44.entities.ComplianceRequirement.filter({
+          proposal_id: proposalId,
+          organization_id: currentOrgId.id,
+          compliance_status: { $in: ['not_started', 'in_progress'] }
+        }),
+        base44.entities.WinTheme.filter({
+          proposal_id: proposalId,
+          organization_id: currentOrgId.id,
+          status: { $in: ['approved', 'reviewed'] }
+        }),
+        base44.entities.ProposalResource.filter({
+          organization_id: currentOrgId.id,
+          resource_type: 'boilerplate_text'
+        })
+      ]);
+
+      const prompt = `You are a proposal content strategist. Suggest specific content additions for this section.
+
+**SECTION: ${editingSection.section_name}**
+**CURRENT CONTENT PREVIEW:**
+${content ? content.substring(0, 500) + '...' : 'Empty section'}
+
+**UNADDRESSED REQUIREMENTS:**
+${complianceReqs.slice(0, 5).map(req => `- ${req.requirement_title}`).join('\n')}
+
+**WIN THEMES TO EMPHASIZE:**
+${winThemes.slice(0, 3).map(wt => `- ${wt.theme_title}: ${wt.theme_statement}`).join('\n')}
+
+**YOUR TASK:**
+Generate 5-7 specific content suggestions that would strengthen this section. Each suggestion should be:
+- Specific and actionable
+- Address a requirement or win theme
+- Include the actual text/paragraph to add
+- Indicate where it should be inserted
+
+Return JSON:
+{
+  "suggestions": [
+    {
+      "title": "string (brief title)",
+      "rationale": "string (why add this)",
+      "content": "string (actual text to insert)",
+      "placement": "beginning|middle|end",
+      "addresses_requirement": "string (requirement ID if applicable)",
+      "emphasizes_win_theme": "string (win theme if applicable)"
+    }
+  ]
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            suggestions: { type: "array" }
+          }
+        }
       });
 
-      if (sections.length > 0) {
-        await base44.entities.ProposalSection.update(sections[0].id, {
-          content: historyRecord.content,
-          word_count: historyRecord.word_count,
-          status: "reviewed"
-        });
-      }
+      setAiSuggestions(result.suggestions || []);
 
-      setSectionContent(prev => ({ ...prev, [selectedSectionForHistory.id]: historyRecord.content }));
-      
-      await loadHistory(selectedSectionForHistory.id);
-      
-      alert("✓ Version restored successfully!");
     } catch (error) {
-      console.error("Error restoring version:", error);
-      alert("Error restoring version.");
+      console.error("Error generating suggestions:", error);
+      alert("Error generating suggestions. Please try again.");
+    } finally {
+      setIsLoadingSuggestions(false);
     }
   };
 
-  if (!strategy) {
-    return (
-      <Card className="border-none shadow-xl">
-        <CardContent className="py-12 text-center">
-          <PenTool className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-600 mb-4">Please complete Phase 5 (Strategy) first to configure your proposal structure.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const insertSuggestion = (suggestion) => {
+    if (!editingSection) {
+      alert("Please open the section for editing first");
+      return;
+    }
+
+    let newContent = content;
+    if (suggestion.placement === 'beginning') {
+      newContent = suggestion.content + (newContent ? '\n\n' + newContent : '');
+    } else if (suggestion.placement === 'end') {
+      newContent = (newContent ? newContent + '\n\n' : '') + suggestion.content;
+    } else {
+      // Insert in middle
+      const midPoint = Math.floor(content.length / 2);
+      newContent = content.slice(0, midPoint) + '\n\n' + suggestion.content + '\n\n' + content.slice(midPoint);
+    }
+
+    setContent(newContent);
+    alert('✓ Suggestion inserted! Review and adjust as needed.');
+  };
+
+  const handleSave = async () => {
+    if (!editingSection) return;
+
+    setIsSaving(true);
+    try {
+      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+      await updateSectionMutation.mutateAsync({
+        id: editingSection.id,
+        data: {
+          content,
+          word_count: wordCount,
+          status: 'reviewed'
+        }
+      });
+
+      setSelectedSection({ ...editingSection, content, word_count: wordCount, status: 'reviewed' });
+      setEditingSection(null);
+      alert("✓ Section saved successfully!");
+    } catch (error) {
+      console.error("Error saving section:", error);
+      alert("Error saving section. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEdit = (section) => {
+    setEditingSection(section);
+    setContent(section.content || "");
+    setComplianceResults(null);
+    setQualityResults(null);
+    setAiSuggestions([]);
+    setSelectedSection(null); // Deselect if editing
+  };
+
+  const handleDelete = async (section) => {
+    if (confirm(`Delete section "${section.section_name}"?`)) {
+      await deleteSectionMutation.mutateAsync(section.id);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-700';
+      case 'reviewed': return 'bg-blue-100 text-blue-700';
+      case 'ai_generated': return 'bg-purple-100 text-purple-700';
+      case 'draft': return 'bg-slate-100 text-slate-700';
+      default: return 'bg-slate-100 text-slate-700';
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <Card className="border-none shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <PenTool className="w-6 h-6 text-green-600" />
-            Proposal Writer
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          {activeSections.map((section) => (
-            <div key={section.id} className="space-y-4">
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{section.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
-                      <div className="flex gap-2 mt-2">
-                        <Badge variant="outline">{section.wordCount} words target</Badge>
-                        <Badge variant="secondary">{section.tone === "default" ? strategy.tone : section.tone}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => findContentSuggestions(section.id, section.id.replace(/_/g, ' '))}
-                      >
-                        <Lightbulb className="w-4 h-4 mr-2" />
-                        Suggest Content
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewComparison(section.id, section.id.replace(/_/g, ' '))}
-                      >
-                        <GitCompare className="w-4 h-4 mr-2" />
-                        Compare
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewHistory(section.id, section.id.replace(/_/g, ' '))}
-                      >
-                        <History className="w-4 h-4 mr-2" />
-                        History
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ReactQuill
-                    value={sectionContent[section.id] || ""}
-                    onChange={(content) => handleContentChange(section.id, content)}
-                    theme="snow"
-                    className="bg-white min-h-[300px]"
-                  />
-                  
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleUploadContext(section.id)}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Context
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => autoDraft(section.id, section.id.replace(/_/g, ' '), section.wordCount, section.tone)}
-                      disabled={isGenerating[section.id]}
-                    >
-                      {isGenerating[section.id] ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                      )}
-                      {sectionContent[section.id] ? 'Regenerate' : 'Auto-Draft'}
-                    </Button>
+    <Card className="border-none shadow-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="w-5 h-5 text-indigo-600" />
+          Phase 6: AI-Powered Proposal Writer
+        </CardTitle>
+        <CardDescription>
+          Generate, edit, and optimize proposal sections with AI assistance
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert className="bg-indigo-50 border-indigo-200">
+          <Sparkles className="w-4 h-4 text-indigo-600" />
+          <AlertDescription>
+            <p className="font-semibold text-indigo-900 mb-1">Enhanced AI Features Available:</p>
+            <ul className="text-sm text-indigo-800 space-y-1">
+              <li>✓ Auto-draft using solicitation docs + teaming partner data</li>
+              <li>✓ Real-time compliance checking against requirements</li>
+              <li>✓ Quality & readability analysis</li>
+              <li>✓ Tailored content suggestions</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => saveContent(section.id, section.id, sectionContent[section.id])}
-                    >
-                      Save Section
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+        {!proposalId && (
+          <Alert>
+            <AlertCircle className="w-4 h-4" />
+            <AlertDescription>
+              Please complete Phase 1 and save your proposal before creating sections.
+            </AlertDescription>
+          </Alert>
+        )}
 
-              {/* Subsections */}
-              {section.subsections && section.subsections.map((sub) => (
-                <Card key={sub.id} className="ml-8 border-slate-300">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">{sub.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</CardTitle>
-                        <div className="flex gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">{sub.wordCount} words</Badge>
-                          <Badge variant="secondary" className="text-xs">{sub.tone === "default" ? strategy.tone : sub.tone}</Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => findContentSuggestions(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
-                        >
-                          <Lightbulb className="w-4 h-4 mr-2" />
-                          Suggest
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewComparison(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
-                        >
-                          <GitCompare className="w-4 h-4 mr-2" />
-                          Compare
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
-                        >
-                          <History className="w-4 h-4 mr-2" />
-                          History
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ReactQuill
-                      value={sectionContent[`${section.id}_${sub.id}`] || ""}
-                      onChange={(content) => handleContentChange(`${section.id}_${sub.id}`, content)}
-                      theme="snow"
-                      className="bg-white min-h-[250px]"
-                    />
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUploadContext(`${section.id}_${sub.id}`)}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Context
-                      </Button>
-                      
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => autoDraft(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '), sub.wordCount, sub.tone, true)}
-                        disabled={isGenerating[`${section.id}_${sub.id}`]}
-                      >
-                        {isGenerating[`${section.id}_${sub.id}`] ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-4 h-4 mr-2" />
-                        )}
-                        Auto-Draft
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+        <div className="grid gap-4">
+          <div>
+            <h3 className="font-semibold mb-3">Available Sections</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PROPOSAL_SECTIONS.map((sectionConfig) => {
+                const existingSection = sections.find(s => s.section_type === sectionConfig.id);
 
-      {/* Content Suggestions Panel */}
-      <Dialog open={showSuggestionsPanel} onOpenChange={setShowSuggestionsPanel}>
-        <DialogContent className="max-w-3xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-amber-500" />
-              Suggested Content from Library
-            </DialogTitle>
-            <DialogDescription>
-              Relevant boilerplate content you can insert into this section
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="h-[500px] pr-4">
-            {loadingSuggestions ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              </div>
-            ) : suggestions.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <Lightbulb className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="mb-2">No relevant content found</p>
-                <p className="text-sm text-slate-400">Create boilerplate content in the Resources page to get suggestions here</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
-                  <AlertDescription className="text-sm text-blue-900">
-                    Found {suggestions.length} relevant pieces of content from your library
-                  </AlertDescription>
-                </Alert>
-
-                {suggestions.map((resource) => (
-                  <Card key={resource.id} className="border-slate-200">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
+                return (
+                  <Card key={sectionConfig.id} className={`cursor-pointer transition-all ${
+                    existingSection
+                      ? 'border-green-300 bg-green-50 hover:shadow-md'
+                      : 'border-slate-200 hover:border-blue-300 hover:shadow-md'
+                  }`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CardTitle className="text-base">{resource.title}</CardTitle>
-                            <Badge variant="secondary" className="capitalize text-xs">
-                              {resource.content_category?.replace(/_/g, ' ')}
-                            </Badge>
-                            {resource.word_count && (
-                              <Badge variant="outline" className="text-xs">
-                                {resource.word_count} words
+                          <h4 className="font-semibold text-sm mb-1">{sectionConfig.name}</h4>
+                          <p className="text-xs text-slate-600 mb-2">{sectionConfig.description}</p>
+                          {existingSection && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge className={getStatusColor(existingSection.status)}>
+                                {existingSection.status}
                               </Badge>
-                            )}
-                          </div>
-                          
-                          {resource.relevance_reason && (
-                            <Alert className="bg-amber-50 border-amber-200 mt-2">
-                              <AlertDescription className="text-xs text-amber-900">
-                                <strong>Why this is relevant:</strong> {resource.relevance_reason}
-                              </AlertDescription>
-                            </Alert>
-                          )}
-
-                          {resource.tags && resource.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {resource.tags.map((tag, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
+                              <span className="text-xs text-slate-500">
+                                {existingSection.word_count} words
+                              </span>
                             </div>
                           )}
                         </div>
-
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => insertBoilerplate(resource, currentSectionId)}
-                          className="ml-4"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Insert
-                        </Button>
+                        {existingSection && (
+                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                        )}
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div 
-                        className="prose prose-sm max-w-none text-slate-700 p-3 bg-slate-50 rounded border line-clamp-4"
-                        dangerouslySetInnerHTML={{ __html: resource.boilerplate_content }}
-                      />
+
+                      <div className="flex gap-2">
+                        {existingSection ? (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => setSelectedSection(existingSection)} className="flex-1">
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleEdit(existingSection)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDelete(existingSection)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => autoDraft(sectionConfig)}
+                            disabled={isGenerating || !proposalId}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700"
+                          >
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            AI Generate
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSuggestionsPanel(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-      {/* Version Comparison Dialog */}
-      <Dialog open={showComparisonDialog} onOpenChange={setShowComparisonDialog}>
-        <DialogContent className="max-w-7xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <GitCompare className="w-5 h-5 text-blue-600" />
-              Version Comparison: {selectedSectionForComparison?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Compare different versions side-by-side and restore any previous version
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="h-[70vh]">
-            {selectedSectionForComparison && (
-              <VersionComparison
-                sectionId={selectedSectionForComparison.id}
-                sectionName={selectedSectionForComparison.name}
-                proposalId={proposal.id}
-                onRestore={handleRestoreVersion}
-                currentContent={sectionContent[selectedSectionForComparison.id]}
-              />
-            )}
-          </ScrollArea>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {isGenerating && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+            <AlertDescription>
+              <p className="font-semibold text-blue-900">AI is generating your content...</p>
+              <p className="text-sm text-blue-700">Analyzing solicitation, teaming partners, requirements, and win themes...</p>
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {/* Simple History Viewer Dialog */}
-      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Version History: {selectedSectionForHistory?.name}</DialogTitle>
-            <DialogDescription>
-              View and restore previous versions of this section
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="h-[500px] pr-4">
-            {loadingHistory ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        {editingSection && (
+          <Card className="border-indigo-300 bg-indigo-50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Editing: {editingSection.section_name}</CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={generateContentSuggestions}
+                    disabled={isLoadingSuggestions}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {isLoadingSuggestions ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Lightbulb className="w-4 h-4 mr-2" />
+                    )}
+                    AI Suggestions
+                  </Button>
+                  <Button
+                    onClick={checkCompliance}
+                    disabled={isCheckingCompliance}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {isCheckingCompliance ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Shield className="w-4 h-4 mr-2" />
+                    )}
+                    Check Compliance
+                  </Button>
+                  <Button
+                    onClick={checkQuality}
+                    disabled={isCheckingQuality}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {isCheckingQuality ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                    )}
+                    Check Quality
+                  </Button>
+                  <Button onClick={handleSave} disabled={isSaving} size="sm">
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save
+                  </Button>
+                  <Button onClick={() => { setEditingSection(null); setAiSuggestions([]); setComplianceResults(null); setQualityResults(null); }} size="sm" variant="outline">
+                    Cancel
+                  </Button>
+                </div>
               </div>
-            ) : historyRecords.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <History className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p>No version history yet</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-white rounded-lg">
+                <ReactQuill
+                  value={content}
+                  onChange={setContent}
+                  className="h-96"
+                  modules={{
+                    toolbar: [
+                      [{ header: [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline'],
+                      [{ list: 'ordered' }, { list: 'bullet' }],
+                      ['link'],
+                      ['clean']
+                    ]
+                  }}
+                />
               </div>
-            ) : (
-              <div className="space-y-4">
-                {historyRecords.map((record) => (
-                  <Card key={record.id} className="border-slate-200">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline">Version {record.version_number}</Badge>
+
+              {aiSuggestions.length > 0 && (
+                <Card className="bg-yellow-50 border-yellow-200">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Lightbulb className="w-5 h-5 text-yellow-600" />
+                      AI Content Suggestions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {aiSuggestions.map((suggestion, idx) => (
+                      <div key={idx} className="p-3 bg-white border rounded-lg">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-sm text-yellow-900">{suggestion.title}</h5>
+                            <p className="text-xs text-yellow-700 mt-1">{suggestion.rationale}</p>
+                            {suggestion.addresses_requirement && (
+                              <Badge variant="outline" className="text-xs mt-1">
+                                Addresses: {suggestion.addresses_requirement}
+                              </Badge>
+                            )}
+                          </div>
+                          <Button size="sm" onClick={() => insertSuggestion(suggestion)}>
+                            <Plus className="w-3 h-3 mr-1" />
+                            Insert
+                          </Button>
+                        </div>
+                        <div className="mt-2 p-2 bg-slate-50 rounded text-xs">
+                          <div dangerouslySetInnerHTML={{ __html: suggestion.content.substring(0, 200) + '...' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {complianceResults && (
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-blue-600" />
+                      Compliance Analysis
+                      <Badge className={
+                        complianceResults.overall_compliance_score >= 80 ? 'bg-green-100 text-green-700' :
+                          complianceResults.overall_compliance_score >= 60 ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                      }>
+                        {complianceResults.overall_compliance_score}% Compliant
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Progress value={complianceResults.overall_compliance_score} className="h-2" />
+
+                    <div className="space-y-2">
+                      {complianceResults.requirements_checked?.slice(0, 5).map((req, idx) => (
+                        <div key={idx} className="p-2 bg-white rounded border">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{req.requirement_title}</span>
                             <Badge className={
-                              record.change_type === 'ai_generated' ? 'bg-purple-100 text-purple-700' :
-                              record.change_type === 'ai_regenerated' ? 'bg-indigo-100 text-indigo-700' :
-                              record.change_type === 'user_edit' ? 'bg-blue-100 text-blue-700' :
-                              record.change_type === 'restored_from_history' ? 'bg-amber-100 text-amber-700' :
-                              'bg-slate-100 text-slate-700'
+                              req.status === 'fully_addressed' ? 'bg-green-100 text-green-700' :
+                                req.status === 'partially_addressed' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-red-100 text-red-700'
                             }>
-                              {record.change_type.replace(/_/g, ' ')}
+                              {req.status.replace(/_/g, ' ')}
                             </Badge>
                           </div>
-                          <p className="text-sm text-slate-600">
-                            {record.changed_by_user_name} • {new Date(record.created_date).toLocaleString()} • {record.word_count} words
-                          </p>
-                          {record.change_summary && (
-                            <p className="text-sm text-slate-500 mt-1">{record.change_summary}</p>
+                          {req.recommendation && (
+                            <p className="text-xs text-slate-600">{req.recommendation}</p>
                           )}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRestoreVersion(record)}
-                        >
-                          <RotateCcw className="w-4 h-4 mr-2" />
-                          Restore
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div 
-                        className="prose prose-sm max-w-none text-slate-700 p-3 bg-slate-50 rounded border"
-                        dangerouslySetInnerHTML={{ __html: record.content }}
-                      />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowHistoryDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                      ))}
+                    </div>
 
-      <div className="flex gap-4 pt-6 border-t">
-        <Button onClick={saveAll} size="lg" className="flex-1">
-          Save All Sections
-        </Button>
-        <Button 
-          size="lg" 
-          className="flex-1 bg-green-600 hover:bg-green-700"
-          onClick={() => {
-            saveAll().then(() => {
+                    {complianceResults.missing_critical_elements?.length > 0 && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="w-4 h-4" />
+                        <AlertDescription>
+                          <p className="font-semibold mb-1">Missing Critical Elements:</p>
+                          <ul className="text-sm space-y-1">
+                            {complianceResults.missing_critical_elements.map((elem, idx) => (
+                              <li key={idx}>• {elem}</li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {qualityResults && (
+                <Card className="bg-green-50 border-green-200">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-green-600" />
+                      Quality Analysis
+                      <Badge className={
+                        qualityResults.overall_quality_score >= 80 ? 'bg-green-100 text-green-700' :
+                          qualityResults.overall_quality_score >= 60 ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                      }>
+                        {qualityResults.overall_quality_score}/100
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.entries(qualityResults.criteria_scores || {}).map(([key, score]) => (
+                        <div key={key} className="p-2 bg-white rounded border">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium capitalize">{key.replace(/_/g, ' ')}</span>
+                            <span className="text-xs font-bold">{score}/100</span>
+                          </div>
+                          <Progress value={score} className="h-1" />
+                        </div>
+                      ))}
+                    </div>
+
+                    {qualityResults.strengths?.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-green-900 mb-1">Strengths:</p>
+                        <ul className="text-xs text-green-800 space-y-1">
+                          {qualityResults.strengths.map((strength, idx) => (
+                            <li key={idx}>✓ {strength}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {qualityResults.issues_found?.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-red-900 mb-1">Issues Found:</p>
+                        <div className="space-y-2">
+                          {qualityResults.issues_found.slice(0, 3).map((issue, idx) => (
+                            <div key={idx} className="p-2 bg-white border rounded">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant={
+                                  issue.severity === 'high' ? 'destructive' :
+                                    issue.severity === 'medium' ? 'secondary' :
+                                      'outline'
+                                }>
+                                  {issue.severity}
+                                </Badge>
+                                <span className="text-xs font-medium">{issue.issue}</span>
+                              </div>
+                              <p className="text-xs text-slate-600">{issue.recommendation}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedSection && !editingSection && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>{selectedSection.section_name}</CardTitle>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge className={getStatusColor(selectedSection.status)}>
+                      {selectedSection.status}
+                    </Badge>
+                    <span className="text-sm text-slate-600">
+                      {selectedSection.word_count} words
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleEdit(selectedSection)} size="sm">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={() => autoDraft(PROPOSAL_SECTIONS.find(s => s.id === selectedSection.section_type))}
+                    size="sm"
+                    variant="outline"
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="prose max-w-none"
+                dangerouslySetInnerHTML={{ __html: selectedSection.content }}
+              />
+            </CardContent>
+          </Card>
+        )}
+         <div className="flex gap-4 pt-6 border-t">
+          <Button
+            size="lg"
+            className="flex-1 bg-green-600 hover:bg-green-700"
+            onClick={() => {
               const event = new CustomEvent('navigateToPhase', { detail: 'phase7' });
               window.dispatchEvent(event);
-            });
-          }}
-        >
-          Continue to Finalize
-        </Button>
-      </div>
-    </div>
+            }}
+          >
+            Continue to Finalize
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
