@@ -16,7 +16,8 @@ import {
   DollarSign,
   Settings,
   BarChart3,
-  Download // Added Download icon
+  Download, // Added Download icon
+  Globe // Added Globe icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,11 @@ const navigationItems = [
     title: "Dashboard",
     url: createPageUrl("Dashboard"),
     icon: LayoutDashboard,
+  },
+  {
+    title: "Opportunities",
+    url: createPageUrl("OpportunityFinder"),
+    icon: Globe,
   },
   {
     title: "Proposals",
