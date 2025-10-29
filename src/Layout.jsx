@@ -24,7 +24,8 @@ import {
   Calendar,
   CheckSquare,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Handshake
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,6 +54,7 @@ const navigationItems = [
   { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
+  { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
   { title: "Team", url: createPageUrl("Team"), icon: Users },
   { title: "Resources", url: createPageUrl("Resources"), icon: Library },
   { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare },
