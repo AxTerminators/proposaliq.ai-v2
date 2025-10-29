@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { hasAppPermission } from "../settings/AppRoleChecker";
+import { notifyStatusChange } from "@/utils/notificationHelpers";
 
 const DEFAULT_COLUMNS = [
   { id: "evaluating", display_name: "Evaluating", order: 0, type: "default_status", default_status_mapping: "evaluating", is_collapsed: false },
@@ -82,7 +84,28 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
 
   const updateProposalMutation = useMutation({
     mutationFn: async ({ proposalId, updates }) => {
+      // Get the old proposal data before update
+      const oldProposal = proposals.find(p => p.id === proposalId);
+      
       await base44.entities.Proposal.update(proposalId, updates);
+      
+      // If status changed, send notifications
+      if (updates.status && oldProposal && oldProposal.status !== updates.status) {
+        const currentUser = await base44.auth.me();
+        
+        // Get team members (simplified - notify creator for now)
+        // In a full implementation, you'd get all team members from proposal
+        const teamEmails = [oldProposal.created_by];
+        
+        await notifyStatusChange({
+          proposal: { ...oldProposal, ...updates }, // Merged for the latest state
+          oldStatus: oldProposal.status,
+          newStatus: updates.status,
+          changedByEmail: currentUser.email,
+          changedByName: currentUser.full_name,
+          teamEmails: teamEmails
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
@@ -119,6 +142,12 @@ export default function ProposalsKanban({ proposals, organizationId, userRole })
       updates.custom_workflow_stage_id = null;
     } else {
       updates.custom_workflow_stage_id = destColumn.id;
+      // If moving to a custom stage, clear the default status unless it's already "draft" or similar
+      // For now, let's assume moving to custom stage implies it's no longer a default 'status'
+      // This might need refinement based on exact workflow requirements
+      if (proposal.status !== "draft" && proposal.status !== "in_progress" && proposal.status !== "submitted") {
+        updates.status = "draft"; // Or some other appropriate default when entering custom workflow
+      }
     }
 
     // Perform the update
