@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ProposalsKanban({ proposals, onProposalClick, onDeleteProposal, isLoading, user, organization }) {
+export default function ProposalsKanban({ proposals = [], onProposalClick, onDeleteProposal, isLoading, user, organization }) {
   const queryClient = useQueryClient();
   const [columns, setColumns] = useState([]);
   const [isEditingColumns, setIsEditingColumns] = useState(false);
@@ -72,12 +73,12 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
           
           let savedColumns = config.columns || defaultColumns;
           
-          // Ensure all columns have type and default_status_mapping
+          // Ensure all columns have required properties
           savedColumns = savedColumns.map((col, idx) => {
             const defaultCol = defaultColumns.find(dc => dc.id === col.id);
             return {
-              ...col,
-              label: col.label || (defaultCol ? defaultCol.label : col.id),
+              id: col.id || `col_${idx}`,
+              label: col.label || (defaultCol ? defaultCol.label : col.id || `Column ${idx + 1}`),
               color: col.color || (defaultCol ? defaultCol.color : 'bg-slate-100'),
               order: col.order !== undefined ? col.order : (defaultCol ? defaultCol.order : idx),
               type: col.type || (defaultCol ? 'default_status' : 'custom_stage'),
@@ -109,8 +110,16 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ proposalId, newColumnId, oldColumnId }) => {
-      const newColumn = columns.find(c => c.id === newColumnId);
-      const oldColumn = columns.find(c => c.id === oldColumnId);
+      if (!proposalId || !newColumnId || !columns || columns.length === 0) {
+        throw new Error("Missing required data for status update");
+      }
+
+      const newColumn = columns.find(c => c?.id === newColumnId);
+      const oldColumn = columns.find(c => c?.id === oldColumnId);
+
+      if (!newColumn) {
+        throw new Error("Destination column not found");
+      }
 
       // Prepare update data
       const updateData = {};
@@ -130,8 +139,8 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
       const allUsers = await base44.entities.User.list();
       const teamEmails = allUsers
         .filter(u => {
-          const accesses = u.client_accesses || [];
-          return accesses.some(a => a.organization_id === organization.id);
+          const accesses = u?.client_accesses || [];
+          return accesses.some(a => a?.organization_id === organization?.id);
         })
         .map(u => u.email);
 
@@ -140,10 +149,18 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     },
+    onError: (error) => {
+      console.error("Error updating proposal status:", error);
+      alert("Error moving proposal. Please try again.");
+    }
   });
 
   const saveColumnConfigMutation = useMutation({
     mutationFn: async (newColumns) => {
+      if (!organization?.id) {
+        throw new Error("Organization ID is required");
+      }
+
       const configs = await base44.entities.KanbanConfig.filter({
         organization_id: organization.id
       });
@@ -170,10 +187,18 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
     },
+    onError: (error) => {
+      console.error("Error saving column config:", error);
+      alert("Error saving column configuration. Please try again.");
+    }
   });
 
   const saveCollapsedStateMutation = useMutation({
     mutationFn: async (newCollapsedColumns) => {
+      if (!organization?.id) {
+        throw new Error("Organization ID is required");
+      }
+
       if (configId) {
         await base44.entities.KanbanConfig.update(configId, {
           collapsed_column_ids: newCollapsedColumns
@@ -194,6 +219,10 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
 
   const resetToDefaultMutation = useMutation({
     mutationFn: async () => {
+      if (!organization?.id) {
+        throw new Error("Organization ID is required");
+      }
+
       const configs = await base44.entities.KanbanConfig.filter({
         organization_id: organization.id
       });
@@ -246,6 +275,11 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
     const newColumnId = destination.droppableId;
     const oldColumnId = source.droppableId;
 
+    if (!proposalId || !newColumnId || !oldColumnId) {
+      console.error("Missing drag data", { proposalId, newColumnId, oldColumnId });
+      return;
+    }
+
     updateStatusMutation.mutate({ proposalId, newColumnId, oldColumnId });
   };
 
@@ -273,13 +307,18 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
   };
 
   const handleDeleteColumn = async (column) => {
+    if (!column || !column.id) {
+      alert("Invalid column");
+      return;
+    }
+
     if (column.type === 'default_status') {
       alert("Default columns cannot be deleted. You can only customize their labels and colors.");
       return;
     }
 
     // Check if column has any proposals
-    const proposalsInColumn = proposals.filter(p => p.custom_workflow_stage_id === column.id);
+    const proposalsInColumn = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
 
     if (proposalsInColumn.length > 0) {
       setColumnDeleteError({
@@ -301,7 +340,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
     if (!columnToDelete) return;
 
     // Remove column from config
-    setColumnConfig(prev => prev.filter(col => col.id !== columnToDelete.id));
+    setColumnConfig(prev => prev.filter(col => col?.id !== columnToDelete.id));
     setShowColumnDeleteWarning(false);
     setColumnToDelete(null);
     setColumnDeleteError(null);
@@ -329,12 +368,14 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
   const handleColumnChange = (columnId, field, value) => {
     setColumnConfig(prev =>
       prev.map(col =>
-        col.id === columnId ? { ...col, [field]: value } : col
+        col?.id === columnId ? { ...col, [field]: value } : col
       )
     );
   };
 
   const handleToggleCollapse = (columnId) => {
+    if (!columnId) return;
+
     const newCollapsedColumns = collapsedColumns.includes(columnId) 
       ? collapsedColumns.filter(id => id !== columnId)
       : [...collapsedColumns, columnId];
@@ -350,21 +391,23 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
   };
 
   const confirmDelete = () => {
-    if (proposalToDelete) {
+    if (proposalToDelete?.id) {
       deleteProposalMutation.mutate(proposalToDelete.id);
     }
   };
 
   const groupedProposals = columns.reduce((acc, column) => {
+    if (!column || !column.id) return acc;
+
     if (column.type === 'default_status') {
-      acc[column.id] = proposals.filter(p => p.status === column.default_status_mapping);
+      acc[column.id] = (proposals || []).filter(p => p?.status === column.default_status_mapping);
     } else {
-      acc[column.id] = proposals.filter(p => p.custom_workflow_stage_id === column.id);
+      acc[column.id] = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
     }
     return acc;
   }, {});
 
-  if (isLoading) {
+  if (isLoading || !organization) {
     return (
       <div className="flex gap-4 overflow-x-auto pb-4">
         {[1, 2, 3, 4].map(i => (
@@ -410,62 +453,66 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
               {/* Existing Columns */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-sm">Existing Columns</h3>
-                {columnConfig.map((column, index) => (
-                  <div key={column.id} className="flex gap-4 items-center p-4 border rounded-lg bg-slate-50">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Label className="text-xs font-semibold">Label</Label>
-                        {column.type === 'default_status' && (
-                          <span className="text-xs text-slate-500 italic">(Default Column)</span>
-                        )}
-                        {column.type === 'custom_stage' && (
-                          <span className="text-xs text-blue-600 italic">(Custom Stage)</span>
+                {columnConfig.map((column, index) => {
+                  if (!column || !column.id) return null;
+                  
+                  return (
+                    <div key={column.id} className="flex gap-4 items-center p-4 border rounded-lg bg-slate-50">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label className="text-xs font-semibold">Label</Label>
+                          {column.type === 'default_status' && (
+                            <span className="text-xs text-slate-500 italic">(Default Column)</span>
+                          )}
+                          {column.type === 'custom_stage' && (
+                            <span className="text-xs text-blue-600 italic">(Custom Stage)</span>
+                          )}
+                        </div>
+                        <Input
+                          value={column.label || ""}
+                          onChange={(e) => handleColumnChange(column.id, 'label', e.target.value)}
+                          placeholder="Column name"
+                        />
+                      </div>
+                      <div className="w-32 space-y-2">
+                        <Label className="text-xs font-semibold">Color</Label>
+                        <select
+                          value={column.color || "bg-slate-100"}
+                          onChange={(e) => handleColumnChange(column.id, 'color', e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="bg-slate-100">Gray</option>
+                          <option value="bg-blue-100">Blue</option>
+                          <option value="bg-purple-100">Purple</option>
+                          <option value="bg-indigo-100">Indigo</option>
+                          <option value="bg-green-100">Green</option>
+                          <option value="bg-yellow-100">Yellow</option>
+                          <option value="bg-red-100">Red</option>
+                          <option value="bg-pink-100">Pink</option>
+                          <option value="bg-amber-100">Amber</option>
+                          <option value="bg-teal-100">Teal</option>
+                        </select>
+                      </div>
+                      <div className="text-sm text-slate-500 w-16 text-center">
+                        Order: {index + 1}
+                      </div>
+                      <div>
+                        {column.type === 'custom_stage' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteColumn(column)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <div className="w-10" />
                         )}
                       </div>
-                      <Input
-                        value={column.label}
-                        onChange={(e) => handleColumnChange(column.id, 'label', e.target.value)}
-                        placeholder="Column name"
-                      />
                     </div>
-                    <div className="w-32 space-y-2">
-                      <Label className="text-xs font-semibold">Color</Label>
-                      <select
-                        value={column.color}
-                        onChange={(e) => handleColumnChange(column.id, 'color', e.target.value)}
-                        className="w-full px-3 py-2 border rounded-md"
-                      >
-                        <option value="bg-slate-100">Gray</option>
-                        <option value="bg-blue-100">Blue</option>
-                        <option value="bg-purple-100">Purple</option>
-                        <option value="bg-indigo-100">Indigo</option>
-                        <option value="bg-green-100">Green</option>
-                        <option value="bg-yellow-100">Yellow</option>
-                        <option value="bg-red-100">Red</option>
-                        <option value="bg-pink-100">Pink</option>
-                        <option value="bg-amber-100">Amber</option>
-                        <option value="bg-teal-100">Teal</option>
-                      </select>
-                    </div>
-                    <div className="text-sm text-slate-500 w-16 text-center">
-                      Order: {index + 1}
-                    </div>
-                    <div>
-                      {column.type === 'custom_stage' ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteColumn(column)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      ) : (
-                        <div className="w-10" />
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Add New Column */}
@@ -718,6 +765,8 @@ export default function ProposalsKanban({ proposals, onProposalClick, onDeletePr
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((column) => {
+            if (!column || !column.id) return null;
+
             const isColumnCollapsed = collapsedColumns.includes(column.id);
             return (
               <Droppable key={column.id} droppableId={column.id}>
