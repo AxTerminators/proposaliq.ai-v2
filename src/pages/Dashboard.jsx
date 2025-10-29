@@ -4,7 +4,6 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useClient } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,54 +38,78 @@ import RevenueChart from "../components/dashboard/RevenueChart";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, activeClientId, activeClientName, loading: clientLoading } = useClient();
+  const [user, setUser] = React.useState(null);
+  const [organization, setOrganization] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
 
-  // Redirect to onboarding if no active client
   React.useEffect(() => {
-    if (!clientLoading && !activeClientId) {
-      navigate(createPageUrl("Onboarding"));
-    }
-  }, [clientLoading, activeClientId, navigate]);
+    const loadData = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: currentUser.email },
+          '-created_date',
+          1
+        );
+        
+        if (orgs.length > 0) {
+          setOrganization(orgs[0]);
+        } else {
+          navigate(createPageUrl("Onboarding"));
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+        // Handle error, maybe navigate to an error page or show a message
+        // For now, if there's an error, still set loading to false to unblock UI
+        setLoading(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [navigate]);
 
   const { data: proposals } = useQuery({
-    queryKey: ['proposals', activeClientId],
+    queryKey: ['proposals', organization?.id],
     queryFn: async () => {
-      if (!activeClientId) return [];
+      if (!organization?.id) return [];
       return base44.entities.Proposal.filter(
-        { organization_id: activeClientId },
+        { organization_id: organization.id },
         '-updated_date'
       );
     },
     initialData: [],
-    enabled: !!activeClientId,
+    enabled: !!organization?.id,
   });
 
   const { data: activityLog } = useQuery({
-    queryKey: ['activity-log', activeClientId],
+    queryKey: ['activity-log', organization?.id],
     queryFn: async () => {
-      if (!activeClientId) return [];
+      if (!organization?.id) return [];
       const activities = await base44.entities.ActivityLog.list('-created_date', 50);
       return activities.filter(a => {
         const proposal = proposals.find(p => p.id === a.proposal_id);
-        return proposal?.organization_id === activeClientId;
+        return proposal?.organization_id === organization.id;
       });
     },
     initialData: [],
-    enabled: !!activeClientId && proposals.length > 0,
+    enabled: !!organization?.id && proposals.length > 0,
   });
 
   const { data: opportunities } = useQuery({
-    queryKey: ['opportunities-count', activeClientId],
+    queryKey: ['opportunities-count', organization?.id],
     queryFn: async () => {
-      if (!activeClientId) return [];
+      if (!organization?.id) return [];
       return base44.entities.SAMOpportunity.filter(
-        { organization_id: activeClientId, status: 'new' },
+        { organization_id: organization.id, status: 'new' },
         '-match_score',
         10
       );
     },
     initialData: [],
-    enabled: !!activeClientId,
+    enabled: !!organization?.id,
   });
 
   const { data: notifications } = useQuery({
@@ -184,7 +207,7 @@ export default function Dashboard() {
     return "bg-slate-100 text-slate-700 border-slate-300";
   };
 
-  if (clientLoading || !activeClientId) {
+  if (loading || !organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -204,7 +227,7 @@ export default function Dashboard() {
             <span className="text-2xl md:text-3xl">Welcome back, {user?.full_name?.split(' ')[0]}!</span>
           </span>
         }
-        description={activeClientName}
+        description={organization.organization_name}
       />
 
       {/* Key Metrics Cards */}
