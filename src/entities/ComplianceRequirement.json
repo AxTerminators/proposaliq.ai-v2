@@ -1,0 +1,151 @@
+{
+  "name": "ComplianceRequirement",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this requirement"
+    },
+    "requirement_id": {
+      "type": "string",
+      "description": "Unique identifier for this requirement (e.g., FAR-52.215-1)"
+    },
+    "requirement_title": {
+      "type": "string",
+      "description": "Title of the requirement"
+    },
+    "requirement_type": {
+      "type": "string",
+      "enum": [
+        "far",
+        "dfars",
+        "agency_specific",
+        "solicitation_specific",
+        "contract_clause",
+        "certification",
+        "submission_format",
+        "other"
+      ],
+      "description": "Type of compliance requirement"
+    },
+    "requirement_category": {
+      "type": "string",
+      "enum": [
+        "mandatory",
+        "desirable",
+        "information_only"
+      ],
+      "default": "mandatory",
+      "description": "Importance level of requirement"
+    },
+    "requirement_description": {
+      "type": "string",
+      "description": "Detailed description of what's required"
+    },
+    "requirement_source": {
+      "type": "string",
+      "description": "Where this requirement came from (e.g., RFP Section L)"
+    },
+    "compliance_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "compliant",
+        "non_compliant",
+        "needs_review",
+        "waived",
+        "not_applicable"
+      ],
+      "default": "not_started",
+      "description": "Current compliance status"
+    },
+    "addressed_in_sections": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which proposal sections address this requirement"
+    },
+    "evidence_provided": {
+      "type": "string",
+      "description": "What evidence/documentation addresses this requirement"
+    },
+    "compliance_notes": {
+      "type": "string",
+      "description": "Notes about compliance status"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "Risk level if not compliant"
+    },
+    "remediation_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Actions needed to achieve compliance"
+    },
+    "responsible_person": {
+      "type": "string",
+      "description": "Who is responsible for addressing this"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When this must be addressed by"
+    },
+    "ai_detected": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this was detected by AI"
+    },
+    "ai_confidence": {
+      "type": "number",
+      "description": "AI confidence in detecting this requirement (0-100)"
+    },
+    "page_limit": {
+      "type": "number",
+      "description": "Page limit for this section if applicable"
+    },
+    "format_requirements": {
+      "type": "object",
+      "properties": {
+        "font": {
+          "type": "string"
+        },
+        "font_size": {
+          "type": "number"
+        },
+        "margins": {
+          "type": "string"
+        },
+        "line_spacing": {
+          "type": "number"
+        }
+      },
+      "description": "Specific formatting requirements"
+    },
+    "last_checked_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When compliance was last verified"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "organization_id",
+    "requirement_title",
+    "requirement_type"
+  ]
+}
