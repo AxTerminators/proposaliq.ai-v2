@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -24,9 +26,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { 
-  Plus, 
-  X, 
+import {
+  Plus,
+  X,
   Sparkles,
   Loader2,
   Building2,
@@ -36,8 +38,10 @@ import {
   Star,
   Users,
   Target,
-  Award
+  Award,
+  CheckCircle2
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function AddProjectForm({ project, organizationId, onClose }) {
   const queryClient = useQueryClient();
@@ -670,7 +674,7 @@ Return as JSON:
                     step="0.1"
                     value={formData.outcomes?.customer_satisfaction || 4.5}
                     onChange={(e) => setFormData({
-                      ...formData,
+                      ...formData.outcomes,
                       outcomes: { ...formData.outcomes, customer_satisfaction: parseFloat(e.target.value) }
                     })}
                   />
@@ -685,7 +689,7 @@ Return as JSON:
                     step="0.1"
                     value={formData.outcomes?.sla_compliance_pct || 99.5}
                     onChange={(e) => setFormData({
-                      ...formData,
+                      ...formData.outcomes,
                       outcomes: { ...formData.outcomes, sla_compliance_pct: parseFloat(e.target.value) }
                     })}
                   />
