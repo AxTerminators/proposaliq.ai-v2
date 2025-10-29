@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -14,7 +13,8 @@ import {
   Shield,
   CreditCard,
   DollarSign,
-  Settings // Added Settings icon
+  Settings,
+  BarChart3 // Added Analytics icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -61,12 +61,17 @@ const navigationItems = [
     icon: MessageCircle,
   },
   {
+    title: "Analytics", // Added Analytics
+    url: createPageUrl("Analytics"),
+    icon: BarChart3,
+  },
+  {
     title: "Pricing",
     url: createPageUrl("Pricing"),
     icon: DollarSign,
   },
   {
-    title: "Settings", // Added Settings item
+    title: "Settings",
     url: createPageUrl("Settings"),
     icon: Settings,
   },
