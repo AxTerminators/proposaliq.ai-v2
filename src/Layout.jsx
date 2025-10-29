@@ -20,7 +20,8 @@ import {
   Globe,
   X,
   Award, // Added Award icon
-  Users // Added Users icon
+  Users, // Added Users icon
+  Calendar // Added Calendar icon
 } from "lucide-react";
 import {
   Sidebar,
