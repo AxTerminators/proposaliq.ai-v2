@@ -1,17 +1,15 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Building2, TrendingUp } from "lucide-react";
 import { Draggable } from "@hello-pangea/dnd";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, GripVertical } from "lucide-react";
+import { format } from "date-fns";
 
-export default function KanbanCard({ proposal, index }) {
-  const navigate = useNavigate();
-
-  const handleClick = (e) => {
-    e.stopPropagation();
-    navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`));
+export default function KanbanCard({ proposal, index, onProposalClick }) {
+  const priorityColors = {
+    low: "bg-blue-100 text-blue-800",
+    medium: "bg-yellow-100 text-yellow-800",
+    high: "bg-red-100 text-red-800"
   };
 
   return (
@@ -21,48 +19,48 @@ export default function KanbanCard({ proposal, index }) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          className="mb-3"
         >
-          <Card
-            onClick={handleClick}
-            className={`mb-3 cursor-pointer transition-all hover:shadow-lg ${
-              snapshot.isDragging ? "shadow-2xl rotate-2 scale-105" : ""
+          <Card 
+            className={`cursor-pointer hover:shadow-md transition-all ${
+              snapshot.isDragging ? "shadow-lg rotate-2" : ""
             }`}
+            onClick={() => onProposalClick && onProposalClick(proposal)}
           >
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2">
-                {proposal.proposal_name}
-              </h3>
-              
-              <div className="space-y-2 text-sm">
-                {proposal.agency_name && (
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Building2 className="w-3 h-3" />
-                    <span className="truncate">{proposal.agency_name}</span>
-                  </div>
-                )}
-                
-                {proposal.due_date && (
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Calendar className="w-3 h-3" />
-                    <span>{new Date(proposal.due_date).toLocaleDateString()}</span>
-                  </div>
-                )}
-
-                {proposal.solicitation_number && (
-                  <div className="text-xs text-slate-500">
-                    #{proposal.solicitation_number}
-                  </div>
-                )}
-
+            <CardHeader className="p-3 pb-2">
+              <div className="flex items-start gap-2">
+                <GripVertical className="w-4 h-4 text-slate-400 flex-shrink-0 mt-1" />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1">
+                    {proposal.proposal_name}
+                  </h4>
+                  {proposal.agency_name && (
+                    <p className="text-xs text-slate-600 truncate">
+                      {proposal.agency_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="p-3 pt-0">
+              <div className="flex flex-wrap gap-1 mb-2">
+                <Badge variant="outline" className="text-xs capitalize">
+                  {proposal.project_type || "RFP"}
+                </Badge>
                 {proposal.match_score && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <TrendingUp className="w-3 h-3 text-green-600" />
-                    <Badge variant="outline" className="text-xs">
-                      {proposal.match_score}% Match
-                    </Badge>
-                  </div>
+                  <Badge className="text-xs bg-green-100 text-green-800">
+                    {proposal.match_score}% match
+                  </Badge>
                 )}
               </div>
+              
+              {proposal.due_date && (
+                <div className="flex items-center gap-1 text-xs text-slate-600">
+                  <Calendar className="w-3 h-3" />
+                  <span>Due {format(new Date(proposal.due_date), 'MMM d, yyyy')}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
