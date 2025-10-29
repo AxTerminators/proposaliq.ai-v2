@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,15 +37,27 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ExportDialog from "../export/ExportDialog";
 import SubmissionReadinessChecker from "./SubmissionReadinessChecker";
+import { notifyTaskAssigned } from "@/utils/notificationHelpers";
 
 export default function Phase7({ proposalData, setProposalData, proposalId }) {
   const navigate = useNavigate();
-  // queryClient removed as its usage was removed
+  const queryClient = useQueryClient(); // queryClient re-added as its usage is now present
   const [isReviewing, setIsReviewing] = useState(false);
   const [qualityReview, setQualityReview] = useState(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewContent, setPreviewContent] = useState("");
   const [showExportDialog, setShowExportDialog] = useState(false);
+
+  // New states required for createTaskMutation functionality
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    assigned_to_email: "",
+    assigned_to_name: "",
+    due_date: "",
+    priority: "medium"
+  });
 
   const [coverPage, setCoverPage] = useState({
     preparedFor: proposalData.agency_name || "",
@@ -261,6 +273,41 @@ Be thorough and specific. This is a final quality check before submission to the
     if (level === 'needs_minor_fixes') return 'text-amber-600';
     return 'text-red-600';
   };
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskData) => {
+      const task = await base44.entities.ProposalTask.create(taskData);
+      
+      // Send notification to assigned user
+      if (taskData.assigned_to_email) {
+        const currentUser = await base44.auth.me();
+        
+        await notifyTaskAssigned({
+          task: task,
+          assigneeEmail: taskData.assigned_to_email,
+          assigneeName: taskData.assigned_to_name,
+          assignerEmail: currentUser.email,
+          assignerName: currentUser.full_name,
+          proposalId: proposalId,
+          proposalName: proposalData.proposal_name
+        });
+      }
+      
+      return task;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+      setShowTaskDialog(false);
+      setNewTask({
+        title: "",
+        description: "",
+        assigned_to_email: "",
+        assigned_to_name: "",
+        due_date: "",
+        priority: "medium"
+      });
+    }
+  });
 
   return (
     <div className="space-y-6">
