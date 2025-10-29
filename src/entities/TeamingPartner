@@ -70,6 +70,13 @@
       },
       "description": "Small business and other certifications"
     },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Custom tags for categorization and search (e.g., state, region, capabilities like PMP, CMMC)"
+    },
     "core_capabilities": {
       "type": "array",
       "items": {

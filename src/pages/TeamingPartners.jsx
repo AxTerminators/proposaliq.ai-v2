@@ -25,7 +25,8 @@ import {
   Upload,
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Tag
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -68,6 +69,7 @@ export default function TeamingPartners() {
     primary_naics: "",
     secondary_naics: [],
     certifications: [],
+    tags: [], // Added tags field
     core_capabilities: [],
     differentiators: [],
     past_performance_summary: "",
@@ -80,6 +82,9 @@ export default function TeamingPartners() {
   });
 
   const [newItem, setNewItem] = useState("");
+  const [newTag, setNewTag] = useState(""); // State for new tag input
+  const [otherCertification, setOtherCertification] = useState(""); // State for "Other" certification input
+  const [showOtherCertInput, setShowOtherCertInput] = useState(false); // State to control visibility of "Other" certification input
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadingCapStatement, setUploadingCapStatement] = useState(false);
   const [capabilityStatementFile, setCapabilityStatementFile] = useState(null);
@@ -137,7 +142,6 @@ export default function TeamingPartners() {
       });
     },
     onSuccess: async (createdPartner) => {
-      // If there's a capability statement to upload, do it now
       if (capabilityStatementFile) {
         await uploadCapabilityStatement(createdPartner.id);
       }
@@ -153,7 +157,6 @@ export default function TeamingPartners() {
       return base44.entities.TeamingPartner.update(id, data);
     },
     onSuccess: async () => {
-      // If there's a new capability statement to upload, do it now
       if (capabilityStatementFile && editingPartner) {
         await uploadCapabilityStatement(editingPartner.id);
       }
@@ -249,6 +252,7 @@ export default function TeamingPartners() {
       primary_naics: "",
       secondary_naics: [],
       certifications: [],
+      tags: [], // Reset tags
       core_capabilities: [],
       differentiators: [],
       past_performance_summary: "",
@@ -260,6 +264,9 @@ export default function TeamingPartners() {
       years_in_business: null
     });
     setCapabilityStatementFile(null);
+    setShowOtherCertInput(false); // Reset other cert input visibility
+    setOtherCertification(""); // Reset other cert input value
+    setNewTag(""); // Reset new tag input value
   };
 
   const handleSavePartner = () => {
@@ -314,6 +321,34 @@ export default function TeamingPartners() {
     }
   };
 
+  const addOtherCertification = () => {
+    if (otherCertification.trim() && !formData.certifications?.includes(otherCertification.trim())) {
+      setFormData({
+        ...formData,
+        certifications: [...(formData.certifications || []), otherCertification.trim()]
+      });
+      setOtherCertification("");
+      setShowOtherCertInput(false);
+    }
+  };
+
+  const addTag = () => {
+    if (newTag.trim() && !formData.tags?.includes(newTag.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...(formData.tags || []), newTag.trim()]
+      });
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (index) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter((_, i) => i !== index)
+    });
+  };
+
   const handleDocumentUpload = async (e, resourceType, temporaryStorage) => {
     const file = e.target.files[0];
     if (file) {
@@ -332,7 +367,8 @@ export default function TeamingPartners() {
   const filteredPartners = partners.filter(p =>
     p.partner_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.poc_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.core_capabilities?.some(cap => cap.toLowerCase().includes(searchQuery.toLowerCase()))
+    p.core_capabilities?.some(cap => cap.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    p.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) // Include tags in search
   );
 
   const getStatusColor = (status) => {
@@ -370,7 +406,7 @@ export default function TeamingPartners() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <Input
-                    placeholder="Search partners..."
+                    placeholder="Search by name, capabilities, or tags..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
@@ -408,7 +444,13 @@ export default function TeamingPartners() {
                         </div>
                         <p className="text-sm text-slate-600 mb-2">{partner.poc_name}</p>
                         <div className="flex flex-wrap gap-1">
-                          {partner.core_capabilities?.slice(0, 2).map((cap, idx) => (
+                          {partner.tags?.slice(0, 2).map((tag, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              <Tag className="w-3 h-3 mr-1" />
+                              {tag}
+                            </Badge>
+                          ))}
+                          {partner.core_capabilities?.slice(0, 1).map((cap, idx) => (
                             <Badge key={idx} variant="outline" className="text-xs">
                               {cap}
                             </Badge>
@@ -430,11 +472,17 @@ export default function TeamingPartners() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-2xl mb-2">{selectedPartner.partner_name}</CardTitle>
-                      <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <div className="flex items-center gap-3 text-sm text-slate-600 flex-wrap">
                         <Badge className={getStatusColor(selectedPartner.status)}>
                           {selectedPartner.status}
                         </Badge>
                         <Badge variant="outline">{selectedPartner.partner_type?.replace('_', ' ')}</Badge>
+                        {selectedPartner.tags?.map((tag, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            <Tag className="w-3 h-3 mr-1" />
+                            {tag}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -844,7 +892,7 @@ export default function TeamingPartners() {
                 />
               </div>
 
-              {/* Small Business Certifications */}
+              {/* Small Business Certifications with "Other" option */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Award className="w-4 h-4" />
@@ -864,8 +912,91 @@ export default function TeamingPartners() {
                       {cert}
                     </Badge>
                   ))}
+                  
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:scale-105 transition-transform border-dashed border-blue-400 text-blue-600"
+                    onClick={() => setShowOtherCertInput(true)}
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Other
+                  </Badge>
                 </div>
-                <p className="text-xs text-slate-500">Click to select/deselect certifications</p>
+                
+                {showOtherCertInput && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={otherCertification}
+                      onChange={(e) => setOtherCertification(e.target.value)}
+                      placeholder="Enter custom certification (e.g., ISO 9001)"
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addOtherCertification())}
+                    />
+                    <Button type="button" onClick={addOtherCertification}>
+                      Add
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => { setShowOtherCertInput(false); setOtherCertification(""); }}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Display custom certifications */}
+                {formData.certifications?.filter(cert => !CERTIFICATIONS.includes(cert)).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <p className="text-xs text-slate-600 w-full">Custom certifications:</p>
+                    {formData.certifications.filter(cert => !CERTIFICATIONS.includes(cert)).map((cert, idx) => (
+                      <Badge key={idx} className="bg-blue-100 text-blue-700 gap-1">
+                        {cert}
+                        <X 
+                          className="w-3 h-3 cursor-pointer" 
+                          onClick={() => setFormData({
+                            ...formData, 
+                            certifications: formData.certifications.filter(c => c !== cert)
+                          })} 
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                
+                <p className="text-xs text-slate-500">Click badges to select/deselect, or add custom certifications</p>
+              </div>
+
+              {/* Tagging System */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Tag className="w-4 h-4" />
+                  Tags
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Add tag (e.g., GA, NC, PMP, CMMC)"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  />
+                  <Button type="button" onClick={addTag}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[60px]">
+                  {formData.tags?.length > 0 ? (
+                    formData.tags.map((tag, idx) => (
+                      <Badge key={idx} variant="secondary" className="gap-1">
+                        <Tag className="w-3 h-3" />
+                        {tag}
+                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeTag(idx)} />
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 flex items-center h-full">
+                      No tags added yet. Tags help with search and categorization.
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Add tags for states (GA, NC), certifications (PMP, CMMC), or any custom categorization
+                </p>
               </div>
 
               {/* Capability Statement Upload */}
