@@ -1,0 +1,126 @@
+{
+  "name": "SubcontractorPricing",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization managing this subcontractor"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "Proposal this pricing is for"
+    },
+    "subcontractor_id": {
+      "type": "string",
+      "description": "Reference to TeamingPartner entity"
+    },
+    "subcontractor_name": {
+      "type": "string",
+      "description": "Name of subcontractor"
+    },
+    "scope_of_work": {
+      "type": "string",
+      "description": "What work the subcontractor is performing"
+    },
+    "labor_categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category_name": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "number"
+          },
+          "hourly_rate": {
+            "type": "number"
+          },
+          "total_cost": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Labor categories from subcontractor"
+    },
+    "odc_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item_name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "ODC items from subcontractor"
+    },
+    "total_subcontractor_cost": {
+      "type": "number",
+      "description": "Total cost from subcontractor"
+    },
+    "prime_markup_percentage": {
+      "type": "number",
+      "description": "Markup percentage applied by prime"
+    },
+    "prime_markup_amount": {
+      "type": "number",
+      "description": "Dollar amount of markup"
+    },
+    "total_price_to_government": {
+      "type": "number",
+      "description": "Total price including prime markup"
+    },
+    "quote_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of subcontractor quote"
+    },
+    "quote_valid_until": {
+      "type": "string",
+      "format": "date",
+      "description": "Quote expiration date"
+    },
+    "quote_document_url": {
+      "type": "string",
+      "description": "URL to subcontractor quote document"
+    },
+    "negotiation_status": {
+      "type": "string",
+      "enum": [
+        "initial_quote",
+        "negotiating",
+        "final",
+        "accepted"
+      ],
+      "default": "initial_quote",
+      "description": "Status of negotiations"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notes about subcontractor pricing"
+    },
+    "payment_terms": {
+      "type": "string",
+      "description": "Payment terms with subcontractor"
+    },
+    "socioeconomic_status": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Small business certifications"
+    }
+  },
+  "required": [
+    "organization_id",
+    "proposal_id",
+    "subcontractor_name"
+  ]
+}
