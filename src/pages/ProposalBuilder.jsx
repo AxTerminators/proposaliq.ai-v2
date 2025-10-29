@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -160,6 +159,9 @@ export default function ProposalBuilder() {
   const currentPhaseIndex = PHASES.findIndex(p => p.id === currentPhase);
   const progress = ((currentPhaseIndex + 1) / PHASES.length) * 100;
 
+  // Guard clause - ensure all data is loaded before rendering tabs
+  const isDataLoaded = proposalId && user && organization;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -211,7 +213,7 @@ export default function ProposalBuilder() {
           </CardContent>
         </Card>
 
-        {proposalId && (
+        {isDataLoaded ? (
           <Tabs defaultValue="builder" className="mb-6">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="builder">Builder</TabsTrigger>
@@ -312,9 +314,7 @@ export default function ProposalBuilder() {
               />
             </TabsContent>
           </Tabs>
-        )}
-
-        {!proposalId && (
+        ) : (
           <>
             <div className="mb-6">
               {currentPhase === "phase1" && (

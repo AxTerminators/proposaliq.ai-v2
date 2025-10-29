@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +28,22 @@ import {
 import moment from "moment";
 
 export default function ProposalFiles({ proposal, user, organization }) {
+  // Guard clause
+  if (!proposal || !user || !organization) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <Paperclip className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+          <p className="text-slate-600">Loading files...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <ProposalFilesContent proposal={proposal} user={user} organization={organization} />;
+}
+
+function ProposalFilesContent({ proposal, user, organization }) {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -34,16 +51,16 @@ export default function ProposalFiles({ proposal, user, organization }) {
   const [description, setDescription] = useState("");
 
   const { data: documents, isLoading } = useQuery({
-    queryKey: ['proposal-documents', proposal?.id],
+    queryKey: ['proposal-documents', proposal.id],
     queryFn: async () => {
-      if (!proposal?.id) return [];
+      // The parent component ensures proposal.id is available
       return base44.entities.SolicitationDocument.filter(
         { proposal_id: proposal.id },
         '-created_date'
       );
     },
     initialData: [],
-    enabled: !!proposal?.id,
+    // `enabled` is implicitly true as `proposal.id` is guaranteed by the guard clause
   });
 
   const uploadFileMutation = useMutation({
@@ -75,7 +92,7 @@ export default function ProposalFiles({ proposal, user, organization }) {
       return document;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] }); // Invalidate with proposal.id
       setShowUploadDialog(false);
       setSelectedFile(null);
       setDescription("");
@@ -87,7 +104,7 @@ export default function ProposalFiles({ proposal, user, organization }) {
       await base44.entities.SolicitationDocument.delete(documentId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] }); // Invalidate with proposal.id
     },
   });
 

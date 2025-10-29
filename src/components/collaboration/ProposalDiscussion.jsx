@@ -22,6 +22,22 @@ import MentionHelper from "./MentionHelper";
 import moment from "moment";
 
 export default function ProposalDiscussion({ proposal, user, organization }) {
+  // Guard clause
+  if (!proposal || !user || !organization) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <MessageCircle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+          <p className="text-slate-600">Loading discussions...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <ProposalDiscussionContent proposal={proposal} user={user} organization={organization} />;
+}
+
+function ProposalDiscussionContent({ proposal, user, organization }) {
   const queryClient = useQueryClient();
   const [selectedDiscussion, setSelectedDiscussion] = useState(null);
   const [newDiscussionTitle, setNewDiscussionTitle] = useState("");
@@ -30,16 +46,14 @@ export default function ProposalDiscussion({ proposal, user, organization }) {
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
 
   const { data: discussions, isLoading } = useQuery({
-    queryKey: ['proposal-discussions', proposal?.id],
+    queryKey: ['proposal-discussions', proposal.id],
     queryFn: async () => {
-      if (!proposal?.id) return [];
       return base44.entities.Discussion.filter(
         { proposal_id: proposal.id },
         '-updated_date'
       );
     },
     initialData: [],
-    enabled: !!proposal?.id,
   });
 
   const { data: comments } = useQuery({
@@ -56,9 +70,8 @@ export default function ProposalDiscussion({ proposal, user, organization }) {
   });
 
   const { data: teamMembers } = useQuery({
-    queryKey: ['team-members', organization?.id],
+    queryKey: ['team-members', organization.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
       const allUsers = await base44.entities.User.list();
       return allUsers.filter(u => {
         const accesses = u.client_accesses || [];
@@ -66,7 +79,6 @@ export default function ProposalDiscussion({ proposal, user, organization }) {
       });
     },
     initialData: [],
-    enabled: !!organization?.id,
   });
 
   const createDiscussionMutation = useMutation({
