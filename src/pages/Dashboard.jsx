@@ -1,3 +1,4 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -43,6 +44,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { MobileContainer, MobileGrid, MobileSection } from "../components/ui/mobile-container";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -260,45 +262,48 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      {/* Header with Quick Actions */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-2">
-            <Sparkles className="w-8 h-8 text-blue-600" />
-            Welcome back, {user?.full_name?.split(' ')[0]}!
-          </h1>
-          <p className="text-slate-600">{organization.organization_name}</p>
-        </div>
-        
-        {/* Quick Action Buttons */}
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            onClick={() => navigate(createPageUrl("ProposalBuilder"))}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Proposal
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => navigate(createPageUrl("OpportunityFinder"))}
-          >
-            <Search className="w-5 h-5 mr-2" />
-            Find Opportunities
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => navigate(createPageUrl("Chat"))}
-          >
-            <MessageSquare className="w-5 h-5 mr-2" />
-            Ask AI
-          </Button>
-        </div>
-      </div>
+    <MobileContainer>
+      <MobileSection
+        title={
+          <span className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
+            <span className="text-2xl md:text-3xl">Welcome back, {user?.full_name?.split(' ')[0]}!</span>
+          </span>
+        }
+        description={organization.organization_name}
+        actions={
+          <>
+            <Button 
+              onClick={() => navigate(createPageUrl("ProposalBuilder"))}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 min-h-[44px]"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              <span className="hidden sm:inline">New Proposal</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate(createPageUrl("OpportunityFinder"))}
+              className="min-h-[44px]"
+            >
+              <Search className="w-5 h-5 mr-2" />
+              <span className="hidden sm:inline">Find Opportunities</span>
+              <span className="sm:hidden">Find</span>
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate(createPageUrl("Chat"))}
+              className="min-h-[44px] hidden md:flex"
+            >
+              <MessageSquare className="w-5 h-5 mr-2" />
+              Ask AI
+            </Button>
+          </>
+        }
+      />
 
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <MobileGrid cols="4">
         <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Proposals"))}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center justify-between">
@@ -355,11 +360,11 @@ export default function Dashboard() {
             <p className="text-xs text-slate-500 mt-1">High match score</p>
           </CardContent>
         </Card>
-      </div>
+      </MobileGrid>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Content - 2 columns */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
           {/* Win/Loss Trends */}
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -488,7 +493,7 @@ export default function Dashboard() {
         </div>
 
         {/* Sidebar - 1 column */}
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Upcoming Deadlines */}
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -625,7 +630,7 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-    </div>
+    </MobileContainer>
   );
 }
 
