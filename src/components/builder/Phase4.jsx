@@ -27,21 +27,52 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
   const [isScoring, setIsScoring] = useState(false);
   const [aiScore, setAiScore] = useState(null);
 
-  // Helper function to filter supported file types
-  const getSupportedFileUrls = (documents) => {
-    if (!documents || documents.length === 0) return [];
+  // Helper function to process documents - extracts text from office files
+  const processDocuments = async (documents) => {
+    if (!documents || documents.length === 0) return { fileUrls: [], extractedTexts: [] };
     
-    const supportedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    const pdfImageExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    const officeExtensions = ['.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt', '.txt'];
     
-    return documents
-      .filter(doc => {
-        if (!doc.file_url) return false;
-        const fileName = doc.file_name || doc.file_url;
-        const lowerFileName = fileName.toLowerCase();
-        return supportedExtensions.some(ext => lowerFileName.endsWith(ext));
-      })
-      .map(doc => doc.file_url)
-      .slice(0, 10); // Limit to 10 files
+    const fileUrls = [];
+    const extractedTexts = [];
+    
+    for (const doc of documents.slice(0, 15)) { // Process up to 15 documents
+      if (!doc.file_url || !doc.file_name) continue;
+      
+      const fileName = doc.file_name.toLowerCase();
+      const isPdfOrImage = pdfImageExtensions.some(ext => fileName.endsWith(ext));
+      const isOfficeDoc = officeExtensions.some(ext => fileName.endsWith(ext));
+      
+      if (isPdfOrImage) {
+        // PDF and images can be sent directly
+        fileUrls.push(doc.file_url);
+      } else if (isOfficeDoc) {
+        // Extract text from office documents
+        try {
+          console.log(`Extracting text from: ${doc.file_name}`);
+          const extractPrompt = `Extract and return ALL text content from this document. Preserve the structure and formatting as much as possible. Include all sections, headings, tables, and body text.`;
+          
+          const extractedContent = await base44.integrations.Core.InvokeLLM({
+            prompt: extractPrompt,
+            file_urls: [doc.file_url]
+          });
+          
+          if (extractedContent) {
+            extractedTexts.push({
+              fileName: doc.file_name,
+              content: typeof extractedContent === 'string' ? extractedContent : JSON.stringify(extractedContent)
+            });
+            console.log(`✓ Successfully extracted text from: ${doc.file_name}`);
+          }
+        } catch (error) {
+          console.warn(`Could not extract text from ${doc.file_name}:`, error.message);
+          // Continue processing other files
+        }
+      }
+    }
+    
+    return { fileUrls, extractedTexts };
   };
 
   React.useEffect(() => {
@@ -133,14 +164,18 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
         organization_id: currentOrgId
       });
 
-      // Filter to only supported file types (PDF and images)
-      const fileUrls = getSupportedFileUrls(solicitationDocs);
+      // Process documents - extract text from office files, keep PDFs/images as URLs
+      console.log("Processing solicitation documents...");
+      const { fileUrls, extractedTexts } = await processDocuments(solicitationDocs);
+      console.log(`Processed: ${fileUrls.length} PDFs/images, ${extractedTexts.length} office documents`);
 
-      // Inform user about file filtering if needed
-      const totalDocs = solicitationDocs.filter(doc => doc.file_url).length;
-      const supportedDocs = fileUrls.length;
-      if (totalDocs > supportedDocs) {
-        console.log(`Note: ${totalDocs - supportedDocs} document(s) skipped (only PDF and image files are supported for AI analysis)`);
+      // Build extracted documents context
+      let extractedDocsContext = "";
+      if (extractedTexts.length > 0) {
+        extractedDocsContext = "\n\n**EXTRACTED DOCUMENT CONTENTS:**\n\n";
+        extractedTexts.forEach((doc, idx) => {
+          extractedDocsContext += `--- Document ${idx + 1}: ${doc.fileName} ---\n${doc.content}\n\n`;
+        });
       }
 
       const prompt = `You are an expert proposal evaluator and capture manager for government contracts. Conduct a comprehensive strategic analysis of this opportunity.
@@ -165,10 +200,13 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
 - Teaming Partners: ${partners.length}
 - Capability Statements Available: ${resources.length}
 - Solicitation Documents Uploaded: ${solicitationDocs.length}
-- Documents Available for Analysis: ${supportedDocs} (PDF/images only)
+- PDFs/Images: ${fileUrls.length}
+- Office Documents Processed: ${extractedTexts.length}
+
+${extractedDocsContext}
 
 **YOUR TASK:**
-Analyze the uploaded solicitation documents thoroughly and provide a comprehensive strategic evaluation. Return a JSON object with the following structure:
+Analyze the uploaded solicitation documents thoroughly (both attached files and extracted text above) and provide a comprehensive strategic evaluation. Return a JSON object with the following structure:
 
 {
   "overall_score": <number 0-100>,
@@ -250,8 +288,8 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 
 **IMPORTANT:**
 - Be specific and actionable in all recommendations
-- Base analysis on actual content from solicitation documents when available
-- If no documents are available for analysis, provide general best practices and recommendations based on the opportunity information provided
+- Base analysis on actual content from solicitation documents (both attached files and extracted text above)
+- If no documents are available, provide general best practices based on the opportunity information
 - Identify concrete gaps and provide realistic mitigation strategies
 - Consider the organization's size, certifications, and capabilities
 - Provide honest assessment - don't sugarcoat weaknesses
@@ -287,6 +325,8 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         evaluation_results: JSON.stringify(result),
         evaluation_date: new Date().toISOString()
       });
+
+      console.log("✓ Strategic Evaluation completed successfully!");
 
     } catch (error) {
       console.error("Error running evaluation:", error);
@@ -333,14 +373,18 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
         ? (wonProposals.length / completedProposals.length) * 100 
         : 0;
 
-      // Filter to only supported file types (PDF and images)
-      const fileUrls = getSupportedFileUrls(solicitationDocs);
+      // Process documents - extract text from office files
+      console.log("Processing documents for AI Scoring...");
+      const { fileUrls, extractedTexts } = await processDocuments(solicitationDocs);
+      console.log(`Processed: ${fileUrls.length} PDFs/images, ${extractedTexts.length} office documents`);
 
-      // Inform user about file filtering if needed
-      const totalDocs = solicitationDocs.filter(doc => doc.file_url).length;
-      const supportedDocs = fileUrls.length;
-      if (totalDocs > supportedDocs) {
-        console.log(`Note: ${totalDocs - supportedDocs} document(s) skipped (only PDF and image files are supported for AI analysis)`);
+      // Build extracted documents context
+      let extractedDocsContext = "";
+      if (extractedTexts.length > 0) {
+        extractedDocsContext = "\n\n**EXTRACTED DOCUMENT CONTENTS:**\n\n";
+        extractedTexts.forEach((doc, idx) => {
+          extractedDocsContext += `--- Document ${idx + 1}: ${doc.fileName} ---\n${doc.content}\n\n`;
+        });
       }
 
       const prompt = `You are an elite AI proposal evaluator with expertise in government contracting, bid/no-bid analysis, and predictive win probability modeling.
@@ -379,8 +423,11 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 - Win Probability at Price: ${pricingStrategy?.win_probability_at_price || 'N/A'}
 
 **DOCUMENTS AVAILABLE:**
-- Total Documents: ${totalDocs}
-- Available for Analysis: ${supportedDocs} (PDF/images only)
+- Total Documents: ${solicitationDocs.length}
+- PDFs/Images: ${fileUrls.length}
+- Office Documents Processed: ${extractedTexts.length}
+
+${extractedDocsContext}
 
 **ANALYZE THE FOLLOWING:**
 1. Requirements coverage & compliance
@@ -480,7 +527,7 @@ Return a comprehensive JSON analysis with:
   "learning_from_past_losses": <string: lessons from past losses to apply here>
 }
 
-**CRITICAL:** Be brutally honest. Identify real weaknesses. Provide specific, actionable feedback. Base all analysis on the actual data and documents provided.`;
+**CRITICAL:** Be brutally honest. Identify real weaknesses. Provide specific, actionable feedback. Base all analysis on the actual data and documents provided (both attached files and extracted text above).`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -516,6 +563,8 @@ Return a comprehensive JSON analysis with:
         ai_confidence_score: JSON.stringify(result),
         ai_score_date: new Date().toISOString()
       });
+
+      console.log("✓ AI Confidence Scoring completed successfully!");
 
     } catch (error) {
       console.error("Error running AI scoring:", error);
