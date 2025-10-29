@@ -1,4 +1,3 @@
-
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -61,8 +60,6 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error("Error loading data:", error);
-        // Handle error, maybe navigate to an error page or show a message
-        // For now, if there's an error, still set loading to false to unblock UI
         setLoading(false);
       } finally {
         setLoading(false);
@@ -276,7 +273,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("OpportunityFinder"))}>
+        <Card 
+          className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white hover:shadow-xl transition-all cursor-pointer" 
+          onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
@@ -285,7 +285,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-purple-600">{opportunities.length}</p>
-            <p className="text-xs text-slate-500 mt-1">High match score</p>
+            <p className="text-xs text-slate-500 mt-1">Coming Soon</p>
           </CardContent>
         </Card>
       </MobileGrid>
@@ -422,7 +422,11 @@ export default function Dashboard() {
                     <Sparkles className="w-5 h-5 text-purple-600" />
                     Top Opportunities
                   </span>
-                  <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl("OpportunityFinder"))}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
+                  >
                     View All
                   </Button>
                 </CardTitle>
@@ -433,7 +437,7 @@ export default function Dashboard() {
                     <div
                       key={opp.id}
                       className="p-3 bg-white rounded-lg border border-purple-200 hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => navigate(createPageUrl("OpportunityFinder"))}
+                      onClick={() => alert("🚀 Opportunity Finder is coming soon! Stay tuned for direct SAM.gov integration.")}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-semibold text-sm line-clamp-2">{opp.title}</h4>

@@ -50,7 +50,7 @@ import { useQuery } from "@tanstack/react-query";
 const navigationItems = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
-  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe },
+  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, adminOnly: true },
   { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
@@ -136,6 +136,15 @@ export default function Layout({ children }) {
     : 100;
 
   const userIsAdmin = user?.role === 'admin';
+  const userIsSuperAdmin = user?.admin_role === 'super_admin';
+
+  // Filter navigation items based on admin status
+  const visibleNavigationItems = navigationItems.filter(item => {
+    if (item.adminOnly) {
+      return userIsSuperAdmin;
+    }
+    return true;
+  });
 
   return (
     <SidebarProvider>
@@ -198,7 +207,7 @@ export default function Layout({ children }) {
               )}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {navigationItems.map((item) => (
+                  {visibleNavigationItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         asChild
@@ -400,7 +409,7 @@ export default function Layout({ children }) {
                 Navigation
               </h3>
               <nav className="space-y-1">
-                {navigationItems.map((item) => (
+                {visibleNavigationItems.map((item) => (
                   <Link
                     key={item.title}
                     to={item.url}
