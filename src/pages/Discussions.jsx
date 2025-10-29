@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { parseMentions, notifyMention } from "@/utils/notificationHelpers";
 
 export default function Discussions() {
   const queryClient = useQueryClient();
@@ -79,7 +81,7 @@ export default function Discussions() {
 
   const createCommentMutation = useMutation({
     mutationFn: async (content) => {
-      const mentions = content.match(/@(\w+)/g)?.map(m => m.substring(1)) || [];
+      const mentions = parseMentions(content);
       
       const comment = await base44.entities.DiscussionComment.create({
         discussion_id: selectedDiscussion.id,
@@ -94,12 +96,16 @@ export default function Discussions() {
         last_activity: new Date().toISOString()
       });
 
+      // Send notifications for mentions
       if (mentions.length > 0) {
-        for (const mention of mentions) {
-          await base44.integrations.Core.SendEmail({
-            to: `${mention}@example.com`,
-            subject: `You were mentioned in "${selectedDiscussion.title}"`,
-            body: `${user?.full_name} mentioned you in a discussion:\n\n${content}`
+        for (const email of mentions) {
+          await notifyMention({
+            mentionedEmail: email,
+            commentText: content,
+            authorEmail: user?.email,
+            authorName: user?.full_name,
+            proposalId: selectedDiscussion.proposal_id, // Assuming proposal_id might be a field on selectedDiscussion
+            proposalName: selectedDiscussion.title
           });
         }
       }
