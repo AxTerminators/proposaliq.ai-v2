@@ -237,15 +237,15 @@ export default function TeamingPartners() {
       queryClient.invalidateQueries({ queryKey: ['partner-documents'] });
     } catch (error) {
       console.error("Error uploading capability statement:", error);
+      alert(`Error uploading capability statement: ${error.message}`);
     } finally {
       setUploadingCapStatement(false);
     }
   };
 
   const extractDataFromCapabilityStatement = async (fileUrl, fileName) => {
-    setIsExtractingData(true);
-    setExtractedData(null);
-
+    console.log('Starting extraction for:', fileName);
+    
     try {
       const prompt = `You are an AI assistant that extracts information from capability statements and company documents.
 
@@ -309,6 +309,8 @@ Return as valid JSON matching this exact structure:
   "revenue_range": "string or null"
 }`;
 
+      console.log('Calling AI with file URL:', fileUrl);
+
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         file_urls: [fileUrl],
@@ -336,6 +338,8 @@ Return as valid JSON matching this exact structure:
           }
         }
       });
+
+      console.log('AI extraction result:', result);
 
       // Auto-populate form with extracted data
       const updatedFormData = { ...formData };
@@ -365,7 +369,9 @@ Return as valid JSON matching this exact structure:
         updatedFormData.primary_naics = result.primary_naics;
         fieldsPopulated.push("Primary NAICS");
       }
-      if (result.secondary_naics && result.secondary_naics.length > 0 && formData.secondary_naics?.length === 0) {
+      // Note: For array fields, the outline implies overwriting if AI finds data, rather than only populating if empty.
+      // For Certifications, it explicitly merges.
+      if (result.secondary_naics && result.secondary_naics.length > 0) { // Changed as per outline: removed `&& formData.secondary_naics?.length === 0`
         updatedFormData.secondary_naics = result.secondary_naics;
         fieldsPopulated.push("Secondary NAICS");
       }
@@ -382,17 +388,15 @@ Return as valid JSON matching this exact structure:
         fieldsPopulated.push("POC Phone");
       }
       if (result.certifications && result.certifications.length > 0) {
-        const uniqueNewCerts = result.certifications.filter(cert => !formData.certifications?.includes(cert));
-        if (uniqueNewCerts.length > 0) {
-          updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...uniqueNewCerts])];
-          fieldsPopulated.push(`${uniqueNewCerts.length} Certifications`);
-        }
+        // Changed as per outline to simplify merge
+        updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...result.certifications])];
+        fieldsPopulated.push(`${result.certifications.length} Certifications`);
       }
-      if (result.core_capabilities && result.core_capabilities.length > 0 && formData.core_capabilities?.length === 0) {
+      if (result.core_capabilities && result.core_capabilities.length > 0) { // Changed as per outline: removed `&& formData.core_capabilities?.length === 0`
         updatedFormData.core_capabilities = result.core_capabilities;
         fieldsPopulated.push(`${result.core_capabilities.length} Core Capabilities`);
       }
-      if (result.differentiators && result.differentiators.length > 0 && formData.differentiators?.length === 0) {
+      if (result.differentiators && result.differentiators.length > 0) { // Changed as per outline: removed `&& formData.differentiators?.length === 0`
         updatedFormData.differentiators = result.differentiators;
         fieldsPopulated.push(`${result.differentiators.length} Differentiators`);
       }
@@ -400,7 +404,7 @@ Return as valid JSON matching this exact structure:
         updatedFormData.past_performance_summary = result.past_performance_summary;
         fieldsPopulated.push("Past Performance Summary");
       }
-      if (result.target_agencies && result.target_agencies.length > 0 && formData.target_agencies?.length === 0) {
+      if (result.target_agencies && result.target_agencies.length > 0) { // Changed as per outline: removed `&& formData.target_agencies?.length === 0`
         updatedFormData.target_agencies = result.target_agencies;
         fieldsPopulated.push("Target Agencies");
       }
@@ -416,6 +420,8 @@ Return as valid JSON matching this exact structure:
         updatedFormData.revenue_range = result.revenue_range;
         fieldsPopulated.push("Revenue Range");
       }
+
+      console.log('Fields populated:', fieldsPopulated);
 
       setFormData(updatedFormData);
       setExtractedData({
@@ -554,18 +560,24 @@ Return as valid JSON matching this exact structure:
 
   const handleCapabilityStatementSelect = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setCapabilityStatementFile(file);
+    if (!file) return;
+
+    console.log('File selected:', file.name);
+    setCapabilityStatementFile(file);
+    setIsExtractingData(true);
+    setExtractedData(null);
+    
+    try {
+      console.log('Starting file upload...');
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      console.log('File uploaded successfully:', file_url);
       
-      // Upload and extract data immediately
-      try {
-        setIsExtractingData(true); // Indicate that processing has started
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        await extractDataFromCapabilityStatement(file_url, file.name);
-      } catch (error) {
-        console.error("Error processing capability statement:", error);
-        setIsExtractingData(false); // Ensure loading state is cleared on error
-      }
+      await extractDataFromCapabilityStatement(file_url, file.name);
+    } catch (error) {
+      console.error("Error processing capability statement:", error);
+      alert(`Error processing ${file.name}: ${error.message}\n\nPlease try again or enter information manually.`);
+    } finally {
+      setIsExtractingData(false);
     }
   };
 
@@ -1252,7 +1264,7 @@ Return as valid JSON matching this exact structure:
                 <Label>Secondary NAICS Codes</Label>
                 <div className="flex gap-2">
                   <Input
-                    value={newItem} // Reusing newItem state for simplicity, or could create new state
+                    value={newItem} 
                     onChange={(e) => setNewItem(e.target.value)}
                     placeholder="Add secondary NAICS code"
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('secondary_naics'))}
