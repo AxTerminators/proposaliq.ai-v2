@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw } from "lucide-react";
+import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw, Lightbulb, Plus } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import {
@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -31,6 +32,12 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [selectedSectionForHistory, setSelectedSectionForHistory] = useState(null);
   const [historyRecords, setHistoryRecords] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Content suggestions state
+  const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
+  const [currentSectionId, setCurrentSectionId] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   useEffect(() => {
     const loadStrategy = async () => {
@@ -168,6 +175,126 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     } catch (error) {
       console.error("Error creating version history:", error);
     }
+  };
+
+  const findContentSuggestions = async (sectionId, sectionName) => {
+    if (!currentOrgId) return;
+
+    setLoadingSuggestions(true);
+    setCurrentSectionId(sectionId);
+    setShowSuggestionsPanel(true);
+
+    try {
+      // Get all boilerplate content from library
+      const allResources = await base44.entities.ProposalResource.filter({
+        organization_id: currentOrgId,
+        resource_type: "boilerplate_text"
+      }, '-usage_count');
+
+      if (allResources.length === 0) {
+        setSuggestions([]);
+        setLoadingSuggestions(false);
+        return;
+      }
+
+      // Get current section content for context
+      const currentContent = sectionContent[sectionId] || "";
+      const contentPreview = currentContent.replace(/<[^>]*>/g, '').substring(0, 500);
+
+      // Use AI to find most relevant content
+      const prompt = `You are analyzing a proposal section to find the most relevant boilerplate content from a library.
+
+**SECTION BEING WRITTEN:**
+Section Name: ${sectionName}
+Current Content: ${contentPreview || "Not yet written"}
+
+**AVAILABLE BOILERPLATE CONTENT:**
+${allResources.map((r, idx) => `
+${idx + 1}. Title: ${r.title}
+   Category: ${r.content_category}
+   Tags: ${r.tags?.join(', ') || 'none'}
+   Content Preview: ${r.boilerplate_content?.replace(/<[^>]*>/g, '').substring(0, 200)}
+`).join('\n')}
+
+**YOUR TASK:**
+Analyze the section being written and identify the 3-5 most relevant boilerplate pieces that would be helpful. Consider:
+- Topic relevance
+- Content category alignment
+- Tag matches
+- Quality and usefulness of the content
+
+Return a JSON array of resource IDs (zero-indexed, 0 to ${allResources.length - 1}) ranked by relevance, with a brief explanation of why each is relevant.
+
+Example: [
+  {"index": 2, "reason": "Directly addresses quality assurance processes relevant to this technical section"},
+  {"index": 0, "reason": "Contains company overview that could strengthen the introduction"}
+]`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            suggestions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  index: { type: "number" },
+                  reason: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      await trackTokenUsage(3000, prompt, JSON.stringify(result));
+
+      // Map suggestions to actual resources
+      const suggestedResources = (result.suggestions || [])
+        .filter(s => s.index >= 0 && s.index < allResources.length)
+        .map(s => ({
+          ...allResources[s.index],
+          relevance_reason: s.reason
+        }))
+        .slice(0, 5);
+
+      setSuggestions(suggestedResources);
+    } catch (error) {
+      console.error("Error finding suggestions:", error);
+      setSuggestions([]);
+    }
+
+    setLoadingSuggestions(false);
+  };
+
+  const insertBoilerplate = async (resource, sectionId) => {
+    // Get current content
+    const currentContent = sectionContent[sectionId] || "";
+    
+    // Insert boilerplate at the end with spacing
+    const newContent = currentContent + 
+      (currentContent ? '<p><br></p>' : '') + 
+      resource.boilerplate_content;
+    
+    // Update local state
+    setSectionContent(prev => ({ ...prev, [sectionId]: newContent }));
+
+    // Update usage tracking
+    try {
+      await base44.entities.ProposalResource.update(resource.id, {
+        usage_count: (resource.usage_count || 0) + 1,
+        last_used_date: new Date().toISOString(),
+        linked_proposal_ids: [...new Set([...(resource.linked_proposal_ids || []), proposalId])]
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+    } catch (error) {
+      console.error("Error updating usage:", error);
+    }
+
+    alert(`✓ Inserted "${resource.title}" into section!`);
   };
 
   const autoDraft = async (sectionId, sectionName, wordCount, tone, isSubsection = false) => {
@@ -486,14 +613,24 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                         <Badge variant="secondary">{section.tone === "default" ? strategy.tone : section.tone}</Badge>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewHistory(section.id, section.id.replace(/_/g, ' '))}
-                    >
-                      <History className="w-4 h-4 mr-2" />
-                      History
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => findContentSuggestions(section.id, section.id.replace(/_/g, ' '))}
+                      >
+                        <Lightbulb className="w-4 h-4 mr-2" />
+                        Suggest Content
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewHistory(section.id, section.id.replace(/_/g, ' '))}
+                      >
+                        <History className="w-4 h-4 mr-2" />
+                        History
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -551,14 +688,24 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                           <Badge variant="secondary" className="text-xs">{sub.tone === "default" ? strategy.tone : sub.tone}</Badge>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
-                      >
-                        <History className="w-4 h-4 mr-2" />
-                        History
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => findContentSuggestions(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                        >
+                          <Lightbulb className="w-4 h-4 mr-2" />
+                          Suggest
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                        >
+                          <History className="w-4 h-4 mr-2" />
+                          History
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -619,6 +766,106 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           </div>
         </CardContent>
       </Card>
+
+      {/* Content Suggestions Panel */}
+      <Dialog open={showSuggestionsPanel} onOpenChange={setShowSuggestionsPanel}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-amber-500" />
+              Suggested Content from Library
+            </DialogTitle>
+            <DialogDescription>
+              Relevant boilerplate content you can insert into this section
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            {loadingSuggestions ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            ) : suggestions.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <Lightbulb className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p className="mb-2">No relevant content found</p>
+                <p className="text-sm text-slate-400">Create boilerplate content in the Resources page to get suggestions here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <AlertDescription className="text-sm text-blue-900">
+                    Found {suggestions.length} relevant pieces of content from your library
+                  </AlertDescription>
+                </Alert>
+
+                {suggestions.map((resource) => (
+                  <Card key={resource.id} className="border-slate-200">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CardTitle className="text-base">{resource.title}</CardTitle>
+                            <Badge variant="secondary" className="capitalize text-xs">
+                              {resource.content_category?.replace(/_/g, ' ')}
+                            </Badge>
+                            {resource.word_count && (
+                              <Badge variant="outline" className="text-xs">
+                                {resource.word_count} words
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {resource.relevance_reason && (
+                            <Alert className="bg-amber-50 border-amber-200 mt-2">
+                              <AlertDescription className="text-xs text-amber-900">
+                                <strong>Why this is relevant:</strong> {resource.relevance_reason}
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          {resource.tags && resource.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {resource.tags.map((tag, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => insertBoilerplate(resource, currentSectionId)}
+                          className="ml-4"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Insert
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div 
+                        className="prose prose-sm max-w-none text-slate-700 p-3 bg-slate-50 rounded border line-clamp-4"
+                        dangerouslySetInnerHTML={{ __html: resource.boilerplate_content }}
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSuggestionsPanel(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* History Viewer Dialog */}
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
