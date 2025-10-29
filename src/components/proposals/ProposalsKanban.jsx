@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -47,12 +48,14 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         if (configs.length > 0) {
           let savedColumns = configs[0].columns || defaultColumns;
           
-          // Validate and fix order if missing or incorrect
+          // Validate and fix order and label if missing
           savedColumns = savedColumns.map((col, idx) => {
             // Find matching default column
             const defaultCol = defaultColumns.find(dc => dc.id === col.id);
             return {
               ...col,
+              label: col.label || (defaultCol ? defaultCol.label : col.id),
+              color: col.color || (defaultCol ? defaultCol.color : 'bg-slate-100'),
               order: defaultCol ? defaultCol.order : idx
             };
           });
