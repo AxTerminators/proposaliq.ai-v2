@@ -1,0 +1,345 @@
+{
+  "name": "KeyPersonnel",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this personnel record"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Full legal name"
+    },
+    "position_title": {
+      "type": "string",
+      "description": "Current position/title"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Contact email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone"
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        }
+      },
+      "description": "Current location"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "URL to professional photo"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Professional summary/bio (2-3 sentences)"
+    },
+    "years_of_experience": {
+      "type": "number",
+      "description": "Total years of professional experience"
+    },
+    "education": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "degree": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "institution": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "gpa": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Education history"
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "issuing_organization": {
+            "type": "string"
+          },
+          "issue_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "expiration_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "credential_id": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Professional certifications"
+    },
+    "security_clearance": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "None",
+            "Public Trust",
+            "Secret",
+            "Top Secret",
+            "TS/SCI"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "Inactive",
+            "In Progress",
+            "Expired"
+          ]
+        },
+        "granted_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "expiration_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "polygraph": {
+          "type": "boolean"
+        }
+      },
+      "description": "Security clearance information"
+    },
+    "work_experience": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "company": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "achievements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "Work history"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "skill_name": {
+            "type": "string"
+          },
+          "proficiency": {
+            "type": "string",
+            "enum": [
+              "Beginner",
+              "Intermediate",
+              "Advanced",
+              "Expert"
+            ]
+          },
+          "years": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Technical and professional skills"
+    },
+    "key_projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string"
+          },
+          "client": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "technologies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "Notable projects and achievements"
+    },
+    "availability": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "Available",
+            "Partially Available",
+            "Unavailable",
+            "On Contract"
+          ]
+        },
+        "available_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "hours_per_week": {
+          "type": "number"
+        },
+        "current_commitments": {
+          "type": "string"
+        }
+      },
+      "description": "Current availability status"
+    },
+    "active_proposals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs of proposals where this person is assigned"
+    },
+    "labor_category": {
+      "type": "string",
+      "description": "Default labor category for pricing"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Default hourly rate"
+    },
+    "resume_versions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "version_name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "federal",
+              "private",
+              "technical",
+              "executive"
+            ]
+          },
+          "file_url": {
+            "type": "string"
+          },
+          "last_updated": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Different resume versions"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Professional references"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for categorization (e.g., 'cybersecurity', 'project manager', 'senior')"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Is this person currently in the pool"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Internal notes about this person"
+    }
+  },
+  "required": [
+    "organization_id",
+    "full_name",
+    "position_title"
+  ]
+}
