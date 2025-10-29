@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw, Lightbulb, Plus } from "lucide-react";
+import { PenTool, Upload, Sparkles, Loader2, RefreshCw, History, RotateCcw, Lightbulb, Plus, GitCompare } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import {
@@ -18,7 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CollaborationPanel from "../collaboration/CollaborationPanel";
+import VersionComparison from "./VersionComparison";
 
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -34,6 +35,10 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [selectedSectionForHistory, setSelectedSectionForHistory] = useState(null);
   const [historyRecords, setHistoryRecords] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Version comparison state
+  const [showComparisonDialog, setShowComparisonDialog] = useState(false);
+  const [selectedSectionForComparison, setSelectedSectionForComparison] = useState(null);
 
   // Content suggestions state
   const [showSuggestionsPanel, setShowSuggestionsPanel] = useState(false);
@@ -145,7 +150,6 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
 
   const createVersionHistory = async (sectionId, sectionName, content, changeType, changeSummary = null) => {
     try {
-      // Get the section record
       const sections = await base44.entities.ProposalSection.filter({
         proposal_id: proposalId,
         section_id: sectionId
@@ -155,7 +159,6 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
 
       const section = sections[0];
 
-      // Get existing history to determine next version number
       const existingHistory = await base44.entities.ProposalSectionHistory.filter({
         proposal_section_id: section.id
       }, '-version_number', 1);
@@ -163,7 +166,6 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
       const nextVersion = existingHistory.length > 0 ? existingHistory[0].version_number + 1 : 1;
       const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
 
-      // Create history record
       await base44.entities.ProposalSectionHistory.create({
         proposal_section_id: section.id,
         version_number: nextVersion,
@@ -187,7 +189,6 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     setShowSuggestionsPanel(true);
 
     try {
-      // Get all boilerplate content from library
       const allResources = await base44.entities.ProposalResource.filter({
         organization_id: currentOrgId,
         resource_type: "boilerplate_text"
@@ -199,11 +200,9 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
         return;
       }
 
-      // Get current section content for context
       const currentContent = sectionContent[sectionId] || "";
       const contentPreview = currentContent.replace(/<[^>]*>/g, '').substring(0, 500);
 
-      // Use AI to find most relevant content
       const prompt = `You are analyzing a proposal section to find the most relevant boilerplate content from a library.
 
 **SECTION BEING WRITTEN:**
@@ -253,7 +252,6 @@ Example: [
 
       await trackTokenUsage(3000, prompt, JSON.stringify(result));
 
-      // Map suggestions to actual resources
       const suggestedResources = (result.suggestions || [])
         .filter(s => s.index >= 0 && s.index < allResources.length)
         .map(s => ({
@@ -272,18 +270,14 @@ Example: [
   };
 
   const insertBoilerplate = async (resource, sectionId) => {
-    // Get current content
     const currentContent = sectionContent[sectionId] || "";
     
-    // Insert boilerplate at the end with spacing
     const newContent = currentContent + 
       (currentContent ? '<p><br></p>' : '') + 
       resource.boilerplate_content;
     
-    // Update local state
     setSectionContent(prev => ({ ...prev, [sectionId]: newContent }));
 
-    // Update usage tracking
     try {
       await base44.entities.ProposalResource.update(resource.id, {
         usage_count: (resource.usage_count || 0) + 1,
@@ -308,14 +302,12 @@ Example: [
     setIsGenerating(prev => ({ ...prev, [sectionId]: true }));
 
     try {
-      // Get reference documents
       const referenceDocs = await base44.entities.SolicitationDocument.filter({
         proposal_id: proposalId,
         organization_id: currentOrgId,
         document_type: "reference"
       });
 
-      // Get solicitation documents
       const solicitationDocs = await base44.entities.SolicitationDocument.filter({
         proposal_id: proposalId,
         organization_id: currentOrgId,
@@ -374,7 +366,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
 
       await trackTokenUsage(wordCount * 4, prompt, content);
 
-      // Save to database
       const existing = await base44.entities.ProposalSection.filter({
         proposal_id: proposalId,
         section_id: sectionId
@@ -383,7 +374,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
       const wordCountActual = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
 
       if (existing.length > 0) {
-        // Create version history before updating
         await createVersionHistory(sectionId, sectionName, content, existing[0].content ? "ai_regenerated" : "ai_generated");
 
         await base44.entities.ProposalSection.update(existing[0].id, {
@@ -403,7 +393,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           order: 0
         });
 
-        // Create initial version history
         await createVersionHistory(sectionId, sectionName, content, "initial_creation");
       }
 
@@ -434,7 +423,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
       const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
 
       if (existing.length > 0) {
-        // Create version history before updating
         await createVersionHistory(sectionId, sectionName, content, "user_edit", "Manual edit by user");
 
         await base44.entities.ProposalSection.update(existing[0].id, {
@@ -454,7 +442,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           order: 0
         });
 
-        // Create initial version history
         await createVersionHistory(sectionId, sectionName, content, "initial_creation");
       }
 
@@ -472,8 +459,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                         activeSections.flatMap(s => s.subsections).find(s => `${s.parent_id}_${s.id}` === sectionId);
 
         if (section) {
-          // Determine the correct sectionName to pass to saveContent
-          // For main sections, it's section.id. For subsections, it might be sub.id or `${parent.id}_${sub.id}`
           const sectionName = section.id.includes('_') ? section.id.split('_').pop() : section.id;
           await saveContent(sectionId, sectionName, content);
         }
@@ -515,7 +500,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
   const loadHistory = async (sectionId) => {
     setLoadingHistory(true);
     try {
-      // Get the section record
       const sections = await base44.entities.ProposalSection.filter({
         proposal_id: proposalId,
         section_id: sectionId
@@ -526,7 +510,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         return;
       }
 
-      // Load all history for this section
       const history = await base44.entities.ProposalSectionHistory.filter({
         proposal_section_id: sections[0].id
       }, '-version_number');
@@ -545,13 +528,17 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
     loadHistory(sectionId);
   };
 
+  const handleViewComparison = (sectionId, sectionName) => {
+    setSelectedSectionForComparison({ id: sectionId, name: sectionName });
+    setShowComparisonDialog(true);
+  };
+
   const handleRestoreVersion = async (historyRecord) => {
     if (!confirm(`Restore version ${historyRecord.version_number}? This will replace the current content.`)) {
       return;
     }
 
     try {
-      // Create a new version history record for the restoration
       await createVersionHistory(
         selectedSectionForHistory.id,
         selectedSectionForHistory.name,
@@ -560,7 +547,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         `Restored from version ${historyRecord.version_number}`
       );
 
-      // Update the current section content
       const sections = await base44.entities.ProposalSection.filter({
         proposal_id: proposalId,
         section_id: selectedSectionForHistory.id
@@ -574,10 +560,8 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         });
       }
 
-      // Update local state
       setSectionContent(prev => ({ ...prev, [selectedSectionForHistory.id]: historyRecord.content }));
       
-      // Reload history
       await loadHistory(selectedSectionForHistory.id);
       
       alert("✓ Version restored successfully!");
@@ -608,9 +592,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
-          {/* Main Content Grid - Split between Editor and Collaboration */}
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Sections Editor - Takes 2/3 width */}
             <div className="lg:col-span-2 space-y-4">
               {activeSections.map((section) => (
                 <div key={section.id} className="space-y-4">
@@ -632,6 +614,14 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                           >
                             <Lightbulb className="w-4 h-4 mr-2" />
                             Suggest Content
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewComparison(section.id, section.id.replace(/_/g, ' '))}
+                          >
+                            <GitCompare className="w-4 h-4 mr-2" />
+                            Compare
                           </Button>
                           <Button
                             variant="ghost"
@@ -711,6 +701,14 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleViewComparison(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
+                            >
+                              <GitCompare className="w-4 h-4 mr-2" />
+                              Compare
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleViewHistory(`${section.id}_${sub.id}`, sub.id.replace(/_/g, ' '))}
                             >
                               <History className="w-4 h-4 mr-2" />
@@ -758,7 +756,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
               ))}
             </div>
 
-            {/* Collaboration Panel - Takes 1/3 width */}
             <div className="lg:col-span-1">
               <div className="sticky top-6">
                 <CollaborationPanel proposalId={proposalId} />
@@ -775,7 +772,6 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
               className="flex-1 bg-green-600 hover:bg-green-700"
               onClick={() => {
                 saveAll().then(() => {
-                  // Move to next phase
                   const event = new CustomEvent('navigateToPhase', { detail: 'phase7' });
                   window.dispatchEvent(event);
                 });
@@ -887,7 +883,40 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
         </DialogContent>
       </Dialog>
 
-      {/* History Viewer Dialog */}
+      {/* Version Comparison Dialog */}
+      <Dialog open={showComparisonDialog} onOpenChange={setShowComparisonDialog}>
+        <DialogContent className="max-w-7xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitCompare className="w-5 h-5 text-blue-600" />
+              Version Comparison: {selectedSectionForComparison?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Compare different versions side-by-side and restore any previous version
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[70vh]">
+            {selectedSectionForComparison && (
+              <VersionComparison
+                sectionId={selectedSectionForComparison.id}
+                sectionName={selectedSectionForComparison.name}
+                proposalId={proposalId}
+                onRestore={handleRestoreVersion}
+                currentContent={sectionContent[selectedSectionForComparison.id]}
+              />
+            )}
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Simple History Viewer Dialog */}
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
