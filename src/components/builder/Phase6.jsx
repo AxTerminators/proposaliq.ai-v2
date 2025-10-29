@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +20,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CollaborationPanel from "../collaboration/CollaborationPanel";
 import VersionComparison from "./VersionComparison";
-import AIWritingAssistant from "./AIWritingAssistant";
 
 export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -759,16 +757,7 @@ Generate the section content now in HTML format (use <p>, <h3>, <ul>, <li>, <str
             </div>
 
             <div className="lg:col-span-1">
-              <div className="sticky top-6 space-y-6">
-                <AIWritingAssistant
-                  content={sectionContent[activeSections[0]?.id] || ""}
-                  onApplySuggestion={(newContent) => {
-                    if (activeSections[0]) {
-                      handleContentChange(activeSections[0].id, newContent);
-                    }
-                  }}
-                  sectionName={activeSections[0]?.id.replace(/_/g, ' ')}
-                />
+              <div className="sticky top-6">
                 <CollaborationPanel proposalId={proposalId} />
               </div>
             </div>
