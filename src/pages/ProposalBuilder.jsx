@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -5,7 +6,8 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -14,6 +16,7 @@ import Phase4 from "../components/builder/Phase4";
 import Phase5 from "../components/builder/Phase5";
 import Phase6 from "../components/builder/Phase6";
 import Phase7 from "../components/builder/Phase7";
+import TaskManager from "../components/tasks/TaskManager";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -28,6 +31,7 @@ const PHASES = [
 export default function ProposalBuilder() {
   const navigate = useNavigate();
   const [organization, setOrganization] = React.useState(null);
+  const [user, setUser] = React.useState(null);
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
   const [proposalData, setProposalData] = useState({
@@ -47,6 +51,7 @@ export default function ProposalBuilder() {
     const loadData = async () => {
       try {
         const currentUser = await base44.auth.me();
+        setUser(currentUser);
         const orgs = await base44.entities.Organization.filter(
           { created_by: currentUser.email },
           '-created_date',
@@ -203,49 +208,102 @@ export default function ProposalBuilder() {
           </CardContent>
         </Card>
 
-        <div className="mb-6">
-          {currentPhase === "phase1" && (
-            <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-          {currentPhase === "phase2" && (
-            <Phase2 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-          {currentPhase === "phase3" && (
-            <Phase3 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-          {currentPhase === "phase4" && (
-            <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-          {currentPhase === "phase5" && (
-            <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-          {currentPhase === "phase6" && (
-            <Phase6 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-          {currentPhase === "phase7" && (
-            <Phase7 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
-          )}
-        </div>
+        {proposalId && (
+          <Tabs defaultValue="builder" className="mb-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="builder">Proposal Builder</TabsTrigger>
+              <TabsTrigger value="tasks">
+                <CheckSquare className="w-4 h-4 mr-2" />
+                Tasks
+              </TabsTrigger>
+            </TabsList>
 
-        {currentPhase !== "phase7" && (
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentPhaseIndex === 0}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Previous
-            </Button>
-            <Button
-              onClick={handleNext}
-              disabled={currentPhaseIndex === PHASES.length - 1}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Next
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
+            <TabsContent value="builder" className="space-y-6">
+              <div className="mb-6">
+                {currentPhase === "phase1" && (
+                  <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+                {currentPhase === "phase2" && (
+                  <Phase2 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+                {currentPhase === "phase3" && (
+                  <Phase3 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+                {currentPhase === "phase4" && (
+                  <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+                {currentPhase === "phase5" && (
+                  <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+                {currentPhase === "phase6" && (
+                  <Phase6 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+                {currentPhase === "phase7" && (
+                  <Phase7 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                )}
+              </div>
+
+              {currentPhase !== "phase7" && (
+                <div className="flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentPhaseIndex === 0}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    disabled={currentPhaseIndex === PHASES.length - 1}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Next
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="tasks">
+              <TaskManager 
+                proposal={{ id: proposalId, ...proposalData }}
+                user={user}
+                organization={organization}
+              />
+            </TabsContent>
+          </Tabs>
+        )}
+
+        {!proposalId && (
+          <>
+            <div className="mb-6">
+              {currentPhase === "phase1" && (
+                <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+              )}
+            </div>
+
+            {currentPhase !== "phase7" && (
+              <div className="flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentPhaseIndex === 0}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+                <Button
+                  onClick={handleNext}
+                  disabled={currentPhaseIndex === PHASES.length - 1}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
