@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +20,7 @@ import TaskManager from "../components/tasks/TaskManager";
 import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
 import ProposalFiles from "../components/collaboration/ProposalFiles";
 import AutomationHub from "../components/workflows/AutomationHub";
+import FloatingChatButton from "../components/collaboration/FloatingChatButton";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -345,6 +347,9 @@ export default function ProposalBuilder() {
           </>
         )}
       </div>
+
+      {/* Floating AI Chat Button */}
+      {proposalId && <FloatingChatButton proposalId={proposalId} />}
     </div>
   );
 }
