@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,8 +30,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Sparkles,
-  Eye
+  Eye,
+  XCircle // Added this import
 } from "lucide-react";
+import AITemplateRecommender from "./AITemplateRecommender"; // Added this import
 
 export default function ExportDialog({ 
   open, 
@@ -575,9 +578,10 @@ export default function ExportDialog({
         </DialogHeader>
 
         <Tabs defaultValue="format" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4"> {/* Changed grid-cols-3 to grid-cols-4 */}
             <TabsTrigger value="format">Format</TabsTrigger>
             <TabsTrigger value="options">Options</TabsTrigger>
+            <TabsTrigger value="ai">AI Recommendations</TabsTrigger> {/* Added new TabsTrigger */}
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
 
@@ -838,6 +842,28 @@ export default function ExportDialog({
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* AI Recommendations Tab */}
+            <TabsContent value="ai" className="space-y-4">
+              <AITemplateRecommender
+                proposalData={proposalData}
+                organizationId={currentOrgId}
+                onSelectTemplate={(recommendations) => {
+                  // Apply AI recommendations to export options
+                  setExportOptions(prev => ({
+                    ...prev,
+                    includeCoverPage: true, // Assuming AI recommendations will generally default these to true unless specified
+                    includeTOC: true,     // Assuming AI recommendations will generally default these to true unless specified
+                    includeHeaders: true, // Assuming AI recommendations will generally default these to true unless specified
+                    includeFooters: true, // Assuming AI recommendations will generally default these to true unless specified
+                    includeComplianceMatrix: recommendations.include_compliance_matrix,
+                    includeSectionNumbers: recommendations.section_numbering !== 'none'
+                  }));
+                  
+                  alert("✓ AI recommendations applied! Check the Options tab to review settings.");
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="preview" className="space-y-4">
