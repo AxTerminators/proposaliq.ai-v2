@@ -1,0 +1,213 @@
+{
+  "name": "SAMOpportunity",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization tracking this opportunity"
+    },
+    "notice_id": {
+      "type": "string",
+      "description": "SAM.gov Notice ID"
+    },
+    "solicitation_number": {
+      "type": "string",
+      "description": "Solicitation number"
+    },
+    "title": {
+      "type": "string",
+      "description": "Opportunity title"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department/Agency (e.g., Department of Defense)"
+    },
+    "sub_agency": {
+      "type": "string",
+      "description": "Sub-agency (e.g., Army, Navy)"
+    },
+    "office": {
+      "type": "string",
+      "description": "Contracting office"
+    },
+    "notice_type": {
+      "type": "string",
+      "enum": [
+        "Presolicitation",
+        "Combined Synopsis/Solicitation",
+        "Solicitation",
+        "Sources Sought",
+        "Special Notice"
+      ],
+      "description": "Type of notice"
+    },
+    "contract_type": {
+      "type": "string",
+      "enum": [
+        "Fixed Price",
+        "Cost Reimbursement",
+        "Time and Materials",
+        "Labor Hour",
+        "Combination"
+      ],
+      "description": "Contract type"
+    },
+    "naics_code": {
+      "type": "string",
+      "description": "Primary NAICS code"
+    },
+    "naics_description": {
+      "type": "string",
+      "description": "NAICS description"
+    },
+    "set_aside": {
+      "type": "string",
+      "enum": [
+        "None",
+        "8(a)",
+        "HUBZone",
+        "SDVOSB",
+        "WOSB",
+        "EDWOSB",
+        "Total Small Business"
+      ],
+      "description": "Set-aside type"
+    },
+    "description": {
+      "type": "string",
+      "description": "Full opportunity description"
+    },
+    "posted_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date posted"
+    },
+    "response_deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Response deadline"
+    },
+    "archive_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Archive date"
+    },
+    "place_of_performance": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "zip": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        }
+      },
+      "description": "Where work will be performed"
+    },
+    "estimated_value": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      },
+      "description": "Estimated contract value range"
+    },
+    "point_of_contact": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      },
+      "description": "Government POC"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Attached documents"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Extracted keywords"
+    },
+    "match_score": {
+      "type": "number",
+      "description": "AI-calculated match score (0-100)"
+    },
+    "match_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Why this is a good match"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "saved",
+        "tracking",
+        "bid",
+        "no_bid",
+        "proposal_created"
+      ],
+      "default": "new",
+      "description": "Tracking status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Internal notes about this opportunity"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "If proposal created, reference to it"
+    },
+    "amendment_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of amendments"
+    },
+    "last_checked_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time we checked for updates"
+    }
+  },
+  "required": [
+    "notice_id",
+    "title",
+    "department"
+  ]
+}
