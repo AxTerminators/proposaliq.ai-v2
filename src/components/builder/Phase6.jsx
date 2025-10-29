@@ -21,7 +21,8 @@ import {
   Shield,
   Lightbulb,
   RefreshCw,
-  ZapIcon
+  ZapIcon,
+  History
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -36,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import SectionVersionHistory from "./SectionVersionHistory";
 
 
 const PROPOSAL_SECTIONS = [
@@ -98,6 +100,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [isSaving, setIsSaving] = useState(false);
   const [currentOrgId, setCurrentOrgId] = useState(null);
   const [strategy, setStrategy] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // AI Enhancement States
   const [isCheckingCompliance, setIsCheckingCompliance] = useState(false);
@@ -107,10 +110,15 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
+  // Version History State
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [versionHistorySection, setVersionHistorySection] = useState(null);
+
   useEffect(() => {
     const loadData = async () => {
       try {
         const user = await base44.auth.me();
+        setCurrentUser(user);
         const orgs = await base44.entities.Organization.filter(
           { created_by: user.email },
           '-created_date',
@@ -178,6 +186,37 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
       setEditingSection(null);
     },
   });
+
+  // Helper function to create version history
+  const createVersionHistory = async (sectionId, content, wordCount, changeType, changeSummary) => {
+    if (!currentUser || !sectionId) return;
+
+    try {
+      // Get existing versions to determine next version number
+      const existingVersions = await base44.entities.ProposalSectionHistory.filter(
+        { proposal_section_id: sectionId },
+        '-version_number',
+        1
+      );
+      
+      const nextVersionNumber = existingVersions.length > 0 
+        ? existingVersions[0].version_number + 1 
+        : 1;
+
+      await base44.entities.ProposalSectionHistory.create({
+        proposal_section_id: sectionId,
+        version_number: nextVersionNumber,
+        content,
+        changed_by_user_email: currentUser.email,
+        changed_by_user_name: currentUser.full_name,
+        change_summary: changeSummary,
+        word_count: wordCount,
+        change_type: changeType
+      });
+    } catch (error) {
+      console.error("Error creating version history:", error);
+    }
+  };
 
   const autoDraft = async (sectionConfig) => {
     if (!proposalId || !currentOrgId) {
@@ -317,6 +356,16 @@ The content should be ready to insert into the proposal document. Use HTML forma
             status: 'ai_generated'
           }
         });
+        
+        // Create version history for AI generation
+        await createVersionHistory(
+          existingSection.id,
+          result,
+          wordCount,
+          existingSection.content ? 'ai_regenerated' : 'ai_generated',
+          `AI generated content for ${sectionConfig.name}`
+        );
+        
         setSelectedSection({ ...existingSection, content: result, word_count: wordCount, status: 'ai_generated' });
         setEditingSection({ ...existingSection, content: result, word_count: wordCount, status: 'ai_generated' });
         setContent(result);
@@ -331,6 +380,16 @@ The content should be ready to insert into the proposal document. Use HTML forma
           status: 'ai_generated',
           ai_prompt_used: prompt.substring(0, 500)
         });
+        
+        // Create initial version history
+        await createVersionHistory(
+          newSection.id,
+          result,
+          wordCount,
+          'initial_creation',
+          `Initial AI generation of ${sectionConfig.name}`
+        );
+        
         setSelectedSection(newSection);
         setEditingSection(newSection);
         setContent(newSection.content);
@@ -623,6 +682,15 @@ Return JSON:
         }
       });
 
+      // Create version history for user edit
+      await createVersionHistory(
+        editingSection.id,
+        content,
+        wordCount,
+        'user_edit',
+        'Manual content update'
+      );
+
       setSelectedSection({ ...editingSection, content, word_count: wordCount, status: 'reviewed' });
       setEditingSection(null);
       alert("✓ Section saved successfully!");
@@ -646,6 +714,37 @@ Return JSON:
   const handleDelete = async (section) => {
     if (confirm(`Delete section "${section.section_name}"?`)) {
       await deleteSectionMutation.mutateAsync(section.id);
+    }
+  };
+
+  const handleViewHistory = (section) => {
+    setVersionHistorySection(section);
+    setShowVersionHistory(true);
+  };
+
+  const handleVersionRestored = () => {
+    // Refresh the section data after restoration
+    queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] }); // Invalidate specific query key
+
+    // If the restored section was the one currently being edited, update the editor's content
+    if (editingSection && versionHistorySection && editingSection.id === versionHistorySection.id) {
+        // Find the latest version of the section from the cache or refetch
+        // We'll need to refetch here to ensure we get the absolute latest content
+        queryClient.fetchQuery({
+            queryKey: ['proposal-sections', proposalId],
+            queryFn: async () => {
+                const updatedSections = await base44.entities.ProposalSection.filter(
+                    { proposal_id: proposalId },
+                    'order'
+                );
+                const latestSection = updatedSections.find(s => s.id === editingSection.id);
+                if (latestSection) {
+                    setContent(latestSection.content || "");
+                    setEditingSection(latestSection); // Update the editingSection state too
+                }
+                return updatedSections;
+            }
+        });
     }
   };
 
@@ -737,6 +836,14 @@ Return JSON:
                             <Button size="sm" variant="outline" onClick={() => handleEdit(existingSection)}>
                               <Edit className="w-3 h-3" />
                             </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleViewHistory(existingSection)}
+                              title="View version history"
+                            >
+                              <History className="w-3 h-3" />
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => handleDelete(existingSection)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
@@ -777,6 +884,14 @@ Return JSON:
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Editing: {editingSection.section_name}</CardTitle>
                 <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleViewHistory(editingSection)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    Version History
+                  </Button>
                   <Button
                     onClick={generateContentSuggestions}
                     disabled={isLoadingSuggestions}
@@ -1022,6 +1137,14 @@ Return JSON:
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleViewHistory(selectedSection)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    History
+                  </Button>
                   <Button onClick={() => handleEdit(selectedSection)} size="sm">
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
@@ -1063,6 +1186,17 @@ Return JSON:
           </Button>
         </div>
       </CardContent>
+
+      {/* Version History Dialog */}
+      <SectionVersionHistory
+        section={versionHistorySection}
+        isOpen={showVersionHistory}
+        onClose={() => {
+          setShowVersionHistory(false);
+          setVersionHistorySection(null);
+        }}
+        onVersionRestored={handleVersionRestored}
+      />
     </Card>
   );
 }
