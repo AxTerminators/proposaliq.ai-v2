@@ -1,4 +1,3 @@
-
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -6,15 +5,44 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { 
   FileText, 
   Plus, 
   Clock,
   CheckCircle2,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Calendar,
+  Target,
+  Zap,
+  MessageSquare,
+  Edit,
+  Search,
+  DollarSign,
+  Award,
+  Activity
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -48,213 +76,587 @@ export default function Dashboard() {
     loadUserAndOrg();
   }, [navigate]);
 
-  // SECURITY FIX: Filter proposals by organization_id to ensure data isolation
-  const { data: proposals, isLoading } = useQuery({
+  const { data: proposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
       return base44.entities.Proposal.filter(
         { organization_id: organization.id },
-        '-created_date'
+        '-updated_date'
       );
     },
     initialData: [],
     enabled: !!organization?.id,
   });
 
+  const { data: activityLog } = useQuery({
+    queryKey: ['activity-log', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const activities = await base44.entities.ActivityLog.list('-created_date', 20);
+      return activities.filter(a => {
+        const proposal = proposals.find(p => p.id === a.proposal_id);
+        return proposal?.organization_id === organization.id;
+      });
+    },
+    initialData: [],
+    enabled: !!organization?.id && proposals.length > 0,
+  });
+
+  const { data: opportunities } = useQuery({
+    queryKey: ['opportunities-count', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.SAMOpportunity.filter(
+        { organization_id: organization.id, status: 'new' },
+        '-match_score',
+        5
+      );
+    },
+    initialData: [],
+    enabled: !!organization?.id,
+  });
+
+  const { data: notifications } = useQuery({
+    queryKey: ['notifications-unread', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      return base44.entities.Notification.filter(
+        { user_email: user.email, is_read: false },
+        '-created_date',
+        5
+      );
+    },
+    initialData: [],
+    enabled: !!user?.email,
+  });
+
+  // Calculate comprehensive stats
   const stats = React.useMemo(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
     return {
       total: proposals.length,
-      inProgress: proposals.filter(p => p.status === 'in_progress' || p.status === 'draft' || p.status === 'evaluating' || p.status === 'watch_list').length,
+      active: proposals.filter(p => ['in_progress', 'draft', 'evaluating', 'watch_list'].includes(p.status)).length,
       submitted: proposals.filter(p => p.status === 'submitted').length,
       won: proposals.filter(p => p.status === 'won').length,
+      lost: proposals.filter(p => p.status === 'lost').length,
+      dueThisWeek: proposals.filter(p => {
+        if (!p.due_date) return false;
+        const dueDate = new Date(p.due_date);
+        const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        return dueDate >= now && dueDate <= weekFromNow;
+      }).length,
+      recentActivity: proposals.filter(p => {
+        const updated = new Date(p.updated_date);
+        return updated >= thirtyDaysAgo;
+      }).length,
+      winRate: proposals.filter(p => ['won', 'lost'].includes(p.status)).length > 0
+        ? Math.round((proposals.filter(p => p.status === 'won').length / proposals.filter(p => ['won', 'lost'].includes(p.status)).length) * 100)
+        : 0
     };
   }, [proposals]);
+
+  // Win/Loss Trend (last 6 months)
+  const winLossTrend = React.useMemo(() => {
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthKey = date.toLocaleString('default', { month: 'short' });
+      
+      const monthProposals = proposals.filter(p => {
+        if (!p.updated_date) return false;
+        const pDate = new Date(p.updated_date);
+        return pDate.getMonth() === date.getMonth() && pDate.getFullYear() === date.getFullYear();
+      });
+
+      months.push({
+        month: monthKey,
+        won: monthProposals.filter(p => p.status === 'won').length,
+        lost: monthProposals.filter(p => p.status === 'lost').length,
+        submitted: monthProposals.filter(p => p.status === 'submitted').length
+      });
+    }
+    return months;
+  }, [proposals]);
+
+  // Proposal Health Scores
+  const proposalHealthData = React.useMemo(() => {
+    return proposals
+      .filter(p => ['in_progress', 'draft', 'evaluating'].includes(p.status))
+      .map(p => {
+        let health = 50; // Base score
+        
+        // Has due date
+        if (p.due_date) health += 15;
+        
+        // Time to deadline
+        if (p.due_date) {
+          const daysUntilDue = Math.floor((new Date(p.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+          if (daysUntilDue > 30) health += 20;
+          else if (daysUntilDue > 14) health += 10;
+          else if (daysUntilDue < 7) health -= 20;
+        }
+        
+        // Phase progress
+        const phaseNumber = parseInt(p.current_phase?.replace('phase', '') || '1');
+        health += Math.min(phaseNumber * 5, 20);
+        
+        // Match score
+        if (p.match_score) {
+          health += Math.floor(p.match_score / 10);
+        }
+
+        return {
+          id: p.id,
+          name: p.proposal_name,
+          health: Math.max(0, Math.min(100, health)),
+          status: p.status,
+          dueDate: p.due_date,
+          phase: p.current_phase
+        };
+      })
+      .sort((a, b) => b.health - a.health);
+  }, [proposals]);
+
+  // Upcoming Deadlines
+  const upcomingDeadlines = React.useMemo(() => {
+    return proposals
+      .filter(p => p.due_date && ['in_progress', 'draft', 'evaluating', 'watch_list'].includes(p.status))
+      .map(p => ({
+        ...p,
+        daysUntil: Math.floor((new Date(p.due_date) - new Date()) / (1000 * 60 * 60 * 24))
+      }))
+      .filter(p => p.daysUntil >= 0)
+      .sort((a, b) => a.daysUntil - b.daysUntil)
+      .slice(0, 5);
+  }, [proposals]);
+
+  const getHealthColor = (health) => {
+    if (health >= 80) return "text-green-600 bg-green-50";
+    if (health >= 60) return "text-blue-600 bg-blue-50";
+    if (health >= 40) return "text-amber-600 bg-amber-50";
+    return "text-red-600 bg-red-50";
+  };
+
+  const getDeadlineUrgency = (days) => {
+    if (days <= 3) return "bg-red-100 text-red-700 border-red-300";
+    if (days <= 7) return "bg-amber-100 text-amber-700 border-amber-300";
+    if (days <= 14) return "bg-blue-100 text-blue-700 border-blue-300";
+    return "bg-slate-100 text-slate-700 border-slate-300";
+  };
 
   if (loading || !organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <Skeleton className="h-32 w-32 rounded-xl mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
+          <p className="text-slate-600">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-8">
+    <div className="p-6 lg:p-8 space-y-6">
+      {/* Header with Quick Actions */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome back!
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <Sparkles className="w-8 h-8 text-blue-600" />
+            Welcome back, {user?.full_name?.split(' ')[0]}!
           </h1>
-          <p className="text-slate-600">
-            {organization.organization_name} Dashboard
-          </p>
+          <p className="text-slate-600">{organization.organization_name}</p>
         </div>
-        <Button 
-          onClick={() => navigate(createPageUrl("ProposalBuilder"))}
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          New Proposal
-        </Button>
+        
+        {/* Quick Action Buttons */}
+        <div className="flex gap-2 flex-wrap">
+          <Button 
+            onClick={() => navigate(createPageUrl("ProposalBuilder"))}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            New Proposal
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => navigate(createPageUrl("OpportunityFinder"))}
+          >
+            <Search className="w-5 h-5 mr-2" />
+            Find Opportunities
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => navigate(createPageUrl("Chat"))}
+          >
+            <MessageSquare className="w-5 h-5 mr-2" />
+            Ask AI
+          </Button>
+        </div>
       </div>
 
+      {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Proposals"))}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Total Proposals
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Active Proposals
+              </span>
+              {stats.recentActivity > 0 && (
+                <Badge variant="secondary" className="text-xs">{stats.recentActivity} updated</Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
-            <p className="text-xs text-slate-500 mt-1">All time</p>
+            <p className="text-3xl font-bold text-slate-900">{stats.active}</p>
+            <p className="text-xs text-slate-500 mt-1">of {stats.total} total</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-amber-50 to-white">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-amber-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Proposals"))}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              In Progress
+              Due This Week
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-amber-600">{stats.inProgress}</p>
-            <p className="text-xs text-slate-500 mt-1">Active proposals</p>
+            <p className="text-3xl font-bold text-amber-600">{stats.dueThisWeek}</p>
+            <p className="text-xs text-slate-500 mt-1">Upcoming deadlines</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-green-50 to-white hover:shadow-xl transition-all">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              Submitted
+              <Target className="w-4 h-4" />
+              Win Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-purple-600">{stats.submitted}</p>
-            <p className="text-xs text-slate-500 mt-1">Awaiting results</p>
+            <p className="text-3xl font-bold text-green-600">{stats.winRate}%</p>
+            <p className="text-xs text-slate-500 mt-1">{stats.won} won / {stats.lost} lost</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-green-50 to-white">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("OpportunityFinder"))}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              Won
+              <Sparkles className="w-4 h-4" />
+              New Opportunities
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">{stats.won}</p>
-            <p className="text-xs text-slate-500 mt-1">Successful bids</p>
+            <p className="text-3xl font-bold text-purple-600">{opportunities.length}</p>
+            <p className="text-xs text-slate-500 mt-1">High match score</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border-none shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Recent Proposals</span>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate(createPageUrl("Proposals"))}
-              >
-                View All
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1,2,3].map(i => (
-                  <Skeleton key={i} className="h-20 w-full" />
-                ))}
-              </div>
-            ) : proposals.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-600 mb-4">No proposals yet</p>
-                <Button 
-                  onClick={() => navigate(createPageUrl("ProposalBuilder"))}
-                  variant="outline"
-                >
-                  Create Your First Proposal
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {proposals.slice(0, 5).map((proposal) => (
-                  <div
-                    key={proposal.id}
-                    className="p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`))}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-slate-900">{proposal.proposal_name}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        proposal.status === 'won' ? 'bg-green-100 text-green-700' :
-                        proposal.status === 'submitted' ? 'bg-purple-100 text-purple-700' :
-                        proposal.status === 'in_progress' || proposal.status === 'draft' || proposal.status === 'evaluating' || proposal.status === 'watch_list' ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {proposal.status?.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600">{proposal.agency_name || 'No agency specified'}</p>
-                    {proposal.due_date && (
-                      <p className="text-xs text-slate-500 mt-1">
-                        Due: {new Date(proposal.due_date).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Main Content - 2 columns */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Win/Loss Trends */}
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+                Win/Loss Trends
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={winLossTrend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="won" fill="#10b981" name="Won" />
+                  <Bar dataKey="submitted" fill="#8b5cf6" name="Submitted" />
+                  <Bar dataKey="lost" fill="#ef4444" name="Lost" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-indigo-50 to-white">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
-              onClick={() => navigate(createPageUrl("ProposalBuilder"))}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Start New Proposal
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
-              onClick={() => navigate(createPageUrl("Chat"))}
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Ask AI Assistant
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
-              onClick={() => navigate(createPageUrl("Resources"))}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Manage Resources
-            </Button>
-          </CardContent>
-        </Card>
+          {/* Proposal Health Scores */}
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-blue-600" />
+                  Proposal Health Dashboard
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl("Proposals"))}>
+                  View All
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {proposalHealthData.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm">No active proposals to monitor</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {proposalHealthData.slice(0, 5).map((proposal) => (
+                    <div
+                      key={proposal.id}
+                      className="p-4 rounded-lg border hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`))}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-slate-900">{proposal.name}</h4>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {proposal.phase?.replace('_', ' ')}
+                            </Badge>
+                            {proposal.dueDate && (
+                              <Badge variant="secondary" className="text-xs">
+                                Due {new Date(proposal.dueDate).toLocaleDateString()}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full ${getHealthColor(proposal.health)}`}>
+                          <span className="text-sm font-bold">{proposal.health}%</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Progress value={proposal.health} className="flex-1 h-2" />
+                        <span className="text-xs text-slate-500">
+                          {proposal.health >= 80 ? 'Excellent' :
+                           proposal.health >= 60 ? 'Good' :
+                           proposal.health >= 40 ? 'Fair' : 'Needs Attention'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity Feed */}
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-600" />
+                Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activityLog.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <Activity className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm">No recent activity</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activityLog.slice(0, 8).map((activity) => {
+                    const proposal = proposals.find(p => p.id === activity.proposal_id);
+                    const timeAgo = getTimeAgo(activity.created_date);
+                    
+                    return (
+                      <div key={activity.id} className="flex gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                          {getActivityIcon(activity.action_type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-900">
+                            <strong>{activity.user_name}</strong> {activity.action_description}
+                          </p>
+                          {proposal && (
+                            <p className="text-xs text-slate-600 truncate">{proposal.proposal_name}</p>
+                          )}
+                          <p className="text-xs text-slate-400 mt-1">{timeAgo}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar - 1 column */}
+        <div className="space-y-6">
+          {/* Upcoming Deadlines */}
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-red-600" />
+                Upcoming Deadlines
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingDeadlines.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm">No upcoming deadlines</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingDeadlines.map((proposal) => (
+                    <div
+                      key={proposal.id}
+                      className={`p-3 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${getDeadlineUrgency(proposal.daysUntil)}`}
+                      onClick={() => navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`))}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-sm line-clamp-2">{proposal.proposal_name}</h4>
+                        <Clock className="w-4 h-4 flex-shrink-0 ml-2" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs">{new Date(proposal.due_date).toLocaleDateString()}</p>
+                        <Badge variant="secondary" className="text-xs font-bold">
+                          {proposal.daysUntil === 0 ? 'Today!' :
+                           proposal.daysUntil === 1 ? 'Tomorrow' :
+                           `${proposal.daysUntil} days`}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Top Opportunities */}
+          {opportunities.length > 0 && (
+            <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-white">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    Top Opportunities
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl("OpportunityFinder"))}>
+                    View All
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {opportunities.slice(0, 3).map((opp) => (
+                    <div
+                      key={opp.id}
+                      className="p-3 bg-white rounded-lg border border-purple-200 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => navigate(createPageUrl("OpportunityFinder"))}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-sm line-clamp-2">{opp.title}</h4>
+                        <Badge className="bg-green-100 text-green-700 ml-2 flex-shrink-0">
+                          {opp.match_score}%
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-600">{opp.department}</p>
+                      {opp.response_deadline && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Due: {new Date(opp.response_deadline).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Stats */}
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-600" />
+                Quick Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <span className="text-sm text-slate-700">Active Proposals</span>
+                <span className="text-lg font-bold text-blue-600">{stats.active}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                <span className="text-sm text-slate-700">Submitted</span>
+                <span className="text-lg font-bold text-purple-600">{stats.submitted}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <span className="text-sm text-slate-700">Won</span>
+                <span className="text-lg font-bold text-green-600">{stats.won}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                <span className="text-sm text-slate-700">Win Rate</span>
+                <span className="text-lg font-bold text-amber-600">{stats.winRate}%</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notifications Preview */}
+          {notifications.length > 0 && (
+            <Card className="border-none shadow-lg border-l-4 border-l-blue-500">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-600" />
+                    Unread Notifications
+                  </span>
+                  <Badge variant="secondary">{notifications.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {notifications.slice(0, 3).map((notif) => (
+                    <div key={notif.id} className="p-2 bg-blue-50 rounded text-xs">
+                      <p className="font-medium text-blue-900">{notif.title}</p>
+                      <p className="text-blue-700 mt-1">{notif.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+// Helper functions
+function getActivityIcon(actionType) {
+  const iconClass = "w-4 h-4 text-white";
+  switch (actionType) {
+    case 'proposal_created':
+      return <Plus className={iconClass} />;
+    case 'section_updated':
+    case 'section_created':
+      return <Edit className={iconClass} />;
+    case 'comment_added':
+      return <MessageSquare className={iconClass} />;
+    case 'status_changed':
+      return <CheckCircle2 className={iconClass} />;
+    case 'file_uploaded':
+      return <FileText className={iconClass} />;
+    default:
+      return <Activity className={iconClass} />;
+  }
+}
+
+function getTimeAgo(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return date.toLocaleDateString();
 }
