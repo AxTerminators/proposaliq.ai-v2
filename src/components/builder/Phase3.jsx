@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, X, Plus, Sparkles, CheckCircle2 } from "lucide-react";
+import { FileText, Upload, X, Plus, Sparkles, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Phase3({ proposalData, setProposalData, proposalId }) {
   const [uploadingFiles, setUploadingFiles] = useState([]);
@@ -15,9 +16,10 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
   const [newFactor, setNewFactor] = useState("");
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isAnalyzingDeep, setIsAnalyzingDeep] = useState(false);
+  const [extractionResults, setExtractionResults] = useState(null);
   const [currentOrgId, setCurrentOrgId] = useState(null);
 
-  // SECURITY: Get current user's organization for data isolation
   useEffect(() => {
     const loadOrgId = async () => {
       try {
@@ -28,7 +30,7 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
           1
         );
         if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
+          setCurrentOrgId(orgs[0]);
         }
       } catch (error) {
         console.error("Error loading org:", error);
@@ -41,8 +43,6 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
     try {
       setIsExtracting(true);
       
-      // IMPORTANT: Only use AI LLM extraction for ALL file types to avoid compatibility issues
-      // The InvokeLLM integration supports: PDF, DOCX, XLSX, PPTX, TXT, PNG, JPG, JPEG, CSV
       const aiPrompt = `Analyze this solicitation document and extract the following information in JSON format:
 - Solicitation Number
 - Agency Name  
@@ -107,6 +107,143 @@ Return as valid JSON with these exact keys: solicitation_number, agency_name, pr
     }
   };
 
+  const deepAnalyzeSolicitation = async () => {
+    if (!proposalId || !currentOrgId) {
+      alert("Please save the proposal first");
+      return;
+    }
+
+    setIsAnalyzingDeep(true);
+    setExtractionResults(null);
+
+    try {
+      const solicitationDocs = await base44.entities.SolicitationDocument.filter({
+        proposal_id: proposalId,
+        organization_id: currentOrgId.id
+      });
+
+      const fileUrls = solicitationDocs
+        .filter(doc => doc.file_url && doc.document_type !== 'reference')
+        .map(doc => doc.file_url)
+        .slice(0, 10);
+
+      if (fileUrls.length === 0) {
+        alert("Please upload solicitation documents first");
+        setIsAnalyzingDeep(false);
+        return;
+      }
+
+      const prompt = `You are an expert proposal analyst. Perform a comprehensive analysis of these solicitation documents.
+
+**EXTRACT THE FOLLOWING:**
+
+1. **Key Requirements:** Identify all mandatory and desirable requirements from Section L, M, C, and other relevant sections.
+2. **Compliance Checklist:** Create a detailed compliance matrix of submission requirements (format, page limits, mandatory sections).
+3. **Evaluation/Scoring Criteria:** Extract the exact scoring methodology, weights, and evaluation factors.
+4. **Risk Factors:** Identify potential risks, challenges, or red flags in the solicitation.
+5. **Key Dates & Milestones:** All important dates beyond just the due date (pre-proposal conference, question deadline, etc.)
+6. **Special Requirements:** Any unique or unusual requirements (security clearances, certifications, insurance, bonding).
+
+Return as detailed JSON following this schema:
+
+{
+  "mandatory_requirements": [
+    {
+      "requirement_id": "string (e.g., L-001)",
+      "requirement_title": "string",
+      "requirement_description": "string",
+      "source_section": "string (e.g., Section L.3.2)",
+      "category": "technical|submission_format|administrative|certification",
+      "risk_level": "low|medium|high|critical"
+    }
+  ],
+  "evaluation_criteria": [
+    {
+      "criterion_name": "string",
+      "weight_percentage": number,
+      "evaluation_approach": "string",
+      "key_focus_areas": ["string"]
+    }
+  ],
+  "format_requirements": {
+    "page_limit": number,
+    "font": "string",
+    "font_size": number,
+    "margins": "string",
+    "line_spacing": number,
+    "mandatory_sections": ["string"]
+  },
+  "risk_factors": [
+    {
+      "risk": "string",
+      "severity": "low|medium|high|critical",
+      "category": "technical|schedule|cost|compliance"
+    }
+  ],
+  "key_dates": [
+    {
+      "date": "string (YYYY-MM-DD)",
+      "event": "string",
+      "importance": "critical|important|informational"
+    }
+  ],
+  "special_requirements": [
+    {
+      "requirement": "string",
+      "type": "clearance|certification|insurance|bonding|other",
+      "details": "string"
+    }
+  ]
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: fileUrls,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            mandatory_requirements: { type: "array" },
+            evaluation_criteria: { type: "array" },
+            format_requirements: { type: "object" },
+            risk_factors: { type: "array" },
+            key_dates: { type: "array" },
+            special_requirements: { type: "array" }
+          }
+        }
+      });
+
+      setExtractionResults(result);
+
+      // Auto-create ComplianceRequirement records
+      if (result.mandatory_requirements && result.mandatory_requirements.length > 0) {
+        for (const req of result.mandatory_requirements) {
+          await base44.entities.ComplianceRequirement.create({
+            proposal_id: proposalId,
+            organization_id: currentOrgId.id,
+            requirement_id: req.requirement_id || `AUTO-${Date.now()}`,
+            requirement_title: req.requirement_title,
+            requirement_type: req.category || "solicitation_specific",
+            requirement_category: "mandatory",
+            requirement_description: req.requirement_description,
+            requirement_source: req.source_section,
+            compliance_status: "not_started",
+            risk_level: req.risk_level || "medium",
+            ai_detected: true,
+            ai_confidence: 85
+          });
+        }
+      }
+
+      alert(`✓ Deep analysis complete! Created ${result.mandatory_requirements?.length || 0} compliance requirements.`);
+
+    } catch (error) {
+      console.error("Error analyzing solicitation:", error);
+      alert("Error performing deep analysis. Please try again.");
+    } finally {
+      setIsAnalyzingDeep(false);
+    }
+  };
+
   const handleFileUpload = async (files) => {
     if (!proposalId) {
       alert("Please save the proposal first (complete Phase 1)");
@@ -135,10 +272,9 @@ Return as valid JSON with these exact keys: solicitation_number, agency_name, pr
           docType = "pws";
         }
         
-        // SECURITY: Always include organization_id to ensure data isolation
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
-          organization_id: currentOrgId,
+          organization_id: currentOrgId.id,
           document_type: docType,
           file_name: file.name,
           file_url: file_url,
@@ -148,7 +284,6 @@ Return as valid JSON with these exact keys: solicitation_number, agency_name, pr
         setUploadedDocs(prev => [...prev, { name: file.name, url: file_url, type: docType }]);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
         
-        // Auto-extract data from RFP, RFQ, SOW, PWS documents
         if (['rfp', 'rfq', 'sow', 'pws'].includes(docType)) {
           await extractSolicitationData(file_url, file.name);
         }
@@ -392,7 +527,29 @@ Return a JSON array of evaluation factor names.`;
 
           {uploadedDocs.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium text-slate-700">Uploaded Documents:</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-700">Uploaded Documents:</p>
+                {uploadedDocs.some(doc => ['rfp', 'rfq', 'sow', 'pws'].includes(doc.type)) && (
+                  <Button
+                    onClick={deepAnalyzeSolicitation}
+                    disabled={isAnalyzingDeep}
+                    size="sm"
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    {isAnalyzingDeep ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Deep AI Analysis
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
               {uploadedDocs.map((doc, idx) => (
                 <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
                   <div className="flex items-center gap-2">
@@ -412,6 +569,27 @@ Return a JSON array of evaluation factor names.`;
             </div>
           )}
         </div>
+
+        {extractionResults && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-semibold text-green-900">Deep Analysis Complete!</p>
+                <ul className="text-sm text-green-800 space-y-1">
+                  <li>✓ {extractionResults.mandatory_requirements?.length || 0} mandatory requirements identified</li>
+                  <li>✓ {extractionResults.evaluation_criteria?.length || 0} evaluation criteria extracted</li>
+                  <li>✓ {extractionResults.risk_factors?.length || 0} risk factors flagged</li>
+                  <li>✓ {extractionResults.key_dates?.length || 0} key dates captured</li>
+                  <li>✓ Compliance requirements automatically created</li>
+                </ul>
+                <p className="text-xs text-green-700 mt-2">
+                  View detailed analysis in Phase 4: Evaluator
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );
