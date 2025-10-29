@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,10 @@ import LaborRateManager from "./LaborRateManager";
 import CLINBuilder from "./CLINBuilder";
 import PricingAnalyzer from "./PricingAnalyzer";
 import PricingSummary from "./PricingSummary";
+import ExcelExporter from "./ExcelExporter";
+import PriceComparison from "./PriceComparison";
+import TemplateManager from "./TemplateManager";
+import SubcontractorManager from "./SubcontractorManager";
 
 export default function PricingModule({ proposalId, proposalData, organizationId }) {
   const queryClient = useQueryClient();
@@ -46,6 +51,13 @@ export default function PricingModule({ proposalId, proposalData, organizationId
     queryFn: () => proposalId ? base44.entities.LaborAllocation.filter({ proposal_id: proposalId }) : [],
     initialData: [],
     enabled: !!proposalId
+  });
+
+  const { data: laborCategories } = useQuery({
+    queryKey: ['labor-categories', organizationId],
+    queryFn: () => organizationId ? base44.entities.LaborCategory.filter({ organization_id: organizationId }) : [],
+    initialData: [],
+    enabled: !!organizationId
   });
 
   const { data: odcItems } = useQuery({
@@ -88,10 +100,21 @@ export default function PricingModule({ proposalId, proposalData, organizationId
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Export Pricing
-              </Button>
+              <TemplateManager 
+                organizationId={organizationId}
+                proposalId={proposalId}
+                currentPricingData={{ clins, laborAllocations, odcItems }}
+              />
+              <ExcelExporter
+                proposalData={proposalData}
+                clins={clins}
+                laborAllocations={laborAllocations}
+                laborCategories={laborCategories}
+                odcItems={odcItems}
+                pricingStrategy={pricingStrategy}
+                totalCost={totalCost}
+                totalPrice={totalPrice}
+              />
             </div>
           </div>
         </CardHeader>
@@ -148,7 +171,7 @@ export default function PricingModule({ proposalId, proposalData, organizationId
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="summary">
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Summary
@@ -161,9 +184,17 @@ export default function PricingModule({ proposalId, proposalData, organizationId
                 <Package className="w-4 h-4 mr-2" />
                 CLINs
               </TabsTrigger>
+              <TabsTrigger value="subcontractors">
+                <Users className="w-4 h-4 mr-2" />
+                Subs
+              </TabsTrigger>
               <TabsTrigger value="analysis">
                 <Target className="w-4 h-4 mr-2" />
                 Analysis
+              </TabsTrigger>
+              <TabsTrigger value="comparison">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Compare
               </TabsTrigger>
               <TabsTrigger value="strategy">
                 <Award className="w-4 h-4 mr-2" />
@@ -204,6 +235,14 @@ export default function PricingModule({ proposalId, proposalData, organizationId
               />
             </TabsContent>
 
+            {/* Subcontractors Tab */}
+            <TabsContent value="subcontractors">
+              <SubcontractorManager
+                proposalId={proposalId}
+                organizationId={organizationId}
+              />
+            </TabsContent>
+
             {/* Analysis Tab */}
             <TabsContent value="analysis">
               <PricingAnalyzer
@@ -214,6 +253,14 @@ export default function PricingModule({ proposalId, proposalData, organizationId
                 pricingStrategy={pricingStrategy}
                 totalCost={totalCost}
                 totalPrice={totalPrice}
+              />
+            </TabsContent>
+
+            {/* Comparison Tab */}
+            <TabsContent value="comparison">
+              <PriceComparison
+                organizationId={organizationId}
+                currentProposalId={proposalId}
               />
             </TabsContent>
 
