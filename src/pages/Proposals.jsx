@@ -71,6 +71,18 @@ export default function Proposals() {
     navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`));
   };
 
+  const statusFilters = [
+    { value: "all", label: "All" },
+    { value: "evaluating", label: "Evaluating" },
+    { value: "watch_list", label: "Watch List" },
+    { value: "draft", label: "Draft" },
+    { value: "in_progress", label: "In Review" },
+    { value: "submitted", label: "Submitted" },
+    { value: "won", label: "Won" },
+    { value: "lost", label: "Lost" },
+    { value: "archived", label: "Archived" }
+  ];
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -100,15 +112,15 @@ export default function Proposals() {
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0">
-              {["all", "evaluating", "watch_list", "draft", "in_progress", "submitted", "won", "lost", "archived"].map((status) => (
+              {statusFilters.map((filter) => (
                 <Button
-                  key={status}
-                  variant={filterStatus === status ? "default" : "outline"}
+                  key={filter.value}
+                  variant={filterStatus === filter.value ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setFilterStatus(status)}
-                  className="whitespace-nowrap capitalize"
+                  onClick={() => setFilterStatus(filter.value)}
+                  className="whitespace-nowrap"
                 >
-                  {status === "all" ? "All" : status.replace('_', ' ')}
+                  {filter.label}
                 </Button>
               ))}
             </div>
