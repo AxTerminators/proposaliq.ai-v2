@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -12,6 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TaskComments from "../collaboration/TaskComments";
 
 export default function TaskForm({ open, onOpenChange, proposal, task, onSave, user, organization }) {
   const [formData, setFormData] = useState({
@@ -133,9 +136,156 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     });
   };
 
+  const taskFormFields = (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="title">Task Title *</Label>
+        <Input
+          id="title"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          placeholder="e.g., Draft Executive Summary"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Detailed task description..."
+          rows={3}
+        />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="assignee">Assign To *</Label>
+          <Select value={formData.assigned_to_email} onValueChange={handleAssigneeChange}>
+            <SelectTrigger id="assignee">
+              <SelectValue placeholder="Select team member" />
+            </SelectTrigger>
+            <SelectContent>
+              {teamMembers.map(member => (
+                <SelectItem key={member.email} value={member.email}>
+                  {member.full_name} ({member.email})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="section">Related Section (Optional)</Label>
+          <Select value={formData.section_id} onValueChange={(value) => setFormData({ ...formData, section_id: value })}>
+            <SelectTrigger id="section">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={null}>None</SelectItem>
+              {sections.map(section => (
+                <SelectItem key={section.id} value={section.id}>
+                  {section.section_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="priority">Priority *</Label>
+          <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
+            <SelectTrigger id="priority">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="status">Status *</Label>
+          <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+            <SelectTrigger id="status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todo">To Do</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="review">In Review</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="hours">Est. Hours</Label>
+          <Input
+            id="hours"
+            type="number"
+            step="0.5"
+            value={formData.estimated_hours}
+            onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
+            placeholder="e.g., 4"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Due Date</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !formData.due_date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {formData.due_date ? format(formData.due_date, 'PPP') : <span>Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={formData.due_date}
+              onSelect={(date) => setFormData({ ...formData, due_date: date })}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSaving || !formData.title || !formData.assigned_to_email}>
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            task ? "Update Task" : "Create Task"
+          )}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? "Edit Task" : "Create New Task"}</DialogTitle>
           <DialogDescription>
@@ -143,150 +293,32 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Task Title *</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., Draft Executive Summary"
-              required
-            />
-          </div>
+        {task ? (
+          <Tabs defaultValue="details" className="py-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="details">Task Details</TabsTrigger>
+              <TabsTrigger value="comments">Comments</TabsTrigger>
+            </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Detailed task description..."
-              rows={3}
-            />
-          </div>
+            <TabsContent value="details">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {taskFormFields}
+              </form>
+            </TabsContent>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="assignee">Assign To *</Label>
-              <Select value={formData.assigned_to_email} onValueChange={handleAssigneeChange}>
-                <SelectTrigger id="assignee">
-                  <SelectValue placeholder="Select team member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map(member => (
-                    <SelectItem key={member.email} value={member.email}>
-                      {member.full_name} ({member.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="section">Related Section (Optional)</Label>
-              <Select value={formData.section_id} onValueChange={(value) => setFormData({ ...formData, section_id: value })}>
-                <SelectTrigger id="section">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={null}>None</SelectItem>
-                  {sections.map(section => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.section_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority *</Label>
-              <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
-                <SelectTrigger id="priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger id="status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="review">In Review</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="hours">Est. Hours</Label>
-              <Input
-                id="hours"
-                type="number"
-                step="0.5"
-                value={formData.estimated_hours}
-                onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
-                placeholder="e.g., 4"
+            <TabsContent value="comments">
+              <TaskComments
+                proposal={proposal}
+                task={task}
+                user={user}
               />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.due_date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.due_date ? format(formData.due_date, 'PPP') : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={formData.due_date}
-                  onSelect={(date) => setFormData({ ...formData, due_date: date })}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving || !formData.title || !formData.assigned_to_email}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                task ? "Update Task" : "Create Task"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 py-4">
+            {taskFormFields}
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
