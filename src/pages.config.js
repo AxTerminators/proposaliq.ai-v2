@@ -17,6 +17,7 @@ import OpportunityFinder from './pages/OpportunityFinder';
 import PastPerformance from './pages/PastPerformance';
 import Team from './pages/Team';
 import Calendar from './pages/Calendar';
+import Tasks from './pages/Tasks';
 import Layout from './Layout.jsx';
 
 
@@ -40,6 +41,7 @@ export const PAGES = {
     "PastPerformance": PastPerformance,
     "Team": Team,
     "Calendar": Calendar,
+    "Tasks": Tasks,
 }
 
 export const pagesConfig = {

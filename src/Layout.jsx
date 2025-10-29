@@ -21,7 +21,8 @@ import {
   X,
   Award,
   Users,
-  Calendar
+  Calendar,
+  CheckSquare // Added CheckSquare import
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,6 +49,7 @@ const navigationItems = [
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe },
   { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
+  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare }, // Added Tasks item
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
   { title: "Team", url: createPageUrl("Team"), icon: Users },
   { title: "Resources", url: createPageUrl("Resources"), icon: Library },
