@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -17,7 +18,8 @@ import {
   BarChart3,
   Download,
   Globe,
-  X
+  X,
+  Award // Added Award icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,6 +56,11 @@ const navigationItems = [
     title: "Proposals",
     url: createPageUrl("Proposals"),
     icon: FileText,
+  },
+  {
+    title: "Past Performance", // Added new navigation item
+    url: createPageUrl("PastPerformance"),
+    icon: Award,
   },
   {
     title: "Resources",
