@@ -18,6 +18,7 @@ import PastPerformance from './pages/PastPerformance';
 import Team from './pages/Team';
 import Calendar from './pages/Calendar';
 import Tasks from './pages/Tasks';
+import TeamingPartners from './pages/TeamingPartners';
 import Layout from './Layout.jsx';
 
 
@@ -42,6 +43,7 @@ export const PAGES = {
     "Team": Team,
     "Calendar": Calendar,
     "Tasks": Tasks,
+    "TeamingPartners": TeamingPartners,
 }
 
 export const pagesConfig = {

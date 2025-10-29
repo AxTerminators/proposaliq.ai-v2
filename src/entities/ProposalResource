@@ -1,0 +1,134 @@
+{
+  "name": "ProposalResource",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this resource - CRITICAL for data isolation"
+    },
+    "teaming_partner_id": {
+      "type": "string",
+      "description": "Reference to TeamingPartner if this is partner-specific document"
+    },
+    "is_partner_document": {
+      "type": "boolean",
+      "default": false,
+      "description": "Flag to identify if document belongs to a teaming partner"
+    },
+    "temporary_storage": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, document will be deleted after proposal finalization"
+    },
+    "purged_on": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when document was automatically deleted"
+    },
+    "resource_type": {
+      "type": "string",
+      "enum": [
+        "capability_statement",
+        "marketing_collateral",
+        "past_proposal",
+        "boilerplate_text",
+        "template",
+        "partner_past_performance",
+        "partner_capability",
+        "partner_certifications",
+        "partner_proposal",
+        "other"
+      ],
+      "description": "Type of resource document or content"
+    },
+    "content_category": {
+      "type": "string",
+      "enum": [
+        "company_overview",
+        "past_performance",
+        "technical_approach",
+        "quality_assurance",
+        "key_personnel",
+        "management",
+        "transition_plan",
+        "security",
+        "pricing",
+        "general"
+      ],
+      "description": "Category of boilerplate content"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the resource or boilerplate"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the resource"
+    },
+    "boilerplate_content": {
+      "type": "string",
+      "description": "For boilerplate_text type: the actual reusable text content in HTML format"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Original file name (for file resources)"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to the uploaded file (for file resources)"
+    },
+    "file_size": {
+      "type": "number",
+      "description": "File size in bytes (for file resources)"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for search and organization"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "teaming_partner"
+      ],
+      "description": "Whether this belongs to org or partner"
+    },
+    "usage_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of times this resource has been used in proposals"
+    },
+    "last_used_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time this resource was used"
+    },
+    "linked_proposal_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Proposals where this resource was used"
+    },
+    "win_rate": {
+      "type": "number",
+      "description": "Percentage of proposals using this resource that won"
+    },
+    "is_favorite": {
+      "type": "boolean",
+      "default": false,
+      "description": "Mark as favorite for quick access"
+    },
+    "word_count": {
+      "type": "number",
+      "description": "Word count for boilerplate text"
+    }
+  },
+  "required": [
+    "organization_id",
+    "resource_type"
+  ]
+}

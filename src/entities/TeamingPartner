@@ -1,0 +1,134 @@
+{
+  "name": "TeamingPartner",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to the parent organization"
+    },
+    "partner_name": {
+      "type": "string",
+      "description": "Teaming partner or subcontractor name"
+    },
+    "partner_type": {
+      "type": "string",
+      "enum": [
+        "prime",
+        "subcontractor",
+        "teaming_partner",
+        "consultant",
+        "vendor"
+      ],
+      "default": "teaming_partner",
+      "description": "Type of partner relationship"
+    },
+    "address": {
+      "type": "string",
+      "description": "Partner address"
+    },
+    "poc_name": {
+      "type": "string",
+      "description": "Point of contact full name"
+    },
+    "poc_phone": {
+      "type": "string",
+      "description": "Point of contact phone"
+    },
+    "poc_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Point of contact email"
+    },
+    "uei": {
+      "type": "string",
+      "description": "Unique Entity Identifier"
+    },
+    "cage_code": {
+      "type": "string",
+      "description": "Commercial and Government Entity Code"
+    },
+    "website_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Partner website"
+    },
+    "primary_naics": {
+      "type": "string",
+      "description": "Primary NAICS code"
+    },
+    "secondary_naics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Additional NAICS codes"
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Small business and other certifications"
+    },
+    "core_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Primary service offerings or areas of expertise"
+    },
+    "differentiators": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Key aspects that make them stand out from competitors"
+    },
+    "past_performance_summary": {
+      "type": "string",
+      "description": "Brief overview of their past performance"
+    },
+    "target_agencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Agencies they frequently work with or target"
+    },
+    "notes": {
+      "type": "string",
+      "description": "General internal notes about the partner"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "preferred",
+        "potential"
+      ],
+      "default": "active",
+      "description": "Partner relationship status"
+    },
+    "revenue_range": {
+      "type": "string",
+      "description": "Annual revenue range (e.g., $1M-$5M)"
+    },
+    "employee_count": {
+      "type": "number",
+      "description": "Number of employees"
+    },
+    "years_in_business": {
+      "type": "number",
+      "description": "Years in business"
+    },
+    "last_collaboration_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last time worked with this partner"
+    }
+  },
+  "required": [
+    "partner_name"
+  ]
+}
