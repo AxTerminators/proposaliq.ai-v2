@@ -3,7 +3,6 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useClient } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,22 +21,42 @@ import ProposalsTable from "../components/proposals/ProposalsTable";
 
 export default function Proposals() {
   const navigate = useNavigate();
-  const { activeClientId, activeClientRole } = useClient();
+  const [organization, setOrganization] = React.useState(null);
+  const [user, setUser] = React.useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  // Filter proposals by active client
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: currentUser.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setOrganization(orgs[0]);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
+    };
+    loadData();
+  }, []);
+
   const { data: proposals, isLoading } = useQuery({
-    queryKey: ['proposals', activeClientId],
+    queryKey: ['proposals', organization?.id],
     queryFn: async () => {
-      if (!activeClientId) return [];
+      if (!organization?.id) return [];
       return base44.entities.Proposal.filter(
-        { organization_id: activeClientId },
+        { organization_id: organization.id },
         '-created_date'
       );
     },
     initialData: [],
-    enabled: !!activeClientId,
+    enabled: !!organization?.id,
   });
 
   const filteredProposals = proposals.filter(proposal => {
@@ -118,8 +137,8 @@ export default function Proposals() {
               <TabsContent value="kanban">
                 <ProposalsKanban 
                   proposals={filteredProposals} 
-                  organizationId={activeClientId}
-                  userRole={activeClientRole}
+                  organizationId={organization?.id}
+                  userRole="organization_owner"
                 />
               </TabsContent>
 
