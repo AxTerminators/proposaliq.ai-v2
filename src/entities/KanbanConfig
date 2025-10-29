@@ -1,0 +1,58 @@
+{
+  "name": "KanbanConfig",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "ID of the organization this config belongs to"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the column"
+          },
+          "label": {
+            "type": "string",
+            "description": "User-customized name for the column"
+          },
+          "color": {
+            "type": "string",
+            "description": "Background color class for the column"
+          },
+          "order": {
+            "type": "number",
+            "description": "Display order of the columns"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "default_status",
+              "custom_stage"
+            ],
+            "description": "Indicates if it's a default status column or custom user-defined stage"
+          },
+          "default_status_mapping": {
+            "type": "string",
+            "description": "If type is default_status, maps to actual proposal status"
+          }
+        }
+      },
+      "description": "Array of column configurations"
+    },
+    "collapsed_column_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of column IDs that are currently collapsed"
+    }
+  },
+  "required": [
+    "organization_id",
+    "columns"
+  ]
+}
