@@ -12,6 +12,7 @@ import Home from './pages/Home';
 import Pricing from './pages/Pricing';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
+import ExportCenter from './pages/ExportCenter';
 import Layout from './Layout.jsx';
 
 
@@ -30,6 +31,7 @@ export const PAGES = {
     "Pricing": Pricing,
     "Settings": Settings,
     "Analytics": Analytics,
+    "ExportCenter": ExportCenter,
 }
 
 export const pagesConfig = {
