@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -50,7 +49,7 @@ import { useQuery } from "@tanstack/react-query";
 const navigationItems = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
-  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, adminOnly: true },
+  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true },
   { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
@@ -138,9 +137,9 @@ export default function Layout({ children }) {
   const userIsAdmin = user?.role === 'admin';
   const userIsSuperAdmin = user?.admin_role === 'super_admin';
 
-  // Filter navigation items based on admin status
+  // Filter navigation items - hide Opportunities unless super admin
   const visibleNavigationItems = navigationItems.filter(item => {
-    if (item.adminOnly) {
+    if (item.superAdminOnly) {
       return userIsSuperAdmin;
     }
     return true;
