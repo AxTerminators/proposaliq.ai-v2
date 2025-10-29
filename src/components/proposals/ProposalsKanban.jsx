@@ -6,7 +6,7 @@ import KanbanColumn from "./KanbanColumn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Settings2 } from "lucide-react";
+import { Loader2, Plus, Settings2, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,17 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         });
 
         if (configs.length > 0) {
-          const savedColumns = configs[0].columns || defaultColumns;
+          let savedColumns = configs[0].columns || defaultColumns;
+          
+          // Validate and fix order if missing or incorrect
+          savedColumns = savedColumns.map((col, idx) => {
+            // Find matching default column
+            const defaultCol = defaultColumns.find(dc => dc.id === col.id);
+            return {
+              ...col,
+              order: defaultCol ? defaultCol.order : idx
+            };
+          });
           
           // Sort columns by order property to ensure correct display
           const sortedColumns = [...savedColumns].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -115,6 +125,31 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     },
   });
 
+  const resetToDefaultMutation = useMutation({
+    mutationFn: async () => {
+      const configs = await base44.entities.KanbanConfig.filter({
+        organization_id: organization.id
+      });
+
+      if (configs.length > 0) {
+        await base44.entities.KanbanConfig.update(configs[0].id, {
+          columns: defaultColumns
+        });
+      } else {
+        await base44.entities.KanbanConfig.create({
+          organization_id: organization.id,
+          columns: defaultColumns
+        });
+      }
+    },
+    onSuccess: () => {
+      setColumns(defaultColumns);
+      setColumnConfig(defaultColumns);
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      alert('✓ Kanban board reset to default order!');
+    },
+  });
+
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
@@ -140,6 +175,13 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     setColumns(sortedConfig);
     saveColumnConfigMutation.mutate(sortedConfig);
     setIsEditingColumns(false);
+  };
+
+  const handleResetToDefault = () => {
+    if (confirm('Reset Kanban board to default column order? This will replace your current customization.')) {
+      resetToDefaultMutation.mutate();
+      setIsEditingColumns(false);
+    }
   };
 
   const handleColumnChange = (columnId, field, value) => {
@@ -169,7 +211,20 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleResetToDefault}
+          disabled={resetToDefaultMutation.isPending}
+        >
+          {resetToDefaultMutation.isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <RotateCcw className="w-4 h-4 mr-2" />
+          )}
+          Reset to Default
+        </Button>
         <Dialog open={isEditingColumns} onOpenChange={setIsEditingColumns}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
@@ -181,7 +236,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
             <DialogHeader>
               <DialogTitle>Customize Kanban Columns</DialogTitle>
               <DialogDescription>
-                Edit column labels and colors to match your workflow
+                Edit column labels and colors to match your workflow. Default order: Evaluating → Watch List → Draft → In Progress → Submitted → Won → Lost → Archived
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -217,20 +272,26 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
                 </div>
               ))}
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditingColumns(false)}>
-                Cancel
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={handleResetToDefault}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset to Default
               </Button>
-              <Button onClick={handleSaveColumns}>
-                {saveColumnConfigMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsEditingColumns(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveColumns}>
+                  {saveColumnConfigMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
