@@ -457,7 +457,7 @@ export default function Layout({ children }) {
                   <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
                 </div>
               </div>
-              <NotificationCenter />
+              {user && <NotificationCenter user={user} />}
             </div>
           </header>
 
