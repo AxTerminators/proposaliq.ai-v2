@@ -2,10 +2,10 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { 
-  LayoutDashboard, 
-  FileText, 
-  MessageSquare, 
+import {
+  LayoutDashboard,
+  FileText,
+  MessageSquare,
   Library,
   LogOut,
   Menu,
@@ -129,8 +129,8 @@ export default function Layout({ children }) {
     base44.auth.logout();
   };
 
-  const tokenPercentage = subscription 
-    ? ((subscription.token_credits - subscription.token_credits_used) / subscription.token_credits) * 100 
+  const tokenPercentage = subscription
+    ? ((subscription.token_credits - subscription.token_credits_used) / subscription.token_credits) * 100
     : 100;
 
   const userIsAdmin = user?.role === 'admin';
@@ -141,7 +141,7 @@ export default function Layout({ children }) {
         {/* Desktop Sidebar */}
         <Sidebar className={cn(
           "border-r border-slate-200 bg-white hidden lg:flex transition-all duration-300",
-          sidebarCollapsed ? "w-16" : "w-64"
+          sidebarCollapsed ? "w-20" : "w-64"
         )}>
           <SidebarHeader className="border-b border-slate-200 p-6 relative">
             {/* Collapse/Expand Button */}
@@ -169,7 +169,7 @@ export default function Layout({ children }) {
                     <p className="text-xs text-slate-500">AI-Powered Proposals</p>
                   </div>
                 </div>
-                
+
                 {organization && (
                   <div className="p-3 bg-slate-50 rounded-lg">
                     <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
@@ -186,8 +186,8 @@ export default function Layout({ children }) {
               </div>
             )}
           </SidebarHeader>
-          
-          <SidebarContent className="p-3">
+
+          <SidebarContent className={cn(sidebarCollapsed ? "px-2" : "p-3")}>
             <SidebarGroup>
               {!sidebarCollapsed && (
                 <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
@@ -198,20 +198,22 @@ export default function Layout({ children }) {
                 <SidebarMenu>
                   {navigationItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
+                      <SidebarMenuButton
+                        asChild
                         className={cn(
                           "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
                           location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
-                          sidebarCollapsed ? 'justify-center px-0' : 'px-3'
+                          sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
                         )}
                         title={sidebarCollapsed ? item.title : undefined}
                       >
                         <Link to={item.url} className={cn(
-                          "flex items-center gap-3 py-2.5",
-                          sidebarCollapsed ? 'justify-center' : ''
+                          "flex items-center w-full",
+                          sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
                         )}>
-                          <item.icon className="w-5 h-5" />
+                          <item.icon className={cn(
+                            sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
+                          )} />
                           {!sidebarCollapsed && <span>{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
@@ -232,20 +234,22 @@ export default function Layout({ children }) {
                   <SidebarMenu>
                     {adminItems.map((item) => (
                       <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                          asChild 
+                        <SidebarMenuButton
+                          asChild
                           className={cn(
                             "hover:bg-red-50 hover:text-red-700 transition-all duration-200 rounded-lg mb-1",
                             location.pathname === item.url ? 'bg-red-50 text-red-700 font-medium' : 'text-slate-600',
-                            sidebarCollapsed ? 'justify-center px-0' : 'px-3'
+                            sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
                           )}
                           title={sidebarCollapsed ? item.title : undefined}
                         >
                           <Link to={item.url} className={cn(
-                            "flex items-center gap-3 py-2.5",
-                            sidebarCollapsed ? 'justify-center' : ''
+                            "flex items-center w-full",
+                            sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
                           )}>
-                            <item.icon className="w-5 h-5" />
+                            <item.icon className={cn(
+                              sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
+                            )} />
                             {!sidebarCollapsed && <span>{item.title}</span>}
                           </Link>
                         </SidebarMenuButton>
@@ -277,7 +281,7 @@ export default function Layout({ children }) {
                         </span>
                       </div>
                       <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div 
+                        <div
                           className={cn(
                             "h-2 rounded-full transition-all",
                             tokenPercentage > 50 ? 'bg-green-500' :
@@ -326,7 +330,7 @@ export default function Layout({ children }) {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-3">
                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                   <span className="text-white font-semibold text-sm">
                     {user?.full_name?.[0]?.toUpperCase() || 'U'}
@@ -336,10 +340,10 @@ export default function Layout({ children }) {
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-10 h-10"
                   title="Logout"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-5 h-5" />
                 </Button>
               </div>
             )}
@@ -348,7 +352,7 @@ export default function Layout({ children }) {
 
         {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
@@ -457,7 +461,7 @@ export default function Layout({ children }) {
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-2.5">
-                      <div 
+                      <div
                         className={cn(
                           "h-2.5 rounded-full transition-all",
                           tokenPercentage > 50 ? 'bg-green-500' :
@@ -516,7 +520,7 @@ export default function Layout({ children }) {
                 >
                   <Menu className="w-6 h-6 text-slate-600" />
                 </button>
-                
+
                 {/* Mobile Logo */}
                 <div className="flex items-center gap-2 lg:hidden">
                   <Sparkles className="w-5 h-5 text-blue-600" />
