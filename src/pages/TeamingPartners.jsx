@@ -300,24 +300,24 @@ Analyze this document and extract the following information in structured JSON f
 
 Return as valid JSON matching this exact structure:
 {
-  "partner_name": "string or null",
-  "address": "string or null",
-  "website_url": "string or null",
-  "uei": "string or null",
-  "cage_code": "string or null",
-  "primary_naics": "string or null",
+  "partner_name": "string or empty",
+  "address": "string or empty",
+  "website_url": "string or empty",
+  "uei": "string or empty",
+  "cage_code": "string or empty",
+  "primary_naics": "string or empty",
   "secondary_naics": ["string"],
-  "poc_name": "string or null",
-  "poc_email": "string or null",
-  "poc_phone": "string or null",
+  "poc_name": "string or empty",
+  "poc_email": "string or empty",
+  "poc_phone": "string or empty",
   "certifications": ["string"],
   "core_capabilities": ["string"],
   "differentiators": ["string"],
-  "past_performance_summary": "string or null",
+  "past_performance_summary": "string or empty",
   "target_agencies": ["string"],
-  "employee_count": number or null,
-  "years_in_business": number or null,
-  "revenue_range": "string or null"
+  "employee_count": number or 0,
+  "years_in_business": number or 0,
+  "revenue_range": "string or empty"
 }`;
 
       const aiResult = await base44.integrations.Core.InvokeLLM({
@@ -326,24 +326,24 @@ Return as valid JSON matching this exact structure:
         response_json_schema: {
           type: "object",
           properties: {
-            partner_name: { type: ["string", "null"] },
-            address: { type: ["string", "null"] },
-            website_url: { type: ["string", "null"] },
-            uei: { type: ["string", "null"] },
-            cage_code: { type: ["string", "null"] },
-            primary_naics: { type: ["string", "null"] },
+            partner_name: { type: "string" },
+            address: { type: "string" },
+            website_url: { type: "string" },
+            uei: { type: "string" },
+            cage_code: { type: "string" },
+            primary_naics: { type: "string" },
             secondary_naics: { type: "array", items: { type: "string" } },
-            poc_name: { type: ["string", "null"] },
-            poc_email: { type: ["string", "null"] },
-            poc_phone: { type: ["string", "null"] },
+            poc_name: { type: "string" },
+            poc_email: { type: "string" },
+            poc_phone: { type: "string" },
             certifications: { type: "array", items: { type: "string" } },
             core_capabilities: { type: "array", items: { type: "string" } },
             differentiators: { type: "array", items: { type: "string" } },
-            past_performance_summary: { type: ["string", "null"] },
+            past_performance_summary: { type: "string" },
             target_agencies: { type: "array", items: { type: "string" } },
-            employee_count: { type: ["number", "null"] },
-            years_in_business: { type: ["number", "null"] },
-            revenue_range: { type: ["string", "null"] }
+            employee_count: { type: "number" },
+            years_in_business: { type: "number" },
+            revenue_range: { type: "string" }
           }
         }
       });
@@ -356,92 +356,106 @@ Return as valid JSON matching this exact structure:
       const updatedFormData = { ...formData };
       let fieldsPopulated = [];
 
-      if (aiResult.partner_name && !formData.partner_name) {
+      if (aiResult.partner_name && aiResult.partner_name.trim() && !formData.partner_name) {
         updatedFormData.partner_name = aiResult.partner_name;
         fieldsPopulated.push("Partner Name");
         console.log('✓ Populated Partner Name:', aiResult.partner_name);
       }
-      if (aiResult.address && !formData.address) {
+      if (aiResult.address && aiResult.address.trim() && !formData.address) {
         updatedFormData.address = aiResult.address;
         fieldsPopulated.push("Address");
         console.log('✓ Populated Address:', aiResult.address);
       }
-      if (aiResult.website_url && !formData.website_url) {
+      if (aiResult.website_url && aiResult.website_url.trim() && !formData.website_url) {
         updatedFormData.website_url = aiResult.website_url;
         fieldsPopulated.push("Website");
         console.log('✓ Populated Website:', aiResult.website_url);
       }
-      if (aiResult.uei && !formData.uei) {
+      if (aiResult.uei && aiResult.uei.trim() && !formData.uei) {
         updatedFormData.uei = aiResult.uei;
         fieldsPopulated.push("UEI");
         console.log('✓ Populated UEI:', aiResult.uei);
       }
-      if (aiResult.cage_code && !formData.cage_code) {
+      if (aiResult.cage_code && aiResult.cage_code.trim() && !formData.cage_code) {
         updatedFormData.cage_code = aiResult.cage_code;
         fieldsPopulated.push("CAGE Code");
         console.log('✓ Populated CAGE Code:', aiResult.cage_code);
       }
-      if (aiResult.primary_naics && !formData.primary_naics) {
+      if (aiResult.primary_naics && aiResult.primary_naics.trim() && !formData.primary_naics) {
         updatedFormData.primary_naics = aiResult.primary_naics;
         fieldsPopulated.push("Primary NAICS");
         console.log('✓ Populated Primary NAICS:', aiResult.primary_naics);
       }
       if (aiResult.secondary_naics && aiResult.secondary_naics.length > 0) {
-        updatedFormData.secondary_naics = aiResult.secondary_naics;
-        fieldsPopulated.push("Secondary NAICS");
-        console.log('✓ Populated Secondary NAICS:', aiResult.secondary_naics);
+        updatedFormData.secondary_naics = aiResult.secondary_naics.filter(n => n && n.trim());
+        if (updatedFormData.secondary_naics.length > 0) {
+          fieldsPopulated.push("Secondary NAICS");
+          console.log('✓ Populated Secondary NAICS:', aiResult.secondary_naics);
+        }
       }
-      if (aiResult.poc_name && !formData.poc_name) {
+      if (aiResult.poc_name && aiResult.poc_name.trim() && !formData.poc_name) {
         updatedFormData.poc_name = aiResult.poc_name;
         fieldsPopulated.push("POC Name");
         console.log('✓ Populated POC Name:', aiResult.poc_name);
       }
-      if (aiResult.poc_email && !formData.poc_email) {
+      if (aiResult.poc_email && aiResult.poc_email.trim() && !formData.poc_email) {
         updatedFormData.poc_email = aiResult.poc_email;
         fieldsPopulated.push("POC Email");
         console.log('✓ Populated POC Email:', aiResult.poc_email);
       }
-      if (aiResult.poc_phone && !formData.poc_phone) {
+      if (aiResult.poc_phone && aiResult.poc_phone.trim() && !formData.poc_phone) {
         updatedFormData.poc_phone = aiResult.poc_phone;
         fieldsPopulated.push("POC Phone");
         console.log('✓ Populated POC Phone:', aiResult.poc_phone);
       }
       if (aiResult.certifications && aiResult.certifications.length > 0) {
-        updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...aiResult.certifications])];
-        fieldsPopulated.push(`${aiResult.certifications.length} Certifications`);
-        console.log('✓ Populated Certifications:', aiResult.certifications);
+        const validCerts = aiResult.certifications.filter(c => c && c.trim());
+        if (validCerts.length > 0) {
+          updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...validCerts])];
+          fieldsPopulated.push(`${validCerts.length} Certifications`);
+          console.log('✓ Populated Certifications:', validCerts);
+        }
       }
       if (aiResult.core_capabilities && aiResult.core_capabilities.length > 0) {
-        updatedFormData.core_capabilities = aiResult.core_capabilities;
-        fieldsPopulated.push(`${aiResult.core_capabilities.length} Core Capabilities`);
-        console.log('✓ Populated Core Capabilities:', aiResult.core_capabilities);
+        const validCaps = aiResult.core_capabilities.filter(c => c && c.trim());
+        if (validCaps.length > 0) {
+          updatedFormData.core_capabilities = validCaps;
+          fieldsPopulated.push(`${validCaps.length} Core Capabilities`);
+          console.log('✓ Populated Core Capabilities:', validCaps);
+        }
       }
       if (aiResult.differentiators && aiResult.differentiators.length > 0) {
-        updatedFormData.differentiators = aiResult.differentiators;
-        fieldsPopulated.push(`${aiResult.differentiators.length} Differentiators`);
-        console.log('✓ Populated Differentiators:', aiResult.differentiators);
+        const validDiffs = aiResult.differentiators.filter(d => d && d.trim());
+        if (validDiffs.length > 0) {
+          updatedFormData.differentiators = validDiffs;
+          fieldsPopulated.push(`${validDiffs.length} Differentiators`);
+          console.log('✓ Populated Differentiators:', validDiffs);
+        }
       }
-      if (aiResult.past_performance_summary && !formData.past_performance_summary) {
+      if (aiResult.past_performance_summary && aiResult.past_performance_summary.trim() && !formData.past_performance_summary) {
         updatedFormData.past_performance_summary = aiResult.past_performance_summary;
         fieldsPopulated.push("Past Performance Summary");
         console.log('✓ Populated Past Performance Summary');
       }
       if (aiResult.target_agencies && aiResult.target_agencies.length > 0) {
-        updatedFormData.target_agencies = aiResult.target_agencies;
-        fieldsPopulated.push("Target Agencies");
-        console.log('✓ Populated Target Agencies:', aiResult.target_agencies);
+        const validAgencies = aiResult.target_agencies.filter(a => a && a.trim());
+        if (validAgencies.length > 0) {
+          updatedFormData.target_agencies = validAgencies;
+          fieldsPopulated.push("Target Agencies");
+          console.log('✓ Populated Target Agencies:', validAgencies);
+        }
       }
-      if (aiResult.employee_count && !formData.employee_count) {
+      if (aiResult.employee_count && aiResult.employee_count > 0 && !formData.employee_count) {
         updatedFormData.employee_count = aiResult.employee_count;
         fieldsPopulated.push("Employee Count");
         console.log('✓ Populated Employee Count:', aiResult.employee_count);
       }
-      if (aiResult.years_in_business && !formData.years_in_business) {
+      if (aiResult.years_in_business && aiResult.years_in_business > 0 && !formData.years_in_business) {
         updatedFormData.years_in_business = aiResult.years_in_business;
         fieldsPopulated.push("Years in Business");
         console.log('✓ Populated Years in Business:', aiResult.years_in_business);
       }
-      if (aiResult.revenue_range && !formData.revenue_range) {
+      if (aiResult.revenue_range && aiResult.revenue_range.trim() && !formData.revenue_range) {
         updatedFormData.revenue_range = aiResult.revenue_range;
         fieldsPopulated.push("Revenue Range");
         console.log('✓ Populated Revenue Range:', aiResult.revenue_range);
@@ -862,7 +876,7 @@ Return as valid JSON matching this exact structure:
                       {selectedPartner.notes && (
                         <div>
                           <h4 className="font-semibold text-slate-900 mb-3">Internal Notes</h4>
-                          <p className="text-sm text-slate-700 whitespace-pre-wrap bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap bg-amber-50 p-4 rounded-lg border border-amber-200">
                             {selectedPartner.notes}
                           </p>
                         </div>
