@@ -19,7 +19,8 @@ import {
   Download,
   Globe,
   X,
-  Award // Added Award icon
+  Award, // Added Award icon
+  Users // Added Users icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -61,6 +62,11 @@ const navigationItems = [
     title: "Past Performance", // Added new navigation item
     url: createPageUrl("PastPerformance"),
     icon: Award,
+  },
+  {
+    title: "Team",
+    url: createPageUrl("Team"),
+    icon: Users,
   },
   {
     title: "Resources",
