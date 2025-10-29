@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import AddProjectForm from "../components/pastperformance/AddProjectForm";
 
 export default function PastPerformance() {
   const queryClient = useQueryClient();
@@ -426,9 +428,9 @@ export default function PastPerformance() {
         </div>
       )}
 
-      {/* Add/Edit Dialog - Will create separate component */}
+      {/* Add/Edit Dialog */}
       {showAddDialog && (
-        <AddProjectDialog
+        <AddProjectForm
           project={selectedProject}
           organizationId={organization?.id}
           onClose={() => {
@@ -449,29 +451,6 @@ export default function PastPerformance() {
         />
       )}
     </MobileContainer>
-  );
-}
-
-// Placeholder components - will create full versions next
-function AddProjectDialog({ project, organizationId, onClose }) {
-  return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{project ? 'Edit Project' : 'Add Past Performance Project'}</DialogTitle>
-          <DialogDescription>
-            Document your completed projects to showcase your track record
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 text-center text-slate-600">
-          Full form coming in next component...
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button>Save Project</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
