@@ -1,0 +1,176 @@
+{
+  "name": "CalendarEvent",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this event"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "proposal_deadline",
+        "task_deadline",
+        "milestone",
+        "meeting",
+        "review_session",
+        "submission",
+        "presentation",
+        "team_event",
+        "reminder",
+        "other"
+      ],
+      "description": "Type of calendar event"
+    },
+    "title": {
+      "type": "string",
+      "description": "Event title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Event description"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event start date and time"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event end date and time"
+    },
+    "all_day": {
+      "type": "boolean",
+      "default": false,
+      "description": "Is this an all-day event"
+    },
+    "proposal_id": {
+      "type": "string",
+      "description": "Related proposal if applicable"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Related task if applicable"
+    },
+    "location": {
+      "type": "string",
+      "description": "Event location (physical or virtual)"
+    },
+    "meeting_link": {
+      "type": "string",
+      "description": "Video conference link if applicable"
+    },
+    "attendees": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "rsvp_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "declined",
+              "tentative"
+            ]
+          }
+        }
+      },
+      "description": "List of attendees"
+    },
+    "created_by_email": {
+      "type": "string",
+      "description": "Who created this event"
+    },
+    "created_by_name": {
+      "type": "string",
+      "description": "Name of creator"
+    },
+    "reminder_minutes": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "Reminder times in minutes before event (e.g., [15, 60, 1440])"
+    },
+    "recurrence_rule": {
+      "type": "string",
+      "description": "iCalendar RRULE for recurring events"
+    },
+    "color": {
+      "type": "string",
+      "description": "Custom color for this event"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium",
+      "description": "Event priority"
+    },
+    "is_private": {
+      "type": "boolean",
+      "default": false,
+      "description": "Only visible to creator"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "rescheduled"
+      ],
+      "default": "scheduled",
+      "description": "Event status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string"
+          },
+          "file_url": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Attached files"
+    },
+    "google_calendar_id": {
+      "type": "string",
+      "description": "Google Calendar event ID if synced"
+    },
+    "outlook_calendar_id": {
+      "type": "string",
+      "description": "Outlook Calendar event ID if synced"
+    }
+  },
+  "required": [
+    "organization_id",
+    "event_type",
+    "title",
+    "start_date"
+  ]
+}
