@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,12 +16,34 @@ import ApprovalManager from "./ApprovalManager";
 export default function AutomationHub({ proposal, organization, user }) {
   const [remindersSent, setRemindersSent] = useState([]);
 
+  // Guard clause - don't render if required props are missing
+  if (!proposal || !organization || !user) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <Zap className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+          <p className="text-slate-600">Loading automation hub...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <AutomationHubContent 
+      proposal={proposal} 
+      organization={organization} 
+      user={user}
+      remindersSent={remindersSent}
+      setRemindersSent={setRemindersSent}
+    />
+  );
+}
+
+function AutomationHubContent({ proposal, organization, user, remindersSent, setRemindersSent }) {
   // Check for due date reminders
   useQuery({
-    queryKey: ['check-reminders', proposal?.id],
+    queryKey: ['check-reminders', proposal.id],
     queryFn: async () => {
-      if (!proposal?.id || !organization?.id) return [];
-      
       // Get active reminder rules
       const rules = await base44.entities.WorkflowRule.filter({
         organization_id: organization.id,
@@ -47,7 +69,8 @@ export default function AutomationHub({ proposal, organization, user }) {
           
           if (daysUntilDue === daysBefore && daysUntilDue > 0) {
             // Send reminders
-            for (const action of rule.actions) {
+            const actions = rule.actions || [];
+            for (const action of actions) {
               if (action.action_type === "send_reminder") {
                 const recipients = action.notification_recipients || [user.email];
                 
@@ -134,15 +157,13 @@ export default function AutomationHub({ proposal, organization, user }) {
       return reminders;
     },
     refetchInterval: 1000 * 60 * 60, // Check every hour
-    enabled: !!proposal?.id && !!organization?.id,
+    enabled: true,
   });
 
   // Check for workflow triggers when tasks change
   useQuery({
-    queryKey: ['check-workflow-triggers', proposal?.id],
+    queryKey: ['check-workflow-triggers', proposal.id],
     queryFn: async () => {
-      if (!proposal?.id || !organization?.id) return;
-
       // Get active workflow rules
       const rules = await base44.entities.WorkflowRule.filter({
         organization_id: organization.id,
@@ -161,7 +182,8 @@ export default function AutomationHub({ proposal, organization, user }) {
           
           if (allTasksComplete && rule.trigger_conditions?.all_tasks_status === "completed") {
             // Execute actions
-            for (const action of rule.actions) {
+            const actions = rule.actions || [];
+            for (const action of actions) {
               if (action.action_type === "change_status" && action.target_status) {
                 // Update proposal status
                 await base44.entities.Proposal.update(proposal.id, {
@@ -217,7 +239,7 @@ export default function AutomationHub({ proposal, organization, user }) {
       }
     },
     refetchInterval: 1000 * 60 * 5, // Check every 5 minutes
-    enabled: !!proposal?.id && !!organization?.id,
+    enabled: true,
   });
 
   return (

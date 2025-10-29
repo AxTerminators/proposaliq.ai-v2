@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +32,22 @@ import {
 import moment from "moment";
 
 export default function ApprovalManager({ proposal, organization, user }) {
+  // Guard clause
+  if (!proposal || !organization || !user) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-slate-300" />
+          <p className="text-slate-600">Loading approval manager...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <ApprovalManagerContent proposal={proposal} organization={organization} user={user} />;
+}
+
+function ApprovalManagerContent({ proposal, organization, user }) {
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [approvalComments, setApprovalComments] = useState("");
@@ -43,22 +60,19 @@ export default function ApprovalManager({ proposal, organization, user }) {
   });
 
   const { data: workflows, isLoading } = useQuery({
-    queryKey: ['approval-workflows', proposal?.id],
+    queryKey: ['approval-workflows', proposal.id],
     queryFn: async () => {
-      if (!proposal?.id) return [];
       return base44.entities.ApprovalWorkflow.filter(
         { proposal_id: proposal.id },
         '-created_date'
       );
     },
     initialData: [],
-    enabled: !!proposal?.id,
   });
 
   const { data: teamMembers } = useQuery({
-    queryKey: ['team-members', organization?.id],
+    queryKey: ['team-members', organization.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
       const allUsers = await base44.entities.User.list();
       return allUsers.filter(u => {
         const accesses = u.client_accesses || [];
@@ -66,7 +80,6 @@ export default function ApprovalManager({ proposal, organization, user }) {
       });
     },
     initialData: [],
-    enabled: !!organization?.id,
   });
 
   const createWorkflowMutation = useMutation({
@@ -76,7 +89,8 @@ export default function ApprovalManager({ proposal, organization, user }) {
         organization_id: organization.id,
         proposal_id: proposal.id,
         workflow_status: "not_started",
-        current_step: 0
+        current_step: 0,
+        created_by: user.email, // Ensure created_by is set
       });
 
       // Notify first approver
@@ -99,7 +113,7 @@ export default function ApprovalManager({ proposal, organization, user }) {
       return workflow;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approval-workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['approval-workflows', proposal.id] });
       setShowCreateDialog(false);
       resetForm();
     },
@@ -125,6 +139,7 @@ export default function ApprovalManager({ proposal, organization, user }) {
 
       let newStatus = workflow.workflow_status;
       let completedDate = null;
+      let nextStepIndex = workflow.current_step;
 
       if (anyRejected) {
         newStatus = "rejected";
@@ -133,52 +148,59 @@ export default function ApprovalManager({ proposal, organization, user }) {
         newStatus = "completed";
         completedDate = new Date().toISOString();
       } else {
+        // Only advance current_step if the current step was approved and it's not the last step
+        if (approved && stepIndex === workflow.current_step && workflow.auto_advance !== false) { // Default auto_advance to true if not explicitly false
+          nextStepIndex = workflow.current_step + 1;
+        }
         newStatus = "in_progress";
       }
 
-      const nextStep = stepIndex + 1;
       await base44.entities.ApprovalWorkflow.update(workflowId, {
         approval_steps: updatedSteps,
-        current_step: nextStep,
+        current_step: nextStepIndex, // Update current_step based on logic above
         workflow_status: newStatus,
         completed_date: completedDate
       });
 
       // Notify next approver if exists and approved
-      if (approved && nextStep < updatedSteps.length && workflow.auto_advance) {
-        const nextApprover = updatedSteps[nextStep];
-        await base44.entities.Notification.create({
-          user_email: nextApprover.approver_email,
-          notification_type: "approval_request",
-          title: "Approval Required",
-          message: `Your approval is needed for: ${workflow.workflow_name}`,
-          related_proposal_id: proposal.id,
-          related_entity_id: workflowId,
-          related_entity_type: "approval",
-          from_user_email: user.email,
-          from_user_name: user.full_name,
-          action_url: `/app/ProposalBuilder?id=${proposal.id}`
-        });
+      if (approved && nextStepIndex < updatedSteps.length && workflow.auto_advance !== false && newStatus === "in_progress") {
+        const nextApprover = updatedSteps[nextStepIndex];
+        if (nextApprover?.approver_email) { // Ensure there is a next approver and email
+          await base44.entities.Notification.create({
+            user_email: nextApprover.approver_email,
+            notification_type: "approval_request",
+            title: "Approval Required",
+            message: `Your approval is needed for: ${workflow.workflow_name}`,
+            related_proposal_id: proposal.id,
+            related_entity_id: workflowId,
+            related_entity_type: "approval",
+            from_user_email: user.email,
+            from_user_name: user.full_name,
+            action_url: `/app/ProposalBuilder?id=${proposal.id}`
+          });
+        }
       }
 
       // Notify workflow creator of completion/rejection
       if (newStatus === "completed" || newStatus === "rejected") {
-        await base44.entities.Notification.create({
-          user_email: workflow.created_by,
-          notification_type: "status_change",
-          title: `Approval Workflow ${newStatus === "completed" ? "Completed" : "Rejected"}`,
-          message: `${workflow.workflow_name} has been ${newStatus}`,
-          related_proposal_id: proposal.id,
-          related_entity_id: workflowId,
-          related_entity_type: "approval",
-          from_user_email: user.email,
-          from_user_name: user.full_name,
-          action_url: `/app/ProposalBuilder?id=${proposal.id}`
-        });
+        if (workflow.created_by) { // Ensure created_by exists
+          await base44.entities.Notification.create({
+            user_email: workflow.created_by,
+            notification_type: "status_change",
+            title: `Approval Workflow ${newStatus === "completed" ? "Completed" : "Rejected"}`,
+            message: `${workflow.workflow_name} has been ${newStatus}`,
+            related_proposal_id: proposal.id,
+            related_entity_id: workflowId,
+            related_entity_type: "approval",
+            from_user_email: user.email,
+            from_user_name: user.full_name,
+            action_url: `/app/ProposalBuilder?id=${proposal.id}`
+          });
+        }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approval-workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['approval-workflows', proposal.id] });
       setApprovalComments("");
     },
   });
@@ -303,7 +325,8 @@ export default function ApprovalManager({ proposal, organization, user }) {
         ) : (
           <div className="space-y-6">
             {workflows.map((workflow) => {
-              const currentStepData = workflow.approval_steps[workflow.current_step];
+              const currentStepData = workflow.approval_steps?.[workflow.current_step];
+              // Ensure approval_steps is an array before trying to access elements
               const isCurrentUserApprover = currentStepData?.approver_email === user?.email;
 
               return (
@@ -315,14 +338,14 @@ export default function ApprovalManager({ proposal, organization, user }) {
                         <p className="text-sm text-slate-600">{workflow.description}</p>
                       </div>
                       <Badge className={getWorkflowStatusColor(workflow.workflow_status)}>
-                        {workflow.workflow_status.replace('_', ' ')}
+                        {workflow.workflow_status?.replace('_', ' ')}
                       </Badge>
                     </div>
                   </CardHeader>
 
                   <CardContent className="p-4">
                     <div className="space-y-3">
-                      {workflow.approval_steps.map((step, index) => {
+                      {(workflow.approval_steps || []).map((step, index) => {
                         const isCurrentStep = index === workflow.current_step;
                         const canApprove = isCurrentStep && step.approver_email === user?.email && step.approval_status === "pending";
 
@@ -407,8 +430,9 @@ export default function ApprovalManager({ proposal, organization, user }) {
                               )}
                             </div>
 
-                            {index < workflow.approval_steps.length - 1 && (
-                              <div className="flex-shrink-0">
+                            {/* Show arrow if it's not the last step */}
+                            {index < (workflow.approval_steps?.length || 0) - 1 && (
+                              <div className="flex-shrink-0 self-center">
                                 <ArrowRight className="w-5 h-5 text-slate-400" />
                               </div>
                             )}
@@ -510,11 +534,15 @@ export default function ApprovalManager({ proposal, organization, user }) {
                         <SelectValue placeholder="Select approver" />
                       </SelectTrigger>
                       <SelectContent>
-                        {teamMembers.map(member => (
-                          <SelectItem key={member.email} value={member.email}>
-                            {member.full_name} ({member.email})
-                          </SelectItem>
-                        ))}
+                        {teamMembers.length === 0 ? (
+                          <SelectItem value={null} disabled>No team members found</SelectItem>
+                        ) : (
+                          teamMembers.map(member => (
+                            <SelectItem key={member.email} value={member.email}>
+                              {member.full_name} ({member.email})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
 
@@ -543,7 +571,12 @@ export default function ApprovalManager({ proposal, organization, user }) {
             </Button>
             <Button
               onClick={handleCreateWorkflow}
-              disabled={!formData.workflow_name || formData.approval_steps.length === 0 || createWorkflowMutation.isPending}
+              disabled={
+                !formData.workflow_name || 
+                formData.approval_steps.length === 0 || 
+                formData.approval_steps.some(step => !step.approver_email || !step.step_name) ||
+                createWorkflowMutation.isPending
+              }
             >
               {createWorkflowMutation.isPending ? (
                 <>

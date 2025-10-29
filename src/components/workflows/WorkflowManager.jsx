@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,22 @@ import {
 } from "lucide-react";
 
 export default function WorkflowManager({ organization, user }) {
+  // Guard clause - don't run queries or render content if organization or user is missing
+  if (!organization || !user) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <Zap className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+          <p className="text-slate-600">Loading workflow manager...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <WorkflowManagerContent organization={organization} user={user} />;
+}
+
+function WorkflowManagerContent({ organization, user }) {
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
@@ -42,16 +59,18 @@ export default function WorkflowManager({ organization, user }) {
   });
 
   const { data: rules, isLoading } = useQuery({
-    queryKey: ['workflow-rules', organization?.id],
+    queryKey: ['workflow-rules', organization.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
+      // organization.id is guaranteed to exist due to the guard clause in the parent component
       return base44.entities.WorkflowRule.filter(
         { organization_id: organization.id },
         '-created_date'
       );
     },
     initialData: [],
-    enabled: !!organization?.id,
+    // The 'enabled' flag is no longer strictly necessary here because of the parent guard clause
+    // but leaving it in `enabled: !!organization?.id` would also be harmless.
+    // As per instructions, it's removed since organization.id is guaranteed.
   });
 
   const createRuleMutation = useMutation({
