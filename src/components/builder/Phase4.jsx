@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import ComplianceChecker from "./ComplianceChecker";
 
 export default function Phase4({ proposalData, setProposalData, proposalId }) {
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -286,10 +288,10 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Target className="w-5 h-5 text-purple-600" />
-          Phase 4: Strategic AI Evaluator
+          Phase 4: Strategic AI Evaluator & Compliance
         </CardTitle>
         <CardDescription>
-          Comprehensive AI-powered analysis of opportunity fit, competitive positioning, and win strategy
+          Comprehensive AI-powered analysis of opportunity fit, competitive positioning, and compliance verification
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -326,12 +328,16 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
 
         {evaluation && (
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="requirements">Requirements</TabsTrigger>
               <TabsTrigger value="competitive">Competitive</TabsTrigger>
               <TabsTrigger value="compliance">Compliance</TabsTrigger>
               <TabsTrigger value="strategy">Strategy</TabsTrigger>
+              <TabsTrigger value="full-compliance">
+                <Shield className="w-4 h-4 mr-2" />
+                FAR/DFARS
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -787,6 +793,15 @@ Analyze the uploaded solicitation documents thoroughly and provide a comprehensi
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            {/* Full Compliance Checker Tab */}
+            <TabsContent value="full-compliance">
+              <ComplianceChecker
+                proposalId={proposalId}
+                proposalData={proposalData}
+                organizationId={currentOrgId}
+              />
             </TabsContent>
           </Tabs>
         )}
