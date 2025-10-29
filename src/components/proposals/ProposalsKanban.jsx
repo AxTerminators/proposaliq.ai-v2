@@ -38,15 +38,25 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
     const loadConfig = async () => {
       if (!organization?.id) return;
       
-      const configs = await base44.entities.KanbanConfig.filter({
-        organization_id: organization.id
-      });
+      try {
+        const configs = await base44.entities.KanbanConfig.filter({
+          organization_id: organization.id
+        });
 
-      if (configs.length > 0) {
-        const savedColumns = configs[0].columns || defaultColumns;
-        setColumns(savedColumns);
-        setColumnConfig(savedColumns);
-      } else {
+        if (configs.length > 0) {
+          const savedColumns = configs[0].columns || defaultColumns;
+          
+          // Sort columns by order property to ensure correct display
+          const sortedColumns = [...savedColumns].sort((a, b) => (a.order || 0) - (b.order || 0));
+          
+          setColumns(sortedColumns);
+          setColumnConfig(sortedColumns);
+        } else {
+          setColumns(defaultColumns);
+          setColumnConfig(defaultColumns);
+        }
+      } catch (error) {
+        console.error("Error loading kanban config:", error);
         setColumns(defaultColumns);
         setColumnConfig(defaultColumns);
       }
@@ -83,14 +93,20 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
         organization_id: organization.id
       });
 
+      // Ensure columns have correct order property
+      const columnsWithOrder = newColumns.map((col, idx) => ({
+        ...col,
+        order: idx
+      }));
+
       if (configs.length > 0) {
         await base44.entities.KanbanConfig.update(configs[0].id, {
-          columns: newColumns
+          columns: columnsWithOrder
         });
       } else {
         await base44.entities.KanbanConfig.create({
           organization_id: organization.id,
-          columns: newColumns
+          columns: columnsWithOrder
         });
       }
     },
@@ -116,8 +132,13 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
   };
 
   const handleSaveColumns = () => {
-    setColumns(columnConfig);
-    saveColumnConfigMutation.mutate(columnConfig);
+    const sortedConfig = columnConfig.map((col, idx) => ({
+      ...col,
+      order: idx
+    }));
+    
+    setColumns(sortedConfig);
+    saveColumnConfigMutation.mutate(sortedConfig);
     setIsEditingColumns(false);
   };
 
@@ -164,7 +185,7 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              {columnConfig.map((column) => (
+              {columnConfig.map((column, index) => (
                 <div key={column.id} className="flex gap-4 items-center p-4 border rounded-lg">
                   <div className="flex-1 space-y-2">
                     <Label>Label</Label>
@@ -189,6 +210,9 @@ export default function ProposalsKanban({ proposals, onProposalClick, isLoading,
                       <option value="bg-red-100">Red</option>
                       <option value="bg-pink-100">Pink</option>
                     </select>
+                  </div>
+                  <div className="text-sm text-slate-500">
+                    Order: {index + 1}
                   </div>
                 </div>
               ))}
