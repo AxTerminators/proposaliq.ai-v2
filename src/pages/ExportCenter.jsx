@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -43,6 +44,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import BatchExportDialog from "../components/export/BatchExportDialog";
 
 export default function ExportCenter() {
   const queryClient = useQueryClient();
@@ -56,6 +58,7 @@ export default function ExportCenter() {
   const [emailRecipients, setEmailRecipients] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showBatchExportDialog, setShowBatchExportDialog] = useState(false);
 
   React.useEffect(() => {
     const loadUser = async () => {
@@ -309,10 +312,16 @@ export default function ExportCenter() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Export Center</h1>
           <p className="text-slate-600">Manage templates, export history, and bulk operations</p>
         </div>
-        <Button onClick={handleCreateTemplate}>
-          <Plus className="w-5 h-5 mr-2" />
-          New Template
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={() => setShowBatchExportDialog(true)} variant="outline">
+            <Download className="w-5 h-5 mr-2" />
+            Batch Export
+          </Button>
+          <Button onClick={handleCreateTemplate}>
+            <Plus className="w-5 h-5 mr-2" />
+            New Template
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -1010,6 +1019,13 @@ export default function ExportCenter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Batch Export Dialog */}
+      <BatchExportDialog
+        open={showBatchExportDialog}
+        onOpenChange={setShowBatchExportDialog}
+        organizationId={currentOrgId}
+      />
     </div>
   );
 }
