@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import SectionVersionHistory from "./SectionVersionHistory";
+import AICollaborationAssistant from "../collaboration/AICollaborationAssistant";
 
 
 const PROPOSAL_SECTIONS = [
@@ -98,7 +99,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   const [content, setContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [currentOrgId, setCurrentOrgId] = useState(null);
+  const [organization, setOrganization] = useState(null);
   const [strategy, setStrategy] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -125,7 +126,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
           1
         );
         if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0]);
+          setOrganization(orgs[0]);
         }
 
         if (proposalId) {
@@ -156,6 +157,41 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
     },
     initialData: [],
     enabled: !!proposalId,
+  });
+
+  // Add queries for collaboration assistant
+  const { data: tasks } = useQuery({
+    queryKey: ['proposal-tasks', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      return base44.entities.ProposalTask.filter({ proposal_id: proposalId });
+    },
+    initialData: [],
+    enabled: !!proposalId,
+  });
+
+  const { data: comments } = useQuery({
+    queryKey: ['proposal-comments', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      return base44.entities.ProposalComment.filter({ proposal_id: proposalId });
+    },
+    initialData: [],
+    enabled: !!proposalId,
+  });
+
+  const { data: teamMembers } = useQuery({
+    queryKey: ['team-members', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const allUsers = await base44.entities.User.list();
+      return allUsers.filter(u => {
+        const accesses = u.client_accesses || [];
+        return accesses.some(a => a.organization_id === organization.id);
+      });
+    },
+    initialData: [],
+    enabled: !!organization?.id,
   });
 
   const createSectionMutation = useMutation({
@@ -219,7 +255,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
   };
 
   const autoDraft = async (sectionConfig) => {
-    if (!proposalId || !currentOrgId) {
+    if (!proposalId || !organization) {
       alert("Please save the proposal first");
       return;
     }
@@ -231,28 +267,28 @@ export default function Phase6({ proposalData, setProposalData, proposalId }) {
       const [solicitationDocs, teamingPartners, resources, complianceReqs, winThemes, pastPerformance] = await Promise.all([
         base44.entities.SolicitationDocument.filter({
           proposal_id: proposalId,
-          organization_id: currentOrgId.id
+          organization_id: organization.id
         }),
         base44.entities.TeamingPartner.filter({
-          organization_id: currentOrgId.id
+          organization_id: organization.id
         }).then(partners => {
           const partnerIds = proposalData.teaming_partner_ids || [];
           return partners.filter(p => partnerIds.includes(p.id));
         }),
         base44.entities.ProposalResource.filter({
-          organization_id: currentOrgId.id,
+          organization_id: organization.id,
           resource_type: { $in: ['boilerplate_text', 'capability_statement', 'past_proposal'] }
         }),
         base44.entities.ComplianceRequirement.filter({
           proposal_id: proposalId,
-          organization_id: currentOrgId.id
+          organization_id: organization.id
         }),
         base44.entities.WinTheme.filter({
           proposal_id: proposalId,
-          organization_id: currentOrgId.id
+          organization_id: organization.id
         }),
         base44.entities.PastPerformance.filter({
-          organization_id: currentOrgId.id
+          organization_id: organization.id
         }).then(pp => pp.slice(0, 5))
       ]);
 
@@ -416,7 +452,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
     try {
       const complianceReqs = await base44.entities.ComplianceRequirement.filter({
         proposal_id: proposalId,
-        organization_id: currentOrgId.id
+        organization_id: organization.id
       });
 
       const relevantReqs = complianceReqs.filter(req =>
@@ -579,16 +615,16 @@ Return JSON with this structure:
       const [complianceReqs, winThemes, resources] = await Promise.all([
         base44.entities.ComplianceRequirement.filter({
           proposal_id: proposalId,
-          organization_id: currentOrgId.id,
+          organization_id: organization.id,
           compliance_status: { $in: ['not_started', 'in_progress'] }
         }),
         base44.entities.WinTheme.filter({
           proposal_id: proposalId,
-          organization_id: currentOrgId.id,
+          organization_id: organization.id,
           status: { $in: ['approved', 'reviewed'] }
         }),
         base44.entities.ProposalResource.filter({
-          organization_id: currentOrgId.id,
+          organization_id: organization.id,
           resource_type: 'boilerplate_text'
         })
       ]);
@@ -770,6 +806,19 @@ Return JSON:
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* AI Collaboration Assistant */}
+        {proposalId && organization && (
+          <AICollaborationAssistant
+            proposal={{ id: proposalId, ...proposalData }}
+            sections={sections}
+            tasks={tasks}
+            comments={comments}
+            teamMembers={teamMembers}
+            user={currentUser}
+            organization={organization}
+          />
+        )}
+
         <Alert className="bg-indigo-50 border-indigo-200">
           <Sparkles className="w-4 h-4 text-indigo-600" />
           <AlertDescription>

@@ -4,30 +4,30 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea"; // New import
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  CheckCircle2, // Existing, but used differently
-  AlertCircle,  // Existing, but used differently
-  FileText,     // Existing, but used differently
-  Download,     // Existing, but used differently
-  Send,         // Existing, but used differently
-  Loader2,      // Existing, but used differently
-  Eye,          // Existing, but used differently
-  MessageCircle, // New import
-  Award,        // Existing, but used differently
-  Target,       // New import
-  Clock         // New import
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  Download,
+  Send,
+  Loader2,
+  Eye,
+  MessageCircle,
+  Award,
+  Target,
+  Clock
 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert"; // Re-added alert components, as they are used in the new structure
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger, // New import
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Tabs,
@@ -35,18 +35,19 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton"; // New import
+import { Skeleton } from "@/components/ui/skeleton";
 import ExportDialog from "../export/ExportDialog";
-import VersionComparison from "./VersionComparison"; // New import
-import SubmissionReadinessChecker from "./SubmissionReadinessChecker"; // Component imported, but used differently (as a tab content)
-import RedTeamReview from "./RedTeamReview"; // New import
-import moment from "moment"; // New import
+import VersionComparison from "./VersionComparison";
+import SubmissionReadinessChecker from "./SubmissionReadinessChecker";
+import RedTeamReview from "./RedTeamReview";
+import moment from "moment";
+import AICollaborationAssistant from "../collaboration/AICollaborationAssistant";
 
 export default function Phase7({ proposal, user, organization, teamMembers }) {
   const queryClient = useQueryClient();
   const [showExport, setShowExport] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
-  const [selectedVersion, setSelectedVersion] = useState(null); // This state variable is not used in the provided outline but is part of the new state section, keep for now.
+  const [selectedVersion, setSelectedVersion] = useState(null);
 
   const { data: sections, isLoading: sectionsLoading } = useQuery({
     queryKey: ['proposal-sections', proposal.id],
@@ -90,6 +91,16 @@ export default function Phase7({ proposal, user, organization, teamMembers }) {
     enabled: !!proposal.id,
   });
 
+  const { data: comments } = useQuery({
+    queryKey: ['proposal-comments', proposal?.id],
+    queryFn: async () => {
+      if (!proposal?.id) return [];
+      return base44.entities.ProposalComment.filter({ proposal_id: proposal.id });
+    },
+    initialData: [],
+    enabled: !!proposal?.id,
+  });
+
   const createReviewMutation = useMutation({
     mutationFn: async (reviewData) => {
       return await base44.entities.ReviewRound.create({
@@ -111,15 +122,15 @@ export default function Phase7({ proposal, user, organization, teamMembers }) {
       return await base44.entities.Proposal.update(proposal.id, updates);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposals', proposal.id] }); // Invalidate specific proposal too
-      queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Invalidate general proposals list
+      queryClient.invalidateQueries({ queryKey: ['proposals', proposal.id] });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
     },
   });
 
   const handleStartReview = (reviewType) => {
     createReviewMutation.mutate({
       review_type: reviewType,
-      notes: reviewNotes // This notes field seems to be for RedTeamReview component, not directly used here for initial review start
+      notes: reviewNotes
     });
   };
 
@@ -160,8 +171,8 @@ export default function Phase7({ proposal, user, organization, teamMembers }) {
 
     if (completion === 100 && quality >= 80 && pendingTasks === 0 && hasRedTeamReview && proposal.pricing_status === "final") {
       return { status: "ready", label: "Ready to Submit", color: "text-green-600" };
-    } else if (completion >= 80 && quality >= 60 && pendingTasks < 3) { // Slightly more lenient for 'almost'
-      return { status: "almost", label: "Almost Ready", color: "text-amber-600" }; // Changed from yellow to amber for tailwind consistency
+    } else if (completion >= 80 && quality >= 60 && pendingTasks < 3) {
+      return { status: "almost", label: "Almost Ready", color: "text-amber-600" };
     } else {
       return { status: "not-ready", label: "Not Ready", color: "text-red-600" };
     }
@@ -174,6 +185,19 @@ export default function Phase7({ proposal, user, organization, teamMembers }) {
 
   return (
     <div className="space-y-6">
+      {/* AI Collaboration Assistant */}
+      {proposal && organization && user && (
+        <AICollaborationAssistant
+          proposal={proposal}
+          sections={sections}
+          tasks={tasks}
+          comments={comments}
+          teamMembers={teamMembers}
+          user={user}
+          organization={organization}
+        />
+      )}
+
       {/* Submission Readiness Overview */}
       <Card className="border-none shadow-lg bg-gradient-to-br from-slate-50 to-white">
         <CardHeader>
@@ -309,7 +333,7 @@ export default function Phase7({ proposal, user, organization, teamMembers }) {
                   { label: "Quality score of 80% or higher", checked: qualityScore >= 80 },
                   { label: "All tasks completed", checked: pendingTasksCount === 0 },
                   { label: "Red team review conducted and completed", checked: reviews.some(r => r.review_type === "red_team" && r.status === "completed") },
-                  { label: "Compliance check passed (Manual confirmation)", checked: true }, // Placeholder for manual check
+                  { label: "Compliance check passed (Manual confirmation)", checked: true },
                   { label: "Pricing finalized", checked: proposal.pricing_status === "final" },
                 ].map((item, idx) => (
                   <div
@@ -353,13 +377,13 @@ export default function Phase7({ proposal, user, organization, teamMembers }) {
       {/* Export Dialog */}
       {showExport && (
         <ExportDialog
-          open={showExport} // Pass open prop
-          onOpenChange={setShowExport} // Pass onOpenChange prop to control visibility
+          open={showExport}
+          onOpenChange={setShowExport}
           proposal={proposal}
           sections={sections}
           onExportComplete={() => {
             alert("✓ Export completed successfully!");
-            setShowExport(false); // Close dialog after export
+            setShowExport(false);
           }}
         />
       )}
