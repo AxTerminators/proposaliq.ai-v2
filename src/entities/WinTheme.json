@@ -1,0 +1,167 @@
+{
+  "name": "WinTheme",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that owns this win theme"
+    },
+    "theme_title": {
+      "type": "string",
+      "description": "Short title for the win theme"
+    },
+    "theme_statement": {
+      "type": "string",
+      "description": "Full win theme statement"
+    },
+    "theme_type": {
+      "type": "string",
+      "enum": [
+        "technical_excellence",
+        "cost_effectiveness",
+        "past_performance",
+        "innovation",
+        "risk_mitigation",
+        "mission_understanding",
+        "team_strength",
+        "schedule_certainty",
+        "quality_assurance",
+        "customer_focus"
+      ],
+      "description": "Type of win theme"
+    },
+    "supporting_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_type": {
+            "type": "string",
+            "enum": [
+              "past_performance",
+              "certification",
+              "capability",
+              "personnel",
+              "partnership",
+              "case_study",
+              "metric"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Evidence that supports this win theme"
+    },
+    "discriminators": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What makes this theme a discriminator vs competitors"
+    },
+    "customer_hot_buttons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Customer concerns/priorities this theme addresses"
+    },
+    "ghosting_competitors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "competitor_name": {
+            "type": "string"
+          },
+          "how_we_ghost": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "How this theme ghosts specific competitors"
+    },
+    "proof_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Specific proof points and quantifiable results"
+    },
+    "sections_to_emphasize": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Proposal sections where this theme should be emphasized"
+    },
+    "graphics_needed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "graphic_type": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Graphics that would support this theme"
+    },
+    "elevator_pitch": {
+      "type": "string",
+      "description": "30-second version of this theme"
+    },
+    "ai_confidence_score": {
+      "type": "number",
+      "description": "AI confidence in this theme's effectiveness (0-100)"
+    },
+    "ai_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this was AI-generated"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "reviewed",
+        "approved",
+        "implemented"
+      ],
+      "default": "draft",
+      "description": "Status of this win theme"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "primary",
+        "secondary",
+        "supporting"
+      ],
+      "default": "supporting",
+      "description": "Priority level of this theme"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "organization_id",
+    "theme_title",
+    "theme_statement",
+    "theme_type"
+  ]
+}
