@@ -1,0 +1,68 @@
+{
+  "name": "ProposalComment",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "section_id": {
+      "type": "string",
+      "description": "Optional: specific section being commented on"
+    },
+    "parent_comment_id": {
+      "type": "string",
+      "description": "For threaded replies"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Who wrote this comment"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Author's display name"
+    },
+    "content": {
+      "type": "string",
+      "description": "Comment text content"
+    },
+    "mentions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of mentioned user emails"
+    },
+    "is_resolved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this comment thread is resolved"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Email of user who resolved"
+    },
+    "resolved_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When it was resolved"
+    },
+    "comment_type": {
+      "type": "string",
+      "enum": [
+        "general",
+        "suggestion",
+        "question",
+        "issue",
+        "approval"
+      ],
+      "default": "general",
+      "description": "Type of comment"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "author_email",
+    "content"
+  ]
+}

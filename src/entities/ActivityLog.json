@@ -1,0 +1,58 @@
+{
+  "name": "ActivityLog",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User who performed the action"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Display name of user"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "proposal_created",
+        "section_created",
+        "section_updated",
+        "section_deleted",
+        "comment_added",
+        "task_created",
+        "task_updated",
+        "status_changed",
+        "file_uploaded",
+        "user_invited",
+        "proposal_exported",
+        "approval_given"
+      ],
+      "description": "Type of action performed"
+    },
+    "action_description": {
+      "type": "string",
+      "description": "Human-readable description of action"
+    },
+    "section_id": {
+      "type": "string",
+      "description": "Related section if applicable"
+    },
+    "related_entity_id": {
+      "type": "string",
+      "description": "ID of related entity (comment, task, etc.)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional action metadata as JSON"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "user_email",
+    "action_type",
+    "action_description"
+  ]
+}

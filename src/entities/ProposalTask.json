@@ -1,0 +1,79 @@
+{
+  "name": "ProposalTask",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "section_id": {
+      "type": "string",
+      "description": "Optional: specific section this task relates to"
+    },
+    "title": {
+      "type": "string",
+      "description": "Task title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed task description"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Email of assigned user"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Name of assigned user"
+    },
+    "assigned_by_email": {
+      "type": "string",
+      "description": "Email of user who created/assigned task"
+    },
+    "assigned_by_name": {
+      "type": "string",
+      "description": "Name of user who created task"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "todo",
+        "in_progress",
+        "review",
+        "completed"
+      ],
+      "default": "todo",
+      "description": "Task status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium",
+      "description": "Task priority"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Task due date"
+    },
+    "completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When task was completed"
+    },
+    "estimated_hours": {
+      "type": "number",
+      "description": "Estimated hours to complete"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "title",
+    "assigned_to_email"
+  ]
+}

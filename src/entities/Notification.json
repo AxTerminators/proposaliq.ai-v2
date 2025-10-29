@@ -1,0 +1,76 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of user receiving notification"
+    },
+    "notification_type": {
+      "type": "string",
+      "enum": [
+        "mention",
+        "task_assigned",
+        "comment_reply",
+        "deadline_reminder",
+        "status_change",
+        "approval_request"
+      ],
+      "description": "Type of notification"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification message"
+    },
+    "related_proposal_id": {
+      "type": "string",
+      "description": "Related proposal if applicable"
+    },
+    "related_entity_id": {
+      "type": "string",
+      "description": "ID of related comment, task, etc."
+    },
+    "related_entity_type": {
+      "type": "string",
+      "enum": [
+        "comment",
+        "task",
+        "proposal",
+        "section"
+      ],
+      "description": "Type of related entity"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "URL to navigate when clicked"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether notification has been read"
+    },
+    "read_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When notification was read"
+    },
+    "from_user_email": {
+      "type": "string",
+      "description": "Email of user who triggered notification"
+    },
+    "from_user_name": {
+      "type": "string",
+      "description": "Name of user who triggered notification"
+    }
+  },
+  "required": [
+    "user_email",
+    "notification_type",
+    "title",
+    "message"
+  ]
+}
