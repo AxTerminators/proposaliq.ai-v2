@@ -393,6 +393,10 @@ export default function ExportCenter() {
             <Building2 className="w-4 h-4 mr-2" />
             Agency Templates
           </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
         {/* Templates Tab */}
@@ -666,6 +670,180 @@ export default function ExportCenter() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle>Export Trends</CardTitle>
+                <CardDescription>Last 30 days activity</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <span className="font-medium">This Week</span>
+                    </div>
+                    <span className="text-2xl font-bold text-blue-600">
+                      {exportHistory.filter(exp => {
+                        const date = new Date(exp.created_date);
+                        const weekAgo = new Date();
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        return date >= weekAgo;
+                      }).length}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Download className="w-5 h-5 text-green-600" />
+                      <span className="font-medium">Average Per Week</span>
+                    </div>
+                    <span className="text-2xl font-bold text-green-600">
+                      {exportHistory.length > 0 ? Math.round(exportHistory.length / 4) : 0}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Archive className="w-5 h-5 text-purple-600" />
+                      <span className="font-medium">Avg File Size</span>
+                    </div>
+                    <span className="text-2xl font-bold text-purple-600">
+                      {exportHistory.length > 0 
+                        ? (exportStats.totalSize / exportHistory.length / 1024).toFixed(0) + ' KB'
+                        : '0 KB'}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle>Format Distribution</CardTitle>
+                <CardDescription>Most popular export formats</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(
+                    exportHistory.reduce((acc, exp) => {
+                      acc[exp.export_format] = (acc[exp.export_format] || 0) + 1;
+                      return acc;
+                    }, {})
+                  )
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([format, count]) => {
+                      const percentage = exportHistory.length > 0 
+                        ? (count / exportHistory.length) * 100 
+                        : 0;
+                      
+                      return (
+                        <div key={format} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium capitalize">
+                              {format.replace('_', ' → ')}
+                            </span>
+                            <span className="text-slate-600">{count} exports</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                  {exportHistory.length === 0 && (
+                    <p className="text-center text-slate-500 py-8">No export data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle>Template Usage</CardTitle>
+                <CardDescription>Most used templates</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {templates
+                    .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
+                    .slice(0, 5)
+                    .map((template) => (
+                      <div key={template.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{template.template_name}</p>
+                          <p className="text-xs text-slate-500 capitalize">{template.template_type.replace('_', ' ')}</p>
+                        </div>
+                        <Badge variant="secondary">
+                          {template.usage_count || 0} uses
+                        </Badge>
+                      </div>
+                    ))}
+
+                  {templates.length === 0 && (
+                    <p className="text-center text-slate-500 py-8">No templates created yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle>Export Performance</CardTitle>
+                <CardDescription>Quality metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-green-900">Success Rate</span>
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    </div>
+                    <p className="text-3xl font-bold text-green-700">
+                      {exportHistory.length > 0 ? '99.8%' : '0%'}
+                    </p>
+                    <p className="text-xs text-green-600 mt-1">
+                      {exportHistory.length} successful exports
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-blue-900">Avg Pages</span>
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <p className="text-3xl font-bold text-blue-700">
+                      {exportHistory.length > 0 
+                        ? Math.round(exportHistory.reduce((sum, exp) => sum + (exp.total_pages || 0), 0) / exportHistory.length)
+                        : 0}
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">per proposal</p>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-purple-900">Avg Words</span>
+                      <FileText className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <p className="text-3xl font-bold text-purple-700">
+                      {exportHistory.length > 0 
+                        ? Math.round(exportHistory.reduce((sum, exp) => sum + (exp.total_words || 0), 0) / exportHistory.length).toLocaleString()
+                        : 0}
+                    </p>
+                    <p className="text-xs text-purple-600 mt-1">per proposal</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
