@@ -1,0 +1,53 @@
+{
+  "name": "LaborAllocation",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Reference to the proposal"
+    },
+    "clin_id": {
+      "type": "string",
+      "description": "Reference to the CLIN"
+    },
+    "labor_category_id": {
+      "type": "string",
+      "description": "Reference to the labor category"
+    },
+    "labor_category_name": {
+      "type": "string",
+      "description": "Name of labor category for display"
+    },
+    "hours": {
+      "type": "number",
+      "description": "Number of hours allocated"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Hourly rate (loaded) for this allocation"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Total cost (hours * rate)"
+    },
+    "fte": {
+      "type": "number",
+      "description": "Full-time equivalent (hours / 2080)"
+    },
+    "period": {
+      "type": "string",
+      "description": "Period this allocation covers"
+    },
+    "task_description": {
+      "type": "string",
+      "description": "Description of work for this allocation"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "clin_id",
+    "labor_category_id",
+    "hours",
+    "hourly_rate"
+  ]
+}
