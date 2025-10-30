@@ -1,95 +1,106 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Draggable } from "@hello-pangea/dnd";
 import KanbanCard from "./KanbanCard";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function KanbanColumn({ 
   column, 
   proposals, 
   onProposalClick, 
-  onDeleteProposal,
-  isDraggingOver, 
-  isCollapsed, 
-  onToggleCollapse 
+  onDeleteProposal, 
+  isDraggingOver,
+  isCollapsed,
+  onToggleCollapse,
+  dragHandleProps
 }) {
   return (
-    <Card className={cn(
-      "border-2 transition-all h-fit",
-      isDraggingOver && "border-blue-400 bg-blue-50",
-      isCollapsed && "cursor-pointer"
-    )}>
-      <CardHeader 
-        className="p-3 border-b flex flex-row items-center justify-between space-y-0"
-        onClick={isCollapsed ? () => onToggleCollapse(column.id) : undefined}
-      >
-        {isCollapsed ? (
-          <div className="flex flex-col items-center w-full gap-2">
+    <div className={`flex flex-col h-full ${column.color} rounded-lg border-2 ${
+      isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
+    } transition-all`}>
+      <div className="p-3 border-b border-slate-200 bg-white/50 rounded-t-lg">
+        <div className="flex items-center justify-between gap-2">
+          {!isCollapsed && (
             <div 
-              className={cn("w-3 h-3 rounded-full", column.color)}
-            />
-            <div className="writing-mode-vertical text-sm font-semibold whitespace-nowrap">
-              {column.label}
-            </div>
-            <Badge variant="secondary" className="text-xs">
-              {proposals.length}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 mt-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleCollapse(column.id);
-              }}
+              {...dragHandleProps} 
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200 rounded transition-colors"
+              title="Drag to reorder column"
             >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              <GripVertical className="w-4 h-4 text-slate-400" />
+            </div>
+          )}
+          
+          <div className="flex-1 min-w-0">
+            {!isCollapsed && (
+              <>
+                <h3 className="font-semibold text-slate-900 truncate">{column.label}</h3>
+                <Badge variant="secondary" className="text-xs mt-1">
+                  {proposals.length} {proposals.length === 1 ? 'proposal' : 'proposals'}
+                </Badge>
+              </>
+            )}
+            {isCollapsed && (
+              <div className="text-center">
+                <div className="transform -rotate-90 whitespace-nowrap text-xs font-semibold text-slate-700">
+                  {column.label}
+                </div>
+                <Badge variant="secondary" className="text-xs mt-2">
+                  {proposals.length}
+                </Badge>
+              </div>
+            )}
           </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-2 flex-1">
-              <div className={cn("w-3 h-3 rounded-full", column.color)} />
-              <CardTitle className="text-sm font-semibold">
-                {column.label}
-              </CardTitle>
-              <Badge variant="secondary" className="text-xs">
-                {proposals.length}
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onToggleCollapse(column.id)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-      </CardHeader>
-      
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex-shrink-0 h-6 w-6"
+            onClick={() => onToggleCollapse(column.id)}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+
       {!isCollapsed && (
-        <CardContent className="p-3 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
-          {proposals.length === 0 ? (
+        <div className="flex-1 p-3 space-y-3 overflow-y-auto min-h-[200px]">
+          {proposals.map((proposal, index) => (
+            <Draggable key={proposal.id} draggableId={proposal.id} index={index} type="proposal">
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.draggableProps}
+                  {...provided.dragHandleProps}
+                >
+                  <KanbanCard
+                    proposal={proposal}
+                    onClick={() => onProposalClick(proposal)}
+                    onDelete={() => onDeleteProposal(proposal)}
+                    isDragging={snapshot.isDragging}
+                  />
+                </div>
+              )}
+            </Draggable>
+          ))}
+          
+          {proposals.length === 0 && !isDraggingOver && (
             <div className="text-center py-8 text-slate-400 text-sm">
               No proposals
             </div>
-          ) : (
-            proposals.map((proposal, index) => (
-              <KanbanCard
-                key={proposal.id}
-                proposal={proposal}
-                index={index}
-                onProposalClick={onProposalClick}
-                onDelete={onDeleteProposal}
-              />
-            ))
           )}
-        </CardContent>
+          
+          {isDraggingOver && proposals.length === 0 && (
+            <div className="text-center py-8 text-blue-500 text-sm">
+              Drop here
+            </div>
+          )}
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
