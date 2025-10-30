@@ -24,7 +24,10 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Image as ImageIcon,
+  Palette
 } from "lucide-react";
 import {
   Dialog,
@@ -54,6 +57,7 @@ export default function Clients() {
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   
   const [newClient, setNewClient] = useState({
     client_name: "",
@@ -66,7 +70,12 @@ export default function Clients() {
     industry: "",
     relationship_status: "active",
     portal_access_enabled: true,
-    notes: ""
+    notes: "",
+    custom_branding: {
+      logo_url: "",
+      primary_color: "#2563eb",
+      company_name: ""
+    }
   });
 
   useEffect(() => {
@@ -140,7 +149,12 @@ export default function Clients() {
         industry: "",
         relationship_status: "active",
         portal_access_enabled: true,
-        notes: ""
+        notes: "",
+        custom_branding: {
+          logo_url: "",
+          primary_color: "#2563eb",
+          company_name: ""
+        }
       });
     },
   });
@@ -181,16 +195,37 @@ export default function Clients() {
     },
   });
 
-  const togglePortalAccessMutation = useMutation({
-    mutationFn: async ({ clientId, enabled }) => {
-      return await base44.entities.Client.update(clientId, {
-        portal_access_enabled: enabled
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-    },
-  });
+  const handleLogoUpload = async (file, isEditing = false) => {
+    if (!file) return;
+    
+    setUploadingLogo(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      
+      if (isEditing && selectedClient) {
+        setSelectedClient({
+          ...selectedClient,
+          custom_branding: {
+            ...selectedClient.custom_branding,
+            logo_url: file_url
+          }
+        });
+      } else {
+        setNewClient({
+          ...newClient,
+          custom_branding: {
+            ...newClient.custom_branding,
+            logo_url: file_url
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+      alert("Failed to upload logo. Please try again.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleCreateClient = () => {
     if (!newClient.client_name || !newClient.contact_email) {
@@ -200,8 +235,26 @@ export default function Clients() {
     createClientMutation.mutate(newClient);
   };
 
+  const handleUpdateClient = () => {
+    if (!selectedClient.client_name || !selectedClient.contact_email) {
+      alert("Please fill in required fields");
+      return;
+    }
+    updateClientMutation.mutate({
+      clientId: selectedClient.id,
+      updates: selectedClient
+    });
+  };
+
   const handleEditClient = (client) => {
-    setSelectedClient({...client});
+    setSelectedClient({
+      ...client,
+      custom_branding: client.custom_branding || {
+        logo_url: "",
+        primary_color: "#2563eb",
+        company_name: ""
+      }
+    });
     setShowEditDialog(true);
   };
 
@@ -270,6 +323,7 @@ export default function Clients() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {/* Basic Information */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label>Client Name *</Label>
@@ -354,6 +408,88 @@ export default function Clients() {
                   placeholder="Business address"
                 />
               </div>
+
+              {/* Portal Branding Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Portal Branding
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Portal Company Name</Label>
+                    <Input
+                      value={newClient.custom_branding?.company_name || ""}
+                      onChange={(e) => setNewClient({
+                        ...newClient,
+                        custom_branding: {
+                          ...newClient.custom_branding,
+                          company_name: e.target.value
+                        }
+                      })}
+                      placeholder="Display name for portal (defaults to organization name)"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Portal Logo</Label>
+                    <div className="flex items-center gap-4 mt-2">
+                      {newClient.custom_branding?.logo_url && (
+                        <img 
+                          src={newClient.custom_branding.logo_url} 
+                          alt="Logo preview" 
+                          className="h-16 w-16 object-contain border rounded"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleLogoUpload(e.target.files[0], false)}
+                          disabled={uploadingLogo}
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          {uploadingLogo ? "Uploading..." : "Recommended: PNG or SVG, transparent background"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Primary Brand Color</Label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <input
+                        type="color"
+                        value={newClient.custom_branding?.primary_color || "#2563eb"}
+                        onChange={(e) => setNewClient({
+                          ...newClient,
+                          custom_branding: {
+                            ...newClient.custom_branding,
+                            primary_color: e.target.value
+                          }
+                        })}
+                        className="h-10 w-20 rounded border cursor-pointer"
+                      />
+                      <Input
+                        value={newClient.custom_branding?.primary_color || "#2563eb"}
+                        onChange={(e) => setNewClient({
+                          ...newClient,
+                          custom_branding: {
+                            ...newClient.custom_branding,
+                            primary_color: e.target.value
+                          }
+                        })}
+                        placeholder="#2563eb"
+                        className="flex-1"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      This color will be used for buttons and accents in their portal
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <Label>Internal Notes</Label>
                 <Textarea
@@ -479,55 +615,72 @@ export default function Clients() {
                     className="p-6 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-semibold text-slate-900">
-                            {client.client_name}
-                          </h3>
-                          <Badge className={`capitalize ${
-                            client.relationship_status === 'active' ? 'bg-green-100 text-green-700' :
-                            client.relationship_status === 'prospect' ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-700'
-                          }`}>
-                            {client.relationship_status}
-                          </Badge>
-                          {client.portal_access_enabled ? (
-                            <Badge variant="outline" className="text-green-600">
-                              <Eye className="w-3 h-3 mr-1" />
-                              Portal Active
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-slate-500">
-                              <EyeOff className="w-3 h-3 mr-1" />
-                              Portal Disabled
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="grid md:grid-cols-3 gap-4 text-sm">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Mail className="w-4 h-4" />
-                            {client.contact_email}
-                          </div>
-                          {client.contact_phone && (
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <Phone className="w-4 h-4" />
-                              {client.contact_phone}
-                            </div>
-                          )}
-                          {client.client_organization && (
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <Building2 className="w-4 h-4" />
-                              {client.client_organization}
-                            </div>
-                          )}
-                        </div>
-
-                        {client.last_portal_access && (
-                          <p className="text-xs text-slate-500 mt-2">
-                            Last portal access: {moment(client.last_portal_access).fromNow()}
-                          </p>
+                      <div className="flex items-start gap-4 flex-1">
+                        {/* Client Logo if available */}
+                        {client.custom_branding?.logo_url && (
+                          <img 
+                            src={client.custom_branding.logo_url} 
+                            alt={`${client.client_name} logo`}
+                            className="h-12 w-12 object-contain rounded border"
+                          />
                         )}
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-xl font-semibold text-slate-900">
+                              {client.client_name}
+                            </h3>
+                            <Badge className={`capitalize ${
+                              client.relationship_status === 'active' ? 'bg-green-100 text-green-700' :
+                              client.relationship_status === 'prospect' ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {client.relationship_status}
+                            </Badge>
+                            {client.portal_access_enabled ? (
+                              <Badge variant="outline" className="text-green-600">
+                                <Eye className="w-3 h-3 mr-1" />
+                                Portal Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-slate-500">
+                                <EyeOff className="w-3 h-3 mr-1" />
+                                Portal Disabled
+                              </Badge>
+                            )}
+                            {client.custom_branding?.logo_url && (
+                              <Badge variant="outline" className="text-purple-600">
+                                <Palette className="w-3 h-3 mr-1" />
+                                Branded
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="grid md:grid-cols-3 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Mail className="w-4 h-4" />
+                              {client.contact_email}
+                            </div>
+                            {client.contact_phone && (
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <Phone className="w-4 h-4" />
+                                {client.contact_phone}
+                              </div>
+                            )}
+                            {client.client_organization && (
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <Building2 className="w-4 h-4" />
+                                {client.client_organization}
+                              </div>
+                            )}
+                          </div>
+
+                          {client.last_portal_access && (
+                            <p className="text-xs text-slate-500 mt-2">
+                              Last portal access: {moment(client.last_portal_access).fromNow()}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex gap-2">
@@ -655,8 +808,214 @@ export default function Clients() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog - Similar structure to Add Dialog */}
-      {/* ... (I'll keep this shorter for brevity) ... */}
+      {/* Edit Client Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>
+              Update client information and portal settings
+            </DialogDescription>
+          </DialogHeader>
+          {selectedClient && (
+            <div className="space-y-4 py-4">
+              {/* Basic Information */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Client Name *</Label>
+                  <Input
+                    value={selectedClient.client_name}
+                    onChange={(e) => setSelectedClient({...selectedClient, client_name: e.target.value})}
+                    placeholder="Full name"
+                  />
+                </div>
+                <div>
+                  <Label>Contact Email *</Label>
+                  <Input
+                    type="email"
+                    value={selectedClient.contact_email}
+                    onChange={(e) => setSelectedClient({...selectedClient, contact_email: e.target.value})}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
+                  <Label>Contact Name</Label>
+                  <Input
+                    value={selectedClient.contact_name || ""}
+                    onChange={(e) => setSelectedClient({...selectedClient, contact_name: e.target.value})}
+                    placeholder="Primary contact person"
+                  />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={selectedClient.contact_phone || ""}
+                    onChange={(e) => setSelectedClient({...selectedClient, contact_phone: e.target.value})}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+                <div>
+                  <Label>Organization</Label>
+                  <Input
+                    value={selectedClient.client_organization || ""}
+                    onChange={(e) => setSelectedClient({...selectedClient, client_organization: e.target.value})}
+                    placeholder="Company name"
+                  />
+                </div>
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={selectedClient.client_title || ""}
+                    onChange={(e) => setSelectedClient({...selectedClient, client_title: e.target.value})}
+                    placeholder="Job title"
+                  />
+                </div>
+                <div>
+                  <Label>Industry</Label>
+                  <Input
+                    value={selectedClient.industry || ""}
+                    onChange={(e) => setSelectedClient({...selectedClient, industry: e.target.value})}
+                    placeholder="e.g., Technology, Healthcare"
+                  />
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={selectedClient.relationship_status}
+                    onValueChange={(value) => setSelectedClient({...selectedClient, relationship_status: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="prospect">Prospect</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="former">Former</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Address</Label>
+                <Input
+                  value={selectedClient.address || ""}
+                  onChange={(e) => setSelectedClient({...selectedClient, address: e.target.value})}
+                  placeholder="Business address"
+                />
+              </div>
+
+              {/* Portal Branding Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Portal Branding
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Portal Company Name</Label>
+                    <Input
+                      value={selectedClient.custom_branding?.company_name || ""}
+                      onChange={(e) => setSelectedClient({
+                        ...selectedClient,
+                        custom_branding: {
+                          ...selectedClient.custom_branding,
+                          company_name: e.target.value
+                        }
+                      })}
+                      placeholder="Display name for portal (defaults to organization name)"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Portal Logo</Label>
+                    <div className="flex items-center gap-4 mt-2">
+                      {selectedClient.custom_branding?.logo_url && (
+                        <img 
+                          src={selectedClient.custom_branding.logo_url} 
+                          alt="Logo preview" 
+                          className="h-16 w-16 object-contain border rounded"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleLogoUpload(e.target.files[0], true)}
+                          disabled={uploadingLogo}
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          {uploadingLogo ? "Uploading..." : "Recommended: PNG or SVG, transparent background"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Primary Brand Color</Label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <input
+                        type="color"
+                        value={selectedClient.custom_branding?.primary_color || "#2563eb"}
+                        onChange={(e) => setSelectedClient({
+                          ...selectedClient,
+                          custom_branding: {
+                            ...selectedClient.custom_branding,
+                            primary_color: e.target.value
+                          }
+                        })}
+                        className="h-10 w-20 rounded border cursor-pointer"
+                      />
+                      <Input
+                        value={selectedClient.custom_branding?.primary_color || "#2563eb"}
+                        onChange={(e) => setSelectedClient({
+                          ...selectedClient,
+                          custom_branding: {
+                            ...selectedClient.custom_branding,
+                            primary_color: e.target.value
+                          }
+                        })}
+                        placeholder="#2563eb"
+                        className="flex-1"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      This color will be used for buttons and accents in their portal
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label>Internal Notes</Label>
+                <Textarea
+                  value={selectedClient.notes || ""}
+                  onChange={(e) => setSelectedClient({...selectedClient, notes: e.target.value})}
+                  placeholder="Internal notes about this client..."
+                  rows={3}
+                />
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={selectedClient.portal_access_enabled}
+                  onChange={(e) => setSelectedClient({...selectedClient, portal_access_enabled: e.target.checked})}
+                  className="w-4 h-4"
+                />
+                <Label className="cursor-pointer">Enable portal access</Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateClient} disabled={updateClientMutation.isPending}>
+              {updateClientMutation.isPending ? 'Updating...' : 'Update Client'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
