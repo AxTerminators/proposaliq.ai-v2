@@ -414,11 +414,11 @@ export default function ClientProposalView() {
     const isFromClient = comment.author_email === client?.contact_email;
     
     return (
-      <div className={`${depth > 0 ? 'ml-8 mt-3' : ''}`}>
-        <div className={`p-4 rounded-lg border ${isFromClient ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-900">{comment.author_name}</span>
+      <div className={`${depth > 0 ? 'ml-4 sm:ml-8 mt-3' : ''}`}>
+        <div className={`p-3 sm:p-4 rounded-lg border ${isFromClient ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-slate-900 text-sm">{comment.author_name}</span>
               {isFromClient && <Badge className="bg-blue-600 text-white text-xs">You</Badge>}
               {comment.comment_type !== 'general' && (
                 <Badge variant="outline" className="text-xs capitalize">
@@ -448,12 +448,12 @@ export default function ClientProposalView() {
               {moment(comment.created_date).fromNow()}
             </span>
           </div>
-          <p className="text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+          <p className="text-sm sm:text-base text-slate-700 whitespace-pre-wrap break-words">{comment.content}</p>
           {!isFromClient && (
             <Button
               variant="ghost"
               size="sm"
-              className="mt-2"
+              className="mt-2 h-8 text-xs sm:text-sm"
               onClick={() => setReplyingTo(comment)}
             >
               <Reply className="w-3 h-3 mr-1" />
@@ -501,17 +501,28 @@ export default function ClientProposalView() {
 
   const canTakeAction = !['client_accepted', 'client_rejected', 'won', 'lost'].includes(proposal.status);
 
+  // Apply custom branding
+  const branding = client?.custom_branding || {};
+  const primaryColor = branding.primary_color || "#2563eb";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6">
+      {/* Inject custom CSS if provided */}
+      {branding.custom_css && (
+        <style dangerouslySetInnerHTML={{ __html: branding.custom_css }} />
+      )}
+
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Button
             variant="outline"
             onClick={() => window.location.href = `/ClientPortal?token=${clientToken}`}
+            className="min-h-[44px]"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Portal
+            <span className="hidden sm:inline">Back to Portal</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
 
@@ -660,21 +671,21 @@ export default function ClientProposalView() {
         {clientFiles.length > 0 && (
           <Card className="border-none shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
                 Your Uploaded Files ({clientFiles.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {clientFiles.map(file => (
-                  <div key={file.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border">
-                    <div className="flex items-center gap-3 flex-1">
-                      <Paperclip className="w-5 h-5 text-blue-500" />
+                  <div key={file.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-slate-50 rounded-lg border">
+                    <div className="flex items-center gap-3 flex-1 w-full sm:w-auto min-w-0">
+                      <Paperclip className="w-5 h-5 text-blue-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{file.file_name}</p>
+                        <p className="font-medium text-sm sm:text-base text-slate-900 truncate">{file.file_name}</p>
                         {file.description && (
-                          <p className="text-sm text-slate-600 truncate">{file.description}</p>
+                          <p className="text-xs sm:text-sm text-slate-600 truncate">{file.description}</p>
                         )}
                         <p className="text-xs text-slate-500">
                           {(file.file_size / 1024).toFixed(1)} KB • {moment(file.created_date).fromNow()}
@@ -687,13 +698,15 @@ export default function ClientProposalView() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => window.open(file.file_url, '_blank')}
+                        className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
                       >
-                        <Download className="w-4 h-4" />
+                        <Download className="w-4 h-4 sm:mr-0" />
+                        <span className="sm:hidden ml-2">Download</span>
                       </Button>
                       <Button
                         size="sm"
@@ -703,6 +716,7 @@ export default function ClientProposalView() {
                             deleteFileMutation.mutate(file.id);
                           }
                         }}
+                        className="min-h-[44px] sm:min-h-0"
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
@@ -717,31 +731,31 @@ export default function ClientProposalView() {
         {/* Comments Section */}
         <Card className="border-none shadow-xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
               Discussion & Feedback ({comments.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="p-3 sm:p-6 space-y-4 sm:space-y-6">
             {/* Existing Comments */}
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto">
               {commentTree.map(comment => (
                 <CommentThread key={comment.id} comment={comment} />
               ))}
               {comments.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <p>No comments yet. Be the first to provide feedback!</p>
+                  <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm sm:text-base">No comments yet. Be the first to provide feedback!</p>
                 </div>
               )}
             </div>
 
             {/* Add Comment */}
-            <div className="border-t pt-6">
+            <div className="border-t pt-4 sm:pt-6">
               {replyingTo && (
                 <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-blue-900 mb-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-semibold text-blue-900 mb-1">
                       Replying to {replyingTo.author_name}
                     </p>
                     <p className="text-xs text-blue-700 line-clamp-2">{replyingTo.content}</p>
@@ -750,18 +764,18 @@ export default function ClientProposalView() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setReplyingTo(null)}
-                    className="h-6 w-6"
+                    className="h-6 w-6 flex-shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               )}
               
-              <div className="grid md:grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
                   <Label className="text-xs mb-1">Feedback Type</Label>
                   <Select value={commentType} onValueChange={setCommentType}>
-                    <SelectTrigger>
+                    <SelectTrigger className="min-h-[44px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -775,7 +789,7 @@ export default function ClientProposalView() {
                 <div>
                   <Label className="text-xs mb-1">Priority</Label>
                   <Select value={commentPriority} onValueChange={setCommentPriority}>
-                    <SelectTrigger>
+                    <SelectTrigger className="min-h-[44px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -788,15 +802,15 @@ export default function ClientProposalView() {
                 </div>
               </div>
 
-              <Label className="mb-2">Your Feedback or Questions</Label>
+              <Label className="mb-2 text-xs sm:text-sm">Your Feedback or Questions</Label>
               <Textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Share your thoughts, ask questions, or request changes..."
                 rows={4}
-                className="mb-3"
+                className="mb-3 text-sm"
               />
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="file"
                   id="file-upload"
@@ -806,6 +820,7 @@ export default function ClientProposalView() {
                 <Button
                   variant="outline"
                   asChild
+                  className="w-full sm:w-auto min-h-[44px]"
                 >
                   <label htmlFor="file-upload" className="cursor-pointer">
                     <Paperclip className="w-4 h-4 mr-2" />
@@ -815,7 +830,7 @@ export default function ClientProposalView() {
                 <Button
                   onClick={handleAddComment}
                   disabled={!newComment.trim() || addCommentMutation.isPending}
-                  className="flex-1"
+                  className="flex-1 min-h-[44px]"
                 >
                   {addCommentMutation.isPending ? (
                     <>Sending...</>
@@ -832,7 +847,7 @@ export default function ClientProposalView() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center text-sm text-slate-500 py-4">
+        <div className="text-center text-xs sm:text-sm text-slate-500 py-4">
           <p>Questions? Contact {organization?.contact_name} at {organization?.contact_email}</p>
         </div>
       </div>
