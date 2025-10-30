@@ -24,52 +24,6 @@ const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
 ];
 
-// Universal document content extraction helper
-const extractDocumentContent = async (fileUrl, fileName) => {
-  const fileExtension = fileName.split('.').pop().toLowerCase();
-  const officeDocTypes = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'];
-  
-  // For office documents and text files, extract plain text first
-  if (officeDocTypes.includes(fileExtension)) {
-    try {
-      console.log(`🔍 Extracting text content from ${fileExtension} file...`);
-      
-      // More explicit prompt for text extraction
-      const extractedText = await base44.integrations.Core.InvokeLLM({
-        prompt: `Read this ${fileExtension.toUpperCase()} document and extract ALL text content from it.
-
-**INSTRUCTIONS:**
-- Extract every piece of text, including headers, body content, tables, lists, and any other text
-- Preserve the structure and organization as much as possible
-- Include all contact information, names, addresses, phone numbers, emails, and identifiers
-- Include all certifications, capabilities, and descriptive content
-- Do NOT summarize - extract the complete text verbatim
-- Return ONLY the extracted text with no additional commentary or explanations
-
-Begin extracting now:`,
-        file_urls: [fileUrl]
-      });
-      
-      if (extractedText && extractedText.length > 50) {
-        console.log(`✅ Successfully extracted ${extractedText.length} characters of text`);
-        console.log(`📄 Preview: ${extractedText.substring(0, 200)}...`);
-        return { fileUrl, extractedText };
-      } else {
-        console.warn(`⚠️ Extraction produced minimal text (${extractedText?.length || 0} chars), will try direct processing`);
-        return { fileUrl, extractedText: null };
-      }
-    } catch (error) {
-      console.error("❌ Error extracting document text:", error);
-      console.log("🔄 Falling back to direct file processing");
-      return { fileUrl, extractedText: null };
-    }
-  }
-  
-  // For PDFs and images, let the LLM use its internal capabilities directly
-  console.log(`📎 Processing ${fileExtension} file directly with AI`);
-  return { fileUrl, extractedText: null };
-};
-
 export default function Phase1({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
@@ -228,75 +182,54 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setIsExtractingData(true);
     
     try {
-      console.log('=== 🚀 STARTING UNIVERSAL DOCUMENT PROCESSING ===');
+      console.log('=== 🚀 STARTING DOCUMENT PROCESSING ===');
       console.log(`📁 File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
       
       console.log('⬆️ Step 1: Uploading file...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      console.log('✅ File uploaded:', fileUrl);
+      console.log('✅ File uploaded successfully');
       
-      console.log('🔍 Step 2: Extracting document content...');
-      const { fileUrl: processedUrl, extractedText } = await extractDocumentContent(fileUrl, file.name);
+      console.log('🤖 Step 2: AI analyzing document and extracting data...');
       
-      if (extractedText) {
-        console.log(`✅ Extracted ${extractedText.length} characters of plain text`);
-      } else {
-        console.log('ℹ️ No text extraction - will process file directly');
-      }
-      
-      console.log('🤖 Step 3: Calling AI for structured data extraction...');
-      
-      // Build the prompt with extracted text if available
-      let prompt = `You are an expert at extracting structured information from company capability statements and business documents.
+      // Single AI call with comprehensive prompt that handles all file types
+      const prompt = `You are analyzing a company capability statement document to extract structured information.
 
-`;
+**INSTRUCTIONS:**
+1. Carefully read and analyze the ENTIRE document
+2. Extract ALL available information about the company
+3. Pay special attention to contact details, certifications, and capabilities
+4. For fields you cannot find, use empty strings or empty arrays
+5. Return ONLY valid JSON matching the schema below
 
-      if (extractedText) {
-        prompt += `**DOCUMENT TEXT CONTENT:**
-The following is the complete text extracted from the capability statement document:
-
----
-${extractedText}
----
-
-`;
-      } else {
-        prompt += `**NOTE:** You are analyzing a document file directly (PDF or image format). Please read the document carefully.
-
-`;
-      }
-
-      prompt += `**YOUR TASK:**
-Carefully analyze the document and extract the following company information. Return your findings as valid JSON:
+**EXTRACT THE FOLLOWING INFORMATION:**
 
 {
-  "partner_name": "the company name (or empty string if not found)",
-  "address": "full business address (or empty string)",
-  "website_url": "company website URL (or empty string)",
-  "uei": "Unique Entity Identifier - usually 12 characters (or empty string)",
-  "cage_code": "CAGE Code - usually 5 characters (or empty string)",
-  "primary_naics": "primary NAICS code - 6 digits (or empty string)",
-  "secondary_naics": ["array of any additional NAICS codes"],
-  "poc_name": "point of contact full name (or empty string)",
-  "poc_email": "contact email address (or empty string)",
-  "poc_phone": "contact phone number (or empty string)",
-  "certifications": ["array of small business certifications like 8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO, CMMI, etc."],
-  "core_capabilities": ["array of 5-10 key services, capabilities, or expertise areas"],
-  "differentiators": ["array of 3-7 competitive advantages or unique strengths"],
-  "past_performance_summary": "brief 2-3 sentence summary of past performance or experience (or empty string)"
+  "partner_name": "Full company/organization name (or empty string)",
+  "address": "Complete business address including street, city, state, zip (or empty string)",
+  "website_url": "Company website URL (or empty string)",
+  "uei": "Unique Entity Identifier - typically 12 alphanumeric characters (or empty string)",
+  "cage_code": "CAGE Code - typically 5 alphanumeric characters (or empty string)",
+  "primary_naics": "Primary NAICS code - 6 digit number (or empty string)",
+  "secondary_naics": ["Array of additional NAICS codes if listed"],
+  "poc_name": "Point of contact full name (or empty string)",
+  "poc_email": "Contact email address (or empty string)",
+  "poc_phone": "Contact phone number with area code (or empty string)",
+  "certifications": ["Array of certifications such as: 8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO 9001, CMMI, etc."],
+  "core_capabilities": ["Array of 5-10 main services, capabilities, or areas of expertise the company provides"],
+  "differentiators": ["Array of 3-7 key competitive advantages, unique strengths, or what makes this company stand out"],
+  "past_performance_summary": "A brief 2-3 sentence summary of their experience and past projects (or empty string)"
 }
 
-**IMPORTANT INSTRUCTIONS:**
-- Extract as much information as you can find
-- Use empty strings "" for text fields that are not found
-- Use empty arrays [] for list fields that are not found
-- Be thorough - check headers, footers, sidebars, and all sections
-- Return ONLY valid JSON with no additional text or explanation`;
+**IMPORTANT:**
+- Be thorough - check ALL sections including headers, footers, sidebars, tables
+- Look for information in logos, letterheads, and contact blocks
+- Extract phone numbers in any format (xxx-xxx-xxxx, (xxx) xxx-xxxx, etc.)
+- Return ONLY the JSON object, no additional text or commentary`;
 
       const aiResult = await base44.integrations.Core.InvokeLLM({
         prompt,
-        file_urls: extractedText ? undefined : [processedUrl], // Only pass file URL if no extracted text
+        file_urls: [fileUrl], // Always pass file URL for direct processing
         response_json_schema: {
           type: "object",
           properties: {
@@ -318,9 +251,9 @@ Carefully analyze the document and extract the following company information. Re
         }
       });
 
-      console.log('✅ AI extraction completed successfully');
+      console.log('✅ AI extraction completed');
       console.log('📊 Extracted data:', JSON.stringify(aiResult, null, 2));
-      console.log('📝 Step 4: Auto-populating form fields...');
+      console.log('📝 Step 3: Populating form fields...');
 
       const updatedForm = { ...newPartnerForm };
       let fieldsPopulated = [];
@@ -397,16 +330,14 @@ Carefully analyze the document and extract the following company information. Re
       console.log('=== ✨ PROCESSING COMPLETE ===');
 
       if (fieldsPopulated.length > 0) {
-        alert(`✅ AI Success!\n\nExtracted and populated ${fieldsPopulated.length} fields from ${file.name}:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
+        alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
       } else {
-        alert(`⚠️ Limited Extraction\n\nAI analyzed ${file.name} but couldn't extract structured data.\n\nPossible reasons:\n• Document format is unusual\n• Information is in images/graphics\n• Document is password-protected\n\nYou can manually enter the company information.`);
+        alert(`⚠️ AI analyzed the document but couldn't find structured data.\n\nPossible reasons:\n• Document is primarily images/graphics\n• Unusual or non-standard format\n• Document may be password-protected\n\nPlease manually enter the information.`);
       }
     } catch (error) {
-      console.error('=== ❌ ERROR DURING EXTRACTION ===');
-      console.error('Error type:', error.name);
-      console.error('Error message:', error.message);
+      console.error('=== ❌ ERROR ===');
       console.error('Error details:', error);
-      alert(`❌ Processing Error\n\nCouldn't process ${file.name}:\n${error.message}\n\nPlease manually enter the company information or try a different file format.`);
+      alert(`❌ Error processing ${file.name}:\n${error.message}\n\nPlease manually enter the information or try a different file.`);
     } finally {
       setIsExtractingData(false);
     }
@@ -785,7 +716,7 @@ Carefully analyze the document and extract the following company information. Re
                   <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
                   <AlertDescription>
                     <p className="font-semibold text-blue-900">AI is analyzing the capability statement...</p>
-                    <p className="text-xs text-blue-700 mt-1">Extracting contact info, certifications, capabilities, and more. This may take 10-30 seconds.</p>
+                    <p className="text-xs text-blue-700 mt-1">This may take 15-30 seconds. Extracting company details, contact info, certifications, and capabilities.</p>
                   </AlertDescription>
                 </Alert>
               )}
