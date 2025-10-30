@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Users, 
-  Plus, 
+import {
+  Users,
+  Plus,
   Search,
   Mail,
   Phone,
@@ -27,7 +28,10 @@ import {
   AlertCircle,
   Upload,
   Image as ImageIcon,
-  Palette
+  Palette,
+  XCircle, // Added
+  MessageSquare, // Added
+  FileText // Added
 } from "lucide-react";
 import {
   Dialog,
@@ -58,7 +62,7 @@ export default function Clients() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [copied, setCopied] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  
+
   const [newClient, setNewClient] = useState({
     client_name: "",
     contact_name: "",
@@ -197,11 +201,11 @@ export default function Clients() {
 
   const handleLogoUpload = async (file, isEditing = false) => {
     if (!file) return;
-    
+
     setUploadingLogo(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      
+
       if (isEditing && selectedClient) {
         setSelectedClient({
           ...selectedClient,
@@ -284,6 +288,20 @@ export default function Clients() {
 
   const getClientProposals = (clientId) => {
     return proposals.filter(p => p.shared_with_client_ids?.includes(clientId));
+  };
+
+  const getClientProposalStats = (clientId) => {
+    const clientProps = getClientProposals(clientId);
+    return {
+      total: clientProps.length,
+      awaitingReview: clientProps.filter(p => ['client_review', 'in_progress', 'draft', 'submitted'].includes(p.status)).length,
+      accepted: clientProps.filter(p => p.status === 'client_accepted').length,
+      rejected: clientProps.filter(p => p.status === 'client_rejected').length,
+      submitted: clientProps.filter(p => p.status === 'submitted').length,
+      recentActivity: clientProps.length > 0 ? clientProps.sort((a, b) =>
+        new Date(b.updated_date) - new Date(a.updated_date)
+      )[0] : null
+    };
   };
 
   const filteredClients = clients.filter(client =>
@@ -430,14 +448,14 @@ export default function Clients() {
                       placeholder="Display name for portal (defaults to organization name)"
                     />
                   </div>
-                  
+
                   <div>
                     <Label>Portal Logo</Label>
                     <div className="flex items-center gap-4 mt-2">
                       {newClient.custom_branding?.logo_url && (
-                        <img 
-                          src={newClient.custom_branding.logo_url} 
-                          alt="Logo preview" 
+                        <img
+                          src={newClient.custom_branding.logo_url}
+                          alt="Logo preview"
                           className="h-16 w-16 object-contain border rounded"
                         />
                       )}
@@ -608,7 +626,8 @@ export default function Clients() {
             <div className="space-y-4">
               {filteredClients.map(client => {
                 const clientProposals = getClientProposals(client.id);
-                
+                const stats = getClientProposalStats(client.id);
+
                 return (
                   <div
                     key={client.id}
@@ -618,13 +637,13 @@ export default function Clients() {
                       <div className="flex items-start gap-4 flex-1">
                         {/* Client Logo if available */}
                         {client.custom_branding?.logo_url && (
-                          <img 
-                            src={client.custom_branding.logo_url} 
+                          <img
+                            src={client.custom_branding.logo_url}
                             alt={`${client.client_name} logo`}
                             className="h-12 w-12 object-contain rounded border"
                           />
                         )}
-                        
+
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-xl font-semibold text-slate-900">
@@ -655,7 +674,7 @@ export default function Clients() {
                               </Badge>
                             )}
                           </div>
-                          
+
                           <div className="grid md:grid-cols-3 gap-4 text-sm">
                             <div className="flex items-center gap-2 text-slate-600">
                               <Mail className="w-4 h-4" />
@@ -711,17 +730,106 @@ export default function Clients() {
                       </div>
                     </div>
 
-                    {clientProposals.length > 0 && (
+                    {/* Enhanced Proposal Stats */}
+                    {stats.total > 0 && (
+                      <div className="border-t pt-4 space-y-3">
+                        {/* Quick Stats Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
+                            <p className="text-xs text-blue-700">Total Proposals</p>
+                          </div>
+                          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <p className="text-2xl font-bold text-amber-600">{stats.awaitingReview}</p>
+                            <p className="text-xs text-amber-700">Awaiting Review</p>
+                          </div>
+                          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                            <p className="text-2xl font-bold text-green-600">{stats.accepted}</p>
+                            <p className="text-xs text-green-700">Accepted</p>
+                          </div>
+                          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                            <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+                            <p className="text-xs text-red-700">Rejected</p>
+                          </div>
+                        </div>
+
+                        {/* Recent Activity */}
+                        {stats.recentActivity && (
+                          <div className="p-3 bg-slate-50 rounded-lg border">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                                Most Recent Activity
+                              </p>
+                              <span className="text-xs text-slate-500">
+                                {moment(stats.recentActivity.updated_date).fromNow()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <p className="font-medium text-slate-900">{stats.recentActivity.proposal_name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant={
+                                    stats.recentActivity.status === 'client_accepted' ? 'default' :
+                                    stats.recentActivity.status === 'client_rejected' ? 'destructive' :
+                                    'secondary'
+                                  } className="text-xs">
+                                    {stats.recentActivity.status === 'client_accepted' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                    {stats.recentActivity.status === 'client_rejected' && <XCircle className="w-3 h-3 mr-1" />}
+                                    {['client_review', 'in_progress', 'draft', 'submitted'].includes(stats.recentActivity.status) && <AlertCircle className="w-3 h-3 mr-1" />}
+                                    {stats.recentActivity.status.replace(/_/g, ' ')}
+                                  </Badge>
+                                  {stats.recentActivity.client_feedback_count > 0 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      <MessageSquare className="w-3 h-3 mr-1" />
+                                      {stats.recentActivity.client_feedback_count} feedback
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => window.location.href = `/ProposalBuilder?id=${stats.recentActivity.id}`}
+                              >
+                                View
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Proposals List */}
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 mb-2">
+                            Shared Proposals ({clientProposals.length}):
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {clientProposals.map(prop => (
+                              <Badge
+                                key={prop.id}
+                                variant="secondary"
+                                className="text-xs cursor-pointer hover:bg-slate-200"
+                                onClick={() => window.location.href = `/ProposalBuilder?id=${prop.id}`}
+                              >
+                                {prop.proposal_name}
+                                {prop.status === 'client_accepted' && <CheckCircle2 className="w-3 h-3 ml-1 text-green-600" />}
+                                {prop.status === 'client_rejected' && <XCircle className="w-3 h-3 ml-1 text-red-600" />}
+                                {['client_review', 'in_progress', 'draft', 'submitted'].includes(prop.status) && <AlertCircle className="w-3 h-3 ml-1 text-amber-600" />}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* No Proposals Yet */}
+                    {stats.total === 0 && (
                       <div className="border-t pt-4">
-                        <p className="text-sm font-medium text-slate-700 mb-2">
-                          Shared Proposals ({clientProposals.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {clientProposals.map(prop => (
-                            <Badge key={prop.id} variant="secondary" className="text-xs">
-                              {prop.proposal_name}
-                            </Badge>
-                          ))}
+                        <div className="p-4 bg-slate-50 rounded-lg border border-dashed text-center">
+                          <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-600">No proposals shared yet</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Share a proposal with this client from the Proposal Builder
+                          </p>
                         </div>
                       </div>
                     )}
@@ -795,7 +903,7 @@ export default function Clients() {
 
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-900">
-                <strong>Security Note:</strong> This link is unique to this client and expires in one year. 
+                <strong>Security Note:</strong> This link is unique to this client and expires in one year.
                 You can regenerate it anytime if needed.
               </p>
             </div>
@@ -926,14 +1034,14 @@ export default function Clients() {
                       placeholder="Display name for portal (defaults to organization name)"
                     />
                   </div>
-                  
+
                   <div>
                     <Label>Portal Logo</Label>
                     <div className="flex items-center gap-4 mt-2">
                       {selectedClient.custom_branding?.logo_url && (
-                        <img 
-                          src={selectedClient.custom_branding.logo_url} 
-                          alt="Logo preview" 
+                        <img
+                          src={selectedClient.custom_branding.logo_url}
+                          alt="Logo preview"
                           className="h-16 w-16 object-contain border rounded"
                         />
                       )}
