@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Sparkles, Upload, Plus, X, Building2, Users } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Sparkles, Upload, Plus, X, Building2, Users, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
@@ -21,6 +22,7 @@ export default function Onboarding() {
   
   const [orgData, setOrgData] = useState({
     organization_name: "",
+    organization_type: "corporate", // Default to corporate
     contact_name: "",
     contact_email: "",
     address: "",
@@ -77,8 +79,8 @@ export default function Onboarding() {
   };
 
   const handleOrgSubmit = async () => {
-    if (!orgData.organization_name || !orgData.contact_name || !orgData.contact_email) {
-      alert("Please fill in all required fields");
+    if (!orgData.organization_name || !orgData.contact_name || !orgData.contact_email || !orgData.organization_type) {
+      alert("Please fill in all required fields including account type");
       return;
     }
     
@@ -92,6 +94,25 @@ export default function Onboarding() {
         ...orgData,
         onboarding_completed: true
       });
+
+      // Create appropriate subscription based on organization type
+      const subscriptionData = {
+        organization_id: createdOrg.id,
+        plan_type: orgData.organization_type === 'consultancy' ? 'consultant_basic' : 'free',
+        token_credits: orgData.organization_type === 'consultancy' ? 500000 : 200000,
+        max_users: orgData.organization_type === 'consultancy' ? 3 : 1,
+        max_clients: orgData.organization_type === 'consultancy' ? 5 : 0,
+        monthly_price: orgData.organization_type === 'consultancy' ? 99 : 0,
+        features_enabled: {
+          client_portal: orgData.organization_type === 'consultancy',
+          custom_branding: false,
+          advanced_analytics: false,
+          api_access: false,
+          white_label: false
+        }
+      };
+
+      await base44.entities.Subscription.create(subscriptionData);
 
       for (const partner of partners) {
         await base44.entities.TeamingPartner.create({
@@ -146,7 +167,7 @@ export default function Onboarding() {
         <div className="mb-8">
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between mt-2 text-sm text-slate-600">
-            <span className={step >= 1 ? "font-semibold text-blue-600" : ""}>Organization Details</span>
+            <span className={step >= 1 ? "font-semibold text-blue-600" : ""}>Account Type & Details</span>
             <span className={step >= 2 ? "font-semibold text-blue-600" : ""}>Teaming Partners (Optional)</span>
           </div>
         </div>
@@ -156,11 +177,55 @@ export default function Onboarding() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-blue-600" />
-                Organization Details
+                Organization Setup
               </CardTitle>
               <CardDescription>Tell us about your organization</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Account Type Selection */}
+              <div className="space-y-3 pb-6 border-b">
+                <Label className="text-base font-semibold">Which best describes your organization? *</Label>
+                <RadioGroup
+                  value={orgData.organization_type}
+                  onValueChange={(value) => setOrgData({...orgData, organization_type: value})}
+                  className="grid md:grid-cols-2 gap-4"
+                >
+                  <div className={`relative flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    orgData.organization_type === 'corporate' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}>
+                    <RadioGroupItem value="corporate" id="corporate" className="mt-1" />
+                    <Label htmlFor="corporate" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Building2 className="w-5 h-5 text-blue-600" />
+                        <span className="font-semibold text-slate-900">Corporate Account</span>
+                      </div>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        For internal teams managing their own proposals and resources.
+                      </p>
+                    </Label>
+                  </div>
+
+                  <div className={`relative flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    orgData.organization_type === 'consultancy' 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}>
+                    <RadioGroupItem value="consultancy" id="consultancy" className="mt-1" />
+                    <Label htmlFor="consultancy" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Briefcase className="w-5 h-5 text-purple-600" />
+                        <span className="font-semibold text-slate-900">Consultant Account</span>
+                      </div>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        For proposal writing companies. Includes client management & portal features.
+                      </p>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="org_name">Organization Name *</Label>
