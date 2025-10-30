@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, CreditCard, FileText, Brain, Lock, Activity, BarChart3, UserCog, Workflow, Mail, MessageSquare } from "lucide-react";
+import { Shield, Users, CreditCard, FileText, Brain, Lock, Activity, BarChart3, UserCog, Workflow, Mail, MessageSquare, Calendar as CalendarIcon, Eye, Globe } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
 import AuditLogModule from "../components/admin/AuditLogModule";
@@ -18,11 +18,16 @@ import WorkflowModule from "../components/admin/WorkflowModule";
 import MarketingModule from "../components/admin/MarketingModule";
 import FeedbackModule from "../components/admin/FeedbackModule";
 import OnboardingEmailModule from "../components/admin/OnboardingEmailModule";
+import ClientManagementModule from "../components/admin/ClientManagementModule";
+import GlobalProposalManagementModule from "../components/admin/GlobalProposalManagementModule";
+import GlobalCalendarModule from "../components/admin/GlobalCalendarModule";
+import EnhancedEmailTemplateModule from "../components/admin/EnhancedEmailTemplateModule";
+import GlobalReportingModule from "../components/admin/GlobalReportingModule";
 
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("subscribers");
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -60,21 +65,46 @@ export default function AdminPortal() {
     );
   }
 
-  // Admin modules
+  // Admin modules - organized by category
   const modules = [
-    { id: "subscribers", label: "Subscribers", icon: Users, component: SubscribersModule },
-    { id: "billing", label: "Billing", icon: CreditCard, component: BillingModule },
-    { id: "content", label: "Content", icon: FileText, component: ContentLibraryModule },
-    { id: "ai", label: "AI Config", icon: Brain, component: AIConfigModule },
-    { id: "security", label: "Security", icon: Lock, component: SecurityModule },
-    { id: "audit", label: "Audit Logs", icon: Shield, component: AuditLogModule },
-    { id: "health", label: "Health", icon: Activity, component: SystemHealthModule },
-    { id: "reports", label: "Reports", icon: BarChart3, component: ReportsModule },
-    { id: "roles", label: "Roles", icon: UserCog, component: RolesModule },
-    { id: "workflows", label: "Workflows", icon: Workflow, component: WorkflowModule },
-    { id: "marketing", label: "Marketing", icon: Mail, component: MarketingModule },
-    { id: "feedback", label: "Feedback", icon: MessageSquare, component: FeedbackModule },
-    { id: "onboarding", label: "Onboarding", icon: Mail, component: OnboardingEmailModule }
+    // Overview & Analytics
+    { id: "overview", label: "Overview", icon: BarChart3, component: GlobalReportingModule, category: "analytics" },
+    { id: "reports", label: "Reports", icon: BarChart3, component: ReportsModule, category: "analytics" },
+    
+    // User & Client Management
+    { id: "subscribers", label: "Users", icon: Users, component: SubscribersModule, category: "management" },
+    { id: "clients", label: "Clients", icon: Eye, component: ClientManagementModule, category: "management" },
+    { id: "roles", label: "Roles", icon: UserCog, component: RolesModule, category: "management" },
+    
+    // Content & Communication
+    { id: "proposals", label: "Proposals", icon: FileText, component: GlobalProposalManagementModule, category: "content" },
+    { id: "calendar", label: "Calendar", icon: CalendarIcon, component: GlobalCalendarModule, category: "content" },
+    { id: "content", label: "Content Library", icon: FileText, component: ContentLibraryModule, category: "content" },
+    { id: "email-templates", label: "Email Templates", icon: Mail, component: EnhancedEmailTemplateModule, category: "content" },
+    { id: "onboarding", label: "Onboarding", icon: Mail, component: OnboardingEmailModule, category: "content" },
+    
+    // System & Configuration
+    { id: "billing", label: "Billing", icon: CreditCard, component: BillingModule, category: "system" },
+    { id: "ai", label: "AI Config", icon: Brain, component: AIConfigModule, category: "system" },
+    { id: "workflows", label: "Workflows", icon: Workflow, component: WorkflowModule, category: "system" },
+    { id: "marketing", label: "Marketing", icon: Globe, component: MarketingModule, category: "system" },
+    
+    // Security & Monitoring
+    { id: "security", label: "Security", icon: Lock, component: SecurityModule, category: "security" },
+    { id: "audit", label: "Audit Logs", icon: Shield, component: AuditLogModule, category: "security" },
+    { id: "health", label: "System Health", icon: Activity, component: SystemHealthModule, category: "security" },
+    
+    // Support
+    { id: "feedback", label: "Feedback", icon: MessageSquare, component: FeedbackModule, category: "support" }
+  ];
+
+  const categories = [
+    { id: "analytics", label: "Analytics & Reporting", color: "blue" },
+    { id: "management", label: "User Management", color: "purple" },
+    { id: "content", label: "Content & Communication", color: "green" },
+    { id: "system", label: "System Configuration", color: "indigo" },
+    { id: "security", label: "Security & Compliance", color: "red" },
+    { id: "support", label: "Support", color: "amber" }
   ];
 
   return (
@@ -88,7 +118,7 @@ export default function AdminPortal() {
                 <Shield className="w-8 h-8 text-red-600" />
                 Admin Portal
               </h1>
-              <p className="text-slate-600 mt-1">System administration and configuration</p>
+              <p className="text-slate-600 mt-1">Comprehensive platform administration and management</p>
             </div>
             <Badge className="bg-red-100 text-red-700">
               <Shield className="w-3 h-3 mr-1" />
@@ -97,25 +127,70 @@ export default function AdminPortal() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Quick Stats Overview */}
+        {activeTab === "overview" && (
+          <div className="mb-6">
+            <div className="grid md:grid-cols-4 gap-4">
+              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <Users className="w-8 h-8 opacity-80" />
+                </div>
+                <p className="text-2xl font-bold">Comprehensive</p>
+                <p className="text-sm opacity-90">Admin Dashboard</p>
+              </Card>
+
+              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <Eye className="w-8 h-8 opacity-80" />
+                </div>
+                <p className="text-2xl font-bold">Client Portal</p>
+                <p className="text-sm opacity-90">Management</p>
+              </Card>
+
+              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <FileText className="w-8 h-8 opacity-80" />
+                </div>
+                <p className="text-2xl font-bold">Global</p>
+                <p className="text-sm opacity-90">Proposal View</p>
+              </Card>
+
+              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-orange-500 to-red-500 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <BarChart3 className="w-8 h-8 opacity-80" />
+                </div>
+                <p className="text-2xl font-bold">Advanced</p>
+                <p className="text-sm opacity-90">Analytics</p>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Categorized Navigation */}
         <Card className="border-none shadow-xl">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="border-b bg-slate-50 px-4 py-2 overflow-x-auto">
-              <TabsList className="flex flex-nowrap gap-1 bg-transparent h-auto">
-                {modules.map((module) => {
-                  const Icon = module.icon;
-                  return (
-                    <TabsTrigger
-                      key={module.id}
-                      value={module.id}
-                      className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-sm px-3 py-2"
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="hidden sm:inline">{module.label}</span>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
+            <div className="border-b bg-slate-50">
+              <div className="px-4 py-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Navigation</p>
+                <div className="overflow-x-auto">
+                  <TabsList className="flex flex-wrap gap-1 bg-transparent h-auto justify-start">
+                    {modules.map((module) => {
+                      const Icon = module.icon;
+                      const category = categories.find(c => c.id === module.category);
+                      return (
+                        <TabsTrigger
+                          key={module.id}
+                          value={module.id}
+                          className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-sm px-3 py-2"
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="hidden sm:inline">{module.label}</span>
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </div>
+              </div>
             </div>
 
             <div className="p-6">
@@ -129,6 +204,31 @@ export default function AdminPortal() {
               })}
             </div>
           </Tabs>
+        </Card>
+
+        {/* Category Legend */}
+        <Card className="mt-6 border-none shadow-lg">
+          <div className="p-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Module Categories:</p>
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => {
+                const categoryModules = modules.filter(m => m.category === cat.id);
+                return (
+                  <Badge 
+                    key={cat.id} 
+                    variant="outline"
+                    className="cursor-pointer hover:bg-slate-50"
+                    onClick={() => {
+                      const firstModule = categoryModules[0];
+                      if (firstModule) setActiveTab(firstModule.id);
+                    }}
+                  >
+                    {cat.label} ({categoryModules.length})
+                  </Badge>
+                );
+              })}
+            </div>
+          </div>
         </Card>
       </div>
     </div>
