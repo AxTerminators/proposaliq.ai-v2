@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -802,7 +803,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                       <ReactQuill
                         value={sectionContent[section.id] || ""}
                         onChange={(value) => setSectionContent(prev => ({ ...prev, [section.id]: value }))}
-                        className="h-64 mb-12"
+                        className="min-h-64 mb-12"
                         modules={{
                           toolbar: [
                             [{ header: [1, 2, 3, false] }],
@@ -913,7 +914,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                             <ReactQuill
                               value={sectionContent[subsectionKey] || ""}
                               onChange={(value) => setSectionContent(prev => ({ ...prev, [subsectionKey]: value }))}
-                              className="h-48 mb-12"
+                              className="min-h-48 mb-12"
                               modules={{
                                 toolbar: [
                                   [{ header: [1, 2, 3, false] }],
