@@ -1,22 +1,24 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import PermissionChecker from "../components/admin/PermissionChecker";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Shield, 
+import {
+  Shield,
   Users,
-  FileText,
-  TrendingUp,
-  Settings,
+  DollarSign,
+  Sparkles,
   Lock,
-  Megaphone,
   Activity,
-  ScrollText,
-  Brain,
-  DollarSign
+  FileText,
+  UserCog,
+  Zap,
+  TrendingUp,
+  Bug
 } from "lucide-react";
-import { ROLE_PERMISSIONS, canAccessModule } from "../components/admin/PermissionChecker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import SubscribersModule from "../components/admin/SubscribersModule";
 import AuditLogModule from "../components/admin/AuditLogModule";
 import BillingModule from "../components/admin/BillingModule";
@@ -28,25 +30,19 @@ import ReportsModule from "../components/admin/ReportsModule";
 import RolesModule from "../components/admin/RolesModule";
 import WorkflowModule from "../components/admin/WorkflowModule";
 import MarketingModule from "../components/admin/MarketingModule";
+import FeedbackModule from "../components/admin/FeedbackModule";
 
 export default function AdminPortal() {
-  const [user, setUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        // Check if user has any admin role
-        const isAdmin = currentUser.role === 'admin' || currentUser.admin_role;
-        if (!isAdmin) {
-          window.location.href = '/';
-        }
+        const user = await base44.auth.me();
+        setCurrentUser(user);
       } catch (error) {
         console.error("Error loading user:", error);
-        window.location.href = '/';
       } finally {
         setLoading(false);
       }
@@ -54,225 +50,194 @@ export default function AdminPortal() {
     loadUser();
   }, []);
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Shield className="w-16 h-16 mx-auto text-slate-300 mb-4 animate-pulse" />
+          <Shield className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-pulse" />
           <p className="text-slate-600">Loading Admin Portal...</p>
         </div>
       </div>
     );
   }
 
-  const userRole = user.admin_role || 'super_admin';
-  const roleInfo = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.super_admin;
-
-  // Define all available modules
-  const adminModules = [
-    {
-      id: "subscribers",
-      label: "Subscribers",
-      icon: Users,
-      description: "Manage users and organizations",
-      component: <SubscribersModule currentUser={user} />
-    },
-    {
-      id: "roles",
-      label: "Roles & Permissions",
-      icon: Shield,
-      description: "Manage admin roles",
-      component: <RolesModule currentUser={user} />
-    },
-    {
-      id: "content",
-      label: "Content Library",
-      icon: FileText,
-      description: "Templates and assets",
-      component: <ContentLibraryModule currentUser={user} />
-    },
-    {
-      id: "workflow",
-      label: "Workflow Dashboard",
-      icon: Activity,
-      description: "Proposal tracking",
-      component: <WorkflowModule currentUser={user} />
-    },
-    {
-      id: "billing",
-      label: "Billing & Invoices",
-      icon: DollarSign,
-      description: "Payment management",
-      component: <BillingModule currentUser={user} />
-    },
-    {
-      id: "ai",
-      label: "AI & Automation",
-      icon: Brain,
-      description: "AI settings and models",
-      component: <AIConfigModule currentUser={user} />
-    },
-    {
-      id: "security",
-      label: "Security",
-      icon: Lock,
-      description: "Security settings",
-      component: <SecurityModule currentUser={user} />
-    },
-    {
-      id: "marketing",
-      label: "Marketing",
-      icon: Megaphone,
-      description: "Public pages and comms",
-      component: <MarketingModule currentUser={user} />
-    },
-    {
-      id: "system",
-      label: "System Health",
-      icon: Settings,
-      description: "Logs and maintenance",
-      component: <SystemHealthModule currentUser={user} />
-    },
-    {
-      id: "reports",
-      label: "Reports",
-      icon: TrendingUp,
-      description: "Analytics and KPIs",
-      component: <ReportsModule currentUser={user} />
-    },
-    {
-      id: "audit",
-      label: "Audit Logs",
-      icon: ScrollText,
-      description: "Admin action history",
-      component: <AuditLogModule currentUser={user} />
-    }
-  ];
-
-  // Filter modules based on role permissions
-  const accessibleModules = adminModules.filter(module => 
-    canAccessModule(userRole, module.id)
-  );
-
   return (
-    <div className="p-6 lg:p-8 space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-12 h-12 bg-gradient-to-br from-${roleInfo.color}-600 to-${roleInfo.color}-700 rounded-xl flex items-center justify-center`}>
-              <Shield className="w-7 h-7 text-white" />
-            </div>
-            <div>
+    <PermissionChecker requiredRole="admin">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <Shield className="w-8 h-8 text-red-600" />
               <h1 className="text-3xl font-bold text-slate-900">Admin Portal</h1>
-              <p className="text-slate-600">Role-Based Access Control System</p>
+              {currentUser?.admin_role && (
+                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
+                  {currentUser.admin_role.replace('_', ' ').toUpperCase()}
+                </span>
+              )}
             </div>
+            <p className="text-slate-600">Manage users, billing, content, and system configuration</p>
           </div>
-        </div>
-        <div className="text-right">
-          <Badge className={`bg-${roleInfo.color}-600 text-white mb-2`}>
-            {roleInfo.label}
-          </Badge>
-          <p className="text-sm text-slate-600">{user.email}</p>
+
+          <Alert className="mb-6 bg-red-50 border-red-200">
+            <Lock className="w-4 h-4 text-red-600" />
+            <AlertDescription>
+              <p className="font-semibold text-red-900 mb-1">Admin Access</p>
+              <p className="text-sm text-red-800">
+                You have administrative privileges. All actions are logged for security and compliance.
+              </p>
+            </AlertDescription>
+          </Alert>
+
+          <Tabs defaultValue="subscribers" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12">
+              <TabsTrigger value="subscribers" className="gap-2">
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Subscribers</span>
+              </TabsTrigger>
+              <TabsTrigger value="feedback" className="gap-2">
+                <Bug className="w-4 h-4" />
+                <span className="hidden sm:inline">Feedback</span>
+              </TabsTrigger>
+              <TabsTrigger value="billing" className="gap-2">
+                <DollarSign className="w-4 h-4" />
+                <span className="hidden sm:inline">Billing</span>
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="gap-2">
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">AI</span>
+              </TabsTrigger>
+              <TabsTrigger value="content" className="gap-2">
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">Content</span>
+              </TabsTrigger>
+              <TabsTrigger value="security" className="gap-2">
+                <Lock className="w-4 h-4" />
+                <span className="hidden sm:inline">Security</span>
+              </TabsTrigger>
+              <TabsTrigger value="health" className="gap-2">
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">Health</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="gap-2">
+                <TrendingUp className="w-4 h-4" />
+                <span className="hidden sm:inline">Reports</span>
+              </TabsTrigger>
+              <TabsTrigger value="roles" className="gap-2">
+                <UserCog className="w-4 h-4" />
+                <span className="hidden sm:inline">Roles</span>
+              </TabsTrigger>
+              <TabsTrigger value="workflows" className="gap-2">
+                <Zap className="w-4 h-4" />
+                <span className="hidden sm:inline">Workflows</span>
+              </TabsTrigger>
+              <TabsTrigger value="marketing" className="gap-2">
+                <TrendingUp className="w-4 h-4" />
+                <span className="hidden sm:inline">Marketing</span>
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="gap-2">
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">Audit</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="subscribers">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <SubscribersModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="feedback">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <FeedbackModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="billing">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <BillingModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="ai">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <AIConfigModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="content">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <ContentLibraryModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="security">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <SecurityModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="health">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <SystemHealthModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="reports">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <ReportsModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="roles">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <RolesModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="workflows">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <WorkflowModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="marketing">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <MarketingModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="audit">
+              <Card className="border-none shadow-xl">
+                <CardContent className="p-6">
+                  <AuditLogModule />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
-
-      {/* Role Info Card */}
-      <Card className="border-none shadow-lg bg-gradient-to-br from-slate-50 to-white">
-        <CardHeader>
-          <CardTitle className="text-lg">Your Permissions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-slate-600 mb-2">Accessible Modules</p>
-              <div className="flex flex-wrap gap-1">
-                {accessibleModules.map(module => (
-                  <Badge key={module.id} variant="secondary" className="text-xs">
-                    {module.label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-slate-600 mb-2">Edit Permissions</p>
-              <div className="flex flex-wrap gap-1">
-                {roleInfo.canEdit.map((entity, idx) => (
-                  <Badge key={idx} variant="outline" className="text-xs">
-                    {entity}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-slate-600 mb-2">Special Access</p>
-              <div className="space-y-1 text-sm">
-                {roleInfo.canImpersonate && (
-                  <p className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    Can Impersonate Users
-                  </p>
-                )}
-                {roleInfo.canManageRoles && (
-                  <p className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    Can Manage Roles
-                  </p>
-                )}
-                {roleInfo.canAccessBilling && (
-                  <p className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    Can Access Billing
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Admin Modules */}
-      <Card className="border-none shadow-lg">
-        <Tabs defaultValue={accessibleModules[0]?.id} className="w-full">
-          <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 bg-slate-100 p-2">
-            {accessibleModules.map((module) => {
-              const Icon = module.icon;
-              return (
-                <TabsTrigger 
-                  key={module.id} 
-                  value={module.id}
-                  className="flex items-center gap-2 data-[state=active]:bg-white"
-                >
-                  <Icon className="w-4 h-4" />
-                  {module.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          {accessibleModules.map((module) => (
-            <TabsContent key={module.id} value={module.id} className="p-6">
-              {module.component}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </Card>
-
-      {/* Security Notice */}
-      <Card className="border-none shadow-lg bg-amber-50 border-amber-200">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <Lock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-900 mb-1">Security Notice</p>
-              <p className="text-sm text-amber-800">
-                All admin actions are logged and auditable. MFA is required for all admin roles. 
-                {userRole !== 'super_admin' && ' You cannot modify Super Admin accounts or system configurations.'}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </PermissionChecker>
   );
 }
