@@ -188,71 +188,65 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
       console.log('⬆️ Step 1: Uploading file...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      console.log('✅ File uploaded successfully');
+      console.log('✅ File uploaded successfully:', fileUrl);
       
-      console.log('🤖 Step 2: AI analyzing document and extracting data...');
+      console.log('🤖 Step 2: Using AI to extract structured data from document...');
       
-      // Single AI call with comprehensive prompt that handles all file types
-      const prompt = `You are analyzing a company capability statement document to extract structured information.
-
-**INSTRUCTIONS:**
-1. Carefully read and analyze the ENTIRE document
-2. Extract ALL available information about the company
-3. Pay special attention to contact details, certifications, and capabilities
-4. For fields you cannot find, use empty strings or empty arrays
-5. Return ONLY valid JSON matching the schema below
-
-**EXTRACT THE FOLLOWING INFORMATION:**
-
-{
-  "partner_name": "Full company/organization name (or empty string)",
-  "address": "Complete business address including street, city, state, zip (or empty string)",
-  "website_url": "Company website URL (or empty string)",
-  "uei": "Unique Entity Identifier - typically 12 alphanumeric characters (or empty string)",
-  "cage_code": "CAGE Code - typically 5 alphanumeric characters (or empty string)",
-  "primary_naics": "Primary NAICS code - 6 digit number (or empty string)",
-  "secondary_naics": ["Array of additional NAICS codes if listed"],
-  "poc_name": "Point of contact full name (or empty string)",
-  "poc_email": "Contact email address (or empty string)",
-  "poc_phone": "Contact phone number with area code (or empty string)",
-  "certifications": ["Array of certifications such as: 8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO 9001, CMMI, etc."],
-  "core_capabilities": ["Array of 5-10 main services, capabilities, or areas of expertise the company provides"],
-  "differentiators": ["Array of 3-7 key competitive advantages, unique strengths, or what makes this company stand out"],
-  "past_performance_summary": "A brief 2-3 sentence summary of their experience and past projects (or empty string)"
-}
-
-**IMPORTANT:**
-- Be thorough - check ALL sections including headers, footers, sidebars, tables
-- Look for information in logos, letterheads, and contact blocks
-- Extract phone numbers in any format (xxx-xxx-xxxx, (xxx) xxx-xxxx, etc.)
-- Return ONLY the JSON object, no additional text or commentary`;
-
-      const aiResult = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: [fileUrl], // Always pass file URL for direct processing
-        response_json_schema: {
-          type: "object",
-          properties: {
-            partner_name: { type: "string" },
-            address: { type: "string" },
-            website_url: { type: "string" },
-            uei: { type: "string" },
-            cage_code: { type: "string" },
-            primary_naics: { type: "string" },
-            secondary_naics: { type: "array", items: { type: "string" } },
-            poc_name: { type: "string" },
-            poc_email: { type: "string" },
-            poc_phone: { type: "string" },
-            certifications: { type: "array", items: { type: "string" } },
-            core_capabilities: { type: "array", items: { type: "string" } },
-            differentiators: { type: "array", items: { type: "string" } },
-            past_performance_summary: { type: "string" }
+      // Define the JSON schema for extraction
+      const extractionSchema = {
+        type: "object",
+        properties: {
+          partner_name: { type: "string", description: "Company name" },
+          address: { type: "string", description: "Full business address" },
+          website_url: { type: "string", description: "Company website" },
+          uei: { type: "string", description: "Unique Entity Identifier" },
+          cage_code: { type: "string", description: "CAGE Code" },
+          primary_naics: { type: "string", description: "Primary NAICS code" },
+          secondary_naics: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Additional NAICS codes"
+          },
+          poc_name: { type: "string", description: "Point of contact name" },
+          poc_email: { type: "string", description: "Contact email" },
+          poc_phone: { type: "string", description: "Contact phone" },
+          certifications: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Certifications like 8(a), HUBZone, SDVOSB, etc."
+          },
+          core_capabilities: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Main services and capabilities"
+          },
+          differentiators: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Competitive advantages"
+          },
+          past_performance_summary: { 
+            type: "string", 
+            description: "Brief summary of experience"
           }
         }
+      };
+
+      // Use ExtractDataFromUploadedFile integration for all file types
+      const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url: fileUrl,
+        json_schema: extractionSchema
       });
 
       console.log('✅ AI extraction completed');
-      console.log('📊 Extracted data:', JSON.stringify(aiResult, null, 2));
+      console.log('📊 Extraction result:', extractionResult);
+
+      if (extractionResult.status === 'error') {
+        throw new Error(extractionResult.details || 'Failed to extract data from document');
+      }
+
+      const aiResult = extractionResult.output || {};
+      console.log('📊 Extracted data:', aiResult);
       console.log('📝 Step 3: Populating form fields...');
 
       const updatedForm = { ...newPartnerForm };
@@ -330,9 +324,9 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
       console.log('=== ✨ PROCESSING COMPLETE ===');
 
       if (fieldsPopulated.length > 0) {
-        alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
+        alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields from ${file.name}:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
       } else {
-        alert(`⚠️ AI analyzed the document but couldn't find structured data.\n\nPossible reasons:\n• Document is primarily images/graphics\n• Unusual or non-standard format\n• Document may be password-protected\n\nPlease manually enter the information.`);
+        alert(`⚠️ AI analyzed ${file.name} but couldn't extract structured data.\n\nThe document may not contain the expected information. Please manually enter the details.`);
       }
     } catch (error) {
       console.error('=== ❌ ERROR ===');
@@ -708,7 +702,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
             <div className="space-y-2">
               <Label>Upload Capability Statement (Optional - AI Auto-Fill)</Label>
               <p className="text-sm text-blue-600 font-medium">
-                Upload a capability statement (PDF, Word, Excel, PowerPoint, or image) and AI will auto-populate the form fields.
+                Upload a capability statement and AI will auto-populate the form fields. Supports PDF, Word, Excel, PowerPoint, images, and CSV.
               </p>
               
               {isExtractingData && (
@@ -758,7 +752,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                         Upload Capability Statement
                       </label>
                     </Button>
-                    <p className="text-xs text-slate-500 mt-2">PDF, Word, Excel, PowerPoint, Text, or Image files</p>
+                    <p className="text-xs text-slate-500 mt-2">PDF, Word, Excel, PowerPoint, Text, CSV, or Image files</p>
                   </>
                 )}
               </div>
