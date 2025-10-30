@@ -1,0 +1,59 @@
+{
+  "name": "EmailTemplate",
+  "type": "object",
+  "properties": {
+    "template_name": {
+      "type": "string",
+      "description": "Name of the email template"
+    },
+    "template_type": {
+      "type": "string",
+      "enum": [
+        "onboarding",
+        "notification",
+        "marketing",
+        "system"
+      ],
+      "default": "onboarding",
+      "description": "Type of email template"
+    },
+    "sequence_order": {
+      "type": "number",
+      "description": "Order in the onboarding sequence (1, 2, 3, etc.)"
+    },
+    "delay_days": {
+      "type": "number",
+      "description": "Days to wait after signup before sending (0 = immediate)"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Email subject line"
+    },
+    "body": {
+      "type": "string",
+      "description": "Email body content (supports HTML and variables like {{user_name}}, {{organization_name}})"
+    },
+    "from_name": {
+      "type": "string",
+      "default": "ProposalIQ.ai Team",
+      "description": "Sender name"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this template is active"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for organizing templates"
+    }
+  },
+  "required": [
+    "template_name",
+    "subject",
+    "body"
+  ]
+}
