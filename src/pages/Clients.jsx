@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl, isConsultantAccount, hasClientPortalAccess } from "@/utils";
+import { createPageUrl } from "../utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -222,7 +221,9 @@ export default function ClientsPage() {
   };
 
   // Check if user has access to client features
-  const hasAccess = organization && subscription && isConsultantAccount(organization) && hasClientPortalAccess(subscription);
+  const isConsultant = organization?.organization_type === 'consultancy';
+  const hasClientPortal = subscription?.features_enabled?.client_portal === true;
+  const hasAccess = organization && subscription && isConsultant && hasClientPortal;
 
   if (loading) {
     return (
