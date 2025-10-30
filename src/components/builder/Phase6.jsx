@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -660,7 +659,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
       </CardHeader>
       <CardContent className="space-y-6">
         {/* AI Collaboration Assistant */}
-        {proposalId && organization && (
+        {proposalId && organization && currentUser && (
           <AICollaborationAssistant
             proposal={{ id: proposalId, ...proposalData }}
             sections={sections}
@@ -694,13 +693,13 @@ The content should be ready to insert into the proposal document. Use HTML forma
         ) : (
           <div className="space-y-4">
             {includedSections.map((section) => {
-              const hasSubsections = section.subsections.length > 0;
+              const hasSubsections = section.subsections && section.subsections.length > 0;
               const isExpanded = expandedSections[section.id];
 
               return (
                 <Card key={section.id} className="border-2">
                   <CardHeader
-                    className="cursor-pointer hover:bg-slate-50 transition-colors"
+                    className={hasSubsections ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}
                     onClick={() => hasSubsections && toggleSection(section.id)}
                   >
                     <div className="flex items-center justify-between">
@@ -718,7 +717,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
 
                   {!hasSubsections && (
                     <CardContent className="space-y-4">
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
                         <Button
                           size="sm"
                           onClick={() => generateSectionContent(section, null, false)}
@@ -829,7 +828,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               <Badge variant="outline" className="text-xs">{subsection.defaultWordCount} words</Badge>
                             </div>
 
-                            <div className="flex items-center gap-2 mb-3">
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
                               <Button
                                 size="sm"
                                 onClick={() => generateSectionContent(section, subsection, false)}
@@ -996,15 +995,17 @@ The content should be ready to insert into the proposal document. Use HTML forma
         </Dialog>
 
         {/* Version History Dialog */}
-        <SectionVersionHistory
-          section={versionHistorySection}
-          isOpen={showVersionHistory}
-          onClose={() => {
-            setShowVersionHistory(false);
-            setVersionHistorySection(null);
-          }}
-          onVersionRestored={handleVersionRestored}
-        />
+        {versionHistorySection && (
+          <SectionVersionHistory
+            section={versionHistorySection}
+            isOpen={showVersionHistory}
+            onClose={() => {
+              setShowVersionHistory(false);
+              setVersionHistorySection(null);
+            }}
+            onVersionRestored={handleVersionRestored}
+          />
+        )}
 
         <div className="flex gap-4 pt-6 border-t">
           <Button
