@@ -14,7 +14,10 @@ import {
   Clock,
   CheckCircle2,
   Users,
-  Zap
+  Zap,
+  Bot,
+  Play,
+  AlertCircle
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import moment from "moment";
 
 export default function OnboardingEmailModule() {
@@ -33,6 +37,8 @@ export default function OnboardingEmailModule() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentResult, setAgentResult] = useState(null);
 
   const { data: emailTemplates } = useQuery({
     queryKey: ['email-templates'],
@@ -98,6 +104,107 @@ export default function OnboardingEmailModule() {
     },
   });
 
+  const runAutomatedSequence = async () => {
+    if (!confirm("Run the automated onboarding email sequence? This will send emails to all users who are due for their next onboarding email.")) {
+      return;
+    }
+
+    setAgentRunning(true);
+    setAgentResult(null);
+
+    try {
+      const now = new Date();
+      let step1Count = 0;
+      let step2Count = 0;
+      let step3Count = 0;
+      const errors = [];
+
+      // Step 1: Welcome emails (users at step 0)
+      const step1Users = allUsers.filter(u => !u.onboarding_email_step || u.onboarding_email_step === 0);
+      const welcomeTemplate = emailTemplates.find(t => t.sequence_order === 1);
+      
+      if (welcomeTemplate) {
+        for (const user of step1Users) {
+          try {
+            await sendEmailMutation.mutateAsync({ 
+              userId: user.id, 
+              templateId: welcomeTemplate.id 
+            });
+            step1Count++;
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limiting
+          } catch (error) {
+            errors.push(`${user.email}: ${error.message}`);
+          }
+        }
+      }
+
+      // Step 2: Getting Started (users at step 1, created 3+ days ago)
+      const step2Template = emailTemplates.find(t => t.sequence_order === 2);
+      if (step2Template) {
+        const step2Users = allUsers.filter(u => {
+          if (u.onboarding_email_step !== 1) return false;
+          const daysSinceSignup = Math.floor((now - new Date(u.created_date)) / (1000 * 60 * 60 * 24));
+          return daysSinceSignup >= 3;
+        });
+
+        for (const user of step2Users) {
+          try {
+            await sendEmailMutation.mutateAsync({ 
+              userId: user.id, 
+              templateId: step2Template.id 
+            });
+            step2Count++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            errors.push(`${user.email}: ${error.message}`);
+          }
+        }
+      }
+
+      // Step 3: Explore Features (users at step 2, created 7+ days ago)
+      const step3Template = emailTemplates.find(t => t.sequence_order === 3);
+      if (step3Template) {
+        const step3Users = allUsers.filter(u => {
+          if (u.onboarding_email_step !== 2) return false;
+          const daysSinceSignup = Math.floor((now - new Date(u.created_date)) / (1000 * 60 * 60 * 24));
+          return daysSinceSignup >= 7;
+        });
+
+        for (const user of step3Users) {
+          try {
+            await sendEmailMutation.mutateAsync({ 
+              userId: user.id, 
+              templateId: step3Template.id 
+            });
+            step3Count++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            errors.push(`${user.email}: ${error.message}`);
+          }
+        }
+      }
+
+      setAgentResult({
+        success: true,
+        step1Count,
+        step2Count,
+        step3Count,
+        totalSent: step1Count + step2Count + step3Count,
+        errors
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['all-users-onboarding'] });
+    } catch (error) {
+      console.error("Error running automated sequence:", error);
+      setAgentResult({
+        success: false,
+        error: error.message
+      });
+    } finally {
+      setAgentRunning(false);
+    }
+  };
+
   const handleViewTemplate = (template) => {
     setSelectedTemplate(template);
     setShowTemplateDialog(true);
@@ -160,18 +267,96 @@ export default function OnboardingEmailModule() {
     completed: allUsers.filter(u => u.onboarding_completed).length,
   };
 
+  // Calculate users due for emails
+  const now = new Date();
+  const dueForStep2 = allUsers.filter(u => {
+    if (u.onboarding_email_step !== 1) return false;
+    const daysSinceSignup = Math.floor((now - new Date(u.created_date)) / (1000 * 60 * 60 * 24));
+    return daysSinceSignup >= 3;
+  }).length;
+
+  const dueForStep3 = allUsers.filter(u => {
+    if (u.onboarding_email_step !== 2) return false;
+    const daysSinceSignup = Math.floor((now - new Date(u.created_date)) / (1000 * 60 * 60 * 24));
+    return daysSinceSignup >= 7;
+  }).length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Onboarding Email Management</h2>
-          <p className="text-slate-600">Manage sequential email onboarding for new users</p>
+          <p className="text-slate-600">Automated sequential email onboarding for new users</p>
         </div>
-        <Button onClick={handleBulkSendWelcomeEmails} disabled={sendingEmail} className="bg-blue-600 hover:bg-blue-700">
-          <Zap className="w-4 h-4 mr-2" />
-          {sendingEmail ? "Sending..." : "Bulk Send Welcome Emails"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={runAutomatedSequence} 
+            disabled={agentRunning || sendingEmail}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+          >
+            {agentRunning ? (
+              <>
+                <Bot className="w-4 h-4 mr-2 animate-pulse" />
+                Running...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Run Automated Sequence
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+
+      {/* Agent Result Alert */}
+      {agentResult && (
+        <Alert className={agentResult.success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}>
+          {agentResult.success ? (
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-600" />
+          )}
+          <AlertDescription>
+            {agentResult.success ? (
+              <div>
+                <p className="font-semibold text-green-900 mb-1">Automated Sequence Complete!</p>
+                <p className="text-sm text-green-800">
+                  Sent {agentResult.totalSent} emails: {agentResult.step1Count} welcome, {agentResult.step2Count} getting started, {agentResult.step3Count} explore features
+                </p>
+                {agentResult.errors.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-sm cursor-pointer">View {agentResult.errors.length} errors</summary>
+                    <ul className="text-xs mt-1 space-y-1">
+                      {agentResult.errors.map((err, idx) => (
+                        <li key={idx}>{err}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="font-semibold text-red-900 mb-1">Error Running Sequence</p>
+                <p className="text-sm text-red-800">{agentResult.error}</p>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Due for Emails Alert */}
+      {(stats.step0 > 0 || dueForStep2 > 0 || dueForStep3 > 0) && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <AlertCircle className="w-4 h-4 text-blue-600" />
+          <AlertDescription>
+            <p className="font-semibold text-blue-900 mb-1">Users Due for Emails</p>
+            <p className="text-sm text-blue-800">
+              {stats.step0} need welcome email • {dueForStep2} ready for getting started • {dueForStep3} ready for explore features
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Statistics */}
       <div className="grid md:grid-cols-5 gap-4">
@@ -240,6 +425,7 @@ export default function OnboardingEmailModule() {
         <TabsList>
           <TabsTrigger value="users">User Progress</TabsTrigger>
           <TabsTrigger value="templates">Email Templates</TabsTrigger>
+          <TabsTrigger value="automation">Automation Info</TabsTrigger>
         </TabsList>
 
         {/* User Progress Tab */}
@@ -355,6 +541,81 @@ export default function OnboardingEmailModule() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* Automation Info Tab */}
+        <TabsContent value="automation">
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-purple-600" />
+                Email Automation System
+              </CardTitle>
+              <CardDescription>How the automated onboarding sequence works</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-slate-900 mb-3">📧 Email Sequence</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                    <Badge className="bg-blue-600 text-white">1</Badge>
+                    <div>
+                      <p className="font-semibold text-slate-900">Welcome Email</p>
+                      <p className="text-sm text-slate-600">Sent immediately to users who haven't received any emails yet</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-lg">
+                    <Badge className="bg-indigo-600 text-white">2</Badge>
+                    <div>
+                      <p className="font-semibold text-slate-900">Getting Started Guide</p>
+                      <p className="text-sm text-slate-600">Sent 3 days after signup to users who completed Step 1</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
+                    <Badge className="bg-purple-600 text-white">3</Badge>
+                    <div>
+                      <p className="font-semibold text-slate-900">Explore Features</p>
+                      <p className="text-sm text-slate-600">Sent 7 days after signup to users who completed Step 2</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <h3 className="font-semibold text-slate-900 mb-3">🤖 How to Use Automation</h3>
+                <div className="space-y-3 text-sm text-slate-600">
+                  <p><strong>Manual Trigger:</strong> Click "Run Automated Sequence" to check all users and send emails to those who are due.</p>
+                  <p><strong>Smart Detection:</strong> The system automatically calculates who needs emails based on signup date and current progress.</p>
+                  <p><strong>Rate Limiting:</strong> Emails are sent with 1-second delays to prevent overwhelming the email service.</p>
+                  <p><strong>Progress Tracking:</strong> Each user's progress is tracked in their profile.</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <h3 className="font-semibold text-slate-900 mb-3">⚙️ For Full Automation</h3>
+                <Alert>
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    <p className="text-sm">To enable <strong>fully automatic</strong> email sending (without manual triggers), contact Base44 support to set up a scheduled backend job that runs the onboarding agent daily.</p>
+                  </AlertDescription>
+                </Alert>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <Button 
+                  onClick={runAutomatedSequence}
+                  disabled={agentRunning}
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Run Sequence Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
