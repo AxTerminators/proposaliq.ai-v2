@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -5,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   FileText, 
   Clock, 
@@ -15,9 +17,13 @@ import {
   TrendingUp,
   AlertCircle,
   ExternalLink,
-  Shield
+  Shield,
+  Activity,
+  Download,
+  Upload
 } from "lucide-react";
 import moment from "moment";
+import ClientNotificationCenter from "../components/collaboration/ClientNotificationCenter";
 
 export default function ClientPortal() {
   const [clientToken, setClientToken] = useState(null);
@@ -97,6 +103,32 @@ export default function ClientPortal() {
     },
     initialData: [],
     enabled: !!client?.id,
+  });
+
+  const { data: recentActivity, isLoading: activityLoading } = useQuery({
+    queryKey: ['client-activity', client?.id],
+    queryFn: async () => {
+      if (!client?.id || proposals.length === 0) return [];
+      const proposalIds = proposals.map(p => p.id);
+      const allActivity = await base44.entities.ActivityLog.list('-created_date', 20); // Limit to 20 for recent
+      return allActivity.filter(a => proposalIds.includes(a.proposal_id));
+    },
+    initialData: [],
+    enabled: !!client?.id && proposals.length > 0,
+  });
+
+  const { data: sharedDocuments, isLoading: documentsLoading } = useQuery({
+    queryKey: ['client-documents', client?.id],
+    queryFn: async () => {
+      if (!client?.id || proposals.length === 0) return [];
+      const proposalIds = proposals.map(p => p.id);
+      const allDocs = await base44.entities.SolicitationDocument.list('-created_date');
+      return allDocs.filter(d => 
+        proposalIds.includes(d.proposal_id) && d.shared_with_client === true
+      );
+    },
+    initialData: [],
+    enabled: !!client?.id && proposals.length > 0,
   });
 
   const getStatusColor = (status) => {
@@ -203,13 +235,16 @@ export default function ClientPortal() {
                   Managed by {organization?.organization_name || 'Your Consultant'}
                 </p>
               </div>
-              {organization?.custom_branding?.logo_url && (
-                <img 
-                  src={organization.custom_branding.logo_url} 
-                  alt="Company Logo" 
-                  className="h-16 object-contain"
-                />
-              )}
+              <div className="flex items-center gap-3">
+                <ClientNotificationCenter client={client} clientToken={clientToken} />
+                {organization?.custom_branding?.logo_url && (
+                  <img 
+                    src={organization.custom_branding.logo_url} 
+                    alt="Company Logo" 
+                    className="h-16 object-contain"
+                  />
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -265,90 +300,219 @@ export default function ClientPortal() {
           </Card>
         </div>
 
-        {/* Proposals List */}
+        {/* Main Content Tabs */}
         <Card className="border-none shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-2xl">Your Proposals</CardTitle>
-            <CardDescription>
-              View and manage proposals shared with you
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {proposalsLoading ? (
-              <div className="space-y-4">
-                {[1,2,3].map(i => (
-                  <Skeleton key={i} className="h-32 w-full" />
-                ))}
-              </div>
-            ) : proposals.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-600 text-lg">No proposals yet</p>
-                <p className="text-slate-500 text-sm mt-2">
-                  Your consultant will share proposals with you here
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {proposals.map(proposal => (
-                  <div
-                    key={proposal.id}
-                    className="p-6 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => window.location.href = `/ClientProposalView?token=${clientToken}&proposal=${proposal.id}`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                          {proposal.proposal_name}
-                        </h3>
-                        {proposal.project_title && (
-                          <p className="text-slate-600 text-sm mb-2">{proposal.project_title}</p>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className={getStatusColor(proposal.status)}>
-                            {getStatusIcon(proposal.status)}
-                            <span className="ml-1">{getStatusLabel(proposal.status)}</span>
-                          </Badge>
-                          {proposal.due_date && (
-                            <Badge variant="outline">
-                              <Clock className="w-3 h-3 mr-1" />
-                              Due: {moment(proposal.due_date).format('MMM D, YYYY')}
-                            </Badge>
+          <Tabs defaultValue="proposals" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+              <TabsTrigger value="proposals">
+                <FileText className="w-4 h-4 mr-2" />
+                Proposals
+              </TabsTrigger>
+              <TabsTrigger value="activity">
+                <Activity className="w-4 h-4 mr-2" />
+                Activity
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                <Download className="w-4 h-4 mr-2" />
+                Documents
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Proposals Tab */}
+            <TabsContent value="proposals" className="p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-2xl">Your Proposals</CardTitle>
+                <CardDescription>
+                  View and manage proposals shared with you
+                </CardDescription>
+              </CardHeader>
+              {proposalsLoading ? (
+                <div className="space-y-4">
+                  {[1,2,3].map(i => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))}
+                </div>
+              ) : proposals.length === 0 ? (
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600 text-lg">No proposals yet</p>
+                  <p className="text-slate-500 text-sm mt-2">
+                    Your consultant will share proposals with you here
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {proposals.map(proposal => (
+                    <div
+                      key={proposal.id}
+                      className="p-6 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => window.location.href = `/ClientProposalView?token=${clientToken}&proposal=${proposal.id}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                            {proposal.proposal_name}
+                          </h3>
+                          {proposal.project_title && (
+                            <p className="text-slate-600 text-sm mb-2">{proposal.project_title}</p>
                           )}
-                          {proposal.client_feedback_count > 0 && (
-                            <Badge variant="secondary">
-                              <MessageSquare className="w-3 h-3 mr-1" />
-                              {proposal.client_feedback_count} Comments
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className={getStatusColor(proposal.status)}>
+                              {getStatusIcon(proposal.status)}
+                              <span className="ml-1">{getStatusLabel(proposal.status)}</span>
                             </Badge>
+                            {proposal.due_date && (
+                              <Badge variant="outline">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Due: {moment(proposal.due_date).format('MMM D, YYYY')}
+                              </Badge>
+                            )}
+                            {proposal.client_feedback_count > 0 && (
+                              <Badge variant="secondary">
+                                <MessageSquare className="w-3 h-3 mr-1" />
+                                {proposal.client_feedback_count} Comments
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View
+                          <ExternalLink className="w-3 h-3 ml-2" />
+                        </Button>
+                      </div>
+
+                      {proposal.client_last_viewed && (
+                        <p className="text-xs text-slate-500">
+                          Last viewed: {moment(proposal.client_last_viewed).fromNow()}
+                        </p>
+                      )}
+
+                      {proposal.status === 'client_review' && (
+                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                          <p className="text-sm text-purple-900 font-medium flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" />
+                            Your review is requested - Please provide feedback or accept/reject
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Activity Tab */}
+            <TabsContent value="activity" className="p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Updates and changes to your proposals</CardDescription>
+              </CardHeader>
+              {activityLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3,4,5].map(i => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : recentActivity.length === 0 ? (
+                <div className="text-center py-12">
+                  <Activity className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600">No recent activity</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentActivity.map(activity => {
+                    const proposal = proposals.find(p => p.id === activity.proposal_id);
+                    return (
+                      <div key={activity.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg border">
+                        <Activity className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-900 font-medium">
+                            {activity.action_description}
+                          </p>
+                          {proposal && (
+                            <p className="text-xs text-slate-600 mt-1">
+                              Proposal: {proposal.proposal_name}
+                            </p>
                           )}
+                          <p className="text-xs text-slate-500 mt-1">
+                            {moment(activity.created_date).fromNow()}
+                          </p>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View
-                        <ExternalLink className="w-3 h-3 ml-2" />
-                      </Button>
-                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
 
-                    {proposal.client_last_viewed && (
-                      <p className="text-xs text-slate-500">
-                        Last viewed: {moment(proposal.client_last_viewed).fromNow()}
-                      </p>
-                    )}
-
-                    {proposal.status === 'client_review' && (
-                      <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <p className="text-sm text-purple-900 font-medium flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          Your review is requested - Please provide feedback or accept/reject
-                        </p>
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle>Shared Documents</CardTitle>
+                <CardDescription>Documents shared by your consultant</CardDescription>
+              </CardHeader>
+              {documentsLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3].map(i => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : sharedDocuments.length === 0 ? (
+                <div className="text-center py-12">
+                  <Download className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600">No documents yet</p>
+                  <p className="text-slate-500 text-sm mt-2">
+                    Documents will appear here when your consultant shares them
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sharedDocuments.map(doc => {
+                    const proposal = proposals.find(p => p.id === doc.proposal_id);
+                    return (
+                      <div key={doc.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border hover:border-blue-300 transition-colors">
+                        <div className="flex items-center gap-3 flex-1">
+                          <FileText className="w-8 h-8 text-blue-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{doc.file_name}</p>
+                            {doc.description && (
+                              <p className="text-sm text-slate-600 truncate">{doc.description}</p>
+                            )}
+                            {proposal && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                From: {proposal.proposal_name}
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-500">
+                              {(doc.file_size / 1024).toFixed(1)} KB • Added {moment(doc.created_date).fromNow()}
+                            </p>
+                          </div>
+                        </div>
+                        {doc.client_can_download && (
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              window.open(doc.file_url, '_blank');
+                              if (!doc.client_downloaded) {
+                                await base44.entities.SolicitationDocument.update(doc.id, {
+                                  client_downloaded: true,
+                                  client_download_date: new Date().toISOString()
+                                });
+                              }
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </Card>
 
         {/* Footer */}
