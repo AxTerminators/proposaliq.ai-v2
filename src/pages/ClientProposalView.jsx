@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import ApprovalWorkflowClient from "../components/client/ApprovalWorkflowClient"
 import ProposalAnnotations from "../components/client/ProposalAnnotations";
 import VersionTimeline from "../components/client/VersionTimeline";
 import MeetingScheduler from "../components/client/MeetingScheduler";
+import FloatingFeedbackButton from "../components/client/FloatingFeedbackButton";
 
 export default function ClientProposalView() {
   const [proposal, setProposal] = useState(null);
@@ -345,6 +347,9 @@ export default function ClientProposalView() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Floating Feedback Button */}
+      {client && proposal && <FloatingFeedbackButton clientId={client.id} proposalId={proposal.id} />}
     </div>
   );
 }

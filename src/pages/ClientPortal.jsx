@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  FileText, 
+import {
+  FileText,
   Eye,
   Users,
   Calendar,
@@ -21,6 +22,9 @@ import ClientNotificationCenter from "../components/collaboration/ClientNotifica
 import ClientDashboard from "../components/client/ClientDashboard";
 import ClientTeamManager from "../components/client/ClientTeamManager";
 import MeetingScheduler from "../components/client/MeetingScheduler";
+import FloatingFeedbackButton from "../components/client/FloatingFeedbackButton";
+import ClientFeedbackDashboard from "../components/client/ClientFeedbackDashboard";
+import { useQuery } from '@tanstack/react-query'; // Assuming useQuery is from react-query, as it's used in ProposalsView
 
 export default function ClientPortal() {
   const [client, setClient] = useState(null);
@@ -153,9 +157,9 @@ export default function ClientPortal() {
       )}
 
       {/* Header */}
-      <header 
+      <header
         className="border-b bg-white shadow-sm"
-        style={{ 
+        style={{
           background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
         }}
       >
@@ -163,9 +167,9 @@ export default function ClientPortal() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {branding.logo_url && (
-                <img 
-                  src={branding.logo_url} 
-                  alt="Logo" 
+                <img
+                  src={branding.logo_url}
+                  alt="Logo"
                   className="h-10 object-contain bg-white/10 backdrop-blur rounded px-2"
                 />
               )}
@@ -180,7 +184,7 @@ export default function ClientPortal() {
             <div className="flex items-center gap-3">
               <ClientNotificationCenter client={client} />
               <Badge className="bg-white/20 text-white backdrop-blur">
-                {currentMember.team_role === 'owner' ? 'Owner' : 
+                {currentMember.team_role === 'owner' ? 'Owner' :
                  currentMember.team_role === 'approver' ? 'Approver' :
                  currentMember.team_role === 'reviewer' ? 'Reviewer' : 'Observer'}
               </Badge>
@@ -217,6 +221,10 @@ export default function ClientPortal() {
               <Calendar className="w-4 h-4 mr-2" />
               Meetings
             </TabsTrigger>
+            <TabsTrigger value="feedback">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              My Feedback
+            </TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -238,15 +246,23 @@ export default function ClientPortal() {
 
           {/* Meetings Tab */}
           <TabsContent value="meetings">
-            <MeetingScheduler 
+            <MeetingScheduler
               proposal={null}
               client={client}
               organization={organization}
               currentMember={currentMember}
             />
           </TabsContent>
+
+          {/* Feedback Tab */}
+          <TabsContent value="feedback">
+            <ClientFeedbackDashboard client={client} />
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Floating Feedback Button */}
+      <FloatingFeedbackButton clientId={client.id} />
     </div>
   );
 }
@@ -257,7 +273,7 @@ function ProposalsView({ client, currentMember }) {
     queryKey: ['client-proposals', client.id],
     queryFn: async () => {
       const allProposals = await base44.entities.Proposal.list();
-      return allProposals.filter(p => 
+      return allProposals.filter(p =>
         p.shared_with_client_ids?.includes(client.id) && p.client_view_enabled
       );
     },
