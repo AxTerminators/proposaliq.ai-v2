@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +49,7 @@ export default function FeedbackModule() {
   const [assignedFilter, setAssignedFilter] = useState("all");
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [publicResponse, setPublicResponse] = useState("");
 
   const { data: feedbackList, isLoading } = useQuery({
     queryKey: ['feedback-admin'],
@@ -67,11 +69,16 @@ export default function FeedbackModule() {
   const teamMembers = allUsers.filter(u => u.admin_role || u.role === 'admin');
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status, notes, assignedTo }) => {
+    mutationFn: async ({ id, status, notes, assignedTo, publicResponse }) => {
       const updateData = {
         status,
         admin_notes: notes
       };
+      
+      if (publicResponse !== undefined) {
+        updateData.public_response = publicResponse;
+        updateData.consultant_response_date = new Date().toISOString();
+      }
       
       if (assignedTo) {
         const assignedUser = teamMembers.find(u => u.email === assignedTo);
@@ -110,6 +117,13 @@ export default function FeedbackModule() {
         Great news! We've resolved your feedback about: <strong>${feedback.title}</strong>
       </p>
       
+      ${publicResponse ? `
+        <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px; color: #166534;"><strong>Our Response:</strong></p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #166534;">${publicResponse}</p>
+        </div>
+      ` : ''}
+      
       ${notes ? `
         <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
           <p style="margin: 0; font-size: 14px; color: #166534;"><strong>Resolution Notes:</strong></p>
@@ -143,7 +157,7 @@ export default function FeedbackModule() {
         </div>
       </div>
       
-      <p style="font-size: 14px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+      <p style="font-size: 14px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
         Thank you for helping us improve!<br>
         <strong>The ProposalIQ.ai Team</strong>
       </p>
@@ -164,11 +178,13 @@ export default function FeedbackModule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedback-admin'] });
       setShowDetailsDialog(false);
+      setPublicResponse("");
     },
   });
 
   const handleViewDetails = (feedback) => {
     setSelectedFeedback(feedback);
+    setPublicResponse(feedback.public_response || "");
     setShowDetailsDialog(true);
   };
 
@@ -180,7 +196,8 @@ export default function FeedbackModule() {
     await updateStatusMutation.mutateAsync({
       id: selectedFeedback.id,
       status,
-      notes: notes || selectedFeedback.admin_notes || ""
+      notes: notes || selectedFeedback.admin_notes || "",
+      publicResponse: publicResponse || selectedFeedback.public_response
     });
   };
 
@@ -503,6 +520,35 @@ export default function FeedbackModule() {
                     Assigned to {selectedFeedback.assigned_to_name} on {moment(selectedFeedback.assigned_date).format('MMM D, YYYY')}
                   </p>
                 )}
+              </div>
+
+              {/* Public Response Section */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <Label className="font-semibold mb-2 block">Public Response to Client</Label>
+                <p className="text-xs text-slate-600 mb-3">
+                  This response will be visible to the client and included in resolution emails.
+                </p>
+                <Textarea
+                  value={publicResponse}
+                  onChange={(e) => setPublicResponse(e.target.value)}
+                  rows={4}
+                  placeholder="Write a response that will be shared with the client..."
+                  className="mb-2"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    updateStatusMutation.mutate({
+                      id: selectedFeedback.id,
+                      status: selectedFeedback.status,
+                      notes: selectedFeedback.admin_notes || "",
+                      publicResponse: publicResponse
+                    });
+                  }}
+                  disabled={updateStatusMutation.isPending}
+                >
+                  Save Response
+                </Button>
               </div>
 
               {/* User Satisfaction Rating */}
