@@ -50,6 +50,20 @@
       "format": "date",
       "description": "Proposal due date"
     },
+    "contract_value": {
+      "type": "number",
+      "description": "Estimated or actual contract value in USD"
+    },
+    "contract_value_type": {
+      "type": "string",
+      "enum": [
+        "estimated",
+        "ceiling",
+        "exact",
+        "target"
+      ],
+      "description": "Type of contract value (estimated potential, ceiling, exact award, or target)"
+    },
     "current_phase": {
       "type": "string",
       "enum": [
@@ -75,7 +89,10 @@
         "submitted",
         "won",
         "lost",
-        "archived"
+        "archived",
+        "client_review",
+        "client_accepted",
+        "client_rejected"
       ],
       "default": "evaluating",
       "description": "Overall proposal status"
@@ -94,6 +111,68 @@
         "type": "string"
       },
       "description": "Array of teaming partner IDs involved"
+    },
+    "evaluation_results": {
+      "type": "string",
+      "description": "JSON string containing strategic evaluation results"
+    },
+    "evaluation_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the evaluation was last run"
+    },
+    "ai_confidence_score": {
+      "type": "string",
+      "description": "JSON string containing comprehensive AI confidence scoring analysis"
+    },
+    "ai_score_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the AI confidence score was last calculated"
+    },
+    "strategy_config": {
+      "type": "string",
+      "description": "JSON string of strategy configuration from Phase 5"
+    },
+    "shared_with_client_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of Client entity IDs who can view this proposal in the client portal"
+    },
+    "client_view_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether client portal access is enabled for this proposal"
+    },
+    "client_view_token": {
+      "type": "string",
+      "description": "Secure unique token for generating client portal access URL"
+    },
+    "client_view_token_expires": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the client view token expires"
+    },
+    "client_last_viewed": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time client viewed this proposal"
+    },
+    "client_feedback_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of feedback comments from client"
+    },
+    "client_decision_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When client accepted or rejected the proposal"
+    },
+    "client_decision_notes": {
+      "type": "string",
+      "description": "Client's notes when accepting or rejecting"
     }
   },
   "required": [
