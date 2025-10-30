@@ -1,8 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { isConsultantAccount } from "@/utils/organizationHelpers.js";
+import { createPageUrl, isConsultantAccount } from "@/utils";
 import {
   LayoutDashboard,
   FileText,
