@@ -86,6 +86,21 @@
       "type": "boolean",
       "default": true,
       "description": "Account active status"
+    },
+    "onboarding_email_step": {
+      "type": "number",
+      "default": 0,
+      "description": "Current step in onboarding email sequence (0 = not started, 1 = welcome sent, 2 = getting started sent, 3 = explore features sent)"
+    },
+    "last_onboarding_email_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date when the last onboarding email was sent"
+    },
+    "onboarding_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the user has completed the onboarding sequence"
     }
   },
   "required": []
