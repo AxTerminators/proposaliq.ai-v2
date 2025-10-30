@@ -1,32 +1,37 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  FileText, 
-  Upload, 
+import { Label } from "@/components/ui/label";
+import {
+  FileText,
+  Upload,
+  X,
   CheckCircle2,
-  Circle,
-  BookOpen,
+  AlertCircle,
   FileCheck,
-  Search,
-  Eye
+  Sparkles
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function Phase2({ proposalData, setProposalData, proposalId }) {
-  const [uploadingFiles, setUploadingFiles] = useState([]);
-  const [selectedReferences, setSelectedReferences] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [processingFiles, setProcessingFiles] = useState([]);
-  const [currentOrgId, setCurrentOrgId] = useState(null);
+  const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [organization, setOrganization] = useState(null);
 
-  // Get current user's organization for security filtering
   useEffect(() => {
-    const loadOrgId = async () => {
+    const loadData = async () => {
       try {
         const user = await base44.auth.me();
         const orgs = await base44.entities.Organization.filter(
@@ -35,469 +40,275 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
           1
         );
         if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
+          setOrganization(orgs[0]);
+          
+          if (proposalId) {
+            const docs = await base44.entities.SolicitationDocument.filter(
+              { proposal_id: proposalId },
+              '-created_date'
+            );
+            setUploadedDocs(docs);
+          }
         }
       } catch (error) {
-        console.error("Error loading org:", error);
+        console.error("Error loading data:", error);
       }
     };
-    loadOrgId();
-  }, []);
+    loadData();
+  }, [proposalId]);
 
-  // SECURITY: Only fetch proposals from current user's organization
-  const { data: pastProposals } = useQuery({
-    queryKey: ['past-proposals', currentOrgId],
-    queryFn: async () => {
-      if (!currentOrgId) return [];
-      const proposals = await base44.entities.Proposal.filter(
-        { 
-          organization_id: currentOrgId,
-          status: { $in: ['submitted', 'won'] } 
-        },
-        '-created_date'
-      );
-      return proposals;
-    },
-    initialData: [],
-    enabled: !!currentOrgId
-  });
+  const uploadMutation = useMutation({
+    mutationFn: async ({ file, documentType }) => {
+      if (!proposalId) {
+        throw new Error("Proposal ID is missing. Please save Phase 1 first.");
+      }
+      if (!organization || !organization.id) {
+        throw new Error("Organization data is missing. Please ensure your organization is set up.");
+      }
 
-  // SECURITY: Only fetch resources from current user's organization
-  const { data: resources } = useQuery({
-    queryKey: ['proposal-resources', currentOrgId],
-    queryFn: () => {
-      if (!currentOrgId) return [];
-      return base44.entities.ProposalResource.filter(
-        { 
-          organization_id: currentOrgId,
-          resource_type: { $in: ['past_proposal', 'capability_statement', 'marketing_collateral'] } 
-        },
-        '-created_date'
-      );
-    },
-    initialData: [],
-    enabled: !!currentOrgId
-  });
-
-  // SECURITY: Only fetch reference docs from current proposal (which is org-scoped)
-  const { data: existingRefs } = useQuery({
-    queryKey: ['reference-docs', proposalId, currentOrgId],
-    queryFn: async () => {
-      if (!proposalId || !currentOrgId) return [];
-      const refs = await base44.entities.SolicitationDocument.filter({ 
-        proposal_id: proposalId,
-        organization_id: currentOrgId,
-        document_type: 'reference'
-      });
-      return refs;
-    },
-    initialData: [],
-    enabled: !!proposalId && !!currentOrgId
-  });
-
-  useEffect(() => {
-    if (existingRefs.length > 0) {
-      setSelectedReferences(existingRefs.map(ref => ref.file_url));
-    }
-  }, [existingRefs]);
-
-  const extractTextFromFile = async (fileUrl, fileName) => {
-    try {
-      setProcessingFiles(prev => [...prev, fileName]);
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
       
-      const prompt = `Analyze this document and extract:
-1. Document type and purpose
-2. Key information, facts, and data
-3. Writing style and tone
-4. Technical capabilities or expertise mentioned
-5. Past performance examples
-6. Key personnel information
-7. Any other relevant content
-
-Provide a comprehensive summary that can be used as reference for proposal writing.`;
-
-      const summary = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: [fileUrl]
+      return base44.entities.SolicitationDocument.create({
+        proposal_id: proposalId,
+        organization_id: organization.id,
+        document_type: documentType,
+        file_name: file.name,
+        file_url: file_url,
+        file_size: file.size
       });
-
-      return summary;
-    } catch (error) {
-      console.error("Error extracting text:", error);
-      return null;
-    } finally {
-      setProcessingFiles(prev => prev.filter(name => name !== fileName));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitation-documents', proposalId] });
+      loadDocuments();
+    },
+    onError: (error) => {
+        console.error("Upload mutation failed:", error);
+        alert(`Upload failed: ${error.message}`);
     }
-  };
+  });
 
-  const handleFileUpload = async (files) => {
-    if (!proposalId) {
-      alert("Please complete Phase 1 first to save the proposal");
-      return;
+  const deleteMutation = useMutation({
+    mutationFn: async (docId) => {
+      await base44.entities.SolicitationDocument.delete(docId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitation-documents', proposalId] });
+      loadDocuments();
+    },
+    onError: (error) => {
+        console.error("Delete mutation failed:", error);
+        alert(`Deletion failed: ${error.message}`);
     }
+  });
 
-    if (!currentOrgId) {
-      alert("Organization not found. Please complete onboarding first.");
-      return;
-    }
-
-    for (const file of files) {
-      try {
-        setUploadingFiles(prev => [...prev, file.name]);
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        
-        const extractedContent = await extractTextFromFile(file_url, file.name);
-        
-        // SECURITY: Always include organization_id to ensure data isolation
-        await base44.entities.SolicitationDocument.create({
-          proposal_id: proposalId,
-          organization_id: currentOrgId,
-          document_type: "reference",
-          file_name: file.name,
-          file_url: file_url,
-          file_size: file.size,
-          description: extractedContent ? `AI Summary: ${extractedContent.substring(0, 500)}...` : "Reference document for proposal writing"
-        });
-        
-        setSelectedReferences(prev => [...prev, file_url]);
-        setUploadingFiles(prev => prev.filter(name => name !== file.name));
-      } catch (error) {
-        console.error("Error uploading file:", error);
-        setUploadingFiles(prev => prev.filter(name => name !== file.name));
-      }
-    }
-  };
-
-  const handleSelectPastProposal = async (proposal) => {
-    if (!proposalId) {
-      alert("Please complete Phase 1 first");
-      return;
-    }
-
-    if (!currentOrgId) {
-      alert("Organization not found.");
-      return;
-    }
-
-    try {
-      // SECURITY: Verify the proposal belongs to the same organization
-      if (proposal.organization_id !== currentOrgId) {
-        alert("Security error: Cannot access proposal from different organization");
-        return;
-      }
-
-      const sections = await base44.entities.ProposalSection.filter(
-        { proposal_id: proposal.id },
-        'order'
+  const loadDocuments = async () => {
+    if (proposalId) {
+      const docs = await base44.entities.SolicitationDocument.filter(
+        { proposal_id: proposalId },
+        '-created_date'
       );
-
-      // SECURITY: Always include organization_id
-      await base44.entities.SolicitationDocument.create({
-        proposal_id: proposalId,
-        organization_id: currentOrgId,
-        document_type: "reference",
-        file_name: `Reference: ${proposal.proposal_name}`,
-        file_url: `proposal:${proposal.id}`,
-        description: `Past proposal: ${proposal.proposal_name} - ${sections.length} sections`
-      });
-
-      setSelectedReferences(prev => [...prev, `proposal:${proposal.id}`]);
-    } catch (error) {
-      console.error("Error selecting past proposal:", error);
+      setUploadedDocs(docs);
     }
   };
 
-  const handleSelectResource = async (resource) => {
-    if (!proposalId) {
-      alert("Please complete Phase 1 first");
-      return;
-    }
+  const handleFileUpload = async (e, docType) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    if (!currentOrgId) {
-      alert("Organization not found.");
-      return;
-    }
-
+    setUploading(true);
     try {
-      // SECURITY: Verify the resource belongs to the same organization
-      if (resource.organization_id !== currentOrgId) {
-        alert("Security error: Cannot access resource from different organization");
-        return;
+      for (const file of files) {
+        await uploadMutation.mutateAsync({ file, documentType: docType });
       }
-
-      // SECURITY: Always include organization_id
-      await base44.entities.SolicitationDocument.create({
-        proposal_id: proposalId,
-        organization_id: currentOrgId,
-        document_type: "reference",
-        file_name: resource.file_name,
-        file_url: resource.file_url,
-        file_size: resource.file_size,
-        description: `Resource: ${resource.resource_type}`
-      });
-
-      setSelectedReferences(prev => [...prev, resource.file_url]);
+      alert(`✓ Successfully uploaded ${files.length} file(s)`);
+      e.target.value = ''; // Clear file input
     } catch (error) {
-      console.error("Error selecting resource:", error);
+      // Error handling is already in uploadMutation.onError
+    } finally {
+      setUploading(false);
     }
   };
 
-  const isSelected = (identifier) => selectedReferences.includes(identifier);
+  const handleDelete = async (docId) => {
+    if (confirm("Delete this document?")) {
+      await deleteMutation.mutateAsync(docId);
+    }
+  };
 
-  const filteredProposals = pastProposals.filter(p =>
-    p.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.agency_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getDocTypeLabel = (type) => {
+    const labels = {
+      rfp: "RFP",
+      rfq: "RFQ",
+      rfi: "RFI",
+      ifb: "IFB",
+      sow: "Statement of Work",
+      pws: "Performance Work Statement",
+      pricing_sheet: "Pricing Sheet",
+      reference: "Reference Document",
+      other: "Other"
+    };
+    return labels[type] || type;
+  };
 
-  const filteredResources = resources.filter(r =>
-    r.file_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getDocTypeColor = (type) => {
+    const colors = {
+      rfp: "bg-blue-100 text-blue-700",
+      rfq: "bg-purple-100 text-purple-700",
+      rfi: "bg-amber-100 text-amber-700",
+      ifb: "bg-green-100 text-green-700",
+      sow: "bg-indigo-100 text-indigo-700",
+      pws: "bg-pink-100 text-pink-700",
+      pricing_sheet: "bg-emerald-100 text-emerald-700",
+      reference: "bg-slate-100 text-slate-700",
+      other: "bg-gray-100 text-gray-700"
+    };
+    return colors[type] || colors.other;
+  };
+
+  const groupedDocs = uploadedDocs.reduce((acc, doc) => {
+    if (!acc[doc.document_type]) {
+      acc[doc.document_type] = [];
+    }
+    acc[doc.document_type].push(doc);
+    return acc;
+  }, {});
 
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-indigo-600" />
-          Phase 2: Referenced Documents
+          <FileText className="w-5 h-5 text-blue-600" />
+          Phase 2: Upload Solicitation Documents
         </CardTitle>
         <CardDescription>
-          Select past proposals, templates, or upload reference documents to guide AI generation
+          Upload RFPs, SOWs, and other solicitation documents for AI analysis
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Sparkles className="w-4 h-4 text-blue-600" />
+          <AlertDescription>
+            <p className="font-semibold text-blue-900 mb-1">📄 Upload PDF Files for AI Analysis</p>
+            <p className="text-sm text-blue-800">
+              Upload <strong>PDF versions</strong> of your solicitation documents so our AI can read and analyze them to help write your proposal. 
+              Convert Word/Excel files to PDF first.
+            </p>
+          </AlertDescription>
+        </Alert>
+
         {!proposalId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-amber-800 text-sm">
-              ⚠️ Please complete Phase 1 and save your proposal before adding references
-            </p>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="w-4 h-4" />
+            <AlertDescription>
+              Please save Phase 1 first before uploading documents.
+            </AlertDescription>
+          </Alert>
         )}
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-            <FileCheck className="w-4 h-4" />
-            Smart Document Reading + Data Privacy
-          </h3>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• AI reads and analyzes your reference documents (PDF, DOCX, XLSX, PNG, JPG, TXT, PPTX)</li>
-            <li>• Extracts writing style, tone, and key information</li>
-            <li>• Uses this knowledge to generate proposal sections that match your style</li>
-            <li>• 🔒 <strong>Your documents are private to your organization only</strong></li>
-            <li>• 🔒 <strong>AI never uses your docs when generating for other companies</strong></li>
-          </ul>
+        {proposalId && (
+          <>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                { type: 'rfp', label: 'RFP', icon: FileText, color: 'blue' },
+                { type: 'sow', label: 'SOW/PWS', icon: FileCheck, color: 'indigo' },
+                { type: 'pricing_sheet', label: 'Pricing Sheet', icon: FileText, color: 'emerald' },
+                { type: 'reference', label: 'Reference Docs', icon: FileText, color: 'slate' },
+              ].map(({ type, label, icon: Icon, color }) => (
+                <div key={type} className={`border-2 border-dashed border-${color}-200 rounded-lg p-6 text-center bg-${color}-50 hover:bg-${color}-100 transition-colors`}>
+                  <Icon className={`w-12 h-12 mx-auto text-${color}-600 mb-3`} />
+                  <h3 className={`font-semibold text-${color}-900 mb-2`}>{label}</h3>
+                  <input
+                    type="file"
+                    id={`upload-${type}`}
+                    className="hidden"
+                    accept=".pdf"
+                    multiple
+                    onChange={(e) => handleFileUpload(e, type)}
+                    disabled={uploading}
+                  />
+                  <Button size="sm" variant="outline" asChild disabled={uploading}>
+                    <label htmlFor={`upload-${type}`} className="cursor-pointer">
+                      <Upload className="w-3 h-3 mr-2" />
+                      {uploading ? 'Uploading...' : 'Upload PDF'}
+                    </label>
+                  </Button>
+                  <p className="text-xs text-slate-500 mt-2">PDF only • AI readable</p>
+                </div>
+              ))}
+            </div>
+
+            {uploadedDocs.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  Uploaded Documents ({uploadedDocs.length})
+                </h3>
+
+                <div className="space-y-4">
+                  {Object.entries(groupedDocs).map(([docType, docs]) => (
+                    <div key={docType} className="space-y-2">
+                      <Badge className={getDocTypeColor(docType)}>
+                        {getDocTypeLabel(docType)} ({docs.length})
+                      </Badge>
+                      <div className="space-y-2">
+                        {docs.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-slate-900 truncate">{doc.file_name}</p>
+                                <p className="text-xs text-slate-500">
+                                  {(doc.file_size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="ghost" asChild>
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                  View
+                                </a>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDelete(doc.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {uploadedDocs.length === 0 && (
+              <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50">
+                <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Documents Uploaded Yet</h3>
+                <p className="text-slate-600 mb-4">
+                  Upload your solicitation PDFs to help AI analyze requirements
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-900 mb-1">Important: PDF Format Required</p>
+              <p className="text-sm text-amber-800">
+                Our AI can only read PDF files. If you have Word, Excel, or PowerPoint documents, please convert them to PDF before uploading.
+              </p>
+            </div>
+          </div>
         </div>
-
-        {processingFiles.length > 0 && (
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-            <p className="text-indigo-900 font-medium mb-2">📖 AI is reading documents...</p>
-            {processingFiles.map((name, idx) => (
-              <p key={idx} className="text-sm text-indigo-700">• {name}</p>
-            ))}
-          </div>
-        )}
-
-        {selectedReferences.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-800 font-medium mb-2">
-              ✓ {selectedReferences.length} reference document(s) selected
-            </p>
-            <p className="text-xs text-green-700">
-              AI will use these references in Phase 6 to generate proposal content
-            </p>
-          </div>
-        )}
-
-        <Tabs defaultValue="past" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="past">Past Proposals</TabsTrigger>
-            <TabsTrigger value="resources">Templates & Samples</TabsTrigger>
-            <TabsTrigger value="upload">Upload New</TabsTrigger>
-          </TabsList>
-
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Search references..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <TabsContent value="past" className="space-y-3">
-            {filteredProposals.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="mb-2">No past proposals found</p>
-                <p className="text-sm text-slate-400">
-                  Complete more proposals to build your reference library
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {filteredProposals.map((proposal) => (
-                  <div
-                    key={proposal.id}
-                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                      isSelected(`proposal:${proposal.id}`)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
-                    }`}
-                    onClick={() => !isSelected(`proposal:${proposal.id}`) && handleSelectPastProposal(proposal)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-slate-900">{proposal.proposal_name}</h3>
-                          {isSelected(`proposal:${proposal.id}`) && (
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-600 mb-2">
-                          {proposal.agency_name} • {proposal.project_type}
-                        </p>
-                        <div className="flex gap-2">
-                          <Badge className={
-                            proposal.status === 'won' ? 'bg-green-100 text-green-700' :
-                            'bg-purple-100 text-purple-700'
-                          }>
-                            {proposal.status}
-                          </Badge>
-                          {proposal.match_score && (
-                            <Badge variant="outline">
-                              Match: {proposal.match_score}/100
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {!isSelected(`proposal:${proposal.id}`) ? (
-                        <Circle className="w-6 h-6 text-slate-300" />
-                      ) : (
-                        <CheckCircle2 className="w-6 h-6 text-green-600" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="resources" className="space-y-3">
-            {filteredResources.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="mb-2">No templates or samples found</p>
-                <p className="text-sm text-slate-400">
-                  Upload resources in the Resources page
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {filteredResources.map((resource) => (
-                  <div
-                    key={resource.id}
-                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                      isSelected(resource.file_url)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
-                    }`}
-                    onClick={() => !isSelected(resource.file_url) && handleSelectResource(resource)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <FileText className="w-8 h-8 text-indigo-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-slate-900">{resource.file_name}</h3>
-                            {isSelected(resource.file_url) && (
-                              <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            )}
-                          </div>
-                          <div className="flex gap-2 items-center">
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {resource.resource_type?.replace(/_/g, ' ')}
-                            </Badge>
-                            <span className="text-xs text-slate-500">
-                              {(resource.file_size / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <a 
-                          href={resource.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button variant="ghost" size="icon">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </a>
-                        {!isSelected(resource.file_url) ? (
-                          <Circle className="w-6 h-6 text-slate-300" />
-                        ) : (
-                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="upload" className="space-y-4">
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-indigo-400 transition-colors bg-white">
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.docx,.xlsx,.txt,.pptx,.png,.jpg,.jpeg,.csv"
-                onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-                className="hidden"
-                id="reference-upload"
-                disabled={!proposalId}
-              />
-              <label htmlFor="reference-upload" className={!proposalId ? 'cursor-not-allowed' : 'cursor-pointer'}>
-                <Upload className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-                <p className="text-slate-700 font-medium mb-2">
-                  {!proposalId ? 'Complete Phase 1 first' : 'Click to upload reference documents'}
-                </p>
-                <p className="text-sm text-slate-500">
-                  PDF, DOCX, XLSX, TXT, PPTX, PNG, JPG, CSV up to 30MB
-                </p>
-                <p className="text-xs text-slate-400 mt-2">
-                  AI will read and analyze each document
-                </p>
-              </label>
-            </div>
-
-            {uploadingFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-700">Uploading...</p>
-                {uploadingFiles.map((name, idx) => (
-                  <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-                      <span className="text-sm text-blue-900">{name}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-              <h4 className="font-semibold text-indigo-900 mb-2">Upload Tips</h4>
-              <ul className="text-sm text-indigo-800 space-y-1">
-                <li>• Upload your best past proposals as templates</li>
-                <li>• Include capability statements and past performance docs</li>
-                <li>• Add style guides or company-specific writing samples</li>
-                <li>• AI will read all file types and extract relevant information</li>
-                <li>• The more quality references, the better AI will perform</li>
-              </ul>
-            </div>
-          </TabsContent>
-        </Tabs>
       </CardContent>
     </Card>
   );
