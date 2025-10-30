@@ -1,3 +1,6 @@
+import React from "react";
+import { base44 } from "@/api/base44Client";
+
 // Role-based permission checker utility
 export const ROLE_PERMISSIONS = {
   super_admin: {
@@ -68,6 +71,30 @@ export const isAdmin = (user) => {
 // Get user's role label
 export const getRoleLabel = (adminRole) => {
   return ROLE_PERMISSIONS[adminRole]?.label || "Unknown Role";
+};
+
+// Check if user can edit (for backwards compatibility)
+export const canEdit = (user) => {
+  return hasPermission(user, "manage_users") || hasPermission(user, "all");
+};
+
+// Check if user can delete (for backwards compatibility)
+export const canDelete = (user) => {
+  return hasPermission(user, "manage_users") || hasPermission(user, "all");
+};
+
+// Log admin action to audit log
+export const logAdminAction = async (action, details, targetUser = null) => {
+  try {
+    await base44.entities.AuditLog.create({
+      action,
+      details,
+      target_user: targetUser,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error logging admin action:", error);
+  }
 };
 
 // Permission Checker Component
