@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { PermissionChecker } from "../components/admin/PermissionChecker";
+import PermissionChecker from "../components/admin/PermissionChecker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -16,12 +15,12 @@ import {
   Zap,
   TrendingUp,
   Bug,
-  Mail // Added Mail icon
+  Mail
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
-import AuditLogModule from "../components/admin/AuditLogModule"; // Keep import even if tab removed, as it might be used elsewhere or a future addition.
+import AuditLogModule from "../components/admin/AuditLogModule";
 import BillingModule from "../components/admin/BillingModule";
 import AIConfigModule from "../components/admin/AIConfigModule";
 import ContentLibraryModule from "../components/admin/ContentLibraryModule";
@@ -32,7 +31,7 @@ import RolesModule from "../components/admin/RolesModule";
 import WorkflowModule from "../components/admin/WorkflowModule";
 import MarketingModule from "../components/admin/MarketingModule";
 import FeedbackModule from "../components/admin/FeedbackModule";
-import OnboardingEmailModule from "../components/admin/OnboardingEmailModule"; // Added new module import
+import OnboardingEmailModule from "../components/admin/OnboardingEmailModule";
 
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -94,9 +93,9 @@ export default function AdminPortal() {
             <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12">
               <TabsTrigger value="subscribers" className="gap-2">
                 <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Users</span> {/* Changed from Subscribers to Users */}
+                <span className="hidden sm:inline">Users</span>
               </TabsTrigger>
-              <TabsTrigger value="onboarding" className="gap-2"> {/* Added new tab trigger */}
+              <TabsTrigger value="onboarding" className="gap-2">
                 <Mail className="w-4 h-4" />
                 <span className="hidden sm:inline">Onboarding</span>
               </TabsTrigger>
@@ -140,7 +139,6 @@ export default function AdminPortal() {
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Marketing</span>
               </TabsTrigger>
-              {/* Removed Audit tab trigger */}
             </TabsList>
 
             <TabsContent value="subscribers">
@@ -151,7 +149,7 @@ export default function AdminPortal() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="onboarding"> {/* Added new tab content */}
+            <TabsContent value="onboarding">
               <Card className="border-none shadow-xl">
                 <CardContent className="p-6">
                   <OnboardingEmailModule />
@@ -238,8 +236,6 @@ export default function AdminPortal() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* Removed Audit tab content */}
           </Tabs>
         </div>
       </div>
