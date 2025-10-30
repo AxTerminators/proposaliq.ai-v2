@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -68,7 +69,8 @@ export default function ClientPortal() {
         setClient(clientData);
 
         await base44.entities.Client.update(clientData.id, {
-          last_portal_access: new Date().toISOString()
+          last_portal_access: new Date().toISOString(),
+          last_engagement_date: new Date().toISOString()
         });
 
         const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
@@ -171,10 +173,11 @@ export default function ClientPortal() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6">
         <div className="max-w-6xl mx-auto">
           <Skeleton className="h-32 w-full mb-6" />
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <Skeleton className="h-24" />
             <Skeleton className="h-24" />
             <Skeleton className="h-24" />
             <Skeleton className="h-24" />
@@ -187,15 +190,15 @@ export default function ClientPortal() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-6">
-        <Card className="max-w-md border-none shadow-xl">
-          <CardContent className="p-8 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4 sm:p-6">
+        <Card className="max-w-md border-none shadow-xl w-full">
+          <CardContent className="p-6 sm:p-8 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="w-8 h-8 text-red-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
-            <p className="text-slate-600 mb-6">{error}</p>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
+            <p className="text-sm sm:text-base text-slate-600 mb-6">{error}</p>
+            <p className="text-xs sm:text-sm text-slate-500">
               Need help? Contact your consultant for assistance.
             </p>
           </CardContent>
@@ -211,83 +214,105 @@ export default function ClientPortal() {
     inProgress: proposals.filter(p => ['draft', 'in_progress', 'submitted'].includes(p.status)).length
   };
 
+  // Apply custom branding if available
+  const branding = client?.custom_branding || {};
+  const primaryColor = branding.primary_color || "#2563eb";
+  const companyName = branding.company_name || organization?.organization_name || 'Your Consultant';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6">
+      {/* Inject custom CSS if provided */}
+      {branding.custom_css && (
+        <style dangerouslySetInnerHTML={{ __html: branding.custom_css }} />
+      )}
+
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <Card className="border-none shadow-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-          <CardContent className="p-6 md:p-8">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-2">
+        <Card 
+          className="border-none shadow-xl text-white overflow-hidden"
+          style={{ 
+            background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` 
+          }}
+        >
+          <CardContent className="p-4 sm:p-6 md:p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex-1 w-full sm:w-auto">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2">
                   Welcome, {client?.contact_name || client?.client_name}
                 </h1>
-                <p className="text-blue-100 text-lg">
+                <p className="text-sm sm:text-lg opacity-90">
                   {client?.client_organization}
                 </p>
-                <p className="text-blue-200 text-sm mt-2">
-                  Managed by {organization?.organization_name || 'Your Consultant'}
+                <p className="text-xs sm:text-sm opacity-75 mt-2">
+                  Managed by {companyName}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                 <ClientNotificationCenter client={client} clientToken={clientToken} />
-                {organization?.custom_branding?.logo_url && (
+                {(branding.logo_url || organization?.custom_branding?.logo_url) && (
                   <img 
-                    src={organization.custom_branding.logo_url} 
+                    src={branding.logo_url || organization.custom_branding.logo_url} 
                     alt="Company Logo" 
-                    className="h-16 object-contain"
+                    className="h-12 sm:h-16 object-contain bg-white/10 backdrop-blur rounded px-2"
                   />
                 )}
               </div>
             </div>
+            
+            {/* Welcome Message */}
+            {branding.welcome_message && (
+              <div className="mt-4 p-3 sm:p-4 bg-white/20 backdrop-blur rounded-lg">
+                <p className="text-sm sm:text-base">{branding.welcome_message}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Card className="border-none shadow-lg">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <FileText className="w-8 h-8 text-blue-500" />
+                <FileText className="w-6 h-6 sm:w-8 sm:h-8" style={{ color: primaryColor }} />
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-                  <p className="text-xs text-slate-600">Total Proposals</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.total}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-600">Total Proposals</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-lg">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <AlertCircle className="w-8 h-8 text-purple-500" />
+                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500" />
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-purple-600">{stats.needingReview}</p>
-                  <p className="text-xs text-slate-600">Needs Review</p>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.needingReview}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-600">Needs Review</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-lg">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <TrendingUp className="w-8 h-8 text-amber-500" />
+                <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500" />
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-amber-600">{stats.inProgress}</p>
-                  <p className="text-xs text-slate-600">In Progress</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.inProgress}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-600">In Progress</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-lg">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
+                <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600">{stats.accepted}</p>
-                  <p className="text-xs text-slate-600">Accepted</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.accepted}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-600">Accepted</p>
                 </div>
               </div>
             </CardContent>
@@ -300,26 +325,29 @@ export default function ClientPortal() {
         {/* Main Content Tabs */}
         <Card className="border-none shadow-xl">
           <Tabs defaultValue="proposals" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-              <TabsTrigger value="proposals">
-                <FileText className="w-4 h-4 mr-2" />
-                Proposals
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="proposals" className="text-xs sm:text-sm">
+                <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Proposals</span>
+                <span className="sm:hidden">All</span>
               </TabsTrigger>
-              <TabsTrigger value="activity">
-                <Activity className="w-4 h-4 mr-2" />
-                Activity
+              <TabsTrigger value="activity" className="text-xs sm:text-sm">
+                <Activity className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Activity</span>
+                <span className="sm:hidden">Feed</span>
               </TabsTrigger>
-              <TabsTrigger value="documents">
-                <Download className="w-4 h-4 mr-2" />
-                Documents
+              <TabsTrigger value="documents" className="text-xs sm:text-sm">
+                <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Documents</span>
+                <span className="sm:hidden">Docs</span>
               </TabsTrigger>
             </TabsList>
 
             {/* Proposals Tab */}
-            <TabsContent value="proposals" className="p-6">
+            <TabsContent value="proposals" className="p-3 sm:p-6">
               <CardHeader className="px-0 pt-0">
-                <CardTitle className="text-2xl">Your Proposals</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-xl sm:text-2xl">Your Proposals</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   View and manage proposals shared with you
                 </CardDescription>
               </CardHeader>
@@ -331,9 +359,9 @@ export default function ClientPortal() {
                 </div>
               ) : proposals.length === 0 ? (
                 <div className="text-center py-12">
-                  <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600 text-lg">No proposals yet</p>
-                  <p className="text-slate-500 text-sm mt-2">
+                  <FileText className="w-12 h-12 sm:w-16 sm:h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-base sm:text-lg text-slate-600">No proposals yet</p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-2">
                     Your consultant will share proposals with you here
                   </p>
                 </div>
@@ -342,37 +370,37 @@ export default function ClientPortal() {
                   {proposals.map(proposal => (
                     <div
                       key={proposal.id}
-                      className="p-6 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      className="p-4 sm:p-6 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
                       onClick={() => window.location.href = `/ClientProposalView?token=${clientToken}&proposal=${proposal.id}`}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 w-full">
+                          <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">
                             {proposal.proposal_name}
                           </h3>
                           {proposal.project_title && (
-                            <p className="text-slate-600 text-sm mb-2">{proposal.project_title}</p>
+                            <p className="text-xs sm:text-sm text-slate-600 mb-2">{proposal.project_title}</p>
                           )}
                           <div className="flex flex-wrap gap-2">
                             <Badge className={getStatusColor(proposal.status)}>
                               {getStatusIcon(proposal.status)}
-                              <span className="ml-1">{getStatusLabel(proposal.status)}</span>
+                              <span className="ml-1 text-xs">{getStatusLabel(proposal.status)}</span>
                             </Badge>
                             {proposal.due_date && (
-                              <Badge variant="outline">
+                              <Badge variant="outline" className="text-xs">
                                 <Clock className="w-3 h-3 mr-1" />
                                 Due: {moment(proposal.due_date).format('MMM D, YYYY')}
                               </Badge>
                             )}
                             {proposal.client_feedback_count > 0 && (
-                              <Badge variant="secondary">
+                              <Badge variant="secondary" className="text-xs">
                                 <MessageSquare className="w-3 h-3 mr-1" />
                                 {proposal.client_feedback_count} Comments
                               </Badge>
                             )}
                           </div>
                         </div>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto">
                           <Eye className="w-4 h-4 mr-2" />
                           View
                           <ExternalLink className="w-3 h-3 ml-2" />
@@ -387,8 +415,8 @@ export default function ClientPortal() {
 
                       {proposal.status === 'client_review' && (
                         <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                          <p className="text-sm text-purple-900 font-medium flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4" />
+                          <p className="text-xs sm:text-sm text-purple-900 font-medium flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
                             Your review is requested - Please provide feedback or accept/reject
                           </p>
                         </div>
@@ -513,8 +541,8 @@ export default function ClientPortal() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center text-sm text-slate-500 py-4">
-          <p>© {new Date().getFullYear()} {organization?.organization_name}. All rights reserved.</p>
+        <div className="text-center text-xs sm:text-sm text-slate-500 py-4">
+          <p>© {new Date().getFullYear()} {companyName}. All rights reserved.</p>
           <p className="mt-1">Powered by ProposalIQ.ai</p>
         </div>
       </div>
