@@ -1,7 +1,7 @@
 import React from "react";
 import { base44 } from "@/api/base44Client";
 
-// Role-based permission checker utility
+// Comprehensive role-based permission system
 export const ROLE_PERMISSIONS = {
   super_admin: {
     label: "Super Admin",
@@ -11,43 +11,107 @@ export const ROLE_PERMISSIONS = {
   operations_admin: {
     label: "Operations Admin",
     description: "Manage users, subscriptions, and system health",
-    permissions: ["manage_users", "manage_subscriptions", "view_audit_logs", "view_system_health"]
+    permissions: ["manage_users", "view_users", "manage_subscriptions", "view_subscriptions", "view_audit_logs", "view_system_health", "manage_feedback"]
   },
   content_manager: {
     label: "Content Manager",
     description: "Manage content library and templates",
-    permissions: ["manage_content", "manage_templates"]
+    permissions: ["manage_content", "view_content", "manage_templates", "manage_email_templates"]
   },
   billing_manager: {
     label: "Billing Manager",
     description: "Manage billing, subscriptions, and payments",
-    permissions: ["manage_billing", "view_subscriptions", "manage_payments"]
+    permissions: ["manage_billing", "view_billing", "manage_subscriptions", "view_subscriptions", "manage_payments", "view_reports"]
   },
   ai_manager: {
     label: "AI Manager",
     description: "Configure AI settings and models",
-    permissions: ["manage_ai_config", "view_token_usage"]
+    permissions: ["manage_ai_config", "view_ai_config", "view_token_usage", "manage_ai_models"]
   },
   security_officer: {
     label: "Security Officer",
     description: "Manage security settings and audit logs",
-    permissions: ["manage_security", "view_audit_logs", "manage_mfa"]
+    permissions: ["manage_security", "view_security", "view_audit_logs", "manage_audit_logs", "manage_mfa", "view_system_health"]
   },
   reviewer: {
     label: "Reviewer",
     description: "Review and approve content changes",
-    permissions: ["review_content", "view_audit_logs"]
+    permissions: ["review_content", "view_content", "view_audit_logs", "view_users"]
   },
   tech_support: {
     label: "Tech Support",
     description: "View system health and logs for support",
-    permissions: ["view_system_health", "view_audit_logs", "view_users"]
+    permissions: ["view_system_health", "view_audit_logs", "view_users", "view_subscriptions", "manage_feedback"]
   },
   marketing_manager: {
     label: "Marketing Manager",
     description: "Manage marketing campaigns and analytics",
-    permissions: ["manage_marketing", "view_analytics", "manage_email_campaigns"]
+    permissions: ["manage_marketing", "view_marketing", "view_analytics", "manage_email_campaigns", "manage_email_templates", "view_reports", "view_users"]
+  },
+  workflow_manager: {
+    label: "Workflow Manager",
+    description: "Configure workflows and automations",
+    permissions: ["manage_workflows", "view_workflows", "manage_automation", "view_reports"]
   }
+};
+
+// Permission descriptions for better understanding
+export const PERMISSION_DESCRIPTIONS = {
+  // User Management
+  "manage_users": "Create, edit, and delete user accounts",
+  "view_users": "View user information and lists",
+  
+  // Subscription/Billing
+  "manage_subscriptions": "Modify subscription plans and limits",
+  "view_subscriptions": "View subscription details",
+  "manage_billing": "Manage billing settings and invoices",
+  "view_billing": "View billing information",
+  "manage_payments": "Process payments and refunds",
+  
+  // Content
+  "manage_content": "Create, edit, and delete content",
+  "view_content": "View content library",
+  "manage_templates": "Create and edit templates",
+  "manage_email_templates": "Create and edit email templates",
+  
+  // AI & Configuration
+  "manage_ai_config": "Configure AI settings and models",
+  "view_ai_config": "View AI configuration",
+  "view_token_usage": "View token usage statistics",
+  "manage_ai_models": "Add/remove AI models",
+  
+  // Security & Audit
+  "manage_security": "Configure security settings",
+  "view_security": "View security settings",
+  "view_audit_logs": "View system audit logs",
+  "manage_audit_logs": "Manage and export audit logs",
+  "manage_mfa": "Configure multi-factor authentication",
+  
+  // System
+  "view_system_health": "View system health metrics",
+  "view_reports": "View analytics and reports",
+  "manage_reports": "Create and export reports",
+  
+  // Marketing
+  "manage_marketing": "Create and manage campaigns",
+  "view_marketing": "View marketing data",
+  "view_analytics": "View analytics dashboards",
+  "manage_email_campaigns": "Create and send email campaigns",
+  
+  // Workflows
+  "manage_workflows": "Create and edit workflows",
+  "view_workflows": "View workflow configurations",
+  "manage_automation": "Configure automation rules",
+  
+  // Feedback
+  "manage_feedback": "Respond to and manage user feedback",
+  "view_feedback": "View user feedback",
+  
+  // Reviews
+  "review_content": "Review and approve content changes",
+  
+  // Special
+  "all": "Full access to all features"
 };
 
 // Check if user has a specific permission
@@ -63,6 +127,18 @@ export const hasPermission = (user, permission) => {
   return role.permissions.includes(permission);
 };
 
+// Check if user has ANY of the specified permissions
+export const hasAnyPermission = (user, permissions) => {
+  if (!Array.isArray(permissions)) return false;
+  return permissions.some(permission => hasPermission(user, permission));
+};
+
+// Check if user has ALL of the specified permissions
+export const hasAllPermissions = (user, permissions) => {
+  if (!Array.isArray(permissions)) return false;
+  return permissions.every(permission => hasPermission(user, permission));
+};
+
 // Check if user has any admin role
 export const isAdmin = (user) => {
   return user?.admin_role && ROLE_PERMISSIONS[user.admin_role];
@@ -71,6 +147,16 @@ export const isAdmin = (user) => {
 // Get user's role label
 export const getRoleLabel = (adminRole) => {
   return ROLE_PERMISSIONS[adminRole]?.label || "Unknown Role";
+};
+
+// Get user's role description
+export const getRoleDescription = (adminRole) => {
+  return ROLE_PERMISSIONS[adminRole]?.description || "";
+};
+
+// Get all permissions for a role
+export const getRolePermissions = (adminRole) => {
+  return ROLE_PERMISSIONS[adminRole]?.permissions || [];
 };
 
 // Check if user can edit (for backwards compatibility)
@@ -86,10 +172,14 @@ export const canDelete = (user) => {
 // Log admin action to audit log
 export const logAdminAction = async (action, details, targetUser = null) => {
   try {
+    const currentUser = await base44.auth.me();
     await base44.entities.AuditLog.create({
-      action,
-      details,
-      target_user: targetUser,
+      admin_email: currentUser.email,
+      admin_role: currentUser.admin_role,
+      action_type: action,
+      target_entity: targetUser,
+      details: typeof details === 'string' ? details : JSON.stringify(details),
+      success: true,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -97,8 +187,8 @@ export const logAdminAction = async (action, details, targetUser = null) => {
   }
 };
 
-// Permission Checker Component
-export const PermissionChecker = ({ children, requiredRole, requiredPermission }) => {
+// Permission Checker Component - Guards entire pages/sections
+export const PermissionChecker = ({ children, requiredRole, requiredPermission, requiredPermissions, requireAll = false }) => {
   const [currentUser, setCurrentUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -152,7 +242,7 @@ export const PermissionChecker = ({ children, requiredRole, requiredPermission }
     );
   }
 
-  // Check if user has the required permission
+  // Check if user has the required single permission
   if (requiredPermission && !hasPermission(currentUser, requiredPermission)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-yellow-50">
@@ -163,8 +253,11 @@ export const PermissionChecker = ({ children, requiredRole, requiredPermission }
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Insufficient Permissions</h1>
-          <p className="text-slate-600 mb-6">
-            Your admin role doesn't have permission to access this feature. Please contact your system administrator.
+          <p className="text-slate-600 mb-2">
+            Your admin role ({getRoleLabel(currentUser.admin_role)}) doesn't have permission to access this feature.
+          </p>
+          <p className="text-sm text-slate-500 mb-6">
+            Required permission: <span className="font-mono bg-slate-100 px-2 py-1 rounded">{requiredPermission}</span>
           </p>
           <a
             href="/AdminPortal"
@@ -175,6 +268,45 @@ export const PermissionChecker = ({ children, requiredRole, requiredPermission }
         </div>
       </div>
     );
+  }
+
+  // Check if user has the required multiple permissions
+  if (requiredPermissions && Array.isArray(requiredPermissions)) {
+    const hasAccess = requireAll 
+      ? hasAllPermissions(currentUser, requiredPermissions)
+      : hasAnyPermission(currentUser, requiredPermissions);
+
+    if (!hasAccess) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-amber-50 to-yellow-50">
+          <div className="text-center max-w-md p-8">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Insufficient Permissions</h1>
+            <p className="text-slate-600 mb-2">
+              Your admin role ({getRoleLabel(currentUser.admin_role)}) doesn't have the required permissions.
+            </p>
+            <p className="text-sm text-slate-500 mb-6">
+              Required: {requireAll ? 'All of' : 'Any of'} these permissions:
+            </p>
+            <div className="text-xs bg-slate-100 px-3 py-2 rounded mb-6 text-left">
+              {requiredPermissions.map(perm => (
+                <div key={perm} className="font-mono py-1">• {perm}</div>
+              ))}
+            </div>
+            <a
+              href="/AdminPortal"
+              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Back to Admin Portal
+            </a>
+          </div>
+        </div>
+      );
+    }
   }
 
   return children;
