@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -150,6 +149,29 @@ export default function ClientProposalView() {
         client_feedback_count: (proposal.client_feedback_count || 0) + 1
       });
 
+      // Create notification for proposal owner
+      await base44.entities.Notification.create({
+        user_email: proposal.created_by,
+        notification_type: "comment_reply",
+        title: "Client Feedback Received",
+        message: `${client.contact_name || client.client_name} commented on "${proposal.proposal_name}": ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`,
+        related_proposal_id: proposalId,
+        related_entity_id: comment.id,
+        related_entity_type: "comment",
+        from_user_email: client.contact_email,
+        from_user_name: client.contact_name || client.client_name,
+        action_url: `/ProposalBuilder?id=${proposalId}`
+      });
+
+      // Also log activity
+      await base44.entities.ActivityLog.create({
+        proposal_id: proposalId,
+        user_email: client.contact_email,
+        user_name: client.contact_name || client.client_name,
+        action_type: "comment_added",
+        action_description: `Client ${client.contact_name || client.client_name} added feedback`
+      });
+
       return comment;
     },
     onSuccess: () => {
@@ -166,6 +188,28 @@ export default function ClientProposalView() {
         client_decision_date: new Date().toISOString(),
         client_decision_notes: decisionNotes
       });
+
+      // Create notification for proposal owner
+      await base44.entities.Notification.create({
+        user_email: proposal.created_by,
+        notification_type: "status_change",
+        title: "🎉 Client Accepted Proposal!",
+        message: `Great news! ${client.contact_name || client.client_name} has accepted "${proposal.proposal_name}"${decisionNotes ? `: "${decisionNotes}"` : ''}`,
+        related_proposal_id: proposalId,
+        related_entity_type: "proposal",
+        from_user_email: client.contact_email,
+        from_user_name: client.contact_name || client.client_name,
+        action_url: `/ProposalBuilder?id=${proposalId}`
+      });
+
+      // Log activity
+      await base44.entities.ActivityLog.create({
+        proposal_id: proposalId,
+        user_email: client.contact_email,
+        user_name: client.contact_name || client.client_name,
+        action_type: "status_changed",
+        action_description: `Client ${client.contact_name || client.client_name} accepted the proposal`
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-proposal'] });
@@ -180,6 +224,28 @@ export default function ClientProposalView() {
         status: "client_rejected",
         client_decision_date: new Date().toISOString(),
         client_decision_notes: decisionNotes
+      });
+
+      // Create notification for proposal owner
+      await base44.entities.Notification.create({
+        user_email: proposal.created_by,
+        notification_type: "status_change",
+        title: "Client Rejected Proposal",
+        message: `${client.contact_name || client.client_name} has rejected "${proposal.proposal_name}"${decisionNotes ? `. Reason: "${decisionNotes}"` : '. No reason provided.'}`,
+        related_proposal_id: proposalId,
+        related_entity_type: "proposal",
+        from_user_email: client.contact_email,
+        from_user_name: client.contact_name || client.client_name,
+        action_url: `/ProposalBuilder?id=${proposalId}`
+      });
+
+      // Log activity
+      await base44.entities.ActivityLog.create({
+        proposal_id: proposalId,
+        user_email: client.contact_email,
+        user_name: client.contact_name || client.client_name,
+        action_type: "status_changed",
+        action_description: `Client ${client.contact_name || client.client_name} rejected the proposal`
       });
     },
     onSuccess: () => {
