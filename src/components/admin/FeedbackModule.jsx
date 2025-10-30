@@ -17,7 +17,9 @@ import {
   User,
   Building2,
   Calendar,
-  Eye
+  Eye,
+  UserCheck,
+  Star
 } from "lucide-react";
 import {
   Select,
@@ -42,6 +44,8 @@ export default function FeedbackModule() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [assignedFilter, setAssignedFilter] = useState("all");
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
@@ -53,17 +57,106 @@ export default function FeedbackModule() {
     initialData: [],
   });
 
+  const { data: allUsers } = useQuery({
+    queryKey: ['all-users-feedback'],
+    queryFn: () => base44.entities.User.list(),
+    initialData: []
+  });
+
+  // Get admin/team members for assignment
+  const teamMembers = allUsers.filter(u => u.admin_role || u.role === 'admin');
+
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status, notes }) => {
+    mutationFn: async ({ id, status, notes, assignedTo }) => {
       const updateData = {
         status,
         admin_notes: notes
       };
       
+      if (assignedTo) {
+        const assignedUser = teamMembers.find(u => u.email === assignedTo);
+        updateData.assigned_to_email = assignedTo;
+        updateData.assigned_to_name = assignedUser?.full_name || assignedTo;
+        updateData.assigned_date = new Date().toISOString();
+        const currentUser = await base44.auth.me();
+        updateData.assigned_by = currentUser.email;
+      }
+      
       if (status === 'resolved' || status === 'closed') {
         const user = await base44.auth.me();
         updateData.resolved_date = new Date().toISOString();
         updateData.resolved_by = user.email;
+        
+        // Send resolution notification to user with rating request
+        const feedback = feedbackList.find(f => f.id === id);
+        if (feedback) {
+          try {
+            await base44.integrations.Core.SendEmail({
+              from_name: "ProposalIQ.ai Support",
+              to: feedback.reporter_email,
+              subject: `Your feedback has been resolved: ${feedback.title}`,
+              body: `
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 24px;">Your Feedback Has Been Resolved</h1>
+    </div>
+    
+    <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+      <p style="font-size: 16px; margin-bottom: 20px;">Hi ${feedback.reporter_name},</p>
+      
+      <p style="font-size: 16px; margin-bottom: 20px;">
+        Great news! We've resolved your feedback about: <strong>${feedback.title}</strong>
+      </p>
+      
+      ${notes ? `
+        <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px; color: #166534;"><strong>Resolution Notes:</strong></p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #166534;">${notes}</p>
+        </div>
+      ` : ''}
+      
+      <div style="background: #fef3c7; border: 1px solid #fbbf24; padding: 20px; border-radius: 8px; margin: 30px 0;">
+        <p style="margin: 0 0 15px 0; font-size: 16px; color: #92400e;">
+          <strong>📊 How did we do?</strong>
+        </p>
+        <p style="margin: 0 0 20px 0; font-size: 14px; color: #92400e;">
+          We'd love to hear your feedback! Please rate how helpful our response was:
+        </p>
+        <div style="text-align: center;">
+          <a href="https://app.proposaliq.ai/RateFeedback?id=${id}&rating=5" style="display: inline-block; margin: 5px; padding: 10px 20px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            ⭐⭐⭐⭐⭐ Excellent
+          </a>
+          <a href="https://app.proposaliq.ai/RateFeedback?id=${id}&rating=4" style="display: inline-block; margin: 5px; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            ⭐⭐⭐⭐ Good
+          </a>
+          <a href="https://app.proposaliq.ai/RateFeedback?id=${id}&rating=3" style="display: inline-block; margin: 5px; padding: 10px 20px; background: #eab308; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            ⭐⭐⭐ Fair
+          </a>
+          <a href="https://app.proposaliq.ai/RateFeedback?id=${id}&rating=2" style="display: inline-block; margin: 5px; padding: 10px 20px; background: #f97316; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            ⭐⭐ Poor
+          </a>
+          <a href="https://app.proposaliq.ai/RateFeedback?id=${id}&rating=1" style="display: inline-block; margin: 5px; padding: 10px 20px; background: #ef4444; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            ⭐ Very Poor
+          </a>
+        </div>
+      </div>
+      
+      <p style="font-size: 14px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        Thank you for helping us improve!<br>
+        <strong>The ProposalIQ.ai Team</strong>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+              `
+            });
+          } catch (emailError) {
+            console.error("Error sending resolution email:", emailError);
+          }
+        }
       }
       
       return base44.entities.Feedback.update(id, updateData);
@@ -91,6 +184,17 @@ export default function FeedbackModule() {
     });
   };
 
+  const handleAssign = async (assignedTo) => {
+    if (!selectedFeedback) return;
+    
+    await updateStatusMutation.mutateAsync({
+      id: selectedFeedback.id,
+      status: selectedFeedback.status,
+      notes: selectedFeedback.admin_notes || "",
+      assignedTo
+    });
+  };
+
   const filteredFeedback = feedbackList.filter(item => {
     const matchesSearch = 
       item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -99,8 +203,12 @@ export default function FeedbackModule() {
     
     const matchesStatus = statusFilter === "all" || item.status === statusFilter;
     const matchesType = typeFilter === "all" || item.issue_type === typeFilter;
+    const matchesPriority = priorityFilter === "all" || item.priority === priorityFilter;
+    const matchesAssigned = assignedFilter === "all" || 
+      (assignedFilter === "unassigned" && !item.assigned_to_email) ||
+      (assignedFilter === "assigned" && item.assigned_to_email);
     
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus && matchesType && matchesPriority && matchesAssigned;
   });
 
   const getStatusColor = (status) => {
@@ -138,13 +246,18 @@ export default function FeedbackModule() {
     total: feedbackList.length,
     new: feedbackList.filter(f => f.status === 'new').length,
     inProgress: feedbackList.filter(f => f.status === 'in_progress').length,
-    resolved: feedbackList.filter(f => f.status === 'resolved' || f.status === 'closed').length
+    resolved: feedbackList.filter(f => f.status === 'resolved' || f.status === 'closed').length,
+    unassigned: feedbackList.filter(f => !f.assigned_to_email).length,
+    avgRating: feedbackList.filter(f => f.user_satisfaction_rating).length > 0
+      ? (feedbackList.reduce((sum, f) => sum + (f.user_satisfaction_rating || 0), 0) / 
+         feedbackList.filter(f => f.user_satisfaction_rating).length).toFixed(1)
+      : 'N/A'
   };
 
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -192,6 +305,18 @@ export default function FeedbackModule() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <Star className="w-8 h-8 text-yellow-500" />
+              <div className="text-right">
+                <p className="text-2xl font-bold">{stats.avgRating}</p>
+                <p className="text-xs text-slate-600">Avg Rating</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -220,6 +345,18 @@ export default function FeedbackModule() {
                 <SelectItem value="wont_fix">Won't Fix</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Type" />
@@ -231,6 +368,16 @@ export default function FeedbackModule() {
                 <SelectItem value="question">Question</SelectItem>
                 <SelectItem value="improvement">Improvement</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={assignedFilter} onValueChange={setAssignedFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Assignment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                <SelectItem value="assigned">Assigned</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -260,11 +407,16 @@ export default function FeedbackModule() {
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h4 className="font-semibold text-slate-900">{feedback.title}</h4>
                         <Badge className={getStatusColor(feedback.status)}>
                           {feedback.status.replace('_', ' ')}
                         </Badge>
+                        {feedback.user_satisfaction_rating && (
+                          <Badge className="bg-yellow-100 text-yellow-800">
+                            {Array(feedback.user_satisfaction_rating).fill('⭐').join('')}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-slate-600 line-clamp-2">{feedback.description}</p>
                     </div>
@@ -280,6 +432,12 @@ export default function FeedbackModule() {
                     <Badge className={getPriorityColor(feedback.priority)}>
                       {feedback.priority}
                     </Badge>
+                    {feedback.assigned_to_email && (
+                      <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                        <UserCheck className="w-3 h-3 mr-1" />
+                        {feedback.assigned_to_name}
+                      </Badge>
+                    )}
                     <div className="flex items-center gap-1 text-xs text-slate-500">
                       <User className="w-3 h-3" />
                       {feedback.reporter_name}
@@ -321,6 +479,55 @@ export default function FeedbackModule() {
             </DialogHeader>
 
             <div className="space-y-6 py-4">
+              {/* Assignment Section */}
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <Label className="font-semibold mb-2 block">Assign To Team Member</Label>
+                <Select
+                  value={selectedFeedback.assigned_to_email || ""}
+                  onValueChange={handleAssign}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Unassigned</SelectItem>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.email}>
+                        {member.full_name} ({member.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedFeedback.assigned_to_email && (
+                  <p className="text-xs text-purple-700 mt-2">
+                    Assigned to {selectedFeedback.assigned_to_name} on {moment(selectedFeedback.assigned_date).format('MMM D, YYYY')}
+                  </p>
+                )}
+              </div>
+
+              {/* User Satisfaction Rating */}
+              {selectedFeedback.user_satisfaction_rating && (
+                <div className="p-4 bg-yellow-50 rounded-lg">
+                  <Label className="font-semibold mb-2 block">User Satisfaction Rating</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">
+                      {Array(selectedFeedback.user_satisfaction_rating).fill('⭐').join('')}
+                    </span>
+                    <span className="text-sm text-slate-600">
+                      ({selectedFeedback.user_satisfaction_rating}/5)
+                    </span>
+                  </div>
+                  {selectedFeedback.user_satisfaction_comment && (
+                    <div className="mt-3 p-3 bg-white rounded border">
+                      <p className="text-sm text-slate-700">{selectedFeedback.user_satisfaction_comment}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 mt-2">
+                    Rated on {moment(selectedFeedback.rating_date).format('MMM D, YYYY')}
+                  </p>
+                </div>
+              )}
+
               {/* Reporter Info */}
               <div className="p-4 bg-slate-50 rounded-lg space-y-2">
                 <div className="flex items-center gap-2 text-sm">
