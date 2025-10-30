@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ProposalStatusTimeline from "../components/collaboration/ProposalStatusTimeline";
 
 export default function ClientProposalView() {
   const queryClient = useQueryClient();
@@ -513,6 +515,9 @@ export default function ClientProposalView() {
           </Button>
         </div>
 
+        {/* Proposal Status Timeline */}
+        <ProposalStatusTimeline proposal={proposal} />
+
         {/* Proposal Header */}
         <Card className="border-none shadow-xl">
           <CardHeader>
@@ -579,7 +584,6 @@ export default function ClientProposalView() {
               )}
             </div>
 
-            {/* Action Buttons */}
             {canTakeAction && (
               <div className="flex gap-3 mt-6 pt-6 border-t">
                 <Button
