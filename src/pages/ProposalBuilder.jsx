@@ -6,7 +6,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -31,6 +31,7 @@ import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
 import ProposalFiles from "../components/collaboration/ProposalFiles";
 import AutomationHub from "../components/workflows/AutomationHub";
 import FloatingChatButton from "../components/collaboration/FloatingChatButton";
+import ClientSharingPanel from "../components/builder/ClientSharingPanel";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -255,8 +256,12 @@ export default function ProposalBuilder() {
 
         {isDataLoaded ? (
           <Tabs defaultValue="builder" className="mb-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="builder">Builder</TabsTrigger>
+              <TabsTrigger value="client-sharing">
+                <Users className="w-4 h-4 mr-2" />
+                Client Sharing
+              </TabsTrigger>
               <TabsTrigger value="tasks">
                 <CheckSquare className="w-4 h-4 mr-2" />
                 Tasks
@@ -320,6 +325,13 @@ export default function ProposalBuilder() {
                   </Button>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="client-sharing">
+              <ClientSharingPanel 
+                proposal={{ id: proposalId, ...proposalData }}
+                organization={organization}
+              />
             </TabsContent>
 
             <TabsContent value="tasks">
