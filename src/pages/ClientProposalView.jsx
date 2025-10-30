@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   ArrowLeft,
   CheckCircle2, 
@@ -20,7 +22,14 @@ import {
   AlertCircle,
   Shield,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Upload,
+  Paperclip,
+  Download,
+  Trash2,
+  Check,
+  X,
+  Reply
 } from "lucide-react";
 import moment from "moment";
 import {
@@ -31,7 +40,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function ClientProposalView() {
   const queryClient = useQueryClient();
@@ -42,9 +57,16 @@ export default function ClientProposalView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [newComment, setNewComment] = useState("");
+  const [commentType, setCommentType] = useState("general");
+  const [commentPriority, setCommentPriority] = useState("medium");
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [decisionNotes, setDecisionNotes] = useState("");
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileDescription, setFileDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -62,7 +84,6 @@ export default function ClientProposalView() {
         setClientToken(token);
         setProposalId(propId);
 
-        // Verify client token
         const clients = await base44.entities.Client.filter({ access_token: token });
         if (clients.length === 0) {
           setError("Invalid or expired access link.");
@@ -73,7 +94,6 @@ export default function ClientProposalView() {
         const clientData = clients[0];
         setClient(clientData);
 
-        // Load organization
         const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
@@ -99,12 +119,10 @@ export default function ClientProposalView() {
       
       const prop = proposals[0];
       
-      // Verify client has access
       if (!prop.shared_with_client_ids?.includes(client.id) || !prop.client_view_enabled) {
         throw new Error("Access denied");
       }
 
-      // Update last viewed timestamp
       await base44.entities.Proposal.update(proposalId, {
         client_last_viewed: new Date().toISOString()
       });
@@ -134,27 +152,41 @@ export default function ClientProposalView() {
     enabled: !!proposalId,
   });
 
+  const { data: clientFiles } = useQuery({
+    queryKey: ['client-uploaded-files', proposalId, client?.id],
+    queryFn: async () => {
+      if (!proposalId || !client?.id) return [];
+      return base44.entities.ClientUploadedFile.filter({ 
+        proposal_id: proposalId,
+        client_id: client.id 
+      }, '-created_date');
+    },
+    initialData: [],
+    enabled: !!proposalId && !!client?.id,
+  });
+
   const addCommentMutation = useMutation({
-    mutationFn: async (content) => {
+    mutationFn: async ({ content, type, priority, parentId }) => {
       const comment = await base44.entities.ProposalComment.create({
         proposal_id: proposalId,
         author_email: client.contact_email,
         author_name: client.contact_name || client.client_name,
         content,
-        comment_type: "general"
+        comment_type: type,
+        is_from_client: true,
+        client_priority: priority,
+        parent_comment_id: parentId || null
       });
 
-      // Update feedback count
       await base44.entities.Proposal.update(proposalId, {
         client_feedback_count: (proposal.client_feedback_count || 0) + 1
       });
 
-      // Create notification for proposal owner
       await base44.entities.Notification.create({
         user_email: proposal.created_by,
         notification_type: "comment_reply",
-        title: "Client Feedback Received",
-        message: `${client.contact_name || client.client_name} commented on "${proposal.proposal_name}": ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`,
+        title: parentId ? "Client Replied to Your Comment" : "Client Feedback Received",
+        message: `${client.contact_name || client.client_name} ${parentId ? 'replied' : 'commented'} on "${proposal.proposal_name}": ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`,
         related_proposal_id: proposalId,
         related_entity_id: comment.id,
         related_entity_type: "comment",
@@ -163,13 +195,23 @@ export default function ClientProposalView() {
         action_url: `/ProposalBuilder?id=${proposalId}`
       });
 
-      // Also log activity
+      await base44.entities.ClientNotification.create({
+        client_id: client.id,
+        proposal_id: proposalId,
+        notification_type: "consultant_reply",
+        title: "Your feedback was submitted",
+        message: `Your ${type} feedback has been sent to your consultant.`,
+        action_url: `/ClientProposalView?proposal=${proposalId}`,
+        from_consultant_email: proposal.created_by,
+        priority: "normal"
+      });
+
       await base44.entities.ActivityLog.create({
         proposal_id: proposalId,
         user_email: client.contact_email,
         user_name: client.contact_name || client.client_name,
         action_type: "comment_added",
-        action_description: `Client ${client.contact_name || client.client_name} added feedback`
+        action_description: `Client ${client.contact_name || client.client_name} added ${type} feedback`
       });
 
       return comment;
@@ -178,6 +220,66 @@ export default function ClientProposalView() {
       queryClient.invalidateQueries({ queryKey: ['client-proposal-comments'] });
       queryClient.invalidateQueries({ queryKey: ['client-proposal'] });
       setNewComment("");
+      setCommentType("general");
+      setCommentPriority("medium");
+      setReplyingTo(null);
+    },
+  });
+
+  const uploadFileMutation = useMutation({
+    mutationFn: async ({ file, description }) => {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+      const uploadedFile = await base44.entities.ClientUploadedFile.create({
+        client_id: client.id,
+        proposal_id: proposalId,
+        organization_id: organization.id,
+        file_name: file.name,
+        file_url: file_url,
+        file_size: file.size,
+        file_type: file.type,
+        description: description,
+        uploaded_by_name: client.contact_name || client.client_name,
+        uploaded_by_email: client.contact_email
+      });
+
+      await base44.entities.Notification.create({
+        user_email: proposal.created_by,
+        notification_type: "comment_reply",
+        title: "Client Uploaded a File",
+        message: `${client.contact_name || client.client_name} uploaded "${file.name}" to "${proposal.proposal_name}"`,
+        related_proposal_id: proposalId,
+        related_entity_id: uploadedFile.id,
+        related_entity_type: "comment",
+        from_user_email: client.contact_email,
+        from_user_name: client.contact_name || client.client_name,
+        action_url: `/ProposalBuilder?id=${proposalId}`
+      });
+
+      await base44.entities.ActivityLog.create({
+        proposal_id: proposalId,
+        user_email: client.contact_email,
+        user_name: client.contact_name || client.client_name,
+        action_type: "file_uploaded",
+        action_description: `Client uploaded ${file.name}`
+      });
+
+      return uploadedFile;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client-uploaded-files'] });
+      setShowUploadDialog(false);
+      setSelectedFile(null);
+      setFileDescription("");
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileId) => {
+      await base44.entities.ClientUploadedFile.delete(fileId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client-uploaded-files'] });
     },
   });
 
@@ -189,7 +291,6 @@ export default function ClientProposalView() {
         client_decision_notes: decisionNotes
       });
 
-      // Create notification for proposal owner
       await base44.entities.Notification.create({
         user_email: proposal.created_by,
         notification_type: "status_change",
@@ -202,7 +303,6 @@ export default function ClientProposalView() {
         action_url: `/ProposalBuilder?id=${proposalId}`
       });
 
-      // Log activity
       await base44.entities.ActivityLog.create({
         proposal_id: proposalId,
         user_email: client.contact_email,
@@ -226,7 +326,6 @@ export default function ClientProposalView() {
         client_decision_notes: decisionNotes
       });
 
-      // Create notification for proposal owner
       await base44.entities.Notification.create({
         user_email: proposal.created_by,
         notification_type: "status_change",
@@ -239,7 +338,6 @@ export default function ClientProposalView() {
         action_url: `/ProposalBuilder?id=${proposalId}`
       });
 
-      // Log activity
       await base44.entities.ActivityLog.create({
         proposal_id: proposalId,
         user_email: client.contact_email,
@@ -257,9 +355,122 @@ export default function ClientProposalView() {
 
   const handleAddComment = () => {
     if (newComment.trim()) {
-      addCommentMutation.mutate(newComment.trim());
+      addCommentMutation.mutate({
+        content: newComment.trim(),
+        type: commentType,
+        priority: commentPriority,
+        parentId: replyingTo?.id
+      });
     }
   };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setShowUploadDialog(true);
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) return;
+    setUploading(true);
+    try {
+      await uploadFileMutation.mutateAsync({ 
+        file: selectedFile, 
+        description: fileDescription 
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload file. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Build comment tree for threaded replies
+  const buildCommentTree = (comments) => {
+    const commentMap = {};
+    const rootComments = [];
+
+    comments.forEach(comment => {
+      commentMap[comment.id] = { ...comment, replies: [] };
+    });
+
+    comments.forEach(comment => {
+      if (comment.parent_comment_id && commentMap[comment.parent_comment_id]) {
+        commentMap[comment.parent_comment_id].replies.push(commentMap[comment.id]);
+      } else {
+        rootComments.push(commentMap[comment.id]);
+      }
+    });
+
+    return rootComments;
+  };
+
+  const CommentThread = ({ comment, depth = 0 }) => {
+    const isFromClient = comment.author_email === client?.contact_email;
+    
+    return (
+      <div className={`${depth > 0 ? 'ml-8 mt-3' : ''}`}>
+        <div className={`p-4 rounded-lg border ${isFromClient ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-900">{comment.author_name}</span>
+              {isFromClient && <Badge className="bg-blue-600 text-white text-xs">You</Badge>}
+              {comment.comment_type !== 'general' && (
+                <Badge variant="outline" className="text-xs capitalize">
+                  {comment.comment_type}
+                </Badge>
+              )}
+              {comment.client_priority && comment.client_priority !== 'medium' && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${
+                    comment.client_priority === 'urgent' ? 'border-red-500 text-red-700' :
+                    comment.client_priority === 'high' ? 'border-orange-500 text-orange-700' :
+                    'border-slate-500 text-slate-700'
+                  }`}
+                >
+                  {comment.client_priority}
+                </Badge>
+              )}
+              {comment.is_resolved && (
+                <Badge className="bg-green-100 text-green-700 text-xs">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Resolved
+                </Badge>
+              )}
+            </div>
+            <span className="text-xs text-slate-500">
+              {moment(comment.created_date).fromNow()}
+            </span>
+          </div>
+          <p className="text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+          {!isFromClient && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => setReplyingTo(comment)}
+            >
+              <Reply className="w-3 h-3 mr-1" />
+              Reply
+            </Button>
+          )}
+        </div>
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-2">
+            {comment.replies.map(reply => (
+              <CommentThread key={reply.id} comment={reply} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const commentTree = buildCommentTree(comments);
 
   if (loading || proposalLoading) {
     return (
@@ -441,6 +652,64 @@ export default function ClientProposalView() {
           </CardContent>
         </Card>
 
+        {/* Client Uploaded Files */}
+        {clientFiles.length > 0 && (
+          <Card className="border-none shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Your Uploaded Files ({clientFiles.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {clientFiles.map(file => (
+                  <div key={file.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border">
+                    <div className="flex items-center gap-3 flex-1">
+                      <Paperclip className="w-5 h-5 text-blue-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 truncate">{file.file_name}</p>
+                        {file.description && (
+                          <p className="text-sm text-slate-600 truncate">{file.description}</p>
+                        )}
+                        <p className="text-xs text-slate-500">
+                          {(file.file_size / 1024).toFixed(1)} KB • {moment(file.created_date).fromNow()}
+                          {file.viewed_by_consultant && (
+                            <span className="ml-2 text-green-600">
+                              <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                              Viewed by consultant
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(file.file_url, '_blank')}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (confirm(`Delete "${file.file_name}"?`)) {
+                            deleteFileMutation.mutate(file.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Comments Section */}
         <Card className="border-none shadow-xl">
           <CardHeader>
@@ -452,16 +721,8 @@ export default function ClientProposalView() {
           <CardContent className="space-y-6">
             {/* Existing Comments */}
             <div className="space-y-4">
-              {comments.map(comment => (
-                <div key={comment.id} className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-slate-900">{comment.author_name}</span>
-                    <span className="text-xs text-slate-500">
-                      {moment(comment.created_date).fromNow()}
-                    </span>
-                  </div>
-                  <p className="text-slate-700">{comment.content}</p>
-                </div>
+              {commentTree.map(comment => (
+                <CommentThread key={comment.id} comment={comment} />
               ))}
               {comments.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
@@ -473,7 +734,57 @@ export default function ClientProposalView() {
 
             {/* Add Comment */}
             <div className="border-t pt-6">
-              <Label className="mb-2">Add Your Feedback or Questions</Label>
+              {replyingTo && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-blue-900 mb-1">
+                      Replying to {replyingTo.author_name}
+                    </p>
+                    <p className="text-xs text-blue-700 line-clamp-2">{replyingTo.content}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setReplyingTo(null)}
+                    className="h-6 w-6"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              
+              <div className="grid md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <Label className="text-xs mb-1">Feedback Type</Label>
+                  <Select value={commentType} onValueChange={setCommentType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General Comment</SelectItem>
+                      <SelectItem value="question">Question</SelectItem>
+                      <SelectItem value="suggestion">Suggestion</SelectItem>
+                      <SelectItem value="issue">Issue/Concern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1">Priority</Label>
+                  <Select value={commentPriority} onValueChange={setCommentPriority}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Label className="mb-2">Your Feedback or Questions</Label>
               <Textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
@@ -481,19 +792,37 @@ export default function ClientProposalView() {
                 rows={4}
                 className="mb-3"
               />
-              <Button
-                onClick={handleAddComment}
-                disabled={!newComment.trim() || addCommentMutation.isPending}
-              >
-                {addCommentMutation.isPending ? (
-                  <>Sending...</>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Feedback
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-3">
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button
+                  variant="outline"
+                  asChild
+                >
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <Paperclip className="w-4 h-4 mr-2" />
+                    Attach File
+                  </label>
+                </Button>
+                <Button
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim() || addCommentMutation.isPending}
+                  className="flex-1"
+                >
+                  {addCommentMutation.isPending ? (
+                    <>Sending...</>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      {replyingTo ? 'Send Reply' : 'Send Feedback'}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -580,6 +909,72 @@ export default function ClientProposalView() {
               {rejectProposalMutation.isPending ? 'Rejecting...' : 'Confirm Rejection'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload File Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload File to Consultant</DialogTitle>
+            <DialogDescription>
+              Share a file with your consultant related to this proposal
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedFile && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                <Paperclip className="w-8 h-8 text-blue-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-slate-900 truncate">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Description (Optional)</Label>
+                <Textarea
+                  placeholder="What is this file for?"
+                  value={fileDescription}
+                  onChange={(e) => setFileDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowUploadDialog(false);
+                    setSelectedFile(null);
+                    setFileDescription("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleFileUpload}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
