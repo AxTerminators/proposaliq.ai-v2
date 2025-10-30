@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -24,6 +23,7 @@ import {
 } from "lucide-react";
 import moment from "moment";
 import ClientNotificationCenter from "../components/collaboration/ClientNotificationCenter";
+import ClientActionItems from "../components/collaboration/ClientActionItems";
 
 export default function ClientPortal() {
   const [clientToken, setClientToken] = useState(null);
@@ -35,7 +35,6 @@ export default function ClientPortal() {
   useEffect(() => {
     const loadClientData = async () => {
       try {
-        // Get client token from URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         
@@ -47,7 +46,6 @@ export default function ClientPortal() {
 
         setClientToken(token);
 
-        // Find client by token
         const clients = await base44.entities.Client.filter({ access_token: token });
         
         if (clients.length === 0) {
@@ -58,7 +56,6 @@ export default function ClientPortal() {
 
         const clientData = clients[0];
         
-        // Check if token is expired
         if (clientData.token_expires_at) {
           const expiresAt = new Date(clientData.token_expires_at);
           if (expiresAt < new Date()) {
@@ -70,12 +67,10 @@ export default function ClientPortal() {
 
         setClient(clientData);
 
-        // Update last access time
         await base44.entities.Client.update(clientData.id, {
           last_portal_access: new Date().toISOString()
         });
 
-        // Load organization (consultant company)
         const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
@@ -110,7 +105,7 @@ export default function ClientPortal() {
     queryFn: async () => {
       if (!client?.id || proposals.length === 0) return [];
       const proposalIds = proposals.map(p => p.id);
-      const allActivity = await base44.entities.ActivityLog.list('-created_date', 20); // Limit to 20 for recent
+      const allActivity = await base44.entities.ActivityLog.list('-created_date', 20);
       return allActivity.filter(a => proposalIds.includes(a.proposal_id));
     },
     initialData: [],
@@ -209,7 +204,6 @@ export default function ClientPortal() {
     );
   }
 
-  // Calculate stats
   const stats = {
     total: proposals.length,
     needingReview: proposals.filter(p => p.status === 'client_review').length,
@@ -249,7 +243,7 @@ export default function ClientPortal() {
           </CardContent>
         </Card>
 
-        {/* Stats */}
+        {/* Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="border-none shadow-lg">
             <CardContent className="p-4">
@@ -299,6 +293,9 @@ export default function ClientPortal() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Action Items Widget */}
+        <ClientActionItems proposals={proposals} clientToken={clientToken} />
 
         {/* Main Content Tabs */}
         <Card className="border-none shadow-xl">
