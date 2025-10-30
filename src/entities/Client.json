@@ -1,0 +1,107 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Reference to the organization (consultant/proposal company) that owns this client"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Full name of the client company or individual"
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Primary contact person's full name"
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Primary contact email address"
+    },
+    "contact_phone": {
+      "type": "string",
+      "description": "Primary contact phone number"
+    },
+    "client_organization": {
+      "type": "string",
+      "description": "Client's organization/company name"
+    },
+    "client_title": {
+      "type": "string",
+      "description": "Client contact's job title"
+    },
+    "address": {
+      "type": "string",
+      "description": "Client's business address"
+    },
+    "industry": {
+      "type": "string",
+      "description": "Client's industry or sector"
+    },
+    "relationship_status": {
+      "type": "string",
+      "enum": [
+        "prospect",
+        "active",
+        "inactive",
+        "former"
+      ],
+      "default": "active",
+      "description": "Current relationship status"
+    },
+    "portal_access_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this client can access the client portal"
+    },
+    "access_token": {
+      "type": "string",
+      "description": "Secure token for client portal access (auto-generated)"
+    },
+    "token_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the access token expires"
+    },
+    "last_portal_access": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time client accessed their portal"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Internal notes about this client"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for categorization"
+    },
+    "custom_branding": {
+      "type": "object",
+      "properties": {
+        "logo_url": {
+          "type": "string",
+          "description": "Custom logo for client portal"
+        },
+        "primary_color": {
+          "type": "string",
+          "description": "Primary brand color (hex)"
+        },
+        "company_name": {
+          "type": "string",
+          "description": "Company name to display in portal"
+        }
+      },
+      "description": "Optional custom branding for client's portal view"
+    }
+  },
+  "required": [
+    "organization_id",
+    "client_name",
+    "contact_email"
+  ]
+}
