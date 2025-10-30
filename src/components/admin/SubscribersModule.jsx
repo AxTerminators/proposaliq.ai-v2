@@ -12,18 +12,21 @@ import {
   Trash2,
   Shield,
   Building2,
-  Mail
+  Mail,
+  AlertCircle
 } from "lucide-react";
-import { canEdit, canDelete, logAdminAction } from "./PermissionChecker";
+import { hasPermission, logAdminAction, ROLE_PERMISSIONS, getRoleLabel, getRoleDescription } from "./PermissionChecker";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function SubscribersModule({ currentUser }) {
   const queryClient = useQueryClient();
@@ -76,18 +79,29 @@ export default function SubscribersModule({ currentUser }) {
     user.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const userRole = currentUser.admin_role || currentUser.role;
-  const canEditUsers = canEdit(userRole, 'subscribers');
-  const canDeleteUsers = canDelete(userRole, 'subscribers');
+  // Check permissions
+  const canEditUsers = hasPermission(currentUser, "manage_users");
+  const canDeleteUsers = hasPermission(currentUser, "manage_users");
+  const isSuperAdmin = currentUser?.admin_role === 'super_admin';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Subscriber Management</h2>
-          <p className="text-slate-600">Manage all platform users and their organizations</p>
+          <p className="text-slate-600">Manage all platform users and their roles</p>
         </div>
       </div>
+
+      {!canEditUsers && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertCircle className="w-4 h-4 text-amber-600" />
+          <AlertDescription>
+            <p className="font-semibold text-amber-900">Read-Only Access</p>
+            <p className="text-sm text-amber-800">Your role ({getRoleLabel(currentUser.admin_role)}) has view-only access to this module.</p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-none shadow-lg">
         <CardHeader className="border-b">
@@ -123,7 +137,7 @@ export default function SubscribersModule({ currentUser }) {
                           {user.role === 'admin' && (
                             <Badge variant="destructive">
                               <Shield className="w-3 h-3 mr-1" />
-                              {user.admin_role || 'Admin'}
+                              {user.admin_role ? getRoleLabel(user.admin_role) : 'Admin'}
                             </Badge>
                           )}
                           {!user.is_active && (
@@ -142,6 +156,11 @@ export default function SubscribersModule({ currentUser }) {
                             </span>
                           )}
                         </div>
+                        {user.admin_role && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            {getRoleDescription(user.admin_role)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -177,9 +196,12 @@ export default function SubscribersModule({ currentUser }) {
       </Card>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Modify user account settings and role assignments
+            </DialogDescription>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-4">
@@ -190,24 +212,42 @@ export default function SubscribersModule({ currentUser }) {
                   onChange={(e) => setSelectedUser({...selectedUser, full_name: e.target.value})}
                 />
               </div>
+              
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label>Email (Read-only)</Label>
+                <Input
+                  value={selectedUser.email || ''}
+                  disabled
+                  className="bg-slate-50"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>User Role</Label>
                 <Select
                   value={selectedUser.role}
                   onValueChange={(value) => setSelectedUser({...selectedUser, role: value})}
+                  disabled={!canEditUsers}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="user">Regular User</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-slate-500">
+                  {selectedUser.role === 'admin' ? 'User has access to Admin Portal' : 'Standard user access only'}
+                </p>
               </div>
-              {selectedUser.role === 'admin' && userRole === 'super_admin' && (
-                <div className="space-y-2">
-                  <Label>Admin Role</Label>
+              
+              {selectedUser.role === 'admin' && isSuperAdmin && (
+                <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <Label className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                    Admin Role (Super Admin Only)
+                  </Label>
                   <Select
                     value={selectedUser.admin_role || 'operations_admin'}
                     onValueChange={(value) => setSelectedUser({...selectedUser, admin_role: value})}
@@ -216,24 +256,50 @@ export default function SubscribersModule({ currentUser }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="operations_admin">Operations Admin</SelectItem>
-                      <SelectItem value="content_manager">Content Manager</SelectItem>
-                      <SelectItem value="billing_manager">Billing Manager</SelectItem>
-                      <SelectItem value="ai_manager">AI Manager</SelectItem>
-                      <SelectItem value="security_officer">Security Officer</SelectItem>
-                      <SelectItem value="reviewer">Reviewer</SelectItem>
-                      <SelectItem value="tech_support">Tech Support</SelectItem>
-                      <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
+                      {Object.entries(ROLE_PERMISSIONS).map(([key, role]) => (
+                        <SelectItem key={key} value={key}>
+                          <div className="py-1">
+                            <div className="font-semibold">{role.label}</div>
+                            <div className="text-xs text-slate-500">{role.description}</div>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {selectedUser.admin_role && (
+                    <div className="mt-3 p-3 bg-white rounded border">
+                      <p className="text-xs font-semibold text-slate-700 mb-2">Permissions:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {ROLE_PERMISSIONS[selectedUser.admin_role]?.permissions.map(perm => (
+                          <Badge key={perm} variant="outline" className="text-xs">
+                            {perm}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="flex items-center gap-2">
+              
+              {selectedUser.role === 'admin' && !isSuperAdmin && (
+                <Alert>
+                  <Shield className="w-4 h-4" />
+                  <AlertDescription>
+                    <p className="text-sm font-semibold">Only Super Admins can assign admin roles</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Current role: {selectedUser.admin_role ? getRoleLabel(selectedUser.admin_role) : 'Not assigned'}
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="flex items-center gap-2 p-3 bg-slate-50 rounded">
                 <input
                   type="checkbox"
                   checked={selectedUser.is_active ?? true}
                   onChange={(e) => setSelectedUser({...selectedUser, is_active: e.target.checked})}
                   className="w-4 h-4"
+                  disabled={!canEditUsers}
                 />
                 <Label>Active Account</Label>
               </div>
@@ -245,16 +311,23 @@ export default function SubscribersModule({ currentUser }) {
             </Button>
             <Button
               onClick={() => {
+                const updates = {
+                  full_name: selectedUser.full_name,
+                  role: selectedUser.role,
+                  is_active: selectedUser.is_active
+                };
+                
+                // Only super admins can update admin_role
+                if (isSuperAdmin && selectedUser.role === 'admin') {
+                  updates.admin_role = selectedUser.admin_role;
+                }
+                
                 updateUserMutation.mutate({
                   userId: selectedUser.id,
-                  updates: {
-                    full_name: selectedUser.full_name,
-                    role: selectedUser.role,
-                    admin_role: selectedUser.admin_role,
-                    is_active: selectedUser.is_active
-                  }
+                  updates
                 });
               }}
+              disabled={!canEditUsers}
             >
               Save Changes
             </Button>
