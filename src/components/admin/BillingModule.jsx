@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +14,7 @@ import {
   Users,
   AlertCircle
 } from "lucide-react";
-import { canEdit, logAdminAction } from "./PermissionChecker";
+import { hasPermission, logAdminAction } from "./PermissionChecker";
 import {
   Dialog,
   DialogContent,
@@ -73,8 +74,9 @@ export default function BillingModule({ currentUser }) {
     return org?.organization_name?.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  const userRole = currentUser.admin_role || currentUser.role;
-  const canEditBilling = canEdit(userRole, 'billing');
+  // Check permissions
+  const canEditBilling = hasPermission(currentUser, "manage_billing");
+  const canViewBilling = hasPermission(currentUser, "view_billing") || canEditBilling;
 
   // Calculate revenue metrics
   const totalMRR = subscriptions.reduce((sum, sub) => sum + (sub.monthly_price || 0), 0);
