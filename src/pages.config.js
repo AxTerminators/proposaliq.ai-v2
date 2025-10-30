@@ -21,6 +21,7 @@ import Tasks from './pages/Tasks';
 import TeamingPartners from './pages/TeamingPartners';
 import Feedback from './pages/Feedback';
 import RateFeedback from './pages/RateFeedback';
+import ClientPortal from './pages/ClientPortal';
 import Layout from './Layout.jsx';
 
 
@@ -48,6 +49,7 @@ export const PAGES = {
     "TeamingPartners": TeamingPartners,
     "Feedback": Feedback,
     "RateFeedback": RateFeedback,
+    "ClientPortal": ClientPortal,
 }
 
 export const pagesConfig = {
