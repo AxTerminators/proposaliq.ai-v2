@@ -31,7 +31,8 @@ import {
   Palette,
   XCircle, // Added
   MessageSquare, // Added
-  FileText // Added
+  FileText, // Added
+  Briefcase // Added for upgrade prompt
 } from "lucide-react";
 import {
   Dialog,
@@ -50,11 +51,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import moment from "moment";
+import { useRouter } from 'next/navigation'; // Assuming Next.js router for navigation
+import { isConsultantAccount, hasClientPortalAccess } from "@/utils/organizationHelpers";
 
-export default function Clients() {
+export default function ClientsPage() { // Renamed from Clients to ClientsPage
   const queryClient = useQueryClient();
+  const router = useRouter(); // Initialize router for navigation
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
+  const [initialDataLoading, setInitialDataLoading] = useState(true); // New state for initial useEffect data
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -83,7 +88,7 @@ export default function Clients() {
   });
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
@@ -96,10 +101,12 @@ export default function Clients() {
           setOrganization(orgs[0]);
         }
       } catch (error) {
-        console.error("Error loading data:", error);
+        console.error("Error loading initial data:", error);
+      } finally {
+        setInitialDataLoading(false); // Set to false after user/org data is loaded
       }
     };
-    loadData();
+    loadInitialData();
   }, []);
 
   const { data: clients, isLoading } = useQuery({
@@ -112,7 +119,7 @@ export default function Clients() {
       );
     },
     initialData: [],
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !initialDataLoading, // Enable only after organization is loaded
   });
 
   const { data: proposals } = useQuery({
@@ -122,7 +129,21 @@ export default function Clients() {
       return base44.entities.Proposal.filter({ organization_id: organization.id });
     },
     initialData: [],
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !initialDataLoading, // Enable only after organization is loaded
+  });
+
+  const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
+    queryKey: ['subscription', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return null;
+      const subs = await base44.entities.Subscription.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+      return subs.length > 0 ? subs[0] : null;
+    },
+    enabled: !!organization?.id && !initialDataLoading, // Enable only after organization is loaded
   });
 
   const createClientMutation = useMutation({
@@ -207,21 +228,21 @@ export default function Clients() {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
       if (isEditing && selectedClient) {
-        setSelectedClient({
-          ...selectedClient,
+        setSelectedClient(prev => ({
+          ...prev,
           custom_branding: {
-            ...selectedClient.custom_branding,
+            ...(prev.custom_branding || {}),
             logo_url: file_url
           }
-        });
+        }));
       } else {
-        setNewClient({
-          ...newClient,
+        setNewClient(prev => ({
+          ...prev,
           custom_branding: {
-            ...newClient.custom_branding,
+            ...(prev.custom_branding || {}),
             logo_url: file_url
           }
-        });
+        }));
       }
     } catch (error) {
       console.error("Error uploading logo:", error);
@@ -253,6 +274,7 @@ export default function Clients() {
   const handleEditClient = (client) => {
     setSelectedClient({
       ...client,
+      // Ensure custom_branding object exists to prevent errors with nested access
       custom_branding: client.custom_branding || {
         logo_url: "",
         primary_color: "#2563eb",
@@ -311,10 +333,52 @@ export default function Clients() {
     client.client_organization?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (!organization) {
+  // Check if user has access to client features
+  const hasAccess = organization && subscription && isConsultantAccount(organization) && hasClientPortalAccess(subscription);
+
+  // Show loading skeleton if initial data or subscription is loading
+  if (initialDataLoading || isLoadingSubscription) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Skeleton className="h-32 w-32 rounded-xl" />
+      </div>
+    );
+  }
+
+  // Show upgrade prompt if user doesn't have access
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <Card className="border-none shadow-xl">
+            <CardContent className="p-12 text-center">
+              <Users className="w-20 h-20 text-slate-300 mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">
+                Client Management Requires Consultant Account
+              </h2>
+              <p className="text-slate-600 mb-6 max-w-lg mx-auto">
+                Client management and portal features are exclusively available for Consultant Accounts.
+                Upgrade to a Consultant plan to manage multiple clients, share proposals securely,
+                and provide your clients with portal access.
+              </p>
+              <div className="flex gap-4 justify-center">
+                <Button
+                  onClick={() => router.push("/pricing?plan=consultant")} // Example navigation
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Briefcase className="w-4 h-4 mr-2" />
+                  View Consultant Plans
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/dashboard")} // Example navigation
+                >
+                  Back to Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -441,7 +505,7 @@ export default function Clients() {
                       onChange={(e) => setNewClient({
                         ...newClient,
                         custom_branding: {
-                          ...newClient.custom_branding,
+                          ...(newClient.custom_branding || {}), // Ensure custom_branding exists
                           company_name: e.target.value
                         }
                       })}
@@ -482,7 +546,7 @@ export default function Clients() {
                         onChange={(e) => setNewClient({
                           ...newClient,
                           custom_branding: {
-                            ...newClient.custom_branding,
+                            ...(newClient.custom_branding || {}), // Ensure custom_branding exists
                             primary_color: e.target.value
                           }
                         })}
@@ -493,7 +557,7 @@ export default function Clients() {
                         onChange={(e) => setNewClient({
                           ...newClient,
                           custom_branding: {
-                            ...newClient.custom_branding,
+                            ...(newClient.custom_branding || {}), // Ensure custom_branding exists
                             primary_color: e.target.value
                           }
                         })}
@@ -789,7 +853,7 @@ export default function Clients() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => window.location.href = `/ProposalBuilder?id=${stats.recentActivity.id}`}
+                                onClick={() => router.push(`/ProposalBuilder?id=${stats.recentActivity.id}`)}
                               >
                                 View
                               </Button>
@@ -808,7 +872,7 @@ export default function Clients() {
                                 key={prop.id}
                                 variant="secondary"
                                 className="text-xs cursor-pointer hover:bg-slate-200"
-                                onClick={() => window.location.href = `/ProposalBuilder?id=${prop.id}`}
+                                onClick={() => router.push(`/ProposalBuilder?id=${prop.id}`)}
                               >
                                 {prop.proposal_name}
                                 {prop.status === 'client_accepted' && <CheckCircle2 className="w-3 h-3 ml-1 text-green-600" />}
@@ -1027,7 +1091,7 @@ export default function Clients() {
                       onChange={(e) => setSelectedClient({
                         ...selectedClient,
                         custom_branding: {
-                          ...selectedClient.custom_branding,
+                          ...(selectedClient.custom_branding || {}),
                           company_name: e.target.value
                         }
                       })}
@@ -1068,7 +1132,7 @@ export default function Clients() {
                         onChange={(e) => setSelectedClient({
                           ...selectedClient,
                           custom_branding: {
-                            ...selectedClient.custom_branding,
+                            ...(selectedClient.custom_branding || {}),
                             primary_color: e.target.value
                           }
                         })}
@@ -1079,7 +1143,7 @@ export default function Clients() {
                         onChange={(e) => setSelectedClient({
                           ...selectedClient,
                           custom_branding: {
-                            ...selectedClient.custom_branding,
+                            ...(selectedClient.custom_branding || {}),
                             primary_color: e.target.value
                           }
                         })}

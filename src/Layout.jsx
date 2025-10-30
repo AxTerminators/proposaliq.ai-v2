@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { isConsultantAccount } from "@/utils/organizationHelpers";
 import {
   LayoutDashboard,
   FileText,
@@ -48,24 +49,25 @@ import NotificationCenter from "./components/collaboration/NotificationCenter";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 
-const navigationItems = [
-  { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard },
-  { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
-  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true },
-  { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
-  { title: "Clients", url: createPageUrl("Clients"), icon: Users },
-  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
-  { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
-  { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
-  { title: "Team", url: createPageUrl("Team"), icon: Users },
-  { title: "Resources", url: createPageUrl("Resources"), icon: Library },
-  { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare },
-  { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },
-  { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
-  { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
-  { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign },
-  { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
-  { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
+// All possible navigation items with their visibility rules
+const ALL_NAVIGATION_ITEMS = [
+  { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
+  { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar, showFor: "all" },
+  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
+  { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText, showFor: "all" },
+  { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" }, // CONSULTANT ONLY
+  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare, showFor: "all" },
+  { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award, showFor: "all" },
+  { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake, showFor: "all" },
+  { title: "Team", url: createPageUrl("Team"), icon: Users, showFor: "all" },
+  { title: "Resources", url: createPageUrl("Resources"), icon: Library, showFor: "all" },
+  { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare, showFor: "all" },
+  { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle, showFor: "all" },
+  { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download, showFor: "all" },
+  { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3, showFor: "all" },
+  { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign, showFor: "all" },
+  { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all" },
+  { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug, showFor: "all" },
 ];
 
 const adminItems = [
@@ -76,6 +78,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const [user, setUser] = React.useState(null);
   const [organization, setOrganization] = React.useState(null);
+  const [subscription, setSubscription] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
@@ -91,6 +94,16 @@ export default function Layout({ children }) {
         );
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
+          
+          // Load subscription
+          const subs = await base44.entities.Subscription.filter(
+            { organization_id: orgs[0].id },
+            '-created_date',
+            1
+          );
+          if (subs.length > 0) {
+            setSubscription(subs[0]);
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -98,20 +111,6 @@ export default function Layout({ children }) {
     };
     loadData();
   }, []);
-
-  const { data: subscription } = useQuery({
-    queryKey: ['subscription', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return null;
-      const subs = await base44.entities.Subscription.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
-      );
-      return subs.length > 0 ? subs[0] : null;
-    },
-    enabled: !!organization?.id,
-  });
 
   // Close mobile menu on route change
   React.useEffect(() => {
@@ -141,13 +140,30 @@ export default function Layout({ children }) {
   const userIsAdmin = user?.role === 'admin';
   const userIsSuperAdmin = user?.admin_role === 'super_admin';
 
-  // Filter navigation items - hide Opportunities unless super admin
-  const visibleNavigationItems = navigationItems.filter(item => {
-    if (item.superAdminOnly) {
-      return userIsSuperAdmin;
-    }
-    return true;
-  });
+  // Filter navigation items based on organization type and permissions
+  const navigationItems = React.useMemo(() => {
+    if (!organization) return [];
+    
+    const isConsultant = isConsultantAccount(organization);
+    
+    return ALL_NAVIGATION_ITEMS.filter(item => {
+      // Check super admin only items
+      if (item.superAdminOnly && !userIsSuperAdmin) {
+        return false;
+      }
+      
+      // Check organization type restrictions
+      if (item.showFor === "consultant" && !isConsultant) {
+        return false;
+      }
+      if (item.showFor === "corporate" && isConsultant) {
+        return false;
+      }
+      
+      // Item is visible for "all" or passes specific checks
+      return true;
+    });
+  }, [organization, userIsSuperAdmin]);
 
   return (
     <SidebarProvider>
@@ -187,6 +203,16 @@ export default function Layout({ children }) {
                 {organization && (
                   <div className="p-3 bg-slate-50 rounded-lg">
                     <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+                    {organization.organization_type && (
+                      <Badge className={cn(
+                        "text-xs mt-1",
+                        organization.organization_type === 'consultancy' 
+                          ? 'bg-purple-100 text-purple-700' 
+                          : 'bg-blue-100 text-blue-700'
+                      )}>
+                        {organization.organization_type === 'consultancy' ? 'Consultant' : 'Corporate'}
+                      </Badge>
+                    )}
                   </div>
                 )}
               </>
@@ -210,7 +236,7 @@ export default function Layout({ children }) {
               )}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {visibleNavigationItems.map((item) => (
+                  {navigationItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         asChild
@@ -401,6 +427,16 @@ export default function Layout({ children }) {
             <div className="p-4 border-b border-slate-200">
               <div className="p-3 bg-slate-50 rounded-lg">
                 <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+                {organization.organization_type && (
+                  <Badge className={cn(
+                    "text-xs mt-1",
+                    organization.organization_type === 'consultancy' 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-blue-100 text-blue-700'
+                  )}>
+                    {organization.organization_type === 'consultancy' ? 'Consultant' : 'Corporate'}
+                  </Badge>
+                )}
               </div>
             </div>
           )}
@@ -412,7 +448,7 @@ export default function Layout({ children }) {
                 Navigation
               </h3>
               <nav className="space-y-1">
-                {visibleNavigationItems.map((item) => (
+                {navigationItems.map((item) => (
                   <Link
                     key={item.title}
                     to={item.url}

@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { hasClientPortalAccess } from "@/utils/organizationHelpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -46,6 +48,7 @@ export default function ProposalBuilder() {
   const navigate = useNavigate();
   const [organization, setOrganization] = React.useState(null);
   const [user, setUser] = React.useState(null);
+  const [subscription, setSubscription] = React.useState(null);
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
@@ -75,6 +78,16 @@ export default function ProposalBuilder() {
         );
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
+          
+          // Load subscription to check features
+          const subs = await base44.entities.Subscription.filter(
+            { organization_id: orgs[0].id },
+            '-created_date',
+            1
+          );
+          if (subs.length > 0) {
+            setSubscription(subs[0]);
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -187,6 +200,9 @@ export default function ProposalBuilder() {
   const currentPhaseIndex = PHASES.findIndex(p => p.id === currentPhase);
   const progress = ((currentPhaseIndex + 1) / PHASES.length) * 100;
 
+  // Check if client portal features are available
+  const hasClientPortal = subscription ? hasClientPortalAccess(subscription) : false;
+
   // Guard clause - ensure all data is loaded before rendering tabs
   const isDataLoaded = proposalId && user && organization;
 
@@ -257,10 +273,12 @@ export default function ProposalBuilder() {
           <Tabs defaultValue="builder" className="mb-6">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="builder">Builder</TabsTrigger>
-              <TabsTrigger value="client-sharing">
-                <Users className="w-4 h-4 mr-2" />
-                Client Sharing
-              </TabsTrigger>
+              {hasClientPortal && (
+                <TabsTrigger value="client-sharing">
+                  <Users className="w-4 h-4 mr-2" />
+                  Client Sharing
+                </TabsTrigger>
+              )}
               <TabsTrigger value="tasks">
                 <CheckSquare className="w-4 h-4 mr-2" />
                 Tasks
@@ -326,12 +344,14 @@ export default function ProposalBuilder() {
               )}
             </TabsContent>
 
-            <TabsContent value="client-sharing">
-              <ClientSharingPanel 
-                proposal={{ id: proposalId, ...proposalData }}
-                organization={organization}
-              />
-            </TabsContent>
+            {hasClientPortal && (
+              <TabsContent value="client-sharing">
+                <ClientSharingPanel 
+                  proposal={{ id: proposalId, ...proposalData }}
+                  organization={organization}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent value="tasks">
               <TaskManager 
