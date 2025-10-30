@@ -755,11 +755,15 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="default">Default</SelectItem>
+                                <SelectItem value="clear">Clear</SelectItem>
                                 <SelectItem value="formal">Formal</SelectItem>
-                                <SelectItem value="persuasive">Persuasive</SelectItem>
                                 <SelectItem value="concise">Concise</SelectItem>
+                                <SelectItem value="courteous">Courteous</SelectItem>
                                 <SelectItem value="confident">Confident</SelectItem>
+                                <SelectItem value="persuasive">Persuasive</SelectItem>
                                 <SelectItem value="professional">Professional</SelectItem>
+                                <SelectItem value="humanized">Humanized</SelectItem>
+                                <SelectItem value="conversational">Conversational</SelectItem>
                               </SelectContent>
                             </Select>
 
@@ -866,11 +870,15 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="default">Default</SelectItem>
+                                      <SelectItem value="clear">Clear</SelectItem>
                                       <SelectItem value="formal">Formal</SelectItem>
-                                      <SelectItem value="persuasive">Persuasive</SelectItem>
                                       <SelectItem value="concise">Concise</SelectItem>
+                                      <SelectItem value="courteous">Courteous</SelectItem>
                                       <SelectItem value="confident">Confident</SelectItem>
+                                      <SelectItem value="persuasive">Persuasive</SelectItem>
                                       <SelectItem value="professional">Professional</SelectItem>
+                                      <SelectItem value="humanized">Humanized</SelectItem>
+                                      <SelectItem value="conversational">Conversational</SelectItem>
                                     </SelectContent>
                                   </Select>
 
