@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { createPageUrl, isConsultantAccount } from "./utils";
+import { createPageUrl } from "@/utils";
 import {
   LayoutDashboard,
   FileText,
@@ -141,7 +141,7 @@ export default function Layout({ children }) {
   const navigationItems = React.useMemo(() => {
     if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");
     
-    const isConsultant = isConsultantAccount(organization);
+    const isConsultant = organization?.organization_type === 'consultancy';
     
     return ALL_NAVIGATION_ITEMS.filter(item => {
       // Check super admin only items
