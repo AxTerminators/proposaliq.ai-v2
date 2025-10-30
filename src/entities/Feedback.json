@@ -94,6 +94,39 @@
     "resolved_by": {
       "type": "string",
       "description": "Admin who resolved the issue"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email of team member assigned to this feedback"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Name of team member assigned to this feedback"
+    },
+    "assigned_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the feedback was assigned"
+    },
+    "assigned_by": {
+      "type": "string",
+      "description": "Admin who made the assignment"
+    },
+    "user_satisfaction_rating": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "User's rating of the resolution (1-5 stars)"
+    },
+    "user_satisfaction_comment": {
+      "type": "string",
+      "description": "Optional comment from user about the resolution"
+    },
+    "rating_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user rated the resolution"
     }
   },
   "required": [
