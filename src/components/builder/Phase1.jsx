@@ -182,7 +182,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setIsExtractingData(true);
     
     try {
-      console.log('=== 🚀 STARTING MULTI-METHOD DOCUMENT PROCESSING ===');
+      console.log('=== 🚀 STARTING PDF DOCUMENT PROCESSING ===');
       console.log(`📁 File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
       
       console.log('⬆️ Step 1: Uploading file...');
@@ -190,7 +190,8 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
       const fileUrl = uploadResult.file_url;
       console.log('✅ File uploaded successfully:', fileUrl);
       
-      // Define the JSON schema for extraction
+      console.log('🤖 Step 2: Using AI to extract structured data from PDF...');
+      
       const extractionSchema = {
         type: "object",
         properties: {
@@ -211,77 +212,21 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
         }
       };
 
-      let aiResult = null;
-      let extractionMethod = '';
+      const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url: fileUrl,
+        json_schema: extractionSchema
+      });
 
-      // METHOD 1: Try ExtractDataFromUploadedFile first (works for PDF, CSV, images)
-      try {
-        console.log('🤖 Method 1: Trying ExtractDataFromUploadedFile integration...');
-        const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
-          file_url: fileUrl,
-          json_schema: extractionSchema
-        });
+      console.log('✅ AI extraction completed');
+      console.log('📊 Extraction result:', extractionResult);
 
-        if (extractionResult.status === 'success' && extractionResult.output) {
-          aiResult = extractionResult.output;
-          extractionMethod = 'ExtractDataFromUploadedFile';
-          console.log('✅ Method 1 SUCCESS!');
-        } else {
-          // If status is success but no output, or status is error, consider it a failure for this method
-          throw new Error(extractionResult.details || 'No output from ExtractDataFromUploadedFile');
-        }
-      } catch (method1Error) {
-        console.log('⚠️ Method 1 failed:', method1Error.message);
-        
-        // METHOD 2: Try InvokeLLM directly with file URL
-        try {
-          console.log('🤖 Method 2: Trying InvokeLLM with file URL...');
-          
-          const prompt = `You are analyzing a company capability statement document. Extract ALL available company information and return it as valid JSON.
-
-**EXTRACT:**
-- Company/Partner Name
-- Full Business Address
-- Website URL
-- UEI (Unique Entity Identifier - 12 chars)
-- CAGE Code (5 chars)
-- Primary NAICS Code (6 digits)
-- Secondary NAICS Codes (array)
-- Point of Contact Name
-- Contact Email
-- Contact Phone
-- Certifications (e.g., 8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO, CMMI, etc.)
-- Core Capabilities (5-10 main services, e.g., "Cloud Solutions", "Cybersecurity Consulting")
-- Key Differentiators (3-7 competitive advantages, e.g., "24/7 Support", "Proprietary AI Platform")
-- Past Performance Summary (brief 2-3 sentences summarizing experience, e.g., "Successfully delivered complex IT solutions for various federal agencies.")
-
-**IMPORTANT:** Return ONLY valid JSON matching this structure. Use empty strings for missing text fields and empty arrays for missing lists.`;
-
-          const llmResult = await base44.integrations.Core.InvokeLLM({
-            prompt,
-            file_urls: [fileUrl],
-            response_json_schema: extractionSchema
-          });
-
-          if (llmResult && typeof llmResult === 'object') {
-            aiResult = llmResult;
-            extractionMethod = 'InvokeLLM';
-            console.log('✅ Method 2 SUCCESS!');
-          } else {
-            throw new Error('Invalid or empty response from InvokeLLM');
-          }
-        } catch (method2Error) {
-          console.log('⚠️ Method 2 failed:', method2Error.message);
-          
-          // METHOD 3: Final fallback - ask user to copy/paste
-          console.log('⚠️ All automated methods failed. Asking for manual input.');
-          throw new Error('Unable to automatically extract data from this file. Please manually enter the information.');
-        }
+      if (extractionResult.status === 'error' || !extractionResult.output) {
+        throw new Error(extractionResult.details || 'Failed to extract data from document');
       }
 
-      console.log(`✅ Data extracted successfully using: ${extractionMethod}`);
+      const aiResult = extractionResult.output || {};
       console.log('📊 Extracted data:', aiResult);
-      console.log('📝 Step 2: Populating form fields...');
+      console.log('📝 Step 3: Populating form fields...');
 
       const updatedForm = { ...newPartnerForm };
       let fieldsPopulated = [];
@@ -358,14 +303,14 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
       console.log('=== ✨ PROCESSING COMPLETE ===');
 
       if (fieldsPopulated.length > 0) {
-        alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields from ${file.name}:\n\n${fieldsPopulated.join('\n')}\n\nMethod used: ${extractionMethod}\n\nPlease review and adjust as needed.`);
+        alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields from ${file.name}:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
       } else {
         alert(`⚠️ AI analyzed ${file.name} but couldn't extract structured data.\n\nThe document may not contain the expected information. Please manually enter the details.`);
       }
     } catch (error) {
-      console.error('=== ❌ ALL METHODS FAILED ===');
+      console.error('=== ❌ ERROR DURING PDF PROCESSING ===');
       console.error('Error details:', error);
-      alert(`❌ Could not process ${file.name}\n\n${error.message}\n\nPlease manually enter the company information.`);
+      alert(`❌ Error processing ${file.name}:\n${error.message}\n\nPlease manually enter the information.`);
     } finally {
       setIsExtractingData(false);
     }
@@ -728,23 +673,34 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
               Add New {addingForPrime ? 'Company (Prime Contractor)' : 'Teaming Partner / Subcontractor'}
             </DialogTitle>
             <DialogDescription>
-              Enter company details. Upload a capability statement to auto-populate fields with AI.
+              Enter company details. Upload a PDF capability statement for AI to auto-populate fields.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label>Upload Capability Statement (Optional - AI Auto-Fill)</Label>
-              <p className="text-sm text-blue-600 font-medium">
-                ✨ Multi-Method AI Extraction: Upload ANY document format and we'll try multiple AI methods to extract data!
-              </p>
+              <Label className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                Upload PDF Capability Statement (Optional)
+              </Label>
+              
+              <Alert className="bg-blue-50 border-blue-200">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <AlertDescription>
+                  <p className="font-semibold text-blue-900 mb-1">📄 PDF Files Only</p>
+                  <p className="text-sm text-blue-800">
+                    Upload a <strong>PDF</strong> so our AI can read and auto-fill company information for you. 
+                    Convert Word/Excel files to PDF first for best results.
+                  </p>
+                </AlertDescription>
+              </Alert>
               
               {isExtractingData && (
                 <Alert className="bg-blue-50 border-blue-200">
                   <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
                   <AlertDescription>
-                    <p className="font-semibold text-blue-900">AI is analyzing your document...</p>
-                    <p className="text-xs text-blue-700 mt-1">Trying multiple extraction methods. This may take 15-45 seconds.</p>
+                    <p className="font-semibold text-blue-900">AI is reading your PDF...</p>
+                    <p className="text-xs text-blue-700 mt-1">Extracting company details, contacts, and capabilities. This may take 15-30 seconds.</p>
                   </AlertDescription>
                 </Alert>
               )}
@@ -776,18 +732,17 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                       type="file"
                       id="cap-upload"
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.gif,.webp,.csv"
+                      accept=".pdf"
                       onChange={handleCapabilityStatementSelect}
                       disabled={isExtractingData}
                     />
                     <Button size="sm" variant="outline" asChild disabled={isExtractingData}>
                       <label htmlFor="cap-upload" className="cursor-pointer">
                         <Plus className="w-3 h-3 mr-2" />
-                        Upload Capability Statement
+                        Upload PDF Capability Statement
                       </label>
                     </Button>
-                    <p className="text-xs text-slate-500 mt-2">PDF, Word, Excel, PowerPoint, Text, CSV, or Images</p>
-                    <p className="text-xs text-green-600 mt-1 font-medium">✨ All formats supported with multi-method AI extraction!</p>
+                    <p className="text-xs text-slate-500 mt-2">PDF format only • AI will auto-fill form fields</p>
                   </>
                 )}
               </div>
