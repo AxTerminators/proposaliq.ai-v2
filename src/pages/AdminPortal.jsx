@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
@@ -26,7 +25,7 @@ import {
 } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
-import AuditLogModule from "../components/admin/AuditLogModule"; // Still needed for audit tab
+import AuditLogModule from "../components/admin/AuditLogModule";
 import BillingModule from "../components/admin/BillingModule";
 import AIConfigModule from "../components/admin/AIConfigModule";
 import ContentLibraryModule from "../components/admin/ContentLibraryModule";
@@ -47,11 +46,13 @@ export default function AdminPortal() {
     const loadUser = async () => {
       try {
         const user = await base44.auth.me();
+        console.log("Current user:", user);
+        console.log("User role:", user.role);
+        console.log("User admin_role:", user.admin_role);
         setCurrentUser(user);
       } catch (error) {
         console.error("Error loading user:", error);
       }
-      // No setLoading(false) needed as we directly check currentUser for loading state
     };
     loadUser();
   }, []);
@@ -127,7 +128,7 @@ export default function AdminPortal() {
       label: "Roles & Permissions",
       icon: UserCog,
       component: RolesModule,
-      permissions: ["manage_users", "view_users"], // Assuming role management is part of user management or a separate permission
+      permissions: ["manage_users", "view_users"],
       description: "View role permissions"
     },
     {
@@ -165,16 +166,21 @@ export default function AdminPortal() {
   ];
 
   // Filter tabs based on user permissions
-  const availableTabs = currentUser ? tabs.filter(tab => 
-    hasAnyPermission(currentUser, tab.permissions)
-  ) : [];
+  const availableTabs = currentUser ? tabs.filter(tab => {
+    const hasAccess = hasAnyPermission(currentUser, tab.permissions);
+    console.log(`Tab ${tab.id}: permissions=${JSON.stringify(tab.permissions)}, hasAccess=${hasAccess}`);
+    return hasAccess;
+  }) : [];
+
+  console.log("Available tabs count:", availableTabs.length);
+  console.log("Available tabs:", availableTabs.map(t => t.id));
 
   // Set initial active tab to first available
   useEffect(() => {
     if (availableTabs.length > 0 && !activeTab) {
       setActiveTab(availableTabs[0].id);
     }
-  }, [availableTabs, activeTab]); // Dependencies ensure this runs when tabs are filtered or currentUser changes
+  }, [availableTabs, activeTab]);
 
   if (!currentUser) {
     return (
@@ -252,8 +258,10 @@ export default function AdminPortal() {
             <Card className="border-none shadow-xl p-12 text-center">
               <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-slate-900 mb-2">No Admin Modules Available</h2>
-              <p className="text-slate-600">
+              <p className="text-slate-600 mb-4">
                 Your admin role ({getRoleLabel(currentUser.admin_role)}) doesn't have access to any admin modules.
+              </p>
+              <p className="text-sm text-slate-500">
                 Please contact a Super Admin for assistance.
               </p>
             </Card>
