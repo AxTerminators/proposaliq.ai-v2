@@ -1,0 +1,105 @@
+{
+  "name": "Feedback",
+  "type": "object",
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "description": "Organization that submitted the feedback"
+    },
+    "reporter_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email of the person reporting"
+    },
+    "reporter_name": {
+      "type": "string",
+      "description": "Name of the person reporting"
+    },
+    "issue_type": {
+      "type": "string",
+      "enum": [
+        "bug",
+        "feature_request",
+        "question",
+        "improvement",
+        "other"
+      ],
+      "default": "bug",
+      "description": "Type of feedback"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Priority level"
+    },
+    "title": {
+      "type": "string",
+      "description": "Brief title of the issue"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the issue or feedback"
+    },
+    "steps_to_reproduce": {
+      "type": "string",
+      "description": "Steps to reproduce the bug (if applicable)"
+    },
+    "expected_behavior": {
+      "type": "string",
+      "description": "What was expected to happen"
+    },
+    "actual_behavior": {
+      "type": "string",
+      "description": "What actually happened"
+    },
+    "browser_info": {
+      "type": "string",
+      "description": "Browser and device information"
+    },
+    "page_url": {
+      "type": "string",
+      "description": "URL where the issue occurred"
+    },
+    "screenshot_url": {
+      "type": "string",
+      "description": "URL to uploaded screenshot"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "in_progress",
+        "resolved",
+        "closed",
+        "wont_fix"
+      ],
+      "default": "new",
+      "description": "Current status of the feedback"
+    },
+    "admin_notes": {
+      "type": "string",
+      "description": "Internal notes from admin/dev team"
+    },
+    "resolved_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the issue was resolved"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Admin who resolved the issue"
+    }
+  },
+  "required": [
+    "reporter_email",
+    "issue_type",
+    "title",
+    "description"
+  ]
+}
