@@ -1,26 +1,32 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import PermissionChecker from "../components/admin/PermissionChecker";
-import { Card, CardContent } from "@/components/ui/card";
+import { 
+  PermissionChecker, 
+  hasPermission, 
+  hasAnyPermission,
+  getRoleLabel 
+} from "../components/admin/PermissionChecker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Shield,
-  Users,
-  DollarSign,
-  Sparkles,
-  Lock,
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Users, 
+  CreditCard, 
+  FileText, 
+  Shield, 
   Activity,
-  FileText,
-  UserCog,
-  Zap,
-  TrendingUp,
-  Bug,
-  Mail
+  BarChart3,
+  Brain,
+  Lock,
+  Workflow,
+  Mail,
+  MessageSquare,
+  UserCog
 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
-import AuditLogModule from "../components/admin/AuditLogModule";
+import AuditLogModule from "../components/admin/AuditLogModule"; // Still needed for audit tab
 import BillingModule from "../components/admin/BillingModule";
 import AIConfigModule from "../components/admin/AIConfigModule";
 import ContentLibraryModule from "../components/admin/ContentLibraryModule";
@@ -35,7 +41,7 @@ import OnboardingEmailModule from "../components/admin/OnboardingEmailModule";
 
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -44,19 +50,138 @@ export default function AdminPortal() {
         setCurrentUser(user);
       } catch (error) {
         console.error("Error loading user:", error);
-      } finally {
-        setLoading(false);
       }
+      // No setLoading(false) needed as we directly check currentUser for loading state
     };
     loadUser();
   }, []);
 
-  if (loading) {
+  // Define tabs with their required permissions
+  const tabs = [
+    {
+      id: "subscribers",
+      label: "Subscribers",
+      icon: Users,
+      component: SubscribersModule,
+      permissions: ["manage_users", "view_users"],
+      description: "Manage user accounts and roles"
+    },
+    {
+      id: "billing",
+      label: "Billing",
+      icon: CreditCard,
+      component: BillingModule,
+      permissions: ["manage_billing", "view_billing", "manage_subscriptions", "view_subscriptions"],
+      description: "Manage subscriptions and payments"
+    },
+    {
+      id: "content",
+      label: "Content Library",
+      icon: FileText,
+      component: ContentLibraryModule,
+      permissions: ["manage_content", "view_content"],
+      description: "Manage templates and resources"
+    },
+    {
+      id: "ai",
+      label: "AI Configuration",
+      icon: Brain,
+      component: AIConfigModule,
+      permissions: ["manage_ai_config", "view_ai_config"],
+      description: "Configure AI models and settings"
+    },
+    {
+      id: "security",
+      label: "Security",
+      icon: Lock,
+      component: SecurityModule,
+      permissions: ["manage_security", "view_security"],
+      description: "Security settings and policies"
+    },
+    {
+      id: "audit",
+      label: "Audit Logs",
+      icon: Shield,
+      component: AuditLogModule,
+      permissions: ["view_audit_logs"],
+      description: "View system audit trail"
+    },
+    {
+      id: "health",
+      label: "System Health",
+      icon: Activity,
+      component: SystemHealthModule,
+      permissions: ["view_system_health"],
+      description: "Monitor system performance"
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      icon: BarChart3,
+      component: ReportsModule,
+      permissions: ["view_reports"],
+      description: "Analytics and reporting"
+    },
+    {
+      id: "roles",
+      label: "Roles & Permissions",
+      icon: UserCog,
+      component: RolesModule,
+      permissions: ["manage_users", "view_users"], // Assuming role management is part of user management or a separate permission
+      description: "View role permissions"
+    },
+    {
+      id: "workflows",
+      label: "Workflows",
+      icon: Workflow,
+      component: WorkflowModule,
+      permissions: ["manage_workflows", "view_workflows"],
+      description: "Workflow configurations"
+    },
+    {
+      id: "marketing",
+      label: "Marketing",
+      icon: Mail,
+      component: MarketingModule,
+      permissions: ["manage_marketing", "view_marketing"],
+      description: "Marketing campaigns"
+    },
+    {
+      id: "feedback",
+      label: "Feedback",
+      icon: MessageSquare,
+      component: FeedbackModule,
+      permissions: ["manage_feedback"],
+      description: "User feedback and support"
+    },
+    {
+      id: "onboarding",
+      label: "Onboarding Emails",
+      icon: Mail,
+      component: OnboardingEmailModule,
+      permissions: ["manage_email_templates", "manage_email_campaigns"],
+      description: "Automated onboarding emails"
+    }
+  ];
+
+  // Filter tabs based on user permissions
+  const availableTabs = currentUser ? tabs.filter(tab => 
+    hasAnyPermission(currentUser, tab.permissions)
+  ) : [];
+
+  // Set initial active tab to first available
+  useEffect(() => {
+    if (availableTabs.length > 0 && !activeTab) {
+      setActiveTab(availableTabs[0].id);
+    }
+  }, [availableTabs, activeTab]); // Dependencies ensure this runs when tabs are filtered or currentUser changes
+
+  if (!currentUser) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Shield className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-pulse" />
-          <p className="text-slate-600">Loading Admin Portal...</p>
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading admin portal...</p>
         </div>
       </div>
     );
@@ -64,179 +189,75 @@ export default function AdminPortal() {
 
   return (
     <PermissionChecker requiredRole="admin">
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <Shield className="w-8 h-8 text-red-600" />
-              <h1 className="text-3xl font-bold text-slate-900">Admin Portal</h1>
-              {currentUser?.admin_role && (
-                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
-                  {currentUser.admin_role.replace('_', ' ').toUpperCase()}
-                </span>
-              )}
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                  <Shield className="w-8 h-8 text-red-600" />
+                  Admin Portal
+                </h1>
+                <p className="text-slate-600 mt-1">
+                  System administration and configuration
+                </p>
+              </div>
+              <Badge className="bg-red-100 text-red-700">
+                <Shield className="w-3 h-3 mr-1" />
+                {getRoleLabel(currentUser.admin_role)}
+              </Badge>
             </div>
-            <p className="text-slate-600">Manage users, billing, content, and system configuration</p>
+            <p className="text-sm text-slate-500">
+              You have access to {availableTabs.length} of {tabs.length} admin modules
+            </p>
           </div>
 
-          <Alert className="mb-6 bg-red-50 border-red-200">
-            <Lock className="w-4 h-4 text-red-600" />
-            <AlertDescription>
-              <p className="font-semibold text-red-900 mb-1">Admin Access</p>
-              <p className="text-sm text-red-800">
-                You have administrative privileges. All actions are logged for security and compliance.
+          {/* Tabs */}
+          {availableTabs.length > 0 ? (
+            <Card className="border-none shadow-xl">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <div className="border-b bg-slate-50 p-2 overflow-x-auto">
+                  <TabsList className="flex flex-wrap gap-1 bg-transparent">
+                    {availableTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      return (
+                        <TabsTrigger
+                          key={tab.id}
+                          value={tab.id}
+                          className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="hidden md:inline">{tab.label}</span>
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </div>
+
+                <div className="p-6">
+                  {availableTabs.map((tab) => {
+                    const Component = tab.component;
+                    return (
+                      <TabsContent key={tab.id} value={tab.id} className="mt-0">
+                        <Component currentUser={currentUser} />
+                      </TabsContent>
+                    );
+                  })}
+                </div>
+              </Tabs>
+            </Card>
+          ) : (
+            /* No Access Message */
+            <Card className="border-none shadow-xl p-12 text-center">
+              <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">No Admin Modules Available</h2>
+              <p className="text-slate-600">
+                Your admin role ({getRoleLabel(currentUser.admin_role)}) doesn't have access to any admin modules.
+                Please contact a Super Admin for assistance.
               </p>
-            </AlertDescription>
-          </Alert>
-
-          <Tabs defaultValue="subscribers" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12">
-              <TabsTrigger value="subscribers" className="gap-2">
-                <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Users</span>
-              </TabsTrigger>
-              <TabsTrigger value="onboarding" className="gap-2">
-                <Mail className="w-4 h-4" />
-                <span className="hidden sm:inline">Onboarding</span>
-              </TabsTrigger>
-              <TabsTrigger value="feedback" className="gap-2">
-                <Bug className="w-4 h-4" />
-                <span className="hidden sm:inline">Feedback</span>
-              </TabsTrigger>
-              <TabsTrigger value="billing" className="gap-2">
-                <DollarSign className="w-4 h-4" />
-                <span className="hidden sm:inline">Billing</span>
-              </TabsTrigger>
-              <TabsTrigger value="ai" className="gap-2">
-                <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">AI</span>
-              </TabsTrigger>
-              <TabsTrigger value="content" className="gap-2">
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">Content</span>
-              </TabsTrigger>
-              <TabsTrigger value="security" className="gap-2">
-                <Lock className="w-4 h-4" />
-                <span className="hidden sm:inline">Security</span>
-              </TabsTrigger>
-              <TabsTrigger value="health" className="gap-2">
-                <Activity className="w-4 h-4" />
-                <span className="hidden sm:inline">Health</span>
-              </TabsTrigger>
-              <TabsTrigger value="reports" className="gap-2">
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Reports</span>
-              </TabsTrigger>
-              <TabsTrigger value="roles" className="gap-2">
-                <UserCog className="w-4 h-4" />
-                <span className="hidden sm:inline">Roles</span>
-              </TabsTrigger>
-              <TabsTrigger value="workflows" className="gap-2">
-                <Zap className="w-4 h-4" />
-                <span className="hidden sm:inline">Workflows</span>
-              </TabsTrigger>
-              <TabsTrigger value="marketing" className="gap-2">
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Marketing</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="subscribers">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <SubscribersModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="onboarding">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <OnboardingEmailModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="feedback">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <FeedbackModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="billing">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <BillingModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="ai">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <AIConfigModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="content">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <ContentLibraryModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="security">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <SecurityModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="health">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <SystemHealthModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="reports">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <ReportsModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="roles">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <RolesModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="workflows">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <WorkflowModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="marketing">
-              <Card className="border-none shadow-xl">
-                <CardContent className="p-6">
-                  <MarketingModule />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            </Card>
+          )}
         </div>
       </div>
     </PermissionChecker>
