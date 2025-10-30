@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +21,8 @@ import {
   FileCode,
   Eye,
   EyeOff,
-  Users
+  Users,
+  CheckSquare
 } from "lucide-react";
 import {
   Dialog,
@@ -58,6 +60,8 @@ function ProposalFilesContent({ proposal, user, organization }) {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [description, setDescription] = useState("");
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [bulkActionMode, setBulkActionMode] = useState(false);
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['proposal-documents', proposal.id],
@@ -111,6 +115,20 @@ function ProposalFilesContent({ proposal, user, organization }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
+    },
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ documentIds, updates }) => {
+      const updatePromises = documentIds.map(docId =>
+        base44.entities.SolicitationDocument.update(docId, updates)
+      );
+      await Promise.all(updatePromises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
+      setSelectedDocuments([]);
+      setBulkActionMode(false);
     },
   });
 
@@ -172,6 +190,54 @@ function ProposalFilesContent({ proposal, user, organization }) {
     });
   };
 
+  const toggleDocumentSelection = (docId) => {
+    setSelectedDocuments(prev => 
+      prev.includes(docId) 
+        ? prev.filter(id => id !== docId)
+        : [...prev, docId]
+    );
+  };
+
+  const selectAllDocuments = () => {
+    if (selectedDocuments.length === documents.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(documents.map(d => d.id));
+    }
+  };
+
+  const handleBulkShare = async () => {
+    if (selectedDocuments.length === 0) return;
+    if (confirm(`Share ${selectedDocuments.length} file(s) with client?`)) {
+      await bulkUpdateMutation.mutateAsync({
+        documentIds: selectedDocuments,
+        updates: { shared_with_client: true }
+      });
+    }
+  };
+
+  const handleBulkUnshare = async () => {
+    if (selectedDocuments.length === 0) return;
+    if (confirm(`Unshare ${selectedDocuments.length} file(s) from client?`)) {
+      await bulkUpdateMutation.mutateAsync({
+        documentIds: selectedDocuments,
+        updates: { shared_with_client: false }
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedDocuments.length === 0) return;
+    if (confirm(`Delete ${selectedDocuments.length} file(s)? This cannot be undone.`)) {
+      const deletePromises = selectedDocuments.map(docId =>
+        deleteFileMutation.mutateAsync(docId)
+      );
+      await Promise.all(deletePromises);
+      setSelectedDocuments([]);
+      setBulkActionMode(false);
+    }
+  };
+
   const getFileIcon = (fileName) => {
     const ext = fileName?.split('.').pop()?.toLowerCase();
     switch (ext) {
@@ -219,19 +285,75 @@ function ProposalFilesContent({ proposal, user, organization }) {
               {sharedDocuments.length} shared with client • {privateDocuments.length} private
             </p>
           </div>
-          <div>
-            <input
-              type="file"
-              id="file-upload"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Button asChild>
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload File
-              </label>
-            </Button>
+          <div className="flex gap-2">
+            {!bulkActionMode ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setBulkActionMode(true)}
+                  disabled={documents.length === 0}
+                >
+                  <CheckSquare className="w-4 h-4 mr-2" />
+                  Bulk Actions
+                </Button>
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button asChild>
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload File
+                  </label>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Badge variant="secondary" className="px-3 py-2">
+                  {selectedDocuments.length} selected
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkShare}
+                  disabled={selectedDocuments.length === 0 || bulkUpdateMutation.isPending}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkUnshare}
+                  disabled={selectedDocuments.length === 0 || bulkUpdateMutation.isPending}
+                >
+                  <EyeOff className="w-4 h-4 mr-2" />
+                  Unshare
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedDocuments.length === 0}
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setBulkActionMode(false);
+                    setSelectedDocuments([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -261,6 +383,19 @@ function ProposalFilesContent({ proposal, user, organization }) {
           </div>
         ) : (
           <div className="space-y-6">
+            {bulkActionMode && (
+              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <Checkbox
+                  checked={selectedDocuments.length === documents.length && documents.length > 0}
+                  onCheckedChange={selectAllDocuments}
+                  id="select-all"
+                />
+                <Label htmlFor="select-all" className="cursor-pointer font-medium">
+                  Select All Files ({documents.length})
+                </Label>
+              </div>
+            )}
+
             {/* Shared with Client */}
             {sharedDocuments.length > 0 && (
               <div>
@@ -270,8 +405,16 @@ function ProposalFilesContent({ proposal, user, organization }) {
                 </h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {sharedDocuments.map((doc) => (
-                    <Card key={doc.id} className="hover:shadow-md transition-all border-blue-200">
-                      <CardContent className="p-4">
+                    <Card key={doc.id} className="hover:shadow-md transition-all border-blue-200 relative">
+                      {bulkActionMode && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <Checkbox
+                            checked={selectedDocuments.includes(doc.id)}
+                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
+                          />
+                        </div>
+                      )}
+                      <CardContent className={`p-4 ${bulkActionMode ? 'pl-10' : ''}`}>
                         <div className="flex items-start gap-3 mb-3">
                           <div className="flex-shrink-0">
                             {getFileIcon(doc.file_name)}
@@ -303,73 +446,75 @@ function ProposalFilesContent({ proposal, user, organization }) {
                           </div>
                         </div>
                         
-                        <div className="flex gap-2 pt-3 border-t">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button size="sm" variant="outline" className="flex-1">
-                                <Users className="w-3 h-3 mr-1" />
-                                Permissions
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80">
-                              <div className="space-y-4">
-                                <h4 className="font-semibold text-sm">Client Permissions</h4>
-                                
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    id={`share-${doc.id}`}
-                                    checked={doc.shared_with_client}
-                                    onCheckedChange={() => toggleClientSharing(doc)}
-                                  />
-                                  <div className="flex-1">
-                                    <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
-                                      Share with client
-                                    </Label>
-                                    <p className="text-xs text-slate-500">
-                                      Client can see this file in their portal
-                                    </p>
+                        {!bulkActionMode && (
+                          <div className="flex gap-2 pt-3 border-t">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button size="sm" variant="outline" className="flex-1">
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Permissions
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80">
+                                <div className="space-y-4">
+                                  <h4 className="font-semibold text-sm">Client Permissions</h4>
+                                  
+                                  <div className="flex items-start gap-3">
+                                    <Checkbox
+                                      id={`share-${doc.id}`}
+                                      checked={doc.shared_with_client}
+                                      onCheckedChange={() => toggleClientSharing(doc)}
+                                    />
+                                    <div className="flex-1">
+                                      <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
+                                        Share with client
+                                      </Label>
+                                      <p className="text-xs text-slate-500">
+                                        Client can see this file in their portal
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-start gap-3">
+                                    <Checkbox
+                                      id={`download-${doc.id}`}
+                                      checked={doc.client_can_download}
+                                      onCheckedChange={() => toggleDownloadPermission(doc)}
+                                      disabled={!doc.shared_with_client}
+                                    />
+                                    <div className="flex-1">
+                                      <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
+                                        Allow download
+                                      </Label>
+                                      <p className="text-xs text-slate-500">
+                                        Client can download this file
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
+                              </PopoverContent>
+                            </Popover>
 
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    id={`download-${doc.id}`}
-                                    checked={doc.client_can_download}
-                                    onCheckedChange={() => toggleDownloadPermission(doc)}
-                                    disabled={!doc.shared_with_client}
-                                  />
-                                  <div className="flex-1">
-                                    <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
-                                      Allow download
-                                    </Label>
-                                    <p className="text-xs text-slate-500">
-                                      Client can download this file
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                          >
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="w-3 h-3" />
-                            </a>
-                          </Button>
-                          
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(doc)}
-                            disabled={deleteFileMutation.isPending}
-                          >
-                            <Trash2 className="w-3 h-3 text-red-600" />
-                          </Button>
-                        </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              asChild
+                            >
+                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                <Download className="w-3 h-3" />
+                              </a>
+                            </Button>
+                            
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDelete(doc)}
+                              disabled={deleteFileMutation.isPending}
+                            >
+                              <Trash2 className="w-3 h-3 text-red-600" />
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -386,8 +531,16 @@ function ProposalFilesContent({ proposal, user, organization }) {
                 </h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {privateDocuments.map((doc) => (
-                    <Card key={doc.id} className="hover:shadow-md transition-all">
-                      <CardContent className="p-4">
+                    <Card key={doc.id} className="hover:shadow-md transition-all relative">
+                      {bulkActionMode && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <Checkbox
+                            checked={selectedDocuments.includes(doc.id)}
+                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
+                          />
+                        </div>
+                      )}
+                      <CardContent className={`p-4 ${bulkActionMode ? 'pl-10' : ''}`}>
                         <div className="flex items-start gap-3 mb-3">
                           <div className="flex-shrink-0">
                             {getFileIcon(doc.file_name)}
@@ -413,73 +566,75 @@ function ProposalFilesContent({ proposal, user, organization }) {
                           </div>
                         </div>
                         
-                        <div className="flex gap-2 pt-3 border-t">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button size="sm" variant="outline" className="flex-1">
-                                <Users className="w-3 h-3 mr-1" />
-                                Share
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80">
-                              <div className="space-y-4">
-                                <h4 className="font-semibold text-sm">Client Permissions</h4>
-                                
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    id={`share-${doc.id}`}
-                                    checked={doc.shared_with_client}
-                                    onCheckedChange={() => toggleClientSharing(doc)}
-                                  />
-                                  <div className="flex-1">
-                                    <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
-                                      Share with client
-                                    </Label>
-                                    <p className="text-xs text-slate-500">
-                                      Client can see this file in their portal
-                                    </p>
+                        {!bulkActionMode && (
+                          <div className="flex gap-2 pt-3 border-t">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button size="sm" variant="outline" className="flex-1">
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Share
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80">
+                                <div className="space-y-4">
+                                  <h4 className="font-semibold text-sm">Client Permissions</h4>
+                                  
+                                  <div className="flex items-start gap-3">
+                                    <Checkbox
+                                      id={`share-${doc.id}`}
+                                      checked={doc.shared_with_client}
+                                      onCheckedChange={() => toggleClientSharing(doc)}
+                                    />
+                                    <div className="flex-1">
+                                      <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
+                                        Share with client
+                                      </Label>
+                                      <p className="text-xs text-slate-500">
+                                        Client can see this file in their portal
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-start gap-3">
+                                    <Checkbox
+                                      id={`download-${doc.id}`}
+                                      checked={doc.client_can_download}
+                                      onCheckedChange={() => toggleDownloadPermission(doc)}
+                                      disabled={!doc.shared_with_client}
+                                    />
+                                    <div className="flex-1">
+                                      <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
+                                        Allow download
+                                      </Label>
+                                      <p className="text-xs text-slate-500">
+                                        Client can download this file
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
+                              </PopoverContent>
+                            </Popover>
 
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    id={`download-${doc.id}`}
-                                    checked={doc.client_can_download}
-                                    onCheckedChange={() => toggleDownloadPermission(doc)}
-                                    disabled={!doc.shared_with_client}
-                                  />
-                                  <div className="flex-1">
-                                    <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
-                                      Allow download
-                                    </Label>
-                                    <p className="text-xs text-slate-500">
-                                      Client can download this file
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                          >
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="w-3 h-3" />
-                            </a>
-                          </Button>
-                          
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(doc)}
-                            disabled={deleteFileMutation.isPending}
-                          >
-                            <Trash2 className="w-3 h-3 text-red-600" />
-                          </Button>
-                        </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              asChild
+                            >
+                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                <Download className="w-3 h-3" />
+                              </a>
+                            </Button>
+                            
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDelete(doc)}
+                              disabled={deleteFileMutation.isPending}
+                            >
+                              <Trash2 className="w-3 h-3 text-red-600" />
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
