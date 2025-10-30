@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,6 +23,33 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
 ];
+
+// Universal document content extraction helper
+const extractDocumentContent = async (fileUrl, fileName) => {
+  const fileExtension = fileName.split('.').pop().toLowerCase();
+  const officeDocTypes = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
+  
+  // For office documents and text files, extract plain text first
+  if (officeDocTypes.includes(fileExtension)) {
+    try {
+      console.log(`Extracting text content from ${fileExtension} file...`);
+      const extractedText = await base44.integrations.Core.InvokeLLM({
+        prompt: "Extract and return all text content from this document. Preserve the structure and formatting as much as possible. Return only the extracted text, no additional commentary.",
+        file_urls: [fileUrl]
+      });
+      
+      console.log(`✓ Successfully extracted ${extractedText.length} characters of text`);
+      return { fileUrl, extractedText };
+    } catch (error) {
+      console.error("Error extracting document text:", error);
+      // If extraction fails, return just the URL and let the LLM try directly
+      return { fileUrl, extractedText: null };
+    }
+  }
+  
+  // For PDFs and images, let the LLM use its internal capabilities directly
+  return { fileUrl, extractedText: null };
+};
 
 export default function Phase1({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -188,31 +216,55 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setIsExtractingData(true);
     
     try {
+      console.log('=== STARTING UNIVERSAL DOCUMENT PROCESSING ===');
+      console.log('Step 1: Uploading file...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
+      console.log('✓ File uploaded:', fileUrl);
       
-      const prompt = `Extract information from this capability statement and return as JSON:
+      console.log('Step 2: Extracting document content...');
+      const { fileUrl: processedUrl, extractedText } = await extractDocumentContent(fileUrl, file.name);
+      
+      if (extractedText) {
+        console.log(`✓ Extracted ${extractedText.length} characters of plain text`);
+      } else {
+        console.log('✓ File will be processed directly by AI (PDF/Image)');
+      }
+      
+      console.log('Step 3: Calling AI for structured data extraction...');
+      
+      const prompt = `You are extracting structured information from a company capability statement.
+
+${extractedText ? `**DOCUMENT TEXT CONTENT:**
+${extractedText}
+
+` : '**NOTE:** Analyzing document directly from file URL (PDF or image format).
+
+'}**YOUR TASK:**
+Extract the following information and return as valid JSON:
 
 {
-  "partner_name": "string or empty",
-  "address": "string or empty",
-  "website_url": "string or empty",
-  "uei": "string or empty",
-  "cage_code": "string or empty",
-  "primary_naics": "string or empty",
-  "secondary_naics": ["string"],
-  "poc_name": "string or empty",
-  "poc_email": "string or empty",
-  "poc_phone": "string or empty",
-  "certifications": ["string"],
-  "core_capabilities": ["string"],
-  "differentiators": ["string"],
-  "past_performance_summary": "string or empty"
-}`;
+  "partner_name": "company name or empty string",
+  "address": "full address or empty string",
+  "website_url": "website URL or empty string",
+  "uei": "Unique Entity Identifier or empty string",
+  "cage_code": "CAGE Code or empty string",
+  "primary_naics": "primary NAICS code or empty string",
+  "secondary_naics": ["array of secondary NAICS codes"],
+  "poc_name": "point of contact name or empty string",
+  "poc_email": "contact email or empty string",
+  "poc_phone": "contact phone or empty string",
+  "certifications": ["array of certifications like 8(a), HUBZone, SDVOSB, etc."],
+  "core_capabilities": ["array of 5-10 key capabilities/services"],
+  "differentiators": ["array of 3-7 competitive advantages"],
+  "past_performance_summary": "brief summary of past performance or empty string"
+}
+
+**IMPORTANT:** Return valid JSON only. Extract as much information as you can find. Use empty strings or empty arrays if information is not found.`;
 
       const aiResult = await base44.integrations.Core.InvokeLLM({
         prompt,
-        file_urls: [fileUrl],
+        file_urls: [processedUrl],
         response_json_schema: {
           type: "object",
           properties: {
@@ -233,6 +285,9 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
           }
         }
       });
+
+      console.log('✓ AI extraction completed');
+      console.log('Step 4: Auto-populating form fields...');
 
       // Auto-populate form
       const updatedForm = { ...newPartnerForm };
@@ -306,12 +361,18 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
 
       setNewPartnerForm(updatedForm);
 
+      console.log(`✓ Successfully populated ${fieldsPopulated.length} fields`);
+      console.log('=== PROCESSING COMPLETE ===');
+
       if (fieldsPopulated.length > 0) {
-        alert(`✓ AI extracted and populated ${fieldsPopulated.length} fields!\n\nFields: ${fieldsPopulated.join(', ')}`);
+        alert(`✓ AI extracted and populated ${fieldsPopulated.length} fields from ${file.name}!\n\nFields: ${fieldsPopulated.join(', ')}\n\nPlease review and adjust as needed.`);
+      } else {
+        alert(`AI analyzed ${file.name} but couldn't extract structured data. The document may not contain the expected information format. You can still manually enter the details.`);
       }
     } catch (error) {
-      console.error("Error extracting data:", error);
-      alert(`Error processing file: ${error.message}`);
+      console.error('=== ERROR DURING EXTRACTION ===');
+      console.error('Error:', error);
+      alert(`Error processing ${file.name}: ${error.message}\n\nYou can still manually enter the company information.`);
     } finally {
       setIsExtractingData(false);
     }
@@ -692,7 +753,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
             <div className="space-y-2">
               <Label>Upload Capability Statement (Optional - AI Auto-Fill)</Label>
               <p className="text-sm text-blue-600 font-medium">
-                Upload a capability statement and AI will auto-populate the form fields.
+                Upload a capability statement (PDF, Word, Excel, PowerPoint, or image) and AI will auto-populate the form fields.
               </p>
               
               {isExtractingData && (
@@ -732,7 +793,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                       type="file"
                       id="cap-upload"
                       className="hidden"
-                      accept=".pdf,.doc,.docx"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.gif,.webp"
                       onChange={handleCapabilityStatementSelect}
                       disabled={isExtractingData}
                     />
@@ -742,7 +803,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                         Upload Capability Statement
                       </label>
                     </Button>
-                    <p className="text-xs text-slate-500 mt-2">PDF or Word document</p>
+                    <p className="text-xs text-slate-500 mt-2">PDF, Word, Excel, PowerPoint, Text, or Image files</p>
                   </>
                 )}
               </div>
