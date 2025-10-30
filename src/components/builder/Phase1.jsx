@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,9 +59,8 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
   const [addingForPrime, setAddingForPrime] = useState(false);
   const [selectedTeamingPartners, setSelectedTeamingPartners] = useState([]);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [successContext, setSuccessContext] = useState(''); // 'prime' or 'teaming'
+  const [successContext, setSuccessContext] = useState('');
   
-  // New partner form state
   const [newPartnerForm, setNewPartnerForm] = useState({
     partner_name: "",
     partner_type: "teaming_partner",
@@ -123,7 +121,6 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
             }));
           }
           
-          // Load existing teaming partners from proposalData
           if (proposalData.teaming_partner_ids && proposalData.teaming_partner_ids.length > 0) {
             const selectedPartners = teamingPartners.filter(p => 
               proposalData.teaming_partner_ids.includes(p.id)
@@ -150,29 +147,24 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
         await uploadCapabilityStatement(createdPartner.id);
       }
       
-      // Refresh partners list
       const teamingPartners = await base44.entities.TeamingPartner.filter(
         { organization_id: organization.id },
         'partner_name'
       );
       setPartners(teamingPartners);
       
-      // Update prime options
       const options = [
         { id: organization.id, name: organization.organization_name, type: 'organization' },
         ...teamingPartners.map(p => ({ id: p.id, name: p.partner_name, type: 'partner' }))
       ];
       setPrimeOptions(options);
       
-      // Show success message
       setSuccessContext(addingForPrime ? 'prime' : 'teaming');
       setShowSuccessMessage(true);
       
-      // Close dialog and reset form
       setShowAddPartnerDialog(false);
       resetPartnerForm();
       
-      // Auto-hide success message after 5 seconds
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 5000);
@@ -238,9 +230,9 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
 ${extractedText ? `**DOCUMENT TEXT CONTENT:**
 ${extractedText}
 
-` : '**NOTE:** Analyzing document directly from file URL (PDF or image format).
+` : `**NOTE:** Analyzing document directly from file URL (PDF or image format).
 
-'}**YOUR TASK:**
+`}**YOUR TASK:**
 Extract the following information and return as valid JSON:
 
 {
@@ -289,7 +281,6 @@ Extract the following information and return as valid JSON:
       console.log('✓ AI extraction completed');
       console.log('Step 4: Auto-populating form fields...');
 
-      // Auto-populate form
       const updatedForm = { ...newPartnerForm };
       let fieldsPopulated = [];
 
@@ -492,7 +483,6 @@ Extract the following information and return as valid JSON:
     }
   };
 
-  // Available partners for teaming dropdown (exclude already selected)
   const availableTeamingPartners = partners.filter(p => 
     !selectedTeamingPartners.find(sp => sp.id === p.id)
   );
@@ -509,7 +499,6 @@ Extract the following information and return as valid JSON:
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Success Message */}
         {showSuccessMessage && (
           <Alert className="bg-green-50 border-green-200">
             <CheckCircle className="w-4 h-4 text-green-600" />
@@ -524,7 +513,6 @@ Extract the following information and return as valid JSON:
           </Alert>
         )}
 
-        {/* Proposal Name */}
         <div className="space-y-2">
           <Label htmlFor="proposal_name">Proposal Name *</Label>
           <Input
@@ -538,7 +526,6 @@ Extract the following information and return as valid JSON:
           </p>
         </div>
 
-        {/* Prime Contractor */}
         <div className="space-y-2">
           <Label htmlFor="prime_contractor">Prime Contractor *</Label>
           <div className="flex gap-2">
@@ -582,11 +569,9 @@ Extract the following information and return as valid JSON:
           </p>
         </div>
 
-        {/* Teaming Partners / Subs */}
         <div className="space-y-3">
           <Label>Teaming Partners / Subcontractors (Optional)</Label>
           
-          {/* Selected Partners List */}
           {selectedTeamingPartners.length > 0 && (
             <div className="space-y-2 p-4 bg-slate-50 rounded-lg border">
               <p className="text-sm font-medium text-slate-700">Selected Partners:</p>
@@ -614,7 +599,6 @@ Extract the following information and return as valid JSON:
             </div>
           )}
 
-          {/* Add Partner Controls */}
           <div className="flex gap-2">
             <Select
               value=""
@@ -659,7 +643,6 @@ Extract the following information and return as valid JSON:
           </p>
         </div>
 
-        {/* Contract Value */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="contract_value">
@@ -736,7 +719,6 @@ Extract the following information and return as valid JSON:
         </div>
       </CardContent>
 
-      {/* Add Partner Dialog */}
       <Dialog open={showAddPartnerDialog} onOpenChange={setShowAddPartnerDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -749,7 +731,6 @@ Extract the following information and return as valid JSON:
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Capability Statement Upload with AI */}
             <div className="space-y-2">
               <Label>Upload Capability Statement (Optional - AI Auto-Fill)</Label>
               <p className="text-sm text-blue-600 font-medium">
@@ -809,7 +790,6 @@ Extract the following information and return as valid JSON:
               </div>
             </div>
 
-            {/* Company Name */}
             <div className="space-y-2">
               <Label>Company Name *</Label>
               <Input
@@ -819,7 +799,6 @@ Extract the following information and return as valid JSON:
               />
             </div>
 
-            {/* Contact Info Grid */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>POC Name</Label>
@@ -840,7 +819,6 @@ Extract the following information and return as valid JSON:
               </div>
             </div>
 
-            {/* Identifiers */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>UEI</Label>
@@ -860,7 +838,6 @@ Extract the following information and return as valid JSON:
               </div>
             </div>
 
-            {/* Certifications */}
             <div className="space-y-2">
               <Label>Small Business Certifications</Label>
               <div className="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-lg">
@@ -906,7 +883,6 @@ Extract the following information and return as valid JSON:
               )}
             </div>
 
-            {/* Core Capabilities */}
             <div className="space-y-2">
               <Label>Core Capabilities</Label>
               <div className="flex gap-2">
@@ -930,7 +906,6 @@ Extract the following information and return as valid JSON:
               </div>
             </div>
 
-            {/* Notes */}
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
