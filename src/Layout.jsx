@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -24,7 +25,8 @@ import {
   CheckSquare,
   ChevronsLeft,
   ChevronsRight,
-  Handshake
+  Handshake,
+  Bug
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +64,7 @@ const navigationItems = [
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
   { title: "Pricing", url: createPageUrl("Pricing"), icon: DollarSign },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
+  { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
 ];
 
 const adminItems = [
