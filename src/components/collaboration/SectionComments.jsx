@@ -5,68 +5,49 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  MessageSquare, 
-  Send, 
-  CheckCircle, 
+import {
+  MessageSquare,
+  Send,
+  Reply,
+  CheckCircle2,
+  Clock,
   AlertCircle,
-  HelpCircle,
-  Lightbulb,
-  Loader2
+  User,
+  X
 } from "lucide-react";
 import moment from "moment";
 
-export default function SectionComments({ proposal, section, user }) {
+export default function SectionComments({ section, proposal, user }) {
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
   const [commentType, setCommentType] = useState("general");
+  const [replyingTo, setReplyingTo] = useState(null);
 
-  const { data: comments, isLoading } = useQuery({
-    queryKey: ['section-comments', section?.id],
+  const { data: comments } = useQuery({
+    queryKey: ['section-comments', section.id],
     queryFn: async () => {
-      if (!section?.id) return [];
-      return base44.entities.ProposalComment.filter(
-        { section_id: section.id },
-        'created_date'
-      );
+      return base44.entities.ProposalComment.filter({
+        proposal_id: proposal.id,
+        section_id: section.id
+      }, 'created_date');
     },
     initialData: [],
-    enabled: !!section?.id,
   });
 
-  const createCommentMutation = useMutation({
-    mutationFn: async (commentData) => {
-      // Extract mentions from content
-      const mentionRegex = /@([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
-      const mentions = [...commentData.content.matchAll(mentionRegex)].map(match => match[1]);
-
+  const addCommentMutation = useMutation({
+    mutationFn: async ({ content, type, parentId }) => {
       const comment = await base44.entities.ProposalComment.create({
-        ...commentData,
-        mentions: mentions
+        proposal_id: proposal.id,
+        section_id: section.id,
+        author_email: user.email,
+        author_name: user.full_name,
+        content,
+        comment_type: type,
+        parent_comment_id: parentId || null,
+        is_from_client: false
       });
 
-      // Create notifications for mentions
-      for (const mentionedEmail of mentions) {
-        if (mentionedEmail !== user.email) {
-          await base44.entities.Notification.create({
-            user_email: mentionedEmail,
-            notification_type: "mention",
-            title: "You were mentioned in a section comment",
-            message: `${user.full_name} mentioned you in "${section.section_name}"`,
-            related_proposal_id: proposal.id,
-            related_entity_id: section.id,
-            related_entity_type: "section",
-            from_user_email: user.email,
-            from_user_name: user.full_name,
-            action_url: `/app/ProposalBuilder?id=${proposal.id}`
-          });
-        }
-      }
-
-      // Log activity
       await base44.entities.ActivityLog.create({
         proposal_id: proposal.id,
         user_email: user.email,
@@ -82,7 +63,7 @@ export default function SectionComments({ proposal, section, user }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['section-comments'] });
       setNewComment("");
-      setCommentType("general");
+      setReplyingTo(null);
     },
   });
 
@@ -99,184 +80,235 @@ export default function SectionComments({ proposal, section, user }) {
     },
   });
 
+  const unresolveCommentMutation = useMutation({
+    mutationFn: async (commentId) => {
+      return await base44.entities.ProposalComment.update(commentId, {
+        is_resolved: false,
+        resolved_by: null,
+        resolved_date: null
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['section-comments'] });
+    },
+  });
+
   const handleAddComment = () => {
     if (newComment.trim()) {
-      createCommentMutation.mutate({
-        proposal_id: proposal.id,
-        section_id: section.id,
-        author_email: user.email,
-        author_name: user.full_name,
-        content: newComment,
-        comment_type: commentType
+      addCommentMutation.mutate({
+        content: newComment.trim(),
+        type: commentType,
+        parentId: replyingTo?.id
       });
     }
   };
 
-  const getCommentIcon = (type) => {
-    switch (type) {
-      case "suggestion": return <Lightbulb className="w-4 h-4 text-amber-600" />;
-      case "question": return <HelpCircle className="w-4 h-4 text-blue-600" />;
-      case "issue": return <AlertCircle className="w-4 h-4 text-red-600" />;
-      case "approval": return <CheckCircle className="w-4 h-4 text-green-600" />;
-      default: return <MessageSquare className="w-4 h-4 text-slate-600" />;
-    }
+  const buildCommentTree = (comments) => {
+    const commentMap = {};
+    const rootComments = [];
+
+    comments.forEach(comment => {
+      commentMap[comment.id] = { ...comment, replies: [] };
+    });
+
+    comments.forEach(comment => {
+      if (comment.parent_comment_id && commentMap[comment.parent_comment_id]) {
+        commentMap[comment.parent_comment_id].replies.push(commentMap[comment.id]);
+      } else {
+        rootComments.push(commentMap[comment.id]);
+      }
+    });
+
+    return rootComments;
   };
 
-  const getCommentTypeColor = (type) => {
-    switch (type) {
-      case "suggestion": return "bg-amber-100 text-amber-700";
-      case "question": return "bg-blue-100 text-blue-700";
-      case "issue": return "bg-red-100 text-red-700";
-      case "approval": return "bg-green-100 text-green-700";
-      default: return "bg-slate-100 text-slate-700";
-    }
+  const CommentThread = ({ comment, depth = 0 }) => {
+    const isFromClient = comment.is_from_client;
+    
+    return (
+      <div className={`${depth > 0 ? 'ml-8 mt-3' : ''}`}>
+        <div className={`p-4 rounded-lg border ${
+          comment.is_resolved 
+            ? 'bg-green-50 border-green-200' 
+            : isFromClient 
+              ? 'bg-blue-50 border-blue-200' 
+              : 'bg-slate-50 border-slate-200'
+        }`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <span className="text-white text-xs font-semibold">
+                  {comment.author_name?.[0]?.toUpperCase() || 'U'}
+                </span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-900 text-sm">{comment.author_name}</span>
+                {isFromClient && (
+                  <Badge className="bg-blue-600 text-white text-xs ml-2">Client</Badge>
+                )}
+                {comment.comment_type !== 'general' && (
+                  <Badge variant="outline" className="text-xs ml-2 capitalize">
+                    {comment.comment_type}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <span className="text-xs text-slate-500">
+              {moment(comment.created_date).fromNow()}
+            </span>
+          </div>
+
+          <p className="text-slate-700 whitespace-pre-wrap text-sm mb-3">{comment.content}</p>
+
+          <div className="flex items-center gap-2">
+            {comment.is_resolved ? (
+              <>
+                <Badge className="bg-green-100 text-green-700 text-xs">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Resolved
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => unresolveCommentMutation.mutate(comment.id)}
+                  className="h-7 text-xs"
+                >
+                  Unresolve
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setReplyingTo(comment)}
+                  className="h-7 text-xs"
+                >
+                  <Reply className="w-3 h-3 mr-1" />
+                  Reply
+                </Button>
+                {!isFromClient && depth === 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => resolveCommentMutation.mutate(comment.id)}
+                    className="h-7 text-xs text-green-600 hover:text-green-700"
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Mark Resolved
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-2">
+            {comment.replies.map(reply => (
+              <CommentThread key={reply.id} comment={reply} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const unresolvedComments = comments.filter(c => !c.is_resolved);
-  const resolvedComments = comments.filter(c => c.is_resolved);
+  const commentTree = buildCommentTree(comments);
+  const unresolvedCount = comments.filter(c => !c.is_resolved && !c.parent_comment_id).length;
 
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5" />
-          Section Comments
-          {unresolvedComments.length > 0 && (
-            <Badge variant="destructive">{unresolvedComments.length} unresolved</Badge>
-          )}
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            Section Comments
+          </div>
+          <div className="flex items-center gap-2">
+            {unresolvedCount > 0 && (
+              <Badge variant="outline" className="text-amber-700 border-amber-300">
+                {unresolvedCount} Unresolved
+              </Badge>
+            )}
+            <Badge variant="secondary">
+              {comments.length} Total
+            </Badge>
+          </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-6">
-        <ScrollArea className="h-[400px] mb-6">
-          {comments.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+      <CardContent className="p-6 space-y-6">
+        {/* Existing Comments */}
+        <div className="space-y-4 max-h-[500px] overflow-y-auto">
+          {commentTree.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
               <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-              <p className="text-sm">No comments yet</p>
-              <p className="text-xs mt-1">Be the first to comment on this section</p>
+              <p>No comments on this section yet</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Unresolved Comments */}
-              {unresolvedComments.length > 0 && (
-                <>
-                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                    Unresolved ({unresolvedComments.length})
-                  </h4>
-                  {unresolvedComments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3 p-4 bg-white border-2 border-slate-200 rounded-lg">
-                      <Avatar className="w-10 h-10 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-                          {comment.author_name?.[0]?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-slate-900">{comment.author_name}</span>
-                          <Badge variant="outline" className={getCommentTypeColor(comment.comment_type)}>
-                            {getCommentIcon(comment.comment_type)}
-                            <span className="ml-1">{comment.comment_type}</span>
-                          </Badge>
-                          <span className="text-xs text-slate-500 ml-auto">
-                            {moment(comment.created_date).fromNow()}
-                          </span>
-                        </div>
-                        <p className="text-slate-700 text-sm whitespace-pre-wrap mb-3">{comment.content}</p>
-                        {comment.author_email !== user.email && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => resolveCommentMutation.mutate(comment.id)}
-                            disabled={resolveCommentMutation.isPending}
-                          >
-                            <CheckCircle className="w-3 h-3 mr-2" />
-                            Mark as Resolved
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {/* Resolved Comments */}
-              {resolvedComments.length > 0 && (
-                <>
-                  <h4 className="text-sm font-semibold text-slate-500 flex items-center gap-2 mt-6">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    Resolved ({resolvedComments.length})
-                  </h4>
-                  {resolvedComments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg opacity-60">
-                      <Avatar className="w-10 h-10 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
-                          {comment.author_name?.[0]?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-slate-700">{comment.author_name}</span>
-                          <Badge variant="outline" className="bg-green-100 text-green-700">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Resolved
-                          </Badge>
-                          <span className="text-xs text-slate-500 ml-auto">
-                            {moment(comment.created_date).fromNow()}
-                          </span>
-                        </div>
-                        <p className="text-slate-600 text-sm whitespace-pre-wrap">{comment.content}</p>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
+            commentTree.map(comment => (
+              <CommentThread key={comment.id} comment={comment} />
+            ))
           )}
-        </ScrollArea>
+        </div>
 
-        <div className="border-t pt-4">
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <Select value={commentType} onValueChange={setCommentType}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">💬 General</SelectItem>
-                  <SelectItem value="suggestion">💡 Suggestion</SelectItem>
-                  <SelectItem value="question">❓ Question</SelectItem>
-                  <SelectItem value="issue">⚠️ Issue</SelectItem>
-                  <SelectItem value="approval">✅ Approval</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Textarea
-              placeholder="Add a comment... (Use @email to mention someone)"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              rows={3}
-            />
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-slate-500">
-                💡 Tip: Use @email to notify team members
-              </p>
-              <Button 
-                onClick={handleAddComment}
-                disabled={!newComment.trim() || createCommentMutation.isPending}
+        {/* Add Comment */}
+        <div className="border-t pt-6">
+          {replyingTo && (
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-blue-900 mb-1">
+                  Replying to {replyingTo.author_name}
+                </p>
+                <p className="text-xs text-blue-700 line-clamp-2">{replyingTo.content}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setReplyingTo(null)}
+                className="h-6 w-6"
               >
-                {createCommentMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Add Comment
-                  </>
-                )}
+                <X className="w-4 h-4" />
               </Button>
             </div>
+          )}
+
+          <div className="mb-3">
+            <Select value={commentType} onValueChange={setCommentType}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General Comment</SelectItem>
+                <SelectItem value="question">Question</SelectItem>
+                <SelectItem value="suggestion">Suggestion</SelectItem>
+                <SelectItem value="issue">Issue</SelectItem>
+                <SelectItem value="approval">Approval</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-3">
+            <Textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder={replyingTo ? "Write your reply..." : "Add a comment..."}
+              rows={3}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleAddComment}
+              disabled={!newComment.trim() || addCommentMutation.isPending}
+            >
+              {addCommentMutation.isPending ? (
+                <>Sending...</>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  {replyingTo ? 'Reply' : 'Send'}
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </CardContent>
