@@ -139,18 +139,24 @@ export const hasAllPermissions = (user, permissions) => {
   return permissions.every(permission => hasPermission(user, permission));
 };
 
-// Check if user has any admin role
+// Check if user has any admin role (updated to handle users with role='admin' but no admin_role)
 export const isAdmin = (user) => {
+  // First check if user has the basic admin role
+  if (user?.role === 'admin') return true;
+  
+  // Also check if they have a specific admin_role defined
   return user?.admin_role && ROLE_PERMISSIONS[user.admin_role];
 };
 
 // Get user's role label
 export const getRoleLabel = (adminRole) => {
-  return ROLE_PERMISSIONS[adminRole]?.label || "Unknown Role";
+  if (!adminRole) return "Admin";
+  return ROLE_PERMISSIONS[adminRole]?.label || "Admin";
 };
 
 // Get user's role description
 export const getRoleDescription = (adminRole) => {
+  if (!adminRole) return "Administrator with access to admin portal";
   return ROLE_PERMISSIONS[adminRole]?.description || "";
 };
 
@@ -175,7 +181,7 @@ export const logAdminAction = async (action, details, targetUser = null) => {
     const currentUser = await base44.auth.me();
     await base44.entities.AuditLog.create({
       admin_email: currentUser.email,
-      admin_role: currentUser.admin_role,
+      admin_role: currentUser.admin_role || 'admin',
       action_type: action,
       target_entity: targetUser,
       details: typeof details === 'string' ? details : JSON.stringify(details),
