@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -47,7 +46,6 @@ import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
 
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
@@ -142,7 +140,7 @@ export default function Layout({ children }) {
 
   // Filter navigation items based on organization type and permissions
   const navigationItems = React.useMemo(() => {
-    if (!organization) return [];
+    if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");
     
     const isConsultant = isConsultantAccount(organization);
     
@@ -332,7 +330,7 @@ export default function Layout({ children }) {
                         />
                       </div>
                     </div>
-                    <Link to={createPageUrl("Pricing")}>
+                    <Link to={createPageUrl("Settings")}>
                       <Button variant="outline" size="sm" className="w-full">
                         <CreditCard className="w-4 h-4 mr-2" />
                         Manage Plan
@@ -522,7 +520,7 @@ export default function Layout({ children }) {
                       />
                     </div>
                   </div>
-                  <Link to={createPageUrl("Pricing")}>
+                  <Link to={createPageUrl("Settings")}>
                     <Button variant="outline" size="sm" className="w-full min-h-[44px]">
                       <CreditCard className="w-4 h-4 mr-2" />
                       Manage Plan
