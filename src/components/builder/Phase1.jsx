@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, Building2, Users, Sparkles, DollarSign, Plus, X, CheckCircle } from "lucide-react";
+import { Briefcase, Building2, Users, Sparkles, DollarSign, Plus, X, CheckCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -178,6 +178,15 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     const file = e.target.files[0];
     if (!file) return;
     
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    // Check if file is .docx or other Office formats
+    if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension)) {
+      alert(`⚠️ Microsoft Office Files Not Supported\n\nThe AI currently cannot read ${fileExtension.toUpperCase()} files directly.\n\n✅ SOLUTION: Please convert your document to PDF first, then upload the PDF.\n\nHow to convert:\n• Open your document in Word/Excel/PowerPoint\n• Click File → Save As\n• Choose PDF format\n• Upload the PDF version here\n\nAlternatively, you can manually enter the company information in the form below.`);
+      e.target.value = ''; // Clear the input so the same file can be selected again if needed
+      return;
+    }
+    
     setCapabilityStatementFile(file);
     setIsExtractingData(true);
     
@@ -232,7 +241,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
         }
       };
 
-      // Use ExtractDataFromUploadedFile integration for all file types
+      // Use ExtractDataFromUploadedFile integration for PDFs, images, CSVs
       const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url: fileUrl,
         json_schema: extractionSchema
@@ -331,7 +340,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     } catch (error) {
       console.error('=== ❌ ERROR ===');
       console.error('Error details:', error);
-      alert(`❌ Error processing ${file.name}:\n${error.message}\n\nPlease manually enter the information or try a different file.`);
+      alert(`❌ Error processing ${file.name}:\n${error.message}\n\nPlease manually enter the information or try a PDF version of the file.`);
     } finally {
       setIsExtractingData(false);
     }
@@ -701,9 +710,18 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
           <div className="space-y-6 py-4">
             <div className="space-y-2">
               <Label>Upload Capability Statement (Optional - AI Auto-Fill)</Label>
-              <p className="text-sm text-blue-600 font-medium">
-                Upload a capability statement and AI will auto-populate the form fields. Supports PDF, Word, Excel, PowerPoint, images, and CSV.
-              </p>
+              
+              <Alert className="bg-amber-50 border-amber-200">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <AlertDescription>
+                  <p className="font-semibold text-amber-900 mb-1">📄 Supported Formats</p>
+                  <p className="text-sm text-amber-800">
+                    ✅ PDF files work best with AI extraction<br/>
+                    ✅ Images (PNG, JPG) are also supported<br/>
+                    ❌ Word/Excel/PowerPoint files: Please convert to PDF first
+                  </p>
+                </AlertDescription>
+              </Alert>
               
               {isExtractingData && (
                 <Alert className="bg-blue-50 border-blue-200">
@@ -742,7 +760,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                       type="file"
                       id="cap-upload"
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.gif,.webp,.csv"
+                      accept=".pdf,.png,.jpg,.jpeg,.csv"
                       onChange={handleCapabilityStatementSelect}
                       disabled={isExtractingData}
                     />
@@ -752,7 +770,8 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                         Upload Capability Statement
                       </label>
                     </Button>
-                    <p className="text-xs text-slate-500 mt-2">PDF, Word, Excel, PowerPoint, Text, CSV, or Image files</p>
+                    <p className="text-xs text-slate-500 mt-2">PDF, PNG, JPG, or CSV files</p>
+                    <p className="text-xs text-amber-600 mt-1">Word/Excel/PowerPoint: Convert to PDF first</p>
                   </>
                 )}
               </div>
