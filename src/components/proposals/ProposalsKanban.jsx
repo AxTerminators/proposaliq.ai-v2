@@ -2,12 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DragDropContext, Droppable } from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import KanbanColumn from "./KanbanColumn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Settings2, RotateCcw, AlertTriangle, Trash2 } from "lucide-react";
+import { Loader2, Plus, Settings2, RotateCcw, AlertTriangle, Trash2, GripVertical } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -265,8 +265,26 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
 
+    // Handle column reordering
+    if (type === 'column') {
+      const newColumns = Array.from(columns);
+      const [movedColumn] = newColumns.splice(source.index, 1);
+      newColumns.splice(destination.index, 0, movedColumn);
+
+      // Update order property
+      const reorderedColumns = newColumns.map((col, idx) => ({
+        ...col,
+        order: idx
+      }));
+
+      setColumns(reorderedColumns);
+      saveColumnConfigMutation.mutate(reorderedColumns);
+      return;
+    }
+
+    // Handle proposal card moving between columns
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
@@ -373,6 +391,35 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     );
   };
 
+  const handleColumnOrderChange = (columnId, newOrder) => {
+    const orderNum = parseInt(newOrder, 10);
+    if (isNaN(orderNum) || orderNum < 1 || orderNum > columnConfig.length) return;
+
+    const targetIndex = orderNum - 1;
+    const currentIndex = columnConfig.findIndex(col => col.id === columnId);
+    
+    if (currentIndex === -1 || targetIndex === currentIndex) return;
+
+    const newColumns = Array.from(columnConfig);
+    const [movedColumn] = newColumns.splice(currentIndex, 1);
+    newColumns.splice(Math.min(targetIndex, newColumns.length), 0, movedColumn);
+
+    setColumnConfig(newColumns);
+  };
+
+  const handleConfigDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const { source, destination } = result;
+    if (source.index === destination.index) return;
+
+    const newColumns = Array.from(columnConfig);
+    const [movedColumn] = newColumns.splice(source.index, 1);
+    newColumns.splice(destination.index, 0, movedColumn);
+
+    setColumnConfig(newColumns);
+  };
+
   const handleToggleCollapse = (columnId) => {
     if (!columnId) return;
 
@@ -446,73 +493,111 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
             <DialogHeader>
               <DialogTitle>Customize Kanban Columns</DialogTitle>
               <DialogDescription>
-                Edit column labels and colors, or add custom workflow stages. Default columns cannot be deleted.
+                Edit column labels and colors, reorder columns by dragging or entering order numbers, or add custom workflow stages.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              {/* Existing Columns */}
+              {/* Existing Columns with Drag and Drop */}
               <div className="space-y-3">
-                <h3 className="font-semibold text-sm">Existing Columns</h3>
-                {columnConfig.map((column, index) => {
-                  if (!column || !column.id) return null;
-                  
-                  return (
-                    <div key={column.id} className="flex gap-4 items-center p-4 border rounded-lg bg-slate-50">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label className="text-xs font-semibold">Label</Label>
-                          {column.type === 'default_status' && (
-                            <span className="text-xs text-slate-500 italic">(Default Column)</span>
-                          )}
-                          {column.type === 'custom_stage' && (
-                            <span className="text-xs text-blue-600 italic">(Custom Stage)</span>
-                          )}
-                        </div>
-                        <Input
-                          value={column.label || ""}
-                          onChange={(e) => handleColumnChange(column.id, 'label', e.target.value)}
-                          placeholder="Column name"
-                        />
+                <h3 className="font-semibold text-sm">Existing Columns (Drag to Reorder)</h3>
+                <DragDropContext onDragEnd={handleConfigDragEnd}>
+                  <Droppable droppableId="column-config-list">
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-3"
+                      >
+                        {columnConfig.map((column, index) => {
+                          if (!column || !column.id) return null;
+                          
+                          return (
+                            <Draggable key={column.id} draggableId={column.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={`flex gap-4 items-center p-4 border rounded-lg ${
+                                    snapshot.isDragging ? 'bg-blue-50 border-blue-300 shadow-lg' : 'bg-slate-50'
+                                  }`}
+                                >
+                                  <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
+                                    <GripVertical className="w-5 h-5 text-slate-400" />
+                                  </div>
+                                  
+                                  <div className="w-16">
+                                    <Label className="text-xs font-semibold">Order</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max={columnConfig.length}
+                                      value={index + 1}
+                                      onChange={(e) => handleColumnOrderChange(column.id, e.target.value)}
+                                      className="h-8 text-center"
+                                    />
+                                  </div>
+
+                                  <div className="flex-1 space-y-2">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Label className="text-xs font-semibold">Label</Label>
+                                      {column.type === 'default_status' && (
+                                        <span className="text-xs text-slate-500 italic">(Default Column)</span>
+                                      )}
+                                      {column.type === 'custom_stage' && (
+                                        <span className="text-xs text-blue-600 italic">(Custom Stage)</span>
+                                      )}
+                                    </div>
+                                    <Input
+                                      value={column.label || ""}
+                                      onChange={(e) => handleColumnChange(column.id, 'label', e.target.value)}
+                                      placeholder="Column name"
+                                    />
+                                  </div>
+                                  
+                                  <div className="w-32 space-y-2">
+                                    <Label className="text-xs font-semibold">Color</Label>
+                                    <select
+                                      value={column.color || "bg-slate-100"}
+                                      onChange={(e) => handleColumnChange(column.id, 'color', e.target.value)}
+                                      className="w-full px-3 py-2 border rounded-md"
+                                    >
+                                      <option value="bg-slate-100">Gray</option>
+                                      <option value="bg-blue-100">Blue</option>
+                                      <option value="bg-purple-100">Purple</option>
+                                      <option value="bg-indigo-100">Indigo</option>
+                                      <option value="bg-green-100">Green</option>
+                                      <option value="bg-yellow-100">Yellow</option>
+                                      <option value="bg-red-100">Red</option>
+                                      <option value="bg-pink-100">Pink</option>
+                                      <option value="bg-amber-100">Amber</option>
+                                      <option value="bg-teal-100">Teal</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    {column.type === 'custom_stage' ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDeleteColumn(column)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    ) : (
+                                      <div className="w-10" />
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
                       </div>
-                      <div className="w-32 space-y-2">
-                        <Label className="text-xs font-semibold">Color</Label>
-                        <select
-                          value={column.color || "bg-slate-100"}
-                          onChange={(e) => handleColumnChange(column.id, 'color', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md"
-                        >
-                          <option value="bg-slate-100">Gray</option>
-                          <option value="bg-blue-100">Blue</option>
-                          <option value="bg-purple-100">Purple</option>
-                          <option value="bg-indigo-100">Indigo</option>
-                          <option value="bg-green-100">Green</option>
-                          <option value="bg-yellow-100">Yellow</option>
-                          <option value="bg-red-100">Red</option>
-                          <option value="bg-pink-100">Pink</option>
-                          <option value="bg-amber-100">Amber</option>
-                          <option value="bg-teal-100">Teal</option>
-                        </select>
-                      </div>
-                      <div className="text-sm text-slate-500 w-16 text-center">
-                        Order: {index + 1}
-                      </div>
-                      <div>
-                        {column.type === 'custom_stage' ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteColumn(column)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        ) : (
-                          <div className="w-10" />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    )}
+                  </Droppable>
+                </DragDropContext>
               </div>
 
               {/* Add New Column */}
@@ -763,37 +848,56 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       </AlertDialog>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((column) => {
-            if (!column || !column.id) return null;
+        <Droppable droppableId="all-columns" direction="horizontal" type="column">
+          {(provided) => (
+            <div
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              className="flex gap-4 overflow-x-auto pb-4"
+            >
+              {columns.map((column, index) => {
+                if (!column || !column.id) return null;
 
-            const isColumnCollapsed = collapsedColumns.includes(column.id);
-            return (
-              <Droppable key={column.id} droppableId={column.id}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`flex-shrink-0 transition-all duration-300 ${
-                      isColumnCollapsed ? 'w-16' : 'w-80'
-                    }`}
-                  >
-                    <KanbanColumn
-                      column={column}
-                      proposals={groupedProposals[column.id] || []}
-                      onProposalClick={onProposalClick}
-                      onDeleteProposal={handleDeleteProposal}
-                      isDraggingOver={snapshot.isDraggingOver}
-                      isCollapsed={isColumnCollapsed}
-                      onToggleCollapse={handleToggleCollapse}
-                    />
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            );
-          })}
-        </div>
+                const isColumnCollapsed = collapsedColumns.includes(column.id);
+                return (
+                  <Draggable key={column.id} draggableId={column.id} index={index} type="column">
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={`flex-shrink-0 transition-all duration-300 ${
+                          isColumnCollapsed ? 'w-16' : 'w-80'
+                        } ${snapshot.isDragging ? 'opacity-50' : ''}`}
+                      >
+                        <Droppable droppableId={column.id} type="proposal">
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                            >
+                              <KanbanColumn
+                                column={column}
+                                proposals={groupedProposals[column.id] || []}
+                                onProposalClick={onProposalClick}
+                                onDeleteProposal={handleDeleteProposal}
+                                isDraggingOver={snapshot.isDraggingOver}
+                                isCollapsed={isColumnCollapsed}
+                                onToggleCollapse={handleToggleCollapse}
+                                dragHandleProps={provided.dragHandleProps}
+                              />
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </div>
+                    )}
+                  </Draggable>
+                );
+              })}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
       </DragDropContext>
     </div>
   );
