@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl, hasClientPortalAccess } from "@/utils";
+import { createPageUrl } from "../utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -200,7 +199,7 @@ export default function ProposalBuilder() {
   const progress = ((currentPhaseIndex + 1) / PHASES.length) * 100;
 
   // Check if client portal features are available
-  const hasClientPortal = subscription ? hasClientPortalAccess(subscription) : false;
+  const hasClientPortal = subscription?.features_enabled?.client_portal === true;
 
   // Guard clause - ensure all data is loaded before rendering tabs
   const isDataLoaded = proposalId && user && organization;
