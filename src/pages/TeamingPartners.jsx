@@ -250,228 +250,144 @@ export default function TeamingPartners() {
       return;
     }
 
-    console.log('=== STARTING CAPABILITY STATEMENT PROCESSING ===');
-    console.log('File selected:', file.name, 'Size:', file.size);
-    
     setCapabilityStatementFile(file);
     setIsExtractingData(true);
     setExtractedData(null);
     
     try {
-      console.log('Step 1: Uploading file...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
-      console.log('Step 2: File uploaded successfully:', uploadResult.file_url);
-      
       const fileUrl = uploadResult.file_url;
       
-      console.log('Step 3: Calling AI for extraction...');
-      
-      const prompt = `You are an AI assistant that extracts information from capability statements and company documents.
-
-Analyze this document and extract the following information in structured JSON format:
-
-**COMPANY INFORMATION:**
-- Company/Partner Name
-- Address (full address)
-- Website URL
-- UEI (Unique Entity Identifier)
-- CAGE Code
-- Primary NAICS Code (6-digit code)
-- Secondary NAICS Codes (array of codes)
-
-**CONTACT INFORMATION:**
-- Point of Contact Name
-- POC Email
-- POC Phone Number
-
-**CERTIFICATIONS:**
-- Small Business Certifications (8(a), HUBZone, SDVOSB, VOSB, WOSB, EDWOSB, SDB, ISO, CMMI, etc.)
-
-**CAPABILITIES & STRENGTHS:**
-- Core Capabilities (array of 5-10 key services/capabilities)
-- Key Differentiators (array of 3-7 competitive advantages)
-- Past Performance Summary (brief 2-3 sentence overview)
-- Target Agencies (array of government agencies they work with)
-
-**COMPANY DETAILS:**
-- Employee Count (approximate number)
-- Years in Business
-- Revenue Range (e.g., "$1M-$5M")
-
-Return as valid JSON matching this exact structure:
-{
-  "partner_name": "string or empty",
-  "address": "string or empty",
-  "website_url": "string or empty",
-  "uei": "string or empty",
-  "cage_code": "string or empty",
-  "primary_naics": "string or empty",
-  "secondary_naics": ["string"],
-  "poc_name": "string or empty",
-  "poc_email": "string or empty",
-  "poc_phone": "string or empty",
-  "certifications": ["string"],
-  "core_capabilities": ["string"],
-  "differentiators": ["string"],
-  "past_performance_summary": "string or empty",
-  "target_agencies": ["string"],
-  "employee_count": number or 0,
-  "years_in_business": number or 0,
-  "revenue_range": "string or empty"
-}`;
-
-      const aiResult = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: [fileUrl],
-        response_json_schema: {
-          type: "object",
-          properties: {
-            partner_name: { type: "string" },
-            address: { type: "string" },
-            website_url: { type: "string" },
-            uei: { type: "string" },
-            cage_code: { type: "string" },
-            primary_naics: { type: "string" },
-            secondary_naics: { type: "array", items: { type: "string" } },
-            poc_name: { type: "string" },
-            poc_email: { type: "string" },
-            poc_phone: { type: "string" },
-            certifications: { type: "array", items: { type: "string" } },
-            core_capabilities: { type: "array", items: { type: "string" } },
-            differentiators: { type: "array", items: { type: "string" } },
-            past_performance_summary: { type: "string" },
-            target_agencies: { type: "array", items: { type: "string" } },
-            employee_count: { type: "number" },
-            years_in_business: { type: "number" },
-            revenue_range: { type: "string" }
-          }
+      const extractionSchema = {
+        type: "object",
+        properties: {
+          partner_name: { type: "string" },
+          address: { type: "string" },
+          website_url: { type: "string" },
+          uei: { type: "string" },
+          cage_code: { type: "string" },
+          primary_naics: { type: "string" },
+          secondary_naics: { type: "array", items: { type: "string" } },
+          poc_name: { type: "string" },
+          poc_email: { type: "string" },
+          poc_phone: { type: "string" },
+          certifications: { type: "array", items: { type: "string" } },
+          core_capabilities: { type: "array", items: { type: "string" } },
+          differentiators: { type: "array", items: { type: "string" } },
+          past_performance_summary: { type: "string" },
+          target_agencies: { type: "array", items: { type: "string" } },
+          employee_count: { type: "number" },
+          years_in_business: { type: "number" },
+          revenue_range: { type: "string" }
         }
+      };
+
+      const aiResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url: fileUrl,
+        json_schema: extractionSchema
       });
 
-      console.log('Step 4: AI extraction completed. Result:', aiResult);
+      if (aiResult.status === 'error') {
+        throw new Error(aiResult.details || 'Failed to extract data');
+      }
 
-      // Auto-populate form with extracted data
-      console.log('Step 5: Starting form population. Current formData:', formData);
-      
+      const extracted = aiResult.output || {};
+
       const updatedFormData = { ...formData };
       let fieldsPopulated = [];
 
-      if (aiResult.partner_name && aiResult.partner_name.trim() && !formData.partner_name) {
-        updatedFormData.partner_name = aiResult.partner_name;
+      if (extracted.partner_name && extracted.partner_name.trim() && !formData.partner_name) {
+        updatedFormData.partner_name = extracted.partner_name;
         fieldsPopulated.push("Partner Name");
-        console.log('✓ Populated Partner Name:', aiResult.partner_name);
       }
-      if (aiResult.address && aiResult.address.trim() && !formData.address) {
-        updatedFormData.address = aiResult.address;
+      if (extracted.address && extracted.address.trim() && !formData.address) {
+        updatedFormData.address = extracted.address;
         fieldsPopulated.push("Address");
-        console.log('✓ Populated Address:', aiResult.address);
       }
-      if (aiResult.website_url && aiResult.website_url.trim() && !formData.website_url) {
-        updatedFormData.website_url = aiResult.website_url;
+      if (extracted.website_url && extracted.website_url.trim() && !formData.website_url) {
+        updatedFormData.website_url = extracted.website_url;
         fieldsPopulated.push("Website");
-        console.log('✓ Populated Website:', aiResult.website_url);
       }
-      if (aiResult.uei && aiResult.uei.trim() && !formData.uei) {
-        updatedFormData.uei = aiResult.uei;
+      if (extracted.uei && extracted.uei.trim() && !formData.uei) {
+        updatedFormData.uei = extracted.uei;
         fieldsPopulated.push("UEI");
-        console.log('✓ Populated UEI:', aiResult.uei);
       }
-      if (aiResult.cage_code && aiResult.cage_code.trim() && !formData.cage_code) {
-        updatedFormData.cage_code = aiResult.cage_code;
+      if (extracted.cage_code && extracted.cage_code.trim() && !formData.cage_code) {
+        updatedFormData.cage_code = extracted.cage_code;
         fieldsPopulated.push("CAGE Code");
-        console.log('✓ Populated CAGE Code:', aiResult.cage_code);
       }
-      if (aiResult.primary_naics && aiResult.primary_naics.trim() && !formData.primary_naics) {
-        updatedFormData.primary_naics = aiResult.primary_naics;
+      if (extracted.primary_naics && extracted.primary_naics.trim() && !formData.primary_naics) {
+        updatedFormData.primary_naics = extracted.primary_naics;
         fieldsPopulated.push("Primary NAICS");
-        console.log('✓ Populated Primary NAICS:', aiResult.primary_naics);
       }
-      if (aiResult.secondary_naics && aiResult.secondary_naics.length > 0) {
-        updatedFormData.secondary_naics = aiResult.secondary_naics.filter(n => n && n.trim());
+      if (extracted.secondary_naics && extracted.secondary_naics.length > 0) {
+        updatedFormData.secondary_naics = extracted.secondary_naics.filter(n => n && n.trim());
         if (updatedFormData.secondary_naics.length > 0) {
           fieldsPopulated.push("Secondary NAICS");
-          console.log('✓ Populated Secondary NAICS:', aiResult.secondary_naics);
         }
       }
-      if (aiResult.poc_name && aiResult.poc_name.trim() && !formData.poc_name) {
-        updatedFormData.poc_name = aiResult.poc_name;
+      if (extracted.poc_name && extracted.poc_name.trim() && !formData.poc_name) {
+        updatedFormData.poc_name = extracted.poc_name;
         fieldsPopulated.push("POC Name");
-        console.log('✓ Populated POC Name:', aiResult.poc_name);
       }
-      if (aiResult.poc_email && aiResult.poc_email.trim() && !formData.poc_email) {
-        updatedFormData.poc_email = aiResult.poc_email;
+      if (extracted.poc_email && extracted.poc_email.trim() && !formData.poc_email) {
+        updatedFormData.poc_email = extracted.poc_email;
         fieldsPopulated.push("POC Email");
-        console.log('✓ Populated POC Email:', aiResult.poc_email);
       }
-      if (aiResult.poc_phone && aiResult.poc_phone.trim() && !formData.poc_phone) {
-        updatedFormData.poc_phone = aiResult.poc_phone;
+      if (extracted.poc_phone && extracted.poc_phone.trim() && !formData.poc_phone) {
+        updatedFormData.poc_phone = extracted.poc_phone;
         fieldsPopulated.push("POC Phone");
-        console.log('✓ Populated POC Phone:', aiResult.poc_phone);
       }
-      if (aiResult.certifications && aiResult.certifications.length > 0) {
-        const validCerts = aiResult.certifications.filter(c => c && c.trim());
+      if (extracted.certifications && extracted.certifications.length > 0) {
+        const validCerts = extracted.certifications.filter(c => c && c.trim());
         if (validCerts.length > 0) {
           updatedFormData.certifications = [...new Set([...(formData.certifications || []), ...validCerts])];
           fieldsPopulated.push(`${validCerts.length} Certifications`);
-          console.log('✓ Populated Certifications:', validCerts);
         }
       }
-      if (aiResult.core_capabilities && aiResult.core_capabilities.length > 0) {
-        const validCaps = aiResult.core_capabilities.filter(c => c && c.trim());
+      if (extracted.core_capabilities && extracted.core_capabilities.length > 0) {
+        const validCaps = extracted.core_capabilities.filter(c => c && c.trim());
         if (validCaps.length > 0) {
           updatedFormData.core_capabilities = validCaps;
           fieldsPopulated.push(`${validCaps.length} Core Capabilities`);
-          console.log('✓ Populated Core Capabilities:', validCaps);
         }
       }
-      if (aiResult.differentiators && aiResult.differentiators.length > 0) {
-        const validDiffs = aiResult.differentiators.filter(d => d && d.trim());
+      if (extracted.differentiators && extracted.differentiators.length > 0) {
+        const validDiffs = extracted.differentiators.filter(d => d && d.trim());
         if (validDiffs.length > 0) {
           updatedFormData.differentiators = validDiffs;
           fieldsPopulated.push(`${validDiffs.length} Differentiators`);
-          console.log('✓ Populated Differentiators:', validDiffs);
         }
       }
-      if (aiResult.past_performance_summary && aiResult.past_performance_summary.trim() && !formData.past_performance_summary) {
-        updatedFormData.past_performance_summary = aiResult.past_performance_summary;
+      if (extracted.past_performance_summary && extracted.past_performance_summary.trim() && !formData.past_performance_summary) {
+        updatedFormData.past_performance_summary = extracted.past_performance_summary;
         fieldsPopulated.push("Past Performance Summary");
-        console.log('✓ Populated Past Performance Summary');
       }
-      if (aiResult.target_agencies && aiResult.target_agencies.length > 0) {
-        const validAgencies = aiResult.target_agencies.filter(a => a && a.trim());
+      if (extracted.target_agencies && extracted.target_agencies.length > 0) {
+        const validAgencies = extracted.target_agencies.filter(a => a && a.trim());
         if (validAgencies.length > 0) {
           updatedFormData.target_agencies = validAgencies;
           fieldsPopulated.push("Target Agencies");
-          console.log('✓ Populated Target Agencies:', validAgencies);
         }
       }
-      if (aiResult.employee_count && aiResult.employee_count > 0 && !formData.employee_count) {
-        updatedFormData.employee_count = aiResult.employee_count;
+      if (extracted.employee_count && extracted.employee_count > 0 && !formData.employee_count) {
+        updatedFormData.employee_count = extracted.employee_count;
         fieldsPopulated.push("Employee Count");
-        console.log('✓ Populated Employee Count:', aiResult.employee_count);
       }
-      if (aiResult.years_in_business && aiResult.years_in_business > 0 && !formData.years_in_business) {
-        updatedFormData.years_in_business = aiResult.years_in_business;
+      if (extracted.years_in_business && extracted.years_in_business > 0 && !formData.years_in_business) {
+        updatedFormData.years_in_business = extracted.years_in_business;
         fieldsPopulated.push("Years in Business");
-        console.log('✓ Populated Years in Business:', aiResult.years_in_business);
       }
-      if (aiResult.revenue_range && aiResult.revenue_range.trim() && !formData.revenue_range) {
-        updatedFormData.revenue_range = aiResult.revenue_range;
+      if (extracted.revenue_range && extracted.revenue_range.trim() && !formData.revenue_range) {
+        updatedFormData.revenue_range = extracted.revenue_range;
         fieldsPopulated.push("Revenue Range");
-        console.log('✓ Populated Revenue Range:', aiResult.revenue_range);
       }
-
-      console.log('Step 6: Total fields populated:', fieldsPopulated.length);
-      console.log('Step 7: Updating form state...');
       
       setFormData(updatedFormData);
       setExtractedData({
         fieldsPopulated,
-        rawData: aiResult
+        rawData: extracted
       });
-
-      console.log('Step 8: Form state updated successfully');
-      console.log('=== EXTRACTION COMPLETE ===');
 
       if (fieldsPopulated.length > 0) {
         alert(`✓ AI extracted and populated ${fieldsPopulated.length} fields from ${file.name}!\n\nFields: ${fieldsPopulated.join(', ')}\n\nPlease review and adjust as needed.`);
@@ -480,17 +396,10 @@ Return as valid JSON matching this exact structure:
       }
 
     } catch (error) {
-      console.error('=== ERROR DURING EXTRACTION ===');
-      console.error('Error type:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      console.error('Full error:', error);
-      
-      alert(`Error processing ${file.name}: ${error.message}\n\nPlease check the browser console for details, then try again or enter information manually.`);
+      console.error('Error during extraction:', error);
+      alert(`Error processing ${file.name}: ${error.message}\n\nPlease enter information manually or try a PDF version of the file.`);
     } finally {
-      console.log('Step 9: Cleaning up...');
       setIsExtractingData(false);
-      console.log('=== PROCESSING COMPLETE ===');
     }
   };
 
@@ -929,6 +838,17 @@ Return as valid JSON matching this exact structure:
                     </TabsContent>
 
                     <TabsContent value="documents" className="space-y-4">
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <Sparkles className="w-4 h-4 text-blue-600" />
+                        <AlertDescription>
+                          <p className="font-semibold text-blue-900 mb-1">📄 Upload PDF Files Only</p>
+                          <p className="text-sm text-blue-800">
+                            Upload <strong>PDF versions</strong> of documents so AI can help analyze them for proposals. 
+                            Convert Word/Excel files to PDF first.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
                           <AlertCircle className="w-4 h-4" />
@@ -947,13 +867,14 @@ Return as valid JSON matching this exact structure:
                             type="file"
                             id="pp-upload"
                             className="hidden"
+                            accept=".pdf"
                             onChange={(e) => handleDocumentUpload(e, "partner_past_performance", false)}
                             disabled={uploadingDoc}
                           />
                           <Button size="sm" variant="outline" asChild>
                             <label htmlFor="pp-upload" className="cursor-pointer">
                               <Upload className="w-3 h-3 mr-2" />
-                              Upload (Permanent)
+                              Upload PDF (Permanent)
                             </label>
                           </Button>
                         </div>
@@ -965,13 +886,14 @@ Return as valid JSON matching this exact structure:
                             type="file"
                             id="temp-upload"
                             className="hidden"
+                            accept=".pdf"
                             onChange={(e) => handleDocumentUpload(e, "partner_proposal", true)}
                             disabled={uploadingDoc}
                           />
                           <Button size="sm" variant="outline" className="border-amber-400" asChild>
                             <label htmlFor="temp-upload" className="cursor-pointer">
                               <Upload className="w-3 h-3 mr-2" />
-                              Upload (Temporary)
+                              Upload PDF (Temporary)
                             </label>
                           </Button>
                           <p className="text-xs text-amber-700 mt-2">Auto-deleted after finalization</p>
@@ -1046,7 +968,7 @@ Return as valid JSON matching this exact structure:
             <DialogHeader>
               <DialogTitle>{editingPartner ? "Edit Partner" : "Add New Partner"}</DialogTitle>
               <DialogDescription>
-                Enter the partner's information and capabilities
+                Enter the partner's information. Upload a PDF capability statement for AI to auto-fill fields.
               </DialogDescription>
             </DialogHeader>
 
@@ -1080,19 +1002,24 @@ Return as valid JSON matching this exact structure:
 
               {/* Capability Statement Upload - AT TOP WITH AI EXTRACTION */}
               <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Upload Capability Statement
-                </Label>
-                <p className="text-sm text-blue-600 font-medium">
-                  The AI will auto-populate the relevant information.
-                </p>
+                <Label>Upload PDF Capability Statement (Optional - AI Auto-Fill)</Label>
+                
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <AlertDescription>
+                    <p className="font-semibold text-blue-900 mb-1">📄 PDF Files Only</p>
+                    <p className="text-sm text-blue-800">
+                      Upload a <strong>PDF</strong> so our AI can read and auto-fill company information for you. 
+                      Convert Word/Excel files to PDF first for best results.
+                    </p>
+                  </AlertDescription>
+                </Alert>
                 
                 {isExtractingData && (
                   <Alert className="bg-blue-50 border-blue-200">
                     <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                     <AlertDescription>
-                      <p className="font-semibold text-blue-900">AI is analyzing the capability statement...</p>
+                      <p className="font-semibold text-blue-900">AI is reading your PDF...</p>
                       <p className="text-xs text-blue-700 mt-1">Extracting contact info, certifications, capabilities, and more.</p>
                     </AlertDescription>
                   </Alert>
@@ -1157,383 +1084,380 @@ Return as valid JSON matching this exact structure:
                         type="file"
                         id="cap-statement-upload"
                         className="hidden"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf"
                         onChange={handleCapabilityStatementSelect}
                         disabled={isExtractingData}
                       />
                       <Button size="sm" variant="outline" asChild disabled={isExtractingData}>
                         <label htmlFor="cap-statement-upload" className="cursor-pointer">
                           <Upload className="w-3 h-3 mr-2" />
-                          Upload Capability Statement
+                          Upload PDF Capability Statement
                         </label>
                       </Button>
-                      <p className="text-xs text-slate-500 mt-2">PDF or Word document (optional)</p>
+                      <p className="text-xs text-slate-500 mt-2">PDF format only • AI will auto-fill form fields</p>
                     </>
                   )}
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="preferred">Preferred</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="potential">Potential</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Primary NAICS Code</Label>
-                  <Input
-                    value={formData.primary_naics}
-                    onChange={(e) => setFormData({...formData, primary_naics: e.target.value})}
-                    placeholder="e.g., 541330"
-                  />
-                  <p className="text-xs text-slate-500">North American Industry Classification System code</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>POC Name</Label>
-                  <Input
-                    value={formData.poc_name}
-                    onChange={(e) => setFormData({...formData, poc_name: e.target.value})}
-                    placeholder="Contact person"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>POC Email</Label>
-                  <Input
-                    type="email"
-                    value={formData.poc_email}
-                    onChange={(e) => setFormData({...formData, poc_email: e.target.value})}
-                    placeholder="email@company.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>POC Phone</Label>
-                  <Input
-                    value={formData.poc_phone}
-                    onChange={(e) => setFormData({...formData, poc_phone: e.target.value})}
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>UEI</Label>
-                  <Input
-                    value={formData.uei}
-                    onChange={(e) => setFormData({...formData, uei: e.target.value})}
-                    placeholder="Unique Entity Identifier"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>CAGE Code</Label>
-                  <Input
-                    value={formData.cage_code}
-                    onChange={(e) => setFormData({...formData, cage_code: e.target.value})}
-                    placeholder="Commercial and Government Entity Code"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Website URL</Label>
-                  <Input
-                    value={formData.website_url}
-                    onChange={(e) => setFormData({...formData, website_url: e.target.value})}
-                    placeholder="https://partner.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Revenue Range</Label>
-                  <Input
-                    value={formData.revenue_range}
-                    onChange={(e) => setFormData({...formData, revenue_range: e.target.value})}
-                    placeholder="$1M-$5M, $500K, etc."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Employee Count</Label>
-                  <Input
-                    type="number"
-                    value={formData.employee_count || ""}
-                    onChange={(e) => setFormData({...formData, employee_count: e.target.value ? parseInt(e.target.value) : null})}
-                    placeholder="e.g., 50"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Years in Business</Label>
-                  <Input
-                    type="number"
-                    value={formData.years_in_business || ""}
-                    onChange={(e) => setFormData({...formData, years_in_business: e.target.value ? parseInt(e.target.value) : null})}
-                    placeholder="e.g., 10"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="preferred">Preferred</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="potential">Potential</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Address</Label>
+                <Label>Primary NAICS Code</Label>
                 <Input
-                  value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
-                  placeholder="Street, City, State, ZIP"
+                  value={formData.primary_naics}
+                  onChange={(e) => setFormData({...formData, primary_naics: e.target.value})}
+                  placeholder="e.g., 541330"
                 />
-              </div>
-
-              {/* Secondary NAICS Codes */}
-              <div className="space-y-2">
-                <Label>Secondary NAICS Codes</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newItem} 
-                    onChange={(e) => setNewItem(e.target.value)}
-                    placeholder="Add secondary NAICS code"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('secondary_naics'))}
-                  />
-                  <Button type="button" onClick={() => addArrayItem('secondary_naics')}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
-                  {formData.secondary_naics?.length > 0 ? (
-                    formData.secondary_naics.map((naics, idx) => (
-                      <Badge key={idx} variant="secondary" className="gap-1">
-                        {naics}
-                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('secondary_naics', idx)} />
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 flex items-center h-full">
-                      No secondary NAICS codes added yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Small Business Certifications with "Other" option */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Award className="w-4 h-4" />
-                  Small Business Certifications
-                </Label>
-                <div className="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-lg">
-                  {CERTIFICATIONS.map((cert) => (
-                    <Badge
-                      key={cert}
-                      variant={formData.certifications?.includes(cert) ? "default" : "outline"}
-                      className="cursor-pointer hover:scale-105 transition-transform"
-                      onClick={() => toggleCertification(cert)}
-                    >
-                      {formData.certifications?.includes(cert) && (
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                      )}
-                      {cert}
-                    </Badge>
-                  ))}
-                  
-                  <Badge
-                    variant="outline"
-                    className="cursor-pointer hover:scale-105 transition-transform border-dashed border-blue-400 text-blue-600"
-                    onClick={() => setShowOtherCertInput(true)}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Other
-                  </Badge>
-                </div>
-                
-                {showOtherCertInput && (
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      value={otherCertification}
-                      onChange={(e) => setOtherCertification(e.target.value)}
-                      placeholder="Enter custom certification (e.g., ISO 9001)"
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addOtherCertification())}
-                    />
-                    <Button type="button" onClick={addOtherCertification}>
-                      Add
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => { setShowOtherCertInput(false); setOtherCertification(""); }}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-
-                {/* Display custom certifications */}
-                {formData.certifications?.filter(cert => !CERTIFICATIONS.includes(cert)).length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <p className="text-xs text-slate-600 w-full">Custom certifications:</p>
-                    {formData.certifications.filter(cert => !CERTIFICATIONS.includes(cert)).map((cert, idx) => (
-                      <Badge key={idx} className="bg-blue-100 text-blue-700 gap-1">
-                        {cert}
-                        <X 
-                          className="w-3 h-3 cursor-pointer" 
-                          onClick={() => setFormData({
-                            ...formData, 
-                            certifications: formData.certifications.filter(c => c !== cert)
-                          })} 
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                
-                <p className="text-xs text-slate-500">Click badges to select/deselect, or add custom certifications</p>
-              </div>
-
-              {/* Tagging System */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Tag className="w-4 h-4" />
-                  Tags
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Add tag (e.g., GA, NC, PMP, CMMC)"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  />
-                  <Button type="button" onClick={addTag}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[60px]">
-                  {formData.tags?.length > 0 ? (
-                    formData.tags.map((tag, idx) => (
-                      <Badge key={idx} variant="secondary" className="gap-1">
-                        <Tag className="w-3 h-3" />
-                        {tag}
-                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeTag(idx)} />
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 flex items-center h-full">
-                      No tags added yet. Tags help with search and categorization.
-                    </p>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500">
-                  Add tags for states (GA, NC), certifications (PMP, CMMC), or any custom categorization
-                </p>
+                <p className="text-xs text-slate-500">North American Industry Classification System code</p>
               </div>
 
               <div className="space-y-2">
-                <Label>Core Capabilities</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newItem}
-                    onChange={(e) => setNewItem(e.target.value)}
-                    placeholder="Add capability"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('core_capabilities'))}
-                  />
-                  <Button type="button" onClick={() => addArrayItem('core_capabilities')}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.core_capabilities.map((cap, idx) => (
-                    <Badge key={idx} variant="secondary" className="gap-1">
-                      {cap}
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('core_capabilities', idx)} />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Differentiators */}
-              <div className="space-y-2">
-                <Label>Key Differentiators</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newItem} // Reusing newItem
-                    onChange={(e) => setNewItem(e.target.value)}
-                    placeholder="Add a key differentiator"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('differentiators'))}
-                  />
-                  <Button type="button" onClick={() => addArrayItem('differentiators')}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
-                  {formData.differentiators?.length > 0 ? (
-                    formData.differentiators.map((diff, idx) => (
-                      <Badge key={idx} variant="secondary" className="gap-1">
-                        {diff}
-                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('differentiators', idx)} />
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 flex items-center h-full">
-                      No differentiators added yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Target Agencies */}
-              <div className="space-y-2">
-                <Label>Target Agencies</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newItem} // Reusing newItem
-                    onChange={(e) => setNewItem(e.target.value)}
-                    placeholder="Add target agency (e.g., DoD, VA)"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('target_agencies'))}
-                  />
-                  <Button type="button" onClick={() => addArrayItem('target_agencies')}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
-                  {formData.target_agencies?.length > 0 ? (
-                    formData.target_agencies.map((agency, idx) => (
-                      <Badge key={idx} variant="secondary" className="gap-1">
-                        {agency}
-                        <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('target_agencies', idx)} />
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 flex items-center h-full">
-                      No target agencies added yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Past Performance Summary</Label>
-                <Textarea
-                  value={formData.past_performance_summary}
-                  onChange={(e) => setFormData({...formData, past_performance_summary: e.target.value})}
-                  rows={4}
-                  placeholder="Brief overview of their past performance..."
+                <Label>POC Name</Label>
+                <Input
+                  value={formData.poc_name}
+                  onChange={(e) => setFormData({...formData, poc_name: e.target.value})}
+                  placeholder="Contact person"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Internal Notes</Label>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                  rows={3}
-                  placeholder="Internal notes about this partner..."
+                <Label>POC Email</Label>
+                <Input
+                  type="email"
+                  value={formData.poc_email}
+                  onChange={(e) => setFormData({...formData, poc_email: e.target.value})}
+                  placeholder="email@company.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>POC Phone</Label>
+                <Input
+                  value={formData.poc_phone}
+                  onChange={(e) => setFormData({...formData, poc_phone: e.target.value})}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>UEI</Label>
+                <Input
+                  value={formData.uei}
+                  onChange={(e) => setFormData({...formData, uei: e.target.value})}
+                  placeholder="Unique Entity Identifier"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>CAGE Code</Label>
+                <Input
+                  value={formData.cage_code}
+                  onChange={(e) => setFormData({...formData, cage_code: e.target.value})}
+                  placeholder="Commercial and Government Entity Code"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Website URL</Label>
+                <Input
+                  value={formData.website_url}
+                  onChange={(e) => setFormData({...formData, website_url: e.target.value})}
+                  placeholder="https://partner.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Revenue Range</Label>
+                <Input
+                  value={formData.revenue_range}
+                  onChange={(e) => setFormData({...formData, revenue_range: e.target.value})}
+                  placeholder="$1M-$5M, $500K, etc."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Employee Count</Label>
+                <Input
+                  type="number"
+                  value={formData.employee_count || ""}
+                  onChange={(e) => setFormData({...formData, employee_count: e.target.value ? parseInt(e.target.value) : null})}
+                  placeholder="e.g., 50"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Years in Business</Label>
+                <Input
+                  type="number"
+                  value={formData.years_in_business || ""}
+                  onChange={(e) => setFormData({...formData, years_in_business: e.target.value ? parseInt(e.target.value) : null})}
+                  placeholder="e.g., 10"
                 />
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input
+                value={formData.address}
+                onChange={(e) => setFormData({...formData, address: e.target.value})}
+                placeholder="Street, City, State, ZIP"
+              />
+            </div>
+
+            {/* Secondary NAICS Codes */}
+            <div className="space-y-2">
+              <Label>Secondary NAICS Codes</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newItem} 
+                  onChange={(e) => setNewItem(e.target.value)}
+                  placeholder="Add secondary NAICS code"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('secondary_naics'))}
+                />
+                <Button type="button" onClick={() => addArrayItem('secondary_naics')}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
+                {formData.secondary_naics?.length > 0 ? (
+                  formData.secondary_naics.map((naics, idx) => (
+                    <Badge key={idx} variant="secondary" className="gap-1">
+                      {naics}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('secondary_naics', idx)} />
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 flex items-center h-full">
+                    No secondary NAICS codes added yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Small Business Certifications with "Other" option */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Award className="w-4 h-4" />
+                Small Business Certifications
+              </Label>
+              <div className="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-lg">
+                {CERTIFICATIONS.map((cert) => (
+                  <Badge
+                    key={cert}
+                    variant={formData.certifications?.includes(cert) ? "default" : "outline"}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => toggleCertification(cert)}
+                  >
+                    {formData.certifications?.includes(cert) && (
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                    )}
+                    {cert}
+                  </Badge>
+                ))}
+                
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer hover:scale-105 transition-transform border-dashed border-blue-400 text-blue-600"
+                  onClick={() => setShowOtherCertInput(true)}
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Other
+                </Badge>
+              </div>
+              
+              {showOtherCertInput && (
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    value={otherCertification}
+                    onChange={(e) => setOtherCertification(e.target.value)}
+                    placeholder="Enter custom certification (e.g., ISO 9001)"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addOtherCertification())}
+                  />
+                  <Button type="button" onClick={addOtherCertification}>
+                    Add
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => { setShowOtherCertInput(false); setOtherCertification(""); }}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Display custom certifications */}
+              {formData.certifications?.filter(cert => !CERTIFICATIONS.includes(cert)).length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <p className="text-xs text-slate-600 w-full">Custom certifications:</p>
+                  {formData.certifications.filter(cert => !CERTIFICATIONS.includes(cert)).map((cert, idx) => (
+                    <Badge key={idx} className="bg-blue-100 text-blue-700 gap-1">
+                      {cert}
+                      <X 
+                        className="w-3 h-3 cursor-pointer" 
+                        onClick={() => setFormData({
+                          ...formData, 
+                          certifications: formData.certifications.filter(c => c !== cert)
+                        })} 
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              
+              <p className="text-xs text-slate-500">Click badges to select/deselect, or add custom certifications</p>
+            </div>
+
+            {/* Tagging System */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Tags
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Add tag (e.g., GA, NC, PMP, CMMC)"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                />
+                <Button type="button" onClick={addTag}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[60px]">
+                {formData.tags?.length > 0 ? (
+                  formData.tags.map((tag, idx) => (
+                    <Badge key={idx} variant="secondary" className="gap-1">
+                      <Tag className="w-3 h-3" />
+                      {tag}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeTag(idx)} />
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 flex items-center h-full">
+                    No tags added yet. Tags help with search and categorization.
+                  </p>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Add tags for states (GA, NC), certifications (PMP, CMMC), or any custom categorization
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Core Capabilities</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newItem}
+                  onChange={(e) => setNewItem(e.target.value)}
+                  placeholder="Add capability"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('core_capabilities'))}
+                />
+                <Button type="button" onClick={() => addArrayItem('core_capabilities')}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.core_capabilities.map((cap, idx) => (
+                  <Badge key={idx} variant="secondary" className="gap-1">
+                    {cap}
+                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('core_capabilities', idx)} />
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Differentiators */}
+            <div className="space-y-2">
+              <Label>Key Differentiators</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newItem} 
+                  onChange={(e) => setNewItem(e.target.value)}
+                  placeholder="Add a key differentiator"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('differentiators'))}
+                />
+                <Button type="button" onClick={() => addArrayItem('differentiators')}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
+                {formData.differentiators?.length > 0 ? (
+                  formData.differentiators.map((diff, idx) => (
+                    <Badge key={idx} variant="secondary" className="gap-1">
+                      {diff}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('differentiators', idx)} />
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 flex items-center h-full">
+                    No differentiators added yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Target Agencies */}
+            <div className="space-y-2">
+              <Label>Target Agencies</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newItem} 
+                  onChange={(e) => setNewItem(e.target.value)}
+                  placeholder="Add target agency (e.g., DoD, VA)"
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('target_agencies'))}
+                />
+                <Button type="button" onClick={() => addArrayItem('target_agencies')}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2 p-3 bg-slate-50 rounded-lg min-h-[40px]">
+                {formData.target_agencies?.length > 0 ? (
+                  formData.target_agencies.map((agency, idx) => (
+                    <Badge key={idx} variant="secondary" className="gap-1">
+                      {agency}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('target_agencies', idx)} />
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 flex items-center h-full">
+                    No target agencies added yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Past Performance Summary</Label>
+              <Textarea
+                value={formData.past_performance_summary}
+                onChange={(e) => setFormData({...formData, past_performance_summary: e.target.value})}
+                rows={4}
+                placeholder="Brief overview of their past performance..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Internal Notes</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                rows={3}
+                placeholder="Internal notes about this partner..."
+              />
+            </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingPartner(null); resetForm(); }}>
                 Cancel
