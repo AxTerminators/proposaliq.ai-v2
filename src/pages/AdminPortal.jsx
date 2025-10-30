@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import PermissionChecker from "../components/admin/PermissionChecker";
+import { PermissionChecker } from "../components/admin/PermissionChecker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
