@@ -53,6 +53,7 @@ const navigationItems = [
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true },
   { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
+  { title: "Clients", url: createPageUrl("Clients"), icon: Users },
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
   { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
