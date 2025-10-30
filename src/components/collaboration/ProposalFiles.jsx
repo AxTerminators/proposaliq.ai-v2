@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { 
   Upload, 
   File, 
@@ -16,7 +17,10 @@ import {
   Paperclip,
   Image,
   FileSpreadsheet,
-  FileCode
+  FileCode,
+  Eye,
+  EyeOff,
+  Users
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +29,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import moment from "moment";
 
 export default function ProposalFiles({ proposal, user, organization }) {
@@ -53,22 +62,18 @@ function ProposalFilesContent({ proposal, user, organization }) {
   const { data: documents, isLoading } = useQuery({
     queryKey: ['proposal-documents', proposal.id],
     queryFn: async () => {
-      // The parent component ensures proposal.id is available
       return base44.entities.SolicitationDocument.filter(
         { proposal_id: proposal.id },
         '-created_date'
       );
     },
     initialData: [],
-    // `enabled` is implicitly true as `proposal.id` is guaranteed by the guard clause
   });
 
   const uploadFileMutation = useMutation({
     mutationFn: async ({ file, description }) => {
-      // Upload file using Core integration
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
-      // Create document record
       const document = await base44.entities.SolicitationDocument.create({
         proposal_id: proposal.id,
         organization_id: organization.id,
@@ -76,10 +81,11 @@ function ProposalFilesContent({ proposal, user, organization }) {
         file_name: file.name,
         file_url: file_url,
         file_size: file.size,
-        description: description
+        description: description,
+        shared_with_client: false,
+        client_can_download: true
       });
 
-      // Log activity
       await base44.entities.ActivityLog.create({
         proposal_id: proposal.id,
         user_email: user.email,
@@ -92,10 +98,19 @@ function ProposalFilesContent({ proposal, user, organization }) {
       return document;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] }); // Invalidate with proposal.id
+      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
       setShowUploadDialog(false);
       setSelectedFile(null);
       setDescription("");
+    },
+  });
+
+  const updateDocumentMutation = useMutation({
+    mutationFn: async ({ documentId, updates }) => {
+      return await base44.entities.SolicitationDocument.update(documentId, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
     },
   });
 
@@ -104,7 +119,7 @@ function ProposalFilesContent({ proposal, user, organization }) {
       await base44.entities.SolicitationDocument.delete(documentId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] }); // Invalidate with proposal.id
+      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
     },
   });
 
@@ -139,6 +154,24 @@ function ProposalFilesContent({ proposal, user, organization }) {
     }
   };
 
+  const toggleClientSharing = async (document) => {
+    await updateDocumentMutation.mutateAsync({
+      documentId: document.id,
+      updates: { 
+        shared_with_client: !document.shared_with_client 
+      }
+    });
+  };
+
+  const toggleDownloadPermission = async (document) => {
+    await updateDocumentMutation.mutateAsync({
+      documentId: document.id,
+      updates: { 
+        client_can_download: !document.client_can_download 
+      }
+    });
+  };
+
   const getFileIcon = (fileName) => {
     const ext = fileName?.split('.').pop()?.toLowerCase();
     switch (ext) {
@@ -170,6 +203,9 @@ function ProposalFilesContent({ proposal, user, organization }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const sharedDocuments = documents.filter(d => d.shared_with_client);
+  const privateDocuments = documents.filter(d => !d.shared_with_client);
+
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="border-b">
@@ -177,10 +213,10 @@ function ProposalFilesContent({ proposal, user, organization }) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Paperclip className="w-5 h-5" />
-              Proposal Files
+              Proposal Files ({documents.length})
             </CardTitle>
             <p className="text-sm text-slate-600 mt-1">
-              Upload and share files related to this proposal
+              {sharedDocuments.length} shared with client • {privateDocuments.length} private
             </p>
           </div>
           <div>
@@ -224,54 +260,232 @@ function ProposalFilesContent({ proposal, user, organization }) {
             </Button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {documents.map((doc) => (
-              <Card key={doc.id} className="hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex-shrink-0">
-                      {getFileIcon(doc.file_name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1">
-                        {doc.file_name}
-                      </h4>
-                      {doc.description && (
-                        <p className="text-xs text-slate-600 line-clamp-2 mb-2">
-                          {doc.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>{formatFileSize(doc.file_size)}</span>
-                        <span>•</span>
-                        <span>{moment(doc.created_date).fromNow()}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      asChild
-                    >
-                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                        <Download className="w-3 h-3 mr-2" />
-                        Download
-                      </a>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(doc)}
-                      disabled={deleteFileMutation.isPending}
-                    >
-                      <Trash2 className="w-3 h-3 text-red-600" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="space-y-6">
+            {/* Shared with Client */}
+            {sharedDocuments.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Shared with Client ({sharedDocuments.length})
+                </h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sharedDocuments.map((doc) => (
+                    <Card key={doc.id} className="hover:shadow-md transition-all border-blue-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="flex-shrink-0">
+                            {getFileIcon(doc.file_name)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1">
+                              {doc.file_name}
+                            </h4>
+                            <Badge className="bg-blue-100 text-blue-700 mb-2">
+                              <Eye className="w-3 h-3 mr-1" />
+                              Client Can View
+                            </Badge>
+                            {doc.description && (
+                              <p className="text-xs text-slate-600 line-clamp-2 mb-2">
+                                {doc.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <span>{formatFileSize(doc.file_size)}</span>
+                              <span>•</span>
+                              <span>{moment(doc.created_date).fromNow()}</span>
+                            </div>
+                            {doc.client_downloaded && (
+                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                <Download className="w-3 h-3" />
+                                Downloaded by client
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2 pt-3 border-t">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button size="sm" variant="outline" className="flex-1">
+                                <Users className="w-3 h-3 mr-1" />
+                                Permissions
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80">
+                              <div className="space-y-4">
+                                <h4 className="font-semibold text-sm">Client Permissions</h4>
+                                
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id={`share-${doc.id}`}
+                                    checked={doc.shared_with_client}
+                                    onCheckedChange={() => toggleClientSharing(doc)}
+                                  />
+                                  <div className="flex-1">
+                                    <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
+                                      Share with client
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                      Client can see this file in their portal
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id={`download-${doc.id}`}
+                                    checked={doc.client_can_download}
+                                    onCheckedChange={() => toggleDownloadPermission(doc)}
+                                    disabled={!doc.shared_with_client}
+                                  />
+                                  <div className="flex-1">
+                                    <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
+                                      Allow download
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                      Client can download this file
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                          >
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="w-3 h-3" />
+                            </a>
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(doc)}
+                            disabled={deleteFileMutation.isPending}
+                          >
+                            <Trash2 className="w-3 h-3 text-red-600" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Private Files */}
+            {privateDocuments.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                  <EyeOff className="w-4 h-4" />
+                  Private Files ({privateDocuments.length})
+                </h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {privateDocuments.map((doc) => (
+                    <Card key={doc.id} className="hover:shadow-md transition-all">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="flex-shrink-0">
+                            {getFileIcon(doc.file_name)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1">
+                              {doc.file_name}
+                            </h4>
+                            <Badge variant="outline" className="mb-2">
+                              <EyeOff className="w-3 h-3 mr-1" />
+                              Private
+                            </Badge>
+                            {doc.description && (
+                              <p className="text-xs text-slate-600 line-clamp-2 mb-2">
+                                {doc.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <span>{formatFileSize(doc.file_size)}</span>
+                              <span>•</span>
+                              <span>{moment(doc.created_date).fromNow()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2 pt-3 border-t">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button size="sm" variant="outline" className="flex-1">
+                                <Users className="w-3 h-3 mr-1" />
+                                Share
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80">
+                              <div className="space-y-4">
+                                <h4 className="font-semibold text-sm">Client Permissions</h4>
+                                
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id={`share-${doc.id}`}
+                                    checked={doc.shared_with_client}
+                                    onCheckedChange={() => toggleClientSharing(doc)}
+                                  />
+                                  <div className="flex-1">
+                                    <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
+                                      Share with client
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                      Client can see this file in their portal
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    id={`download-${doc.id}`}
+                                    checked={doc.client_can_download}
+                                    onCheckedChange={() => toggleDownloadPermission(doc)}
+                                    disabled={!doc.shared_with_client}
+                                  />
+                                  <div className="flex-1">
+                                    <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
+                                      Allow download
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                      Client can download this file
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                          >
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="w-3 h-3" />
+                            </a>
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(doc)}
+                            disabled={deleteFileMutation.isPending}
+                          >
+                            <Trash2 className="w-3 h-3 text-red-600" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
