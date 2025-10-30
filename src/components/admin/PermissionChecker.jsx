@@ -52,6 +52,12 @@ export const ROLE_PERMISSIONS = {
     label: "Workflow Manager",
     description: "Configure workflows and automations",
     permissions: ["manage_workflows", "view_workflows", "manage_automation", "view_reports"]
+  },
+  // Default admin role for users with role='admin' but no admin_role
+  default_admin: {
+    label: "Admin",
+    description: "Basic admin access with view permissions",
+    permissions: ["view_users", "view_subscriptions", "view_content", "view_audit_logs", "view_system_health", "view_reports"]
   }
 };
 
@@ -116,9 +122,12 @@ export const PERMISSION_DESCRIPTIONS = {
 
 // Check if user has a specific permission
 export const hasPermission = (user, permission) => {
-  if (!user?.admin_role) return false;
+  if (!user?.role === 'admin') return false;
   
-  const role = ROLE_PERMISSIONS[user.admin_role];
+  // Get the admin_role, or use 'default_admin' for admins without a specific role
+  const roleKey = user.admin_role || 'default_admin';
+  const role = ROLE_PERMISSIONS[roleKey];
+  
   if (!role) return false;
   
   // Super admin has all permissions
@@ -141,11 +150,8 @@ export const hasAllPermissions = (user, permissions) => {
 
 // Check if user has any admin role (updated to handle users with role='admin' but no admin_role)
 export const isAdmin = (user) => {
-  // First check if user has the basic admin role
-  if (user?.role === 'admin') return true;
-  
-  // Also check if they have a specific admin_role defined
-  return user?.admin_role && ROLE_PERMISSIONS[user.admin_role];
+  // Check if user has the basic admin role
+  return user?.role === 'admin';
 };
 
 // Get user's role label
@@ -156,12 +162,13 @@ export const getRoleLabel = (adminRole) => {
 
 // Get user's role description
 export const getRoleDescription = (adminRole) => {
-  if (!adminRole) return "Administrator with access to admin portal";
+  if (!adminRole) return "Basic admin access with view permissions";
   return ROLE_PERMISSIONS[adminRole]?.description || "";
 };
 
 // Get all permissions for a role
 export const getRolePermissions = (adminRole) => {
+  if (!adminRole) return ROLE_PERMISSIONS.default_admin.permissions;
   return ROLE_PERMISSIONS[adminRole]?.permissions || [];
 };
 
@@ -181,7 +188,7 @@ export const logAdminAction = async (action, details, targetUser = null) => {
     const currentUser = await base44.auth.me();
     await base44.entities.AuditLog.create({
       admin_email: currentUser.email,
-      admin_role: currentUser.admin_role || 'admin',
+      admin_role: currentUser.admin_role || 'default_admin',
       action_type: action,
       target_entity: targetUser,
       details: typeof details === 'string' ? details : JSON.stringify(details),
