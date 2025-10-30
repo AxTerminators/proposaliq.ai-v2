@@ -24,6 +24,7 @@ import RateFeedback from './pages/RateFeedback';
 import ClientPortal from './pages/ClientPortal';
 import ClientProposalView from './pages/ClientProposalView';
 import Clients from './pages/Clients';
+import CostEstimator from './pages/CostEstimator';
 import Layout from './Layout.jsx';
 
 
@@ -54,6 +55,7 @@ export const PAGES = {
     "ClientPortal": ClientPortal,
     "ClientProposalView": ClientProposalView,
     "Clients": Clients,
+    "CostEstimator": CostEstimator,
 }
 
 export const pagesConfig = {

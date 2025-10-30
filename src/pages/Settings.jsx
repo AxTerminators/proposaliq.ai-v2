@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -379,11 +380,11 @@ export default function Settings() {
 
                     <div className="flex gap-3 pt-4">
                       <Button 
-                        onClick={() => navigate(createPageUrl("Pricing"))}
+                        onClick={() => window.open(createPageUrl("Pricing"), '_blank')}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Manage Subscription
+                        View Plans & Upgrade
                       </Button>
                       <Button variant="outline">
                         View Billing History
@@ -394,7 +395,7 @@ export default function Settings() {
                   <div className="text-center py-8">
                     <CreditCard className="w-16 h-16 mx-auto text-slate-300 mb-4" />
                     <p className="text-slate-600 mb-4">No active subscription</p>
-                    <Button onClick={() => navigate(createPageUrl("Pricing"))}>
+                    <Button onClick={() => window.open(createPageUrl("Pricing"), '_blank')}>
                       View Plans
                     </Button>
                   </div>

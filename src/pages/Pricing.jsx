@@ -1,189 +1,195 @@
-import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, FileText, ArrowRight, Calculator, Users } from "lucide-react";
-import PricingModule from "../components/pricing/PricingModule";
+import { Check, Sparkles, Zap, Crown, Building2 } from "lucide-react";
 
 export default function PricingPage() {
   const navigate = useNavigate();
-  const [selectedProposal, setSelectedProposal] = useState(null);
-  const [proposals, setProposals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [organizationId, setOrganizationId] = useState(null);
 
-  useEffect(() => {
-    const loadProposals = async () => {
-      try {
-        const user = await base44.auth.me();
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
-          '-created_date',
-          1
-        );
-        
-        if (orgs.length > 0) {
-          setOrganizationId(orgs[0].id);
-          const allProposals = await base44.entities.Proposal.filter(
-            { organization_id: orgs[0].id },
-            '-created_date'
-          );
-          setProposals(allProposals);
-        }
-      } catch (error) {
-        console.error("Error loading proposals:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProposals();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-slate-600">Loading...</p>
-      </div>
-    );
-  }
-
-  if (!selectedProposal) {
-    return (
-      <div className="p-6 lg:p-8 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Pricing & Cost Management</h1>
-          <p className="text-slate-600">
-            Select a proposal to manage labor rates, CLINs, and pricing strategy
-          </p>
-        </div>
-
-        {proposals.length === 0 ? (
-          <Card className="border-none shadow-xl">
-            <CardContent className="p-12 text-center">
-              <DollarSign className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Proposals Yet</h3>
-              <p className="text-slate-600 mb-6">
-                Create a proposal first to start managing pricing and costs
-              </p>
-              <Button onClick={() => navigate(createPageUrl("ProposalBuilder"))}>
-                Create Proposal
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {proposals.map((proposal) => (
-              <Card 
-                key={proposal.id}
-                className="border-none shadow-lg hover:shadow-xl transition-all cursor-pointer hover:border-blue-300"
-                onClick={() => setSelectedProposal(proposal)}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-2">
-                    <CardTitle className="text-base">{proposal.proposal_name}</CardTitle>
-                    <Badge variant="secondary" className="capitalize">
-                      {proposal.status?.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  <CardDescription className="line-clamp-2">
-                    {proposal.agency_name} • {proposal.solicitation_number}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-slate-600 mb-4">
-                    <span>{proposal.project_type}</span>
-                    {proposal.due_date && (
-                      <span>Due: {new Date(proposal.due_date).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                  <Button className="w-full" size="sm">
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Manage Pricing
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardHeader>
-            <CardTitle className="text-lg">Pricing Module Features</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <Users className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Labor Rate Management</h4>
-                  <p className="text-sm text-slate-600">
-                    Fully burdened rates with fringe, overhead, and G&A calculations
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">CLIN Builder</h4>
-                  <p className="text-sm text-slate-600">
-                    Build CLINs with labor allocations, ODCs, and automatic cost rollup
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">AI Price-to-Win</h4>
-                  <p className="text-sm text-slate-600">
-                    AI-powered pricing analysis and competitive strategy recommendations
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const plans = [
+    {
+      name: "Free",
+      price: "$0",
+      period: "forever",
+      description: "Perfect for getting started",
+      icon: Sparkles,
+      color: "text-slate-600",
+      bgColor: "bg-slate-50",
+      features: [
+        "1 user",
+        "5 proposals per month",
+        "Basic AI assistance",
+        "200K token credits/month",
+        "Email support"
+      ]
+    },
+    {
+      name: "Pro",
+      price: "$49",
+      period: "per month",
+      description: "For growing teams",
+      icon: Zap,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      popular: true,
+      features: [
+        "Up to 5 users",
+        "Unlimited proposals",
+        "Advanced AI features",
+        "1M token credits/month",
+        "Priority support",
+        "Team collaboration",
+        "Export templates"
+      ]
+    },
+    {
+      name: "Power",
+      price: "$149",
+      period: "per month",
+      description: "For high-volume teams",
+      icon: Crown,
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
+      features: [
+        "Up to 20 users",
+        "Unlimited proposals",
+        "Premium AI models",
+        "5M token credits/month",
+        "Premium support",
+        "Advanced analytics",
+        "Custom branding",
+        "API access"
+      ]
+    },
+    {
+      name: "Enterprise",
+      price: "Custom",
+      period: "contact us",
+      description: "For large organizations",
+      icon: Building2,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
+      features: [
+        "Unlimited users",
+        "Unlimited proposals",
+        "Dedicated AI resources",
+        "Custom token allocation",
+        "24/7 dedicated support",
+        "Custom integrations",
+        "On-premise options",
+        "SLA guarantees"
+      ]
+    }
+  ];
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button 
-            variant="ghost" 
-            onClick={() => setSelectedProposal(null)}
-            className="mb-2"
-          >
-            ← Back to Proposals
-          </Button>
-          <h1 className="text-3xl font-bold text-slate-900">{selectedProposal.proposal_name}</h1>
-          <p className="text-slate-600">
-            {selectedProposal.agency_name} • {selectedProposal.solicitation_number}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-bold text-slate-900 mb-4">
+            Simple, Transparent Pricing
+          </h1>
+          <p className="text-xl text-slate-600 mb-8">
+            Choose the plan that's right for your team
           </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            <Sparkles className="w-4 h-4" />
+            All plans include AI-powered proposal generation
+          </div>
         </div>
-        <Badge className="text-base capitalize">
-          {selectedProposal.status?.replace('_', ' ')}
-        </Badge>
-      </div>
 
-      <PricingModule
-        proposalId={selectedProposal.id}
-        proposalData={selectedProposal}
-        organizationId={organizationId}
-      />
+        {/* Pricing Cards */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+          {plans.map((plan, idx) => (
+            <Card 
+              key={idx}
+              className={`relative border-none shadow-xl hover:shadow-2xl transition-all ${
+                plan.popular ? 'ring-2 ring-blue-500 scale-105' : ''
+              }`}
+            >
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-blue-600 text-white px-4 py-1">Most Popular</Badge>
+                </div>
+              )}
+              <CardHeader className={`${plan.bgColor} border-b`}>
+                <div className="flex items-center justify-between mb-2">
+                  <plan.icon className={`w-8 h-8 ${plan.color}`} />
+                  {plan.popular && <Sparkles className="w-5 h-5 text-blue-600" />}
+                </div>
+                <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                <CardDescription className="text-sm">{plan.description}</CardDescription>
+                <div className="mt-4">
+                  <span className="text-4xl font-bold text-slate-900">{plan.price}</span>
+                  {plan.period !== "contact us" && (
+                    <span className="text-slate-500 ml-2">/{plan.period}</span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <ul className="space-y-3 mb-6">
+                  {plan.features.map((feature, fIdx) => (
+                    <li key={fIdx} className="flex items-start gap-2">
+                      <Check className={`w-5 h-5 ${plan.color} flex-shrink-0 mt-0.5`} />
+                      <span className="text-sm text-slate-700">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button 
+                  className={`w-full ${
+                    plan.popular 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-slate-800 hover:bg-slate-900'
+                  }`}
+                  onClick={() => navigate(createPageUrl("Onboarding"))}
+                >
+                  {plan.name === "Enterprise" ? "Contact Sales" : "Get Started"}
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Features Comparison Note */}
+        <div className="text-center">
+          <Card className="border-none shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50">
+            <CardContent className="p-8">
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">
+                Not sure which plan is right for you?
+              </h3>
+              <p className="text-slate-600 mb-6">
+                Start with our Free plan and upgrade anytime as your needs grow. No credit card required.
+              </p>
+              <div className="flex justify-center gap-4">
+                <Button 
+                  size="lg"
+                  onClick={() => navigate(createPageUrl("Onboarding"))}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Start Free Trial
+                </Button>
+                <Button 
+                  size="lg"
+                  variant="outline"
+                  onClick={() => window.location.href = "mailto:support@proposaliq.ai"}
+                >
+                  Contact Sales
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* FAQ or Additional Info Section (Placeholder) */}
+        <div className="mt-16 text-center text-sm text-slate-500">
+          <p>All plans include a 14-day money-back guarantee. Cancel anytime.</p>
+          <p className="mt-2">Questions? Email us at support@proposaliq.ai</p>
+        </div>
+      </div>
     </div>
   );
 }

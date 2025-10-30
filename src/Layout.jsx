@@ -63,7 +63,7 @@ const navigationItems = [
   { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
-  { title: "Pricing", url: createPageUrl("Pricing"), icon: DollarSign },
+  { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
 ];
