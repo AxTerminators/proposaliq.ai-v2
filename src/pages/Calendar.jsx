@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import CalendarSync from "../components/calendar/CalendarSync";
 
 const EVENT_COLORS = {
   proposal_deadline: "bg-red-500",
@@ -285,6 +286,13 @@ export default function CalendarPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Calendar Sync Integration */}
+      <CalendarSync 
+        proposal={null}
+        organization={organization}
+        user={user}
+      />
 
       {/* Calendar Controls */}
       <Card className="border-none shadow-lg">

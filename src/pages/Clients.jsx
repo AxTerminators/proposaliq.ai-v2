@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -39,8 +40,16 @@ import {
   Briefcase,
   Link as LinkIcon,
   Copy,
-  CheckCircle2
+  CheckCircle2,
+  Palette, // New icon
+  BarChart3, // New icon
 } from "lucide-react";
+
+// Assuming these components exist in your project structure
+import { MobileContainer, MobileSection } from "@/components/layout/mobile";
+import ClientPortalCustomizer from "@/components/client/ClientPortalCustomizer";
+import ClientEngagementAnalytics from "@/components/analytics/ClientEngagementAnalytics";
+
 
 export default function ClientsPage() {
   const navigate = useNavigate();
@@ -49,9 +58,13 @@ export default function ClientsPage() {
   const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false); // Renamed from showAddDialog to setShowDialog in outline, but keeping original name for consistency with dialog usage
   const [editingClient, setEditingClient] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const [clientData, setClientData] = useState({
     client_name: "",
@@ -131,7 +144,7 @@ export default function ClientsPage() {
       organization_id: organization.id
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
       setShowAddDialog(false);
       setClientData({
         client_name: "",
@@ -148,7 +161,7 @@ export default function ClientsPage() {
   const updateClientMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Client.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
       setShowAddDialog(false);
       setEditingClient(null);
       setClientData({
@@ -166,7 +179,7 @@ export default function ClientsPage() {
   const deleteClientMutation = useMutation({
     mutationFn: (id) => base44.entities.Client.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
   });
 
@@ -272,32 +285,32 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Clients</h1>
-          <p className="text-slate-600">Manage your client relationships and portal access</p>
-        </div>
-        <Button
-          onClick={() => {
-            setEditingClient(null);
-            setClientData({
-              client_name: "",
-              contact_person: "",
-              contact_email: "",
-              contact_phone: "",
-              company_address: "",
-              industry: "",
-              notes: ""
-            });
-            setShowAddDialog(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Client
-        </Button>
-      </div>
+    <MobileContainer>
+      <MobileSection
+        title="Client Management"
+        description="Manage your clients and their portal access"
+        actions={
+          <Button
+            onClick={() => {
+              setEditingClient(null);
+              setClientData({
+                client_name: "",
+                contact_person: "",
+                contact_email: "",
+                contact_phone: "",
+                company_address: "",
+                industry: "",
+                notes: ""
+              });
+              setShowAddDialog(true);
+            }}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 min-h-[44px]"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Client
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-3 gap-6">
@@ -362,136 +375,164 @@ export default function ClientsPage() {
         </CardContent>
       </Card>
 
-      {/* Clients Grid */}
-      {filteredClients.length === 0 ? (
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-12 text-center">
-            <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {searchQuery ? "No clients found" : "No clients yet"}
-            </h3>
-            <p className="text-slate-600 mb-6">
-              {searchQuery 
-                ? "Try adjusting your search criteria" 
-                : "Add your first client to start managing proposals and sharing via the portal"}
-            </p>
-            {!searchQuery && (
-              <Button onClick={() => setShowAddDialog(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Client
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClients.map((client) => {
-            const clientProposals = getClientProposals(client.id);
-            const activeProposals = clientProposals.filter(
-              p => p.status !== 'submitted' && p.status !== 'archived'
-            );
+      {/* Clients List */}
+      <Card className="border-none shadow-xl">
+        <CardHeader>
+          <CardTitle>All Clients ({clients.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredClients.length === 0 ? (
+            <div className="p-12 text-center">
+              <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                {searchQuery ? "No clients found" : "No clients yet"}
+              </h3>
+              <p className="text-slate-600 mb-6">
+                {searchQuery
+                  ? "Try adjusting your search criteria"
+                  : "Add your first client to start managing proposals and sharing via the portal"}
+              </p>
+              {!searchQuery && (
+                <Button onClick={() => setShowAddDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Your First Client
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredClients.map((client) => {
+                const clientProposals = getClientProposals(client.id);
+                const activeProposals = clientProposals.filter(
+                  p => p.status !== 'submitted' && p.status !== 'archived'
+                );
 
-            return (
-              <Card key={client.id} className="border-none shadow-lg hover:shadow-xl transition-all">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2 flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-blue-600" />
-                        {client.client_name}
-                      </CardTitle>
-                      {client.industry && (
-                        <Badge variant="secondary" className="mb-2">
-                          {client.industry}
-                        </Badge>
-                      )}
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(client)}>
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Edit Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => navigate(createPageUrl("ClientProposalView") + `?client=${client.id}`)}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Portal
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => copyPortalLink(client.id)}>
-                          {copiedId === client.id ? (
-                            <>
-                              <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4 mr-2" />
-                              Copy Portal Link
-                            </>
+                return (
+                  <Card key={client.id} className="border-2 hover:border-purple-300 transition-all">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                        <div className="flex-1 w-full sm:w-auto space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-blue-600" />
+                            <h3 className="text-lg font-semibold">{client.client_name}</h3>
+                          </div>
+                          {client.industry && (
+                            <Badge variant="secondary">{client.industry}</Badge>
                           )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(client.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete Client
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {client.contact_person && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Users className="w-4 h-4" />
-                      <span>{client.contact_person}</span>
-                    </div>
-                  )}
-                  {client.contact_email && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Mail className="w-4 h-4" />
-                      <a href={`mailto:${client.contact_email}`} className="hover:text-blue-600">
-                        {client.contact_email}
-                      </a>
-                    </div>
-                  )}
-                  {client.contact_phone && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Phone className="w-4 h-4" />
-                      <span>{client.contact_phone}</span>
-                    </div>
-                  )}
+                          {client.contact_person && (
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Users className="w-4 h-4" />
+                              <span>{client.contact_person}</span>
+                            </div>
+                          )}
+                          {client.contact_email && (
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Mail className="w-4 h-4" />
+                              <a href={`mailto:${client.contact_email}`} className="hover:text-blue-600">
+                                {client.contact_email}
+                              </a>
+                            </div>
+                          )}
+                          {client.contact_phone && (
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                              <Phone className="w-4 h-4" />
+                              <span>{client.contact_phone}</span>
+                            </div>
+                          )}
 
-                  <div className="pt-3 border-t">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">Proposals</span>
-                      <Badge variant="outline">
-                        {activeProposals.length} active
-                      </Badge>
-                    </div>
-                  </div>
+                          <div className="pt-3 border-t">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-600">Proposals</span>
+                              <Badge variant="outline">
+                                {activeProposals.length} active
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
 
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate(createPageUrl("ClientProposalView") + `?client=${client.id}`)}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    View Client Portal
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedClient(client);
+                              setShowCustomizer(true);
+                            }}
+                            className="flex-1 sm:flex-none min-h-[44px]"
+                          >
+                            <Palette className="w-4 h-4 mr-2" />
+                            <span className="hidden sm:inline">Customize</span>
+                            <span className="sm:hidden">Brand</span>
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedClient(client);
+                              setShowAnalytics(true);
+                            }}
+                            className="flex-1 sm:flex-none min-h-[44px]"
+                          >
+                            <BarChart3 className="w-4 h-4 mr-2" />
+                            <span className="hidden sm:inline">Analytics</span>
+                            <span className="sm:hidden">Stats</span>
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(createPageUrl("ClientProposalView") + `?client=${client.id}`)}
+                            className="flex-1 sm:flex-none min-h-[44px]"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            View Portal
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="min-h-[44px]">
+                                <MoreVertical className="w-4 h-4" />
+                                <span className="sr-only">More actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEdit(client)}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Edit Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => copyPortalLink(client.id)}>
+                                {copiedId === client.id ? (
+                                  <>
+                                    <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Copy Portal Link
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(client.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Client
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add/Edit Client Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -501,8 +542,8 @@ export default function ClientsPage() {
               {editingClient ? "Edit Client" : "Add New Client"}
             </DialogTitle>
             <DialogDescription>
-              {editingClient 
-                ? "Update client information and contact details" 
+              {editingClient
+                ? "Update client information and contact details"
                 : "Add a new client to manage proposals and provide portal access"}
             </DialogDescription>
           </DialogHeader>
@@ -585,8 +626,8 @@ export default function ClientsPage() {
           </div>
 
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowAddDialog(false);
                 setEditingClient(null);
@@ -594,7 +635,7 @@ export default function ClientsPage() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSubmit}
               disabled={createClientMutation.isPending || updateClientMutation.isPending}
             >
@@ -603,6 +644,47 @@ export default function ClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Customizer Dialog */}
+      <Dialog open={showCustomizer} onOpenChange={setShowCustomizer}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Portal Customization</DialogTitle>
+            <DialogDescription>
+              Customize the portal experience for {selectedClient?.contact_person || selectedClient?.client_name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedClient && (
+            <ClientPortalCustomizer
+              client={selectedClient}
+              onUpdate={(updated) => {
+                queryClient.invalidateQueries({ queryKey: ['clients'] });
+                setShowCustomizer(false);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Analytics Dialog */}
+      <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Engagement Analytics</DialogTitle>
+            <DialogDescription>
+              Detailed analytics for {selectedClient?.contact_person || selectedClient?.client_name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedClient && (
+            <ClientEngagementAnalytics
+              clientId={selectedClient.id}
+              organizationId={organization?.id}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </MobileContainer>
   );
 }
