@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -41,7 +42,7 @@ import {
   Copy,
   CheckCircle2
 } from "lucide-react";
-import { isConsultantAccount, hasClientPortalAccess } from "@/utils/organizationHelpers";
+import { isConsultantAccount, hasClientPortalAccess } from "@/utils/organizationHelpers.js";
 
 export default function ClientsPage() {
   const navigate = useNavigate();
