@@ -122,7 +122,8 @@ export const PERMISSION_DESCRIPTIONS = {
 
 // Check if user has a specific permission
 export const hasPermission = (user, permission) => {
-  if (!user?.role === 'admin') return false;
+  // First check if user is an admin
+  if (user?.role !== 'admin') return false;
   
   // Get the admin_role, or use 'default_admin' for admins without a specific role
   const roleKey = user.admin_role || 'default_admin';
