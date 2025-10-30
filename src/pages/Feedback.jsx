@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation } from "@tanstack/react-query";
@@ -83,34 +84,79 @@ export default function Feedback() {
         status: "new"
       });
 
-      // Send email notification to admin
-      await base44.integrations.Core.SendEmail({
-        from_name: "ProposalIQ.ai Feedback System",
-        to: user.email, // In production, this should be your support email
-        subject: `[${data.issue_type.toUpperCase()}] ${data.title}`,
-        body: `
-New feedback submitted from ProposalIQ.ai:
+      // Get all admin users for notifications
+      const allUsers = await base44.entities.User.list();
+      const adminUsers = allUsers.filter(u => u.admin_role && u.admin_role !== '');
 
-Type: ${data.issue_type}
-Priority: ${data.priority}
-Title: ${data.title}
-
-Description:
-${data.description}
-
-${data.steps_to_reproduce ? `Steps to Reproduce:\n${data.steps_to_reproduce}\n\n` : ''}
-${data.expected_behavior ? `Expected Behavior:\n${data.expected_behavior}\n\n` : ''}
-${data.actual_behavior ? `Actual Behavior:\n${data.actual_behavior}\n\n` : ''}
-
-Reported by: ${user.full_name} (${user.email})
-Organization: ${organization?.organization_name || 'N/A'}
-Page URL: ${data.page_url}
-Browser: ${data.browser_info}
-${data.screenshot_url ? `Screenshot: ${data.screenshot_url}` : ''}
-
-Feedback ID: ${feedback.id}
-        `
-      });
+      // Send email notifications to all admins
+      for (const admin of adminUsers) {
+        try {
+          await base44.integrations.Core.SendEmail({
+            from_name: "ProposalIQ.ai Feedback System",
+            to: admin.email,
+            subject: `[${data.priority.toUpperCase()}] New Feedback: ${data.title}`,
+            body: `
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+      <h1 style="color: white; margin: 0; font-size: 24px;">New Feedback Submitted</h1>
+    </div>
+    
+    <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+      <div style="margin-bottom: 20px;">
+        <span style="display: inline-block; padding: 4px 12px; background: ${
+          data.priority === 'critical' ? '#ef4444' :
+          data.priority === 'high' ? '#f97316' :
+          data.priority === 'medium' ? '#eab308' : '#3b82f6'
+        }; color: white; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+          ${data.priority} Priority
+        </span>
+        <span style="display: inline-block; padding: 4px 12px; background: #e0e7ff; color: #4f46e5; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px;">
+          ${data.issue_type.replace('_', ' ')}
+        </span>
+      </div>
+      
+      <h2 style="color: #1f2937; font-size: 20px; margin: 20px 0 10px 0;">${data.title}</h2>
+      
+      <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #4b5563;"><strong>Reported by:</strong> ${user.full_name} (${user.email})</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Organization:</strong> ${organization?.organization_name || 'N/A'}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Page:</strong> ${data.page_url}</p>
+      </div>
+      
+      <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Description:</h3>
+      <p style="margin: 0 0 20px 0; color: #4b5563;">${data.description}</p>
+      
+      ${data.steps_to_reproduce ? `
+        <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Steps to Reproduce:</h3>
+        <p style="margin: 0 0 20px 0; color: #4b5563; white-space: pre-wrap;">${data.steps_to_reproduce}</p>
+      ` : ''}
+      
+      ${data.screenshot_url ? `
+        <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Screenshot:</h3>
+        <img src="${data.screenshot_url}" alt="Screenshot" style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;">
+      ` : ''}
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="https://app.proposaliq.ai/AdminPortal" style="background: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+          View in Admin Portal →
+        </a>
+      </div>
+      
+      <p style="font-size: 12px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        Feedback ID: ${feedback.id}
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+            `
+          });
+        } catch (emailError) {
+          console.error(`Error sending email to ${admin.email}:`, emailError);
+        }
+      }
 
       return feedback;
     },
@@ -197,7 +243,7 @@ Feedback ID: ${feedback.id}
             <AlertDescription>
               <p className="font-semibold text-green-900 mb-1">✓ Feedback Submitted Successfully!</p>
               <p className="text-sm text-green-800">
-                Thank you for your feedback. Our team will review it and get back to you if needed.
+                Thank you for your feedback. Our team has been notified and will review it shortly.
               </p>
             </AlertDescription>
           </Alert>
