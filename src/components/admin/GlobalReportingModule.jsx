@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -15,7 +16,8 @@ import {
   MessageSquare,
   CheckCircle2,
   Clock,
-  BarChart3
+  BarChart3,
+  Building2
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import moment from "moment";
@@ -74,7 +76,7 @@ export default function GlobalReportingModule() {
   // Notification Metrics
   const totalNotifications = clientNotifications.length;
   const readNotifications = clientNotifications.filter(n => n.is_read).length;
-  const notificationReadRate = (readNotifications / totalNotifications) * 100;
+  const notificationReadRate = (totalNotifications > 0 ? (readNotifications / totalNotifications) : 0) * 100;
   
   // File Upload Metrics
   const totalFilesUploaded = clientFiles.length;
@@ -92,7 +94,7 @@ export default function GlobalReportingModule() {
   
   // Revenue Metrics
   const totalMRR = subscriptions.reduce((sum, sub) => sum + (sub.monthly_price || 0), 0);
-  const avgRevenuePerOrg = totalMRR / (organizations.length || 1);
+  const avgRevenuePerOrg = totalOrganizations > 0 ? (totalMRR / totalOrganizations) : 0;
   
   // Engagement by Organization Type
   const consultancies = organizations.filter(o => o.organization_type === 'consultancy').length;
@@ -296,11 +298,11 @@ export default function GlobalReportingModule() {
               <div className="w-full bg-blue-200 rounded-full h-3">
                 <div 
                   className="bg-blue-600 h-3 rounded-full"
-                  style={{ width: `${(filesReviewed / totalFilesUploaded) * 100}%` }}
+                  style={{ width: `${totalFilesUploaded > 0 ? (filesReviewed / totalFilesUploaded) * 100 : 0}%` }}
                 />
               </div>
               <p className="text-xs text-slate-600 mt-1">
-                {((filesReviewed / totalFilesUploaded) * 100).toFixed(1)}% of uploaded files reviewed
+                {totalFilesUploaded > 0 ? ((filesReviewed / totalFilesUploaded) * 100).toFixed(1) : 0}% of uploaded files reviewed
               </p>
             </div>
           </CardContent>
