@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -117,11 +116,11 @@ export default function ProposalBuilder() {
         setCurrentPhase(proposal.current_phase || "phase1");
       } else {
         alert("Proposal not found or you don't have access to it.");
-        navigate(createPageUrl("Pipeline")); // Changed from "Proposals" to "Pipeline"
+        navigate(createPageUrl("Pipeline"));
       }
     } catch (error) {
       console.error("Error loading proposal:", error);
-      navigate(createPageUrl("Pipeline")); // Changed from "Proposals" to "Pipeline"
+      navigate(createPageUrl("Pipeline"));
     }
   };
 
@@ -169,7 +168,7 @@ export default function ProposalBuilder() {
     setIsDeleting(true);
     try {
       await base44.entities.Proposal.delete(proposalId);
-      navigate(createPageUrl("Pipeline")); // Changed from "Proposals" to "Pipeline"
+      navigate(createPageUrl("Pipeline"));
     } catch (error) {
       console.error("Error deleting proposal:", error);
       alert("Error deleting proposal. Please try again.");
@@ -212,7 +211,7 @@ export default function ProposalBuilder() {
           <div className="flex items-center justify-between mb-4">
             <Button
               variant="ghost"
-              onClick={() => navigate(createPageUrl("Pipeline"))} // Changed from "Proposals" to "Pipeline"
+              onClick={() => navigate(createPageUrl("Pipeline"))}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Pipeline
@@ -237,7 +236,7 @@ export default function ProposalBuilder() {
 
         <Card className="border-none shadow-xl mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">Progress</CardTitle>
+            <div className="text-lg font-semibold mb-2">Progress</div>
           </CardHeader>
           <CardContent>
             <Progress value={progress} className="h-3 mb-4" />
@@ -314,10 +313,20 @@ export default function ProposalBuilder() {
                   <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
                 )}
                 {currentPhase === "phase6" && (
-                  <Phase6 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase6 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
+                  />
                 )}
                 {currentPhase === "phase7" && (
-                  <Phase7 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase7 
+                    proposal={{ id: proposalId, ...proposalData }}
+                    user={user}
+                    organization={organization}
+                    teamMembers={[]}
+                  />
                 )}
               </div>
 
