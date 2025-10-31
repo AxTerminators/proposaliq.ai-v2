@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -33,8 +32,8 @@ import {
   Wrench,
   FileEdit,
   TrendingUp,
-  Search, // Added Search icon
-  BookOpen // Added BookOpen icon
+  Search,
+  BookOpen
 } from "lucide-react";
 import {
   Sidebar,
