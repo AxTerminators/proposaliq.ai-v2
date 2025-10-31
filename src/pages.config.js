@@ -27,6 +27,7 @@ import Clients from './pages/Clients';
 import CostEstimator from './pages/CostEstimator';
 import ClientSatisfactionSurvey from './pages/ClientSatisfactionSurvey';
 import ClientFeedbackForm from './pages/ClientFeedbackForm';
+import Workspace from './pages/Workspace';
 import Layout from './Layout.jsx';
 
 
@@ -60,6 +61,7 @@ export const PAGES = {
     "CostEstimator": CostEstimator,
     "ClientSatisfactionSurvey": ClientSatisfactionSurvey,
     "ClientFeedbackForm": ClientFeedbackForm,
+    "Workspace": Workspace,
 }
 
 export const pagesConfig = {
