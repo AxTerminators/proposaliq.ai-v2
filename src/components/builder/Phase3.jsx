@@ -11,20 +11,23 @@ import {
   X,
   Plus,
   Sparkles,
-  CheckCircle2,
-  AlertCircle,
+  Check,
+  AlertTriangle,
   Loader2,
   DollarSign,
   Shield,
   Eye,
-  TrendingUp
+  TrendingUp,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Phase3({ proposalData, setProposalData, proposalId }) {
+  const [currentStep, setCurrentStep] = useState(1);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [evaluationFactors, setEvaluationFactors] = useState([]);
@@ -56,7 +59,6 @@ export default function Phase3({ proposalData, setProposalData, proposalId }) {
     loadOrgId();
   }, []);
 
-  // Load existing uploaded documents
   useEffect(() => {
     const loadDocuments = async () => {
       if (!proposalId || !currentOrgId) return;
@@ -306,7 +308,6 @@ Return as detailed JSON following this schema:
       setExtractionProgress(60);
       setExtractionResults(result);
 
-      // Auto-create ComplianceRequirement records
       let createdCount = 0;
       if (result.mandatory_requirements && result.mandatory_requirements.length > 0) {
         for (const req of result.mandatory_requirements) {
@@ -330,7 +331,6 @@ Return as detailed JSON following this schema:
 
       setExtractionProgress(80);
 
-      // Create PricingStrategy with extracted pricing structure
       if (result.pricing_structure) {
         const strategies = await base44.entities.PricingStrategy.filter({ proposal_id: proposalId });
         
@@ -355,7 +355,6 @@ Return as detailed JSON following this schema:
 
       setExtractionProgress(100);
 
-      // Create compliance preview for quick view
       setCompliancePreview({
         totalRequirements: result.mandatory_requirements?.length || 0,
         criticalRisks: result.risk_factors?.filter(r => r.severity === 'critical').length || 0,
@@ -468,6 +467,28 @@ Return a JSON array of evaluation factor names.`;
     setEvaluationFactors(evaluationFactors.filter((_, i) => i !== index));
   };
 
+  const handleContinueToUpload = () => {
+    if (!proposalData.project_type || !proposalData.solicitation_number || !proposalData.agency_name) {
+      alert("Please fill in at least Project Type, Solicitation Number, and Agency Name before continuing");
+      return;
+    }
+    setCurrentStep(2);
+  };
+
+  const handleViewCompliancePreview = () => {
+    if (!extractionResults) {
+      alert("Please run Deep AI Analysis first to see the compliance preview");
+      return;
+    }
+    setCurrentStep(3);
+  };
+
+  const steps = [
+    { number: 1, label: "Enter Details", completed: currentStep > 1 },
+    { number: 2, label: "Upload & Analyze", completed: currentStep > 2 },
+    { number: 3, label: "Review Compliance", completed: false }
+  ];
+
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
@@ -476,31 +497,44 @@ Return a JSON array of evaluation factor names.`;
           Phase 3: Solicitation Details & Compliance Analysis
         </CardTitle>
         <CardDescription>
-          Add information about the opportunity, upload documents, and let AI extract compliance requirements
+          Follow these steps to gather solicitation information and extract compliance requirements
         </CardDescription>
+        
+        {/* Step Progress Indicator */}
+        <div className="mt-6 mb-2">
+          <div className="flex items-center justify-between">
+            {steps.map((step, idx) => (
+              <React.Fragment key={step.number}>
+                <div className="flex flex-col items-center flex-1">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                    step.completed 
+                      ? 'bg-green-600 text-white' 
+                      : currentStep === step.number 
+                      ? 'bg-blue-600 text-white ring-4 ring-blue-100' 
+                      : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {step.completed ? <Check className="w-5 h-5" /> : step.number}
+                  </div>
+                  <span className={`text-xs mt-2 font-medium text-center ${
+                    currentStep === step.number ? 'text-blue-700' : 'text-slate-600'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+                {idx < steps.length - 1 && (
+                  <div className={`h-1 flex-1 mx-2 rounded transition-all ${
+                    step.completed ? 'bg-green-600' : 'bg-slate-200'
+                  }`} style={{ marginTop: '-35px' }} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Tabs defaultValue="details" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details">
-              <FileText className="w-4 h-4 mr-2" />
-              Solicitation Details
-            </TabsTrigger>
-            <TabsTrigger value="documents">
-              <Upload className="w-4 h-4 mr-2" />
-              Documents
-            </TabsTrigger>
-            <TabsTrigger value="compliance">
-              <Shield className="w-4 h-4 mr-2" />
-              Compliance Preview
-              {compliancePreview && (
-                <Badge className="ml-2 bg-green-600">{compliancePreview.totalRequirements}</Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Solicitation Details Tab */}
-          <TabsContent value="details" className="space-y-6">
+        {/* STEP 1: Solicitation Details */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
             {isExtracting && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center gap-2">
@@ -512,7 +546,7 @@ Return a JSON array of evaluation factor names.`;
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="project_type">Project Type</Label>
+                <Label htmlFor="project_type">Project Type *</Label>
                 <Select
                   value={proposalData.project_type}
                   onValueChange={(value) => setProposalData({...proposalData, project_type: value})}
@@ -545,7 +579,7 @@ Return a JSON array of evaluation factor names.`;
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="solicitation_number">Solicitation Number</Label>
+                <Label htmlFor="solicitation_number">Solicitation Number *</Label>
                 <Input
                   id="solicitation_number"
                   value={proposalData.solicitation_number}
@@ -555,7 +589,7 @@ Return a JSON array of evaluation factor names.`;
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="agency_name">Agency Name</Label>
+                <Label htmlFor="agency_name">Agency Name *</Label>
                 <Input
                   id="agency_name"
                   value={proposalData.agency_name}
@@ -585,7 +619,6 @@ Return a JSON array of evaluation factor names.`;
               />
             </div>
 
-            {/* Contract Value Section */}
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-600" />
@@ -697,19 +730,31 @@ Return a JSON array of evaluation factor names.`;
                 ))}
               </div>
             </div>
-          </TabsContent>
 
-          {/* Documents Tab */}
-          <TabsContent value="documents" className="space-y-6">
+            <div className="flex justify-end pt-6 border-t">
+              <Button
+                onClick={handleContinueToUpload}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Continue to Document Upload
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: Document Upload & Analysis */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
             <div>
-              <h3 className="font-semibold mb-2">Upload Solicitation Documents</h3>
+              <h3 className="font-semibold mb-2 text-lg">Upload Solicitation Documents</h3>
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4">
                 <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-indigo-900">Smart Document Reading + Data Privacy</p>
                     <p className="text-xs text-indigo-700 mt-1">
-                      AI will automatically read all document types and auto-populate fields above
+                      AI will automatically read all document types and auto-populate fields
                     </p>
                     <p className="text-xs text-indigo-700 mt-1">
                       🔒 <strong>Your documents stay private to your organization - never shared with others</strong>
@@ -752,44 +797,8 @@ Return a JSON array of evaluation factor names.`;
               {uploadedDocs.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-slate-700">Uploaded Documents:</p>
-                    {uploadedDocs.some(doc => ['rfp', 'rfq', 'sow', 'pws'].includes(doc.type)) && (
-                      <Button
-                        onClick={deepAnalyzeSolicitation}
-                        disabled={isAnalyzingDeep}
-                        size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700"
-                      >
-                        {isAnalyzingDeep ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Analyzing...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Deep AI Analysis
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    <p className="text-sm font-medium text-slate-700">Uploaded Documents ({uploadedDocs.length}):</p>
                   </div>
-
-                  {isAnalyzingDeep && extractionProgress > 0 && (
-                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-indigo-900">Analyzing documents...</span>
-                        <span className="text-sm text-indigo-700">{extractionProgress}%</span>
-                      </div>
-                      <Progress value={extractionProgress} className="h-2" />
-                      <p className="text-xs text-indigo-600 mt-2">
-                        {extractionProgress < 30 && "Reading documents..."}
-                        {extractionProgress >= 30 && extractionProgress < 60 && "Extracting requirements..."}
-                        {extractionProgress >= 60 && extractionProgress < 80 && "Creating compliance records..."}
-                        {extractionProgress >= 80 && "Finalizing analysis..."}
-                      </p>
-                    </div>
-                  )}
 
                   {uploadedDocs.map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
@@ -810,29 +819,105 @@ Return a JSON array of evaluation factor names.`;
                 </div>
               )}
             </div>
-          </TabsContent>
 
-          {/* Compliance Preview Tab */}
-          <TabsContent value="compliance" className="space-y-6">
+            {uploadedDocs.some(doc => ['rfp', 'rfq', 'sow', 'pws'].includes(doc.type)) && (
+              <div className="border-t pt-6">
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-lg p-6">
+                  <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                    Run Deep AI Analysis
+                  </h3>
+                  <p className="text-sm text-slate-700 mb-4">
+                    Click the button below to have AI analyze your solicitation documents and automatically extract:
+                  </p>
+                  <ul className="text-sm text-slate-700 space-y-1 mb-4 ml-4">
+                    <li>✓ Mandatory compliance requirements</li>
+                    <li>✓ Evaluation criteria and scoring</li>
+                    <li>✓ Risk factors and red flags</li>
+                    <li>✓ Pricing structure and constraints</li>
+                    <li>✓ Formatting and submission requirements</li>
+                  </ul>
+                  <Button
+                    onClick={deepAnalyzeSolicitation}
+                    disabled={isAnalyzingDeep}
+                    className="bg-indigo-600 hover:bg-indigo-700 w-full"
+                    size="lg"
+                  >
+                    {isAnalyzingDeep ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Analyzing Documents...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Run Deep AI Analysis
+                      </>
+                    )}
+                  </Button>
+
+                  {isAnalyzingDeep && extractionProgress > 0 && (
+                    <div className="mt-4 p-4 bg-white rounded-lg border border-indigo-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-indigo-900">Analyzing documents...</span>
+                        <span className="text-sm text-indigo-700">{extractionProgress}%</span>
+                      </div>
+                      <Progress value={extractionProgress} className="h-2" />
+                      <p className="text-xs text-indigo-600 mt-2">
+                        {extractionProgress < 30 && "Reading documents..."}
+                        {extractionProgress >= 30 && extractionProgress < 60 && "Extracting requirements..."}
+                        {extractionProgress >= 60 && extractionProgress < 80 && "Creating compliance records..."}
+                        {extractionProgress >= 80 && "Finalizing analysis..."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-6 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(1)}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Details
+              </Button>
+              {extractionResults && (
+                <Button
+                  onClick={handleViewCompliancePreview}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  View Compliance Preview
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: Compliance Preview */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
             {!extractionResults ? (
               <div className="text-center py-12">
                 <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">No Compliance Analysis Yet</h3>
                 <p className="text-slate-600 mb-4">
-                  Upload solicitation documents and run "Deep AI Analysis" to extract compliance requirements
+                  Please go back to Step 2 and run "Deep AI Analysis" to extract compliance requirements
                 </p>
                 <Button
-                  onClick={() => document.getElementById('file-upload')?.click()}
+                  onClick={() => setCurrentStep(2)}
                   variant="outline"
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Documents
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Document Upload
                 </Button>
               </div>
             ) : (
               <>
                 <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  <CheckCircle className="w-4 h-4 text-green-600" />
                   <AlertDescription>
                     <div className="space-y-2">
                       <p className="font-semibold text-green-900">Deep Analysis Complete!</p>
@@ -854,7 +939,6 @@ Return a JSON array of evaluation factor names.`;
                   </AlertDescription>
                 </Alert>
 
-                {/* Quick Stats Grid */}
                 <div className="grid md:grid-cols-4 gap-4">
                   <Card className="border-blue-200 bg-blue-50">
                     <CardContent className="p-4">
@@ -871,7 +955,7 @@ Return a JSON array of evaluation factor names.`;
                   <Card className="border-red-200 bg-red-50">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <AlertCircle className="w-8 h-8 text-red-600" />
+                        <AlertTriangle className="w-8 h-8 text-red-600" />
                       </div>
                       <p className="text-3xl font-bold text-red-700">
                         {extractionResults.risk_factors?.filter(r => r.severity === 'critical' || r.severity === 'high').length || 0}
@@ -883,7 +967,7 @@ Return a JSON array of evaluation factor names.`;
                   <Card className="border-amber-200 bg-amber-50">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <CheckCircle2 className="w-8 h-8 text-amber-600" />
+                        <CheckCircle className="w-8 h-8 text-amber-600" />
                       </div>
                       <p className="text-3xl font-bold text-amber-700">
                         {extractionResults.evaluation_criteria?.length || 0}
@@ -905,12 +989,11 @@ Return a JSON array of evaluation factor names.`;
                   </Card>
                 </div>
 
-                {/* Critical Risks Preview */}
                 {extractionResults.risk_factors && extractionResults.risk_factors.some(r => r.severity === 'critical') && (
                   <Card className="border-red-200">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2 text-red-700">
-                        <AlertCircle className="w-5 h-5" />
+                        <AlertTriangle className="w-5 h-5" />
                         Critical Risk Factors
                       </CardTitle>
                     </CardHeader>
@@ -921,7 +1004,7 @@ Return a JSON array of evaluation factor names.`;
                           .map((risk, idx) => (
                             <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-lg">
                               <div className="flex items-start gap-2">
-                                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                                 <div>
                                   <p className="font-semibold text-red-900 text-sm">{risk.risk}</p>
                                   <Badge className="mt-1 text-xs bg-red-600 text-white">
@@ -936,7 +1019,6 @@ Return a JSON array of evaluation factor names.`;
                   </Card>
                 )}
 
-                {/* Pricing Structure Preview */}
                 {extractionResults.pricing_structure && (
                   <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
                     <CardHeader>
@@ -1006,7 +1088,6 @@ Return a JSON array of evaluation factor names.`;
                   </Card>
                 )}
 
-                {/* Next Steps */}
                 <Card className="border-blue-200 bg-blue-50">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
@@ -1017,19 +1098,19 @@ Return a JSON array of evaluation factor names.`;
                   <CardContent>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                         <p>
                           <strong>Phase 4:</strong> Review full compliance matrix and map requirements to proposal sections
                         </p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                         <p>
                           <strong>Phase 5:</strong> Use extracted data to develop win themes and strategies
                         </p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                         <p>
                           <strong>Pricing Module:</strong> Build complete pricing structure based on extracted requirements
                         </p>
@@ -1037,10 +1118,24 @@ Return a JSON array of evaluation factor names.`;
                     </div>
                   </CardContent>
                 </Card>
+
+                <div className="flex justify-between pt-6 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentStep(2)}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Documents
+                  </Button>
+                  <div className="text-sm text-slate-600 flex items-center gap-2">
+                    <Check className="w-5 h-5 text-green-600" />
+                    Phase 3 Complete! Use the "Next" button below to continue to Phase 4
+                  </div>
+                </div>
               </>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
