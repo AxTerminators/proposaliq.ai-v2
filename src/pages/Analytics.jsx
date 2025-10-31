@@ -1,8 +1,5 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-// useQuery is no longer used directly for data fetching in this component
-// import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +16,7 @@ import {
   Users,
   Lightbulb,
   BarChart3,
-  PieChart as PieChartIcon, // Renamed to avoid conflict with Recharts PieChart
+  PieChart as PieChartIcon,
   Calendar,
   Download,
   Sparkles,
@@ -27,15 +24,14 @@ import {
   XCircle,
   Loader2
 } from "lucide-react";
-// Tabs components are no longer used in the new structure
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress"; // New import for progress bar
+import { Progress } from "@/components/ui/progress";
 import {
   LineChart,
   Line,
   BarChart,
-  PieChart, // Recharts PieChart
+  Bar,
+  PieChart,
   Pie,
   Cell,
   XAxis,
@@ -48,20 +44,16 @@ import {
   AreaChart
 } from 'recharts';
 
-// COLORS array is no longer used as specific colors are set for each chart element
-// const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1'];
-
 export default function Analytics() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [metrics, setMetrics] = useState({});
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState("30days"); // Renamed from timeRange
-  const [proposalsData, setProposalsData] = useState([]); // Stores all fetched proposals
-  const [tokenUsageData, setTokenUsageData] = useState([]); // Stores all fetched token usage
-  const [timeSeriesData, setTimeSeriesData] = useState([]); // For chart trends
+  const [dateRange, setDateRange] = useState("30days");
+  const [proposalsData, setProposalsData] = useState([]);
+  const [tokenUsageData, setTokenUsageData] = useState([]);
+  const [timeSeriesData, setTimeSeriesData] = useState([]);
 
-  // Helper function to filter data based on selected date range
   const filterDataByDateRange = useCallback((data, dateField) => {
     if (dateRange === "all") return data;
     const now = new Date();
@@ -74,7 +66,6 @@ export default function Analytics() {
     } else if (dateRange === "90days") {
       startDate = new Date(now.setMonth(now.getMonth() - 3));
     } else {
-      // Default to 30 days if an unrecognized range is somehow selected
       startDate = new Date(now.setMonth(now.getMonth() - 1));
     }
 
@@ -82,11 +73,10 @@ export default function Analytics() {
   }, [dateRange]);
 
   const loadData = useCallback(async () => {
-    if (!organization) return; // Ensure organization is loaded before proceeding
+    if (!organization) return;
 
     setLoading(true);
     try {
-      // Fetch all data for the current organization
       const [allProposals, allTokenUsage, pastPerf, resources] = await Promise.all([
         base44.entities.Proposal.filter({ organization_id: organization.id }),
         base44.entities.TokenUsage.filter({ organization_id: organization.id }),
@@ -94,15 +84,12 @@ export default function Analytics() {
         base44.entities.ProposalResource.filter({ organization_id: organization.id })
       ]);
 
-      // Store the raw data for potential re-filtering without re-fetching
       setProposalsData(allProposals);
       setTokenUsageData(allTokenUsage);
 
-      // Apply date range filter for metric calculations and time series
       const filteredProposals = filterDataByDateRange(allProposals, 'created_date');
       const filteredTokenUsage = filterDataByDateRange(allTokenUsage, 'created_date');
 
-      // Calculate key metrics
       const submitted = filteredProposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status));
       const won = filteredProposals.filter(p => p.status === 'won');
       const winRate = submitted.length > 0 ? (won.length / submitted.length) * 100 : 0;
@@ -135,12 +122,11 @@ export default function Analytics() {
         resources_count: resources.length
       });
 
-      // Calculate time series data for trends
       const monthlyData = {};
       filteredProposals.forEach(p => {
         const date = new Date(p.created_date);
-        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`; // YYYY-MM for consistent sorting
-        const monthLabel = date.toLocaleString('en-US', { month: 'short', year: 'numeric' }); // For display
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        const monthLabel = date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
 
         if (!monthlyData[monthKey]) {
           monthlyData[monthKey] = {
@@ -165,19 +151,17 @@ export default function Analytics() {
       const timeline = Object.values(monthlyData).map(data => ({
         ...data,
         win_rate: data.submitted_proposals > 0 ? (data.won_proposals / data.submitted_proposals) * 100 : 0
-      })).sort((a, b) => a.sortKey.localeCompare(b.sortKey)); // Sort by YYYY-MM
+      })).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
       setTimeSeriesData(timeline);
 
     } catch (error) {
       console.error("Error loading analytics data:", error);
-      // Optionally, set an error state to display to the user
     } finally {
       setLoading(false);
     }
-  }, [organization, dateRange, filterDataByDateRange]); // Dependencies for useCallback
+  }, [organization, dateRange, filterDataByDateRange]);
 
-  // Initial load of user and organization on component mount
   useEffect(() => {
     const loadUserAndOrg = async () => {
       setLoading(true);
@@ -195,23 +179,22 @@ export default function Analytics() {
           setOrganization(orgs[0]);
         } else {
           console.warn("No organization found for the current user. Please create one.");
-          setOrganization(null); // Explicitly set null if no org
-          setLoading(false); // Stop loading if no organization
+          setOrganization(null);
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error fetching user or organization:", error);
-        setLoading(false); // Stop loading on error
+        setLoading(false);
       }
     };
     loadUserAndOrg();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
-  // Effect to re-load data whenever organization or dateRange changes
   useEffect(() => {
     if (organization) {
       loadData();
     }
-  }, [organization, dateRange, loadData]); // Depend on organization, dateRange, and memoized loadData
+  }, [organization, dateRange, loadData]);
 
   if (loading) {
     return (
@@ -221,7 +204,6 @@ export default function Analytics() {
     );
   }
 
-  // Ensure metrics object is not empty before rendering content that relies on it
   if (!organization || Object.keys(metrics).length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 flex items-center justify-center text-center">
@@ -235,7 +217,6 @@ export default function Analytics() {
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -258,7 +239,6 @@ export default function Analytics() {
                 <SelectItem value="all">All Time</SelectItem>
               </SelectContent>
             </Select>
-            {/* Export Report button - functionality not specified in outline */}
             <Button variant="outline">
               <Download className="w-4 h-4 mr-2" />
               Export Report
@@ -272,7 +252,7 @@ export default function Analytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <FileText className="w-8 h-8 text-blue-500" />
-                <TrendingUp className="w-5 h-5 text-green-500" /> {/* This icon is just illustrative as no change is defined */}
+                <TrendingUp className="w-5 h-5 text-green-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900">{metrics.total_proposals}</p>
               <p className="text-sm text-slate-600">Total Proposals</p>
@@ -284,7 +264,7 @@ export default function Analytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <Award className="w-8 h-8 text-green-500" />
-                <TrendingUp className="w-5 h-5 text-green-500" /> {/* This icon is just illustrative as no change is defined */}
+                <TrendingUp className="w-5 h-5 text-green-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900">{metrics.win_rate}%</p>
               <p className="text-sm text-slate-600">Win Rate</p>
@@ -298,7 +278,7 @@ export default function Analytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <DollarSign className="w-8 h-8 text-purple-500" />
-                <TrendingUp className="w-5 h-5 text-purple-500" /> {/* This icon is just illustrative as no change is defined */}
+                <TrendingUp className="w-5 h-5 text-purple-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900">
                 ${(metrics.total_revenue / 1000000).toFixed(1)}M
@@ -312,7 +292,7 @@ export default function Analytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <Target className="w-8 h-8 text-indigo-500" />
-                <TrendingUp className="w-5 h-5 text-indigo-500" /> {/* This icon is just illustrative as no change is defined */}
+                <TrendingUp className="w-5 h-5 text-indigo-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900">
                 ${(metrics.pipeline_value / 1000000).toFixed(1)}M
@@ -474,7 +454,6 @@ export default function Analytics() {
                       { name: 'Active', value: metrics.active_proposals, fill: '#3b82f6' },
                       { name: 'Won', value: metrics.won_proposals, fill: '#10b981' },
                       { name: 'Lost', value: metrics.lost_proposals, fill: '#ef4444' },
-                      // Calculate 'Other' by subtracting known statuses from total filtered proposals
                       { name: 'Other', value: filterDataByDateRange(proposalsData, 'created_date').length - metrics.active_proposals - metrics.won_proposals - metrics.lost_proposals, fill: '#94a3b8' }
                     ]}
                     cx="50%"
