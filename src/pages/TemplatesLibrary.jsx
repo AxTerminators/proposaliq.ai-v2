@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -187,11 +188,7 @@ export default function TemplatesLibrary() {
   };
 
   const handleDeleteTemplate = (template) => {
-    if (template.is_system_template) {
-      alert("System templates cannot be deleted");
-      return;
-    }
-
+    // Allow deletion of all templates including system templates (for illustration purposes)
     if (confirm(`Delete template "${template.template_name}"? This cannot be undone.`)) {
       deleteTemplateMutation.mutate(template.id);
     }
@@ -242,7 +239,7 @@ export default function TemplatesLibrary() {
               {template.is_system_template && (
                 <Badge className="bg-amber-100 text-amber-700">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  Official
+                  SAMPLE
                 </Badge>
               )}
               {template.is_public && !template.is_system_template && (
@@ -326,16 +323,15 @@ export default function TemplatesLibrary() {
             >
               <Eye className="w-4 h-4" />
             </Button>
-            {!template.is_system_template && template.organization_id === organization?.id && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleDeleteTemplate(template)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
+            {/* Delete button is now always visible for illustration purposes */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleDeleteTemplate(template)}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -373,7 +369,7 @@ export default function TemplatesLibrary() {
                 <Sparkles className="w-8 h-8 text-amber-500" />
                 <div className="text-right">
                   <p className="text-2xl font-bold">{systemTemplates.length}</p>
-                  <p className="text-xs text-slate-600">Official Templates</p>
+                  <p className="text-xs text-slate-600">Sample Templates</p>
                 </div>
               </div>
             </CardContent>
@@ -523,9 +519,9 @@ export default function TemplatesLibrary() {
               <TabsTrigger value="all">
                 All Templates ({filteredTemplates.length})
               </TabsTrigger>
-              <TabsTrigger value="official">
+              <TabsTrigger value="sample">
                 <Sparkles className="w-4 h-4 mr-2" />
-                Official ({systemTemplates.length})
+                Sample ({systemTemplates.length})
               </TabsTrigger>
               <TabsTrigger value="mine">
                 <FileText className="w-4 h-4 mr-2" />
@@ -547,9 +543,9 @@ export default function TemplatesLibrary() {
               </div>
             </TabsContent>
 
-            <TabsContent value="official" className="space-y-6">
+            <TabsContent value="sample" className="space-y-6">
               {systemTemplates.length === 0 ? (
-                <p className="text-center text-slate-500 py-12">No official templates available</p>
+                <p className="text-center text-slate-500 py-12">No sample templates available</p>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {systemTemplates.map((template) => (
