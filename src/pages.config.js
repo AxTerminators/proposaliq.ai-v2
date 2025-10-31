@@ -37,6 +37,7 @@ import KeyPersonnel from './pages/KeyPersonnel';
 import WinLossCapture from './pages/WinLossCapture';
 import WinLossInsights from './pages/WinLossInsights';
 import BestPractices from './pages/BestPractices';
+import OnboardingGuide from './pages/OnboardingGuide';
 import Layout from './Layout.jsx';
 
 
@@ -80,6 +81,7 @@ export const PAGES = {
     "WinLossCapture": WinLossCapture,
     "WinLossInsights": WinLossInsights,
     "BestPractices": BestPractices,
+    "OnboardingGuide": OnboardingGuide,
 }
 
 export const pagesConfig = {
