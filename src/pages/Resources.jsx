@@ -98,7 +98,7 @@ export default function Resources() {
         const resource = await base44.entities.ProposalResource.create({
           organization_id: organization.id,
           resource_type: metadata.category || 'other', // From FileUploadDialog, this is the main type (e.g. capability_statement)
-          content_category: null, // Files don't typically have a boilerplate content_category
+          content_category: metadata.category === 'boilerplate_text' ? metadata.description : null, // Files don't typically have a boilerplate content_category
           title: file.name,
           description: metadata.description,
           file_name: file.name,
@@ -190,7 +190,7 @@ export default function Resources() {
       return;
     }
 
-    const wordCount = boilerplateForm.boilerplate_content.trim().split(/\s+/).filter(w => w).length;
+    const wordCount = boilerplateForm.boilerplate_content.trim().split(/\s+/).length;
 
     createBoilerplateMutation.mutate({
       ...boilerplateForm,
@@ -211,7 +211,7 @@ export default function Resources() {
   };
 
   const handleDeleteResource = (resource) => {
-    if (confirm(`Delete "${resource.title || resource.file_name}"? This cannot be undone.`)) {
+    if (confirm(`Delete "${resource.title}"? This cannot be undone.`)) {
       deleteResourceMutation.mutate(resource.id);
     }
   };
@@ -238,8 +238,7 @@ export default function Resources() {
     const matchesSearch =
       resource.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       resource.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resource.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (resource.boilerplate_content && resource.boilerplate_content.toLowerCase().includes(searchQuery.toLowerCase()));
+      resource.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesType = filterType === "all" || resource.resource_type === filterType;
     const matchesCategory = filterCategory === "all" || resource.content_category === filterCategory;
@@ -270,7 +269,7 @@ export default function Resources() {
   const fileUploadCategoryOptions = [
     { value: "capability_statement", label: "Capability Statement" },
     { value: "marketing_collateral", label: "Marketing Collateral" },
-    { value: "past_proposal", label: "Past Proposal" },
+    { value: "past_proposal", label: "Past Proposal / Generated Proposal" },
     { value: "template", label: "Template" },
     { value: "other", label: "Other" }
   ];
@@ -346,7 +345,7 @@ export default function Resources() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
                   <Input
-                    placeholder="Search by name, description, content, or tags..."
+                    placeholder="Search by name, description, or tags..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
@@ -362,7 +361,7 @@ export default function Resources() {
                     <SelectItem value="template">Templates</SelectItem>
                     <SelectItem value="capability_statement">Capability Statements</SelectItem>
                     <SelectItem value="marketing_collateral">Marketing</SelectItem>
-                    <SelectItem value="past_proposal">Past Proposals</SelectItem>
+                    <SelectItem value="past_proposal">Past / Generated Proposals</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
@@ -406,9 +405,9 @@ export default function Resources() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <h3 className="font-semibold text-slate-900">{resource.title || resource.file_name}</h3>
+                          <h3 className="font-semibold text-slate-900">{resource.title}</h3>
                           <Badge variant="outline" className="capitalize">
-                            {resource.resource_type.replace(/_/g, ' ')}
+                            {resource.resource_type === 'past_proposal' ? 'Past / Generated Proposal' : resource.resource_type.replace(/_/g, ' ')}
                           </Badge>
                           {resource.is_favorite && (
                             <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
