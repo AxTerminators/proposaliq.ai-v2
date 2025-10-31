@@ -33,7 +33,8 @@ import {
   Wrench,
   FileEdit,
   TrendingUp,
-  Search // Added Search icon
+  Search, // Added Search icon
+  BookOpen // Added BookOpen icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -69,6 +70,7 @@ const WORKSPACE_ITEMS = [
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
   { title: "Templates", url: createPageUrl("TemplatesLibrary"), icon: FileText },
+  { title: "Best Practices", url: createPageUrl("BestPractices"), icon: BookOpen },
   { title: "Search", url: createPageUrl("AdvancedSearch"), icon: Search },
 ];
 
