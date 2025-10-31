@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -33,7 +34,8 @@ export default function Onboarding() {
     secondary_naics: [],
     certifications: [],
     is_primary: true,
-    onboarding_completed: false
+    onboarding_completed: false,
+    is_sample_data: false // Added this line
   });
 
   const [newNaics, setNewNaics] = useState("");
@@ -67,7 +69,8 @@ export default function Onboarding() {
           file_name: file.name,
           file_url: file_url,
           file_size: file.size,
-          entity_type: entityType
+          entity_type: entityType,
+          is_sample_data: false // Added this line
         });
         
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
@@ -92,7 +95,8 @@ export default function Onboarding() {
     try {
       const createdOrg = await base44.entities.Organization.create({
         ...orgData,
-        onboarding_completed: true
+        onboarding_completed: true,
+        is_sample_data: false // Added this line
       });
 
       const subscriptionData = {
@@ -116,9 +120,15 @@ export default function Onboarding() {
       for (const partner of partners) {
         await base44.entities.TeamingPartner.create({
           ...partner,
-          organization_id: createdOrg.id
+          organization_id: createdOrg.id,
+          is_sample_data: false // Added this line
         });
       }
+
+      // Update user flags to indicate they've created their real organization
+      await base44.auth.updateMe({
+        has_created_real_organization: true
+      });
 
       navigate(createPageUrl("Dashboard"));
     } catch (error) {
@@ -159,8 +169,8 @@ export default function Onboarding() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-4">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome to ProposalIQ.ai</h1>
-          <p className="text-slate-600">Let's set up your organization profile</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Set Up Your Organization</h1> {/* Changed title */}
+          <p className="text-slate-600">Create your real organization profile to get started</p> {/* Changed description */}
         </div>
 
         <div className="mb-8">
