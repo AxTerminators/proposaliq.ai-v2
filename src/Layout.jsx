@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -25,7 +26,10 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Handshake,
-  Bug
+  Bug,
+  Briefcase, // New icon
+  ChevronDown, // New icon
+  ChevronRight // New icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,28 +44,39 @@ import {
   SidebarFooter,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"; // New imports
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import { cn } from "@/lib/utils";
 
+// Workspace sub-menu items
+const WORKSPACE_ITEMS = [
+  { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
+  { title: "Resources", url: createPageUrl("Resources"), icon: Library },
+  { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
+  { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
+  { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
+  { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
+];
+
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar, showFor: "all" },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
-  { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText, showFor: "all" },
+  // Workspace is now a main menu with sub-items
+  { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true },
   { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" }, // CONSULTANT ONLY
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare, showFor: "all" },
-  { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award, showFor: "all" },
-  { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake, showFor: "all" },
   { title: "Team", url: createPageUrl("Team"), icon: Users, showFor: "all" },
-  { title: "Resources", url: createPageUrl("Resources"), icon: Library, showFor: "all" },
   { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare, showFor: "all" },
   { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle, showFor: "all" },
-  { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download, showFor: "all" },
-  { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3, showFor: "all" },
   { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign, showFor: "all" },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all" },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug, showFor: "all" },
@@ -78,6 +93,7 @@ export default function Layout({ children }) {
   const [subscription, setSubscription] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = React.useState(false); // New state
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -125,6 +141,14 @@ export default function Layout({ children }) {
       document.body.style.overflow = 'unset';
     };
   }, [mobileMenuOpen]);
+
+  // Auto-expand Workspace if on a workspace sub-page
+  React.useEffect(() => {
+    const isWorkspacePage = WORKSPACE_ITEMS.some(item => location.pathname === item.url);
+    if (isWorkspacePage) {
+      setWorkspaceOpen(true);
+    }
+  }, [location.pathname]);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -233,29 +257,95 @@ export default function Layout({ children }) {
               )}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {navigationItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        className={cn(
-                          "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
-                          location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
-                          sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
-                        )}
-                        title={sidebarCollapsed ? item.title : undefined}
-                      >
-                        <Link to={item.url} className={cn(
-                          "flex items-center w-full",
-                          sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
-                        )}>
-                          <item.icon className={cn(
-                            sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
-                          )} />
-                          {!sidebarCollapsed && <span>{item.title}</span>}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {navigationItems.map((item) => {
+                    // Handle Workspace with sub-menu
+                    if (item.hasSubMenu && item.title === "Workspace") {
+                      return (
+                        <Collapsible
+                          key={item.title}
+                          open={workspaceOpen}
+                          onOpenChange={setWorkspaceOpen}
+                          className="group/collapsible"
+                        >
+                          <SidebarMenuItem>
+                            <CollapsibleTrigger asChild>
+                              <SidebarMenuButton
+                                className={cn(
+                                  "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
+                                  (location.pathname === item.url || WORKSPACE_ITEMS.some(sub => location.pathname === sub.url)) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
+                                  sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
+                                )}
+                                title={sidebarCollapsed ? item.title : undefined}
+                              >
+                                <div className={cn(
+                                  "flex items-center w-full",
+                                  sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
+                                )}>
+                                  <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} />
+                                  {!sidebarCollapsed && (
+                                    <>
+                                      <span className="flex-1">{item.title}</span>
+                                      <ChevronDown className={cn(
+                                        "w-4 h-4 transition-transform",
+                                        workspaceOpen && "rotate-180"
+                                      )} />
+                                    </>
+                                  )}
+                                </div>
+                              </SidebarMenuButton>
+                            </CollapsibleTrigger>
+                            {!sidebarCollapsed && (
+                              <CollapsibleContent>
+                                <SidebarMenu className="ml-4 border-l-2 border-slate-200">
+                                  {WORKSPACE_ITEMS.map((subItem) => (
+                                    <SidebarMenuItem key={subItem.title}>
+                                      <SidebarMenuButton
+                                        asChild
+                                        className={cn(
+                                          "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg my-0.5",
+                                          location.pathname === subItem.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
+                                        )}
+                                      >
+                                        <Link to={subItem.url} className="flex items-center gap-3 py-2 px-3">
+                                          <subItem.icon className="w-4 h-4" />
+                                          <span className="text-sm">{subItem.title}</span>
+                                        </Link>
+                                      </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                  ))}
+                                </SidebarMenu>
+                              </CollapsibleContent>
+                            )}
+                          </SidebarMenuItem>
+                        </Collapsible>
+                      );
+                    }
+
+                    // Regular menu items
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          className={cn(
+                            "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
+                            location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
+                            sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
+                          )}
+                          title={sidebarCollapsed ? item.title : undefined}
+                        >
+                          <Link to={item.url} className={cn(
+                            "flex items-center w-full",
+                            sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
+                          )}>
+                            <item.icon className={cn(
+                              sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
+                            )} />
+                            {!sidebarCollapsed && <span>{item.title}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -445,21 +535,62 @@ export default function Layout({ children }) {
                 Navigation
               </h3>
               <nav className="space-y-1">
-                {navigationItems.map((item) => (
-                  <Link
-                    key={item.title}
-                    to={item.url}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[48px]",
-                      location.pathname === item.url
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="text-base">{item.title}</span>
-                  </Link>
-                ))}
+                {navigationItems.map((item) => {
+                  // Handle Workspace with sub-menu in mobile
+                  if (item.hasSubMenu && item.title === "Workspace") {
+                    return (
+                      <div key={item.title}>
+                        <Link
+                          to={item.url}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[48px]",
+                            (location.pathname === item.url || WORKSPACE_ITEMS.some(sub => location.pathname === sub.url))
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
+                          )}
+                        >
+                          <item.icon className="w-5 h-5" />
+                          <span className="text-base flex-1">{item.title}</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </Link>
+                        {/* Show sub-items in mobile directly */}
+                        <div className="ml-8 mt-1 space-y-1">
+                          {WORKSPACE_ITEMS.map((subItem) => (
+                            <Link
+                              key={subItem.title}
+                              to={subItem.url}
+                              className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all",
+                                location.pathname === subItem.url
+                                  ? 'bg-blue-50 text-blue-700 font-medium'
+                                  : 'text-slate-600 hover:bg-slate-50'
+                              )}
+                            >
+                              <subItem.icon className="w-4 h-4" />
+                              <span className="text-sm">{subItem.title}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={item.title}
+                      to={item.url}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[48px]",
+                        location.pathname === item.url
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
+                      )}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="text-base">{item.title}</span>
+                    </Link>
+                  );
+                })}
               </nav>
             </div>
 
