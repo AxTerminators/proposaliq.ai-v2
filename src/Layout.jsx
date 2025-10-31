@@ -32,7 +32,8 @@ import {
   ChevronRight,
   Wrench,
   FileEdit,
-  TrendingUp
+  TrendingUp,
+  Search // Added Search icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -66,6 +67,8 @@ const WORKSPACE_ITEMS = [
   { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
+  { title: "Templates", url: createPageUrl("TemplatesLibrary"), icon: FileText },
+  { title: "Search", url: createPageUrl("AdvancedSearch"), icon: Search },
 ];
 
 // Tools sub-menu items
