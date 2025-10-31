@@ -1,3 +1,4 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -231,7 +232,7 @@ export default function Dashboard() {
 
       {/* Key Metrics Cards */}
       <MobileGrid cols="4">
-        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Proposals"))}>
+        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("Pipeline"))}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-600 flex items-center justify-between">
               <span className="flex items-center gap-2">
@@ -316,7 +317,7 @@ export default function Dashboard() {
                   <Activity className="w-5 h-5 text-blue-600" />
                   Proposal Health
                 </span>
-                <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl("Proposals"))}>
+                <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl("Pipeline"))}>
                   View All
                 </Button>
               </CardTitle>
