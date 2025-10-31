@@ -77,6 +77,7 @@ const TOOLS_ITEMS = [
 
 // Settings sub-menu items
 const SETTINGS_ITEMS = [
+  { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
   { title: "Team", url: createPageUrl("Team"), icon: Users },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
 ];
@@ -699,7 +700,6 @@ export default function Layout({ children }) {
             )}
           </div>
 
-          {/* Mobile Footer */}
           <div className="border-t border-slate-200 p-4 mt-auto">
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
