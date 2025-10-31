@@ -30,6 +30,7 @@ import Workspace from './pages/Workspace';
 import Tools from './pages/Tools';
 import Pipeline from './pages/Pipeline';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import ErrorMonitoringDashboard from './pages/ErrorMonitoringDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -66,6 +67,7 @@ export const PAGES = {
     "Tools": Tools,
     "Pipeline": Pipeline,
     "AnalyticsDashboard": AnalyticsDashboard,
+    "ErrorMonitoringDashboard": ErrorMonitoringDashboard,
 }
 
 export const pagesConfig = {
