@@ -30,7 +30,7 @@ import {
   Briefcase,
   ChevronDown,
   ChevronRight,
-  Wrench // New icon
+  Wrench
 } from "lucide-react";
 import {
   Sidebar,
@@ -75,6 +75,12 @@ const TOOLS_ITEMS = [
   { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign },
 ];
 
+// Settings sub-menu items
+const SETTINGS_ITEMS = [
+  { title: "Team", url: createPageUrl("Team"), icon: Users },
+  { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
+];
+
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
@@ -84,9 +90,8 @@ const ALL_NAVIGATION_ITEMS = [
   // Tools is now a main menu with sub-items
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
   { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" }, // CONSULTANT ONLY
-  { title: "Team", url: createPageUrl("Team"), icon: Users, showFor: "all" },
-  { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all" },
-  { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug, showFor: "all" },
+  // Settings is now a main menu with sub-items
+  { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all", hasSubMenu: true, subMenuItems: SETTINGS_ITEMS },
 ];
 
 const adminItems = [
@@ -101,7 +106,8 @@ export default function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
-  const [toolsOpen, setToolsOpen] = React.useState(false); // New state
+  const [toolsOpen, setToolsOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -163,6 +169,14 @@ export default function Layout({ children }) {
     const isToolsPage = TOOLS_ITEMS.some(item => location.pathname === item.url);
     if (isToolsPage) {
       setToolsOpen(true);
+    }
+  }, [location.pathname]);
+
+  // Auto-expand Settings if on a settings sub-page
+  React.useEffect(() => {
+    const isSettingsPage = SETTINGS_ITEMS.some(item => location.pathname === item.url);
+    if (isSettingsPage) {
+      setSettingsOpen(true);
     }
   }, [location.pathname]);
 
@@ -276,20 +290,13 @@ export default function Layout({ children }) {
                   {navigationItems.map((item) => {
                     // Handle menus with sub-items
                     if (item.hasSubMenu) {
-                      let isOpen, setIsOpen;
-                      if (item.title === "Workspace") {
-                        isOpen = workspaceOpen;
-                        setIsOpen = setWorkspaceOpen;
-                      } else if (item.title === "Tools") {
-                        isOpen = toolsOpen;
-                        setIsOpen = setToolsOpen;
-                      } else {
-                        isOpen = false;
-                        setIsOpen = () => {};
-                      }
-                      
+                      const isOpen = item.title === "Workspace" ? workspaceOpen : 
+                                     item.title === "Tools" ? toolsOpen :
+                                     item.title === "Settings" ? settingsOpen : false;
+                      const setIsOpen = item.title === "Workspace" ? setWorkspaceOpen : 
+                                       item.title === "Tools" ? setToolsOpen :
+                                       item.title === "Settings" ? setSettingsOpen : () => {};
                       const subItems = item.subMenuItems || [];
-                      const isAnySubItemSelected = subItems.some(sub => location.pathname === sub.url);
                       
                       return (
                         <Collapsible
@@ -303,7 +310,7 @@ export default function Layout({ children }) {
                               <SidebarMenuButton
                                 className={cn(
                                   "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
-                                  (location.pathname === item.url || isAnySubItemSelected) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
+                                  (location.pathname === item.url || subItems.some(sub => location.pathname === sub.url)) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
                                   sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
                                 )}
                                 title={sidebarCollapsed ? item.title : undefined}
@@ -567,17 +574,15 @@ export default function Layout({ children }) {
               </h3>
               <nav className="space-y-1">
                 {navigationItems.map((item) => {
-                  // Handle menus with sub-items in mobile
                   if (item.hasSubMenu) {
                     const subItems = item.subMenuItems || [];
-                    const isAnySubItemSelected = subItems.some(sub => location.pathname === sub.url);
                     return (
                       <div key={item.title}>
                         <Link
                           to={item.url}
                           className={cn(
                             "flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[48px]",
-                            (location.pathname === item.url || isAnySubItemSelected)
+                            (location.pathname === item.url || subItems.some(sub => location.pathname === sub.url))
                               ? 'bg-blue-50 text-blue-700 font-medium'
                               : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
                           )}
