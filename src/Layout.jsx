@@ -27,9 +27,10 @@ import {
   ChevronsRight,
   Handshake,
   Bug,
-  Briefcase, // New icon
-  ChevronDown, // New icon
-  ChevronRight // New icon
+  Briefcase,
+  ChevronDown,
+  ChevronRight,
+  Wrench // New icon
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,7 +49,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"; // New imports
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
@@ -65,19 +66,25 @@ const WORKSPACE_ITEMS = [
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
 ];
 
+// Tools sub-menu items
+const TOOLS_ITEMS = [
+  { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
+  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
+  { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },
+  { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare },
+  { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign },
+];
+
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
-  { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar, showFor: "all" },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   // Workspace is now a main menu with sub-items
-  { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true },
+  { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
+  // Tools is now a main menu with sub-items
+  { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
   { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" }, // CONSULTANT ONLY
-  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare, showFor: "all" },
   { title: "Team", url: createPageUrl("Team"), icon: Users, showFor: "all" },
-  { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare, showFor: "all" },
-  { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle, showFor: "all" },
-  { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign, showFor: "all" },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all" },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug, showFor: "all" },
 ];
@@ -93,7 +100,8 @@ export default function Layout({ children }) {
   const [subscription, setSubscription] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = React.useState(false); // New state
+  const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
+  const [toolsOpen, setToolsOpen] = React.useState(false); // New state
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -147,6 +155,14 @@ export default function Layout({ children }) {
     const isWorkspacePage = WORKSPACE_ITEMS.some(item => location.pathname === item.url);
     if (isWorkspacePage) {
       setWorkspaceOpen(true);
+    }
+  }, [location.pathname]);
+
+  // Auto-expand Tools if on a tools sub-page
+  React.useEffect(() => {
+    const isToolsPage = TOOLS_ITEMS.some(item => location.pathname === item.url);
+    if (isToolsPage) {
+      setToolsOpen(true);
     }
   }, [location.pathname]);
 
@@ -258,13 +274,28 @@ export default function Layout({ children }) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {navigationItems.map((item) => {
-                    // Handle Workspace with sub-menu
-                    if (item.hasSubMenu && item.title === "Workspace") {
+                    // Handle menus with sub-items
+                    if (item.hasSubMenu) {
+                      let isOpen, setIsOpen;
+                      if (item.title === "Workspace") {
+                        isOpen = workspaceOpen;
+                        setIsOpen = setWorkspaceOpen;
+                      } else if (item.title === "Tools") {
+                        isOpen = toolsOpen;
+                        setIsOpen = setToolsOpen;
+                      } else {
+                        isOpen = false;
+                        setIsOpen = () => {};
+                      }
+                      
+                      const subItems = item.subMenuItems || [];
+                      const isAnySubItemSelected = subItems.some(sub => location.pathname === sub.url);
+                      
                       return (
                         <Collapsible
                           key={item.title}
-                          open={workspaceOpen}
-                          onOpenChange={setWorkspaceOpen}
+                          open={isOpen}
+                          onOpenChange={setIsOpen}
                           className="group/collapsible"
                         >
                           <SidebarMenuItem>
@@ -272,7 +303,7 @@ export default function Layout({ children }) {
                               <SidebarMenuButton
                                 className={cn(
                                   "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
-                                  (location.pathname === item.url || WORKSPACE_ITEMS.some(sub => location.pathname === sub.url)) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
+                                  (location.pathname === item.url || isAnySubItemSelected) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
                                   sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
                                 )}
                                 title={sidebarCollapsed ? item.title : undefined}
@@ -287,7 +318,7 @@ export default function Layout({ children }) {
                                       <span className="flex-1">{item.title}</span>
                                       <ChevronDown className={cn(
                                         "w-4 h-4 transition-transform",
-                                        workspaceOpen && "rotate-180"
+                                        isOpen && "rotate-180"
                                       )} />
                                     </>
                                   )}
@@ -297,7 +328,7 @@ export default function Layout({ children }) {
                             {!sidebarCollapsed && (
                               <CollapsibleContent>
                                 <SidebarMenu className="ml-4 border-l-2 border-slate-200">
-                                  {WORKSPACE_ITEMS.map((subItem) => (
+                                  {subItems.map((subItem) => (
                                     <SidebarMenuItem key={subItem.title}>
                                       <SidebarMenuButton
                                         asChild
@@ -536,15 +567,17 @@ export default function Layout({ children }) {
               </h3>
               <nav className="space-y-1">
                 {navigationItems.map((item) => {
-                  // Handle Workspace with sub-menu in mobile
-                  if (item.hasSubMenu && item.title === "Workspace") {
+                  // Handle menus with sub-items in mobile
+                  if (item.hasSubMenu) {
+                    const subItems = item.subMenuItems || [];
+                    const isAnySubItemSelected = subItems.some(sub => location.pathname === sub.url);
                     return (
                       <div key={item.title}>
                         <Link
                           to={item.url}
                           className={cn(
                             "flex items-center gap-3 px-3 py-3 rounded-lg transition-all min-h-[48px]",
-                            (location.pathname === item.url || WORKSPACE_ITEMS.some(sub => location.pathname === sub.url))
+                            (location.pathname === item.url || isAnySubItemSelected)
                               ? 'bg-blue-50 text-blue-700 font-medium'
                               : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
                           )}
@@ -553,9 +586,9 @@ export default function Layout({ children }) {
                           <span className="text-base flex-1">{item.title}</span>
                           <ChevronRight className="w-4 h-4" />
                         </Link>
-                        {/* Show sub-items in mobile directly */}
+                        {/* Show sub-items in mobile */}
                         <div className="ml-8 mt-1 space-y-1">
-                          {WORKSPACE_ITEMS.map((subItem) => (
+                          {subItems.map((subItem) => (
                             <Link
                               key={subItem.title}
                               to={subItem.url}
