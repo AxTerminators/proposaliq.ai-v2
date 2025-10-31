@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, Building2, Users, Sparkles, DollarSign, Plus, X, CheckCircle, AlertTriangle } from "lucide-react";
+import { Briefcase, Building2, Users, Sparkles, Plus, X, CheckCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -576,76 +576,14 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="contract_value">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                Contract Value
-              </div>
-            </Label>
-            <Input
-              id="contract_value"
-              type="number"
-              value={proposalData.contract_value || ""}
-              onChange={(e) => setProposalData({...proposalData, contract_value: parseFloat(e.target.value) || 0})}
-              placeholder="e.g., 5000000"
-            />
-            <p className="text-sm text-slate-500">
-              Estimated contract value in USD
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="contract_value_type">Value Type</Label>
-            <Select
-              value={proposalData.contract_value_type || "estimated"}
-              onValueChange={(value) => setProposalData({...proposalData, contract_value_type: value})}
-            >
-              <SelectTrigger id="contract_value_type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="estimated">Estimated</SelectItem>
-                <SelectItem value="ceiling">Ceiling</SelectItem>
-                <SelectItem value="exact">Exact</SelectItem>
-                <SelectItem value="target">Target</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-slate-500">
-              Type of value estimate
-            </p>
-          </div>
-        </div>
-
-        {proposalData.contract_value > 0 && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-green-600" />
-              <span className="font-semibold text-green-900">Contract Value Summary</span>
-            </div>
-            <div className="text-sm text-green-800">
-              <p>
-                <strong>{proposalData.contract_value_type?.charAt(0).toUpperCase() + proposalData.contract_value_type?.slice(1) || 'Estimated'} Value:</strong>{' '}
-                ${proposalData.contract_value.toLocaleString()} USD
-              </p>
-              {proposalData.contract_value >= 1000000 && (
-                <p className="mt-1">
-                  That's approximately <strong>${(proposalData.contract_value / 1000000).toFixed(2)}M</strong>
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-900 mb-1">What's Next?</p>
               <p className="text-sm text-blue-700">
-                After setting up basic info, you'll add supporting documents, solicitation details (including contract value), 
-                and let AI help evaluate and write your proposal.
+                After setting up basic info, you'll add supporting documents and solicitation details (including contract value) in the next phase, 
+                and then let AI help evaluate and write your proposal.
               </p>
             </div>
           </div>
