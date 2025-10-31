@@ -325,7 +325,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setShowOtherCertInput(false);
     setOtherCertification("");
     setNewItem("");
-    setCurrentTab("basic"); // Reset tab to basic
+    setCurrentTab("basic");
   };
 
   const handleOpenAddPartner = (forPrime) => {
