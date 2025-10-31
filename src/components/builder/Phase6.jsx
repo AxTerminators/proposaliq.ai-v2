@@ -899,7 +899,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
           <DataFetchingState type="sections" />
         ) : generatingSection ? (
           <AILoadingState 
-            message={`AI is generating ${generatingSection}...`}
+            message={`AI is generating content...`}
             subMessage="This may take 15-30 seconds. Your scroll position will be preserved."
           />
         ) : (
