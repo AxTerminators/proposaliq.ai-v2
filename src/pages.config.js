@@ -29,6 +29,7 @@ import ClientFeedbackForm from './pages/ClientFeedbackForm';
 import Workspace from './pages/Workspace';
 import Tools from './pages/Tools';
 import Pipeline from './pages/Pipeline';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import Layout from './Layout.jsx';
 
 
@@ -64,6 +65,7 @@ export const PAGES = {
     "Workspace": Workspace,
     "Tools": Tools,
     "Pipeline": Pipeline,
+    "AnalyticsDashboard": AnalyticsDashboard,
 }
 
 export const pagesConfig = {
