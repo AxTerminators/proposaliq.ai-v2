@@ -32,6 +32,7 @@ import Pipeline from './pages/Pipeline';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import ErrorMonitoringDashboard from './pages/ErrorMonitoringDashboard';
 import TemplatesLibrary from './pages/TemplatesLibrary';
+import AdvancedSearch from './pages/AdvancedSearch';
 import Layout from './Layout.jsx';
 
 
@@ -70,6 +71,7 @@ export const PAGES = {
     "AnalyticsDashboard": AnalyticsDashboard,
     "ErrorMonitoringDashboard": ErrorMonitoringDashboard,
     "TemplatesLibrary": TemplatesLibrary,
+    "AdvancedSearch": AdvancedSearch,
 }
 
 export const pagesConfig = {
