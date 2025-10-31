@@ -51,12 +51,8 @@ export default function WinLossCapture() {
     tags: []
   });
 
-  const [currentWinFactor, setCurrentWinFactor] = useState("");
-  const [currentLossFactor, setCurrentLossFactor] = useState("");
   const [currentStrength, setCurrentStrength] = useState("");
   const [currentWeakness, setCurrentWeakness] = useState("");
-  const [currentLesson, setCurrentLesson] = useState({ lesson: "", category: "strategy" });
-  const [currentTag, setCurrentTag] = useState("");
 
   useEffect(() => {
     loadData();
@@ -147,7 +143,6 @@ ${formData.competitor_won ? `Competitor Who Won: ${formData.competitor_won}` : '
 3. **Weaknesses**: What could we improve?
 4. **Lessons Learned**: Top 3-5 actionable lessons
 5. **Recommendations**: Specific recommendations for future proposals to this agency
-6. **Competitor Analysis**: What did the winner do differently?
 
 Format as JSON:
 {
@@ -157,8 +152,7 @@ Format as JSON:
   "lessons_learned": [
     {"lesson": "...", "category": "technical", "actionable": true}
   ],
-  "recommendations": ["rec1", "rec2"],
-  "competitor_insights": "..."
+  "recommendations": ["rec1", "rec2"]
 }`;
 
       const response = await base44.integrations.Core.InvokeLLM({
@@ -181,8 +175,7 @@ Format as JSON:
                 }
               }
             },
-            recommendations: { type: "array", items: { type: "string" } },
-            competitor_insights: { type: "string" }
+            recommendations: { type: "array", items: { type: "string" } }
           }
         }
       });
@@ -191,9 +184,9 @@ Format as JSON:
 
       setFormData(prev => ({
         ...prev,
-        strengths_identified: [...prev.strengths_identified, ...response.strengths],
-        weaknesses_identified: [...prev.weaknesses_identified, ...response.weaknesses],
-        lessons_learned: [...prev.lessons_learned, ...response.lessons_learned]
+        strengths_identified: [...prev.strengths_identified, ...(response.strengths || [])],
+        weaknesses_identified: [...prev.weaknesses_identified, ...(response.weaknesses || [])],
+        lessons_learned: [...prev.lessons_learned, ...(response.lessons_learned || [])]
       }));
 
     } catch (error) {
@@ -248,7 +241,7 @@ Format as JSON:
         ai_analysis: aiInsights ? {
           key_patterns_identified: aiInsights.key_patterns || [],
           recommendations_for_future: aiInsights.recommendations || []
-        } : null
+        } : {}
       };
 
       await base44.entities.WinLossAnalysis.create(analysisData);
@@ -269,10 +262,10 @@ Format as JSON:
   };
 
   const addItem = (field, value, setterFn) => {
-    if (value.trim()) {
+    if (value && value.trim()) {
       setFormData(prev => ({
         ...prev,
-        [field]: [...prev[field], value.trim()]
+        [field]: [...(prev[field] || []), value.trim()]
       }));
       setterFn("");
     }
@@ -281,7 +274,7 @@ Format as JSON:
   const removeItem = (field, index) => {
     setFormData(prev => ({
       ...prev,
-      [field]: prev[field].filter((_, i) => i !== index)
+      [field]: (prev[field] || []).filter((_, i) => i !== index)
     }));
   };
 
@@ -317,7 +310,7 @@ Format as JSON:
             <AlertDescription>
               <p className="font-semibold text-blue-900 mb-2">AI Analysis Complete</p>
               <p className="text-sm text-blue-800">
-                The AI has identified {aiInsights.key_patterns?.length || 0} key patterns and generated {aiInsights.recommendations?.length || 0} recommendations. Review them below in the Strengths, Weaknesses, and Lessons Learned sections.
+                The AI has identified {aiInsights.key_patterns?.length || 0} key patterns and generated {aiInsights.recommendations?.length || 0} recommendations.
               </p>
             </AlertDescription>
           </Alert>
@@ -500,7 +493,7 @@ Format as JSON:
                   <h3 className="text-lg font-semibold text-slate-900">AI-Powered Analysis</h3>
                 </div>
                 <p className="text-sm text-slate-600">
-                  Let AI analyze this proposal and generate insights, patterns, and recommendations based on the data you've entered.
+                  Let AI analyze this proposal and generate insights, patterns, and recommendations.
                 </p>
               </div>
               <Button
@@ -547,7 +540,7 @@ Format as JSON:
                 </Button>
               </div>
               <div className="space-y-2">
-                {formData.strengths_identified.map((strength, idx) => (
+                {(formData.strengths_identified || []).map((strength, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                     <span className="text-sm text-green-900">{strength}</span>
                     <Button variant="ghost" size="icon" onClick={() => removeItem('strengths_identified', idx)}>
@@ -580,7 +573,7 @@ Format as JSON:
                 </Button>
               </div>
               <div className="space-y-2">
-                {formData.weaknesses_identified.map((weakness, idx) => (
+                {(formData.weaknesses_identified || []).map((weakness, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
                     <span className="text-sm text-red-900">{weakness}</span>
                     <Button variant="ghost" size="icon" onClick={() => removeItem('weaknesses_identified', idx)}>
@@ -601,7 +594,7 @@ Format as JSON:
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              {formData.lessons_learned.map((lesson, idx) => (
+              {(formData.lessons_learned || []).map((lesson, idx) => (
                 <div key={idx} className="p-4 bg-slate-50 border rounded-lg">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -614,7 +607,7 @@ Format as JSON:
                       onClick={() => {
                         setFormData(prev => ({
                           ...prev,
-                          lessons_learned: prev.lessons_learned.filter((_, i) => i !== idx)
+                          lessons_learned: (prev.lessons_learned || []).filter((_, i) => i !== idx)
                         }));
                       }}
                     >
