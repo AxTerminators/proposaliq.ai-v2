@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -105,7 +104,6 @@ export default function PastPerformance() {
     }
   });
 
-  // Filter projects
   const filteredProjects = projects.filter(project => {
     const matchesSearch = !searchQuery || 
       project.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,7 +118,6 @@ export default function PastPerformance() {
     return matchesSearch && matchesClientType && matchesStatus && matchesContractType;
   });
 
-  // Calculate statistics
   const stats = {
     total: projects.length,
     totalValue: projects.reduce((sum, p) => sum + (p.contract_value || 0), 0),
@@ -161,7 +158,6 @@ export default function PastPerformance() {
         }
       />
 
-      {/* Statistics Cards */}
       <MobileGrid cols="4">
         <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-white">
           <CardContent className="p-6">
@@ -208,7 +204,6 @@ export default function PastPerformance() {
         </Card>
       </MobileGrid>
 
-      {/* Search and Filters */}
       <Card className="border-none shadow-lg">
         <CardHeader className="border-b">
           <div className="space-y-4">
@@ -266,7 +261,6 @@ export default function PastPerformance() {
         </CardHeader>
       </Card>
 
-      {/* Projects List */}
       {filteredProjects.length === 0 ? (
         <Card className="border-2 border-dashed border-slate-200">
           <CardContent className="py-16 text-center">
@@ -429,7 +423,6 @@ export default function PastPerformance() {
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
       {showAddDialog && (
         <AddProjectForm
           project={selectedProject}
@@ -441,7 +434,6 @@ export default function PastPerformance() {
         />
       )}
 
-      {/* Details Dialog - Will create separate component */}
       {showDetailsDialog && selectedProject && (
         <ProjectDetailsDialog
           project={selectedProject}
