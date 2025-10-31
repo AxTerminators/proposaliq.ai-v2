@@ -31,6 +31,7 @@ import Tools from './pages/Tools';
 import Pipeline from './pages/Pipeline';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import ErrorMonitoringDashboard from './pages/ErrorMonitoringDashboard';
+import TemplatesLibrary from './pages/TemplatesLibrary';
 import Layout from './Layout.jsx';
 
 
@@ -68,6 +69,7 @@ export const PAGES = {
     "Pipeline": Pipeline,
     "AnalyticsDashboard": AnalyticsDashboard,
     "ErrorMonitoringDashboard": ErrorMonitoringDashboard,
+    "TemplatesLibrary": TemplatesLibrary,
 }
 
 export const pagesConfig = {
