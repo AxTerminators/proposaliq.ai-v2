@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -23,7 +22,7 @@ export default function Onboarding() {
   
   const [orgData, setOrgData] = useState({
     organization_name: "",
-    organization_type: "corporate", // Default to corporate
+    organization_type: "corporate",
     contact_name: "",
     contact_email: "",
     address: "",
@@ -96,7 +95,6 @@ export default function Onboarding() {
         onboarding_completed: true
       });
 
-      // Create appropriate subscription based on organization type
       const subscriptionData = {
         organization_id: createdOrg.id,
         plan_type: orgData.organization_type === 'consultancy' ? 'consultant_basic' : 'free',
@@ -183,7 +181,6 @@ export default function Onboarding() {
               <CardDescription>Tell us about your organization</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Account Type Selection */}
               <div className="space-y-3 pb-6 border-b">
                 <Label className="text-base font-semibold">Which best describes your organization? *</Label>
                 <RadioGroup
