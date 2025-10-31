@@ -64,6 +64,7 @@ const WORKSPACE_ITEMS = [
   { title: "Pipeline", url: createPageUrl("Pipeline"), icon: TrendingUp },
   { title: "Resources", url: createPageUrl("Resources"), icon: Library },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
+  { title: "Key Personnel", url: createPageUrl("KeyPersonnel"), icon: Users },
   { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
