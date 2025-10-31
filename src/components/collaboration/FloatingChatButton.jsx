@@ -8,36 +8,60 @@ import { cn } from "@/lib/utils";
 export default function FloatingChatButton({ proposalId, className }) {
   const navigate = useNavigate();
   const buttonRef = useRef(null);
-  const [position, setPosition] = useState({ x: 24, y: 24 }); // Default: 24px from bottom-right
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
+  // Calculate default bottom-right position
+  const getDefaultPosition = () => {
+    const buttonSize = 56; // 14 * 4 (w-14)
+    const margin = 24;
+    return {
+      x: window.innerWidth - buttonSize - margin,
+      y: window.innerHeight - buttonSize - margin
+    };
+  };
 
-  // Load saved position from localStorage on mount
+  const [position, setPosition] = useState(getDefaultPosition());
+  const [isDragging, setIsDragging] = useState(false);
+  const [hasMoved, setHasMoved] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [hasBeenDragged, setHasBeenDragged] = useState(false);
+
+  // Load session position (if user has dragged it during this session)
   useEffect(() => {
-    const savedPosition = localStorage.getItem('floatingChatPosition');
-    if (savedPosition) {
+    const sessionPosition = sessionStorage.getItem('floatingChatPosition');
+    if (sessionPosition) {
       try {
-        const parsed = JSON.parse(savedPosition);
+        const parsed = JSON.parse(sessionPosition);
         setPosition(parsed);
+        setHasBeenDragged(true);
       } catch (e) {
         console.error('Error loading chat button position:', e);
       }
     }
   }, []);
 
-  // Save position to localStorage whenever it changes
+  // Reset to default position on window resize if user hasn't dragged it
   useEffect(() => {
-    localStorage.setItem('floatingChatPosition', JSON.stringify(position));
-  }, [position]);
+    const handleResize = () => {
+      if (!hasBeenDragged) {
+        setPosition(getDefaultPosition());
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [hasBeenDragged]);
+
+  // Save position to sessionStorage only when user drags (not on default)
+  useEffect(() => {
+    if (hasBeenDragged) {
+      sessionStorage.setItem('floatingChatPosition', JSON.stringify(position));
+    }
+  }, [position, hasBeenDragged]);
 
   const handleMouseDown = (e) => {
-    // Only start dragging if not clicking the button itself (to allow normal click)
-    if (e.target.closest('button') && !e.target.closest('[data-drag-handle]')) {
-      return;
-    }
-    
     e.preventDefault();
     setIsDragging(true);
+    setHasMoved(false);
     setDragStart({
       x: e.clientX - position.x,
       y: e.clientY - position.y
@@ -51,6 +75,16 @@ export default function FloatingChatButton({ proposalId, className }) {
     
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
+
+    // Check if movement is significant (more than 5px)
+    const movedDistance = Math.sqrt(
+      Math.pow(newX - position.x, 2) + Math.pow(newY - position.y, 2)
+    );
+    
+    if (movedDistance > 5) {
+      setHasMoved(true);
+      setHasBeenDragged(true);
+    }
 
     // Get button dimensions
     const buttonWidth = 56; // 14 * 4 (w-14)
@@ -92,17 +126,16 @@ export default function FloatingChatButton({ proposalId, className }) {
     };
   }, [isDragging, dragStart, position]);
 
-  const handleClick = (e) => {
-    // Don't navigate if we just finished dragging
-    if (isDragging) {
-      e.preventDefault();
-      return;
-    }
-
-    if (proposalId) {
-      navigate(createPageUrl(`Chat?proposalId=${proposalId}`));
-    } else {
-      navigate(createPageUrl("Chat"));
+  const handleDoubleClick = (e) => {
+    e.preventDefault();
+    
+    // Only navigate if the button wasn't just dragged
+    if (!hasMoved) {
+      if (proposalId) {
+        navigate(createPageUrl(`Chat?proposalId=${proposalId}`));
+      } else {
+        navigate(createPageUrl("Chat"));
+      }
     }
   };
 
@@ -117,15 +150,17 @@ export default function FloatingChatButton({ proposalId, className }) {
       }}
       className={cn("group", className)}
       onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
     >
       <Button
-        onClick={handleClick}
         className={cn(
           "h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 relative",
           isDragging ? "scale-110 cursor-grabbing" : "hover:scale-110 cursor-grab"
         )}
-        title={proposalId ? "Ask AI about this proposal" : "Ask AI Assistant"}
+        title={proposalId ? "Double-click to ask AI about this proposal" : "Double-click to open AI Assistant"}
         data-drag-handle
+        // Prevent default button click behavior
+        onClick={(e) => e.preventDefault()}
       >
         <div className="relative">
           <MessageCircle className="w-6 h-6 text-white" />
@@ -146,13 +181,20 @@ export default function FloatingChatButton({ proposalId, className }) {
         "absolute right-16 top-1/2 transform -translate-y-1/2 bg-slate-900 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-opacity pointer-events-none",
         isDragging ? "opacity-0" : "opacity-0 group-hover:opacity-100"
       )}>
-        {proposalId ? "Ask AI about this proposal" : "AI Assistant"}
+        {proposalId ? "Double-click: Ask AI • Drag: Move" : "Double-click: AI Assistant • Drag: Move"}
       </span>
       
       {/* Drag hint on first use */}
-      {!localStorage.getItem('floatingChatDragHintShown') && (
-        <span className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs whitespace-nowrap animate-bounce pointer-events-none">
-          💡 Drag me anywhere!
+      {!sessionStorage.getItem('floatingChatDragHintShown') && !hasBeenDragged && (
+        <span 
+          className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs whitespace-nowrap animate-bounce pointer-events-none"
+          onAnimationEnd={() => {
+            setTimeout(() => {
+              sessionStorage.setItem('floatingChatDragHintShown', 'true');
+            }, 3000);
+          }}
+        >
+          💡 Drag to move • Double-click to open!
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600"></div>
         </span>
       )}
