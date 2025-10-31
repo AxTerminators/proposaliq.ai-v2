@@ -117,11 +117,11 @@ export default function ProposalBuilder() {
         setCurrentPhase(proposal.current_phase || "phase1");
       } else {
         alert("Proposal not found or you don't have access to it.");
-        navigate(createPageUrl("Proposals"));
+        navigate(createPageUrl("Pipeline")); // Changed from "Proposals" to "Pipeline"
       }
     } catch (error) {
       console.error("Error loading proposal:", error);
-      navigate(createPageUrl("Proposals"));
+      navigate(createPageUrl("Pipeline")); // Changed from "Proposals" to "Pipeline"
     }
   };
 
@@ -169,7 +169,7 @@ export default function ProposalBuilder() {
     setIsDeleting(true);
     try {
       await base44.entities.Proposal.delete(proposalId);
-      navigate(createPageUrl("Proposals"));
+      navigate(createPageUrl("Pipeline")); // Changed from "Proposals" to "Pipeline"
     } catch (error) {
       console.error("Error deleting proposal:", error);
       alert("Error deleting proposal. Please try again.");
@@ -212,10 +212,10 @@ export default function ProposalBuilder() {
           <div className="flex items-center justify-between mb-4">
             <Button
               variant="ghost"
-              onClick={() => navigate(createPageUrl("Proposals"))}
+              onClick={() => navigate(createPageUrl("Pipeline"))} // Changed from "Proposals" to "Pipeline"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Proposals
+              Back to Pipeline
             </Button>
             
             {proposalId && (
