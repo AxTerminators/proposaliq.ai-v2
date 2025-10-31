@@ -19,7 +19,8 @@ import {
   UserPlus,
   Crown,
   CreditCard,
-  AlertTriangle
+  AlertTriangle,
+  Bug
 } from "lucide-react";
 import {
   Dialog,
@@ -36,18 +37,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
+// Import Team and Feedback page components
+const TeamPageContent = React.lazy(() => import("./Team"));
+const FeedbackPageContent = React.lazy(() => import("./Feedback"));
+
 export default function Settings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null);
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("viewer");
+  const [user, setUser] = React.useState(null);
+  const [organization, setOrganization] = React.useState(null);
+  const [showInviteDialog, setShowInviteDialog] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+  const [selectedUser, setSelectedUser] = React.useState(null);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [inviteRole, setInviteRole] = React.useState("viewer");
 
-  useEffect(() => {
+  React.useEffect(() => {
     const loadData = async () => {
       try {
         const currentUser = await base44.auth.me();
@@ -147,9 +152,9 @@ export default function Settings() {
         )}
       </div>
 
-      <Tabs defaultValue="team" className="space-y-6">
+      <Tabs defaultValue="team-management" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="team">
+          <TabsTrigger value="team-management">
             <Users className="w-4 h-4 mr-2" />
             Team Management
           </TabsTrigger>
@@ -167,10 +172,18 @@ export default function Settings() {
             <Shield className="w-4 h-4 mr-2" />
             Roles & Permissions
           </TabsTrigger>
+          <TabsTrigger value="team">
+            <Users className="w-4 h-4 mr-2" />
+            Team
+          </TabsTrigger>
+          <TabsTrigger value="feedback">
+            <Bug className="w-4 h-4 mr-2" />
+            Feedback
+          </TabsTrigger>
         </TabsList>
 
         {/* Team Management */}
-        <TabsContent value="team" className="space-y-6">
+        <TabsContent value="team-management" className="space-y-6">
           <Card className="border-none shadow-lg">
             <CardHeader className="border-b">
               <div className="flex items-center justify-between">
@@ -471,6 +484,20 @@ export default function Settings() {
               );
             })}
           </div>
+        </TabsContent>
+
+        {/* Team Tab - Embedded Team Page */}
+        <TabsContent value="team" className="space-y-6">
+          <React.Suspense fallback={<div className="text-center py-12"><p>Loading Team...</p></div>}>
+            <TeamPageContent />
+          </React.Suspense>
+        </TabsContent>
+
+        {/* Feedback Tab - Embedded Feedback Page */}
+        <TabsContent value="feedback" className="space-y-6">
+          <React.Suspense fallback={<div className="text-center py-12"><p>Loading Feedback...</p></div>}>
+            <FeedbackPageContent />
+          </React.Suspense>
         </TabsContent>
       </Tabs>
 
