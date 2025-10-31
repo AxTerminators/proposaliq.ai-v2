@@ -34,6 +34,7 @@ import ErrorMonitoringDashboard from './pages/ErrorMonitoringDashboard';
 import TemplatesLibrary from './pages/TemplatesLibrary';
 import AdvancedSearch from './pages/AdvancedSearch';
 import KeyPersonnel from './pages/KeyPersonnel';
+import WinLossCapture from './pages/WinLossCapture';
 import Layout from './Layout.jsx';
 
 
@@ -74,6 +75,7 @@ export const PAGES = {
     "TemplatesLibrary": TemplatesLibrary,
     "AdvancedSearch": AdvancedSearch,
     "KeyPersonnel": KeyPersonnel,
+    "WinLossCapture": WinLossCapture,
 }
 
 export const pagesConfig = {
