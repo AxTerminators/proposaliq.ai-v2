@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,11 +24,13 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import FileUploadDialog from "@/components/ui/FileUploadDialog";
 
 export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [organization, setOrganization] = useState(null);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   
   // Search states
   const [boilerplateSearch, setBoilerplateSearch] = useState("");
@@ -224,24 +227,34 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
   });
 
   const uploadFileMutation = useMutation({
-    mutationFn: async (file) => {
+    mutationFn: async ({ files, metadata }) => {
       if (!proposalId || !organization?.id) {
         throw new Error("Proposal ID or Organization missing");
       }
 
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const uploadedDocs = [];
+      for (const file of files) {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        
+        const doc = await base44.entities.SolicitationDocument.create({
+          proposal_id: proposalId,
+          organization_id: organization.id,
+          document_type: metadata.category || 'reference',
+          file_name: file.name,
+          file_url: file_url,
+          file_size: file.size,
+          description: metadata.description,
+          // Note: SolicitationDocument doesn't have tags field, but we include description
+        });
+        
+        uploadedDocs.push(doc);
+      }
       
-      return base44.entities.SolicitationDocument.create({
-        proposal_id: proposalId,
-        organization_id: organization.id,
-        document_type: 'reference',
-        file_name: file.name,
-        file_url: file_url,
-        file_size: file.size
-      });
+      return uploadedDocs;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reference-documents', proposalId] });
+      setShowUploadDialog(false);
     },
   });
 
@@ -299,17 +312,11 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     setShowPastPerformanceResults(false);
   };
 
-  const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
+  const handleFileUpload = async (files, metadata) => {
     setUploading(true);
     try {
-      for (const file of files) {
-        await uploadFileMutation.mutateAsync(file);
-      }
+      await uploadFileMutation.mutateAsync({ files, metadata });
       alert(`✓ Successfully uploaded ${files.length} file(s)`);
-      e.target.value = '';
     } catch (error) {
       console.error("Upload error:", error);
       alert(`Error uploading files: ${error.message}`);
@@ -359,6 +366,13 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     p.keywords?.some(k => k.toLowerCase().includes(pastPerformanceSearch.toLowerCase())) ||
     p.services_provided?.some(s => s.toLowerCase().includes(pastPerformanceSearch.toLowerCase()))
   );
+
+  const referenceDocCategoryOptions = [
+    { value: "reference", label: "General Reference" },
+    { value: "rfp", label: "Sample RFP" },
+    { value: "sow", label: "Sample SOW" },
+    { value: "other", label: "Other" }
+  ];
 
   return (
     <Card className="border-none shadow-xl">
@@ -599,31 +613,24 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
               </div>
             </div>
 
-            {/* 5. Direct File Upload */}
+            {/* 5. File Upload with Dialog */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Upload className="w-5 h-5 text-blue-600" />
                 <h3 className="font-semibold text-slate-900">5. Upload Other Reference Documents</h3>
               </div>
               <p className="text-sm text-slate-600">Upload any other reference documents (PDFs only for AI analysis)</p>
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors bg-slate-50">
-                <input
-                  type="file"
-                  multiple
-                  accept=".pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="file-upload"
-                  disabled={uploading}
-                />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                  <p className="text-slate-700 font-medium mb-1">
-                    {uploading ? 'Uploading...' : 'Click to upload PDF files'}
-                  </p>
-                  <p className="text-sm text-slate-500">or drag and drop</p>
-                </label>
-              </div>
+              <Button
+                onClick={() => setShowUploadDialog(true)}
+                variant="outline"
+                className="w-full py-8 border-2 border-dashed hover:border-blue-400 hover:bg-blue-50"
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="w-8 h-8 text-blue-600" />
+                  <span className="font-medium">Click to Upload Reference Documents</span>
+                  <span className="text-xs text-slate-500">Categorize and tag your files during upload</span>
+                </div>
+              </Button>
             </div>
 
             {/* Display Added Resources */}
@@ -696,6 +703,9 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                         <File className="w-5 h-5 text-blue-600 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-slate-900 truncate">{doc.file_name}</p>
+                          {doc.description && (
+                            <p className="text-xs text-slate-600 truncate">{doc.description}</p>
+                          )}
                           <p className="text-xs text-slate-500">
                             {(doc.file_size / 1024 / 1024).toFixed(2)} MB
                           </p>
@@ -733,6 +743,22 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
             )}
           </>
         )}
+
+        {/* File Upload Dialog */}
+        <FileUploadDialog
+          open={showUploadDialog}
+          onOpenChange={setShowUploadDialog}
+          onUpload={handleFileUpload}
+          title="Upload Reference Documents"
+          description="Upload and categorize reference documents for AI analysis"
+          categoryOptions={referenceDocCategoryOptions}
+          categoryLabel="Document Type"
+          acceptedFileTypes=".pdf"
+          multiple={true}
+          showTags={false}
+          showDescription={true}
+          uploading={uploading}
+        />
       </CardContent>
     </Card>
   );
