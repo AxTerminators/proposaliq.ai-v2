@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   FileText,
   Upload,
@@ -20,26 +30,21 @@ import {
   Loader2,
   Download,
   Eye,
-  Filter
+  Filter,
+  Calendar,
+  ArrowUpDown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import FileUploadDialog from "@/components/ui/FileUploadDialog";
+import { format } from "date-fns";
 
 export default function Resources() {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all"); // This variable is not used in the outline filtering logic
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("date_desc");
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showBoilerplateDialog, setShowBoilerplateDialog] = useState(false);
@@ -237,12 +242,30 @@ export default function Resources() {
       (resource.boilerplate_content && resource.boilerplate_content.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesType = filterType === "all" || resource.resource_type === filterType;
-    // The outline for filtering `filterCategory` was present in the state but not in the filter logic.
-    // Given it's a `content_category` for boilerplate, I'll add it here.
     const matchesCategory = filterCategory === "all" || resource.content_category === filterCategory;
 
     return matchesSearch && matchesType && matchesCategory;
   });
+
+  // Sort resources
+  const sortedResources = React.useMemo(() => {
+    const sorted = [...filteredResources];
+    
+    switch(sortBy) {
+      case "date_desc":
+        return sorted.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+      case "date_asc":
+        return sorted.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+      case "name_asc":
+        return sorted.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+      case "name_desc":
+        return sorted.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
+      case "usage":
+        return sorted.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
+      default:
+        return sorted;
+    }
+  }, [filteredResources, sortBy]);
 
   const fileUploadCategoryOptions = [
     { value: "capability_statement", label: "Capability Statement" },
@@ -318,48 +341,50 @@ export default function Resources() {
         {/* Search & Filter */}
         <Card className="border-none shadow-lg">
           <CardHeader className="border-b">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  placeholder="Search by name, description, content, or tags..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <Input
+                    placeholder="Search by name, description, content, or tags..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="boilerplate_text">Boilerplate</SelectItem>
+                    <SelectItem value="template">Templates</SelectItem>
+                    <SelectItem value="capability_statement">Capability Statements</SelectItem>
+                    <SelectItem value="marketing_collateral">Marketing</SelectItem>
+                    <SelectItem value="past_proposal">Past Proposals</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="boilerplate_text">Boilerplate</SelectItem>
-                  <SelectItem value="template">Templates</SelectItem>
-                  <SelectItem value="capability_statement">Capability Statements</SelectItem>
-                  <SelectItem value="marketing_collateral">Marketing</SelectItem>
-                  <SelectItem value="past_proposal">Past Proposals</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="company_overview">Company Overview</SelectItem>
-                  <SelectItem value="past_performance">Past Performance</SelectItem>
-                  <SelectItem value="technical_approach">Technical Approach</SelectItem>
-                  <SelectItem value="quality_assurance">Quality Assurance</SelectItem>
-                  <SelectItem value="key_personnel">Key Personnel</SelectItem>
-                  <SelectItem value="management">Management</SelectItem>
-                  <SelectItem value="transition_plan">Transition Plan</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="pricing">Pricing</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              {/* Sort Options */}
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="w-4 h-4 text-slate-500" />
+                <Label className="text-sm text-slate-600">Sort by:</Label>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date_desc">Newest First</SelectItem>
+                    <SelectItem value="date_asc">Oldest First</SelectItem>
+                    <SelectItem value="name_asc">Name (A-Z)</SelectItem>
+                    <SelectItem value="name_desc">Name (Z-A)</SelectItem>
+                    <SelectItem value="usage">Most Used</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-6">
@@ -368,7 +393,7 @@ export default function Resources() {
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
                 <p className="text-slate-600">Loading resources...</p>
               </div>
-            ) : filteredResources.length === 0 ? (
+            ) : sortedResources.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
                 <p className="text-slate-600 mb-2">No resources found</p>
@@ -376,17 +401,23 @@ export default function Resources() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredResources.map((resource) => (
+                {sortedResources.map((resource) => (
                   <div key={resource.id} className="p-4 border rounded-lg hover:border-blue-300 transition-all hover:shadow-md">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
                           <h3 className="font-semibold text-slate-900">{resource.title || resource.file_name}</h3>
                           <Badge variant="outline" className="capitalize">
                             {resource.resource_type.replace(/_/g, ' ')}
                           </Badge>
                           {resource.is_favorite && (
                             <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                          )}
+                          {resource.created_date && (
+                            <div className="flex items-center gap-1 text-xs text-slate-500">
+                              <Calendar className="w-3 h-3" />
+                              <span>Added {format(new Date(resource.created_date), 'MMM d, yyyy')}</span>
+                            </div>
                           )}
                         </div>
                         
