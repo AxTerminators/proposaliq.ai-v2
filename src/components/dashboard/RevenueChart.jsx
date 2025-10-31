@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 
-export default function RevenueChart({ proposals }) {
+export default function RevenueChart({ proposals = [] }) {
   // Calculate monthly revenue data
   const monthlyData = [];
   const currentDate = new Date();
@@ -25,7 +25,7 @@ export default function RevenueChart({ proposals }) {
     const monthKey = date.toLocaleString('default', { month: 'short' });
     
     const monthProposals = proposals.filter(p => {
-      if (!p.updated_date) return false;
+      if (!p || !p.updated_date) return false;
       const pDate = new Date(p.updated_date);
       return pDate.getMonth() === date.getMonth() && 
              pDate.getFullYear() === date.getFullYear();
@@ -33,15 +33,15 @@ export default function RevenueChart({ proposals }) {
 
     // Calculate won and submitted values (in thousands)
     const wonValue = monthProposals
-      .filter(p => p.status === 'won' && p.contract_value)
+      .filter(p => p?.status === 'won' && p.contract_value)
       .reduce((sum, p) => sum + (p.contract_value || 0), 0) / 1000;
 
     const submittedValue = monthProposals
-      .filter(p => p.status === 'submitted' && p.estimated_value)
+      .filter(p => p?.status === 'submitted' && p.estimated_value)
       .reduce((sum, p) => sum + (p.estimated_value || 0), 0) / 1000;
 
     const pipelineValue = monthProposals
-      .filter(p => ['in_progress', 'draft'].includes(p.status) && p.estimated_value)
+      .filter(p => p && ['in_progress', 'draft'].includes(p.status) && p.estimated_value)
       .reduce((sum, p) => sum + (p.estimated_value || 0), 0) / 1000;
 
     monthlyData.push({
@@ -53,9 +53,9 @@ export default function RevenueChart({ proposals }) {
   }
 
   // Calculate totals and trends
-  const totalWon = monthlyData.reduce((sum, m) => sum + m.won, 0);
-  const totalSubmitted = monthlyData.reduce((sum, m) => sum + m.submitted, 0);
-  const totalPipeline = monthlyData.reduce((sum, m) => sum + m.pipeline, 0);
+  const totalWon = monthlyData.reduce((sum, m) => sum + (m.won || 0), 0);
+  const totalSubmitted = monthlyData.reduce((sum, m) => sum + (m.submitted || 0), 0);
+  const totalPipeline = monthlyData.reduce((sum, m) => sum + (m.pipeline || 0), 0);
 
   const lastMonth = monthlyData[monthlyData.length - 1]?.won || 0;
   const previousMonth = monthlyData[monthlyData.length - 2]?.won || 0;
