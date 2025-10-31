@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ActivityTimeline({ activityLog, proposals }) {
+export default function ActivityTimeline({ activityLog = [], proposals = [] }) {
   const getActivityIcon = (actionType) => {
     const iconClass = "w-4 h-4";
     switch (actionType) {
@@ -42,6 +42,8 @@ export default function ActivityTimeline({ activityLog, proposals }) {
   };
 
   const getTimeAgo = (dateString) => {
+    if (!dateString) return 'recently';
+    
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -54,6 +56,8 @@ export default function ActivityTimeline({ activityLog, proposals }) {
   };
 
   const groupedActivities = activityLog.reduce((acc, activity) => {
+    if (!activity || !activity.created_date) return acc;
+    
     const date = new Date(activity.created_date).toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -84,18 +88,18 @@ export default function ActivityTimeline({ activityLog, proposals }) {
                 </div>
                 <div className="space-y-4 relative before:absolute before:left-5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
                   {activities.map((activity, idx) => {
-                    const proposal = proposals.find(p => p.id === activity.proposal_id);
+                    const proposal = proposals.find(p => p && p.id === activity.proposal_id);
                     const timeAgo = getTimeAgo(activity.created_date);
                     
                     return (
-                      <div key={activity.id} className="flex gap-3 relative">
+                      <div key={activity.id || idx} className="flex gap-3 relative">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0 relative z-10 shadow-lg">
                           {getActivityIcon(activity.action_type)}
                         </div>
                         <div className="flex-1 min-w-0 pt-1">
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <p className="text-sm text-slate-900 font-medium">
-                              {activity.user_name}
+                              {activity.user_name || 'User'}
                             </p>
                             <span className="text-xs text-slate-400 flex items-center gap-1">
                               <Clock className="w-3 h-3" />
@@ -103,7 +107,7 @@ export default function ActivityTimeline({ activityLog, proposals }) {
                             </span>
                           </div>
                           <p className="text-sm text-slate-600 mb-1">
-                            {activity.action_description}
+                            {activity.action_description || 'Performed an action'}
                           </p>
                           {proposal && (
                             <Badge variant="outline" className="text-xs">
