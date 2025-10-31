@@ -1,75 +1,82 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Shield,
-  AlertTriangle,
+  AlertTriangle, // Kept from original, not explicitly in outline but useful
   CheckCircle2,
-  XCircle,
+  XCircle, // Kept from original, not explicitly in outline but useful
   Clock,
   Search,
-  Filter,
+  Filter, // Kept from original, not explicitly in outline but useful
   Sparkles,
   Loader2,
-  Download,
+  Download, // Kept from original, not explicitly in outline but useful for exportCsv
   FileText,
-  TrendingUp,
+  TrendingUp, // Kept from original, not explicitly in outline but useful
   AlertCircle,
-  Info
+  Info, // Kept from original, not explicitly in outline but useful
+  Plus, // New from outline
+  Eye, // New from outline
+  Target, // New from outline
+  Zap // New from outline
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, // Kept from original, not explicitly in outline but useful
+  TableBody, // Kept from original, not explicitly in outline but useful
+  TableCell, // Kept from original, not explicitly in outline but useful
+  TableHead, // Kept from original, not explicitly in outline but useful
+  TableHeader, // Kept from original, not explicitly in outline but useful
+  TableRow, // Kept from original, not explicitly in outline but useful
 } from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  DialogDescription, // Moved from Dialog import to here as per current convention and outline
+  DialogTrigger, // New from outline
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/textarea"; // Kept from original, not explicitly in outline but useful
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert"; // Kept from original, not explicitly in outline but useful
 
-export default function ComplianceChecker({ proposalId, proposalData, organizationId }) {
+export default function ComplianceChecker({ proposalId, organizationId }) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
+  // Removed filterCategory state based on outline
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRisk, setFilterRisk] = useState("all");
-  const [selectedRequirement, setSelectedRequirement] = useState(null);
+  // Removed selectedRequirement state, as it's now handled by inline dialogs
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAutoMapping, setIsAutoMapping] = useState(false);
-  const [extractionResults, setExtractionResults] = useState(null);
+  // Removed extractionResults state, as the outline's extract function doesn't use it for display
+  const [isRunningGapAnalysis, setIsRunningGapAnalysis] = useState(false);
+  const [gapAnalysisResults, setGapAnalysisResults] = useState(null);
 
   const { data: requirements, isLoading } = useQuery({
     queryKey: ['compliance-requirements', proposalId],
     queryFn: async () => {
-      if (!proposalId) return [];
-      return base44.entities.ComplianceRequirement.filter(
-        { proposal_id: proposalId },
-        'requirement_id'
-      );
+      if (!proposalId || !organizationId) return [];
+      return base44.entities.ComplianceRequirement.filter({
+        proposal_id: proposalId,
+        organization_id: organizationId
+      }, '-created_date'); // Added sorting by created_date
     },
     initialData: [],
-    enabled: !!proposalId,
+    enabled: !!proposalId && !!organizationId, // Added organizationId to enabled
   });
 
-  const { data: sections } = useQuery({
+  const { data: proposalSections } = useQuery({ // Renamed from 'sections' to 'proposalSections'
     queryKey: ['proposal-sections', proposalId],
     queryFn: async () => {
       if (!proposalId) return [];
@@ -79,139 +86,62 @@ export default function ComplianceChecker({ proposalId, proposalData, organizati
     enabled: !!proposalId,
   });
 
-  const { data: solicitationDocs } = useQuery({
-    queryKey: ['solicitation-documents', proposalId],
-    queryFn: async () => {
-      if (!proposalId || !organizationId) return [];
-      return base44.entities.SolicitationDocument.filter({
-        proposal_id: proposalId,
-        organization_id: organizationId
-      });
-    },
-    initialData: [],
-    enabled: !!proposalId && !!organizationId,
-  });
+  // Removed solicitationDocs query as its logic is now within extractRequirements
 
   const updateRequirementMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return base44.entities.ComplianceRequirement.update(id, data);
+      return await base44.entities.ComplianceRequirement.update(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compliance-requirements'] });
-      setSelectedRequirement(null);
+      queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] }); // Updated invalidation key
+      // Removed setSelectedRequirement(null); as it's not used with inline dialogs
     },
   });
 
-  const deleteRequirementMutation = useMutation({
-    mutationFn: async (id) => {
-      await base44.entities.ComplianceRequirement.delete(id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compliance-requirements'] });
-      setSelectedRequirement(null);
-    },
-  });
+  // Removed deleteRequirementMutation as it's not used in the outline
 
-  const runComplianceExtraction = async () => {
+  const extractRequirements = async () => { // Renamed from runComplianceExtraction
     if (!proposalId || !organizationId) {
-      alert("Please save the proposal first");
+      alert("Please save the proposal first and ensure an organization is selected."); // Updated alert
       return;
     }
 
     setIsExtracting(true);
-    setExtractionResults(null);
+    // Removed setExtractionResults(null);
 
     try {
+      const solicitationDocs = await base44.entities.SolicitationDocument.filter({ // Added fetching docs here
+        proposal_id: proposalId,
+        organization_id: organizationId
+      });
+
       const fileUrls = solicitationDocs
-        .filter(doc => doc.file_url && ['rfp', 'rfq', 'sow', 'pws'].includes(doc.document_type))
+        .filter(doc => doc.file_url && doc.document_type !== 'reference') // Filtered out 'reference' documents
         .map(doc => doc.file_url)
         .slice(0, 10);
 
       if (fileUrls.length === 0) {
-        alert("Please upload solicitation documents first (RFP, RFQ, SOW, or PWS)");
+        alert("Please upload solicitation documents first in Phase 3."); // Updated alert message and phase
         setIsExtracting(false);
         return;
       }
 
-      const prompt = `You are an expert compliance analyst specializing in government contracts and federal acquisitions.
-
-**PROPOSAL INFORMATION:**
-- Agency: ${proposalData?.agency_name || 'Not specified'}
-- Project: ${proposalData?.project_title || 'Not specified'}
-- Solicitation: ${proposalData?.solicitation_number || 'Not specified'}
-- Type: ${proposalData?.project_type || 'Not specified'}
-
-**YOUR MISSION:**
-Perform a comprehensive compliance analysis of these solicitation documents. Identify ALL compliance requirements, regulations, and mandatory clauses.
-
-**EXTRACT THE FOLLOWING:**
-
-1. **FAR Clauses:** All Federal Acquisition Regulation clauses referenced (e.g., FAR 52.212-1, FAR Part 15)
-2. **DFARS Clauses:** All Defense Federal Acquisition Regulation Supplement clauses (e.g., DFARS 252.204-7012)
-3. **Agency-Specific Regulations:** Department/agency-specific requirements (e.g., DHS Acquisition Manual, NASA FAR Supplement)
-4. **Submission Requirements:** Format, page limits, fonts, margins, mandatory sections, number of copies
-5. **Technical Requirements:** Performance standards, specifications, technical capabilities needed
-6. **Management Requirements:** Organizational structure, key personnel qualifications, experience requirements
-7. **Past Performance Requirements:** Number of references, recency, relevance, contract size
-8. **Security/Clearance Requirements:** Facility clearances, personnel clearances, CMMC levels, classified work
-9. **Certifications Required:** Small business, ISO, CMMI, industry-specific certifications
-10. **Financial/Bonding Requirements:** Performance bonds, insurance, financial statements
-11. **Socioeconomic Requirements:** Small business subcontracting plans, veteran-owned business participation
-12. **Data Rights/IP Requirements:** Government data rights, intellectual property clauses
-
-**For EACH requirement identified, provide:**
-- requirement_id: Unique identifier (e.g., "FAR-52.212-1", "TECH-001", "MGMT-003")
-- requirement_title: Short, clear title
-- requirement_description: Detailed description of what's required
-- requirement_type: "far" | "dfars" | "agency_specific" | "solicitation_specific" | "contract_clause" | "certification" | "submission_format" | "other"
-- requirement_category: "mandatory" | "desirable" | "information_only"
-- category: "technical" | "management" | "past_performance" | "submission_format" | "administrative" | "certification" | "security" | "financial" | "socioeconomic" | "data_rights"
-- requirement_source: Section/page reference (e.g., "Section L.3.2, Page 45")
-- risk_level: "critical" | "high" | "medium" | "low" (based on difficulty to meet and importance)
-- compliance_notes: Brief notes on how to address or what to watch for
-- format_requirements: If applicable, specific formatting rules (JSON object)
-
-**COMPLIANCE RISK ASSESSMENT:**
-Identify the top 10 highest-risk compliance items that could lead to proposal rejection if not addressed.
-
-Return as comprehensive JSON:
+      const prompt = `Extract all compliance requirements from these solicitation documents.
+      
+Return as JSON array with this structure:
 {
   "requirements": [
     {
       "requirement_id": "string",
       "requirement_title": "string",
       "requirement_description": "string",
-      "requirement_type": "string",
-      "requirement_category": "string",
-      "category": "string",
-      "requirement_source": "string",
-      "risk_level": "string",
-      "compliance_notes": "string",
-      "format_requirements": {
-        "page_limit": number,
-        "font": "string",
-        "font_size": number,
-        "margins": "string"
-      }
+      "requirement_type": "technical|submission_format|administrative|certification|solicitation_specific",
+      "requirement_category": "mandatory|desirable",
+      "requirement_source": "string (e.g., Section L.3.2)",
+      "risk_level": "low|medium|high|critical"
     }
-  ],
-  "high_risk_items": [
-    {
-      "requirement_id": "string",
-      "risk_description": "string",
-      "mitigation_strategy": "string"
-    }
-  ],
-  "summary": {
-    "total_requirements": number,
-    "critical_count": number,
-    "high_count": number,
-    "far_clauses_count": number,
-    "dfars_clauses_count": number,
-    "page_limit_total": number,
-    "key_compliance_challenges": ["string"]
-  }
-}`;
+  ]
+}`; // Simplified prompt as per outline
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -219,9 +149,7 @@ Return as comprehensive JSON:
         response_json_schema: {
           type: "object",
           properties: {
-            requirements: {
-              type: "array",
-              items: {
+            requirements: { type: "array", items: {
                 type: "object",
                 properties: {
                   requirement_id: { type: "string" },
@@ -229,42 +157,16 @@ Return as comprehensive JSON:
                   requirement_description: { type: "string" },
                   requirement_type: { type: "string" },
                   requirement_category: { type: "string" },
-                  category: { type: "string" },
                   requirement_source: { type: "string" },
-                  risk_level: { type: "string" },
-                  compliance_notes: { type: "string" },
-                  format_requirements: { type: "object" }
+                  risk_level: { type: "string" }
                 }
-              }
-            },
-            high_risk_items: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  requirement_id: { type: "string" },
-                  risk_description: { type: "string" },
-                  mitigation_strategy: { type: "string" }
-                }
-              }
-            },
-            summary: {
-              type: "object",
-              properties: {
-                total_requirements: { type: "number" },
-                critical_count: { type: "number" },
-                high_count: { type: "number" },
-                far_clauses_count: { type: "number" },
-                dfars_clauses_count: { type: "number" },
-                page_limit_total: { type: "number" },
-                key_compliance_challenges: { type: "array", items: { type: "string" } }
               }
             }
           }
         }
       });
 
-      setExtractionResults(result);
+      // Removed setExtractionResults(result);
 
       // Auto-create ComplianceRequirement records
       let createdCount = 0;
@@ -282,10 +184,9 @@ Return as comprehensive JSON:
               requirement_source: req.requirement_source,
               compliance_status: "not_started",
               risk_level: req.risk_level || "medium",
-              compliance_notes: req.compliance_notes,
-              format_requirements: req.format_requirements || {},
+              // Removed compliance_notes and format_requirements as they are not in simplified prompt
               ai_detected: true,
-              ai_confidence: 90
+              ai_confidence: 80 // Simplified confidence
             });
             createdCount++;
           } catch (error) {
@@ -294,117 +195,229 @@ Return as comprehensive JSON:
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ['compliance-requirements'] });
-      alert(`✓ Compliance extraction complete!\n\nCreated ${createdCount} compliance requirements.\nIdentified ${result.high_risk_items?.length || 0} high-risk items.`);
+      queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] });
+      alert(`✓ Extracted ${createdCount} requirements!`); // Simplified alert
 
     } catch (error) {
       console.error("Error extracting compliance requirements:", error);
-      alert("Error performing compliance analysis. Please try again.");
+      alert("Error extracting requirements. Please try again."); // Updated alert
     } finally {
       setIsExtracting(false);
     }
   };
 
   const autoMapSections = async () => {
-    if (sections.length === 0) {
-      alert("No proposal sections found. Please create sections first in Phase 6.");
+    if (!proposalId || requirements.length === 0 || proposalSections.length === 0) { // Used proposalSections
+      alert("Please ensure you have both requirements and proposal sections"); // Updated alert
       return;
     }
 
     setIsAutoMapping(true);
+
     try {
-      let mappedCount = 0;
-      
-      for (const req of requirements.filter(r => r.compliance_status === "not_started")) {
-        const sectionSummary = sections.map(s => 
-          `- ${s.section_name} (${s.section_type}): ${s.content?.substring(0, 200) || 'Empty'}...`
-        ).join('\n');
+      const prompt = `Map compliance requirements to proposal sections.
 
-        const prompt = `Given this compliance requirement:
-**ID:** ${req.requirement_id}
-**Title:** ${req.requirement_title}
-**Description:** ${req.requirement_description}
-**Type:** ${req.requirement_type}
-**Category:** ${req.category}
+**REQUIREMENTS:**
+${requirements.map(r => `${r.requirement_id}: ${r.requirement_title} (${r.requirement_type})`).join('\n')}
 
-And these proposal sections:
-${sectionSummary}
+**SECTIONS:**
+${proposalSections.map(s => `${s.id}: ${s.section_name} (${s.section_type})`).join('\n')}
 
-Which section(s) should address this requirement? Return section names as JSON array.
-If no section is appropriate, return empty array.
+Return JSON array of mappings:
+{
+  "mappings": [
+    {
+      "requirement_id": "string",
+      "section_ids": ["string"]
+    }
+  ]
+}`;
 
-Return format: { "sections": ["section_name1", "section_name2"] }`;
-
-        try {
-          const result = await base44.integrations.Core.InvokeLLM({
-            prompt,
-            response_json_schema: {
-              type: "object",
-              properties: {
-                sections: { type: "array", items: { type: "string" } }
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            mappings: { type: "array", items: {
+                type: "object",
+                properties: {
+                  requirement_id: { type: "string" },
+                  section_ids: { type: "array", items: { type: "string" } }
+                }
               }
             }
-          });
+          }
+        }
+      });
 
-          if (result.sections && result.sections.length > 0) {
-            await base44.entities.ComplianceRequirement.update(req.id, {
-              addressed_in_sections: result.sections,
-              compliance_status: "in_progress"
+      if (result.mappings) {
+        let mappedCount = 0;
+        for (const mapping of result.mappings) {
+          const req = requirements.find(r => r.requirement_id === mapping.requirement_id);
+          if (req) {
+            await updateRequirementMutation.mutateAsync({
+              id: req.id,
+              data: { addressed_in_sections: mapping.section_ids, compliance_status: "in_progress" } // Also set status to in_progress
             });
             mappedCount++;
           }
-        } catch (error) {
-          console.error(`Error mapping requirement ${req.requirement_id}:`, error);
         }
+        queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] }); // Invalidate after mutations
+        alert(`✓ Auto-mapped ${mappedCount} requirements to sections!`);
       }
-
-      queryClient.invalidateQueries({ queryKey: ['compliance-requirements'] });
-      alert(`✓ Auto-mapped ${mappedCount} requirements to sections!`);
     } catch (error) {
-      console.error("Error auto-mapping sections:", error);
-      alert("Error during auto-mapping. Please try again.");
+      console.error("Error auto-mapping:", error);
+      alert("Error auto-mapping sections. Please try again.");
     } finally {
       setIsAutoMapping(false);
     }
   };
 
-  const exportComplianceMatrix = () => {
-    const csv = [
-      ['Requirement ID', 'Title', 'Type', 'Category', 'Risk Level', 'Status', 'Source', 'Addressed In', 'Notes'].join(','),
-      ...filteredRequirements.map(req => [
-        req.requirement_id,
-        `"${req.requirement_title}"`,
-        req.requirement_type,
-        req.category,
-        req.risk_level,
-        req.compliance_status,
-        `"${req.requirement_source || ''}"`,
-        `"${req.addressed_in_sections?.join(', ') || ''}"`,
-        `"${req.compliance_notes || ''}"`
-      ].join(','))
-    ].join('\n');
+  // NEW: AI Gap Analysis
+  const runGapAnalysis = async () => {
+    if (!proposalId || requirements.length === 0 || proposalSections.length === 0) {
+      alert("Please ensure you have both requirements and proposal sections before running gap analysis");
+      return;
+    }
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `compliance-matrix-${proposalData?.solicitation_number || 'proposal'}.csv`;
-    a.click();
+    setIsRunningGapAnalysis(true);
+    setGapAnalysisResults(null);
+
+    try {
+      const prompt = `You are a proposal compliance expert. Analyze this proposal for compliance gaps.
+
+**PROPOSAL REQUIREMENTS:**
+${requirements.map((req, idx) => `
+${idx + 1}. ${req.requirement_title}
+   - ID: ${req.requirement_id}
+   - Type: ${req.requirement_type}
+   - Risk: ${req.risk_level}
+   - Description: ${req.requirement_description}
+   - Current Status: ${req.compliance_status}
+   - Addressed in: ${req.addressed_in_sections?.map(secId => proposalSections.find(s => s.id === secId)?.section_name || secId).join(', ') || 'None'}
+`).join('\n')}
+
+**PROPOSAL SECTIONS:**
+${proposalSections.map(section => `
+- ${section.section_name} (ID: ${section.id}, Type: ${section.section_type})
+  Content length: ${section.content?.length || 0} chars
+  Word count: ${section.word_count || 0} words
+`).join('\n')}
+
+**ANALYZE AND RETURN JSON:**
+{
+  "overall_compliance_score": number (0-100),
+  "gaps": [
+    {
+      "requirement_id": "string",
+      "requirement_title": "string",
+      "severity": "critical|high|medium|low",
+      "gap_description": "string (what's missing)",
+      "recommended_action": "string (how to fix it)",
+      "recommended_section": "string (which section should address this)"
+    }
+  ],
+  "well_addressed": [
+    {
+      "requirement_id": "string",
+      "requirement_title": "string",
+      "addressed_in_section": "string"
+    }
+  ],
+  "formatting_issues": [
+    {
+      "issue": "string",
+      "severity": "critical|high|medium|low",
+      "recommendation": "string"
+    }
+  ],
+  "missing_sections": ["string"],
+  "strengths": ["string"],
+  "priority_actions": ["string"]
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            overall_compliance_score: { type: "number" },
+            gaps: { type: "array", items: {
+                type: "object",
+                properties: {
+                  requirement_id: { type: "string" },
+                  requirement_title: { type: "string" },
+                  severity: { type: "string" },
+                  gap_description: { type: "string" },
+                  recommended_action: { type: "string" },
+                  recommended_section: { type: "string" }
+                }
+              }
+            },
+            well_addressed: { type: "array", items: {
+                type: "object",
+                properties: {
+                  requirement_id: { type: "string" },
+                  requirement_title: { type: "string" },
+                  addressed_in_section: { type: "string" }
+                }
+              }
+            },
+            formatting_issues: { type: "array", items: {
+                type: "object",
+                properties: {
+                  issue: { type: "string" },
+                  severity: { type: "string" },
+                  recommendation: { type: "string" }
+                }
+              }
+            },
+            missing_sections: { type: "array", items: { type: "string" } },
+            strengths: { type: "array", items: { type: "string" } },
+            priority_actions: { type: "array", items: { type: "string" } }
+          }
+        }
+      });
+
+      setGapAnalysisResults(result);
+
+      // Auto-update compliance status for identified gaps
+      if (result.gaps) {
+        for (const gap of result.gaps) {
+          const req = requirements.find(r => r.requirement_id === gap.requirement_id);
+          // Only update if current status is compliant or in_progress, and the AI found a gap
+          if (req && (req.compliance_status === 'compliant' || req.compliance_status === 'in_progress')) {
+            await updateRequirementMutation.mutateAsync({
+              id: req.id,
+              data: { compliance_status: 'needs_review' }
+            });
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error("Error running gap analysis:", error);
+      alert("Error running gap analysis. Please try again.");
+    } finally {
+      setIsRunningGapAnalysis(false);
+    }
   };
+
+  // Removed exportComplianceMatrix function
 
   // Filtering
   const filteredRequirements = requirements.filter(req => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       req.requirement_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.requirement_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.requirement_description?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesType = filterType === "all" || req.requirement_type === filterType;
-    const matchesCategory = filterCategory === "all" || req.category === filterCategory;
+    // Removed matchesCategory based on outline
     const matchesStatus = filterStatus === "all" || req.compliance_status === filterStatus;
     const matchesRisk = filterRisk === "all" || req.risk_level === filterRisk;
 
-    return matchesSearch && matchesType && matchesCategory && matchesStatus && matchesRisk;
+    return matchesSearch && matchesType && matchesStatus && matchesRisk;
   });
 
   // Statistics
@@ -412,436 +425,185 @@ Return format: { "sections": ["section_name1", "section_name2"] }`;
     total: requirements.length,
     compliant: requirements.filter(r => r.compliance_status === "compliant").length,
     inProgress: requirements.filter(r => r.compliance_status === "in_progress").length,
-    notStarted: requirements.filter(r => r.compliance_status === "not_started").length,
-    nonCompliant: requirements.filter(r => r.compliance_status === "non_compliant").length,
-    critical: requirements.filter(r => r.risk_level === "critical").length,
-    high: requirements.filter(r => r.risk_level === "high").length,
-    far: requirements.filter(r => r.requirement_type === "far").length,
-    dfars: requirements.filter(r => r.requirement_type === "dfars").length,
+    // Removed notStarted and nonCompliant from stats based on outline
+    highRisk: requirements.filter(r => r.risk_level === 'high' || r.risk_level === 'critical').length, // Added highRisk
+    // Removed far and dfars counts
   };
 
   const compliancePercentage = stats.total > 0 
     ? Math.round((stats.compliant / stats.total) * 100) 
     : 0;
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "compliant": return "bg-green-100 text-green-700 border-green-300";
-      case "in_progress": return "bg-blue-100 text-blue-700 border-blue-300";
-      case "not_started": return "bg-slate-100 text-slate-700 border-slate-300";
-      case "non_compliant": return "bg-red-100 text-red-700 border-red-300";
-      case "needs_review": return "bg-amber-100 text-amber-700 border-amber-300";
-      default: return "bg-slate-100 text-slate-700 border-slate-300";
-    }
-  };
-
   const getRiskColor = (risk) => {
     switch (risk) {
-      case "critical": return "bg-red-100 text-red-700";
-      case "high": return "bg-orange-100 text-orange-700";
-      case "medium": return "bg-yellow-100 text-yellow-700";
-      case "low": return "bg-blue-100 text-blue-700";
-      default: return "bg-slate-100 text-slate-700";
+      case 'critical': return 'bg-red-100 text-red-700 border-red-300';
+      case 'high': return 'bg-orange-100 text-orange-700 border-orange-300';
+      case 'medium': return 'bg-amber-100 text-amber-700 border-amber-300';
+      case 'low': return 'bg-green-100 text-green-700 border-green-300';
+      default: return 'bg-slate-100 text-slate-700 border-slate-300';
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusColor = (status) => {
     switch (status) {
-      case "compliant": return <CheckCircle2 className="w-4 h-4" />;
-      case "non_compliant": return <XCircle className="w-4 h-4" />;
-      case "in_progress": return <Clock className="w-4 h-4" />;
-      default: return <AlertCircle className="w-4 h-4" />;
+      case 'compliant': return 'bg-green-100 text-green-700';
+      case 'in_progress': return 'bg-blue-100 text-blue-700';
+      case 'non_compliant': return 'bg-red-100 text-red-700';
+      case 'needs_review': return 'bg-amber-100 text-amber-700';
+      default: return 'bg-slate-100 text-slate-700';
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header & Stats */}
-      <Card className="border-none shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Shield className="w-6 h-6 text-blue-600" />
-                Compliance Matrix & Analysis
-              </CardTitle>
-              <CardDescription className="mt-2">
-                AI-powered compliance requirement tracking and risk assessment
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={runComplianceExtraction}
-                disabled={isExtracting}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                {isExtracting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    AI Extract Requirements
-                  </>
-                )}
-              </Button>
-              {sections.length > 0 && (
-                <Button
-                  onClick={autoMapSections}
-                  disabled={isAutoMapping}
-                  variant="outline"
-                >
-                  {isAutoMapping ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Mapping...
-                    </>
-                  ) : (
-                    <>
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      Auto-Map Sections
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button onClick={exportComplianceMatrix} variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-5 gap-4 mb-6">
-            <Card className="border-2">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
-                <div className="text-xs text-slate-600 mt-1">Total Requirements</div>
+      <Tabs defaultValue="matrix" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="matrix">
+            <Shield className="w-4 h-4 mr-2" />
+            Compliance Matrix
+          </TabsTrigger>
+          <TabsTrigger value="gap-analysis">
+            <Target className="w-4 h-4 mr-2" />
+            Gap Analysis
+            {gapAnalysisResults && (
+              <Badge className="ml-2 bg-red-600 text-white rounded-full h-5 px-2 flex items-center justify-center">
+                {gapAnalysisResults.gaps?.length || 0}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="readiness">
+            <Zap className="w-4 h-4 mr-2" />
+            Submission Readiness
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Compliance Matrix Tab */}
+        <TabsContent value="matrix" className="space-y-6">
+          {/* Header & Stats (simplified from original) */}
+          <div className="grid md:grid-cols-4 gap-4">
+            <Card className="border-none shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-slate-600">Total Requirements</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
               </CardContent>
             </Card>
-            <Card className="border-2 border-green-200 bg-green-50">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-green-700">{stats.compliant}</div>
-                <div className="text-xs text-green-600 mt-1">Compliant</div>
+
+            <Card className="border-none shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-slate-600">Compliant</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-green-600">{stats.compliant}</p>
               </CardContent>
             </Card>
-            <Card className="border-2 border-blue-200 bg-blue-50">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-blue-700">{stats.inProgress}</div>
-                <div className="text-xs text-blue-600 mt-1">In Progress</div>
+
+            <Card className="border-none shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-slate-600">High Risk</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-red-600">{stats.highRisk}</p>
               </CardContent>
             </Card>
-            <Card className="border-2 border-red-200 bg-red-50">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-red-700">{stats.critical + stats.high}</div>
-                <div className="text-xs text-red-600 mt-1">High Risk Items</div>
-              </CardContent>
-            </Card>
-            <Card className="border-2 border-purple-200 bg-purple-50">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-purple-700">{stats.far + stats.dfars}</div>
-                <div className="text-xs text-purple-600 mt-1">FAR/DFARS Clauses</div>
+
+            <Card className="border-none shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-slate-600">Compliance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-blue-600">{compliancePercentage}%</p>
+                <Progress value={compliancePercentage} className="mt-2" />
               </CardContent>
             </Card>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-900">Overall Compliance</span>
-              <span className="font-bold text-slate-900">{compliancePercentage}%</span>
-            </div>
-            <Progress value={compliancePercentage} className="h-3" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Extraction Results Summary */}
-      {extractionResults && (
-        <Alert className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <Info className="w-4 h-4 text-blue-600" />
-          <AlertDescription>
-            <div className="space-y-2">
-              <p className="font-semibold text-blue-900">AI Analysis Complete!</p>
-              <div className="grid md:grid-cols-3 gap-3 text-sm">
+          <Card className="border-none shadow-lg">
+            <CardHeader className="border-b">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <span className="text-blue-700">Total Requirements:</span>{' '}
-                  <span className="font-semibold">{extractionResults.summary?.total_requirements || 0}</span>
+                  <CardTitle>Compliance Requirements</CardTitle>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Track and manage all solicitation requirements
+                  </p>
                 </div>
-                <div>
-                  <span className="text-blue-700">Critical Items:</span>{' '}
-                  <span className="font-semibold text-red-600">{extractionResults.summary?.critical_count || 0}</span>
-                </div>
-                <div>
-                  <span className="text-blue-700">FAR Clauses:</span>{' '}
-                  <span className="font-semibold">{extractionResults.summary?.far_clauses_count || 0}</span>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={extractRequirements}
+                    disabled={isExtracting}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {isExtracting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI Extract Requirements
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={autoMapSections}
+                    disabled={isAutoMapping || requirements.length === 0 || proposalSections.length === 0}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {isAutoMapping ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Mapping...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Auto-Map Sections
+                      </>
+                    )}
+                  </Button>
+                  {/* Removed Export CSV button from outline */}
                 </div>
               </div>
-              {extractionResults.summary?.key_compliance_challenges && (
-                <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-                  <p className="text-xs font-semibold text-blue-900 mb-2">Key Compliance Challenges:</p>
-                  <ul className="text-xs text-blue-800 space-y-1">
-                    {extractionResults.summary.key_compliance_challenges.slice(0, 5).map((challenge, idx) => (
-                      <li key={idx}>• {challenge}</li>
-                    ))}
-                  </ul>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search requirements..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-              )}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* High Risk Items */}
-      {extractionResults?.high_risk_items && extractionResults.high_risk_items.length > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2 text-red-900">
-              <AlertTriangle className="w-5 h-5" />
-              High Risk Compliance Items
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {extractionResults.high_risk_items.slice(0, 10).map((item, idx) => (
-                <div key={idx} className="p-4 bg-white border border-red-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Badge className="bg-red-600 text-white flex-shrink-0">
-                      {item.requirement_id}
-                    </Badge>
-                    <div className="flex-1">
-                      <p className="font-semibold text-red-900 mb-1">{item.risk_description}</p>
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                        <p className="text-xs font-semibold text-green-800 mb-1">Mitigation:</p>
-                        <p className="text-sm text-green-900">{item.mitigation_strategy}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid md:grid-cols-5 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
-                placeholder="Search requirements..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="far">FAR</SelectItem>
-                <SelectItem value="dfars">DFARS</SelectItem>
-                <SelectItem value="agency_specific">Agency Specific</SelectItem>
-                <SelectItem value="solicitation_specific">Solicitation</SelectItem>
-                <SelectItem value="certification">Certification</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="technical">Technical</SelectItem>
-                <SelectItem value="management">Management</SelectItem>
-                <SelectItem value="past_performance">Past Performance</SelectItem>
-                <SelectItem value="submission_format">Submission Format</SelectItem>
-                <SelectItem value="security">Security</SelectItem>
-                <SelectItem value="financial">Financial</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="compliant">Compliant</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="not_started">Not Started</SelectItem>
-                <SelectItem value="non_compliant">Non-Compliant</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterRisk} onValueChange={setFilterRisk}>
-              <SelectTrigger>
-                <SelectValue placeholder="Risk" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Risk Levels</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Requirements Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-32">ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead className="w-32">Type</TableHead>
-                  <TableHead className="w-32">Category</TableHead>
-                  <TableHead className="w-32">Risk</TableHead>
-                  <TableHead className="w-32">Status</TableHead>
-                  <TableHead className="w-40">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRequirements.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
-                      <div className="flex flex-col items-center gap-3">
-                        <FileText className="w-12 h-12 text-slate-300" />
-                        <p className="text-slate-600">No compliance requirements found</p>
-                        <Button onClick={runComplianceExtraction} size="sm">
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Extract Requirements with AI
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRequirements.map((req) => (
-                    <TableRow key={req.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedRequirement(req)}>
-                      <TableCell className="font-mono text-xs">{req.requirement_id}</TableCell>
-                      <TableCell>
-                        <div className="max-w-md">
-                          <p className="font-medium text-sm">{req.requirement_title}</p>
-                          <p className="text-xs text-slate-500 truncate">{req.requirement_description}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize text-xs">
-                          {req.requirement_type?.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize text-xs">
-                          {req.category?.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getRiskColor(req.risk_level)}>
-                          {req.risk_level}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(req.compliance_status)}>
-                          {getStatusIcon(req.compliance_status)}
-                          <span className="ml-1">{req.compliance_status?.replace('_', ' ')}</span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedRequirement(req);
-                          }}
-                        >
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Requirement Detail Dialog */}
-      {selectedRequirement && (
-        <Dialog open={!!selectedRequirement} onOpenChange={(open) => !open && setSelectedRequirement(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-blue-600" />
-                {selectedRequirement.requirement_title}
-              </DialogTitle>
-              <div className="flex gap-2 mt-2">
-                <Badge className={getRiskColor(selectedRequirement.risk_level)}>
-                  {selectedRequirement.risk_level} Risk
-                </Badge>
-                <Badge variant="outline" className="capitalize">
-                  {selectedRequirement.requirement_type?.replace('_', ' ')}
-                </Badge>
-                <Badge variant="secondary" className="capitalize">
-                  {selectedRequirement.category?.replace('_', ' ')}
-                </Badge>
-              </div>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm font-semibold">Requirement ID</Label>
-                <p className="text-sm text-slate-600 font-mono mt-1">{selectedRequirement.requirement_id}</p>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Description</Label>
-                <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{selectedRequirement.requirement_description}</p>
-              </div>
-
-              {selectedRequirement.requirement_source && (
-                <div>
-                  <Label className="text-sm font-semibold">Source</Label>
-                  <p className="text-sm text-slate-600 mt-1">{selectedRequirement.requirement_source}</p>
-                </div>
-              )}
-
-              {selectedRequirement.compliance_notes && (
-                <div>
-                  <Label className="text-sm font-semibold">Compliance Notes</Label>
-                  <p className="text-sm text-slate-600 mt-1">{selectedRequirement.compliance_notes}</p>
-                </div>
-              )}
-
-              <div>
-                <Label className="text-sm font-semibold">Compliance Status</Label>
-                <Select
-                  value={selectedRequirement.compliance_status}
-                  onValueChange={(value) => {
-                    updateRequirementMutation.mutate({
-                      id: selectedRequirement.id,
-                      data: { compliance_status: value }
-                    });
-                    setSelectedRequirement({ ...selectedRequirement, compliance_status: value });
-                  }}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Filter by type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                    <SelectItem value="submission_format">Submission Format</SelectItem>
+                    <SelectItem value="administrative">Administrative</SelectItem>
+                    <SelectItem value="certification">Certification</SelectItem>
+                    <SelectItem value="solicitation_specific">Solicitation Specific</SelectItem>
+                    {/* Kept FAR/DFARS as they are still common types that might be extracted */}
+                    <SelectItem value="far">FAR</SelectItem>
+                    <SelectItem value="dfars">DFARS</SelectItem>
+                    <SelectItem value="agency_specific">Agency Specific</SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* Removed filterCategory select */}
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="not_started">Not Started</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="compliant">Compliant</SelectItem>
@@ -849,39 +611,572 @@ Return format: { "sections": ["section_name1", "section_name2"] }`;
                     <SelectItem value="needs_review">Needs Review</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={filterRisk} onValueChange={setFilterRisk}>
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Filter by risk" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risk Levels</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {selectedRequirement.addressed_in_sections && selectedRequirement.addressed_in_sections.length > 0 && (
-                <div>
-                  <Label className="text-sm font-semibold">Addressed In Sections</Label>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {selectedRequirement.addressed_in_sections.map((section, idx) => (
-                      <Badge key={idx} variant="outline">{section}</Badge>
-                    ))}
-                  </div>
+              {isLoading ? (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                  <p className="text-slate-600">Loading requirements...</p>
+                </div>
+              ) : filteredRequirements.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <Shield className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                  <p className="text-lg font-medium mb-2">No requirements found</p>
+                  <p className="text-sm mb-4">
+                    {requirements.length === 0 
+                      ? "Use AI Extract Requirements to automatically identify compliance requirements from your solicitation documents" 
+                      : "Try adjusting your filters"}
+                  </p>
+                  {requirements.length === 0 && (
+                    <Button onClick={extractRequirements} disabled={isExtracting}>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Extract Requirements
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredRequirements.map((req) => (
+                    <Dialog key={req.id}>
+                      <DialogTrigger asChild>
+                        <Card className="hover:shadow-md transition-all cursor-pointer border-l-4"
+                          style={{ borderLeftColor: 
+                            req.risk_level === 'critical' ? '#dc2626' :
+                            req.risk_level === 'high' ? '#ea580c' :
+                            req.risk_level === 'medium' ? '#f59e0b' :
+                            '#22c55e'
+                          }}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="font-semibold text-slate-900">{req.requirement_title}</h4>
+                                  {req.ai_detected && (
+                                    <Badge variant="outline" className="text-xs">
+                                      <Sparkles className="w-3 h-3 mr-1" />
+                                      AI
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {req.requirement_id}
+                                  </Badge>
+                                  <Badge className={`text-xs ${getRiskColor(req.risk_level)}`}>
+                                    {req.risk_level} risk
+                                  </Badge>
+                                  <Badge className={`text-xs ${getStatusColor(req.compliance_status)}`}>
+                                    {req.compliance_status?.replace('_', ' ')}
+                                  </Badge>
+                                  {req.requirement_source && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {req.requirement_source}
+                                    </Badge>
+                                  )}
+                                </div>
+                                {req.requirement_description && (
+                                  <p className="text-sm text-slate-600 line-clamp-2">
+                                    {req.requirement_description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 ml-4">
+                                {req.compliance_status === 'compliant' ? (
+                                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                                ) : req.compliance_status === 'non_compliant' ? (
+                                  <XCircle className="w-6 h-6 text-red-600" />
+                                ) : (
+                                  <Clock className="w-6 h-6 text-slate-400" />
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>{req.requirement_title}</DialogTitle>
+                          <DialogDescription>
+                            {req.requirement_id} • {req.requirement_source}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4"> {/* Added padding for better spacing */}
+                          <div>
+                            <Label>Description</Label>
+                            <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">
+                              {req.requirement_description || "No description provided"}
+                            </p>
+                          </div>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Compliance Status</Label>
+                              <Select
+                                value={req.compliance_status}
+                                onValueChange={(value) => {
+                                  updateRequirementMutation.mutate({
+                                    id: req.id,
+                                    data: { compliance_status: value }
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="not_started">Not Started</SelectItem>
+                                  <SelectItem value="in_progress">In Progress</SelectItem>
+                                  <SelectItem value="compliant">Compliant</SelectItem>
+                                  <SelectItem value="non_compliant">Non-Compliant</SelectItem>
+                                  <SelectItem value="needs_review">Needs Review</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Risk Level</Label>
+                              <Select
+                                value={req.risk_level}
+                                onValueChange={(value) => {
+                                  updateRequirementMutation.mutate({
+                                    id: req.id,
+                                    data: { risk_level: value }
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                  <SelectItem value="critical">Critical</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          {req.addressed_in_sections && req.addressed_in_sections.length > 0 && (
+                            <div>
+                              <Label className="block mb-1">Addressed In Sections</Label> {/* Added block and mb-1 */}
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {req.addressed_in_sections.map((sectionId, idx) => {
+                                  const section = proposalSections.find(s => s.id === sectionId);
+                                  return (
+                                    <Badge key={idx} variant="secondary">
+                                      {section?.section_name || sectionId}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                           {req.compliance_notes && ( // Kept compliance notes if they exist
+                            <div>
+                              <Label>Compliance Notes</Label>
+                              <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{req.compliance_notes}</p>
+                            </div>
+                          )}
+                        </div>
+                        {/* Removed dialog footer as per outline, button is handled by close trigger */}
+                      </DialogContent>
+                    </Dialog>
+                  ))}
                 </div>
               )}
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (confirm(`Delete requirement "${selectedRequirement.requirement_title}"?`)) {
-                    deleteRequirementMutation.mutate(selectedRequirement.id);
-                  }
-                }}
-                className="text-red-600 hover:text-red-700"
-              >
-                Delete
-              </Button>
-              <Button onClick={() => setSelectedRequirement(null)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+        {/* NEW: Gap Analysis Tab */}
+        <TabsContent value="gap-analysis" className="space-y-6">
+          <Card className="border-none shadow-lg">
+            <CardHeader className="border-b">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-blue-600" />
+                    AI Gap Analysis
+                  </CardTitle>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Identify missing requirements and compliance gaps before submission
+                  </p>
+                </div>
+                <Button
+                  onClick={runGapAnalysis}
+                  disabled={isRunningGapAnalysis || requirements.length === 0 || proposalSections.length === 0}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isRunningGapAnalysis ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Run Gap Analysis
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {!gapAnalysisResults ? (
+                <div className="text-center py-12">
+                  <Target className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No Gap Analysis Yet</h3>
+                  <p className="text-slate-600 mb-4">
+                    Run AI-powered gap analysis to identify compliance issues and missing content
+                  </p>
+                  <Button
+                    onClick={runGapAnalysis}
+                    disabled={requirements.length === 0 || proposalSections.length === 0}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Run Analysis
+                  </Button>
+                  {(requirements.length === 0 || proposalSections.length === 0) && (
+                    <p className="text-sm text-amber-600 mt-4">
+                      ⚠️ Need requirements and proposal sections to run analysis
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Overall Score */}
+                  <Card className="border-2" style={{
+                    borderColor: gapAnalysisResults.overall_compliance_score >= 80 ? '#22c55e' :
+                                 gapAnalysisResults.overall_compliance_score >= 60 ? '#f59e0b' : '#dc2626',
+                    backgroundColor: gapAnalysisResults.overall_compliance_score >= 80 ? '#f0fdf4' :
+                                     gapAnalysisResults.overall_compliance_score >= 60 ? '#fffbeb' : '#fef2f2'
+                  }}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-slate-900 mb-1">Overall Compliance Score</h3>
+                          <p className="text-sm text-slate-600">Based on requirement coverage and content quality</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-5xl font-bold" style={{
+                            color: gapAnalysisResults.overall_compliance_score >= 80 ? '#16a34a' :
+                                   gapAnalysisResults.overall_compliance_score >= 60 ? '#d97706' : '#dc2626'
+                          }}>
+                            {gapAnalysisResults.overall_compliance_score}%
+                          </p>
+                          <Progress value={gapAnalysisResults.overall_compliance_score} className="mt-2 w-32" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Priority Actions */}
+                  {gapAnalysisResults.priority_actions && gapAnalysisResults.priority_actions.length > 0 && (
+                    <Card className="border-amber-200 bg-amber-50">
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <AlertCircle className="w-5 h-5 text-amber-600" />
+                          Priority Actions Required
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {gapAnalysisResults.priority_actions.map((action, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm">
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs font-bold">
+                                {idx + 1}
+                              </span>
+                              <span className="flex-1 text-amber-900">{action}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Identified Gaps */}
+                  {gapAnalysisResults.gaps && gapAnalysisResults.gaps.length > 0 && (
+                    <Card className="border-red-200">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-red-700">
+                          <AlertCircle className="w-5 h-5" />
+                          Identified Gaps ({gapAnalysisResults.gaps.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {gapAnalysisResults.gaps.map((gap, idx) => (
+                            <Card key={idx} className={`border-2 ${
+                              gap.severity === 'critical' ? 'border-red-300 bg-red-50' :
+                              gap.severity === 'high' ? 'border-orange-300 bg-orange-50' :
+                              gap.severity === 'medium' ? 'border-amber-300 bg-amber-50' :
+                              'border-yellow-300 bg-yellow-50'
+                            }`}>
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  <Badge className={`text-white ${
+                                    gap.severity === 'critical' ? 'bg-red-600' :
+                                    gap.severity === 'high' ? 'bg-orange-600' :
+                                    gap.severity === 'medium' ? 'bg-amber-600' :
+                                    'bg-yellow-600'
+                                  }`}>
+                                    {gap.severity}
+                                  </Badge>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-slate-900 mb-1">
+                                      {gap.requirement_title} (ID: {gap.requirement_id})
+                                    </h4>
+                                    <p className="text-sm text-slate-700 mb-2">
+                                      <strong>Gap:</strong> {gap.gap_description}
+                                    </p>
+                                    <div className="p-2 bg-white rounded border">
+                                      <p className="text-sm text-green-700">
+                                        <strong>✓ Recommended Action:</strong> {gap.recommended_action}
+                                      </p>
+                                      {gap.recommended_section && (
+                                        <p className="text-xs text-slate-600 mt-1">
+                                          <FileText className="w-3 h-3 inline mr-1" />
+                                          Should be addressed in: <strong>{gap.recommended_section}</strong>
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Well Addressed Requirements */}
+                  {gapAnalysisResults.well_addressed && gapAnalysisResults.well_addressed.length > 0 && (
+                    <Card className="border-green-200 bg-green-50">
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2 text-green-700">
+                          <CheckCircle2 className="w-5 h-5" />
+                          Well Addressed ({gapAnalysisResults.well_addressed.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid md:grid-cols-2 gap-3">
+                          {gapAnalysisResults.well_addressed.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-green-200">
+                              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">
+                                  {item.requirement_title}
+                                </p>
+                                <p className="text-xs text-slate-600">
+                                  {item.addressed_in_section}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Formatting Issues */}
+                  {gapAnalysisResults.formatting_issues && gapAnalysisResults.formatting_issues.length > 0 && (
+                    <Card className="border-blue-200">
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                          Formatting Issues
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {gapAnalysisResults.formatting_issues.map((issue, idx) => (
+                            <div key={idx} className="p-3 bg-blue-50 rounded border border-blue-200">
+                              <div className="flex items-start gap-2">
+                                <Badge className={`text-white ${
+                                  issue.severity === 'critical' ? 'bg-red-600' :
+                                  issue.severity === 'high' ? 'bg-orange-600' :
+                                  'bg-blue-600'
+                                }`}>
+                                  {issue.severity}
+                                </Badge>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-slate-900">{issue.issue}</p>
+                                  <p className="text-xs text-slate-600 mt-1">{issue.recommendation}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Strengths */}
+                  {gapAnalysisResults.strengths && gapAnalysisResults.strengths.length > 0 && (
+                    <Card className="border-green-200 bg-green-50">
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2 text-green-700">
+                          <TrendingUp className="w-5 h-5" />
+                          Proposal Strengths
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {gapAnalysisResults.strengths.map((strength, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-green-800">
+                              <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <span>{strength}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* NEW: Submission Readiness Tab */}
+        <TabsContent value="readiness" className="space-y-6">
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-600" />
+                Submission Readiness Check
+              </CardTitle>
+              <p className="text-sm text-slate-600 mt-1">
+                Final checklist before proposal submission
+              </p>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {stats.compliant === stats.total && stats.total > 0 ? (
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-6 h-6 text-amber-600" />
+                    )}
+                    <div>
+                      <p className="font-semibold">All Requirements Addressed</p>
+                      <p className="text-sm text-slate-600">
+                        {stats.compliant} of {stats.total} requirements marked compliant
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={stats.compliant === stats.total && stats.total > 0 ? 'bg-green-600' : 'bg-amber-600'}>
+                    {stats.total > 0 ? `${Math.round((stats.compliant / stats.total) * 100)}%` : '0%'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {stats.highRisk === 0 ? (
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <AlertTriangle className="w-6 h-6 text-red-600" />
+                    )}
+                    <div>
+                      <p className="font-semibold">High-Risk Items Resolved</p>
+                      <p className="text-sm text-slate-600">
+                        {stats.highRisk} high/critical risk items remaining
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={stats.highRisk === 0 ? 'bg-green-600' : 'bg-red-600'}>
+                    {stats.highRisk}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {proposalSections.length > 0 ? (
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-6 h-6 text-amber-600" />
+                    )}
+                    <div>
+                      <p className="font-semibold">Proposal Content Written</p>
+                      <p className="text-sm text-slate-600">
+                        {proposalSections.length} sections created
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={proposalSections.length > 0 ? 'bg-green-600' : 'bg-amber-600'}>
+                    {proposalSections.length}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {gapAnalysisResults ? (
+                      gapAnalysisResults.overall_compliance_score >= 80 ? (
+                        <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-6 h-6 text-amber-600" />
+                      )
+                    ) : (
+                      <Clock className="w-6 h-6 text-slate-400" />
+                    )}
+                    <div>
+                      <p className="font-semibold">Gap Analysis Complete</p>
+                      <p className="text-sm text-slate-600">
+                        {gapAnalysisResults ? `Score: ${gapAnalysisResults.overall_compliance_score}%` : 'Not run yet'}
+                      </p>
+                    </div>
+                  </div>
+                  {gapAnalysisResults ? (
+                    <Badge className={gapAnalysisResults.overall_compliance_score >= 80 ? 'bg-green-600' : 'bg-amber-600'}>
+                      {gapAnalysisResults.overall_compliance_score}%
+                    </Badge>
+                  ) : (
+                    <Button size="sm" onClick={runGapAnalysis} disabled={isRunningGapAnalysis}>
+                       {isRunningGapAnalysis ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        )}
+                      Run Now
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {stats.compliant === stats.total && stats.total > 0 && stats.highRisk === 0 && (gapAnalysisResults && gapAnalysisResults.overall_compliance_score >= 80) ? (
+                <div className="mt-6 p-6 bg-green-50 border-2 border-green-200 rounded-lg text-center">
+                  <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-green-900 mb-2">Ready for Submission!</h3>
+                  <p className="text-green-700">
+                    Your proposal meets all compliance requirements and is ready to submit.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 p-6 bg-amber-50 border-2 border-amber-200 rounded-lg text-center">
+                  <AlertTriangle className="w-16 h-16 text-amber-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-amber-900 mb-2">Needs Further Review</h3>
+                  <p className="text-amber-700">
+                    Some items still require attention before submission. Check the Compliance Matrix and Gap Analysis tabs.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
