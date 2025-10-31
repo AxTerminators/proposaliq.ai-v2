@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -173,6 +173,10 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const [currentSectionForBoilerplate, setCurrentSectionForBoilerplate] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistorySection, setVersionHistorySection] = useState(null);
+  
+  // Ref to store scroll position
+  const scrollPositionRef = useRef(0);
+  const sectionRefs = useRef({});
 
   useEffect(() => {
     const loadData = async () => {
@@ -318,6 +322,30 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     }
   };
 
+  // Save scroll position before generation
+  const saveScrollPosition = (sectionKey) => {
+    // Also store the section element's position
+    const sectionElement = sectionRefs.current[sectionKey];
+    if (sectionElement) {
+      const rect = sectionElement.getBoundingClientRect();
+      // Store current scroll position plus element's top, minus an offset for better visibility
+      scrollPositionRef.current = window.scrollY + rect.top - 100; 
+    } else {
+      // Fallback to general scroll position if section element not found
+      scrollPositionRef.current = window.scrollY;
+    }
+  };
+
+  // Restore scroll position after generation
+  const restoreScrollPosition = () => {
+    setTimeout(() => {
+      window.scrollTo({
+        top: scrollPositionRef.current,
+        behavior: 'smooth'
+      });
+    }, 100);
+  };
+
   const generateSectionContent = async (sectionConfig, subsectionConfig = null, isRegenerate = false) => {
     if (!proposalId || !organization) {
       alert("Please save the proposal first");
@@ -328,6 +356,9 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       ? `${sectionConfig.id}_${subsectionConfig.id}`
       : sectionConfig.id;
 
+    // Save scroll position before starting
+    saveScrollPosition(sectionKey);
+    
     setGeneratingSection(sectionKey);
 
     try {
@@ -413,7 +444,69 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       // Get existing content if regenerating
       const existingContent = isRegenerate ? (sectionContent[sectionKey] || "") : "";
 
-      const prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} a compelling ${sectionName} section for this proposal.
+      // Build prompt based on whether it's a main section or subsection
+      let prompt = "";
+      
+      if (subsectionConfig) {
+        // SUBSECTION PROMPT - More focused, no repetition
+        prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} the "${subsectionConfig.name}" subsection as part of the larger "${sectionConfig.name}" section.
+
+**CRITICAL INSTRUCTIONS FOR SUBSECTIONS:**
+- DO NOT write a general introduction to the proposal or repeat information from the parent section
+- DO NOT include preambles or opening statements about the overall proposal
+- Start IMMEDIATELY with the specific content for "${subsectionConfig.name}"
+- Assume the reader is already familiar with the proposal context from previous sections
+- Focus ONLY on the specific topic of this subsection
+- Build directly on the context established in the parent section
+
+**PROPOSAL CONTEXT (for reference only, do not repeat):**
+- Proposal: ${proposalData.proposal_name}
+- Agency: ${proposalData.agency_name}
+- Project: ${proposalData.project_title}
+- Type: ${proposalData.project_type}
+- Prime: ${proposalData.prime_contractor_name}
+
+**TEAMING PARTNERS:**
+${teamingPartnerContext || 'N/A'}
+
+**WIN THEMES TO EMPHASIZE:**
+${winThemeContext || 'N/A'}
+
+**RELEVANT COMPLIANCE REQUIREMENTS:**
+${complianceContext || 'N/A'}
+
+**PAST PERFORMANCE EXAMPLES:**
+${pastPerformanceContext || 'N/A'}
+
+${isRegenerate && existingContent ? `
+**EXISTING CONTENT TO IMPROVE:**
+${existingContent}
+
+**YOUR TASK:** Regenerate this subsection by improving the existing content. Keep what's good, enhance what's weak, add missing elements.
+` : ''}
+
+**WRITING REQUIREMENTS:**
+- Tone: ${sectionTone}
+- Reading Level: ${readingLevel}
+- Target Word Count: ${targetWordCount} words
+- Start directly with "${subsectionConfig.name}" content - NO introductions
+- Use clear headings and bullet points for readability
+${strategy?.requestCitations ? '- Include citations to source documents where applicable' : ''}
+
+**YOUR TASK:**
+Write professional, focused content for the "${subsectionConfig.name}" subsection that:
+1. Directly addresses relevant requirements
+2. Emphasizes win themes naturally throughout
+3. Uses specific examples and proof points
+4. Maintains ${sectionTone} tone and ${readingLevel} reading level
+5. Is approximately ${targetWordCount} words
+6. Uses HTML formatting for structure
+
+Begin immediately with the subsection content. Do not include any introduction or preamble.`;
+
+      } else {
+        // MAIN SECTION PROMPT - Can have a brief introduction
+        prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} a compelling ${sectionName} section for this proposal.
 
 **PROPOSAL DETAILS:**
 - Proposal Name: ${proposalData.proposal_name}
@@ -460,6 +553,7 @@ Write a professional, persuasive ${sectionName} section that:
 8. Follows government proposal writing best practices
 
 The content should be ready to insert into the proposal document. Use HTML formatting for structure.`;
+      }
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -522,6 +616,8 @@ The content should be ready to insert into the proposal document. Use HTML forma
       alert("Error generating content. Please try again.");
     } finally {
       setGeneratingSection(null);
+      // Restore scroll position after generation completes
+      restoreScrollPosition();
     }
   };
 
@@ -698,7 +794,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               const isExpanded = expandedSections[section.id];
 
               return (
-                <Card key={section.id} className="border-2">
+                <Card key={section.id} className="border-2" ref={(el) => sectionRefs.current[section.id] = el}>
                   <CardHeader
                     className={hasSubsections ? "cursor-pointer hover:bg-slate-50 transition-colors" : ""}
                     onClick={() => hasSubsections && toggleSection(section.id)}
@@ -827,7 +923,11 @@ The content should be ready to insert into the proposal document. Use HTML forma
                         const subsectionKey = `${section.id}_${subsection.id}`;
 
                         return (
-                          <div key={subsection.id} className="border-l-4 border-indigo-300 pl-4 space-y-3">
+                          <div 
+                            key={subsection.id} 
+                            className="border-l-4 border-indigo-300 pl-4 space-y-3"
+                            ref={(el) => sectionRefs.current[subsectionKey] = el}
+                          >
                             <div className="flex items-center justify-between">
                               <h4 className="font-semibold text-slate-900">{subsection.name}</h4>
                               <Badge variant="outline" className="text-xs">{subsection.defaultWordCount} words</Badge>
