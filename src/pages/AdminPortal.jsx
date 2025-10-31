@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
@@ -24,9 +23,8 @@ import GlobalProposalManagementModule from "../components/admin/GlobalProposalMa
 import GlobalCalendarModule from "../components/admin/GlobalCalendarModule";
 import EnhancedEmailTemplateModule from "../components/admin/EnhancedEmailTemplateModule";
 import GlobalReportingModule from "../components/admin/GlobalReportingModule";
-
-import AnalyticsDashboard from "../components/admin/AnalyticsDashboard";
-import ErrorMonitoringDashboard from "../components/admin/ErrorMonitoringDashboard";
+import AnalyticsDashboard from "./AnalyticsDashboard";
+import ErrorMonitoringDashboard from "./ErrorMonitoringDashboard";
 
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -69,12 +67,11 @@ export default function AdminPortal() {
     );
   }
 
-  // Admin modules - organized by category
   const modules = [
-    // Overview & Analytics
-    { id: "overview", label: "Overview", icon: BarChart3, component: GlobalReportingModule, category: "analytics" },
-    { id: "analytics", label: "Analytics", icon: BarChart3, component: AnalyticsDashboard, category: "analytics" },
+    // Analytics & Monitoring
+    { id: "analytics", label: "Analytics", icon: Activity, component: AnalyticsDashboard, category: "analytics" },
     { id: "error-monitoring", label: "Error Monitor", icon: AlertCircle, component: ErrorMonitoringDashboard, category: "analytics" },
+    { id: "overview", label: "Overview", icon: BarChart3, component: GlobalReportingModule, category: "analytics" },
     { id: "reports", label: "Reports", icon: BarChart3, component: ReportsModule, category: "analytics" },
     
     // User & Client Management
@@ -116,7 +113,6 @@ export default function AdminPortal() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -133,46 +129,44 @@ export default function AdminPortal() {
           </div>
         </div>
 
-        {/* Quick Stats Overview */}
-        {activeTab === "overview" && (
+        {activeTab === "analytics" && (
           <div className="mb-6">
             <div className="grid md:grid-cols-4 gap-4">
               <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
                 <div className="flex items-center justify-between mb-2">
-                  <Users className="w-8 h-8 opacity-80" />
+                  <Activity className="w-8 h-8 opacity-80" />
                 </div>
-                <p className="text-2xl font-bold">Comprehensive</p>
-                <p className="text-sm opacity-90">Admin Dashboard</p>
+                <p className="text-2xl font-bold">User Analytics</p>
+                <p className="text-sm opacity-90">Track behavior</p>
+              </Card>
+
+              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-red-500 to-orange-500 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <AlertCircle className="w-8 h-8 opacity-80" />
+                </div>
+                <p className="text-2xl font-bold">Error Monitor</p>
+                <p className="text-sm opacity-90">Track issues</p>
+              </Card>
+
+              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <BarChart3 className="w-8 h-8 opacity-80" />
+                </div>
+                <p className="text-2xl font-bold">Advanced Reports</p>
+                <p className="text-sm opacity-90">Deep insights</p>
               </Card>
 
               <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white">
                 <div className="flex items-center justify-between mb-2">
                   <Eye className="w-8 h-8 opacity-80" />
                 </div>
-                <p className="text-2xl font-bold">Client Portal</p>
-                <p className="text-sm opacity-90">Management</p>
-              </Card>
-
-              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white">
-                <div className="flex items-center justify-between mb-2">
-                  <FileText className="w-8 h-8 opacity-80" />
-                </div>
-                <p className="text-2xl font-bold">Global</p>
-                <p className="text-sm opacity-90">Proposal View</p>
-              </Card>
-
-              <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-orange-500 to-red-500 text-white">
-                <div className="flex items-center justify-between mb-2">
-                  <BarChart3 className="w-8 h-8 opacity-80" />
-                </div>
-                <p className="text-2xl font-bold">Advanced</p>
-                <p className="text-sm opacity-90">Analytics</p>
+                <p className="text-2xl font-bold">Real-time Data</p>
+                <p className="text-sm opacity-90">Live monitoring</p>
               </Card>
             </div>
           </div>
         )}
 
-        {/* Categorized Navigation */}
         <Card className="border-none shadow-xl">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="border-b bg-slate-50">
@@ -182,7 +176,6 @@ export default function AdminPortal() {
                   <TabsList className="flex flex-wrap gap-1 bg-transparent h-auto justify-start">
                     {modules.map((module) => {
                       const Icon = module.icon;
-                      const category = categories.find(c => c.id === module.category);
                       return (
                         <TabsTrigger
                           key={module.id}
@@ -212,7 +205,6 @@ export default function AdminPortal() {
           </Tabs>
         </Card>
 
-        {/* Category Legend */}
         <Card className="mt-6 border-none shadow-lg">
           <div className="p-4">
             <p className="text-sm font-semibold text-slate-700 mb-3">Module Categories:</p>
