@@ -17,7 +17,8 @@ import {
   File,
   FileCode,
   FileArchive,
-  Loader2
+  Loader2,
+  Award
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -32,11 +33,13 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const [boilerplateSearch, setBoilerplateSearch] = useState("");
   const [proposalSearch, setProposalSearch] = useState("");
   const [templateSearch, setTemplateSearch] = useState("");
+  const [pastPerformanceSearch, setPastPerformanceSearch] = useState("");
   
   // Search results visibility
   const [showBoilerplateResults, setShowBoilerplateResults] = useState(false);
   const [showProposalResults, setShowProposalResults] = useState(false);
   const [showTemplateResults, setShowTemplateResults] = useState(false);
+  const [showPastPerformanceResults, setShowPastPerformanceResults] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -97,6 +100,18 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     enabled: !!organization?.id,
   });
 
+  // Query for past performance records
+  const { data: pastPerformanceRecords = [] } = useQuery({
+    queryKey: ['past-performance', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.PastPerformance.filter({
+        organization_id: organization.id
+      }, '-start_date');
+    },
+    enabled: !!organization?.id,
+  });
+
   // Query for linked resources for this proposal
   const { data: linkedResources = [] } = useQuery({
     queryKey: ['linked-resources', proposalId],
@@ -106,6 +121,19 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
         organization_id: organization.id
       });
       return allResources.filter(r => r.linked_proposal_ids?.includes(proposalId));
+    },
+    enabled: !!proposalId && !!organization?.id,
+  });
+
+  // Query for linked past performance
+  const { data: linkedPastPerformance = [] } = useQuery({
+    queryKey: ['linked-past-performance', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      const allPastPerf = await base44.entities.PastPerformance.filter({
+        organization_id: organization.id
+      });
+      return allPastPerf.filter(p => p.used_in_proposals?.includes(proposalId));
     },
     enabled: !!proposalId && !!organization?.id,
   });
@@ -145,6 +173,26 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     },
   });
 
+  const linkPastPerformanceMutation = useMutation({
+    mutationFn: async (pastPerfId) => {
+      const pastPerf = await base44.entities.PastPerformance.filter({ id: pastPerfId });
+      if (pastPerf.length === 0) return;
+      
+      const currentUsedIn = pastPerf[0].used_in_proposals || [];
+      if (currentUsedIn.includes(proposalId)) {
+        return; // Already linked
+      }
+      
+      await base44.entities.PastPerformance.update(pastPerfId, {
+        used_in_proposals: [...currentUsedIn, proposalId],
+        usage_count: (pastPerf[0].usage_count || 0) + 1
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['linked-past-performance', proposalId] });
+    },
+  });
+
   const unlinkResourceMutation = useMutation({
     mutationFn: async (resourceId) => {
       const resource = await base44.entities.ProposalResource.filter({ id: resourceId });
@@ -157,6 +205,21 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['linked-resources', proposalId] });
+    },
+  });
+
+  const unlinkPastPerformanceMutation = useMutation({
+    mutationFn: async (pastPerfId) => {
+      const pastPerf = await base44.entities.PastPerformance.filter({ id: pastPerfId });
+      if (pastPerf.length === 0) return;
+      
+      const currentUsedIn = pastPerf[0].used_in_proposals || [];
+      await base44.entities.PastPerformance.update(pastPerfId, {
+        used_in_proposals: currentUsedIn.filter(id => id !== proposalId)
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['linked-past-performance', proposalId] });
     },
   });
 
@@ -230,6 +293,12 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     setShowTemplateResults(false);
   };
 
+  const handleAddPastPerformance = async (pastPerf) => {
+    await linkPastPerformanceMutation.mutateAsync(pastPerf.id);
+    setPastPerformanceSearch("");
+    setShowPastPerformanceResults(false);
+  };
+
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -261,6 +330,12 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
     }
   };
 
+  const handleUnlinkPastPerformance = async (pastPerfId) => {
+    if (confirm("Remove this past performance record from the proposal?")) {
+      await unlinkPastPerformanceMutation.mutateAsync(pastPerfId);
+    }
+  };
+
   // Filter search results
   const filteredBoilerplates = boilerplates.filter(b => 
     b.title?.toLowerCase().includes(boilerplateSearch.toLowerCase()) ||
@@ -276,6 +351,13 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const filteredTemplates = proposalTemplates.filter(t =>
     t.title?.toLowerCase().includes(templateSearch.toLowerCase()) ||
     t.description?.toLowerCase().includes(templateSearch.toLowerCase())
+  );
+
+  const filteredPastPerformance = pastPerformanceRecords.filter(p =>
+    p.project_name?.toLowerCase().includes(pastPerformanceSearch.toLowerCase()) ||
+    p.client_name?.toLowerCase().includes(pastPerformanceSearch.toLowerCase()) ||
+    p.keywords?.some(k => k.toLowerCase().includes(pastPerformanceSearch.toLowerCase())) ||
+    p.services_provided?.some(s => s.toLowerCase().includes(pastPerformanceSearch.toLowerCase()))
   );
 
   return (
@@ -295,7 +377,7 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
           <AlertDescription>
             <p className="font-semibold text-blue-900 mb-1">📄 Add Reference Documents for AI Learning</p>
             <p className="text-sm text-blue-800">
-              Select existing boilerplate content, past proposals, and templates - OR upload new reference documents. 
+              Select existing boilerplate content, past proposals, templates, and past performance - OR upload new reference documents. 
               The AI will analyze all referenced materials to help write your proposal.
             </p>
           </AlertDescription>
@@ -463,11 +545,65 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
               </div>
             </div>
 
-            {/* 4. Direct File Upload */}
+            {/* 4. Past Performance Search */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-600" />
+                <h3 className="font-semibold text-slate-900">4. Past Performance</h3>
+              </div>
+              <p className="text-sm text-slate-600">Search and add past performance records from your library</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <Input
+                  placeholder="Search past performance by project name, client, or keywords..."
+                  value={pastPerformanceSearch}
+                  onChange={(e) => {
+                    setPastPerformanceSearch(e.target.value);
+                    setShowPastPerformanceResults(e.target.value.length > 0);
+                  }}
+                  className="pl-10"
+                />
+                {showPastPerformanceResults && filteredPastPerformance.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredPastPerformance.map((pastPerf) => (
+                      <div
+                        key={pastPerf.id}
+                        onClick={() => handleAddPastPerformance(pastPerf)}
+                        className="p-3 hover:bg-amber-50 cursor-pointer border-b last:border-b-0 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-slate-900">{pastPerf.project_name}</p>
+                            <p className="text-xs text-slate-600 mt-1">
+                              {pastPerf.client_name} • {pastPerf.contract_value ? `$${(pastPerf.contract_value / 1000000).toFixed(1)}M` : 'No value specified'}
+                            </p>
+                            <div className="flex gap-2 mt-2 flex-wrap">
+                              {pastPerf.status && (
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {pastPerf.status}
+                                </Badge>
+                              )}
+                              {pastPerf.client_type && (
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {pastPerf.client_type}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Plus className="w-5 h-5 text-amber-600 flex-shrink-0 ml-2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 5. Direct File Upload */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Upload className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-slate-900">4. Upload Other Reference Documents</h3>
+                <h3 className="font-semibold text-slate-900">5. Upload Other Reference Documents</h3>
               </div>
               <p className="text-sm text-slate-600">Upload any other reference documents (PDFs only for AI analysis)</p>
               <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors bg-slate-50">
@@ -491,11 +627,11 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
             </div>
 
             {/* Display Added Resources */}
-            {(linkedResources.length > 0 || uploadedDocs.length > 0) && (
+            {(linkedResources.length > 0 || linkedPastPerformance.length > 0 || uploadedDocs.length > 0) && (
               <div className="space-y-4 pt-6 border-t">
                 <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  Added Reference Documents ({linkedResources.length + uploadedDocs.length})
+                  Added Reference Documents ({linkedResources.length + linkedPastPerformance.length + uploadedDocs.length})
                 </h3>
 
                 <div className="space-y-2">
@@ -520,6 +656,32 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                         size="sm"
                         variant="ghost"
                         onClick={() => handleUnlinkResource(resource.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  {/* Linked Past Performance */}
+                  {linkedPastPerformance.map((pastPerf) => (
+                    <div key={pastPerf.id} className="flex items-center justify-between p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Award className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-900 truncate">{pastPerf.project_name}</p>
+                          <p className="text-xs text-slate-600 truncate">
+                            {pastPerf.client_name} • {pastPerf.contract_value ? `$${(pastPerf.contract_value / 1000000).toFixed(1)}M` : 'No value'}
+                          </p>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            Past Performance
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleUnlinkPastPerformance(pastPerf.id)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <X className="w-4 h-4" />
@@ -560,7 +722,7 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
               </div>
             )}
 
-            {linkedResources.length === 0 && uploadedDocs.length === 0 && (
+            {linkedResources.length === 0 && linkedPastPerformance.length === 0 && uploadedDocs.length === 0 && (
               <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">No Reference Documents Added Yet</h3>
