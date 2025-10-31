@@ -4,15 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Users, Calendar, CheckSquare, Sparkles } from "lucide-react";
+import { Plus, TrendingUp, Sparkles } from "lucide-react";
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
 import ProposalPipeline from "../components/dashboard/ProposalPipeline";
 import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
-import OnboardingTour from "../components/onboarding/OnboardingTour";
-import { useAnalytics } from "../components/analytics/AnalyticsTracker";
-import { useErrorMonitoring } from "../components/monitoring/ErrorMonitor";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -26,20 +23,9 @@ export default function Dashboard() {
     win_rate: 0
   });
 
-  // Initialize analytics and error monitoring
-  const analytics = useAnalytics(user, organization);
-  useErrorMonitoring(user, organization);
-
   useEffect(() => {
     loadDashboardData();
-    
-    // Track page view
-    if (user && organization) {
-      analytics.trackPageView('Dashboard', {
-        organization_id: organization.id
-      });
-    }
-  }, [user, organization]);
+  }, []);
 
   const loadDashboardData = async () => {
     try {
@@ -55,14 +41,12 @@ export default function Dashboard() {
       if (orgs.length > 0) {
         setOrganization(orgs[0]);
 
-        // Load proposals
         const userProposals = await base44.entities.Proposal.filter(
           { organization_id: orgs[0].id },
           '-created_date'
         );
         setProposals(userProposals);
 
-        // Calculate stats
         const activeProposals = userProposals.filter(p => 
           ['evaluating', 'draft', 'in_progress'].includes(p.status)
         );
@@ -93,25 +77,11 @@ export default function Dashboard() {
   };
 
   const handleCreateProposal = () => {
-    // Track feature usage
-    analytics.trackFeatureUsage('create_proposal', {
-      source: 'dashboard'
-    });
-    
     navigate(createPageUrl("ProposalBuilder"));
-  };
-
-  const handleTourComplete = () => {
-    analytics.trackEvent('onboarding_tour_completed', {
-      user_email: user?.email
-    });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      {/* Onboarding Tour */}
-      {user && <OnboardingTour user={user} onComplete={handleTourComplete} />}
-
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between dashboard-overview">
