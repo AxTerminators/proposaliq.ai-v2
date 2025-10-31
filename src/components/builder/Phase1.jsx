@@ -16,6 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +35,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
   const [selectedTeamingPartners, setSelectedTeamingPartners] = useState([]);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successContext, setSuccessContext] = useState('');
+  const [currentTab, setCurrentTab] = useState("basic");
   
   const [newPartnerForm, setNewPartnerForm] = useState({
     partner_name: "",
@@ -182,15 +184,8 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setIsExtractingData(true);
     
     try {
-      console.log('=== 🚀 STARTING PDF DOCUMENT PROCESSING ===');
-      console.log(`📁 File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
-      
-      console.log('⬆️ Step 1: Uploading file...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      console.log('✅ File uploaded successfully:', fileUrl);
-      
-      console.log('🤖 Step 2: Using AI to extract structured data from PDF...');
       
       const extractionSchema = {
         type: "object",
@@ -217,17 +212,11 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
         json_schema: extractionSchema
       });
 
-      console.log('✅ AI extraction completed');
-      console.log('📊 Extraction result:', extractionResult);
-
       if (extractionResult.status === 'error' || !extractionResult.output) {
         throw new Error(extractionResult.details || 'Failed to extract data from document');
       }
 
       const aiResult = extractionResult.output || {};
-      console.log('📊 Extracted data:', aiResult);
-      console.log('📝 Step 3: Populating form fields...');
-
       const updatedForm = { ...newPartnerForm };
       let fieldsPopulated = [];
 
@@ -299,17 +288,13 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
 
       setNewPartnerForm(updatedForm);
 
-      console.log(`✅ Successfully populated ${fieldsPopulated.length} fields`);
-      console.log('=== ✨ PROCESSING COMPLETE ===');
-
       if (fieldsPopulated.length > 0) {
         alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields from ${file.name}:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
       } else {
         alert(`⚠️ AI analyzed ${file.name} but couldn't extract structured data.\n\nThe document may not contain the expected information. Please manually enter the details.`);
       }
     } catch (error) {
-      console.error('=== ❌ ERROR DURING PDF PROCESSING ===');
-      console.error('Error details:', error);
+      console.error('Error during PDF processing:', error);
       alert(`❌ Error processing ${file.name}:\n${error.message}\n\nPlease manually enter the information.`);
     } finally {
       setIsExtractingData(false);
@@ -340,6 +325,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setShowOtherCertInput(false);
     setOtherCertification("");
     setNewItem("");
+    setCurrentTab("basic"); // Reset tab to basic
   };
 
   const handleOpenAddPartner = (forPrime) => {
@@ -666,34 +652,25 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
         </div>
       </CardContent>
 
+      {/* Add New Company Dialog with Tabs */}
       <Dialog open={showAddPartnerDialog} onOpenChange={setShowAddPartnerDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               Add New {addingForPrime ? 'Company (Prime Contractor)' : 'Teaming Partner / Subcontractor'}
             </DialogTitle>
             <DialogDescription>
-              Enter company details. Upload a PDF capability statement for AI to auto-populate fields.
+              Upload a PDF capability statement for AI auto-fill, or manually enter company details.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                Upload PDF Capability Statement (Optional)
-              </Label>
-              
-              <Alert className="bg-blue-50 border-blue-200">
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                <AlertDescription>
-                  <p className="font-semibold text-blue-900 mb-1">📄 PDF Files Only</p>
-                  <p className="text-sm text-blue-800">
-                    Upload a <strong>PDF</strong> so our AI can read and auto-fill company information for you. 
-                    Convert Word/Excel files to PDF first for best results.
-                  </p>
-                </AlertDescription>
-              </Alert>
+          <div className="flex-1 overflow-y-auto px-1">
+            {/* AI Upload Section - Always Visible at Top */}
+            <div className="space-y-3 pb-6 border-b mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-blue-600" />
+                <Label className="text-base font-semibold">AI Auto-Fill from PDF</Label>
+              </div>
               
               {isExtractingData && (
                 <Alert className="bg-blue-50 border-blue-200">
@@ -742,140 +719,241 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
                         Upload PDF Capability Statement
                       </label>
                     </Button>
-                    <p className="text-xs text-slate-500 mt-2">PDF format only • AI will auto-fill form fields</p>
+                    <p className="text-xs text-slate-500 mt-2">PDF format only • AI will auto-fill form fields below</p>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Company Name *</Label>
-              <Input
-                value={newPartnerForm.partner_name}
-                onChange={(e) => setNewPartnerForm({...newPartnerForm, partner_name: e.target.value})}
-                placeholder="Company name"
-              />
-            </div>
+            {/* Tabbed Form Sections */}
+            <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="basic">1. Basic Info</TabsTrigger>
+                <TabsTrigger value="details">2. Company Details</TabsTrigger>
+                <TabsTrigger value="capabilities">3. Capabilities</TabsTrigger>
+              </TabsList>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>POC Name</Label>
-                <Input
-                  value={newPartnerForm.poc_name}
-                  onChange={(e) => setNewPartnerForm({...newPartnerForm, poc_name: e.target.value})}
-                  placeholder="Contact person"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>POC Email</Label>
-                <Input
-                  type="email"
-                  value={newPartnerForm.poc_email}
-                  onChange={(e) => setNewPartnerForm({...newPartnerForm, poc_email: e.target.value})}
-                  placeholder="email@company.com"
-                />
-              </div>
-            </div>
+              <TabsContent value="basic" className="space-y-4 mt-0">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Company Name *</Label>
+                    <Input
+                      value={newPartnerForm.partner_name}
+                      onChange={(e) => setNewPartnerForm({...newPartnerForm, partner_name: e.target.value})}
+                      placeholder="Company name"
+                    />
+                  </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>UEI</Label>
-                <Input
-                  value={newPartnerForm.uei}
-                  onChange={(e) => setNewPartnerForm({...newPartnerForm, uei: e.target.value})}
-                  placeholder="Unique Entity Identifier"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>CAGE Code</Label>
-                <Input
-                  value={newPartnerForm.cage_code}
-                  onChange={(e) => setNewPartnerForm({...newPartnerForm, cage_code: e.target.value})}
-                  placeholder="CAGE Code"
-                />
-              </div>
-            </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>POC Name</Label>
+                      <Input
+                        value={newPartnerForm.poc_name}
+                        onChange={(e) => setNewPartnerForm({...newPartnerForm, poc_name: e.target.value})}
+                        placeholder="Contact person"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>POC Email</Label>
+                      <Input
+                        type="email"
+                        value={newPartnerForm.poc_email}
+                        onChange={(e) => setNewPartnerForm({...newPartnerForm, poc_email: e.target.value})}
+                        placeholder="email@company.com"
+                      />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label>Small Business Certifications</Label>
-              <div className="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-lg">
-                {CERTIFICATIONS.map((cert) => (
-                  <Badge
-                    key={cert}
-                    variant={newPartnerForm.certifications?.includes(cert) ? "default" : "outline"}
-                    className="cursor-pointer hover:scale-105 transition-transform"
-                    onClick={() => toggleCertification(cert)}
-                  >
-                    {newPartnerForm.certifications?.includes(cert) && (
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                    )}
-                    {cert}
-                  </Badge>
-                ))}
-                
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer hover:scale-105 transition-transform border-dashed border-blue-400 text-blue-600"
-                  onClick={() => setShowOtherCertInput(true)}
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Other
-                </Badge>
-              </div>
-              
-              {showOtherCertInput && (
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    value={otherCertification}
-                    onChange={(e) => setOtherCertification(e.target.value)}
-                    placeholder="Enter custom certification"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addOtherCertification())}
-                  />
-                  <Button type="button" onClick={addOtherCertification}>
-                    Add
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => { setShowOtherCertInput(false); setOtherCertification(""); }}>
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <div className="space-y-2">
+                    <Label>POC Phone</Label>
+                    <Input
+                      value={newPartnerForm.poc_phone}
+                      onChange={(e) => setNewPartnerForm({...newPartnerForm, poc_phone: e.target.value})}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <Button type="button" onClick={() => setCurrentTab("details")}>
+                      Next: Company Details →
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </div>
+              </TabsContent>
 
-            <div className="space-y-2">
-              <Label>Core Capabilities</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={newItem}
-                  onChange={(e) => setNewItem(e.target.value)}
-                  placeholder="Add capability"
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('core_capabilities'))}
-                />
-                <Button type="button" onClick={() => addArrayItem('core_capabilities')}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {newPartnerForm.core_capabilities.map((cap, idx) => (
-                  <Badge key={idx} variant="secondary" className="gap-1">
-                    {cap}
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('core_capabilities', idx)} />
-                  </Badge>
-                ))}
-              </div>
-            </div>
+              <TabsContent value="details" className="space-y-4 mt-0">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Address</Label>
+                    <Input
+                      value={newPartnerForm.address}
+                      onChange={(e) => setNewPartnerForm({...newPartnerForm, address: e.target.value})}
+                      placeholder="123 Main St, City, ST 12345"
+                    />
+                  </div>
 
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={newPartnerForm.notes}
-                onChange={(e) => setNewPartnerForm({...newPartnerForm, notes: e.target.value})}
-                rows={3}
-                placeholder="Internal notes..."
-              />
-            </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>UEI</Label>
+                      <Input
+                        value={newPartnerForm.uei}
+                        onChange={(e) => setNewPartnerForm({...newPartnerForm, uei: e.target.value})}
+                        placeholder="Unique Entity Identifier"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CAGE Code</Label>
+                      <Input
+                        value={newPartnerForm.cage_code}
+                        onChange={(e) => setNewPartnerForm({...newPartnerForm, cage_code: e.target.value})}
+                        placeholder="CAGE Code"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Website URL</Label>
+                    <Input
+                      value={newPartnerForm.website_url}
+                      onChange={(e) => setNewPartnerForm({...newPartnerForm, website_url: e.target.value})}
+                      placeholder="https://company.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Primary NAICS Code</Label>
+                    <Input
+                      value={newPartnerForm.primary_naics}
+                      onChange={(e) => setNewPartnerForm({...newPartnerForm, primary_naics: e.target.value})}
+                      placeholder="541330"
+                    />
+                  </div>
+
+                  <div className="flex justify-between pt-4">
+                    <Button type="button" variant="outline" onClick={() => setCurrentTab("basic")}>
+                      ← Back
+                    </Button>
+                    <Button type="button" onClick={() => setCurrentTab("capabilities")}>
+                      Next: Capabilities →
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="capabilities" className="space-y-4 mt-0">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Small Business Certifications</Label>
+                    <div className="flex flex-wrap gap-2 p-4 bg-slate-50 rounded-lg">
+                      {CERTIFICATIONS.map((cert) => (
+                        <Badge
+                          key={cert}
+                          variant={newPartnerForm.certifications?.includes(cert) ? "default" : "outline"}
+                          className="cursor-pointer hover:scale-105 transition-transform"
+                          onClick={() => toggleCertification(cert)}
+                        >
+                          {newPartnerForm.certifications?.includes(cert) && (
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                          )}
+                          {cert}
+                        </Badge>
+                      ))}
+                      
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:scale-105 transition-transform border-dashed border-blue-400 text-blue-600"
+                        onClick={() => setShowOtherCertInput(true)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Other
+                      </Badge>
+                    </div>
+                    
+                    {showOtherCertInput && (
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          value={otherCertification}
+                          onChange={(e) => setOtherCertification(e.target.value)}
+                          placeholder="Enter custom certification"
+                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addOtherCertification())}
+                        />
+                        <Button type="button" onClick={addOtherCertification}>
+                          Add
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => { setShowOtherCertInput(false); setOtherCertification(""); }}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Secondary NAICS Codes</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newItem}
+                        onChange={(e) => setNewItem(e.target.value)}
+                        placeholder="Add NAICS code"
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('secondary_naics'))}
+                      />
+                      <Button type="button" onClick={() => addArrayItem('secondary_naics')}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {newPartnerForm.secondary_naics.map((code, idx) => (
+                        <Badge key={idx} variant="secondary" className="gap-1">
+                          {code}
+                          <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('secondary_naics', idx)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Core Capabilities</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newItem}
+                        onChange={(e) => setNewItem(e.target.value)}
+                        placeholder="Add capability"
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('core_capabilities'))}
+                      />
+                      <Button type="button" onClick={() => addArrayItem('core_capabilities')}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {newPartnerForm.core_capabilities.map((cap, idx) => (
+                        <Badge key={idx} variant="secondary" className="gap-1">
+                          {cap}
+                          <X className="w-3 h-3 cursor-pointer" onClick={() => removeArrayItem('core_capabilities', idx)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Textarea
+                      value={newPartnerForm.notes}
+                      onChange={(e) => setNewPartnerForm({...newPartnerForm, notes: e.target.value})}
+                      rows={3}
+                      placeholder="Internal notes..."
+                    />
+                  </div>
+
+                  <div className="flex justify-between pt-4">
+                    <Button type="button" variant="outline" onClick={() => setCurrentTab("details")}>
+                      ← Back
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => { setShowAddPartnerDialog(false); resetPartnerForm(); }}>
               Cancel
             </Button>
