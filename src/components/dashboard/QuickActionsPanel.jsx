@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import CustomAlertDialog from "../ui/CustomAlertDialog";
 
-export default function QuickActionsPanel() {
+export default function QuickActionsPanel({ user, organization }) {
   const navigate = useNavigate();
   const [showComingSoonDialog, setShowComingSoonDialog] = React.useState(false);
 
@@ -75,13 +75,15 @@ export default function QuickActionsPanel() {
       </Card>
 
       {/* Coming Soon Dialog */}
-      <CustomAlertDialog
-        isOpen={showComingSoonDialog}
-        onClose={() => setShowComingSoonDialog(false)}
-        title="Opportunity Finder Coming Soon!"
-        description="We're working on direct SAM.gov integration to help you discover the perfect opportunities. Stay tuned for this exciting feature!"
-        icon={Search}
-      />
+      {showComingSoonDialog && (
+        <CustomAlertDialog
+          isOpen={showComingSoonDialog}
+          onClose={() => setShowComingSoonDialog(false)}
+          title="Opportunity Finder Coming Soon!"
+          description="We're working on direct SAM.gov integration to help you discover the perfect opportunities. Stay tuned for this exciting feature!"
+          icon={Search}
+        />
+      )}
     </>
   );
 }
