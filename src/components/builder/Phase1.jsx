@@ -658,7 +658,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
             <div>
               <p className="text-sm font-medium text-blue-900 mb-1">What's Next?</p>
               <p className="text-sm text-blue-700">
-                After setting up basic info, you'll add supporting documents, solicitation details, 
+                After setting up basic info, you'll add supporting documents, solicitation details (including contract value), 
                 and let AI help evaluate and write your proposal.
               </p>
             </div>
