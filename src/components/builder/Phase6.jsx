@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/dialog";
 import SectionVersionHistory from "./SectionVersionHistory";
 import AICollaborationAssistant from "../collaboration/AICollaborationAssistant";
+import ErrorAlert from "../ui/ErrorAlert";
+import { AILoadingState, DataFetchingState } from "../ui/LoadingState";
 
 const PROPOSAL_SECTIONS = [
   {
@@ -173,10 +175,23 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const [currentSectionForBoilerplate, setCurrentSectionForBoilerplate] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistorySection, setVersionHistorySection] = useState(null);
+  const [generationError, setGenerationError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   
   // Ref to store scroll position
   const scrollPositionRef = useRef(0);
   const sectionRefs = useRef({});
+
+  // Enhanced context fetching with error handling
+  const [contextData, setContextData] = useState({
+    solicitationDocs: [],
+    teamingPartners: [],
+    resources: [],
+    complianceReqs: [],
+    winThemes: [],
+    pastPerformance: [],
+    previousSections: []
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -209,7 +224,58 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     loadData();
   }, [proposalId]);
 
-  const { data: sections = [], isLoading } = useQuery({
+  // Load context data for AI with caching
+  useEffect(() => {
+    const loadContextData = async () => {
+      if (!proposalId || !organization?.id) return;
+
+      try {
+        const [solicitationDocs, teamingPartners, resources, complianceReqs, winThemes, pastPerformance] = await Promise.all([
+          base44.entities.SolicitationDocument.filter({
+            proposal_id: proposalId,
+            organization_id: organization.id
+          }),
+          base44.entities.TeamingPartner.filter({
+            organization_id: organization.id
+          }).then(partners => {
+            const partnerIds = proposalData.teaming_partner_ids || [];
+            return partners.filter(p => partnerIds.includes(p.id));
+          }),
+          base44.entities.ProposalResource.filter({
+            organization_id: organization.id,
+            resource_type: { $in: ['boilerplate_text', 'capability_statement', 'past_proposal'] }
+          }),
+          base44.entities.ComplianceRequirement.filter({
+            proposal_id: proposalId,
+            organization_id: organization.id
+          }),
+          base44.entities.WinTheme.filter({
+            proposal_id: proposalId,
+            organization_id: organization.id
+          }),
+          base44.entities.PastPerformance.filter({
+            organization_id: organization.id
+          }).then(pp => pp.slice(0, 5))
+        ]);
+
+        setContextData({
+          solicitationDocs,
+          teamingPartners,
+          resources,
+          complianceReqs,
+          winThemes,
+          pastPerformance,
+          previousSections: sections || []
+        });
+      } catch (error) {
+        console.error("Error loading context data:", error);
+      }
+    };
+
+    loadContextData();
+  }, [proposalId, organization?.id, proposalData.teaming_partner_ids, sections]);
+
+  const { data: sections = [], isLoading, error: sectionsError } = useQuery({
     queryKey: ['proposal-sections', proposalId],
     queryFn: async () => {
       if (!proposalId) return [];
@@ -219,6 +285,8 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       );
     },
     enabled: !!proposalId,
+    staleTime: 30000, // Cache for 30 seconds
+    retry: 2
   });
 
   const { data: tasks = [] } = useQuery({
@@ -228,6 +296,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       return base44.entities.ProposalTask.filter({ proposal_id: proposalId });
     },
     enabled: !!proposalId,
+    staleTime: 60000
   });
 
   const { data: comments = [] } = useQuery({
@@ -237,6 +306,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       return base44.entities.ProposalComment.filter({ proposal_id: proposalId });
     },
     enabled: !!proposalId,
+    staleTime: 30000
   });
 
   const { data: teamMembers = [] } = useQuery({
@@ -250,6 +320,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       });
     },
     enabled: !!organization?.id,
+    staleTime: 300000 // Cache for 5 minutes
   });
 
   const { data: boilerplates = [] } = useQuery({
@@ -262,6 +333,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       });
     },
     enabled: !!organization?.id && showBoilerplateDialog,
+    staleTime: 120000
   });
 
   // Load existing content into state
@@ -282,6 +354,10 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
     },
+    onError: (error) => {
+      console.error("Error creating section:", error);
+      setSaveError(error);
+    }
   });
 
   const updateSectionMutation = useMutation({
@@ -291,6 +367,10 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal-sections'] });
     },
+    onError: (error) => {
+      console.error("Error updating section:", error);
+      setSaveError(error);
+    }
   });
 
   const createVersionHistory = async (sectionId, content, wordCount, changeType, changeSummary) => {
@@ -325,14 +405,12 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   // Save scroll position before generation
   const saveScrollPosition = (sectionKey) => {
     // Also store the section element's position
+    scrollPositionRef.current = window.scrollY; // Default fallback
     const sectionElement = sectionRefs.current[sectionKey];
     if (sectionElement) {
       const rect = sectionElement.getBoundingClientRect();
       // Store current scroll position plus element's top, minus an offset for better visibility
       scrollPositionRef.current = window.scrollY + rect.top - 100; 
-    } else {
-      // Fallback to general scroll position if section element not found
-      scrollPositionRef.current = window.scrollY;
     }
   };
 
@@ -346,6 +424,56 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     }, 100);
   };
 
+  // Build enhanced context string for AI with multi-section awareness
+  const buildAIContext = (sectionConfig, subsectionConfig = null) => {
+    const { teamingPartners, complianceReqs, winThemes, pastPerformance, previousSections } = contextData;
+
+    // Get previously written sections for coherence
+    const relevantPreviousSections = previousSections
+      .filter(s => s.content && s.content.trim())
+      .slice(0, 5) // Limit to a few recent sections for prompt length
+      .map(s => `**${s.section_name}** (excerpt):\n${s.content.replace(/<[^>]*>/g, '').substring(0, 300)}...`)
+      .join('\n\n');
+
+    const teamingPartnerContext = teamingPartners.map(p => `
+**Partner: ${p.partner_name}**
+- Type: ${p.partner_type}
+- Core Capabilities: ${p.core_capabilities?.join(', ') || 'N/A'}
+- Differentiators: ${p.differentiators?.join(', ') || 'N/A'}
+- Past Performance: ${p.past_performance_summary || 'N/A'}
+- Certifications: ${p.certifications?.join(', ') || 'N/A'}
+`).join('\n');
+
+    const relevantCompliance = complianceReqs
+      .filter(req => 
+        req.addressed_in_sections?.includes(sectionConfig.id) || 
+        req.requirement_category === 'mandatory'
+      )
+      .slice(0, 10)
+      .map(req => `- ${req.requirement_id}: ${req.requirement_title}\n  Description: ${req.requirement_description}`)
+      .join('\n');
+
+    const winThemeContext = winThemes
+      .filter(wt => wt.status === 'approved' || wt.priority === 'primary')
+      .map(wt => `- ${wt.theme_title}: ${wt.theme_statement}`)
+      .join('\n');
+
+    const pastPerformanceContext = pastPerformance.map(pp => `
+**Project: ${pp.project_name}**
+- Client: ${pp.client_name}
+- Description: ${pp.project_description}
+- Key Outcomes: On-time: ${pp.outcomes?.on_time_delivery_pct}%, Quality: ${pp.outcomes?.quality_score}/5
+`).join('\n');
+
+    return {
+      relevantPreviousSections,
+      teamingPartnerContext,
+      relevantCompliance,
+      winThemeContext,
+      pastPerformanceContext
+    };
+  };
+
   const generateSectionContent = async (sectionConfig, subsectionConfig = null, isRegenerate = false) => {
     if (!proposalId || !organization) {
       alert("Please save the proposal first");
@@ -356,76 +484,17 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       ? `${sectionConfig.id}_${subsectionConfig.id}`
       : sectionConfig.id;
 
-    // Save scroll position before starting
     saveScrollPosition(sectionKey);
-    
     setGeneratingSection(sectionKey);
+    setGenerationError(null);
 
     try {
-      // Gather context
-      const [solicitationDocs, teamingPartners, resources, complianceReqs, winThemes, pastPerformance] = await Promise.all([
-        base44.entities.SolicitationDocument.filter({
-          proposal_id: proposalId,
-          organization_id: organization.id
-        }),
-        base44.entities.TeamingPartner.filter({
-          organization_id: organization.id
-        }).then(partners => {
-          const partnerIds = proposalData.teaming_partner_ids || [];
-          return partners.filter(p => partnerIds.includes(p.id));
-        }),
-        base44.entities.ProposalResource.filter({
-          organization_id: organization.id,
-          resource_type: { $in: ['boilerplate_text', 'capability_statement', 'past_proposal'] }
-        }),
-        base44.entities.ComplianceRequirement.filter({
-          proposal_id: proposalId,
-          organization_id: organization.id
-        }),
-        base44.entities.WinTheme.filter({
-          proposal_id: proposalId,
-          organization_id: organization.id
-        }),
-        base44.entities.PastPerformance.filter({
-          organization_id: organization.id
-        }).then(pp => pp.slice(0, 5))
-      ]);
-
-      // Build context strings
-      const teamingPartnerContext = teamingPartners.map(p => `
-**Partner: ${p.partner_name}**
-- Type: ${p.partner_type}
-- Core Capabilities: ${p.core_capabilities?.join(', ') || 'N/A'}
-- Differentiators: ${p.differentiators?.join(', ') || 'N/A'}
-- Past Performance: ${p.past_performance_summary || 'N/A'}
-- Certifications: ${p.certifications?.join(', ') || 'N/A'}
-`).join('\n');
-
-      const complianceContext = complianceReqs
-        .filter(req => req.addressed_in_sections?.includes(sectionConfig.id) || req.requirement_category === 'mandatory')
-        .slice(0, 10)
-        .map(req => `- ${req.requirement_id}: ${req.requirement_title}\n  Description: ${req.requirement_description}`)
-        .join('\n');
-
-      const winThemeContext = winThemes
-        .filter(wt => wt.status === 'approved' || wt.priority === 'primary')
-        .map(wt => `- ${wt.theme_title}: ${wt.theme_statement}`)
-        .join('\n');
-
-      const pastPerformanceContext = pastPerformance.map(pp => `
-**Project: ${pp.project_name}**
-- Client: ${pp.client_name}
-- Description: ${pp.project_description}
-- Key Outcomes: On-time: ${pp.outcomes?.on_time_delivery_pct}%, Quality: ${pp.outcomes?.quality_score}/5
-`).join('\n');
-
-      // Get file URLs for context
-      const fileUrls = solicitationDocs
+      const context = buildAIContext(sectionConfig, subsectionConfig);
+      const fileUrls = contextData.solicitationDocs
         .filter(doc => doc.file_url)
         .map(doc => doc.file_url)
         .slice(0, 10);
 
-      // Get strategy settings
       const sectionTone = selectedTones[sectionKey] || 
                          strategy?.sections?.[sectionConfig.id]?.tone || 
                          strategy?.tone || 
@@ -441,14 +510,11 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
         ? `${sectionConfig.name} - ${subsectionConfig.name}`
         : sectionConfig.name;
 
-      // Get existing content if regenerating
       const existingContent = isRegenerate ? (sectionContent[sectionKey] || "") : "";
 
-      // Build prompt based on whether it's a main section or subsection
       let prompt = "";
       
       if (subsectionConfig) {
-        // SUBSECTION PROMPT - More focused, no repetition
         prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} the "${subsectionConfig.name}" subsection as part of the larger "${sectionConfig.name}" section.
 
 **CRITICAL INSTRUCTIONS FOR SUBSECTIONS:**
@@ -466,17 +532,24 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
 - Type: ${proposalData.project_type}
 - Prime: ${proposalData.prime_contractor_name}
 
+${context.relevantPreviousSections ? `
+**PREVIOUSLY WRITTEN SECTIONS (for coherence and consistency):**
+${context.relevantPreviousSections}
+
+**IMPORTANT:** Maintain consistency with the above sections. Reference them where appropriate and avoid contradictions.
+` : ''}
+
 **TEAMING PARTNERS:**
-${teamingPartnerContext || 'N/A'}
+${context.teamingPartnerContext || 'N/A'}
 
 **WIN THEMES TO EMPHASIZE:**
-${winThemeContext || 'N/A'}
+${context.winThemeContext || 'N/A'}
 
 **RELEVANT COMPLIANCE REQUIREMENTS:**
-${complianceContext || 'N/A'}
+${context.relevantCompliance || 'N/A'}
 
 **PAST PERFORMANCE EXAMPLES:**
-${pastPerformanceContext || 'N/A'}
+${context.pastPerformanceContext || 'N/A'}
 
 ${isRegenerate && existingContent ? `
 **EXISTING CONTENT TO IMPROVE:**
@@ -501,11 +574,11 @@ Write professional, focused content for the "${subsectionConfig.name}" subsectio
 4. Maintains ${sectionTone} tone and ${readingLevel} reading level
 5. Is approximately ${targetWordCount} words
 6. Uses HTML formatting for structure
+7. Maintains coherence with previously written sections
 
 Begin immediately with the subsection content. Do not include any introduction or preamble.`;
 
       } else {
-        // MAIN SECTION PROMPT - Can have a brief introduction
         prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} a compelling ${sectionName} section for this proposal.
 
 **PROPOSAL DETAILS:**
@@ -516,17 +589,24 @@ Begin immediately with the subsection content. Do not include any introduction o
 - Solicitation #: ${proposalData.solicitation_number}
 - Prime Contractor: ${proposalData.prime_contractor_name}
 
+${context.relevantPreviousSections ? `
+**PREVIOUSLY WRITTEN SECTIONS (ensure consistency):**
+${context.relevantPreviousSections}
+
+**IMPORTANT:** Maintain consistency with the above sections. Build upon them logically and avoid contradictions.
+` : ''}
+
 **TEAMING PARTNERS:**
-${teamingPartnerContext || 'N/A'}
+${context.teamingPartnerContext || 'N/A'}
 
 **WIN THEMES TO EMPHASIZE:**
-${winThemeContext || 'N/A'}
+${context.winThemeContext || 'N/A'}
 
 **KEY MANDATORY REQUIREMENTS:**
-${complianceContext || 'N/A'}
+${context.relevantCompliance || 'N/A'}
 
 **RELEVANT PAST PERFORMANCE:**
-${pastPerformanceContext || 'N/A'}
+${context.pastPerformanceContext || 'N/A'}
 
 ${isRegenerate && existingContent ? `
 **EXISTING CONTENT TO IMPROVE:**
@@ -551,6 +631,7 @@ Write a professional, persuasive ${sectionName} section that:
 6. Is approximately ${targetWordCount} words
 7. Uses clear headings and bullet points for readability
 8. Follows government proposal writing best practices
+9. Maintains coherence with previously written sections
 
 The content should be ready to insert into the proposal document. Use HTML formatting for structure.`;
       }
@@ -613,7 +694,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
 
     } catch (error) {
       console.error("Error generating content:", error);
-      alert("Error generating content. Please try again.");
+      setGenerationError(error);
     } finally {
       setGeneratingSection(null);
       // Restore scroll position after generation completes
@@ -629,6 +710,8 @@ The content should be ready to insert into the proposal document. Use HTML forma
     }
 
     setSavingSection(sectionKey);
+    setSaveError(null);
+    
     try {
       const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
       const existingSection = sections.find(s => s.section_type === sectionKey);
@@ -673,7 +756,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
       alert("✓ Section saved successfully!");
     } catch (error) {
       console.error("Error saving section:", error);
-      alert("Error saving section. Please try again.");
+      setSaveError(error);
     } finally {
       setSavingSection(null);
     }
@@ -743,6 +826,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
     );
   }
 
+  if (sectionsError) {
+    return (
+      <Card className="border-none shadow-xl">
+        <CardContent className="p-8">
+          <ErrorAlert 
+            error={sectionsError} 
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] })}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
@@ -755,6 +851,23 @@ The content should be ready to insert into the proposal document. Use HTML forma
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Error Messages */}
+        {generationError && (
+          <ErrorAlert 
+            error={generationError} 
+            onRetry={() => setGenerationError(null)}
+            className="mb-4"
+          />
+        )}
+
+        {saveError && (
+          <ErrorAlert 
+            error={saveError} 
+            onRetry={() => setSaveError(null)}
+            className="mb-4"
+          />
+        )}
+
         {/* AI Collaboration Assistant */}
         {proposalId && organization && currentUser && (
           <AICollaborationAssistant
@@ -771,22 +884,24 @@ The content should be ready to insert into the proposal document. Use HTML forma
         <Alert className="bg-indigo-50 border-indigo-200">
           <Sparkles className="w-4 h-4 text-indigo-600" />
           <AlertDescription>
-            <p className="font-semibold text-indigo-900 mb-1">Section-by-Section AI Writing:</p>
+            <p className="font-semibold text-indigo-900 mb-1">Enhanced AI Writing Features:</p>
             <ul className="text-sm text-indigo-800 space-y-1">
-              <li>✓ Generate initial content for each section/subsection</li>
-              <li>✓ Regenerate to improve existing content</li>
-              <li>✓ Override tone per section</li>
-              <li>✓ Insert boilerplate content</li>
-              <li>✓ AI integrates boilerplate with regeneration</li>
+              <li>✓ AI maintains consistency across all sections</li>
+              <li>✓ Contextually aware of previously written content</li>
+              <li>✓ Automatic scroll position preservation</li>
+              <li>✓ Smart error handling and recovery</li>
+              <li>✓ Version history tracking for all changes</li>
             </ul>
           </AlertDescription>
         </Alert>
 
         {isLoading ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-slate-600">Loading sections...</p>
-          </div>
+          <DataFetchingState type="sections" />
+        ) : generatingSection ? (
+          <AILoadingState 
+            message={`AI is generating ${generatingSection}...`}
+            subMessage="This may take 15-30 seconds. Your scroll position will be preserved."
+          />
         ) : (
           <div className="space-y-4">
             {includedSections.map((section) => {
