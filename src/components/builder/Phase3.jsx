@@ -6,7 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, X, Plus, Sparkles, CheckCircle2, AlertCircle, Loader2, DollarSign } from "lucide-react";
+import {
+  FileText,
+  Upload,
+  X,
+  Plus,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  DollarSign
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -493,6 +503,76 @@ Return a JSON array of evaluation factor names.`;
             value={proposalData.due_date}
             onChange={(e) => setProposalData({...proposalData, due_date: e.target.value})}
           />
+        </div>
+
+        {/* Contract Value Section - Moved from Phase 1 */}
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-green-600" />
+            Contract Value Information
+          </h3>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="contract_value">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-green-600" />
+                  Contract Value
+                </div>
+              </Label>
+              <Input
+                id="contract_value"
+                type="number"
+                value={proposalData.contract_value || ""}
+                onChange={(e) => setProposalData({...proposalData, contract_value: parseFloat(e.target.value) || 0})}
+                placeholder="e.g., 5000000"
+              />
+              <p className="text-sm text-slate-500">
+                Estimated contract value in USD
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contract_value_type">Value Type</Label>
+              <Select
+                value={proposalData.contract_value_type || "estimated"}
+                onValueChange={(value) => setProposalData({...proposalData, contract_value_type: value})}
+              >
+                <SelectTrigger id="contract_value_type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="estimated">Estimated</SelectItem>
+                  <SelectItem value="ceiling">Ceiling</SelectItem>
+                  <SelectItem value="exact">Exact</SelectItem>
+                  <SelectItem value="target">Target</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-slate-500">
+                Type of value estimate
+              </p>
+            </div>
+          </div>
+
+          {proposalData.contract_value > 0 && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-green-600" />
+                <span className="font-semibold text-green-900">Contract Value Summary</span>
+              </div>
+              <div className="text-sm text-green-800">
+                <p>
+                  <strong>{proposalData.contract_value_type?.charAt(0).toUpperCase() + proposalData.contract_value_type?.slice(1) || 'Estimated'} Value:</strong>{' '}
+                  ${proposalData.contract_value.toLocaleString()} USD
+                </p>
+                {proposalData.contract_value >= 1000000 && (
+                  <p className="mt-1">
+                    That's approximately <strong>${(proposalData.contract_value / 1000000).toFixed(2)}M</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="border-t pt-6">
