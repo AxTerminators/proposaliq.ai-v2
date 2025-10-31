@@ -1,54 +1,77 @@
-
 import React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Award } from "lucide-react";
-import { format } from "date-fns";
+import {
+  Calendar,
+  DollarSign,
+  Users,
+  Clock,
+  Target,
+  Award,
+  TrendingDown,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  MoreVertical
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { createPageUrl } from "@/utils";
+import moment from "moment";
 
 export default function KanbanCard({ proposal, onClick, user, organization }) {
-  const priorityColors = {
-    low: "bg-blue-100 text-blue-800",
-    medium: "bg-yellow-100 text-yellow-800",
-    high: "bg-red-100 text-red-800"
+  const getStatusColor = (status) => {
+    const colors = {
+      evaluating: "#3b82f6",
+      watch_list: "#eab308",
+      draft: "#64748b",
+      in_progress: "#f97316",
+      submitted: "#8b5cf6",
+      won: "#10b981",
+      lost: "#ef4444",
+      archived: "#94a3b8"
+    };
+    return colors[status] || "#64748b";
   };
 
-  // Define colors for borderLeft based on status
-  const getStatusBorderColor = (status) => {
-    switch (status) {
-      case 'qualified': return '#facc15'; // yellow-500
-      case 'proposal_sent': return '#3b82f6'; // blue-500
-      case 'negotiation': return '#ec4899'; // pink-500
-      case 'won': return '#22c55e'; // green-500
-      case 'lost': return '#ef4444'; // red-500
-      default: return '#cbd5e1'; // slate-300
-    }
-  };
-
-  // Define classes for status badge background and text colors
-  const getStatusBadgeClasses = (status) => {
-    switch (status) {
-      case 'qualified': return 'bg-yellow-500 text-white';
-      case 'proposal_sent': return 'bg-blue-500 text-white';
-      case 'negotiation': return 'bg-pink-500 text-white';
-      case 'won': return 'bg-green-500 text-white';
-      case 'lost': return 'bg-red-500 text-white';
-      default: return 'bg-slate-500 text-white';
-    }
-  };
-
-  // This function is mentioned in the outline placeholder but not used in the provided structure for icons.
-  // Keeping it as a placeholder as per instruction for completeness.
   const getStatusIcon = (status) => {
-    return null;
+    const icons = {
+      evaluating: Target,
+      watch_list: Eye,
+      draft: AlertCircle,
+      in_progress: Clock,
+      submitted: CheckCircle2,
+      won: Award,
+      lost: TrendingDown,
+      archived: AlertCircle
+    };
+    const Icon = icons[status] || AlertCircle;
+    return <Icon className="w-4 h-4" />;
   };
 
-  // Placeholder for createPageUrl function
-  const createPageUrl = (path) => {
-    // In a real application, this would typically integrate with a routing library or be a global helper.
-    return `/${path}`;
+  const getStatusLabel = (status) => {
+    const labels = {
+      evaluating: "Evaluating",
+      watch_list: "Watch List",
+      draft: "Draft",
+      in_progress: "In Progress",
+      submitted: "Submitted",
+      won: "Won",
+      lost: "Lost",
+      archived: "Archived"
+    };
+    return labels[status] || status;
   };
+
+  const daysUntilDue = proposal.due_date
+    ? Math.ceil((new Date(proposal.due_date) - new Date()) / (1000 * 60 * 60 * 24))
+    : null;
 
   return (
     <motion.div
@@ -56,67 +79,117 @@ export default function KanbanCard({ proposal, onClick, user, organization }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="group mb-3"
+      className="group"
     >
-      <Card
+      <Card 
         className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4"
-        style={{ borderLeftColor: getStatusBorderColor(proposal.status) }}
-        onClick={() => onClick && onClick(proposal)}
+        style={{ borderLeftColor: getStatusColor(proposal.status) }}
+        onClick={onClick}
       >
         <CardContent className="p-4">
           <div className="space-y-3">
-            {/* Proposal Name */}
-            <h4 className="font-semibold text-sm text-slate-900 line-clamp-2">
-              {proposal.proposal_name}
-            </h4>
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-slate-900 line-clamp-2 flex-1">
+                {proposal.proposal_name}
+              </h3>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onClick();
+                  }}>
+                    Open Proposal
+                  </DropdownMenuItem>
+                  {(proposal.status === 'won' || proposal.status === 'lost') && (
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      window.location.href = createPageUrl(`WinLossCapture?proposalId=${proposal.id}`);
+                    }}>
+                      Capture Win/Loss
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-            {/* Agency Name */}
+            {/* Status Badge */}
+            <Badge 
+              className="flex items-center gap-1 w-fit"
+              style={{ 
+                backgroundColor: getStatusColor(proposal.status),
+                color: 'white'
+              }}
+            >
+              {getStatusIcon(proposal.status)}
+              {getStatusLabel(proposal.status)}
+            </Badge>
+
+            {/* Agency */}
             {proposal.agency_name && (
-              <p className="text-xs text-slate-600 truncate -mt-2">
+              <p className="text-sm text-slate-600 line-clamp-1">
                 {proposal.agency_name}
               </p>
             )}
 
-            {/* Status Badge */}
-            {proposal.status && (
-              <Badge className={`text-xs capitalize ${getStatusBadgeClasses(proposal.status)}`}>
-                {proposal.status.replace(/_/g, ' ')}
-              </Badge>
-            )}
+            {/* Metadata */}
+            <div className="space-y-1.5 text-xs text-slate-600">
+              {proposal.due_date && (
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>
+                    {moment(proposal.due_date).format('MMM D, YYYY')}
+                    {daysUntilDue !== null && daysUntilDue >= 0 && (
+                      <span className={`ml-1 ${daysUntilDue <= 7 ? 'text-red-600 font-semibold' : ''}`}>
+                        ({daysUntilDue}d)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
 
-            {/* Project Type and Match Score Badges */}
-            <div className="flex flex-wrap gap-1">
-              <Badge variant="outline" className="text-xs capitalize">
-                {proposal.project_type || "RFP"}
-              </Badge>
-              {proposal.match_score && (
-                <Badge className="text-xs bg-green-100 text-green-800">
-                  {proposal.match_score}% match
-                </Badge>
+              {proposal.contract_value && (
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>${(proposal.contract_value / 1000000).toFixed(1)}M</span>
+                </div>
+              )}
+
+              {proposal.teaming_partner_ids?.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{proposal.teaming_partner_ids.length} partners</span>
+                </div>
               )}
             </div>
 
-            {/* Due Date */}
-            {proposal.due_date && (
-              <div className="flex items-center gap-1 text-xs text-slate-600">
-                <Calendar className="w-3 h-3" />
-                <span>Due {format(new Date(proposal.due_date), 'MMM d, yyyy')}</span>
-              </div>
-            )}
-
-            {/* Add Win/Loss Capture button for won/lost proposals */}
+            {/* Win/Loss Capture Button for won/lost proposals */}
             {(proposal.status === 'won' || proposal.status === 'lost') && (
               <Button
                 variant="outline"
                 size="sm"
                 className="w-full mt-2"
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent card onClick from firing
+                  e.stopPropagation();
                   window.location.href = createPageUrl(`WinLossCapture?proposalId=${proposal.id}`);
                 }}
               >
-                <Award className="w-4 h-4 mr-2" />
-                Capture Win/Loss Insights
+                {proposal.status === 'won' ? (
+                  <>
+                    <Award className="w-4 h-4 mr-2" />
+                    Capture Win Insights
+                  </>
+                ) : (
+                  <>
+                    <TrendingDown className="w-4 h-4 mr-2" />
+                    Capture Loss Insights
+                  </>
+                )}
               </Button>
             )}
           </div>
