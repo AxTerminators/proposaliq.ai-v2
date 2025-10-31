@@ -28,11 +28,17 @@ import {
   Globe,
   Loader2,
   Eye,
-  Download
+  Download,
+  Filter,
+  Award,
+  CheckCircle2,
+  Sparkles,
+  BookOpen
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function TemplatesLibrary() {
   const navigate = useNavigate();
@@ -40,6 +46,8 @@ export default function TemplatesLibrary() {
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [filterAgency, setFilterAgency] = useState("all");
+  const [filterIndustry, setFilterIndustry] = useState("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -196,9 +204,20 @@ export default function TemplatesLibrary() {
       template.agency_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesType = filterType === "all" || template.template_type === filterType;
+    const matchesAgency = filterAgency === "all" || template.agency_name === filterAgency;
+    const matchesIndustry = filterIndustry === "all" || template.industry === filterIndustry;
 
-    return matchesSearch && matchesType;
+    return matchesSearch && matchesType && matchesAgency && matchesIndustry;
   });
+
+  // Get unique values for filters
+  const uniqueAgencies = [...new Set(templates.filter(t => t.agency_name).map(t => t.agency_name))];
+  const uniqueIndustries = [...new Set(templates.filter(t => t.industry).map(t => t.industry))];
+
+  // Categorize templates
+  const systemTemplates = filteredTemplates.filter(t => t.is_system_template);
+  const myTemplates = filteredTemplates.filter(t => !t.is_system_template && t.organization_id === organization?.id);
+  const publicTemplates = filteredTemplates.filter(t => !t.is_system_template && t.is_public && t.organization_id !== organization?.id);
 
   const getTemplateIcon = (type) => {
     switch (type) {
@@ -207,6 +226,120 @@ export default function TemplatesLibrary() {
       case 'industry': return Briefcase;
       default: return Globe;
     }
+  };
+
+  const TemplateCard = ({ template }) => {
+    const Icon = getTemplateIcon(template.template_type);
+    
+    return (
+      <Card className="border-none shadow-lg hover:shadow-xl transition-all group">
+        <CardHeader>
+          <div className="flex items-start justify-between mb-2">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+              <Icon className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex gap-2">
+              {template.is_system_template && (
+                <Badge className="bg-amber-100 text-amber-700">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Official
+                </Badge>
+              )}
+              {template.is_public && !template.is_system_template && (
+                <Badge variant="outline" className="text-blue-600">
+                  <Globe className="w-3 h-3 mr-1" />
+                  Community
+                </Badge>
+              )}
+              {template.average_win_rate && (
+                <Badge variant="outline" className="text-green-600">
+                  <Award className="w-3 h-3 mr-1" />
+                  {Math.round(template.average_win_rate)}% Win Rate
+                </Badge>
+              )}
+            </div>
+          </div>
+          <CardTitle className="text-lg">{template.template_name}</CardTitle>
+          <CardDescription className="line-clamp-2">
+            {template.description || "No description provided"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Badge variant="outline" className="capitalize">
+              {template.template_type.replace(/_/g, ' ')}
+            </Badge>
+            {template.agency_name && (
+              <Badge variant="outline">{template.agency_name}</Badge>
+            )}
+            {template.contract_type && (
+              <Badge variant="outline">{template.contract_type}</Badge>
+            )}
+            {template.industry && (
+              <Badge variant="outline" className="capitalize">
+                {template.industry.replace(/_/g, ' ')}
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 text-sm text-slate-600 mb-4">
+            {template.sections?.length > 0 && (
+              <span className="flex items-center gap-1">
+                <FileText className="w-4 h-4" />
+                {template.sections.length} sections
+              </span>
+            )}
+            {template.usage_count > 0 && (
+              <span className="flex items-center gap-1">
+                <Copy className="w-4 h-4" />
+                {template.usage_count}x used
+              </span>
+            )}
+            {template.estimated_completion_time_hours && (
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                ~{template.estimated_completion_time_hours}h
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleUseTemplate(template)}
+              disabled={useTemplateMutation.isPending}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {useTemplateMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
+              Use Template
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setSelectedTemplate(template);
+                setShowPreview(true);
+              }}
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+            {!template.is_system_template && template.organization_id === organization?.id && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleDeleteTemplate(template)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (!organization) {
@@ -223,7 +356,7 @@ export default function TemplatesLibrary() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Proposal Templates</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Template Marketplace</h1>
             <p className="text-slate-600">Start faster with pre-built proposal structures</p>
           </div>
           <Button onClick={() => setShowCreateDialog(true)} className="bg-blue-600 hover:bg-blue-700">
@@ -237,10 +370,22 @@ export default function TemplatesLibrary() {
           <Card className="border-none shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
+                <Sparkles className="w-8 h-8 text-amber-500" />
+                <div className="text-right">
+                  <p className="text-2xl font-bold">{systemTemplates.length}</p>
+                  <p className="text-xs text-slate-600">Official Templates</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
                 <FileText className="w-8 h-8 text-blue-500" />
                 <div className="text-right">
-                  <p className="text-2xl font-bold">{templates.length}</p>
-                  <p className="text-xs text-slate-600">Total Templates</p>
+                  <p className="text-2xl font-bold">{myTemplates.length}</p>
+                  <p className="text-xs text-slate-600">My Templates</p>
                 </div>
               </div>
             </CardContent>
@@ -249,26 +394,10 @@ export default function TemplatesLibrary() {
           <Card className="border-none shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <Star className="w-8 h-8 text-amber-500" />
+                <Globe className="w-8 h-8 text-purple-500" />
                 <div className="text-right">
-                  <p className="text-2xl font-bold">
-                    {templates.filter(t => t.is_system_template).length}
-                  </p>
-                  <p className="text-xs text-slate-600">System Templates</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <Copy className="w-8 h-8 text-purple-500" />
-                <div className="text-right">
-                  <p className="text-2xl font-bold">
-                    {templates.filter(t => !t.is_system_template).length}
-                  </p>
-                  <p className="text-xs text-slate-600">Custom Templates</p>
+                  <p className="text-2xl font-bold">{publicTemplates.length}</p>
+                  <p className="text-xs text-slate-600">Community Templates</p>
                 </div>
               </div>
             </CardContent>
@@ -282,7 +411,7 @@ export default function TemplatesLibrary() {
                   <p className="text-2xl font-bold">
                     {templates.reduce((sum, t) => sum + (t.usage_count || 0), 0)}
                   </p>
-                  <p className="text-xs text-slate-600">Times Used</p>
+                  <p className="text-xs text-slate-600">Total Uses</p>
                 </div>
               </div>
             </CardContent>
@@ -292,33 +421,81 @@ export default function TemplatesLibrary() {
         {/* Search & Filter */}
         <Card className="border-none shadow-lg mb-6">
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  placeholder="Search templates by name, description, or agency..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <Input
+                    placeholder="Search templates by name, description, or agency..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="agency_specific">Agency Specific</SelectItem>
-                  <SelectItem value="contract_type">Contract Type</SelectItem>
-                  <SelectItem value="industry">Industry</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              <div className="flex flex-wrap gap-3">
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="agency_specific">Agency Specific</SelectItem>
+                    <SelectItem value="contract_type">Contract Type</SelectItem>
+                    <SelectItem value="industry">Industry</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {uniqueAgencies.length > 0 && (
+                  <Select value={filterAgency} onValueChange={setFilterAgency}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Filter by agency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Agencies</SelectItem>
+                      {uniqueAgencies.map(agency => (
+                        <SelectItem key={agency} value={agency}>{agency}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {uniqueIndustries.length > 0 && (
+                  <Select value={filterIndustry} onValueChange={setFilterIndustry}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Filter by industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Industries</SelectItem>
+                      {uniqueIndustries.map(industry => (
+                        <SelectItem key={industry} value={industry} className="capitalize">
+                          {industry.replace(/_/g, ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {(filterType !== "all" || filterAgency !== "all" || filterIndustry !== "all") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFilterType("all");
+                      setFilterAgency("all");
+                      setFilterIndustry("all");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Templates Grid */}
+        {/* Templates Grid with Tabs */}
         {isLoading ? (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
@@ -330,7 +507,7 @@ export default function TemplatesLibrary() {
               <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">No Templates Found</h3>
               <p className="text-slate-600 mb-6">
-                {searchQuery ? "Try adjusting your search" : "Create your first template to get started"}
+                {searchQuery ? "Try adjusting your search or filters" : "Create your first template to get started"}
               </p>
               {!searchQuery && (
                 <Button onClick={() => setShowCreateDialog(true)}>
@@ -341,107 +518,81 @@ export default function TemplatesLibrary() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => {
-              const Icon = getTemplateIcon(template.template_type);
-              return (
-                <Card key={template.id} className="border-none shadow-lg hover:shadow-xl transition-all group">
-                  <CardHeader>
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex gap-2">
-                        {template.is_system_template && (
-                          <Badge className="bg-amber-100 text-amber-700">
-                            <Star className="w-3 h-3 mr-1" />
-                            System
-                          </Badge>
-                        )}
-                        {template.average_win_rate && (
-                          <Badge variant="outline" className="text-green-600">
-                            {Math.round(template.average_win_rate)}% Win Rate
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <CardTitle className="text-lg">{template.template_name}</CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {template.description || "No description provided"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge variant="outline" className="capitalize">
-                        {template.template_type.replace(/_/g, ' ')}
-                      </Badge>
-                      {template.agency_name && (
-                        <Badge variant="outline">{template.agency_name}</Badge>
-                      )}
-                      {template.contract_type && (
-                        <Badge variant="outline">{template.contract_type}</Badge>
-                      )}
-                      {template.industry && (
-                        <Badge variant="outline" className="capitalize">
-                          {template.industry.replace(/_/g, ' ')}
-                        </Badge>
-                      )}
-                    </div>
+          <Tabs defaultValue="all" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="all">
+                All Templates ({filteredTemplates.length})
+              </TabsTrigger>
+              <TabsTrigger value="official">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Official ({systemTemplates.length})
+              </TabsTrigger>
+              <TabsTrigger value="mine">
+                <FileText className="w-4 h-4 mr-2" />
+                My Templates ({myTemplates.length})
+              </TabsTrigger>
+              {publicTemplates.length > 0 && (
+                <TabsTrigger value="community">
+                  <Globe className="w-4 h-4 mr-2" />
+                  Community ({publicTemplates.length})
+                </TabsTrigger>
+              )}
+            </TabsList>
 
-                    <div className="flex items-center gap-2 text-sm text-slate-600 mb-4">
-                      {template.sections?.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" />
-                          {template.sections.length} sections
-                        </span>
-                      )}
-                      {template.usage_count > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Copy className="w-4 h-4" />
-                          Used {template.usage_count}x
-                        </span>
-                      )}
-                    </div>
+            <TabsContent value="all" className="space-y-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTemplates.map((template) => (
+                  <TemplateCard key={template.id} template={template} />
+                ))}
+              </div>
+            </TabsContent>
 
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleUseTemplate(template)}
-                        disabled={useTemplateMutation.isPending}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      >
-                        {useTemplateMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Plus className="w-4 h-4 mr-2" />
-                        )}
-                        Use Template
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedTemplate(template);
-                          setShowPreview(true);
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      {!template.is_system_template && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleDeleteTemplate(template)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
+            <TabsContent value="official" className="space-y-6">
+              {systemTemplates.length === 0 ? (
+                <p className="text-center text-slate-500 py-12">No official templates available</p>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {systemTemplates.map((template) => (
+                    <TemplateCard key={template.id} template={template} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="mine" className="space-y-6">
+              {myTemplates.length === 0 ? (
+                <Card className="border-2 border-dashed">
+                  <CardContent className="p-12 text-center">
+                    <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">No Custom Templates Yet</h3>
+                    <p className="text-slate-600 mb-6">
+                      Create your own templates for faster proposal creation
+                    </p>
+                    <Button onClick={() => setShowCreateDialog(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Template
+                    </Button>
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {myTemplates.map((template) => (
+                    <TemplateCard key={template.id} template={template} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {publicTemplates.length > 0 && (
+              <TabsContent value="community" className="space-y-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {publicTemplates.map((template) => (
+                    <TemplateCard key={template.id} template={template} />
+                  ))}
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
         )}
 
         {/* Create Template Dialog */}
