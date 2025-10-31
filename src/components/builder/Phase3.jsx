@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -136,12 +137,10 @@ Return as valid JSON with these exact keys: solicitation_number, agency_name, pr
             return [...new Set(combined)];
           });
         }
-        
-        alert(`✓ AI extracted data from ${fileName}!`);
       }
     } catch (error) {
-      console.error("Error extracting data:", error);
-      alert(`Note: Could not auto-extract data from ${fileName}. You can still manually enter the details.`);
+      console.error("Error extracting basic data:", error);
+      // Don't show alert - the Deep AI Analysis will handle full extraction
     } finally {
       setIsExtracting(false);
     }
@@ -413,6 +412,7 @@ Return as detailed JSON following this schema:
         setUploadedDocs(prev => [...prev, { name: file.name, url: file_url, type: docType }]);
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
         
+        // Silent basic extraction - no alerts on failure
         if (['rfp', 'rfq', 'sow', 'pws'].includes(docType)) {
           await extractSolicitationData(file_url, file.name);
         }
@@ -754,7 +754,7 @@ Return a JSON array of evaluation factor names.`;
                   <div>
                     <p className="text-sm font-medium text-indigo-900">Smart Document Reading + Data Privacy</p>
                     <p className="text-xs text-indigo-700 mt-1">
-                      AI will automatically read all document types and auto-populate fields
+                      AI will automatically analyze your PDF documents and extract compliance requirements
                     </p>
                     <p className="text-xs text-indigo-700 mt-1">
                       🔒 <strong>Your documents stay private to your organization - never shared with others</strong>
@@ -764,21 +764,21 @@ Return a JSON array of evaluation factor names.`;
               </div>
               
               <p className="text-sm text-slate-600 mb-4">
-                Supported: PDF, DOCX, XLSX, CSV, PNG, JPG, JPEG, TXT, PPTX (up to 30MB)
+                Supported: <strong>PDF files only</strong> (up to 30MB per file)
               </p>
               
               <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.docx,.xlsx,.csv,.png,.jpg,.jpeg,.txt,.pptx"
+                  accept=".pdf"
                   onChange={(e) => handleFileUpload(Array.from(e.target.files))}
                   className="hidden"
                   id="file-upload"
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                  <p className="text-slate-700 font-medium mb-1">Click to upload files</p>
+                  <p className="text-slate-700 font-medium mb-1">Click to upload PDF files</p>
                   <p className="text-sm text-slate-500">or drag and drop</p>
                 </label>
               </div>
