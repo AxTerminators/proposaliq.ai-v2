@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function AIInsightsCard({ proposals, opportunities }) {
+export default function AIInsightsCard({ proposals = [], opportunities = [] }) {
   const [loading, setLoading] = useState(false);
 
   // Generate AI insights based on data
@@ -23,7 +23,8 @@ export default function AIInsightsCard({ proposals, opportunities }) {
 
     // Active proposals needing attention
     const staleProposals = proposals.filter(p => {
-      if (!['in_progress', 'draft'].includes(p.status)) return false;
+      if (!p || !['in_progress', 'draft'].includes(p.status)) return false;
+      if (!p.updated_date) return false;
       const daysSinceUpdate = Math.floor(
         (new Date() - new Date(p.updated_date)) / (1000 * 60 * 60 * 24)
       );
@@ -42,7 +43,7 @@ export default function AIInsightsCard({ proposals, opportunities }) {
     }
 
     // High-match opportunities
-    const highMatchOpps = opportunities.filter(o => o.match_score >= 80);
+    const highMatchOpps = opportunities.filter(o => o && o.match_score >= 80);
     if (highMatchOpps.length > 0) {
       insights.push({
         type: "opportunity",
@@ -56,21 +57,22 @@ export default function AIInsightsCard({ proposals, opportunities }) {
 
     // Win rate trend
     const recentWon = proposals.filter(p => {
-      if (p.status !== 'won') return false;
+      if (!p || p.status !== 'won' || !p.updated_date) return false;
       const monthsAgo = (new Date() - new Date(p.updated_date)) / (1000 * 60 * 60 * 24 * 30);
       return monthsAgo <= 3;
     }).length;
 
     const recentLost = proposals.filter(p => {
-      if (p.status !== 'lost') return false;
+      if (!p || p.status !== 'lost' || !p.updated_date) return false;
       const monthsAgo = (new Date() - new Date(p.updated_date)) / (1000 * 60 * 60 * 24 * 30);
       return monthsAgo <= 3;
     }).length;
 
     if (recentWon + recentLost >= 3) {
       const recentWinRate = (recentWon / (recentWon + recentLost)) * 100;
-      const overallWinRate = (proposals.filter(p => p.status === 'won').length / 
-        Math.max(proposals.filter(p => ['won', 'lost'].includes(p.status)).length, 1)) * 100;
+      const wonProposals = proposals.filter(p => p?.status === 'won').length;
+      const allDecided = proposals.filter(p => p && ['won', 'lost'].includes(p.status)).length;
+      const overallWinRate = allDecided > 0 ? (wonProposals / allDecided) * 100 : 0;
 
       if (recentWinRate > overallWinRate + 10) {
         insights.push({
@@ -95,7 +97,7 @@ export default function AIInsightsCard({ proposals, opportunities }) {
 
     // Deadlines approaching
     const upcomingDeadlines = proposals.filter(p => {
-      if (!p.due_date || !['in_progress', 'draft'].includes(p.status)) return false;
+      if (!p || !p.due_date || !['in_progress', 'draft'].includes(p.status)) return false;
       const daysUntil = Math.floor(
         (new Date(p.due_date) - new Date()) / (1000 * 60 * 60 * 24)
       );
