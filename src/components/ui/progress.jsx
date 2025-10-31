@@ -4,12 +4,14 @@ import * as ProgressPrimitive from "@radix-ui/react-progress"
 import { cn } from "@/lib/utils"
 
 const Progress = React.forwardRef(({ className, value, ...props }, ref) => {
-  // Determine color based on progress value
+  // Determine color based on progress value - each phase completion turns more green
   const getProgressColor = (val) => {
-    if (val >= 100) return "bg-green-600"; // Completed - green
-    if (val >= 80) return "bg-green-500"; // Almost done - light green
-    if (val >= 50) return "bg-blue-600"; // In progress - blue
-    return "bg-slate-600"; // Just started - gray
+    if (val >= 85) return "bg-green-600"; // Phase 6-7: Full green
+    if (val >= 71) return "bg-green-500"; // Phase 5: Light green
+    if (val >= 57) return "bg-blue-600"; // Phase 4: Blue (in progress)
+    if (val >= 43) return "bg-blue-500"; // Phase 3: Light blue
+    if (val >= 29) return "bg-indigo-500"; // Phase 2: Indigo
+    return "bg-slate-600"; // Phase 1: Gray (just started)
   };
 
   return (
