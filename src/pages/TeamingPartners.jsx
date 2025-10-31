@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,10 @@ import {
   CheckCircle2,
   Loader2,
   Tag,
-  Sparkles
+  Sparkles,
+  MapPin, // Added
+  Star, // Added
+  Download // Added
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -701,7 +704,7 @@ export default function TeamingPartners() {
                             )}
                             {selectedPartner.address && (
                               <div className="flex items-start gap-2">
-                                <Building2 className="w-4 h-4 text-slate-400 mt-0.5" />
+                                <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
                                 <span>{selectedPartner.address}</span>
                               </div>
                             )}
@@ -929,7 +932,7 @@ export default function TeamingPartners() {
                               <div className="flex gap-2">
                                 <Button size="sm" variant="ghost" asChild>
                                   <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                    <Globe className="w-4 h-4" />
+                                    <Download className="w-4 h-4" />
                                   </a>
                                 </Button>
                                 <Button 
