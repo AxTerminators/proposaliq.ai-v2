@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -205,7 +206,7 @@ export default function ProposalBuilder() {
   const isDataLoaded = proposalId && user && organization;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-32">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -321,7 +322,7 @@ export default function ProposalBuilder() {
               </div>
 
               {currentPhase !== "phase7" && (
-                <div className="flex justify-between">
+                <div className="flex justify-between max-w-4xl">
                   <Button
                     variant="outline"
                     onClick={handlePrevious}
@@ -392,7 +393,7 @@ export default function ProposalBuilder() {
             </div>
 
             {currentPhase !== "phase7" && (
-              <div className="flex justify-between">
+              <div className="flex justify-between max-w-4xl">
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
@@ -415,7 +416,7 @@ export default function ProposalBuilder() {
         )}
       </div>
 
-      {/* Floating AI Chat Button */}
+      {/* Floating AI Chat Button - Now Draggable */}
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
 
       {/* Delete Confirmation Dialog */}
