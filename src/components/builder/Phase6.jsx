@@ -159,7 +159,7 @@ const PROPOSAL_SECTIONS = [
   }
 ];
 
-export default function Phase6({ proposalData, setProposalData, proposalId }) {
+export default function Phase6({ proposalData, setProposalData, proposalId, onNavigateToPhase }) {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
   const [strategy, setStrategy] = useState(null);
@@ -1021,8 +1021,9 @@ The content should be ready to insert into the proposal document. Use HTML forma
             size="lg"
             className="flex-1 bg-green-600 hover:bg-green-700"
             onClick={() => {
-              const event = new CustomEvent('navigateToPhase', { detail: 'phase7' });
-              window.dispatchEvent(event);
+              if (onNavigateToPhase) {
+                onNavigateToPhase('phase7');
+              }
             }}
           >
             Continue to Finalize
