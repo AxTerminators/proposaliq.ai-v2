@@ -4,9 +4,27 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Target, Sparkles, AlertCircle, CheckCircle2, XCircle, Loader2, TrendingUp, Shield, Lightbulb, FileText, ChevronDown, ChevronUp, Users, Award, Brain } from "lucide-react";
+import {
+  Target,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  TrendingUp,
+  Shield,
+  Lightbulb,
+  FileText,
+  Users,
+  Award
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
   Accordion,
@@ -22,28 +40,24 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
   const [evaluation, setEvaluation] = useState(null);
   const [currentOrgId, setCurrentOrgId] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
-  
-  // New AI Scoring state
-  const [isScoring, setIsScoring] = useState(false);
-  const [aiScore, setAiScore] = useState(null);
 
   // Helper function to process documents - extracts text from office files
   const processDocuments = async (documents) => {
     if (!documents || documents.length === 0) return { fileUrls: [], extractedTexts: [] };
-    
+
     const pdfImageExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp'];
     const officeExtensions = ['.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt', '.txt'];
-    
+
     const fileUrls = [];
     const extractedTexts = [];
-    
+
     for (const doc of documents.slice(0, 15)) { // Process up to 15 documents
       if (!doc.file_url || !doc.file_name) continue;
-      
+
       const fileName = doc.file_name.toLowerCase();
       const isPdfOrImage = pdfImageExtensions.some(ext => fileName.endsWith(ext));
       const isOfficeDoc = officeExtensions.some(ext => fileName.endsWith(ext));
-      
+
       if (isPdfOrImage) {
         // PDF and images can be sent directly
         fileUrls.push(doc.file_url);
@@ -52,12 +66,12 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
         try {
           console.log(`Extracting text from: ${doc.file_name}`);
           const extractPrompt = `Extract and return ALL text content from this document. Preserve the structure and formatting as much as possible. Include all sections, headings, tables, and body text.`;
-          
+
           const extractedContent = await base44.integrations.Core.InvokeLLM({
             prompt: extractPrompt,
             file_urls: [doc.file_url]
           });
-          
+
           if (extractedContent) {
             extractedTexts.push({
               fileName: doc.file_name,
@@ -71,7 +85,7 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
         }
       }
     }
-    
+
     return { fileUrls, extractedTexts };
   };
 
@@ -85,7 +99,7 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
           1
         );
         if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
+          setCurrentOrgId(orgs[0].id); // Ensure currentOrgId is the ID
         }
       } catch (error) {
         console.error("Error loading org:", error);
@@ -100,9 +114,6 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
         const proposals = await base44.entities.Proposal.filter({ id: proposalId });
         if (proposals.length > 0 && proposals[0].evaluation_results) {
           setEvaluation(JSON.parse(proposals[0].evaluation_results));
-        }
-        if (proposals.length > 0 && proposals[0].ai_confidence_score) {
-          setAiScore(JSON.parse(proposals[0].ai_confidence_score));
         }
       } catch (error) {
         console.error("Error loading evaluation:", error);
@@ -213,7 +224,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
   "win_probability": <string: "high", "medium", "low">,
   "go_no_go_recommendation": <string: "go", "cautious_go", "no_go">,
   "executive_summary": <string: 2-3 sentence overall assessment>,
-  
+
   "requirement_analysis": {
     "key_requirements": [
       {
@@ -232,7 +243,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
       }
     ]
   },
-  
+
   "competitive_analysis": {
     "our_strengths": [<string: specific advantages>],
     "our_weaknesses": [<string: specific disadvantages>],
@@ -240,7 +251,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
     "differentiators": [<string: what makes us unique>],
     "win_themes": [<string: key themes to emphasize in proposal>]
   },
-  
+
   "gap_analysis": {
     "critical_gaps": [
       {
@@ -253,7 +264,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
     "resource_gaps": [<string>],
     "partnership_needs": [<string>]
   },
-  
+
   "compliance_checklist": [
     {
       "requirement": <string: mandatory requirement>,
@@ -262,21 +273,21 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
       "notes": <string>
     }
   ],
-  
+
   "risk_assessment": {
     "technical_risks": [{"risk": <string>, "severity": <string>, "mitigation": <string>}],
     "schedule_risks": [{"risk": <string>, "severity": <string>, "mitigation": <string>}],
     "cost_risks": [{"risk": <string>, "severity": <string>, "mitigation": <string>}],
     "compliance_risks": [{"risk": <string>, "severity": <string>, "mitigation": <string>}]
   },
-  
+
   "strategic_recommendations": {
     "immediate_actions": [<string: actions to take now>],
     "team_building": [<string: who to add to team>],
     "content_priorities": [<string: what sections need most attention>],
     "pricing_strategy": <string: preliminary pricing guidance>
   },
-  
+
   "key_dates_extracted": [
     {
       "date": <string>,
@@ -335,244 +346,6 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
     setIsEvaluating(false);
   };
 
-  const runAIScoring = async () => {
-    if (!proposalId || !currentOrgId) {
-      alert("Please save the proposal first");
-      return;
-    }
-
-    setIsScoring(true);
-    try {
-      // Gather comprehensive data
-      const [
-        organization,
-        solicitationDocs,
-        proposalSections,
-        pastPerformance,
-        competitors,
-        winThemes,
-        complianceReqs,
-        allProposals,
-        pricingStrategy
-      ] = await Promise.all([
-        base44.entities.Organization.filter({ id: currentOrgId }).then(r => r.length > 0 ? r[0] : null),
-        base44.entities.SolicitationDocument.filter({ proposal_id: proposalId, organization_id: currentOrgId }),
-        base44.entities.ProposalSection.filter({ proposal_id: proposalId }),
-        base44.entities.PastPerformance.filter({ organization_id: currentOrgId }),
-        base44.entities.CompetitorIntel.filter({ organization_id: currentOrgId }),
-        base44.entities.WinTheme.filter({ proposal_id: proposalId }),
-        base44.entities.ComplianceRequirement.filter({ proposal_id: proposalId }),
-        base44.entities.Proposal.filter({ organization_id: currentOrgId }),
-        base44.entities.PricingStrategy.filter({ proposal_id: proposalId }).then(r => r.length > 0 ? r[0] : null)
-      ]);
-
-      // Calculate historical win rate
-      const completedProposals = allProposals.filter(p => ['won', 'lost'].includes(p.status));
-      const wonProposals = completedProposals.filter(p => p.status === 'won');
-      const historicalWinRate = completedProposals.length > 0 
-        ? (wonProposals.length / completedProposals.length) * 100 
-        : 0;
-
-      // Process documents - extract text from office files
-      console.log("Processing documents for AI Scoring...");
-      const { fileUrls, extractedTexts } = await processDocuments(solicitationDocs);
-      console.log(`Processed: ${fileUrls.length} PDFs/images, ${extractedTexts.length} office documents`);
-
-      // Build extracted documents context
-      let extractedDocsContext = "";
-      if (extractedTexts.length > 0) {
-        extractedDocsContext = "\n\n**EXTRACTED DOCUMENT CONTENTS:**\n\n";
-        extractedTexts.forEach((doc, idx) => {
-          extractedDocsContext += `--- Document ${idx + 1}: ${doc.fileName} ---\n${doc.content}\n\n`;
-        });
-      }
-
-      const prompt = `You are an elite AI proposal evaluator with expertise in government contracting, bid/no-bid analysis, and predictive win probability modeling.
-
-**YOUR MISSION:** Provide a comprehensive, data-driven confidence score for this proposal's likelihood of winning, identifying specific strengths, weaknesses, risks, and actionable recommendations.
-
-**ORGANIZATION PROFILE:**
-- Name: ${organization?.organization_name || 'N/A'}
-- NAICS: ${organization?.primary_naics || 'N/A'}
-- Certifications: ${organization?.certifications?.join(', ') || 'None'}
-- Historical Win Rate: ${historicalWinRate.toFixed(1)}%
-- Total Past Proposals: ${completedProposals.length}
-- Wins: ${wonProposals.length} | Losses: ${completedProposals.length - wonProposals.length}
-
-**OPPORTUNITY:**
-- Proposal: ${proposalData.proposal_name}
-- Type: ${proposalData.project_type}
-- Agency: ${proposalData.agency_name}
-- Solicitation: ${proposalData.solicitation_number}
-- Due Date: ${proposalData.due_date}
-- Phase: ${proposalData.current_phase}
-
-**PROPOSAL CONTENT:**
-- Sections Written: ${proposalSections.length}
-- Total Words: ${proposalSections.reduce((sum, s) => sum + (s.word_count || 0), 0)}
-- Win Themes Defined: ${winThemes.length}
-- Compliance Requirements: ${complianceReqs.length} (${complianceReqs.filter(c => c.compliance_status === 'compliant').length} compliant)
-
-**COMPETITIVE LANDSCAPE:**
-- Known Competitors: ${competitors.length}
-- Past Performance Projects: ${pastPerformance.length}
-- Relevant Past Performance: ${pastPerformance.filter(p => p.client_type === 'federal').length}
-
-**PRICING:**
-- Pricing Strategy: ${pricingStrategy?.pricing_approach || 'Not defined'}
-- Win Probability at Price: ${pricingStrategy?.win_probability_at_price || 'N/A'}
-
-**DOCUMENTS AVAILABLE:**
-- Total Documents: ${solicitationDocs.length}
-- PDFs/Images: ${fileUrls.length}
-- Office Documents Processed: ${extractedTexts.length}
-
-${extractedDocsContext}
-
-**ANALYZE THE FOLLOWING:**
-1. Requirements coverage & compliance
-2. Content quality & persuasiveness
-3. Win theme execution
-4. Competitive positioning
-5. Past performance relevance
-6. Team strength
-7. Pricing competitiveness
-8. Risk factors
-
-Return a comprehensive JSON analysis with:
-
-{
-  "confidence_score": <number 0-100: AI confidence in winning>,
-  "score_breakdown": {
-    "requirements_alignment": <number 0-100>,
-    "content_quality": <number 0-100>,
-    "win_theme_execution": <number 0-100>,
-    "competitive_strength": <number 0-100>,
-    "past_performance_relevance": <number 0-100>,
-    "team_capability": <number 0-100>,
-    "pricing_competitiveness": <number 0-100>,
-    "compliance_completeness": <number 0-100>
-  },
-  "recommendation": <string: "Strong Go", "Go", "Cautious Go", "No-Go">,
-  "win_probability_estimate": <string: "Very High (>70%)", "High (50-70%)", "Medium (30-50%)", "Low (<30%)">,
-  "executive_summary": <string: 2-3 sentence assessment>,
-  
-  "strengths": [
-    {
-      "category": <string>,
-      "strength": <string>,
-      "impact": <string: "high", "medium", "low">,
-      "leverage_strategy": <string: how to maximize this>
-    }
-  ],
-  
-  "weaknesses": [
-    {
-      "category": <string>,
-      "weakness": <string>,
-      "severity": <string: "critical", "high", "medium", "low">,
-      "improvement_action": <string: specific action to fix>
-    }
-  ],
-  
-  "risk_factors": [
-    {
-      "risk": <string>,
-      "probability": <string: "high", "medium", "low">,
-      "impact": <string: "critical", "high", "medium", "low">,
-      "mitigation": <string>
-    }
-  ],
-  
-  "section_analysis": [
-    {
-      "section_name": <string>,
-      "score": <number 0-100>,
-      "status": <string: "strong", "adequate", "weak", "missing">,
-      "feedback": <string>,
-      "priority_actions": [<string>]
-    }
-  ],
-  
-  "competitive_insights": {
-    "our_advantages": [<string>],
-    "competitor_advantages": [<string>],
-    "ghosting_opportunities": [<string: how to ghost competitors>],
-    "market_positioning": <string>
-  },
-  
-  "pricing_assessment": {
-    "pricing_risk": <string: "low", "medium", "high">,
-    "competitiveness": <string>,
-    "recommendations": [<string>]
-  },
-  
-  "immediate_priorities": [
-    {
-      "priority": <string>,
-      "action": <string>,
-      "deadline": <string>,
-      "owner": <string: suggested role>
-    }
-  ],
-  
-  "long_term_recommendations": [<string>],
-  
-  "confidence_factors": {
-    "factors_increasing_confidence": [<string>],
-    "factors_decreasing_confidence": [<string>]
-  },
-  
-  "comparison_to_past_wins": <string: how this compares to your successful bids>,
-  "learning_from_past_losses": <string: lessons from past losses to apply here>
-}
-
-**CRITICAL:** Be brutally honest. Identify real weaknesses. Provide specific, actionable feedback. Base all analysis on the actual data and documents provided (both attached files and extracted text above).`;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            confidence_score: { type: "number" },
-            score_breakdown: { type: "object" },
-            recommendation: { type: "string" },
-            win_probability_estimate: { type: "string" },
-            executive_summary: { type: "string" },
-            strengths: { type: "array" },
-            weaknesses: { type: "array" },
-            risk_factors: { type: "array" },
-            section_analysis: { type: "array" },
-            competitive_insights: { type: "object" },
-            pricing_assessment: { type: "object" },
-            immediate_priorities: { type: "array" },
-            long_term_recommendations: { type: "array" },
-            confidence_factors: { type: "object" },
-            comparison_to_past_wins: { type: "string" },
-            learning_from_past_losses: { type: "string" }
-          }
-        }
-      });
-
-      await trackTokenUsage(20000, prompt, JSON.stringify(result));
-      setAiScore(result);
-
-      // Save AI score to proposal
-      await base44.entities.Proposal.update(proposalId, {
-        ai_confidence_score: JSON.stringify(result),
-        ai_score_date: new Date().toISOString()
-      });
-
-      console.log("✓ AI Confidence Scoring completed successfully!");
-
-    } catch (error) {
-      console.error("Error running AI scoring:", error);
-      alert(`Error running AI scoring: ${error.message || 'Please try again.'}`);
-    }
-    setIsScoring(false);
-  };
-
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-600";
     if (score >= 60) return "text-blue-600";
@@ -602,12 +375,8 @@ Return a comprehensive JSON analysis with:
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="ai-score" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="ai-score">
-            <Brain className="w-4 h-4 mr-2" />
-            AI Confidence Score
-          </TabsTrigger>
+      <Tabs defaultValue="evaluation" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="evaluation">
             <FileText className="w-4 h-4 mr-2" />
             Strategic Evaluation
@@ -621,385 +390,6 @@ Return a comprehensive JSON analysis with:
             Red Team Review
           </TabsTrigger>
         </TabsList>
-
-        {/* AI Confidence Score Tab */}
-        <TabsContent value="ai-score">
-          <Card className="border-none shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-indigo-600" />
-                AI-Powered Confidence Scoring
-              </CardTitle>
-              <CardDescription>
-                Comprehensive proposal analysis using AI, past performance data, and competitive intelligence
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {!aiScore && (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Brain className="w-10 h-10 text-indigo-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">AI-Powered Win Probability Analysis</h3>
-                  <p className="text-slate-600 mb-6 max-w-2xl mx-auto">
-                    Our advanced AI will analyze your proposal content, requirements alignment, past win/loss patterns, 
-                    competitive positioning, and pricing strategy to provide a comprehensive confidence score and actionable recommendations.
-                  </p>
-                  <Button
-                    onClick={runAIScoring}
-                    disabled={isScoring}
-                    size="lg"
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                  >
-                    {isScoring ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Analyzing Proposal...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="w-5 h-5 mr-2" />
-                        Run AI Confidence Scoring
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              {aiScore && (
-                <div className="space-y-6">
-                  {/* Confidence Score Header */}
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-slate-600">AI Confidence Score</p>
-                          <Brain className="w-5 h-5 text-indigo-600" />
-                        </div>
-                        <p className={`text-5xl font-bold ${getScoreColor(aiScore.confidence_score)}`}>
-                          {aiScore.confidence_score}%
-                        </p>
-                        <Progress value={aiScore.confidence_score} className="mt-3 h-3" />
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-slate-600">Win Probability</p>
-                          <Target className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <p className="text-2xl font-bold text-blue-900">{aiScore.win_probability_estimate}</p>
-                        <p className="text-xs text-slate-500 mt-2">Based on comprehensive analysis</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className={`bg-gradient-to-br ${
-                      aiScore.recommendation === 'Strong Go' ? 'from-green-50 to-emerald-50 border-green-200' :
-                      aiScore.recommendation === 'Go' ? 'from-blue-50 to-sky-50 border-blue-200' :
-                      aiScore.recommendation === 'Cautious Go' ? 'from-amber-50 to-orange-50 border-amber-200' :
-                      'from-red-50 to-rose-50 border-red-200'
-                    }`}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-slate-600">Recommendation</p>
-                          {aiScore.recommendation.includes('Go') && !aiScore.recommendation.includes('No') ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                          ) : aiScore.recommendation === 'Cautious Go' ? (
-                            <AlertCircle className="w-5 h-5 text-amber-600" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-red-600" />
-                          )}
-                        </div>
-                        <p className="text-2xl font-bold">{aiScore.recommendation}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Executive Summary */}
-                  <Alert>
-                    <Sparkles className="w-4 h-4" />
-                    <AlertDescription className="text-sm">
-                      <strong>AI Assessment:</strong> {aiScore.executive_summary}
-                    </AlertDescription>
-                  </Alert>
-
-                  <Tabs defaultValue="breakdown" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-5">
-                      <TabsTrigger value="breakdown">Score Breakdown</TabsTrigger>
-                      <TabsTrigger value="strengths">Strengths</TabsTrigger>
-                      <TabsTrigger value="weaknesses">Weaknesses</TabsTrigger>
-                      <TabsTrigger value="risks">Risk Factors</TabsTrigger>
-                      <TabsTrigger value="actions">Action Items</TabsTrigger>
-                    </TabsList>
-
-                    {/* Score Breakdown */}
-                    <TabsContent value="breakdown">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-base">Detailed Score Breakdown</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            {aiScore.score_breakdown && Object.entries(aiScore.score_breakdown).map(([key, value]) => (
-                              <div key={key} className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium capitalize">{key.replace(/_/g, ' ')}</span>
-                                  <span className={`text-sm font-bold ${getScoreColor(value)}`}>{value}%</span>
-                                </div>
-                                <Progress value={value} className="h-2" />
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Section Analysis */}
-                      {aiScore.section_analysis && aiScore.section_analysis.length > 0 && (
-                        <Card className="mt-6">
-                          <CardHeader>
-                            <CardTitle className="text-base">Section-by-Section Analysis</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {aiScore.section_analysis.map((section, idx) => (
-                                <div key={idx} className="p-4 border rounded-lg">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-slate-900">{section.section_name}</h4>
-                                      <p className="text-sm text-slate-600 mt-1">{section.feedback}</p>
-                                    </div>
-                                    <div className="ml-4 flex flex-col items-end gap-2">
-                                      <span className={`text-lg font-bold ${getScoreColor(section.score)}`}>{section.score}%</span>
-                                      <Badge className={
-                                        section.status === 'strong' ? 'bg-green-100 text-green-700' :
-                                        section.status === 'adequate' ? 'bg-blue-100 text-blue-700' :
-                                        section.status === 'weak' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-red-100 text-red-700'
-                                      }>
-                                        {section.status}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  {section.priority_actions && section.priority_actions.length > 0 && (
-                                    <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                                      <p className="text-xs font-semibold text-blue-900 mb-1">Priority Actions:</p>
-                                      <ul className="text-xs text-blue-800 space-y-1">
-                                        {section.priority_actions.map((action, i) => (
-                                          <li key={i}>• {action}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </TabsContent>
-
-                    {/* Strengths */}
-                    <TabsContent value="strengths">
-                      <Card className="border-green-200 bg-green-50">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            Identified Strengths
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {aiScore.strengths && aiScore.strengths.map((strength, idx) => (
-                              <div key={idx} className="p-4 bg-white border border-green-200 rounded-lg">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div>
-                                    <Badge variant="outline" className="mb-2">{strength.category}</Badge>
-                                    <p className="font-semibold text-green-900">{strength.strength}</p>
-                                  </div>
-                                  <Badge className={
-                                    strength.impact === 'high' ? 'bg-green-600 text-white' :
-                                    strength.impact === 'medium' ? 'bg-green-500 text-white' :
-                                    'bg-green-400 text-white'
-                                  }>
-                                    {strength.impact} impact
-                                  </Badge>
-                                </div>
-                                <div className="mt-2 p-2 bg-green-100 border border-green-300 rounded">
-                                  <p className="text-xs font-semibold text-green-800 mb-1">💡 Leverage Strategy:</p>
-                                  <p className="text-sm text-green-900">{strength.leverage_strategy}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    {/* Weaknesses */}
-                    <TabsContent value="weaknesses">
-                      <Card className="border-red-200 bg-red-50">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-red-600" />
-                            Areas for Improvement
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {aiScore.weaknesses && aiScore.weaknesses.map((weakness, idx) => (
-                              <div key={idx} className={`p-4 bg-white border-2 rounded-lg ${getSeverityColor(weakness.severity)}`}>
-                                <div className="flex items-start justify-between mb-2">
-                                  <div>
-                                    <Badge variant="outline" className="mb-2">{weakness.category}</Badge>
-                                    <p className="font-semibold text-red-900">{weakness.weakness}</p>
-                                  </div>
-                                  <Badge className={
-                                    weakness.severity === 'critical' ? 'bg-red-600 text-white' :
-                                    weakness.severity === 'high' ? 'bg-red-500 text-white' :
-                                    weakness.severity === 'medium' ? 'bg-amber-500 text-white' :
-                                    'bg-blue-500 text-white'
-                                  }>
-                                    {weakness.severity}
-                                  </Badge>
-                                </div>
-                                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                                  <p className="text-xs font-semibold text-blue-800 mb-1">🔧 Action Required:</p>
-                                  <p className="text-sm text-blue-900">{weakness.improvement_action}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    {/* Risk Factors */}
-                    <TabsContent value="risks">
-                      <Card className="border-amber-200 bg-amber-50">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-amber-600" />
-                            Risk Assessment
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {aiScore.risk_factors && aiScore.risk_factors.map((risk, idx) => (
-                              <div key={idx} className="p-4 bg-white border border-amber-200 rounded-lg">
-                                <div className="flex items-start justify-between mb-2">
-                                  <p className="font-semibold text-amber-900 flex-1">{risk.risk}</p>
-                                  <div className="flex gap-2 ml-4">
-                                    <Badge variant="outline" className="text-xs">P: {risk.probability}</Badge>
-                                    <Badge className={
-                                      risk.impact === 'critical' ? 'bg-red-600 text-white' :
-                                      risk.impact === 'high' ? 'bg-orange-600 text-white' :
-                                      risk.impact === 'medium' ? 'bg-amber-600 text-white' :
-                                      'bg-blue-600 text-white'
-                                    }>
-                                      I: {risk.impact}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                                  <p className="text-xs font-semibold text-green-800 mb-1">Mitigation Strategy:</p>
-                                  <p className="text-sm text-green-900">{risk.mitigation}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    {/* Action Items */}
-                    <TabsContent value="actions">
-                      <Card className="border-blue-200 bg-blue-50">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Lightbulb className="w-5 h-5 text-blue-600" />
-                            Immediate Priorities
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {aiScore.immediate_priorities && aiScore.immediate_priorities.map((item, idx) => (
-                              <div key={idx} className="p-4 bg-white border border-blue-200 rounded-lg">
-                                <div className="flex items-start gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-bold">
-                                    {idx + 1}
-                                  </div>
-                                  <div className="flex-1">
-                                    <h4 className="font-semibold text-blue-900 mb-1">{item.priority}</h4>
-                                    <p className="text-sm text-slate-700 mb-2">{item.action}</p>
-                                    <div className="flex gap-2">
-                                      <Badge variant="outline" className="text-xs">
-                                        ⏰ {item.deadline}
-                                      </Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        👤 {item.owner}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Competitive Insights */}
-                      {aiScore.competitive_insights && (
-                        <Card className="mt-6 border-purple-200 bg-purple-50">
-                          <CardHeader>
-                            <CardTitle className="text-base">Competitive Intelligence</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-4">
-                              {aiScore.competitive_insights.our_advantages && aiScore.competitive_insights.our_advantages.length > 0 && (
-                                <div>
-                                  <p className="text-sm font-semibold text-purple-900 mb-2">Our Advantages:</p>
-                                  <div className="space-y-1">
-                                    {aiScore.competitive_insights.our_advantages.map((adv, i) => (
-                                      <p key={i} className="text-sm text-purple-800">✓ {adv}</p>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {aiScore.competitive_insights.ghosting_opportunities?.length > 0 && (
-                                <div>
-                                  <p className="text-sm font-semibold text-purple-900 mb-2">Ghosting Opportunities:</p>
-                                  <div className="space-y-1">
-                                    {aiScore.competitive_insights.ghosting_opportunities.map((ghost, i) => (
-                                      <p key={i} className="text-sm text-purple-800">👻 {ghost}</p>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-
-                  {/* Re-run Button */}
-                  <div className="flex gap-3 pt-6 border-t">
-                    <Button
-                      onClick={runAIScoring}
-                      disabled={isScoring}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      <Brain className="w-4 h-4 mr-2" />
-                      Re-run AI Scoring
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Strategic Evaluation Tab Content */}
         <TabsContent value="evaluation">
