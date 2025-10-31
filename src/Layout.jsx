@@ -31,7 +31,8 @@ import {
   ChevronDown,
   ChevronRight,
   Wrench,
-  FileEdit
+  FileEdit,
+  TrendingUp
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,7 +60,7 @@ import { cn } from "@/lib/utils";
 
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
-  { title: "Proposals", url: createPageUrl("Proposals"), icon: FileText },
+  { title: "Pipeline", url: createPageUrl("Pipeline"), icon: TrendingUp },
   { title: "Resources", url: createPageUrl("Resources"), icon: Library },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
   { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
