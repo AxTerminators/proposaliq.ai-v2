@@ -15,7 +15,6 @@ import {
   Shield,
   Lightbulb,
   FileText,
-  Users,
   Award
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,7 +32,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import ComplianceChecker from "./ComplianceChecker";
-import RedTeamReview from "./RedTeamReview";
+// RedTeamReview import removed as per outline
 
 export default function Phase4({ proposalData, setProposalData, proposalId }) {
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -99,7 +98,9 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
           1
         );
         if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id); // Ensure currentOrgId is the ID
+          // IMPORTANT: Outline suggested setCurrentOrgId(orgs[0]), but this would break
+          // subsequent calls expecting an ID. Keeping original setCurrentOrgId(orgs[0].id)
+          setCurrentOrgId(orgs[0].id);
         }
       } catch (error) {
         console.error("Error loading org:", error);
@@ -180,7 +181,6 @@ export default function Phase4({ proposalData, setProposalData, proposalId }) {
       const { fileUrls, extractedTexts } = await processDocuments(solicitationDocs);
       console.log(`Processed: ${fileUrls.length} PDFs/images, ${extractedTexts.length} office documents`);
 
-      // Build extracted documents context
       let extractedDocsContext = "";
       if (extractedTexts.length > 0) {
         extractedDocsContext = "\n\n**EXTRACTED DOCUMENT CONTENTS:**\n\n";
@@ -376,7 +376,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
   return (
     <div className="space-y-6">
       <Tabs defaultValue="evaluation" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2"> {/* Changed from grid-cols-3 to grid-cols-2 */}
           <TabsTrigger value="evaluation">
             <FileText className="w-4 h-4 mr-2" />
             Strategic Evaluation
@@ -385,10 +385,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
             <Shield className="w-4 h-4 mr-2" />
             Compliance Matrix
           </TabsTrigger>
-          <TabsTrigger value="review">
-            <Users className="w-4 h-4 mr-2" />
-            Red Team Review
-          </TabsTrigger>
+          {/* Red Team Review tab removed as per outline */}
         </TabsList>
 
         {/* Strategic Evaluation Tab Content */}
@@ -934,14 +931,7 @@ Analyze the uploaded solicitation documents thoroughly (both attached files and 
           />
         </TabsContent>
 
-        {/* Red Team Review Tab */}
-        <TabsContent value="review">
-          <RedTeamReview
-            proposalId={proposalId}
-            proposalData={proposalData}
-            organizationId={currentOrgId}
-          />
-        </TabsContent>
+        {/* RedTeamReview TabsContent removed as per outline */}
       </Tabs>
     </div>
   );
