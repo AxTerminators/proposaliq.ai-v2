@@ -1,11 +1,14 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, Building2, Users, Sparkles, Plus, X, CheckCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Briefcase, Building2, CheckCircle, CheckCircle2, ChevronDown, ChevronUp, Plus, Sparkles, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -369,7 +372,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     setProposalData({
       ...proposalData,
       teaming_partner_ids: updatedPartners.map(p => p.id)
-    });
+      });
   };
 
   const addArrayItem = (field) => {
