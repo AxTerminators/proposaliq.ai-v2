@@ -39,6 +39,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const [showResetWarning, setShowResetWarning] = useState(false);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [proposalToDelete, setProposalToDelete] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   // New column states
   const [newColumnLabel, setNewColumnLabel] = useState("");
@@ -152,7 +153,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     onError: (error) => {
       console.error("Error updating proposal status:", error);
       alert("Error moving proposal. Please try again.");
-    }
+    },
   });
 
   const saveColumnConfigMutation = useMutation({
@@ -262,43 +263,53 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     },
   });
 
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
   const handleDragEnd = (result) => {
+    setIsDragging(false);
+    
     if (!result.destination) return;
 
     const { source, destination, draggableId, type } = result;
 
-    // Handle column reordering
-    if (type === 'column') {
-      const newColumns = Array.from(columns);
-      const [movedColumn] = newColumns.splice(source.index, 1);
-      newColumns.splice(destination.index, 0, movedColumn);
+    try {
+      // Handle column reordering
+      if (type === 'column') {
+        const newColumns = Array.from(columns);
+        const [movedColumn] = newColumns.splice(source.index, 1);
+        newColumns.splice(destination.index, 0, movedColumn);
 
-      // Update order property
-      const reorderedColumns = newColumns.map((col, idx) => ({
-        ...col,
-        order: idx
-      }));
+        // Update order property
+        const reorderedColumns = newColumns.map((col, idx) => ({
+          ...col,
+          order: idx
+        }));
 
-      setColumns(reorderedColumns);
-      saveColumnConfigMutation.mutate(reorderedColumns);
-      return;
+        setColumns(reorderedColumns);
+        saveColumnConfigMutation.mutate(reorderedColumns);
+        return;
+      }
+
+      // Handle proposal card moving between columns
+      if (source.droppableId === destination.droppableId && source.index === destination.index) {
+        return;
+      }
+
+      const proposalId = draggableId;
+      const newColumnId = destination.droppableId;
+      const oldColumnId = source.droppableId;
+
+      if (!proposalId || !newColumnId || !oldColumnId) {
+        console.error("Missing drag data", { proposalId, newColumnId, oldColumnId });
+        return;
+      }
+
+      updateStatusMutation.mutate({ proposalId, newColumnId, oldColumnId });
+    } catch (error) {
+      console.error("Error in handleDragEnd:", error);
     }
-
-    // Handle proposal card moving between columns
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return;
-    }
-
-    const proposalId = draggableId;
-    const newColumnId = destination.droppableId;
-    const oldColumnId = source.droppableId;
-
-    if (!proposalId || !newColumnId || !oldColumnId) {
-      console.error("Missing drag data", { proposalId, newColumnId, oldColumnId });
-      return;
-    }
-
-    updateStatusMutation.mutate({ proposalId, newColumnId, oldColumnId });
   };
 
   const handleAddColumn = () => {
@@ -421,7 +432,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   };
 
   const handleToggleCollapse = (columnId) => {
-    if (!columnId) return;
+    if (!columnId || isDragging) return; // Prevent collapse during drag
 
     const newCollapsedColumns = collapsedColumns.includes(columnId) 
       ? collapsedColumns.filter(id => id !== columnId)
@@ -443,16 +454,18 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     }
   };
 
-  const groupedProposals = columns.reduce((acc, column) => {
-    if (!column || !column.id) return acc;
+  const groupedProposals = React.useMemo(() => {
+    return columns.reduce((acc, column) => {
+      if (!column || !column.id) return acc;
 
-    if (column.type === 'default_status') {
-      acc[column.id] = (proposals || []).filter(p => p?.status === column.default_status_mapping);
-    } else {
-      acc[column.id] = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
-    }
-    return acc;
-  }, {});
+      if (column.type === 'default_status') {
+        acc[column.id] = (proposals || []).filter(p => p?.status === column.default_status_mapping);
+      } else {
+        acc[column.id] = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
+      }
+      return acc;
+    }, {});
+  }, [columns, proposals]);
 
   if (isLoading || !organization) {
     return (
@@ -473,7 +486,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
           variant="outline" 
           size="sm"
           onClick={handleResetToDefault}
-          disabled={resetToDefaultMutation.isPending}
+          disabled={resetToDefaultMutation.isPending || isDragging}
         >
           {resetToDefaultMutation.isPending ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -484,7 +497,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
         </Button>
         <Dialog open={isEditingColumns} onOpenChange={setIsEditingColumns}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled={isDragging}>
               <Settings2 className="w-4 h-4 mr-2" />
               Customize Columns
             </Button>
@@ -847,7 +860,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
         </AlertDialogContent>
       </AlertDialog>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
+      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <Droppable droppableId="all-columns" direction="horizontal" type="column">
           {(provided) => (
             <div
@@ -860,7 +873,13 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
 
                 const isColumnCollapsed = collapsedColumns.includes(column.id);
                 return (
-                  <Draggable key={column.id} draggableId={column.id} index={index} type="column">
+                  <Draggable 
+                    key={column.id} 
+                    draggableId={column.id} 
+                    index={index} 
+                    type="column"
+                    isDragDisabled={isDragging}
+                  >
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
