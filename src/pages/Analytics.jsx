@@ -233,6 +233,13 @@ export default function Analytics() {
       status: p.status
     }));
 
+  // Calculate remaining tokens
+  const remainingTokens = subscription 
+    ? subscription.token_credits - (subscription.token_credits_used || 0) 
+    : 0;
+
+  const totalTokensUsed = tokenUsage.reduce((sum, u) => sum + u.tokens_used, 0);
+
   // Generate AI Insights
   const generateInsights = async () => {
     setLoadingInsights(true);
@@ -255,8 +262,8 @@ ${agencyData.slice(0, 5).map(a => `- ${a.name}: ${a.total} proposals, ${a.winRat
 - Average usage: ${boilerplateStats.avgUsage} times
 
 **TOKEN USAGE:**
-- Total tokens used: ${tokenUsage.reduce((sum, u) => sum + u.tokens_used, 0).toLocaleString()}
-- Total cost: $${tokenUsage.reduce((sum, u) => sum + (u.cost_estimate || 0), 0).toFixed(2)}
+- Total tokens used: ${totalTokensUsed.toLocaleString()}
+- Remaining tokens: ${remainingTokens.toLocaleString()}
 
 **YOUR TASK:**
 Provide a JSON object with strategic insights and recommendations:
@@ -371,11 +378,11 @@ Be specific, actionable, and data-driven.`;
               <Brain className="w-8 h-8 text-purple-600" />
             </div>
             <p className="text-4xl font-bold text-purple-600">
-              {(tokenUsage.reduce((sum, u) => sum + u.tokens_used, 0) / 1000000).toFixed(1)}M
+              {(totalTokensUsed / 1000000).toFixed(1)}M
             </p>
             <p className="text-sm text-slate-600 mt-1">Tokens Used</p>
             <p className="text-xs text-slate-500 mt-2">
-              ${tokenUsage.reduce((sum, u) => sum + (u.cost_estimate || 0), 0).toFixed(2)} cost
+              {(remainingTokens / 1000).toFixed(0)}K remaining
             </p>
           </CardContent>
         </Card>
@@ -591,7 +598,7 @@ Be specific, actionable, and data-driven.`;
                 <div className="text-center">
                   <Brain className="w-8 h-8 text-purple-600 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-purple-700">
-                    {(tokenUsage.reduce((sum, u) => sum + u.tokens_used, 0) / 1000000).toFixed(2)}M
+                    {(totalTokensUsed / 1000000).toFixed(2)}M
                   </p>
                   <p className="text-sm text-slate-600">Total Tokens</p>
                 </div>
@@ -605,7 +612,7 @@ Be specific, actionable, and data-driven.`;
                 <div className="text-center">
                   <Zap className="w-8 h-8 text-amber-600 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-amber-700">
-                    {proposals.length > 0 ? Math.round(tokenUsage.reduce((sum, u) => sum + u.tokens_used, 0) / proposals.length / 1000) : 0}K
+                    {proposals.length > 0 ? Math.round(totalTokensUsed / proposals.length / 1000) : 0}K
                   </p>
                   <p className="text-sm text-slate-600">Avg per Proposal</p>
                 </div>
