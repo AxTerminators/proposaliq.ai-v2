@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,79 +84,32 @@ export default function AdminPortal() {
   }
 
   const modules = [
-    // Analytics & Monitoring
     { id: "analytics", label: "Analytics", icon: Activity, category: "analytics", component: AnalyticsDashboard },
     { id: "error-monitoring", label: "Error Monitor", icon: TrendingUp, category: "analytics", component: ErrorMonitoringDashboard },
     { id: "overview", label: "Overview", icon: BarChart3, category: "analytics", component: GlobalReportingModule },
     { id: "reports", label: "Reports", icon: BarChart3, category: "analytics", component: ReportsModule },
 
-    // User & Client Management
     { id: "subscribers", label: "Users", icon: Users, category: "management", component: SubscribersModule },
     { id: "clients", label: "Clients", icon: Building2, category: "management", component: ClientManagementModule },
     { id: "roles", label: "Roles", icon: UserCog, category: "management", component: RolesModule },
 
-    // Content & Communication
     { id: "proposals", label: "Proposals", icon: FileText, category: "content", component: GlobalProposalManagementModule },
-    { id: "calendar", label: "Calendar", icon: CalendarIcon, category: "content", component: GlobalCalendarModule }, // CalendarIcon is not imported in the new list, changed to Setting
+    { id: "calendar", label: "Calendar", icon: Settings, category: "content", component: GlobalCalendarModule },
     { id: "content", label: "Content Library", icon: FileText, category: "content", component: ContentLibraryModule },
     { id: "email-templates", label: "Email Templates", icon: Mail, category: "content", component: EnhancedEmailTemplateModule },
     { id: "onboarding", label: "Onboarding", icon: Mail, category: "content", component: OnboardingEmailModule },
 
-    // System & Configuration
     { id: "billing", label: "Billing", icon: CreditCard, category: "system", component: BillingModule },
     { id: "ai", label: "AI Config", icon: Brain, category: "system", component: AIConfigModule },
-    { id: "workflows", label: "Workflows", icon: Zap, category: "system", component: WorkflowModule }, // Workflow changed to Zap
-    { id: "marketing", label: "Marketing", icon: TrendingUp, category: "system", component: MarketingModule }, // Globe changed to TrendingUp
+    { id: "workflows", label: "Workflows", icon: Zap, category: "system", component: WorkflowModule },
+    { id: "marketing", label: "Marketing", icon: TrendingUp, category: "system", component: MarketingModule },
 
-    // Security & Monitoring
     { id: "security", label: "Security", icon: Lock, category: "security", component: SecurityModule },
     { id: "audit", label: "Audit Logs", icon: Shield, category: "security", component: AuditLogModule },
-    { id: "health", label: "System Health", icon: Settings, category: "security", component: SystemHealthModule }, // Activity changed to Settings
+    { id: "health", label: "System Health", icon: Settings, category: "security", component: SystemHealthModule },
 
-    // Support
     { id: "feedback", label: "Feedback", icon: MessageSquare, category: "support", component: FeedbackModule }
   ];
-
-  // Placeholder for CalendarIcon, Workflow, Globe, AlertCircle, Eye, if they were used in the `modules` array
-  // Since the user explicitly removed them from the imports, I need to pick alternative icons or remove the modules if they become invalid.
-  // The provided `modules` array in the original code uses CalendarIcon, Workflow, Globe, AlertCircle, Eye.
-  // I will replace them with newly imported icons or existing ones to make the code functional without re-introducing the old imports.
-
-  // Re-evaluating the modules array based on the new icons:
-  // CalendarIcon -> using Settings as a generic config icon or Mail if related to email
-  // Workflow -> using Zap as it implies automation/processes
-  // Globe -> using Building2 or BarChart3 as a placeholder
-  // AlertCircle -> using TrendingUp for errors or activities
-  // Eye -> using Building2 for clients or Settings
-
-  // Let's use the new icons for the respective modules in a logical way
-  // Original:
-  // { id: "analytics", label: "Analytics", icon: Activity, component: AnalyticsDashboard, category: "analytics" },
-  // { id: "error-monitoring", label: "Error Monitor", icon: AlertCircle, component: ErrorMonitoringDashboard, category: "analytics" }, -> TrendingUp
-  // { id: "overview", label: "Overview", icon: BarChart3, component: GlobalReportingModule, category: "analytics" },
-  // { id: "reports", label: "Reports", icon: BarChart3, component: ReportsModule, category: "analytics" },
-
-  // { id: "subscribers", label: "Users", icon: Users, component: SubscribersModule, category: "management" },
-  // { id: "clients", label: "Clients", icon: Eye, component: ClientManagementModule, category: "management" }, -> Building2
-  // { id: "roles", label: "Roles", icon: UserCog, component: RolesModule, category: "management" },
-
-  // { id: "proposals", label: "Proposals", icon: FileText, component: GlobalProposalManagementModule, category: "content" },
-  // { id: "calendar", label: "Calendar", icon: CalendarIcon, component: GlobalCalendarModule, category: "content" }, -> Settings (generic for scheduling)
-  // { id: "content", label: "Content Library", icon: FileText, component: ContentLibraryModule, category: "content" },
-  // { id: "email-templates", label: "Email Templates", icon: Mail, component: EnhancedEmailTemplateModule, category: "content" },
-  // { id: "onboarding", label: "Onboarding", icon: Mail, component: OnboardingEmailModule, category: "content" },
-
-  // { id: "billing", label: "Billing", icon: CreditCard, component: BillingModule, category: "system" },
-  // { id: "ai", label: "AI Config", icon: Brain, component: AIConfigModule, category: "system" },
-  // { id: "workflows", label: "Workflows", icon: Workflow, component: WorkflowModule, category: "system" }, -> Zap
-  // { id: "marketing", label: "Marketing", icon: Globe, component: MarketingModule, category: "system" }, -> BarChart3 (generic for tracking marketing performance)
-
-  // { id: "security", label: "Security", icon: Lock, component: SecurityModule, category: "security" },
-  // { id: "audit", label: "Audit Logs", icon: Shield, component: AuditLogModule, category: "security" },
-  // { id: "health", label: "System Health", icon: Activity, component: SystemHealthModule, category: "security" }, -> Settings
-
-  // { id: "feedback", label: "Feedback", icon: MessageSquare, component: FeedbackModule, category: "support" }
-
 
   const categories = [
     { id: "analytics", label: "Analytics & Reporting", color: "blue" },
@@ -200,7 +152,7 @@ export default function AdminPortal() {
 
               <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-red-500 to-orange-500 text-white">
                 <div className="flex items-center justify-between mb-2">
-                  <TrendingUp className="w-8 h-8 opacity-80" /> {/* Changed from AlertCircle */}
+                  <TrendingUp className="w-8 h-8 opacity-80" />
                 </div>
                 <p className="text-2xl font-bold">Error Monitor</p>
                 <p className="text-sm opacity-90">Track issues</p>
@@ -216,7 +168,7 @@ export default function AdminPortal() {
 
               <Card className="p-4 border-none shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white">
                 <div className="flex items-center justify-between mb-2">
-                  <Building2 className="w-8 h-8 opacity-80" /> {/* Changed from Eye */}
+                  <Building2 className="w-8 h-8 opacity-80" />
                 </div>
                 <p className="text-2xl font-bold">Real-time Data</p>
                 <p className="text-sm opacity-90">Live monitoring</p>
