@@ -18,7 +18,8 @@ import {
   UserCog,
   Zap,
   BarChart3,
-  Building2
+  Building2,
+  Calendar
 } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
@@ -94,7 +95,7 @@ export default function AdminPortal() {
     { id: "roles", label: "Roles", icon: UserCog, category: "management", component: RolesModule },
 
     { id: "proposals", label: "Proposals", icon: FileText, category: "content", component: GlobalProposalManagementModule },
-    { id: "calendar", label: "Calendar", icon: Settings, category: "content", component: GlobalCalendarModule },
+    { id: "calendar", label: "Calendar", icon: Calendar, category: "content", component: GlobalCalendarModule },
     { id: "content", label: "Content Library", icon: FileText, category: "content", component: ContentLibraryModule },
     { id: "email-templates", label: "Email Templates", icon: Mail, category: "content", component: EnhancedEmailTemplateModule },
     { id: "onboarding", label: "Onboarding", icon: Mail, category: "content", component: OnboardingEmailModule },
