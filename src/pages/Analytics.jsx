@@ -23,7 +23,8 @@ import {
   Sparkles,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Shield // Added Shield icon
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -78,11 +79,12 @@ export default function Analytics() {
 
     setLoading(true);
     try {
-      const [allProposals, allTokenUsage, pastPerf, resources] = await Promise.all([
+      const [allProposals, allTokenUsage, pastPerf, resources, complianceReqs] = await Promise.all([
         base44.entities.Proposal.filter({ organization_id: organization.id }),
         base44.entities.TokenUsage.filter({ organization_id: organization.id }),
         base44.entities.PastPerformance.filter({ organization_id: organization.id }),
-        base44.entities.ProposalResource.filter({ organization_id: organization.id })
+        base44.entities.ProposalResource.filter({ organization_id: organization.id }),
+        base44.entities.ComplianceRequirement.list('-created_date', 1000)
       ]);
 
       setProposalsData(allProposals);
@@ -103,9 +105,52 @@ export default function Analytics() {
         .filter(p => !['won', 'lost', 'archived'].includes(p.status))
         .reduce((sum, p) => sum + (p.contract_value || 0), 0);
 
-      const totalTokens = filteredTokenUsage.reduce((sum, t) => sum + (t.tokens_used || 0), 0);
-      const totalAIActions = filteredTokenUsage.length;
-      const avgTokensPerRequest = filteredTokenUsage.length > 0 ? totalTokens / filteredTokenUsage.length : 0;
+      // Calculate AI-Assisted Revenue (won proposals with AI features used)
+      const aiAssistedRevenue = filteredProposals
+        .filter(p => p.status === 'won' && (p.evaluation_results || p.ai_confidence_score))
+        .reduce((sum, p) => sum + (p.contract_value || 0), 0);
+
+      // Calculate Time Saved (estimate based on AI actions)
+      // Rough estimates: section gen = 2hrs, evaluation = 1hr, compliance = 1.5hrs, chat = 0.5hrs
+      const timeSavedHours = filteredTokenUsage.reduce((total, usage) => {
+        if (usage.feature_type === 'proposal_generation') return total + 2;
+        if (usage.feature_type === 'evaluation') return total + 1;
+        if (usage.feature_type === 'compliance') return total + 1.5;
+        if (usage.feature_type === 'chat') return total + 0.5;
+        if (usage.feature_type === 'file_extraction') return total + 0.75;
+        return total + 0.5; // default for other AI actions
+      }, 0);
+
+      // Calculate average proposal quality score from AI confidence scores
+      const proposalsWithScores = filteredProposals.filter(p => p.ai_confidence_score);
+      const avgQualityScore = proposalsWithScores.length > 0
+        ? proposalsWithScores.reduce((sum, p) => {
+            try {
+              const score = JSON.parse(p.ai_confidence_score);
+              return sum + (score.overall_score || 0);
+            } catch {
+              return sum;
+            }
+          }, 0) / proposalsWithScores.length
+        : 0;
+
+      // Calculate compliance rate
+      const orgComplianceReqs = complianceReqs.filter(r => r.organization_id === organization.id);
+      const compliantReqs = orgComplianceReqs.filter(r => r.compliance_status === 'compliant');
+      const complianceRate = orgComplianceReqs.length > 0
+        ? (compliantReqs.length / orgComplianceReqs.length) * 100
+        : 0;
+
+      // Calculate average proposal completion time
+      const completedProposals = filteredProposals.filter(p =>
+        ['submitted', 'won', 'lost'].includes(p.status) && p.created_date && p.updated_date
+      );
+      const avgCompletionDays = completedProposals.length > 0
+        ? completedProposals.reduce((sum, p) => {
+            const days = Math.ceil((new Date(p.updated_date) - new Date(p.created_date)) / (1000 * 60 * 60 * 24));
+            return sum + days;
+          }, 0) / completedProposals.length
+        : 0;
 
       setMetrics({
         total_proposals: filteredProposals.length,
@@ -116,9 +161,13 @@ export default function Analytics() {
         win_rate: Math.round(winRate),
         total_revenue: totalRevenue,
         pipeline_value: pipelineValue,
-        total_tokens: totalTokens,
-        total_ai_actions: totalAIActions,
-        avg_tokens_per_request: Math.round(avgTokensPerRequest),
+        ai_assisted_revenue: aiAssistedRevenue,
+        time_saved_hours: Math.round(timeSavedHours),
+        time_saved_days: Math.round(timeSavedHours / 8),
+        avg_quality_score: Math.round(avgQualityScore),
+        compliance_rate: Math.round(complianceRate),
+        avg_completion_days: Math.round(avgCompletionDays),
+        total_ai_actions: filteredTokenUsage.length,
         past_performance_count: pastPerf.length,
         resources_count: resources.length
       });
@@ -226,7 +275,7 @@ export default function Analytics() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Analytics & Insights</h1>
-            <p className="text-slate-600">Track performance, win rates, and AI usage</p>
+            <p className="text-slate-600">Track performance, win rates, and business impact</p>
           </div>
           <div className="flex gap-2">
             <Select value={dateRange} onValueChange={setDateRange}>
@@ -319,10 +368,10 @@ export default function Analytics() {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={timeSeriesData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="month" 
-                    angle={-45} 
-                    textAnchor="end" 
+                  <XAxis
+                    dataKey="month"
+                    angle={-45}
+                    textAnchor="end"
                     height={80}
                     tick={{ fontSize: 12 }}
                   />
@@ -348,10 +397,10 @@ export default function Analytics() {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={timeSeriesData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="month" 
-                    angle={-45} 
-                    textAnchor="end" 
+                  <XAxis
+                    dataKey="month"
+                    angle={-45}
+                    textAnchor="end"
                     height={80}
                     tick={{ fontSize: 12 }}
                   />
@@ -365,86 +414,98 @@ export default function Analytics() {
           </Card>
         </div>
 
-        {/* AI Usage Analytics */}
+        {/* AI Impact & Business Value */}
         <Card className="border-none shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-blue-600" />
-              AI Usage & Efficiency Analysis
+              AI Impact & Business Value
             </CardTitle>
-            <CardDescription>Track AI features usage and productivity</CardDescription>
+            <CardDescription>Measure the real impact AI has on your proposal success</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-6 mb-6">
-              <div className="p-6 bg-blue-50 rounded-lg border-2 border-blue-200">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
                 <div className="flex items-center gap-3 mb-2">
-                  <Zap className="w-8 h-8 text-blue-600" />
+                  <Clock className="w-8 h-8 text-green-600" />
                   <div>
-                    <p className="text-sm text-blue-900 font-medium">Total Tokens</p>
-                    <p className="text-2xl font-bold text-blue-700">
-                      {(metrics.total_tokens / 1000).toFixed(0)}k
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xs text-blue-800">AI input/output volume</p>
-              </div>
-
-              <div className="p-6 bg-green-50 rounded-lg border-2 border-green-200">
-                <div className="flex items-center gap-3 mb-2">
-                  <Target className="w-8 h-8 text-green-600" />
-                  <div>
-                    <p className="text-sm text-green-900 font-medium">Total AI Actions</p>
+                    <p className="text-sm text-green-900 font-medium">Time Saved</p>
                     <p className="text-2xl font-bold text-green-700">
-                      {metrics.total_ai_actions}
+                      {metrics.time_saved_days} days
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-green-800">AI tasks completed</p>
+                <p className="text-xs text-green-800">{metrics.time_saved_hours} hours with AI assistance</p>
               </div>
 
-              <div className="p-6 bg-purple-50 rounded-lg border-2 border-purple-200">
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                 <div className="flex items-center gap-3 mb-2">
-                  <BarChart3 className="w-8 h-8 text-purple-600" />
+                  <DollarSign className="w-8 h-8 text-blue-600" />
                   <div>
-                    <p className="text-sm text-purple-900 font-medium">Avg per Request</p>
-                    <p className="text-2xl font-bold text-purple-700">
-                      {(metrics.avg_tokens_per_request / 1000).toFixed(1)}k
+                    <p className="text-sm text-blue-900 font-medium">AI-Assisted Revenue</p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      ${(metrics.ai_assisted_revenue / 1000000).toFixed(1)}M
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-purple-800">Average tokens per action</p>
+                <p className="text-xs text-blue-800">Won proposals using AI features</p>
+              </div>
+
+              <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border-2 border-purple-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <Award className="w-8 h-8 text-purple-600" />
+                  <div>
+                    <p className="text-sm text-purple-900 font-medium">Avg Quality Score</p>
+                    <p className="text-2xl font-bold text-purple-700">
+                      {metrics.avg_quality_score}/100
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-purple-800">AI-evaluated proposal quality</p>
+              </div>
+
+              <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border-2 border-amber-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <Shield className="w-8 h-8 text-amber-600" />
+                  <div>
+                    <p className="text-sm text-amber-900 font-medium">Compliance Rate</p>
+                    <p className="text-2xl font-bold text-amber-700">
+                      {metrics.compliance_rate}%
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-amber-800">Requirements met before submission</p>
               </div>
             </div>
 
-            {/* Feature Breakdown */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">AI Usage by Feature</h3>
-              {['chat', 'proposal_generation', 'evaluation', 'file_extraction'].map((feature) => {
-                const featureUsage = filterDataByDateRange(tokenUsageData, 'created_date').filter(t => t.feature_type === feature);
-                const count = featureUsage.length;
-                const tokens = featureUsage.reduce((sum, t) => sum + (t.tokens_used || 0), 0);
-                const totalActions = filterDataByDateRange(tokenUsageData, 'created_date').length;
-                const percentage = totalActions > 0 ? (count / totalActions) * 100 : 0;
+            {/* Additional Impact Metrics */}
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-5 h-5 text-blue-600" />
+                  <p className="text-sm font-medium text-slate-700">Avg Completion Time</p>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{metrics.avg_completion_days} days</p>
+                <p className="text-xs text-slate-600 mt-1">From start to submission</p>
+              </div>
 
-                return (
-                  <div key={feature} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-700 capitalize">
-                          {feature.replace(/_/g, ' ')}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {count} actions
-                        </Badge>
-                      </div>
-                      <span className="text-sm text-slate-600">
-                        {(tokens / 1000).toFixed(0)}k tokens
-                      </span>
-                    </div>
-                    <Progress value={percentage} className="h-2" />
-                  </div>
-                );
-              })}
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Brain className="w-5 h-5 text-indigo-600" />
+                  <p className="text-sm font-medium text-slate-700">AI Actions</p>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{metrics.total_ai_actions}</p>
+                <p className="text-xs text-slate-600 mt-1">AI tasks completed</p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <p className="text-sm font-medium text-slate-700">Win Rate</p>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{metrics.win_rate}%</p>
+                <p className="text-xs text-slate-600 mt-1">Success rate on submissions</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -514,10 +575,10 @@ export default function Analytics() {
 
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Users className="w-6 h-6 text-green-500" />
-                  <span className="text-sm font-medium text-slate-700">AI Actions</span>
+                  <Sparkles className="w-6 h-6 text-green-500" />
+                  <span className="text-sm font-medium text-slate-700">AI-Assisted Wins</span>
                 </div>
-                <span className="text-2xl font-bold text-slate-900">{metrics.total_ai_actions}</span>
+                <span className="text-2xl font-bold text-slate-900">{metrics.won_proposals}</span>
               </div>
             </CardContent>
           </Card>
