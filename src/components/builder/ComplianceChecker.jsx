@@ -1,67 +1,51 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Shield,
-  AlertTriangle, // Kept from original, not explicitly in outline but useful
-  CheckCircle2,
-  XCircle, // Kept from original, not explicitly in outline but useful
-  Clock,
-  Search,
-  Filter, // Kept from original, not explicitly in outline but useful
-  Sparkles,
-  Loader2,
-  Download, // Kept from original, not explicitly in outline but useful for exportCsv
-  FileText,
-  TrendingUp, // Kept from original, not explicitly in outline but useful
-  AlertCircle,
-  Info, // Kept from original, not explicitly in outline but useful
-  Plus, // New from outline
-  Eye, // New from outline
-  Target, // New from outline
-  Zap // New from outline
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Table, // Kept from original, not explicitly in outline but useful
-  TableBody, // Kept from original, not explicitly in outline but useful
-  TableCell, // Kept from original, not explicitly in outline but useful
-  TableHead, // Kept from original, not explicitly in outline but useful
-  TableHeader, // Kept from original, not explicitly in outline but useful
-  TableRow, // Kept from original, not explicitly in outline but useful
-} from "@/components/ui/table";
+  Shield,
+  Check,
+  AlertTriangle,
+  Clock,
+  Search,
+  Filter,
+  Sparkles,
+  FileText,
+  Loader2,
+  Plus,
+  Eye,
+  TrendingUp,
+  Target,
+  Zap
+} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription, // Moved from Dialog import to here as per current convention and outline
-  DialogTrigger, // New from outline
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea"; // Kept from original, not explicitly in outline but useful
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert"; // Kept from original, not explicitly in outline but useful
 
 export default function ComplianceChecker({ proposalId, organizationId }) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
-  // Removed filterCategory state based on outline
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRisk, setFilterRisk] = useState("all");
-  // Removed selectedRequirement state, as it's now handled by inline dialogs
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAutoMapping, setIsAutoMapping] = useState(false);
-  // Removed extractionResults state, as the outline's extract function doesn't use it for display
   const [isRunningGapAnalysis, setIsRunningGapAnalysis] = useState(false);
   const [gapAnalysisResults, setGapAnalysisResults] = useState(null);
+  const [selectedRequirement, setSelectedRequirement] = useState(null);
 
   const { data: requirements, isLoading } = useQuery({
     queryKey: ['compliance-requirements', proposalId],
@@ -70,13 +54,13 @@ export default function ComplianceChecker({ proposalId, organizationId }) {
       return base44.entities.ComplianceRequirement.filter({
         proposal_id: proposalId,
         organization_id: organizationId
-      }, '-created_date'); // Added sorting by created_date
+      }, '-created_date');
     },
     initialData: [],
-    enabled: !!proposalId && !!organizationId, // Added organizationId to enabled
+    enabled: !!proposalId && !!organizationId,
   });
 
-  const { data: proposalSections } = useQuery({ // Renamed from 'sections' to 'proposalSections'
+  const { data: proposalSections } = useQuery({
     queryKey: ['proposal-sections', proposalId],
     queryFn: async () => {
       if (!proposalId) return [];
@@ -86,194 +70,15 @@ export default function ComplianceChecker({ proposalId, organizationId }) {
     enabled: !!proposalId,
   });
 
-  // Removed solicitationDocs query as its logic is now within extractRequirements
-
   const updateRequirementMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       return await base44.entities.ComplianceRequirement.update(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] }); // Updated invalidation key
-      // Removed setSelectedRequirement(null); as it's not used with inline dialogs
+      queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] });
     },
   });
 
-  // Removed deleteRequirementMutation as it's not used in the outline
-
-  const extractRequirements = async () => { // Renamed from runComplianceExtraction
-    if (!proposalId || !organizationId) {
-      alert("Please save the proposal first and ensure an organization is selected."); // Updated alert
-      return;
-    }
-
-    setIsExtracting(true);
-    // Removed setExtractionResults(null);
-
-    try {
-      const solicitationDocs = await base44.entities.SolicitationDocument.filter({ // Added fetching docs here
-        proposal_id: proposalId,
-        organization_id: organizationId
-      });
-
-      const fileUrls = solicitationDocs
-        .filter(doc => doc.file_url && doc.document_type !== 'reference') // Filtered out 'reference' documents
-        .map(doc => doc.file_url)
-        .slice(0, 10);
-
-      if (fileUrls.length === 0) {
-        alert("Please upload solicitation documents first in Phase 3."); // Updated alert message and phase
-        setIsExtracting(false);
-        return;
-      }
-
-      const prompt = `Extract all compliance requirements from these solicitation documents.
-      
-Return as JSON array with this structure:
-{
-  "requirements": [
-    {
-      "requirement_id": "string",
-      "requirement_title": "string",
-      "requirement_description": "string",
-      "requirement_type": "technical|submission_format|administrative|certification|solicitation_specific",
-      "requirement_category": "mandatory|desirable",
-      "requirement_source": "string (e.g., Section L.3.2)",
-      "risk_level": "low|medium|high|critical"
-    }
-  ]
-}`; // Simplified prompt as per outline
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: fileUrls,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            requirements: { type: "array", items: {
-                type: "object",
-                properties: {
-                  requirement_id: { type: "string" },
-                  requirement_title: { type: "string" },
-                  requirement_description: { type: "string" },
-                  requirement_type: { type: "string" },
-                  requirement_category: { type: "string" },
-                  requirement_source: { type: "string" },
-                  risk_level: { type: "string" }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      // Removed setExtractionResults(result);
-
-      // Auto-create ComplianceRequirement records
-      let createdCount = 0;
-      if (result.requirements && result.requirements.length > 0) {
-        for (const req of result.requirements) {
-          try {
-            await base44.entities.ComplianceRequirement.create({
-              proposal_id: proposalId,
-              organization_id: organizationId,
-              requirement_id: req.requirement_id || `AUTO-${Date.now()}-${createdCount}`,
-              requirement_title: req.requirement_title,
-              requirement_type: req.requirement_type || "solicitation_specific",
-              requirement_category: req.requirement_category || "mandatory",
-              requirement_description: req.requirement_description,
-              requirement_source: req.requirement_source,
-              compliance_status: "not_started",
-              risk_level: req.risk_level || "medium",
-              // Removed compliance_notes and format_requirements as they are not in simplified prompt
-              ai_detected: true,
-              ai_confidence: 80 // Simplified confidence
-            });
-            createdCount++;
-          } catch (error) {
-            console.error("Error creating requirement:", error);
-          }
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] });
-      alert(`✓ Extracted ${createdCount} requirements!`); // Simplified alert
-
-    } catch (error) {
-      console.error("Error extracting compliance requirements:", error);
-      alert("Error extracting requirements. Please try again."); // Updated alert
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  const autoMapSections = async () => {
-    if (!proposalId || requirements.length === 0 || proposalSections.length === 0) { // Used proposalSections
-      alert("Please ensure you have both requirements and proposal sections"); // Updated alert
-      return;
-    }
-
-    setIsAutoMapping(true);
-
-    try {
-      const prompt = `Map compliance requirements to proposal sections.
-
-**REQUIREMENTS:**
-${requirements.map(r => `${r.requirement_id}: ${r.requirement_title} (${r.requirement_type})`).join('\n')}
-
-**SECTIONS:**
-${proposalSections.map(s => `${s.id}: ${s.section_name} (${s.section_type})`).join('\n')}
-
-Return JSON array of mappings:
-{
-  "mappings": [
-    {
-      "requirement_id": "string",
-      "section_ids": ["string"]
-    }
-  ]
-}`;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            mappings: { type: "array", items: {
-                type: "object",
-                properties: {
-                  requirement_id: { type: "string" },
-                  section_ids: { type: "array", items: { type: "string" } }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (result.mappings) {
-        let mappedCount = 0;
-        for (const mapping of result.mappings) {
-          const req = requirements.find(r => r.requirement_id === mapping.requirement_id);
-          if (req) {
-            await updateRequirementMutation.mutateAsync({
-              id: req.id,
-              data: { addressed_in_sections: mapping.section_ids, compliance_status: "in_progress" } // Also set status to in_progress
-            });
-            mappedCount++;
-          }
-        }
-        queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] }); // Invalidate after mutations
-        alert(`✓ Auto-mapped ${mappedCount} requirements to sections!`);
-      }
-    } catch (error) {
-      console.error("Error auto-mapping:", error);
-      alert("Error auto-mapping sections. Please try again.");
-    } finally {
-      setIsAutoMapping(false);
-    }
-  };
-
-  // NEW: AI Gap Analysis
   const runGapAnalysis = async () => {
     if (!proposalId || requirements.length === 0 || proposalSections.length === 0) {
       alert("Please ensure you have both requirements and proposal sections before running gap analysis");
@@ -294,12 +99,12 @@ ${idx + 1}. ${req.requirement_title}
    - Risk: ${req.risk_level}
    - Description: ${req.requirement_description}
    - Current Status: ${req.compliance_status}
-   - Addressed in: ${req.addressed_in_sections?.map(secId => proposalSections.find(s => s.id === secId)?.section_name || secId).join(', ') || 'None'}
+   - Addressed in: ${req.addressed_in_sections?.join(', ') || 'None'}
 `).join('\n')}
 
 **PROPOSAL SECTIONS:**
 ${proposalSections.map(section => `
-- ${section.section_name} (ID: ${section.id}, Type: ${section.section_type})
+- ${section.section_name} (${section.section_type})
   Content length: ${section.content?.length || 0} chars
   Word count: ${section.word_count || 0} words
 `).join('\n')}
@@ -342,51 +147,22 @@ ${proposalSections.map(section => `
           type: "object",
           properties: {
             overall_compliance_score: { type: "number" },
-            gaps: { type: "array", items: {
-                type: "object",
-                properties: {
-                  requirement_id: { type: "string" },
-                  requirement_title: { type: "string" },
-                  severity: { type: "string" },
-                  gap_description: { type: "string" },
-                  recommended_action: { type: "string" },
-                  recommended_section: { type: "string" }
-                }
-              }
-            },
-            well_addressed: { type: "array", items: {
-                type: "object",
-                properties: {
-                  requirement_id: { type: "string" },
-                  requirement_title: { type: "string" },
-                  addressed_in_section: { type: "string" }
-                }
-              }
-            },
-            formatting_issues: { type: "array", items: {
-                type: "object",
-                properties: {
-                  issue: { type: "string" },
-                  severity: { type: "string" },
-                  recommendation: { type: "string" }
-                }
-              }
-            },
-            missing_sections: { type: "array", items: { type: "string" } },
-            strengths: { type: "array", items: { type: "string" } },
-            priority_actions: { type: "array", items: { type: "string" } }
+            gaps: { type: "array" },
+            well_addressed: { type: "array" },
+            formatting_issues: { type: "array" },
+            missing_sections: { type: "array" },
+            strengths: { type: "array" },
+            priority_actions: { type: "array" }
           }
         }
       });
 
       setGapAnalysisResults(result);
 
-      // Auto-update compliance status for identified gaps
       if (result.gaps) {
         for (const gap of result.gaps) {
           const req = requirements.find(r => r.requirement_id === gap.requirement_id);
-          // Only update if current status is compliant or in_progress, and the AI found a gap
-          if (req && (req.compliance_status === 'compliant' || req.compliance_status === 'in_progress')) {
+          if (req && req.compliance_status === 'compliant') {
             await updateRequirementMutation.mutateAsync({
               id: req.id,
               data: { compliance_status: 'needs_review' }
@@ -403,36 +179,165 @@ ${proposalSections.map(section => `
     }
   };
 
-  // Removed exportComplianceMatrix function
+  const extractRequirements = async () => {
+    if (!proposalId || !organizationId) {
+      alert("Please save the proposal first");
+      return;
+    }
 
-  // Filtering
+    setIsExtracting(true);
+
+    try {
+      const solicitationDocs = await base44.entities.SolicitationDocument.filter({
+        proposal_id: proposalId,
+        organization_id: organizationId
+      });
+
+      const fileUrls = solicitationDocs
+        .filter(doc => doc.file_url && doc.document_type !== 'reference')
+        .map(doc => doc.file_url)
+        .slice(0, 10);
+
+      if (fileUrls.length === 0) {
+        alert("Please upload solicitation documents first in Phase 3");
+        setIsExtracting(false);
+        return;
+      }
+
+      const prompt = `Extract all compliance requirements from these solicitation documents.
+      
+Return as JSON array with this structure:
+{
+  "requirements": [
+    {
+      "requirement_id": "string",
+      "requirement_title": "string",
+      "requirement_description": "string",
+      "requirement_type": "technical|submission_format|administrative|certification|solicitation_specific",
+      "requirement_category": "mandatory|desirable",
+      "requirement_source": "string (e.g., Section L.3.2)",
+      "risk_level": "low|medium|high|critical"
+    }
+  ]
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: fileUrls,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            requirements: { type: "array" }
+          }
+        }
+      });
+
+      if (result.requirements && result.requirements.length > 0) {
+        let count = 0;
+        for (const req of result.requirements) {
+          await base44.entities.ComplianceRequirement.create({
+            proposal_id: proposalId,
+            organization_id: organizationId,
+            requirement_id: req.requirement_id || `EXTRACT-${Date.now()}-${count}`,
+            requirement_title: req.requirement_title,
+            requirement_type: req.requirement_type || "solicitation_specific",
+            requirement_category: req.requirement_category || "mandatory",
+            requirement_description: req.requirement_description,
+            requirement_source: req.requirement_source,
+            compliance_status: "not_started",
+            risk_level: req.risk_level || "medium",
+            ai_detected: true,
+            ai_confidence: 80
+          });
+          count++;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['compliance-requirements', proposalId] });
+        alert(`✓ Extracted ${count} requirements!`);
+      }
+    } catch (error) {
+      console.error("Error extracting requirements:", error);
+      alert("Error extracting requirements. Please try again.");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const autoMapSections = async () => {
+    if (!proposalId || requirements.length === 0 || proposalSections.length === 0) {
+      alert("Please ensure you have both requirements and proposal sections");
+      return;
+    }
+
+    setIsAutoMapping(true);
+
+    try {
+      const prompt = `Map compliance requirements to proposal sections.
+
+**REQUIREMENTS:**
+${requirements.map(r => `${r.requirement_id}: ${r.requirement_title} (${r.requirement_type})`).join('\n')}
+
+**SECTIONS:**
+${proposalSections.map(s => `${s.id}: ${s.section_name} (${s.section_type})`).join('\n')}
+
+Return JSON array of mappings:
+{
+  "mappings": [
+    {
+      "requirement_id": "string",
+      "section_ids": ["string"]
+    }
+  ]
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            mappings: { type: "array" }
+          }
+        }
+      });
+
+      if (result.mappings) {
+        for (const mapping of result.mappings) {
+          const req = requirements.find(r => r.requirement_id === mapping.requirement_id);
+          if (req) {
+            await updateRequirementMutation.mutateAsync({
+              id: req.id,
+              data: { addressed_in_sections: mapping.section_ids }
+            });
+          }
+        }
+        alert("✓ Auto-mapped requirements to sections!");
+      }
+    } catch (error) {
+      console.error("Error auto-mapping:", error);
+      alert("Error auto-mapping sections. Please try again.");
+    } finally {
+      setIsAutoMapping(false);
+    }
+  };
+
   const filteredRequirements = requirements.filter(req => {
-    const matchesSearch = !searchQuery ||
-      req.requirement_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.requirement_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.requirement_description?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+    const matchesSearch = req.requirement_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         req.requirement_description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = filterType === "all" || req.requirement_type === filterType;
-    // Removed matchesCategory based on outline
     const matchesStatus = filterStatus === "all" || req.compliance_status === filterStatus;
     const matchesRisk = filterRisk === "all" || req.risk_level === filterRisk;
-
     return matchesSearch && matchesType && matchesStatus && matchesRisk;
   });
 
-  // Statistics
   const stats = {
     total: requirements.length,
-    compliant: requirements.filter(r => r.compliance_status === "compliant").length,
-    inProgress: requirements.filter(r => r.compliance_status === "in_progress").length,
-    // Removed notStarted and nonCompliant from stats based on outline
-    highRisk: requirements.filter(r => r.risk_level === 'high' || r.risk_level === 'critical').length, // Added highRisk
-    // Removed far and dfars counts
+    compliant: requirements.filter(r => r.compliance_status === 'compliant').length,
+    inProgress: requirements.filter(r => r.compliance_status === 'in_progress').length,
+    notStarted: requirements.filter(r => r.compliance_status === 'not_started').length,
+    highRisk: requirements.filter(r => r.risk_level === 'high' || r.risk_level === 'critical').length,
   };
 
-  const compliancePercentage = stats.total > 0 
-    ? Math.round((stats.compliant / stats.total) * 100) 
-    : 0;
+  const compliancePercentage = stats.total > 0 ? Math.round((stats.compliant / stats.total) * 100) : 0;
 
   const getRiskColor = (risk) => {
     switch (risk) {
@@ -466,9 +371,7 @@ ${proposalSections.map(section => `
             <Target className="w-4 h-4 mr-2" />
             Gap Analysis
             {gapAnalysisResults && (
-              <Badge className="ml-2 bg-red-600 text-white rounded-full h-5 px-2 flex items-center justify-center">
-                {gapAnalysisResults.gaps?.length || 0}
-              </Badge>
+              <Badge className="ml-2 bg-red-600">{gapAnalysisResults.gaps?.length || 0}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="readiness">
@@ -477,9 +380,7 @@ ${proposalSections.map(section => `
           </TabsTrigger>
         </TabsList>
 
-        {/* Compliance Matrix Tab */}
         <TabsContent value="matrix" className="space-y-6">
-          {/* Header & Stats (simplified from original) */}
           <div className="grid md:grid-cols-4 gap-4">
             <Card className="border-none shadow-lg">
               <CardHeader className="pb-3">
@@ -549,7 +450,7 @@ ${proposalSections.map(section => `
                   </Button>
                   <Button
                     onClick={autoMapSections}
-                    disabled={isAutoMapping || requirements.length === 0 || proposalSections.length === 0}
+                    disabled={isAutoMapping || requirements.length === 0}
                     variant="outline"
                     size="sm"
                   >
@@ -565,7 +466,6 @@ ${proposalSections.map(section => `
                       </>
                     )}
                   </Button>
-                  {/* Removed Export CSV button from outline */}
                 </div>
               </div>
             </CardHeader>
@@ -591,13 +491,8 @@ ${proposalSections.map(section => `
                     <SelectItem value="administrative">Administrative</SelectItem>
                     <SelectItem value="certification">Certification</SelectItem>
                     <SelectItem value="solicitation_specific">Solicitation Specific</SelectItem>
-                    {/* Kept FAR/DFARS as they are still common types that might be extracted */}
-                    <SelectItem value="far">FAR</SelectItem>
-                    <SelectItem value="dfars">DFARS</SelectItem>
-                    <SelectItem value="agency_specific">Agency Specific</SelectItem>
                   </SelectContent>
                 </Select>
-                {/* Removed filterCategory select */}
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by status" />
@@ -695,9 +590,9 @@ ${proposalSections.map(section => `
                               </div>
                               <div className="flex items-center gap-2 ml-4">
                                 {req.compliance_status === 'compliant' ? (
-                                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                                  <Check className="w-6 h-6 text-green-600" />
                                 ) : req.compliance_status === 'non_compliant' ? (
-                                  <XCircle className="w-6 h-6 text-red-600" />
+                                  <AlertTriangle className="w-6 h-6 text-red-600" />
                                 ) : (
                                   <Clock className="w-6 h-6 text-slate-400" />
                                 )}
@@ -713,10 +608,10 @@ ${proposalSections.map(section => `
                             {req.requirement_id} • {req.requirement_source}
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-4 py-4"> {/* Added padding for better spacing */}
+                        <div className="space-y-4">
                           <div>
                             <Label>Description</Label>
-                            <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">
+                            <p className="text-sm text-slate-600 mt-1">
                               {req.requirement_description || "No description provided"}
                             </p>
                           </div>
@@ -769,7 +664,7 @@ ${proposalSections.map(section => `
                           </div>
                           {req.addressed_in_sections && req.addressed_in_sections.length > 0 && (
                             <div>
-                              <Label className="block mb-1">Addressed In Sections</Label> {/* Added block and mb-1 */}
+                              <Label>Addressed In Sections</Label>
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {req.addressed_in_sections.map((sectionId, idx) => {
                                   const section = proposalSections.find(s => s.id === sectionId);
@@ -782,14 +677,7 @@ ${proposalSections.map(section => `
                               </div>
                             </div>
                           )}
-                           {req.compliance_notes && ( // Kept compliance notes if they exist
-                            <div>
-                              <Label>Compliance Notes</Label>
-                              <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{req.compliance_notes}</p>
-                            </div>
-                          )}
                         </div>
-                        {/* Removed dialog footer as per outline, button is handled by close trigger */}
                       </DialogContent>
                     </Dialog>
                   ))}
@@ -799,7 +687,6 @@ ${proposalSections.map(section => `
           </Card>
         </TabsContent>
 
-        {/* NEW: Gap Analysis Tab */}
         <TabsContent value="gap-analysis" className="space-y-6">
           <Card className="border-none shadow-lg">
             <CardHeader className="border-b">
@@ -855,7 +742,6 @@ ${proposalSections.map(section => `
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Overall Score */}
                   <Card className="border-2" style={{
                     borderColor: gapAnalysisResults.overall_compliance_score >= 80 ? '#22c55e' :
                                  gapAnalysisResults.overall_compliance_score >= 60 ? '#f59e0b' : '#dc2626',
@@ -881,12 +767,11 @@ ${proposalSections.map(section => `
                     </CardContent>
                   </Card>
 
-                  {/* Priority Actions */}
                   {gapAnalysisResults.priority_actions && gapAnalysisResults.priority_actions.length > 0 && (
                     <Card className="border-amber-200 bg-amber-50">
                       <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2">
-                          <AlertCircle className="w-5 h-5 text-amber-600" />
+                          <AlertTriangle className="w-5 h-5 text-amber-600" />
                           Priority Actions Required
                         </CardTitle>
                       </CardHeader>
@@ -905,12 +790,11 @@ ${proposalSections.map(section => `
                     </Card>
                   )}
 
-                  {/* Identified Gaps */}
                   {gapAnalysisResults.gaps && gapAnalysisResults.gaps.length > 0 && (
                     <Card className="border-red-200">
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-red-700">
-                          <AlertCircle className="w-5 h-5" />
+                          <AlertTriangle className="w-5 h-5" />
                           Identified Gaps ({gapAnalysisResults.gaps.length})
                         </CardTitle>
                       </CardHeader>
@@ -925,17 +809,17 @@ ${proposalSections.map(section => `
                             }`}>
                               <CardContent className="p-4">
                                 <div className="flex items-start gap-3">
-                                  <Badge className={`text-white ${
+                                  <Badge className={
                                     gap.severity === 'critical' ? 'bg-red-600' :
                                     gap.severity === 'high' ? 'bg-orange-600' :
                                     gap.severity === 'medium' ? 'bg-amber-600' :
                                     'bg-yellow-600'
-                                  }`}>
+                                  }>
                                     {gap.severity}
                                   </Badge>
                                   <div className="flex-1">
                                     <h4 className="font-semibold text-slate-900 mb-1">
-                                      {gap.requirement_title} (ID: {gap.requirement_id})
+                                      {gap.requirement_title}
                                     </h4>
                                     <p className="text-sm text-slate-700 mb-2">
                                       <strong>Gap:</strong> {gap.gap_description}
@@ -961,12 +845,11 @@ ${proposalSections.map(section => `
                     </Card>
                   )}
 
-                  {/* Well Addressed Requirements */}
                   {gapAnalysisResults.well_addressed && gapAnalysisResults.well_addressed.length > 0 && (
                     <Card className="border-green-200 bg-green-50">
                       <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2 text-green-700">
-                          <CheckCircle2 className="w-5 h-5" />
+                          <Check className="w-5 h-5" />
                           Well Addressed ({gapAnalysisResults.well_addressed.length})
                         </CardTitle>
                       </CardHeader>
@@ -974,7 +857,7 @@ ${proposalSections.map(section => `
                         <div className="grid md:grid-cols-2 gap-3">
                           {gapAnalysisResults.well_addressed.map((item, idx) => (
                             <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-green-200">
-                              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-slate-900 truncate">
                                   {item.requirement_title}
@@ -990,40 +873,6 @@ ${proposalSections.map(section => `
                     </Card>
                   )}
 
-                  {/* Formatting Issues */}
-                  {gapAnalysisResults.formatting_issues && gapAnalysisResults.formatting_issues.length > 0 && (
-                    <Card className="border-blue-200">
-                      <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-blue-600" />
-                          Formatting Issues
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {gapAnalysisResults.formatting_issues.map((issue, idx) => (
-                            <div key={idx} className="p-3 bg-blue-50 rounded border border-blue-200">
-                              <div className="flex items-start gap-2">
-                                <Badge className={`text-white ${
-                                  issue.severity === 'critical' ? 'bg-red-600' :
-                                  issue.severity === 'high' ? 'bg-orange-600' :
-                                  'bg-blue-600'
-                                }`}>
-                                  {issue.severity}
-                                </Badge>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-slate-900">{issue.issue}</p>
-                                  <p className="text-xs text-slate-600 mt-1">{issue.recommendation}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Strengths */}
                   {gapAnalysisResults.strengths && gapAnalysisResults.strengths.length > 0 && (
                     <Card className="border-green-200 bg-green-50">
                       <CardHeader>
@@ -1036,7 +885,7 @@ ${proposalSections.map(section => `
                         <ul className="space-y-2">
                           {gapAnalysisResults.strengths.map((strength, idx) => (
                             <li key={idx} className="flex items-start gap-2 text-sm text-green-800">
-                              <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                               <span>{strength}</span>
                             </li>
                           ))}
@@ -1050,7 +899,6 @@ ${proposalSections.map(section => `
           </Card>
         </TabsContent>
 
-        {/* NEW: Submission Readiness Tab */}
         <TabsContent value="readiness" className="space-y-6">
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -1067,9 +915,9 @@ ${proposalSections.map(section => `
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     {stats.compliant === stats.total && stats.total > 0 ? (
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      <Check className="w-6 h-6 text-green-600" />
                     ) : (
-                      <AlertCircle className="w-6 h-6 text-amber-600" />
+                      <AlertTriangle className="w-6 h-6 text-amber-600" />
                     )}
                     <div>
                       <p className="font-semibold">All Requirements Addressed</p>
@@ -1079,14 +927,14 @@ ${proposalSections.map(section => `
                     </div>
                   </div>
                   <Badge className={stats.compliant === stats.total && stats.total > 0 ? 'bg-green-600' : 'bg-amber-600'}>
-                    {stats.total > 0 ? `${Math.round((stats.compliant / stats.total) * 100)}%` : '0%'}
+                    {stats.total > 0 ? Math.round((stats.compliant / stats.total) * 100) : 0}%
                   </Badge>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     {stats.highRisk === 0 ? (
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      <Check className="w-6 h-6 text-green-600" />
                     ) : (
                       <AlertTriangle className="w-6 h-6 text-red-600" />
                     )}
@@ -1105,9 +953,9 @@ ${proposalSections.map(section => `
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     {proposalSections.length > 0 ? (
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      <Check className="w-6 h-6 text-green-600" />
                     ) : (
-                      <AlertCircle className="w-6 h-6 text-amber-600" />
+                      <AlertTriangle className="w-6 h-6 text-amber-600" />
                     )}
                     <div>
                       <p className="font-semibold">Proposal Content Written</p>
@@ -1125,9 +973,9 @@ ${proposalSections.map(section => `
                   <div className="flex items-center gap-3">
                     {gapAnalysisResults ? (
                       gapAnalysisResults.overall_compliance_score >= 80 ? (
-                        <CheckCircle2 className="w-6 h-6 text-green-600" />
+                        <Check className="w-6 h-6 text-green-600" />
                       ) : (
-                        <AlertCircle className="w-6 h-6 text-amber-600" />
+                        <AlertTriangle className="w-6 h-6 text-amber-600" />
                       )
                     ) : (
                       <Clock className="w-6 h-6 text-slate-400" />
@@ -1144,32 +992,19 @@ ${proposalSections.map(section => `
                       {gapAnalysisResults.overall_compliance_score}%
                     </Badge>
                   ) : (
-                    <Button size="sm" onClick={runGapAnalysis} disabled={isRunningGapAnalysis}>
-                       {isRunningGapAnalysis ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        )}
+                    <Button size="sm" onClick={runGapAnalysis}>
                       Run Now
                     </Button>
                   )}
                 </div>
               </div>
 
-              {stats.compliant === stats.total && stats.total > 0 && stats.highRisk === 0 && (gapAnalysisResults && gapAnalysisResults.overall_compliance_score >= 80) ? (
+              {stats.compliant === stats.total && stats.total > 0 && stats.highRisk === 0 && gapAnalysisResults?.overall_compliance_score >= 80 && (
                 <div className="mt-6 p-6 bg-green-50 border-2 border-green-200 rounded-lg text-center">
-                  <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                  <Check className="w-16 h-16 text-green-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-green-900 mb-2">Ready for Submission!</h3>
                   <p className="text-green-700">
                     Your proposal meets all compliance requirements and is ready to submit.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-6 p-6 bg-amber-50 border-2 border-amber-200 rounded-lg text-center">
-                  <AlertTriangle className="w-16 h-16 text-amber-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-amber-900 mb-2">Needs Further Review</h3>
-                  <p className="text-amber-700">
-                    Some items still require attention before submission. Check the Compliance Matrix and Gap Analysis tabs.
                   </p>
                 </div>
               )}
