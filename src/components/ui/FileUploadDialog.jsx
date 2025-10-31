@@ -38,7 +38,7 @@ export default function FileUploadDialog({
 }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
+  const [fileDescription, setFileDescription] = useState("");
   const [tags, setTags] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
 
@@ -83,7 +83,7 @@ export default function FileUploadDialog({
 
     const metadata = {
       category,
-      description: description.trim(),
+      description: fileDescription.trim(),
       tags
     };
 
@@ -92,7 +92,7 @@ export default function FileUploadDialog({
     // Reset form
     setSelectedFiles([]);
     setCategory("");
-    setDescription("");
+    setFileDescription("");
     setTags([]);
     setCurrentTag("");
   };
@@ -100,7 +100,7 @@ export default function FileUploadDialog({
   const handleCancel = () => {
     setSelectedFiles([]);
     setCategory("");
-    setDescription("");
+    setFileDescription("");
     setTags([]);
     setCurrentTag("");
     onOpenChange(false);
@@ -242,8 +242,8 @@ export default function FileUploadDialog({
             <div className="space-y-2">
               <Label>Description (Optional)</Label>
               <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={fileDescription}
+                onChange={(e) => setFileDescription(e.target.value)}
                 placeholder="Brief description of the file content..."
                 rows={3}
                 disabled={uploading}
