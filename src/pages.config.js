@@ -33,6 +33,7 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import ErrorMonitoringDashboard from './pages/ErrorMonitoringDashboard';
 import TemplatesLibrary from './pages/TemplatesLibrary';
 import AdvancedSearch from './pages/AdvancedSearch';
+import KeyPersonnel from './pages/KeyPersonnel';
 import Layout from './Layout.jsx';
 
 
@@ -72,6 +73,7 @@ export const PAGES = {
     "ErrorMonitoringDashboard": ErrorMonitoringDashboard,
     "TemplatesLibrary": TemplatesLibrary,
     "AdvancedSearch": AdvancedSearch,
+    "KeyPersonnel": KeyPersonnel,
 }
 
 export const pagesConfig = {
