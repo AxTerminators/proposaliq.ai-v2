@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -318,7 +319,13 @@ export default function Analytics() {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={timeSeriesData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
+                  <XAxis 
+                    dataKey="month" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis domain={[0, 100]} />
                   <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
                   <Legend />
@@ -341,7 +348,13 @@ export default function Analytics() {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={timeSeriesData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
+                  <XAxis 
+                    dataKey="month" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={80}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis formatter={(value) => `$${(value / 1000).toFixed(0)}K`} />
                   <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
                   <Legend />
