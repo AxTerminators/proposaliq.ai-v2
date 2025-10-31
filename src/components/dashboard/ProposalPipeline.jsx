@@ -14,47 +14,48 @@ import {
 } from 'recharts';
 import { TrendingUp, DollarSign, Target } from "lucide-react";
 
-export default function ProposalPipeline({ proposals }) {
+export default function ProposalPipeline({ proposals = [] }) {
   // Calculate pipeline stages
   const pipelineData = [
     {
       stage: "Evaluating",
-      count: proposals.filter(p => p.status === 'evaluating').length,
+      count: proposals.filter(p => p?.status === 'evaluating').length,
       color: "#3b82f6"
     },
     {
       stage: "Watch List",
-      count: proposals.filter(p => p.status === 'watch_list').length,
+      count: proposals.filter(p => p?.status === 'watch_list').length,
       color: "#eab308"
     },
     {
       stage: "In Progress",
-      count: proposals.filter(p => p.status === 'in_progress').length,
+      count: proposals.filter(p => p?.status === 'in_progress').length,
       color: "#f59e0b"
     },
     {
       stage: "Submitted",
-      count: proposals.filter(p => p.status === 'submitted').length,
+      count: proposals.filter(p => p?.status === 'submitted').length,
       color: "#8b5cf6"
     },
     {
       stage: "Won",
-      count: proposals.filter(p => p.status === 'won').length,
+      count: proposals.filter(p => p?.status === 'won').length,
       color: "#10b981"
     },
     {
       stage: "Lost",
-      count: proposals.filter(p => p.status === 'lost').length,
+      count: proposals.filter(p => p?.status === 'lost').length,
       color: "#ef4444"
     }
   ];
 
   const totalActive = proposals.filter(p => 
-    ['evaluating', 'watch_list', 'in_progress', 'submitted'].includes(p.status)
+    p && ['evaluating', 'watch_list', 'in_progress', 'submitted'].includes(p.status)
   ).length;
 
-  const conversionRate = proposals.filter(p => p.status === 'won').length / 
-    Math.max(proposals.filter(p => ['won', 'lost'].includes(p.status)).length, 1) * 100;
+  const wonCount = proposals.filter(p => p?.status === 'won').length;
+  const lostCount = proposals.filter(p => p && ['won', 'lost'].includes(p.status)).length;
+  const conversionRate = lostCount > 0 ? (wonCount / lostCount) * 100 : 0;
 
   return (
     <Card className="border-none shadow-lg">
@@ -94,19 +95,19 @@ export default function ProposalPipeline({ proposals }) {
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="text-center p-3 bg-blue-50 rounded-lg">
             <p className="text-2xl font-bold text-blue-600">
-              {proposals.filter(p => ['evaluating', 'watch_list'].includes(p.status)).length}
+              {proposals.filter(p => p && ['evaluating', 'watch_list'].includes(p.status)).length}
             </p>
             <p className="text-xs text-slate-600 mt-1">Early Stage</p>
           </div>
           <div className="text-center p-3 bg-amber-50 rounded-lg">
             <p className="text-2xl font-bold text-amber-600">
-              {proposals.filter(p => p.status === 'in_progress').length}
+              {proposals.filter(p => p?.status === 'in_progress').length}
             </p>
             <p className="text-xs text-slate-600 mt-1">In Progress</p>
           </div>
           <div className="text-center p-3 bg-purple-50 rounded-lg">
             <p className="text-2xl font-bold text-purple-600">
-              {proposals.filter(p => p.status === 'submitted').length}
+              {proposals.filter(p => p?.status === 'submitted').length}
             </p>
             <p className="text-xs text-slate-600 mt-1">Awaiting Decision</p>
           </div>
