@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, CreditCard, FileText, Brain, Lock, Activity, BarChart3, UserCog, Workflow, Mail, MessageSquare, Calendar as CalendarIcon, Eye, Globe } from "lucide-react";
+import { Shield, Users, CreditCard, FileText, Brain, Lock, Activity, BarChart3, UserCog, Workflow, Mail, MessageSquare, Calendar as CalendarIcon, Eye, Globe, AlertCircle } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
 import AuditLogModule from "../components/admin/AuditLogModule";
@@ -23,6 +24,9 @@ import GlobalProposalManagementModule from "../components/admin/GlobalProposalMa
 import GlobalCalendarModule from "../components/admin/GlobalCalendarModule";
 import EnhancedEmailTemplateModule from "../components/admin/EnhancedEmailTemplateModule";
 import GlobalReportingModule from "../components/admin/GlobalReportingModule";
+
+import AnalyticsDashboard from "../components/admin/AnalyticsDashboard";
+import ErrorMonitoringDashboard from "../components/admin/ErrorMonitoringDashboard";
 
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -69,6 +73,8 @@ export default function AdminPortal() {
   const modules = [
     // Overview & Analytics
     { id: "overview", label: "Overview", icon: BarChart3, component: GlobalReportingModule, category: "analytics" },
+    { id: "analytics", label: "Analytics", icon: BarChart3, component: AnalyticsDashboard, category: "analytics" },
+    { id: "error-monitoring", label: "Error Monitor", icon: AlertCircle, component: ErrorMonitoringDashboard, category: "analytics" },
     { id: "reports", label: "Reports", icon: BarChart3, component: ReportsModule, category: "analytics" },
     
     // User & Client Management
