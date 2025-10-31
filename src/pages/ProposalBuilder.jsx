@@ -5,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -31,6 +31,7 @@ import ProposalFiles from "../components/collaboration/ProposalFiles";
 import AutomationHub from "../components/workflows/AutomationHub";
 import FloatingChatButton from "../components/collaboration/FloatingChatButton";
 import ClientSharingPanel from "../components/builder/ClientSharingPanel";
+import ProposalAssistant from "../components/assistant/ProposalAssistant";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -51,6 +52,8 @@ export default function ProposalBuilder() {
   const [proposalId, setProposalId] = useState(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
+  const [assistantMinimized, setAssistantMinimized] = useState(false);
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
     prime_contractor_id: "",
@@ -206,7 +209,7 @@ export default function ProposalBuilder() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-32">
-      <div className="max-w-7xl mx-auto">
+      <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAssistant && !assistantMinimized ? 'mr-96' : ''}`}>
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <Button
@@ -217,16 +220,29 @@ export default function ProposalBuilder() {
               Back to Pipeline
             </Button>
             
-            {proposalId && (
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteWarning(true)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Proposal
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {proposalId && !showAssistant && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAssistant(true)}
+                  className="bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  AI Assistant
+                </Button>
+              )}
+              
+              {proposalId && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteWarning(true)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Proposal
+                </Button>
+              )}
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             {proposalData.proposal_name || "New Proposal"}
@@ -424,6 +440,20 @@ export default function ProposalBuilder() {
           </>
         )}
       </div>
+
+      {/* AI Assistant Sidebar */}
+      {showAssistant && proposalId && (
+        <ProposalAssistant
+          proposal={{ id: proposalId, ...proposalData }}
+          currentPhase={currentPhase}
+          onClose={() => {
+            setShowAssistant(false);
+            setAssistantMinimized(false);
+          }}
+          isMinimized={assistantMinimized}
+          onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
+        />
+      )}
 
       {/* Floating AI Chat Button - Now Draggable */}
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
