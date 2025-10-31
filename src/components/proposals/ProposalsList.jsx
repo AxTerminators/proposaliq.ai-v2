@@ -1,10 +1,9 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Building2, TrendingUp, FileText } from "lucide-react";
+import { Calendar, Building2, TrendingUp, FileText, Sparkles } from "lucide-react";
 
 const statusConfig = {
   evaluating: { label: "Evaluating", color: "bg-blue-100 text-blue-700" },
@@ -43,9 +42,17 @@ export default function ProposalsList({ proposals }) {
               <div className="flex-1">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-xl font-semibold text-slate-900 mb-1">
-                      {proposal.proposal_name}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-xl font-semibold text-slate-900">
+                        {proposal.proposal_name}
+                      </h3>
+                      {proposal.is_sample_data && (
+                        <Badge className="bg-amber-100 text-amber-700">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          SAMPLE
+                        </Badge>
+                      )}
+                    </div>
                     {proposal.solicitation_number && (
                       <p className="text-sm text-slate-500">
                         Solicitation: {proposal.solicitation_number}
