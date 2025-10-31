@@ -19,12 +19,14 @@ import {
   FileCode,
   FileArchive,
   Loader2,
-  Award
+  Award,
+  Calendar
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import FileUploadDialog from "@/components/ui/FileUploadDialog";
+import { format } from "date-fns";
 
 export default function Phase2({ proposalData, setProposalData, proposalId }) {
   const queryClient = useQueryClient();
@@ -654,9 +656,17 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                           {resource.description && (
                             <p className="text-xs text-slate-600 truncate">{resource.description}</p>
                           )}
-                          <Badge variant="outline" className="text-xs mt-1 capitalize">
-                            {resource.resource_type.replace(/_/g, ' ')}
-                          </Badge>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {resource.resource_type.replace(/_/g, ' ')}
+                            </Badge>
+                            {resource.created_date && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500">
+                                <Calendar className="w-3 h-3" />
+                                <span>{format(new Date(resource.created_date), 'MMM d, yyyy')}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <Button
@@ -680,9 +690,17 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                           <p className="text-xs text-slate-600 truncate">
                             {pastPerf.client_name} • {pastPerf.contract_value ? `$${(pastPerf.contract_value / 1000000).toFixed(1)}M` : 'No value'}
                           </p>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            Past Performance
-                          </Badge>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <Badge variant="outline" className="text-xs">
+                              Past Performance
+                            </Badge>
+                            {pastPerf.created_date && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500">
+                                <Calendar className="w-3 h-3" />
+                                <span>{format(new Date(pastPerf.created_date), 'MMM d, yyyy')}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <Button
@@ -706,9 +724,17 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
                           {doc.description && (
                             <p className="text-xs text-slate-600 truncate">{doc.description}</p>
                           )}
-                          <p className="text-xs text-slate-500">
-                            {(doc.file_size / 1024 / 1024).toFixed(2)} MB
-                          </p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <p className="text-xs text-slate-500">
+                              {(doc.file_size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                            {doc.created_date && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500">
+                                <Calendar className="w-3 h-3" />
+                                <span>{format(new Date(doc.created_date), 'MMM d, yyyy')}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
