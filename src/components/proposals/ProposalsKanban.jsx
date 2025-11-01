@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +8,7 @@ import BoardConfigDialog from "./BoardConfigDialog";
 import ProposalCardModal from "./ProposalCardModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter } from "lucide-react";
+import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,6 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
@@ -33,6 +40,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState(null); // 'name', 'due_date', 'created_date'
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
 
   useEffect(() => {
     const handleResize = () => {
@@ -200,6 +211,37 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     setShowProposalModal(true);
   };
 
+  const sortProposals = useCallback((proposalsList) => {
+    if (!sortBy) return proposalsList;
+
+    const sorted = [...proposalsList].sort((a, b) => {
+      let aValue, bValue;
+
+      switch (sortBy) {
+        case 'name':
+          aValue = (a.proposal_name || '').toLowerCase();
+          bValue = (b.proposal_name || '').toLowerCase();
+          break;
+        case 'due_date':
+          aValue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+          bValue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+          break;
+        case 'created_date':
+          aValue = a.created_date ? new Date(a.created_date).getTime() : 0;
+          bValue = b.created_date ? new Date(b.created_date).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [sortBy, sortDirection]);
+
   const getProposalsForColumn = useCallback((column) => {
     let columnProposals = [];
     
@@ -229,20 +271,21 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       );
     }
 
+    // Apply sorting
+    columnProposals = sortProposals(columnProposals);
+
     return columnProposals;
-  }, [proposals, searchQuery, filterAgency, filterAssignee]);
+  }, [proposals, searchQuery, filterAgency, filterAssignee, sortProposals]);
 
   const handleCreateProposal = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
-  // Get unique agencies for filter
   const uniqueAgencies = useMemo(() => {
     const agencies = [...new Set(proposals.map(p => p.agency_name).filter(Boolean))];
     return agencies.sort();
   }, [proposals]);
 
-  // Get unique assignees for filter
   const uniqueAssignees = useMemo(() => {
     const assignees = new Set();
     proposals.forEach(p => {
@@ -264,6 +307,27 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
+  };
+
+  const handleSortChange = (newSortBy) => {
+    if (sortBy === newSortBy) {
+      // Toggle direction
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New sort criteria
+      setSortBy(newSortBy);
+      setSortDirection('asc');
+    }
+  };
+
+  const clearSort = () => {
+    setSortBy(null);
+    setSortDirection('asc');
+  };
+
+  const getSortIcon = (sortType) => {
+    if (sortBy !== sortType) return <ArrowUpDown className="w-4 h-4 ml-2" />;
+    return sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
   };
 
   if (isMobile) {
@@ -296,6 +360,47 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               </span>
             )}
           </Button>
+          
+          {/* Sort Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Sort Columns By</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleSortChange('name')}>
+                <span className="flex items-center flex-1">
+                  A to Z
+                  {getSortIcon('name')}
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSortChange('due_date')}>
+                <span className="flex items-center flex-1">
+                  Due Date
+                  {getSortIcon('due_date')}
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSortChange('created_date')}>
+                <span className="flex items-center flex-1">
+                  Date Added
+                  {getSortIcon('created_date')}
+                </span>
+              </DropdownMenuItem>
+              {sortBy && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={clearSort} className="text-red-600">
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Sort
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Button
             variant="outline"
             size="sm"
@@ -366,6 +471,24 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               </SelectContent>
             </Select>
           </div>
+        </div>
+      )}
+
+      {/* Active Sort Indicator */}
+      {sortBy && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+          <span className="text-sm text-blue-900 font-medium">
+            Sorted by: {sortBy === 'name' ? 'A to Z' : sortBy === 'due_date' ? 'Due Date' : 'Date Added'}
+            {' '}({sortDirection === 'asc' ? 'Ascending' : 'Descending'})
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearSort}
+            className="ml-auto h-6 px-2"
+          >
+            <X className="w-3 h-3" />
+          </Button>
         </div>
       )}
 
