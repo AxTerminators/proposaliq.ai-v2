@@ -377,7 +377,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                       className="w-10 h-10 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                       title="Add new column"
                     >
-                      <Plus className="w-6 h-6 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                      <Plus className="w-5 h-5 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
                     </button>
                   </div>
                 )}
@@ -400,10 +400,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                   <div className="flex-shrink-0 relative">
                     <button
                       onClick={() => toggleColumnCollapse(column.id)}
-                      className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-6 h-12 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
+                      className="absolute -left-2 top-4 z-10 w-6 h-10 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
                       title="Collapse column"
                     >
-                      <ChevronsLeft className="w-4 h-4 text-slate-500" />
+                      <ChevronsLeft className="w-3 h-3 text-slate-500" />
                     </button>
                     
                     <Droppable droppableId={column.id}>
@@ -439,7 +439,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                     className="w-10 h-10 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                     title="Add new column"
                   >
-                    <Plus className="w-6 h-6 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                    <Plus className="w-5 h-5 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
                   </button>
                 </div>
               </React.Fragment>
