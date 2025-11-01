@@ -1116,6 +1116,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                                   dragHandleProps={provided.dragHandleProps}
                                   onSortChange={handleSortChange}
                                   currentSort={columnSorts[column.id]}
+                                  isDragging={isDragging}
                                 />
                                 {provided.placeholder}
                               </div>
