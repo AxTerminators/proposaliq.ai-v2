@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -263,11 +263,11 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     },
   });
 
-  const handleDragStart = () => {
+  const handleDragStart = useCallback(() => {
     setIsDragging(true);
-  };
+  }, []);
 
-  const handleDragEnd = (result) => {
+  const handleDragEnd = useCallback((result) => {
     setIsDragging(false);
     
     if (!result.destination) return;
@@ -310,7 +310,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     } catch (error) {
       console.error("Error in handleDragEnd:", error);
     }
-  };
+  }, [columns, updateStatusMutation, saveColumnConfigMutation]);
 
   const handleAddColumn = () => {
     if (!newColumnLabel.trim()) {
@@ -431,7 +431,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     setColumnConfig(newColumns);
   };
 
-  const handleToggleCollapse = (columnId) => {
+  const handleToggleCollapse = useCallback((columnId) => {
     if (!columnId || isDragging) return; // Prevent collapse during drag
 
     const newCollapsedColumns = collapsedColumns.includes(columnId) 
@@ -441,12 +441,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     setCollapsedColumns(newCollapsedColumns);
     
     saveCollapsedStateMutation.mutate(newCollapsedColumns);
-  };
+  }, [collapsedColumns, isDragging, saveCollapsedStateMutation]);
 
-  const handleDeleteProposal = (proposal) => {
+  const handleDeleteProposal = useCallback((proposal) => {
     setProposalToDelete(proposal);
     setShowDeleteWarning(true);
-  };
+  }, []);
 
   const confirmDelete = () => {
     if (proposalToDelete?.id) {
@@ -454,7 +454,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     }
   };
 
-  const groupedProposals = React.useMemo(() => {
+  const groupedProposals = useMemo(() => {
     return columns.reduce((acc, column) => {
       if (!column || !column.id) return acc;
 
@@ -466,6 +466,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       return acc;
     }, {});
   }, [columns, proposals]);
+
+  const handleProposalClick = useCallback((proposal) => {
+    if (onProposalClick) {
+      onProposalClick(proposal);
+    }
+  }, [onProposalClick]);
 
   if (isLoading || !organization) {
     return (
@@ -897,7 +903,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                               <KanbanColumn
                                 column={column}
                                 proposals={groupedProposals[column.id] || []}
-                                onProposalClick={onProposalClick}
+                                onProposalClick={handleProposalClick}
                                 onDeleteProposal={handleDeleteProposal}
                                 isDraggingOver={snapshot.isDraggingOver}
                                 isCollapsed={isColumnCollapsed}
