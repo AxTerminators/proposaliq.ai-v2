@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings2, Plus, Loader2, RotateCcw, GripVertical, AlertTriangle, Trash2, Sliders } from "lucide-react";
+import { Settings2, Plus, Loader2, RotateCcw, GripVertical, AlertTriangle, Trash2, Sliders, Search, X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
 import BoardConfigDialog from "./BoardConfigDialog";
@@ -20,6 +21,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import moment from 'moment'; // Import moment for date calculations
 
 const defaultColumns = [
   { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating', wip_limit: 0, wip_limit_type: 'soft' },
@@ -54,6 +64,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   const [columnToDelete, setColumnToDelete] = useState(null);
   const [columnDeleteError, setColumnDeleteError] = useState(null);
   const [boardConfig, setBoardConfig] = useState(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterAssignee, setFilterAssignee] = useState("all");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterDueDate, setFilterDueDate] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Load saved config on mount
   useEffect(() => {
@@ -205,29 +221,20 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return;
     }
 
+    // Find the proposal being dragged from the filtered set
+    // Need to get the actual proposal object from the source column's proposals
+    const sourceColumnProposals = groupedProposals.swimlanes.flatMap(sl => sl.data[source.droppableId] || []);
+    const draggedProposal = sourceColumnProposals[source.index];
+
+    if (!draggedProposal) return;
+
     const sourceColumn = columns.find(col => col.id === source.droppableId);
     const destColumn = columns.find(col => col.id === destination.droppableId);
 
     if (!sourceColumn || !destColumn) return;
 
-    const proposal = proposals.find(p => {
-      if (sourceColumn.type === 'default_status') {
-        return p.status === sourceColumn.default_status_mapping;
-      } else {
-        return p.custom_workflow_stage_id === sourceColumn.id;
-      }
-    });
-
-    if (!proposal) return;
-
     // Check WIP limit before moving (for hard limits only)
-    const destProposals = proposals.filter(p => {
-      if (destColumn.type === 'default_status') {
-        return p.status === destColumn.default_status_mapping;
-      } else {
-        return p.custom_workflow_stage_id === destColumn.id;
-      }
-    });
+    const destProposals = groupedProposals.swimlanes.flatMap(sl => sl.data[destColumn.id] || []);
 
     const wipLimit = destColumn.wip_limit || 0;
     const wipLimitType = destColumn.wip_limit_type || 'soft';
@@ -247,12 +254,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     } else {
       updates = {
         custom_workflow_stage_id: destColumn.id,
-        status: 'in_progress'
+        status: 'in_progress' // Set to in_progress if moving to a custom stage
       };
     }
 
     updateProposalMutation.mutate({
-      proposalId: proposal.id,
+      proposalId: draggedProposal.id,
       updates
     });
   };
@@ -475,6 +482,78 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     }
   };
 
+  // Get unique assignees for filter
+  const uniqueAssignees = useMemo(() => {
+    const assignees = new Set();
+    proposals.forEach(p => {
+      if (p.lead_writer_email) assignees.add(p.lead_writer_email);
+      if (Array.isArray(p.assigned_team_members)) {
+        p.assigned_team_members.forEach(email => assignees.add(email));
+      }
+    });
+    return Array.from(assignees);
+  }, [proposals]);
+
+  // Filter proposals
+  const filteredProposals = useMemo(() => {
+    return proposals.filter(proposal => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = proposal.proposal_name?.toLowerCase().includes(query);
+        const matchesAgency = proposal.agency_name?.toLowerCase().includes(query);
+        const matchesNumber = proposal.solicitation_number?.toLowerCase().includes(query);
+        if (!matchesName && !matchesAgency && !matchesNumber) return false;
+      }
+
+      // Assignee filter
+      if (filterAssignee !== "all") {
+        let hasAssignee = false;
+        if (filterAssignee === "me") {
+          hasAssignee = (user?.email && proposal.lead_writer_email === user.email) ||
+                        (user?.email && Array.isArray(proposal.assigned_team_members) && proposal.assigned_team_members.includes(user.email));
+        } else if (filterAssignee === "unassigned") {
+          hasAssignee = !proposal.lead_writer_email && (!Array.isArray(proposal.assigned_team_members) || proposal.assigned_team_members.length === 0);
+        } else {
+          hasAssignee = proposal.lead_writer_email === filterAssignee ||
+                        (Array.isArray(proposal.assigned_team_members) && proposal.assigned_team_members.includes(filterAssignee));
+        }
+        if (!hasAssignee) return false;
+      }
+
+      // Priority filter (based on contract value)
+      if (filterPriority !== "all") {
+        const value = proposal.contract_value;
+        if (filterPriority === "high" && (!value || value < 1000000)) return false;
+        if (filterPriority === "medium" && (!value || value < 100000 || value >= 1000000)) return false;
+        if (filterPriority === "low" && (!value || value >= 100000)) return false; // If value is 0 or undefined, it will be considered "low"
+      }
+
+      // Due date filter
+      if (filterDueDate !== "all") {
+        if (!proposal.due_date) return false;
+        const dueDate = moment(proposal.due_date);
+        const today = moment().startOf('day');
+        const daysUntil = dueDate.diff(today, 'days');
+
+        if (filterDueDate === "overdue" && daysUntil >= 0) return false;
+        if (filterDueDate === "week" && (daysUntil < 0 || daysUntil > 7)) return false;
+        if (filterDueDate === "month" && (daysUntil < 0 || daysUntil > 30)) return false;
+      }
+
+      return true;
+    });
+  }, [proposals, searchQuery, filterAssignee, filterPriority, filterDueDate, user?.email]);
+
+  const hasActiveFilters = searchQuery || filterAssignee !== "all" || filterPriority !== "all" || filterDueDate !== "all";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterAssignee("all");
+    setFilterPriority("all");
+    setFilterDueDate("all");
+  };
+
   // Group proposals by swimlane if enabled
   const groupedProposals = useMemo(() => {
     const swimlaneConfig = boardConfig?.swimlane_config;
@@ -488,11 +567,11 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         let columnProposals = [];
         
         if (column.type === 'default_status') {
-          columnProposals = proposals.filter(p => 
+          columnProposals = filteredProposals.filter(p => 
             p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
           );
         } else {
-          columnProposals = proposals.filter(p => 
+          columnProposals = filteredProposals.filter(p => 
             p?.custom_workflow_stage_id === column.id
           );
         }
@@ -522,9 +601,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     const groupBy = swimlaneConfig.group_by;
     const customFieldName = swimlaneConfig.custom_field_name;
 
-    // Determine unique swimlane values
+    // Determine unique swimlane values from filtered proposals
     const swimlaneValues = new Set();
-    proposals.forEach(p => {
+    filteredProposals.forEach(p => {
       let value = 'Unassigned';
       if (groupBy === 'lead_writer') {
         value = p.lead_writer_email || 'Unassigned';
@@ -545,7 +624,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
 
     // Create swimlane for each value
     Array.from(swimlaneValues).sort().forEach(swimlaneValue => {
-      const swimlaneProposals = proposals.filter(p => {
+      const swimlaneProposals = filteredProposals.filter(p => {
         let value = 'Unassigned';
         if (groupBy === 'lead_writer') {
           value = p.lead_writer_email || 'Unassigned';
@@ -603,7 +682,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     });
 
     return { swimlanes };
-  }, [proposals, columns, columnSorts, boardConfig]);
+  }, [filteredProposals, columns, columnSorts, boardConfig]); // Dependency on filteredProposals
 
   if (isLoading) {
     return (
@@ -615,6 +694,109 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
 
   return (
     <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Input
+              placeholder="Search proposals by name, agency, or solicitation number..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <Button
+            variant={showFilters ? "default" : "outline"}
+            onClick={() => setShowFilters(!showFilters)}
+            className="gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+            {hasActiveFilters && (
+              <Badge className="ml-1 bg-blue-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                {[searchQuery, filterAssignee !== "all", filterPriority !== "all", filterDueDate !== "all"].filter(Boolean).length}
+              </Badge>
+            )}
+          </Button>
+        </div>
+
+        {showFilters && (
+          <div className="flex flex-wrap gap-3 p-4 bg-slate-50 rounded-lg border">
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs mb-2 block">Assignee</Label>
+              <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Assignees</SelectItem>
+                  <SelectItem value="me">My Proposals</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {uniqueAssignees.map(email => (
+                    <SelectItem key={email} value={email}>{email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs mb-2 block">Priority (by value)</Label>
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="high">High (>$1M)</SelectItem>
+                  <SelectItem value="medium">Medium ($100K-$1M)</SelectItem>
+                  <SelectItem value="low">Low (<$100K)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs mb-2 block">Due Date</Label>
+              <Select value={filterDueDate} onValueChange={setFilterDueDate}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Due Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="week">Due This Week</SelectItem>
+                  <SelectItem value="month">Due This Month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {hasActiveFilters && (
+              <div className="flex items-end">
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  <X className="w-4 h-4 mr-2" />
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {hasActiveFilters && (
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <span>Showing {filteredProposals.length} of {proposals.length} proposals</span>
+          </div>
+        )}
+      </div>
+
+      {/* Existing controls */}
       <div className="flex justify-end gap-2">
         <Button 
           variant="outline" 
@@ -823,7 +1005,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                 </div>
               </div>
             </div>
-            <div className="flex justify-between gap-2">
+            <DialogFooter className="flex justify-between gap-2">
               <Button variant="outline" onClick={handleResetToDefault}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset to Default
@@ -843,7 +1025,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                   )}
                 </Button>
               </div>
-            </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -1098,7 +1280,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         currentConfig={boardConfig}
       />
 
-      {/* Render Kanban Board with Swimlanes */}
+      {/* Render Kanban Board with Swimlanes - use filteredProposals instead of proposals */}
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {groupedProposals.swimlanes.map((swimlane) => (
           <div key={swimlane.id} className="mb-8">
