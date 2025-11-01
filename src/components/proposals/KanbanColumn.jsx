@@ -21,10 +21,7 @@ export default function KanbanColumn({
       {/* Column Header */}
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center justify-between mb-2">
-          <h3 className={cn(
-            "font-bold text-lg bg-gradient-to-r bg-clip-text text-transparent",
-            column.color
-          )}>
+          <h3 className="font-bold text-lg text-slate-900">
             {column.label}
           </h3>
           <Badge variant="secondary" className="text-sm">
