@@ -46,13 +46,33 @@ export default function Discussions() {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setOrganization(orgs[0]);
+        
+        // Get organization from active_client_id or client_accesses
+        let orgId = currentUser.active_client_id;
+        
+        // If no active_client_id, get first organization from client_accesses
+        if (!orgId && currentUser.client_accesses && currentUser.client_accesses.length > 0) {
+          orgId = currentUser.client_accesses[0].organization_id;
+        }
+        
+        // Fallback to created_by for backward compatibility
+        if (!orgId) {
+          const orgs = await base44.entities.Organization.filter(
+            { created_by: currentUser.email },
+            '-created_date',
+            1
+          );
+          if (orgs.length > 0) {
+            orgId = orgs[0].id;
+          }
+        }
+        
+        // Load the full organization details
+        if (orgId) {
+          const orgs = await base44.entities.Organization.filter({ id: orgId });
+          if (orgs.length > 0) {
+            setOrganization(orgs[0]);
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -75,16 +95,19 @@ export default function Discussions() {
   });
 
   const { data: comments } = useQuery({
-    queryKey: ['discussion-comments', selectedDiscussion?.id],
+    queryKey: ['discussion-comments', selectedDiscussion?.id, organization?.id],
     queryFn: async () => {
-      if (!selectedDiscussion?.id) return [];
+      if (!selectedDiscussion?.id || !organization?.id) return [];
       return base44.entities.DiscussionComment.filter(
-        { discussion_id: selectedDiscussion.id },
+        { 
+          discussion_id: selectedDiscussion.id,
+          organization_id: organization.id
+        },
         'created_date'
       );
     },
     initialData: [],
-    enabled: !!selectedDiscussion?.id,
+    enabled: !!selectedDiscussion?.id && !!organization?.id,
   });
 
   const { data: teamMembers } = useQuery({
@@ -121,6 +144,7 @@ export default function Discussions() {
     mutationFn: async ({ discussionId, content }) => {
       const comment = await base44.entities.DiscussionComment.create({
         discussion_id: discussionId,
+        organization_id: organization.id,
         content,
         author_name: user.full_name,
         author_email: user.email
