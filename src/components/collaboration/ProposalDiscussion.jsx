@@ -46,10 +46,13 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
 
   const { data: discussions, isLoading } = useQuery({
-    queryKey: ['proposal-discussions', proposal.id],
+    queryKey: ['proposal-discussions', proposal.id, organization.id],
     queryFn: async () => {
       return base44.entities.Discussion.filter(
-        { proposal_id: proposal.id },
+        { 
+          proposal_id: proposal.id,
+          organization_id: organization.id
+        },
         '-updated_date'
       );
     },
@@ -57,11 +60,14 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   });
 
   const { data: comments } = useQuery({
-    queryKey: ['discussion-comments', selectedDiscussion?.id],
+    queryKey: ['discussion-comments', selectedDiscussion?.id, organization.id],
     queryFn: async () => {
       if (!selectedDiscussion?.id) return [];
       return base44.entities.DiscussionComment.filter(
-        { discussion_id: selectedDiscussion.id },
+        { 
+          discussion_id: selectedDiscussion.id,
+          organization_id: organization.id
+        },
         'created_date'
       );
     },
@@ -110,6 +116,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
 
       const comment = await base44.entities.DiscussionComment.create({
         discussion_id: discussionId,
+        organization_id: organization.id,
         content,
         author_email: user.email,
         author_name: user.full_name,
