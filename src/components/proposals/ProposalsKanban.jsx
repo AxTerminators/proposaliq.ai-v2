@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,10 +67,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           1
         );
 
-        if (configs.length > 0 && configs[0].columns) {
-          const savedColumns = configs[0].columns.sort((a, b) => a.order - b.order);
-          setColumns(savedColumns);
-          setColumnConfig(savedColumns);
+        if (configs.length > 0) {
+          if (configs[0].columns) {
+            const savedColumns = configs[0].columns.sort((a, b) => a.order - b.order);
+            setColumns(savedColumns);
+            setColumnConfig(savedColumns);
+          }
           
           if (configs[0].collapsed_column_ids) {
             setCollapsedColumns(configs[0].collapsed_column_ids);
@@ -103,7 +104,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           ...col,
           order: idx
         })),
-        collapsed_column_ids: collapsedColumns
+        collapsed_column_ids: collapsedColumns,
+        swimlane_config: boardConfig?.swimlane_config || { enabled: false, group_by: 'none' },
+        view_settings: boardConfig?.view_settings || { default_view: 'kanban', show_card_details: [], compact_mode: false }
       };
 
       if (configs.length > 0) {
@@ -150,7 +153,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       const configData = {
         organization_id: organization.id,
         columns: defaultColumns,
-        collapsed_column_ids: []
+        collapsed_column_ids: [],
+        swimlane_config: { enabled: false, group_by: 'none' },
+        view_settings: { default_view: 'kanban', show_card_details: ['assignees', 'due_date', 'progress', 'value'], compact_mode: false }
       };
 
       if (configs.length > 0) {
@@ -164,7 +169,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       setColumnConfig(defaultColumns);
       setCollapsedColumns([]);
       setColumnSorts({});
-      setBoardConfig(null); // Reset board config as well
+      setBoardConfig(null);
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       setShowResetWarning(false);
     }
@@ -196,19 +201,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return;
     }
 
-    // Check if the destination column has a WIP limit and if it would be exceeded
-    const destinationColumn = columns.find(col => col.id === destination.droppableId);
-    const currentProposalsInDest = groupedProposals[destination.droppableId]?.length || 0;
-
-    if (destinationColumn && destinationColumn.wip_limit > 0 && currentProposalsInDest >= destinationColumn.wip_limit) {
-      // For now, we'll just prevent the drag. In a real app, you might show a warning.
-      // Or, if wip_limit_type is 'soft', allow but highlight.
-      // For a 'hard' limit, this prevention is appropriate.
-      console.warn(`WIP limit of ${destinationColumn.wip_limit} exceeded for column "${destinationColumn.label}". Cannot move proposal.`);
-      return;
-    }
-
-
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
@@ -219,16 +211,32 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     if (!sourceColumn || !destColumn) return;
 
     const proposal = proposals.find(p => {
-      // Find the proposal based on its current column (either default status or custom stage ID)
       if (sourceColumn.type === 'default_status') {
-        return p?.status === sourceColumn.default_status_mapping && !p?.custom_workflow_stage_id;
+        return p.status === sourceColumn.default_status_mapping;
       } else {
-        return p?.custom_workflow_stage_id === sourceColumn.id;
+        return p.custom_workflow_stage_id === sourceColumn.id;
       }
     });
 
-
     if (!proposal) return;
+
+    // Check WIP limit before moving (for hard limits only)
+    const destProposals = proposals.filter(p => {
+      if (destColumn.type === 'default_status') {
+        return p.status === destColumn.default_status_mapping;
+      } else {
+        return p.custom_workflow_stage_id === destColumn.id;
+      }
+    });
+
+    const wipLimit = destColumn.wip_limit || 0;
+    const wipLimitType = destColumn.wip_limit_type || 'soft';
+    const hasHardLimit = wipLimit > 0 && wipLimitType === 'hard';
+
+    if (hasHardLimit && destProposals.length >= wipLimit) {
+      alert(`Cannot move proposal. Hard WIP limit of ${wipLimit} reached for "${destColumn.label}" column.`);
+      return;
+    }
 
     let updates = {};
     if (destColumn.type === 'default_status') {
@@ -239,8 +247,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     } else {
       updates = {
         custom_workflow_stage_id: destColumn.id,
-        // When moving to a custom stage, default status to 'in_progress' if not already a default_status type
-        status: destColumn.type === 'custom_stage' ? 'in_progress' : proposal.status // Keep existing status if moving between default columns, otherwise 'in_progress' for custom.
+        status: 'in_progress'
       };
     }
 
@@ -340,7 +347,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         organization_id: organization.id,
         columns: columns,
         collapsed_column_ids: newCollapsed,
-        ...(boardConfig ? { board_title: boardConfig.board_title } : {}) // Preserve other board configs
+        swimlane_config: boardConfig?.swimlane_config,
+        view_settings: boardConfig?.view_settings
       };
 
       if (configs.length > 0) {
@@ -467,41 +475,135 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     }
   };
 
+  // Group proposals by swimlane if enabled
   const groupedProposals = useMemo(() => {
-    const grouped = {};
-    
-    columns.forEach(column => {
-      let columnProposals = [];
+    const swimlaneConfig = boardConfig?.swimlane_config;
+    const isSwimlanesEnabled = swimlaneConfig?.enabled && swimlaneConfig?.group_by !== 'none';
+
+    if (!isSwimlanesEnabled) {
+      // No swimlanes - return regular column-based grouping
+      const grouped = {};
       
-      if (column.type === 'default_status') {
-        columnProposals = proposals.filter(p => 
-          p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
-        );
-      } else {
-        columnProposals = proposals.filter(p => 
-          p?.custom_workflow_stage_id === column.id
-        );
-      }
+      columns.forEach(column => {
+        let columnProposals = [];
+        
+        if (column.type === 'default_status') {
+          columnProposals = proposals.filter(p => 
+            p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
+          );
+        } else {
+          columnProposals = proposals.filter(p => 
+            p?.custom_workflow_stage_id === column.id
+          );
+        }
 
-      const sortType = columnSorts[column.id];
-      if (sortType) {
-        columnProposals = [...columnProposals].sort((a, b) => {
-          if (sortType === 'date_newest') {
-            return new Date(b.created_date) - new Date(a.created_date);
-          } else if (sortType === 'name_asc') {
-            return (a.proposal_name || '').localeCompare(b.proposal_name || '');
-          } else if (sortType === 'name_desc') {
-            return (b.proposal_name || '').localeCompare(a.proposal_name || '');
-          }
-          return 0;
-        });
-      }
+        const sortType = columnSorts[column.id];
+        if (sortType) {
+          columnProposals = [...columnProposals].sort((a, b) => {
+            if (sortType === 'date_newest') {
+              return new Date(b.created_date) - new Date(a.created_date);
+            } else if (sortType === 'name_asc') {
+              return (a.proposal_name || '').localeCompare(b.proposal_name || '');
+            } else if (sortType === 'name_desc') {
+              return (b.proposal_name || '').localeCompare(a.proposal_name || '');
+            }
+            return 0;
+          });
+        }
 
-      grouped[column.id] = columnProposals;
+        grouped[column.id] = columnProposals;
+      });
+
+      return { swimlanes: [{ id: 'default', label: 'All Proposals', data: grouped }] };
+    }
+
+    // Swimlanes enabled - group by configured field
+    const swimlanes = [];
+    const groupBy = swimlaneConfig.group_by;
+    const customFieldName = swimlaneConfig.custom_field_name;
+
+    // Determine unique swimlane values
+    const swimlaneValues = new Set();
+    proposals.forEach(p => {
+      let value = 'Unassigned';
+      if (groupBy === 'lead_writer') {
+        value = p.lead_writer_email || 'Unassigned';
+      } else if (groupBy === 'project_type') {
+        value = p.project_type || 'Other';
+      } else if (groupBy === 'agency') {
+        value = p.agency_name || 'Unknown Agency';
+      } else if (groupBy === 'contract_value_range') {
+        if (!p.contract_value) value = 'Unknown';
+        else if (p.contract_value < 100000) value = '<$100K';
+        else if (p.contract_value < 1000000) value = '$100K-$1M';
+        else value = '>$1M';
+      } else if (groupBy === 'custom_field' && customFieldName) {
+        value = p.custom_fields?.[customFieldName] || 'Not Set';
+      }
+      swimlaneValues.add(value);
     });
 
-    return grouped;
-  }, [proposals, columns, columnSorts]);
+    // Create swimlane for each value
+    Array.from(swimlaneValues).sort().forEach(swimlaneValue => {
+      const swimlaneProposals = proposals.filter(p => {
+        let value = 'Unassigned';
+        if (groupBy === 'lead_writer') {
+          value = p.lead_writer_email || 'Unassigned';
+        } else if (groupBy === 'project_type') {
+          value = p.project_type || 'Other';
+        } else if (groupBy === 'agency') {
+          value = p.agency_name || 'Unknown Agency';
+        } else if (groupBy === 'contract_value_range') {
+          if (!p.contract_value) value = 'Unknown';
+          else if (p.contract_value < 100000) value = '<$100K';
+          else if (p.contract_value < 1000000) value = '$100K-$1M';
+          else value = '>$1M';
+        } else if (groupBy === 'custom_field' && customFieldName) {
+          value = p.custom_fields?.[customFieldName] || 'Not Set';
+        }
+        return value === swimlaneValue;
+      });
+
+      const grouped = {};
+      columns.forEach(column => {
+        let columnProposals = [];
+        
+        if (column.type === 'default_status') {
+          columnProposals = swimlaneProposals.filter(p => 
+            p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
+          );
+        } else {
+          columnProposals = swimlaneProposals.filter(p => 
+            p?.custom_workflow_stage_id === column.id
+          );
+        }
+
+        const sortType = columnSorts[column.id];
+        if (sortType) {
+          columnProposals = [...columnProposals].sort((a, b) => {
+            if (sortType === 'date_newest') {
+              return new Date(b.created_date) - new Date(a.created_date);
+            } else if (sortType === 'name_asc') {
+              return (a.proposal_name || '').localeCompare(b.proposal_name || '');
+            } else if (sortType === 'name_desc') {
+              return (b.proposal_name || '').localeCompare(a.proposal_name || '');
+            }
+            return 0;
+          });
+        }
+
+        grouped[column.id] = columnProposals;
+      });
+
+      swimlanes.push({
+        id: swimlaneValue,
+        label: swimlaneValue,
+        data: grouped
+      });
+    });
+
+    return { swimlanes };
+  }, [proposals, columns, columnSorts, boardConfig]);
 
   if (isLoading) {
     return (
@@ -514,6 +616,15 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowBoardConfig(true)}
+          disabled={isDragging}
+        >
+          <Sliders className="w-4 h-4 mr-2" />
+          Board Settings
+        </Button>
         <Button 
           variant="outline" 
           size="sm"
@@ -538,7 +649,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
             <DialogHeader>
               <DialogTitle>Customize Kanban Columns</DialogTitle>
               <DialogDescription>
-                Edit column labels and colors, reorder columns by dragging or entering order numbers, or add custom workflow stages.
+                Edit column labels, colors, WIP limits, reorder columns by dragging, or add custom workflow stages.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -616,6 +727,30 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                                       <option value="bg-pink-100">Pink</option>
                                       <option value="bg-amber-100">Amber</option>
                                       <option value="bg-teal-100">Teal</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="w-28 space-y-2">
+                                    <Label className="text-xs font-semibold">WIP Limit</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={column.wip_limit || 0}
+                                      onChange={(e) => handleColumnChange(column.id, 'wip_limit', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                      placeholder="0 = none"
+                                    />
+                                  </div>
+
+                                  <div className="w-24 space-y-2">
+                                    <Label className="text-xs font-semibold">Type</Label>
+                                    <select
+                                      value={column.wip_limit_type || "soft"}
+                                      onChange={(e) => handleColumnChange(column.id, 'wip_limit_type', e.target.value)}
+                                      className="w-full px-2 py-1 border rounded-md text-xs h-8"
+                                    >
+                                      <option value="soft">Soft</option>
+                                      <option value="hard">Hard</option>
                                     </select>
                                   </div>
 
@@ -726,11 +861,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <ul className="list-disc pl-5 space-y-1 text-slate-700">
                 <li>All custom column names will revert to original names</li>
                 <li>All custom column colors will revert to default colors</li>
+                <li>All WIP limits will be reset</li>
                 <li>All custom workflow stages will be permanently deleted</li>
                 <li>All collapsed columns will be expanded</li>
                 <li>Column order will be reset to the default sequence</li>
                 <li>All column sorting preferences will be cleared</li>
-                <li>All WIP limits and types will be reset to default settings</li>
+                <li>Swimlane configuration will be reset</li>
               </ul>
               <p className="text-amber-700 font-medium pt-2">⚠️ This action cannot be undone. Your proposals and data will remain safe.</p>
             </AlertDialogDescription>
@@ -950,86 +1086,110 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </DialogContent>
       </Dialog>
 
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <Droppable droppableId="all-columns" direction="horizontal" type="column">
-          {(provided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className="flex gap-0 overflow-x-auto pb-4"
-            >
-              {columns.map((column, index) => {
-                if (!column || !column.id) return null;
+      {/* Board Config Dialog */}
+      <BoardConfigDialog
+        isOpen={showBoardConfig}
+        onClose={() => {
+          setShowBoardConfig(false);
+          // Reload config after changes
+          queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+        }}
+        organization={organization}
+        currentConfig={boardConfig}
+      />
 
-                const isColumnCollapsed = collapsedColumns.includes(column.id);
-                return (
-                  <React.Fragment key={column.id}>
-                    <div className="group relative flex items-start flex-shrink-0">
-                      <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(index)}>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
-                          <Plus className="w-4 h-4" />
+      {/* Render Kanban Board with Swimlanes */}
+      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {groupedProposals.swimlanes.map((swimlane) => (
+          <div key={swimlane.id} className="mb-8">
+            {groupedProposals.swimlanes.length > 1 && (
+              <div className="mb-4 px-4 py-2 bg-gradient-to-r from-slate-100 to-slate-50 border-l-4 border-blue-500 rounded-r-lg">
+                <h3 className="font-semibold text-slate-900">{swimlane.label}</h3>
+              </div>
+            )}
+            
+            <Droppable droppableId="all-columns" direction="horizontal" type="column">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="flex gap-0 overflow-x-auto pb-4"
+                >
+                  {columns.map((column, index) => {
+                    if (!column || !column.id) return null;
+
+                    const isColumnCollapsed = collapsedColumns.includes(column.id);
+                    return (
+                      <React.Fragment key={column.id}>
+                        <div className="group relative flex items-start flex-shrink-0">
+                          <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(index)}>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                              <Plus className="w-4 h-4" />
+                            </div>
+                          </div>
                         </div>
+
+                        <Draggable 
+                          key={column.id} 
+                          draggableId={column.id} 
+                          index={index} 
+                          type="column"
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn(
+                                "flex-shrink-0 transition-all duration-300",
+                                isColumnCollapsed ? 'w-16' : 'w-80',
+                                snapshot.isDragging && 'opacity-50'
+                              )}
+                            >
+                              <Droppable droppableId={column.id} type="proposal">
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                  >
+                                    <KanbanColumn
+                                      column={column}
+                                      proposals={swimlane.data[column.id] || []}
+                                      onProposalClick={handleProposalClick}
+                                      onDeleteProposal={handleDeleteProposal}
+                                      isDraggingOver={snapshot.isDraggingOver}
+                                      isCollapsed={isColumnCollapsed}
+                                      onToggleCollapse={handleToggleCollapse}
+                                      dragHandleProps={provided.dragHandleProps}
+                                      onSortChange={handleSortChange}
+                                      currentSort={columnSorts[column.id]}
+                                      onDeleteColumn={handleDeleteColumn}
+                                      organization={organization}
+                                    />
+                                    {provided.placeholder}
+                                  </div>
+                                )}
+                              </Droppable>
+                            </div>
+                          )}
+                        </Draggable>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  <div className="group relative flex items-start flex-shrink-0">
+                    <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(columns.length)}>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                        <Plus className="w-4 h-4" />
                       </div>
                     </div>
-
-                    <Draggable 
-                      key={column.id} 
-                      draggableId={column.id} 
-                      index={index} 
-                      type="column"
-                    >
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          className={cn(
-                            "flex-shrink-0 transition-all duration-300",
-                            isColumnCollapsed ? 'w-16' : 'w-80',
-                            snapshot.isDragging && 'opacity-50'
-                          )}
-                        >
-                          <Droppable droppableId={column.id} type="proposal">
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.droppableProps}
-                              >
-                                <KanbanColumn
-                                  column={column}
-                                  proposals={groupedProposals[column.id] || []}
-                                  onProposalClick={handleProposalClick}
-                                  onDeleteProposal={handleDeleteProposal}
-                                  isDraggingOver={snapshot.isDraggingOver}
-                                  isCollapsed={isColumnCollapsed}
-                                  onToggleCollapse={handleToggleCollapse}
-                                  dragHandleProps={provided.dragHandleProps}
-                                  onSortChange={handleSortChange}
-                                  currentSort={columnSorts[column.id]}
-                                  onDeleteColumn={handleDeleteColumn}
-                                />
-                                {provided.placeholder}
-                              </div>
-                            )}
-                          </Droppable>
-                        </div>
-                      )}
-                    </Draggable>
-                  </React.Fragment>
-                );
-              })}
-
-              <div className="group relative flex items-start flex-shrink-0">
-                <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(columns.length)}>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
-                    <Plus className="w-4 h-4" />
                   </div>
-                </div>
-              </div>
 
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        ))}
       </DragDropContext>
     </div>
   );
