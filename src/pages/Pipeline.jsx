@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -9,7 +10,10 @@ import ProposalsList from "../components/proposals/ProposalsList";
 import ProposalsTable from "../components/proposals/ProposalsTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3 } from "lucide-react"; // Added BarChart3
+import ProposalCardModal from "../components/proposals/ProposalCardModal"; // Added import
+import PipelineAnalytics from "../components/analytics/PipelineAnalytics"; // Added import
+import SnapshotGenerator from "../components/analytics/SnapshotGenerator"; // Added import
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -43,6 +47,7 @@ export default function Pipeline() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [viewMode, setViewMode] = useState("kanban");
+  const [showAnalytics, setShowAnalytics] = useState(false); // Added state
 
   useEffect(() => {
     const loadData = async () => {
@@ -94,6 +99,13 @@ export default function Pipeline() {
           <p className="text-slate-600">Track all your proposals across stages</p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant={showAnalytics ? "default" : "outline"}
+            onClick={() => setShowAnalytics(!showAnalytics)}
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            {showAnalytics ? 'Hide' : 'Show'} Analytics
+          </Button>
           <div className="flex gap-1 border rounded-lg p-1">
             <Button
               variant={viewMode === "kanban" ? "secondary" : "ghost"}
@@ -124,6 +136,13 @@ export default function Pipeline() {
         </div>
       </div>
 
+      {showAnalytics && (
+        <div className="space-y-6">
+          <SnapshotGenerator organization={organization} proposals={proposals} />
+          <PipelineAnalytics organization={organization} proposals={proposals} />
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-center py-12">
           <Skeleton className="h-64 w-full" />
@@ -131,7 +150,7 @@ export default function Pipeline() {
       ) : (
         <>
           {viewMode === "kanban" && (
-            <ProposalsKanban proposals={proposals} organization={organization} />
+            <ProposalsKanban proposals={proposals} organization={organization} user={user} />
           )}
           {viewMode === "list" && (
             <ProposalsList proposals={proposals} organization={organization} />
