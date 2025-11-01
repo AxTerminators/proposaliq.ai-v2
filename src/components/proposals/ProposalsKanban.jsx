@@ -17,13 +17,13 @@ import { Plus, Settings, Trash2 } from "lucide-react";
 import KanbanColumn from "./KanbanColumn";
 
 const DEFAULT_COLUMNS = [
-  { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-500', order: 0, type: 'default_status', default_status_mapping: 'evaluating' },
-  { id: 'watch_list', label: 'Watch List', color: 'bg-yellow-500', order: 1, type: 'default_status', default_status_mapping: 'watch_list' },
-  { id: 'draft', label: 'Draft', color: 'bg-slate-500', order: 2, type: 'default_status', default_status_mapping: 'draft' },
-  { id: 'in_progress', label: 'In Progress', color: 'bg-amber-500', order: 3, type: 'default_status', default_status_mapping: 'in_progress' },
-  { id: 'submitted', label: 'Submitted', color: 'bg-purple-500', order: 4, type: 'default_status', default_status_mapping: 'submitted' },
-  { id: 'won', label: 'Won', color: 'bg-green-500', order: 5, type: 'default_status', default_status_mapping: 'won' },
-  { id: 'lost', label: 'Lost', color: 'bg-red-500', order: 6, type: 'default_status', default_status_mapping: 'lost' },
+  { id: 'evaluating', label: 'Evaluating', color: 'border-blue-500', order: 0, type: 'default_status', default_status_mapping: 'evaluating' },
+  { id: 'watch_list', label: 'Watch List', color: 'border-yellow-500', order: 1, type: 'default_status', default_status_mapping: 'watch_list' },
+  { id: 'draft', label: 'Draft', color: 'border-slate-500', order: 2, type: 'default_status', default_status_mapping: 'draft' },
+  { id: 'in_progress', label: 'In Progress', color: 'border-amber-500', order: 3, type: 'default_status', default_status_mapping: 'in_progress' },
+  { id: 'submitted', label: 'Submitted', color: 'border-purple-500', order: 4, type: 'default_status', default_status_mapping: 'submitted' },
+  { id: 'won', label: 'Won', color: 'border-green-500', order: 5, type: 'default_status', default_status_mapping: 'won' },
+  { id: 'lost', label: 'Lost', color: 'border-red-500', order: 6, type: 'default_status', default_status_mapping: 'lost' },
 ];
 
 export default function ProposalsKanban({ proposals, organization, onUpdate }) {
@@ -60,7 +60,7 @@ export default function ProposalsKanban({ proposals, organization, onUpdate }) {
     loadConfig();
   }, [organization?.id]);
 
-  // Save config function
+  // Save config function - debounced to avoid excessive saves
   const saveConfig = useCallback(async (newColumns, newCollapsedIds) => {
     if (!organization?.id) return;
 
@@ -114,11 +114,6 @@ export default function ProposalsKanban({ proposals, organization, onUpdate }) {
 
     if (!destColumn) return;
 
-    // Optimistic update - update UI immediately
-    if (onUpdate) {
-      onUpdate();
-    }
-
     try {
       // Determine what to update based on column type
       const updateData = {};
@@ -130,7 +125,7 @@ export default function ProposalsKanban({ proposals, organization, onUpdate }) {
         updateData.custom_workflow_stage_id = destColumn.id;
       }
 
-      // Update in background
+      // Update proposal immediately (optimistic)
       await base44.entities.Proposal.update(proposalId, updateData);
       
       // Trigger refresh
@@ -158,7 +153,7 @@ export default function ProposalsKanban({ proposals, organization, onUpdate }) {
     const newColumn = {
       id: `custom_${Date.now()}`,
       label: newColumnLabel,
-      color: 'bg-indigo-500',
+      color: 'border-indigo-500',
       order: columns.length,
       type: 'custom_stage'
     };
