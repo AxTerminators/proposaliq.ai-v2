@@ -1,9 +1,16 @@
 import React from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, GripVertical } from "lucide-react";
+import { ChevronRight, GripVertical, ArrowUpDown } from "lucide-react";
 import KanbanCard from "./KanbanCard";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 function KanbanColumn({ 
   column, 
@@ -13,8 +20,27 @@ function KanbanColumn({
   isDraggingOver,
   isCollapsed,
   onToggleCollapse,
-  dragHandleProps
+  dragHandleProps,
+  onSortChange,
+  currentSort
 }) {
+  const handleSortClick = (e, sortType) => {
+    e.stopPropagation(); // Prevent column collapse
+    if (onSortChange) {
+      onSortChange(column.id, sortType);
+    }
+  };
+
+  const getSortLabel = () => {
+    if (!currentSort) return "Sort";
+    switch(currentSort) {
+      case "date_newest": return "Newest";
+      case "name_asc": return "A-Z";
+      case "name_desc": return "Z-A";
+      default: return "Sort";
+    }
+  };
+
   return (
     <Card className={cn(
       "flex-shrink-0 border-slate-200",
@@ -38,6 +64,41 @@ function KanbanColumn({
                 <Badge variant="secondary" className="text-xs">
                   {proposals.length}
                 </Badge>
+                
+                {/* Sort Dropdown */}
+                {proposals.length > 1 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 px-2 text-xs"
+                      >
+                        <ArrowUpDown className="w-3 h-3 mr-1" />
+                        {getSortLabel()}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onClick={(e) => handleSortClick(e, "date_newest")}>
+                        📅 Date Added (Newest First)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handleSortClick(e, "name_asc")}>
+                        🔤 A to Z
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handleSortClick(e, "name_desc")}>
+                        🔠 Z to A
+                      </DropdownMenuItem>
+                      {currentSort && (
+                        <DropdownMenuItem 
+                          onClick={(e) => handleSortClick(e, null)}
+                          className="text-slate-500"
+                        >
+                          ✖ Clear Sort
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </>
             )}
             {isCollapsed && (
