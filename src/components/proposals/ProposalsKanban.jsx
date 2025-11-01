@@ -422,8 +422,14 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const confirmDeleteColumn = () => {
     if (!columnToDelete) return;
 
-    // Remove column from config
+    // Remove from both columns and columnConfig
+    const newColumns = columns.filter(col => col?.id !== columnToDelete.id);
+    setColumns(newColumns);
     setColumnConfig(prev => prev.filter(col => col?.id !== columnToDelete.id));
+    
+    // Save to backend
+    saveColumnConfigMutation.mutate(newColumns);
+    
     setShowColumnDeleteWarning(false);
     setColumnToDelete(null);
     setColumnDeleteError(null);
@@ -1116,7 +1122,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                                   dragHandleProps={provided.dragHandleProps}
                                   onSortChange={handleSortChange}
                                   currentSort={columnSorts[column.id]}
-                                  isDragging={isDragging}
+                                  onDeleteColumn={handleDeleteColumn} // Add this prop
                                 />
                                 {provided.placeholder}
                               </div>
