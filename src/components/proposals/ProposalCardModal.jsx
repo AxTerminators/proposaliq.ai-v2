@@ -120,7 +120,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const handleOpenProposal = () => {
     const phase = proposal.current_phase || 'phase1';
     const url = createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`;
-    window.open(url, '_blank');
+    onClose(); // Close the modal before navigating
+    navigate(url); // Navigate in same tab
   };
 
   if (!proposal) return null;
