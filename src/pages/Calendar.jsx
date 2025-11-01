@@ -192,11 +192,10 @@ const iconMap = {
   Tag: Tag,
   Bell: Bell,
   Printer: Printer,
-  Sparkles: Sparkles,
+  Package: Package,
+  Focus: Focus,
   TrendingUp: TrendingUp,
-  AlertTriangle: AlertTriangle, // Added to icon map
-  Package: Package, // Added to icon map
-  Focus: Focus // Added to icon map
+  AlertTriangle: AlertTriangle
 };
 
 // Helper function to generate recurring event instances
@@ -964,7 +963,7 @@ export default function Calendar() {
 
     let desc = `Repeats ${rule.frequency}`;
     if (rule.interval > 1) {
-      desc += ` every ${rule.interval} ${rule.frequency === 'daily' ? 'days' : rule.frequency === 'weekly' ? 'weeks' : rule.frequency === 'monthly' ? 'months' : 'years'}`;
+      desc += `, every ${rule.interval} ${rule.frequency === 'daily' ? 'days' : rule.frequency === 'weekly' ? 'weeks' : rule.frequency === 'monthly' ? 'months' : 'years'}`;
     }
 
     if (rule.end_type === 'date' && rule.end_date) {
@@ -1107,8 +1106,6 @@ export default function Calendar() {
           </div>
         </PopoverContent>
       </Popover>
-    );
-  };
 
   // Month View
   const renderMonthView = () => {
