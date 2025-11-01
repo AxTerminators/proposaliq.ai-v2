@@ -53,7 +53,9 @@ import {
   Share2,
   Tag,
   Bell,
-  Printer // Added Printer icon
+  Printer, // Added Printer icon
+  Sparkles, // New icon
+  TrendingUp // New icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -71,6 +73,9 @@ import EventResizeHandle from "../components/calendar/EventResizeHandle";
 import ConflictDetector from "../components/calendar/ConflictDetector"; // New Import
 import PrintableCalendar from "../components/calendar/PrintableCalendar"; // New Import
 import TimeBlockingPanel from "../components/calendar/TimeBlockingPanel"; // New Import
+import PredictiveRiskAlerts from "../components/calendar/PredictiveRiskAlerts"; // New Import
+import ScheduleOptimizer from "../components/calendar/ScheduleOptimizer"; // New Import
+import EventContextPanel from "../components/calendar/EventContextPanel"; // New Import
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -180,7 +185,9 @@ const iconMap = {
   Share2: Share2,
   Tag: Tag,
   Bell: Bell,
-  Printer: Printer // Added to icon map
+  Printer: Printer, // Added to icon map
+  Sparkles: Sparkles, // New to icon map
+  TrendingUp: TrendingUp // New to icon map
   // Add other Lucide icons as needed, especially if custom types can specify them
 };
 
@@ -372,7 +379,11 @@ export default function Calendar() {
   const [quickAddSlot, setQuickAddSlot] = useState(null);
 
   // Conflict detection state
-  const [conflicts, setConflicts] = useState([]); // New state
+  const [conflicts, setConflicts] = useState([]);
+
+  // Context panel state
+  const [showContextPanel, setShowContextPanel] = useState(false);
+  const [contextEvent, setContextEvent] = useState(null);
 
   // Filtering and search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -1078,6 +1089,22 @@ export default function Calendar() {
                 </div>
               )}
             </div>
+
+            {event.proposal_id && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setContextEvent(event);
+                  setShowContextPanel(true);
+                }}
+              >
+                <Sparkles className="w-3 h-3 mr-2" />
+                View Context & Insights
+              </Button>
+            )}
+
             <div className="flex gap-2 pt-2 border-t">
               <Button size="sm" onClick={() => handleEdit(event)} className="flex-1">
                 {event.can_edit ? (event.is_recurring_instance ? 'Edit Series' : 'Edit') : 'View'}
@@ -1630,11 +1657,15 @@ export default function Calendar() {
             <p className="text-slate-600">All your events, tasks, deadlines, and meetings in one place</p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap"> {/* Added flex-wrap for responsiveness */}
+          <div className="flex items-center gap-2 flex-wrap">
             <TabsList>
               <TabsTrigger value="calendar">
                 <CalendarIcon className="w-4 h-4 mr-2" />
                 Calendar
+              </TabsTrigger>
+              <TabsTrigger value="risks">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                AI Risks
               </TabsTrigger>
               <TabsTrigger value="team">
                 <Users className="w-4 h-4 mr-2" />
@@ -1657,6 +1688,16 @@ export default function Calendar() {
                 Sync
               </TabsTrigger>
             </TabsList>
+
+            <ScheduleOptimizer
+              organization={organization}
+              user={user}
+              allEvents={allEvents}
+              teamMembers={teamMembers}
+              onOptimizationApplied={() => {
+                queryClient.invalidateQueries();
+              }}
+            />
 
             <TimeBlockingPanel
               organization={organization}
@@ -1961,6 +2002,14 @@ export default function Calendar() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="risks">
+          <PredictiveRiskAlerts
+            organization={organization}
+            allEvents={allEvents}
+            teamMembers={teamMembers}
+          />
+        </TabsContent>
+
         <TabsContent value="team">
           <TeamCalendarView organization={organization} currentUser={user} />
         </TabsContent>
@@ -2243,6 +2292,36 @@ export default function Calendar() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event Context Panel Dialog */}
+      <Dialog open={showContextPanel} onOpenChange={(open) => {
+        setShowContextPanel(open);
+        if (!open) setContextEvent(null);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Event Context & Intelligence
+            </DialogTitle>
+          </DialogHeader>
+
+          {contextEvent && (
+            <div className="space-y-4">
+              <Card className="bg-gradient-to-r from-slate-50 to-blue-50 border-none">
+                <CardContent className="p-4">
+                  <h3 className="font-bold text-lg text-slate-900 mb-1">{contextEvent.title}</h3>
+                  <div className="text-sm text-slate-600">
+                    {moment(contextEvent.start_date).format('MMMM D, YYYY [at] h:mm A')}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <EventContextPanel event={contextEvent} organization={organization} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
