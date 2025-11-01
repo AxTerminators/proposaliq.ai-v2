@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,19 +22,33 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings2, Columns, Layers, Zap, Save, AlertCircle } from "lucide-react";
+import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge"; // Added Badge component import
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
   const queryClient = useQueryClient();
-  const [config, setConfig] = useState(currentConfig || {
-    swimlane_config: {
+  
+  const defaultColumns = [
+    { id: 'evaluating', label: 'Evaluating', color: 'from-slate-400 to-slate-600', type: 'default_status', default_status_mapping: 'evaluating', order: 0 },
+    { id: 'watch_list', label: 'Watch List', color: 'from-amber-400 to-amber-600', type: 'default_status', default_status_mapping: 'watch_list', order: 1 },
+    { id: 'draft', label: 'Draft', color: 'from-blue-400 to-blue-600', type: 'default_status', default_status_mapping: 'draft', order: 2 },
+    { id: 'in_progress', label: 'In Progress', color: 'from-purple-400 to-purple-600', type: 'default_status', default_status_mapping: 'in_progress', order: 3 },
+    { id: 'submitted', label: 'Submitted', color: 'from-indigo-400 to-indigo-600', type: 'default_status', default_status_mapping: 'submitted', order: 4 },
+    { id: 'won', label: 'Won', color: 'from-green-400 to-green-600', type: 'default_status', default_status_mapping: 'won', order: 5 },
+    { id: 'lost', label: 'Lost', color: 'from-red-400 to-red-600', type: 'default_status', default_status_mapping: 'lost', order: 6 },
+    { id: 'archived', label: 'Archived', color: 'from-gray-400 to-gray-600', type: 'default_status', default_status_mapping: 'archived', order: 7 }
+  ];
+
+  const [config, setConfig] = useState({
+    columns: currentConfig?.columns || defaultColumns,
+    swimlane_config: currentConfig?.swimlane_config || {
       enabled: false,
       group_by: 'none',
       custom_field_name: '',
       show_empty_swimlanes: false
     },
-    view_settings: {
+    view_settings: currentConfig?.view_settings || {
       default_view: 'kanban',
       show_card_details: ['assignees', 'due_date', 'progress', 'value'],
       compact_mode: false
@@ -43,6 +58,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   useEffect(() => {
     if (currentConfig) {
       setConfig({
+        columns: currentConfig.columns || defaultColumns,
         swimlane_config: currentConfig.swimlane_config || {
           enabled: false,
           group_by: 'none',
@@ -69,18 +85,17 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       );
 
       const configData = {
-        ...currentConfig,
+        organization_id: organization.id,
+        columns: newConfig.columns,
         swimlane_config: newConfig.swimlane_config,
-        view_settings: newConfig.view_settings
+        view_settings: newConfig.view_settings,
+        collapsed_column_ids: currentConfig?.collapsed_column_ids || []
       };
 
       if (configs.length > 0) {
         return base44.entities.KanbanConfig.update(configs[0].id, configData);
       } else {
-        return base44.entities.KanbanConfig.create({
-          organization_id: organization.id,
-          ...configData
-        });
+        return base44.entities.KanbanConfig.create(configData);
       }
     },
     onSuccess: () => {
@@ -91,6 +106,45 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const handleSave = () => {
     saveConfigMutation.mutate(config);
+  };
+
+  const handleColumnLabelChange = (columnId, newLabel) => {
+    setConfig({
+      ...config,
+      columns: config.columns.map(col => 
+        col.id === columnId ? { ...col, label: newLabel } : col
+      )
+    });
+  };
+
+  const handleAddColumn = () => {
+    const newColumn = {
+      id: `custom_${Date.now()}`,
+      label: 'New Column',
+      color: 'from-blue-400 to-blue-600', // Default color, can be expanded later
+      type: 'custom_stage',
+      order: config.columns.length
+    };
+    setConfig({
+      ...config,
+      columns: [...config.columns, newColumn]
+    });
+  };
+
+  const handleDeleteColumn = (columnId) => {
+    setConfig({
+      ...config,
+      columns: config.columns.filter(col => col.id !== columnId)
+    });
+  };
+
+  const handleResetToDefaults = () => {
+    if (confirm('Reset all columns to default? This will remove any custom columns you created.')) {
+      setConfig({
+        ...config,
+        columns: defaultColumns
+      });
+    }
   };
 
   const handleSwimlaneToggle = (enabled) => {
@@ -167,23 +221,99 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
             Board Configuration
           </DialogTitle>
           <DialogDescription>
-            Configure swimlanes, view settings, and display preferences for your Kanban board.
+            Configure columns, swimlanes, view settings, and display preferences for your Kanban board.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="swimlanes" className="flex-1 overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue="columns" className="flex-1 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="columns" className="flex items-center gap-2">
+              <Columns className="w-4 h-4" />
+              Columns
+            </TabsTrigger>
             <TabsTrigger value="swimlanes" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
               Swimlanes
             </TabsTrigger>
             <TabsTrigger value="view" className="flex items-center gap-2">
-              <Columns className="w-4 h-4" />
+              <Zap className="w-4 h-4" />
               View Settings
             </TabsTrigger>
           </TabsList>
 
           <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '50vh' }}>
+            <TabsContent value="columns" className="space-y-4 mt-0">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Manage Kanban Columns</h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetToDefaults}
+                  >
+                    Reset to Defaults
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleAddColumn}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Column
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {config.columns.map((column, index) => (
+                  <div
+                    key={column.id}
+                    className="flex items-center gap-3 p-3 border-2 border-slate-200 rounded-lg hover:border-blue-300 transition-all bg-white"
+                  >
+                    <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
+                    
+                    <div className="flex-1">
+                      <Input
+                        value={column.label}
+                        onChange={(e) => handleColumnLabelChange(column.id, e.target.value)}
+                        placeholder="Column name"
+                        className="font-medium"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {column.type === 'default_status' && (
+                        <Badge variant="secondary" className="text-xs">
+                          Default
+                        </Badge>
+                      )}
+                      {column.type === 'custom_stage' && (
+                        <Badge variant="outline" className="text-xs">
+                          Custom
+                        </Badge>
+                      )}
+                      
+                      {column.type === 'custom_stage' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteColumn(column.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
+                <div className="text-sm text-blue-900">
+                  <strong>Tip:</strong> Default columns map to proposal statuses. Custom columns create new workflow stages.
+                </div>
+              </div>
+            </TabsContent>
+
             <TabsContent value="swimlanes" className="space-y-6 mt-0">
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
