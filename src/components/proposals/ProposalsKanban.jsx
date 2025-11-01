@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import moment from 'moment'; // Import moment for date calculations
+import moment from "moment"; // Import moment for date calculations
 
 const defaultColumns = [
   { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating', wip_limit: 0, wip_limit_type: 'soft' },
@@ -65,6 +65,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   const [columnDeleteError, setColumnDeleteError] = useState(null);
   const [boardConfig, setBoardConfig] = useState(null);
 
+  // Search and Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -191,6 +192,78 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     }
   });
 
+  // Get unique assignees for filter
+  const uniqueAssignees = useMemo(() => {
+    const assignees = new Set();
+    proposals.forEach(p => {
+      if (p.lead_writer_email) assignees.add(p.lead_writer_email);
+      if (p.assigned_team_members) { // Check if assigned_team_members exists
+        p.assigned_team_members.forEach(email => assignees.add(email));
+      }
+    });
+    return Array.from(assignees);
+  }, [proposals]);
+
+  // Filter proposals
+  const filteredProposals = useMemo(() => {
+    return proposals.filter(proposal => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = proposal.proposal_name?.toLowerCase().includes(query);
+        const matchesAgency = proposal.agency_name?.toLowerCase().includes(query);
+        const matchesNumber = proposal.solicitation_number?.toLowerCase().includes(query);
+        if (!matchesName && !matchesAgency && !matchesNumber) return false;
+      }
+
+      // Assignee filter
+      if (filterAssignee !== "all") {
+        if (filterAssignee === "me") {
+          const isAssigned = 
+            proposal.lead_writer_email === user?.email ||
+            proposal.assigned_team_members?.includes(user?.email);
+          if (!isAssigned) return false;
+        } else if (filterAssignee === "unassigned") {
+          if (proposal.lead_writer_email || proposal.assigned_team_members?.length > 0) return false;
+        } else {
+          const hasAssignee = 
+            proposal.lead_writer_email === filterAssignee ||
+            proposal.assigned_team_members?.includes(filterAssignee);
+          if (!hasAssignee) return false;
+        }
+      }
+
+      // Priority filter (based on contract value)
+      if (filterPriority !== "all") {
+        // If contract_value is null/undefined/0, it's considered 'low' or not matching high/medium
+        if (filterPriority === "high" && (!proposal.contract_value || proposal.contract_value < 1000000)) return false;
+        if (filterPriority === "medium" && (!proposal.contract_value || proposal.contract_value < 100000 || proposal.contract_value >= 1000000)) return false;
+        if (filterPriority === "low" && proposal.contract_value >= 100000) return false; // If value is >= 100K, it's NOT low
+      }
+
+      // Due date filter
+      if (filterDueDate !== "all") {
+        if (!proposal.due_date) return false;
+        const daysUntil = moment(proposal.due_date).diff(moment(), 'days'); // Compares exact date/time
+        
+        if (filterDueDate === "overdue" && daysUntil >= 0) return false; // Not overdue if daysUntil >= 0
+        if (filterDueDate === "week" && (daysUntil < 0 || daysUntil > 7)) return false; // Not due this week if outside [0, 7]
+        if (filterDueDate === "month" && (daysUntil < 0 || daysUntil > 30)) return false; // Not due this month if outside [0, 30]
+      }
+
+      return true;
+    });
+  }, [proposals, searchQuery, filterAssignee, filterPriority, filterDueDate, user]);
+
+  const hasActiveFilters = searchQuery || filterAssignee !== "all" || filterPriority !== "all" || filterDueDate !== "all";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterAssignee("all");
+    setFilterPriority("all");
+    setFilterDueDate("all");
+  };
+
   const handleDragStart = () => {
     setIsDragging(true);
   };
@@ -217,51 +290,63 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return;
     }
 
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return;
+    if (type === 'proposal') { // Explicitly check type for proposal cards
+      if (source.droppableId === destination.droppableId && source.index === destination.index) {
+        return;
+      }
+
+      // Find the proposal being dragged using its ID from result.draggableId
+      const draggedProposal = filteredProposals.find(p => p.id === result.draggableId);
+      if (!draggedProposal) {
+          console.error("Dragged proposal not found in filtered list:", result.draggableId);
+          return;
+      }
+
+      const sourceColumn = columns.find(col => col.id === source.droppableId);
+      const destColumn = columns.find(col => col.id === destination.droppableId);
+
+      if (!sourceColumn || !destColumn) {
+          console.error("Source or destination column not found.");
+          return;
+      }
+
+      // Check WIP limit before moving (for hard limits only)
+      // Count proposals currently in the destination column, excluding the dragged one if it's already there
+      const proposalsInDestColumnBeforeMove = filteredProposals.filter(p => {
+        const isInDest = destColumn.type === 'default_status'
+          ? p?.status === destColumn.default_status_mapping && !p?.custom_workflow_stage_id
+          : p?.custom_workflow_stage_id === destColumn.id;
+        
+        return isInDest && p.id !== draggedProposal.id; // Exclude the dragged proposal from WIP count
+      });
+
+      const wipLimit = destColumn.wip_limit || 0;
+      const wipLimitType = destColumn.wip_limit_type || 'soft';
+      const hasHardLimit = wipLimit > 0 && wipLimitType === 'hard';
+
+      if (hasHardLimit && proposalsInDestColumnBeforeMove.length >= wipLimit) {
+        alert(`Cannot move proposal. Hard WIP limit of ${wipLimit} reached for "${destColumn.label}" column.`);
+        return;
+      }
+
+      let updates = {};
+      if (destColumn.type === 'default_status') {
+        updates = {
+          status: destColumn.default_status_mapping,
+          custom_workflow_stage_id: null
+        };
+      } else {
+        updates = {
+          custom_workflow_stage_id: destColumn.id,
+          status: 'in_progress' // Set to in_progress if moving to a custom stage
+        };
+      }
+
+      updateProposalMutation.mutate({
+        proposalId: draggedProposal.id,
+        updates
+      });
     }
-
-    // Find the proposal being dragged from the filtered set
-    // Need to get the actual proposal object from the source column's proposals
-    const sourceColumnProposals = groupedProposals.swimlanes.flatMap(sl => sl.data[source.droppableId] || []);
-    const draggedProposal = sourceColumnProposals[source.index];
-
-    if (!draggedProposal) return;
-
-    const sourceColumn = columns.find(col => col.id === source.droppableId);
-    const destColumn = columns.find(col => col.id === destination.droppableId);
-
-    if (!sourceColumn || !destColumn) return;
-
-    // Check WIP limit before moving (for hard limits only)
-    const destProposals = groupedProposals.swimlanes.flatMap(sl => sl.data[destColumn.id] || []);
-
-    const wipLimit = destColumn.wip_limit || 0;
-    const wipLimitType = destColumn.wip_limit_type || 'soft';
-    const hasHardLimit = wipLimit > 0 && wipLimitType === 'hard';
-
-    if (hasHardLimit && destProposals.length >= wipLimit) {
-      alert(`Cannot move proposal. Hard WIP limit of ${wipLimit} reached for "${destColumn.label}" column.`);
-      return;
-    }
-
-    let updates = {};
-    if (destColumn.type === 'default_status') {
-      updates = {
-        status: destColumn.default_status_mapping,
-        custom_workflow_stage_id: null
-      };
-    } else {
-      updates = {
-        custom_workflow_stage_id: destColumn.id,
-        status: 'in_progress' // Set to in_progress if moving to a custom stage
-      };
-    }
-
-    updateProposalMutation.mutate({
-      proposalId: draggedProposal.id,
-      updates
-    });
   };
 
   const handleProposalClick = (proposal) => {
@@ -482,85 +567,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     }
   };
 
-  // Get unique assignees for filter
-  const uniqueAssignees = useMemo(() => {
-    const assignees = new Set();
-    proposals.forEach(p => {
-      if (p.lead_writer_email) assignees.add(p.lead_writer_email);
-      if (Array.isArray(p.assigned_team_members)) {
-        p.assigned_team_members.forEach(email => assignees.add(email));
-      }
-    });
-    return Array.from(assignees);
-  }, [proposals]);
-
-  // Filter proposals
-  const filteredProposals = useMemo(() => {
-    return proposals.filter(proposal => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = proposal.proposal_name?.toLowerCase().includes(query);
-        const matchesAgency = proposal.agency_name?.toLowerCase().includes(query);
-        const matchesNumber = proposal.solicitation_number?.toLowerCase().includes(query);
-        if (!matchesName && !matchesAgency && !matchesNumber) return false;
-      }
-
-      // Assignee filter
-      if (filterAssignee !== "all") {
-        let hasAssignee = false;
-        if (filterAssignee === "me") {
-          hasAssignee = (user?.email && proposal.lead_writer_email === user.email) ||
-                        (user?.email && Array.isArray(proposal.assigned_team_members) && proposal.assigned_team_members.includes(user.email));
-        } else if (filterAssignee === "unassigned") {
-          hasAssignee = !proposal.lead_writer_email && (!Array.isArray(proposal.assigned_team_members) || proposal.assigned_team_members.length === 0);
-        } else {
-          hasAssignee = proposal.lead_writer_email === filterAssignee ||
-                        (Array.isArray(proposal.assigned_team_members) && proposal.assigned_team_members.includes(filterAssignee));
-        }
-        if (!hasAssignee) return false;
-      }
-
-      // Priority filter (based on contract value)
-      if (filterPriority !== "all") {
-        const value = proposal.contract_value;
-        if (filterPriority === "high" && (!value || value < 1000000)) return false;
-        if (filterPriority === "medium" && (!value || value < 100000 || value >= 1000000)) return false;
-        if (filterPriority === "low" && (!value || value >= 100000)) return false; // If value is 0 or undefined, it will be considered "low"
-      }
-
-      // Due date filter
-      if (filterDueDate !== "all") {
-        if (!proposal.due_date) return false;
-        const dueDate = moment(proposal.due_date);
-        const today = moment().startOf('day');
-        const daysUntil = dueDate.diff(today, 'days');
-
-        if (filterDueDate === "overdue" && daysUntil >= 0) return false;
-        if (filterDueDate === "week" && (daysUntil < 0 || daysUntil > 7)) return false;
-        if (filterDueDate === "month" && (daysUntil < 0 || daysUntil > 30)) return false;
-      }
-
-      return true;
-    });
-  }, [proposals, searchQuery, filterAssignee, filterPriority, filterDueDate, user?.email]);
-
-  const hasActiveFilters = searchQuery || filterAssignee !== "all" || filterPriority !== "all" || filterDueDate !== "all";
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFilterAssignee("all");
-    setFilterPriority("all");
-    setFilterDueDate("all");
-  };
-
-  // Group proposals by swimlane if enabled
+  // Group proposals by swimlane if enabled - USE FILTERED PROPOSALS
   const groupedProposals = useMemo(() => {
     const swimlaneConfig = boardConfig?.swimlane_config;
     const isSwimlanesEnabled = swimlaneConfig?.enabled && swimlaneConfig?.group_by !== 'none';
 
     if (!isSwimlanesEnabled) {
-      // No swimlanes - return regular column-based grouping
       const grouped = {};
       
       columns.forEach(column => {
@@ -596,12 +608,11 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return { swimlanes: [{ id: 'default', label: 'All Proposals', data: grouped }] };
     }
 
-    // Swimlanes enabled - group by configured field
+    // Swimlanes enabled
     const swimlanes = [];
     const groupBy = swimlaneConfig.group_by;
     const customFieldName = swimlaneConfig.custom_field_name;
 
-    // Determine unique swimlane values from filtered proposals
     const swimlaneValues = new Set();
     filteredProposals.forEach(p => {
       let value = 'Unassigned';
@@ -622,7 +633,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       swimlaneValues.add(value);
     });
 
-    // Create swimlane for each value
     Array.from(swimlaneValues).sort().forEach(swimlaneValue => {
       const swimlaneProposals = filteredProposals.filter(p => {
         let value = 'Unassigned';
@@ -682,7 +692,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     });
 
     return { swimlanes };
-  }, [filteredProposals, columns, columnSorts, boardConfig]); // Dependency on filteredProposals
+  }, [filteredProposals, columns, columnSorts, boardConfig]);
 
   if (isLoading) {
     return (
@@ -735,7 +745,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <Label className="text-xs mb-2 block">Assignee</Label>
               <Select value={filterAssignee} onValueChange={setFilterAssignee}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Assignee" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Assignees</SelectItem>
@@ -752,13 +762,13 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <Label className="text-xs mb-2 block">Priority (by value)</Label>
               <Select value={filterPriority} onValueChange={setFilterPriority}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Priority" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="high">High (>$1M)</SelectItem>
+                  <SelectItem value="high">High (&gt;$1M)</SelectItem>
                   <SelectItem value="medium">Medium ($100K-$1M)</SelectItem>
-                  <SelectItem value="low">Low (<$100K)</SelectItem>
+                  <SelectItem value="low">Low (&lt;$100K)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -767,7 +777,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <Label className="text-xs mb-2 block">Due Date</Label>
               <Select value={filterDueDate} onValueChange={setFilterDueDate}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Due Date" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Dates</SelectItem>
@@ -782,7 +792,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <div className="flex items-end">
                 <Button variant="outline" size="sm" onClick={clearFilters}>
                   <X className="w-4 h-4 mr-2" />
-                  Clear Filters
+                  Clear All
                 </Button>
               </div>
             )}
@@ -790,13 +800,13 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         )}
 
         {hasActiveFilters && (
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <span>Showing {filteredProposals.length} of {proposals.length} proposals</span>
+          <div className="flex items-center gap-2 text-sm text-slate-600 px-1">
+            <span>Showing <strong>{filteredProposals.length}</strong> of <strong>{proposals.length}</strong> proposals</span>
           </div>
         )}
       </div>
 
-      {/* Existing controls */}
+      {/* Board Controls */}
       <div className="flex justify-end gap-2">
         <Button 
           variant="outline" 
