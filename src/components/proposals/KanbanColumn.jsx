@@ -1,182 +1,189 @@
 import React from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, GripVertical, ArrowUpDown, Trash2 } from "lucide-react";
-import KanbanCard from "./KanbanCard";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { GripVertical, MoreVertical, ChevronRight, ChevronLeft, ArrowUpDown, Trash2, AlertTriangle, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import KanbanCard from "./KanbanCard";
 
-function KanbanColumn({ 
-  column, 
-  proposals, 
-  onProposalClick, 
-  onDeleteProposal, 
+export default function KanbanColumn({
+  column,
+  proposals,
+  onProposalClick,
+  onDeleteProposal,
   isDraggingOver,
   isCollapsed,
   onToggleCollapse,
   dragHandleProps,
   onSortChange,
   currentSort,
-  onDeleteColumn
+  onDeleteColumn,
+  organization
 }) {
-  const handleSortClick = (e, sortType) => {
-    e.stopPropagation();
-    if (onSortChange) {
-      onSortChange(column.id, sortType);
-    }
-  };
-
-  const getSortLabel = () => {
-    if (!currentSort) return "Sort";
-    switch(currentSort) {
-      case "date_newest": return "Newest";
-      case "name_asc": return "A-Z";
-      case "name_desc": return "Z-A";
-      default: return "Sort";
-    }
-  };
-
-  const handleDeleteClick = (e) => {
-    e.stopPropagation();
-    if (onDeleteColumn) {
-      onDeleteColumn(column);
-    }
-  };
+  const proposalCount = proposals?.length || 0;
+  const wipLimit = column.wip_limit || 0;
+  const wipLimitType = column.wip_limit_type || 'soft';
+  const hasWipLimit = wipLimit > 0;
+  const isApproachingLimit = hasWipLimit && proposalCount >= wipLimit * 0.8;
+  const isExceedingLimit = hasWipLimit && proposalCount > wipLimit;
 
   return (
-    <Card className={cn(
-      "flex-shrink-0 border-slate-200",
-      isDraggingOver && "ring-2 ring-blue-400 bg-blue-50"
-    )}>
-      <CardHeader 
-        className={cn(
-          "p-4 border-b bg-slate-50",
-          column.color
-        )}
-      >
-        <div 
-          {...dragHandleProps}
-          className="flex items-center justify-between cursor-grab active:cursor-grabbing hover:bg-slate-100 -m-4 p-4 rounded-t-lg transition-colors"
-          style={{ touchAction: 'none' }}
-        >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <GripVertical className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            {!isCollapsed && (
-              <>
-                <h3 className="font-semibold text-slate-900 truncate select-none">{column.label}</h3>
-                <Badge variant="secondary" className="text-xs select-none">
-                  {proposals.length}
-                </Badge>
-                
-                {/* Sort Dropdown */}
-                {proposals.length > 1 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 px-2 text-xs"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ArrowUpDown className="w-3 h-3 mr-1" />
-                        {getSortLabel()}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={(e) => handleSortClick(e, "date_newest")}>
-                        📅 Date Added (Newest First)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => handleSortClick(e, "name_asc")}>
-                        🔤 A to Z
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => handleSortClick(e, "name_desc")}>
-                        🔠 Z to A
-                      </DropdownMenuItem>
-                      {currentSort && (
-                        <DropdownMenuItem 
-                          onClick={(e) => handleSortClick(e, null)}
-                          className="text-slate-500"
-                        >
-                          ✖ Clear Sort
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+    <Card
+      className={cn(
+        "h-full flex flex-col border-2 transition-all duration-200",
+        isDraggingOver && "border-blue-500 bg-blue-50",
+        isCollapsed ? "w-16" : "w-80",
+        column.color || "bg-white"
+      )}
+    >
+      <CardHeader className="p-3 border-b flex-shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          {!isCollapsed && (
+            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing flex-shrink-0">
+              <GripVertical className="w-4 h-4 text-slate-400" />
+            </div>
+          )}
 
-                {/* Delete Button - Only for custom columns */}
-                {column.type === 'custom_stage' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={handleDeleteClick}
-                    title="Delete column"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+          <button
+            onClick={() => onToggleCollapse(column.id)}
+            className="flex-1 text-left"
+          >
+            {isCollapsed ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-xs font-semibold transform -rotate-90 whitespace-nowrap origin-center">
+                  {column.label}
+                </span>
+                <Badge variant="secondary" className="text-[10px] px-1">
+                  {proposalCount}
+                </Badge>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
+                    {column.label}
+                    {column.type === 'custom_stage' && (
+                      <Badge variant="outline" className="text-[10px] px-1">Custom</Badge>
+                    )}
+                  </h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {proposalCount}
+                  </Badge>
+                </div>
+
+                {/* WIP Limit Indicator */}
+                {hasWipLimit && (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className={cn(
+                        "font-medium",
+                        isExceedingLimit && "text-red-600",
+                        isApproachingLimit && !isExceedingLimit && "text-amber-600",
+                        !isApproachingLimit && "text-slate-600"
+                      )}>
+                        WIP Limit: {proposalCount}/{wipLimit}
+                      </span>
+                      {isExceedingLimit && (
+                        <AlertTriangle className="w-3 h-3 text-red-600" />
+                      )}
+                      {isApproachingLimit && !isExceedingLimit && (
+                        <AlertCircle className="w-3 h-3 text-amber-600" />
+                      )}
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full transition-all rounded-full",
+                          isExceedingLimit && "bg-red-500",
+                          isApproachingLimit && !isExceedingLimit && "bg-amber-500",
+                          !isApproachingLimit && "bg-green-500"
+                        )}
+                        style={{
+                          width: `${Math.min((proposalCount / wipLimit) * 100, 100)}%`
+                        }}
+                      />
+                    </div>
+                    {isExceedingLimit && wipLimitType === 'hard' && (
+                      <div className="mt-1 text-[10px] text-red-600 font-semibold flex items-center gap-1">
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                        Hard limit exceeded - no new items allowed
+                      </div>
+                    )}
+                    {isExceedingLimit && wipLimitType === 'soft' && (
+                      <div className="mt-1 text-[10px] text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="w-2.5 h-2.5" />
+                        Soft limit exceeded - consider moving items
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             )}
-            {isCollapsed && (
-              <div className="flex flex-col items-center gap-2">
-                <h3 className="font-semibold text-slate-900 text-sm select-none" style={{ writingMode: 'vertical-rl' }}>
-                  {column.label}
-                </h3>
-                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-slate-700 select-none">
-                    {proposals.length}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleCollapse(column.id);
-            }}
-            className="hover:bg-slate-200 rounded p-1 transition-colors z-10"
-          >
-            <ChevronRight 
-              className={cn(
-                "w-4 h-4 text-slate-400 transition-transform flex-shrink-0",
-                isCollapsed && "rotate-180"
-              )} 
-            />
           </button>
+
+          {!isCollapsed && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onSortChange(column.id, 'date_newest')}>
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  Sort by Date (Newest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange(column.id, 'name_asc')}>
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  Sort by Name (A-Z)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange(column.id, 'name_desc')}>
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  Sort by Name (Z-A)
+                </DropdownMenuItem>
+                {column.type === 'custom_stage' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => onDeleteColumn(column)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Column
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
+
       {!isCollapsed && (
-        <CardContent className="p-4 space-y-3 min-h-[200px] max-h-[calc(100vh-300px)] overflow-y-auto">
-          {proposals.length === 0 ? (
+        <CardContent className="flex-1 overflow-y-auto p-3">
+          {proposals?.map((proposal, index) => (
+            <KanbanCard
+              key={proposal.id}
+              proposal={proposal}
+              index={index}
+              onDelete={onDeleteProposal}
+              organization={organization}
+            />
+          ))}
+          {proposals?.length === 0 && (
             <div className="text-center py-8 text-slate-400 text-sm">
               No proposals
             </div>
-          ) : (
-            proposals.map((proposal, index) => (
-              <KanbanCard
-                key={proposal.id}
-                proposal={proposal}
-                index={index}
-                onProposalClick={onProposalClick}
-                onDeleteProposal={onDeleteProposal}
-              />
-            ))
           )}
         </CardContent>
       )}
     </Card>
   );
 }
-
-export default React.memo(KanbanColumn);
