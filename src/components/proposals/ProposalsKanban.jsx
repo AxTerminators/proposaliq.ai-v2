@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import moment from "moment"; // Import moment for date calculations
+import moment from "moment";
 
 const defaultColumns = [
   { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating', wip_limit: 0, wip_limit_type: 'soft' },
@@ -65,14 +64,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   const [columnDeleteError, setColumnDeleteError] = useState(null);
   const [boardConfig, setBoardConfig] = useState(null);
 
-  // Search and Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterDueDate, setFilterDueDate] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
 
-  // Load saved config on mount
   useEffect(() => {
     const loadConfig = async () => {
       if (!organization?.id) return;
@@ -192,22 +189,19 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     }
   });
 
-  // Get unique assignees for filter
   const uniqueAssignees = useMemo(() => {
     const assignees = new Set();
     proposals.forEach(p => {
       if (p.lead_writer_email) assignees.add(p.lead_writer_email);
-      if (p.assigned_team_members) { // Check if assigned_team_members exists
+      if (p.assigned_team_members) {
         p.assigned_team_members.forEach(email => assignees.add(email));
       }
     });
     return Array.from(assignees);
   }, [proposals]);
 
-  // Filter proposals
   const filteredProposals = useMemo(() => {
     return proposals.filter(proposal => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesName = proposal.proposal_name?.toLowerCase().includes(query);
@@ -216,7 +210,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         if (!matchesName && !matchesAgency && !matchesNumber) return false;
       }
 
-      // Assignee filter
       if (filterAssignee !== "all") {
         if (filterAssignee === "me") {
           const isAssigned = 
@@ -233,22 +226,18 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         }
       }
 
-      // Priority filter (based on contract value)
       if (filterPriority !== "all") {
-        // If contract_value is null/undefined/0, it's considered 'low' or not matching high/medium
         if (filterPriority === "high" && (!proposal.contract_value || proposal.contract_value < 1000000)) return false;
         if (filterPriority === "medium" && (!proposal.contract_value || proposal.contract_value < 100000 || proposal.contract_value >= 1000000)) return false;
-        if (filterPriority === "low" && proposal.contract_value >= 100000) return false; // If value is >= 100K, it's NOT low
+        if (filterPriority === "low" && proposal.contract_value >= 100000) return false;
       }
 
-      // Due date filter
       if (filterDueDate !== "all") {
         if (!proposal.due_date) return false;
-        const daysUntil = moment(proposal.due_date).diff(moment(), 'days'); // Compares exact date/time
-        
-        if (filterDueDate === "overdue" && daysUntil >= 0) return false; // Not overdue if daysUntil >= 0
-        if (filterDueDate === "week" && (daysUntil < 0 || daysUntil > 7)) return false; // Not due this week if outside [0, 7]
-        if (filterDueDate === "month" && (daysUntil < 0 || daysUntil > 30)) return false; // Not due this month if outside [0, 30]
+        const daysUntil = moment(proposal.due_date).diff(moment(), 'days');
+        if (filterDueDate === "overdue" && daysUntil >= 0) return false;
+        if (filterDueDate === "week" && (daysUntil < 0 || daysUntil > 7)) return false;
+        if (filterDueDate === "month" && (daysUntil < 0 || daysUntil > 30)) return false;
       }
 
       return true;
@@ -290,34 +279,31 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return;
     }
 
-    if (type === 'proposal') { // Explicitly check type for proposal cards
+    if (type === 'proposal') {
       if (source.droppableId === destination.droppableId && source.index === destination.index) {
         return;
       }
 
-      // Find the proposal being dragged using its ID from result.draggableId
       const draggedProposal = filteredProposals.find(p => p.id === result.draggableId);
       if (!draggedProposal) {
-          console.error("Dragged proposal not found in filtered list:", result.draggableId);
-          return;
+        console.error("Dragged proposal not found in filtered list:", result.draggableId);
+        return;
       }
 
       const sourceColumn = columns.find(col => col.id === source.droppableId);
       const destColumn = columns.find(col => col.id === destination.droppableId);
 
       if (!sourceColumn || !destColumn) {
-          console.error("Source or destination column not found.");
-          return;
+        console.error("Source or destination column not found.");
+        return;
       }
 
-      // Check WIP limit before moving (for hard limits only)
-      // Count proposals currently in the destination column, excluding the dragged one if it's already there
       const proposalsInDestColumnBeforeMove = filteredProposals.filter(p => {
         const isInDest = destColumn.type === 'default_status'
           ? p?.status === destColumn.default_status_mapping && !p?.custom_workflow_stage_id
           : p?.custom_workflow_stage_id === destColumn.id;
         
-        return isInDest && p.id !== draggedProposal.id; // Exclude the dragged proposal from WIP count
+        return isInDest && p.id !== draggedProposal.id;
       });
 
       const wipLimit = destColumn.wip_limit || 0;
@@ -338,7 +324,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       } else {
         updates = {
           custom_workflow_stage_id: destColumn.id,
-          status: 'in_progress' // Set to in_progress if moving to a custom stage
+          status: 'in_progress'
         };
       }
 
@@ -358,28 +344,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   const handleDeleteProposal = (proposal) => {
     setProposalToDelete(proposal);
     setShowDeleteWarning(true);
-  };
-
-  const handleAddColumn = () => {
-    if (!newColumnLabel.trim()) {
-      alert("Please enter a column name");
-      return;
-    }
-
-    const newColumn = {
-      id: `custom_${Date.now()}`,
-      label: newColumnLabel,
-      color: newColumnColor,
-      order: columnConfig.length,
-      type: 'custom_stage',
-      wip_limit: 0,
-      wip_limit_type: 'soft'
-    };
-
-    const updatedColumns = [...columnConfig, newColumn];
-    setColumnConfig(updatedColumns);
-    setNewColumnLabel("");
-    setNewColumnColor("bg-blue-100");
   };
 
   const handleQuickAddColumn = (position) => {
@@ -502,12 +466,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     setColumnDeleteError(null);
   };
 
-  const handleSaveColumns = () => {
-    setColumns(columnConfig);
-    saveColumnConfigMutation.mutate(columnConfig);
-    setIsEditingColumns(false);
-  };
-
   const handleResetToDefault = () => {
     setShowResetWarning(true);
   };
@@ -516,58 +474,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     resetToDefaultMutation.mutate();
   };
 
-  const handleColumnChange = (columnId, field, value) => {
-    setColumnConfig(prev =>
-      prev.map(col =>
-        col.id === columnId ? { ...col, [field]: value } : col
-      )
-    );
-  };
-
-  const handleColumnOrderChange = (columnId, newOrderStr) => {
-    const newOrder = parseInt(newOrderStr);
-    if (isNaN(newOrder) || newOrder < 1 || newOrder > columnConfig.length) return;
-
-    const currentIndex = columnConfig.findIndex(col => col.id === columnId);
-    if (currentIndex === -1) return;
-
-    const targetIndex = newOrder - 1;
-    if (currentIndex === targetIndex) return;
-
-    const newColumns = Array.from(columnConfig);
-    const [removed] = newColumns.splice(currentIndex, 1);
-    newColumns.splice(targetIndex, 0, removed);
-
-    const reorderedColumns = newColumns.map((col, idx) => ({
-      ...col,
-      order: idx
-    }));
-
-    setColumnConfig(reorderedColumns);
-  };
-
-  const handleConfigDragEnd = (result) => {
-    if (!result.destination) return;
-
-    const items = Array.from(columnConfig);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    const reorderedColumns = items.map((col, idx) => ({
-      ...col,
-      order: idx
-    }));
-
-    setColumnConfig(reorderedColumns);
-  };
-
   const confirmDelete = () => {
     if (proposalToDelete) {
       deleteProposalMutation.mutate(proposalToDelete.id);
     }
   };
 
-  // Group proposals by swimlane if enabled - USE FILTERED PROPOSALS
   const groupedProposals = useMemo(() => {
     const swimlaneConfig = boardConfig?.swimlane_config;
     const isSwimlanesEnabled = swimlaneConfig?.enabled && swimlaneConfig?.group_by !== 'none';
@@ -608,7 +520,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return { swimlanes: [{ id: 'default', label: 'All Proposals', data: grouped }] };
     }
 
-    // Swimlanes enabled
     const swimlanes = [];
     const groupBy = swimlaneConfig.group_by;
     const customFieldName = swimlaneConfig.custom_field_name;
@@ -704,7 +615,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
       <div className="space-y-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -806,10 +716,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         )}
       </div>
 
-      {/* Board Controls */}
       <div className="flex justify-end gap-2">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={() => setShowBoardConfig(true)}
           disabled={isDragging}
@@ -817,8 +726,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           <Sliders className="w-4 h-4 mr-2" />
           Configure Board
         </Button>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={handleResetToDefault}
           disabled={resetToDefaultMutation.isPending || isDragging}
@@ -830,235 +739,23 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           )}
           Reset to Default
         </Button>
-        <Dialog open={isEditingColumns} onOpenChange={setIsEditingColumns}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isDragging}>
-              <Settings2 className="w-4 h-4 mr-2" />
-              Customize Columns
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Customize Kanban Columns</DialogTitle>
-              <DialogDescription>
-                Edit column labels, colors, WIP limits, reorder columns by dragging, or add custom workflow stages.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {/* Existing Columns with Drag and Drop */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm">Existing Columns (Drag to Reorder)</h3>
-                <DragDropContext onDragEnd={handleConfigDragEnd}>
-                  <Droppable droppableId="column-config-list">
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="space-y-3"
-                      >
-                        {columnConfig.map((column, index) => {
-                          if (!column || !column.id) return null;
-                          
-                          return (
-                            <Draggable key={column.id} draggableId={column.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  className={`flex gap-4 items-center p-4 border rounded-lg ${
-                                    snapshot.isDragging ? 'bg-blue-50 border-blue-300 shadow-lg' : 'bg-slate-50'
-                                  }`}
-                                >
-                                  <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                                    <GripVertical className="w-5 h-5 text-slate-400" />
-                                  </div>
-                                  
-                                  <div className="w-16">
-                                    <Label className="text-xs font-semibold">Order</Label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      max={columnConfig.length}
-                                      value={index + 1}
-                                      onChange={(e) => handleColumnOrderChange(column.id, e.target.value)}
-                                      className="h-8 text-center"
-                                    />
-                                  </div>
-
-                                  <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <Label className="text-xs font-semibold">Label</Label>
-                                      {column.type === 'default_status' && (
-                                        <span className="text-xs text-slate-500 italic">(Default Column)</span>
-                                      )}
-                                      {column.type === 'custom_stage' && (
-                                        <span className="text-xs text-blue-600 italic">(Custom Stage)</span>
-                                      )}
-                                    </div>
-                                    <Input
-                                      value={column.label || ""}
-                                      onChange={(e) => handleColumnChange(column.id, 'label', e.target.value)}
-                                      placeholder="Column name"
-                                    />
-                                  </div>
-                                  
-                                  <div className="w-32 space-y-2">
-                                    <Label className="text-xs font-semibold">Color</Label>
-                                    <select
-                                      value={column.color || "bg-slate-100"}
-                                      onChange={(e) => handleColumnChange(column.id, 'color', e.target.value)}
-                                      className="w-full px-3 py-2 border rounded-md"
-                                    >
-                                      <option value="bg-slate-100">Gray</option>
-                                      <option value="bg-blue-100">Blue</option>
-                                      <option value="bg-purple-100">Purple</option>
-                                      <option value="bg-indigo-100">Indigo</option>
-                                      <option value="bg-green-100">Green</option>
-                                      <option value="bg-yellow-100">Yellow</option>
-                                      <option value="bg-red-100">Red</option>
-                                      <option value="bg-pink-100">Pink</option>
-                                      <option value="bg-amber-100">Amber</option>
-                                      <option value="bg-teal-100">Teal</option>
-                                    </select>
-                                  </div>
-
-                                  <div className="w-28 space-y-2">
-                                    <Label className="text-xs font-semibold">WIP Limit</Label>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={column.wip_limit || 0}
-                                      onChange={(e) => handleColumnChange(column.id, 'wip_limit', parseInt(e.target.value) || 0)}
-                                      className="h-8"
-                                      placeholder="0 = none"
-                                    />
-                                  </div>
-
-                                  <div className="w-24 space-y-2">
-                                    <Label className="text-xs font-semibold">Type</Label>
-                                    <select
-                                      value={column.wip_limit_type || "soft"}
-                                      onChange={(e) => handleColumnChange(column.id, 'wip_limit_type', e.target.value)}
-                                      className="w-full px-2 py-1 border rounded-md text-xs h-8"
-                                    >
-                                      <option value="soft">Soft</option>
-                                      <option value="hard">Hard</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    {column.type === 'custom_stage' ? (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDeleteColumn(column)}
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    ) : (
-                                      <div className="w-10" />
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
-              </div>
-
-              {/* Add New Column */}
-              <div className="border-t pt-4 mt-6">
-                <h3 className="font-semibold text-sm mb-3">Add New Custom Column</h3>
-                <div className="flex gap-4 items-end p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
-                  <div className="flex-1 space-y-2">
-                    <Label>Column Name</Label>
-                    <Input
-                      value={newColumnLabel}
-                      onChange={(e) => setNewColumnLabel(e.target.value)}
-                      placeholder="e.g., Client Review, Legal Approval..."
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddColumn();
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="w-32 space-y-2">
-                    <Label>Color</Label>
-                    <select
-                      value={newColumnColor}
-                      onChange={(e) => setNewColumnColor(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      <option value="bg-slate-100">Gray</option>
-                      <option value="bg-blue-100">Blue</option>
-                      <option value="bg-purple-100">Purple</option>
-                      <option value="bg-indigo-100">Indigo</option>
-                      <option value="bg-green-100">Green</option>
-                      <option value="bg-yellow-100">Yellow</option>
-                      <option value="bg-red-100">Red</option>
-                      <option value="bg-pink-100">Pink</option>
-                      <option value="bg-amber-100">Amber</option>
-                      <option value="bg-teal-100">Teal</option>
-                    </select>
-                  </div>
-                  <Button onClick={handleAddColumn} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Column
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="flex justify-between gap-2">
-              <Button variant="outline" onClick={handleResetToDefault}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset to Default
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsEditingColumns(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveColumns}>
-                  {saveColumnConfigMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-              </div>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
 
-      {/* Board Config Dialog */}
       <BoardConfigDialog
-        open={showBoardConfig} {/* Changed isOpen to open */}
+        open={showBoardConfig}
         onClose={() => {
           setShowBoardConfig(false);
-          // Reload config after changes
           queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
         }}
         organization={organization}
         currentConfig={boardConfig}
         onConfigSaved={(newConfig) => {
           setBoardConfig(newConfig);
-          // Re-fetch proposals or re-evaluate groupedProposals if swimlanes changed
           queryClient.invalidateQueries({ queryKey: ['proposals'] });
-          queryClient.invalidateQueries({ queryKey: ['kanban-config'] }); // Ensure this is invalidated too
+          queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
         }}
       />
 
-      {/* Reset Warning Dialog */}
       <AlertDialog open={showResetWarning} onOpenChange={setShowResetWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1066,24 +763,13 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <AlertTriangle className="w-5 h-5 text-amber-600" />
               Reset Kanban Board to Default?
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3 pt-2">
-              <p className="font-medium text-slate-900">This action will reset your Kanban board and you will lose the following customizations:</p>
-              <ul className="list-disc pl-5 space-y-1 text-slate-700">
-                <li>All custom column names will revert to original names</li>
-                <li>All custom column colors will revert to default colors</li>
-                <li>All WIP limits will be reset</li>
-                <li>All custom workflow stages will be permanently deleted</li>
-                <li>All collapsed columns will be expanded</li>
-                <li>Column order will be reset to the default sequence</li>
-                <li>All column sorting preferences will be cleared</li>
-                <li>Swimlane configuration will be reset</li>
-              </ul>
-              <p className="text-amber-700 font-medium pt-2">⚠️ This action cannot be undone. Your proposals and data will remain safe.</p>
+            <AlertDialogDescription>
+              This action will reset your Kanban board configuration. All customizations will be lost. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmReset}
               className="bg-red-600 hover:bg-red-700"
               disabled={resetToDefaultMutation.isPending}
@@ -1101,7 +787,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Column Delete Warning Dialog */}
       <AlertDialog open={showColumnDeleteWarning} onOpenChange={setShowColumnDeleteWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1118,45 +803,17 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                 </>
               )}
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3 pt-2">
+            <AlertDialogDescription>
               {columnDeleteError ? (
-                <>
-                  <div className="p-4 bg-red-50 border-2 border-red-300 rounded-lg">
-                    <p className="text-red-900 font-bold mb-2 flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5" />
-                      Column Contains Proposals
-                    </p>
-                    <p className="text-red-800 mb-3">
-                      The column <strong>"{columnDeleteError.columnLabel}"</strong> contains <strong>{columnDeleteError.count} proposal{columnDeleteError.count !== 1 ? 's' : ''}</strong>.
-                    </p>
-                    <p className="text-red-900 font-semibold">
-                      To prevent accidental data loss, you must move all proposals out of this column before it can be deleted.
-                    </p>
-                  </div>
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-900 text-sm font-medium mb-1">💡 How to proceed:</p>
-                    <ol className="text-blue-800 text-sm space-y-1 list-decimal pl-5">
-                      <li>Drag all proposals from "{columnDeleteError.columnLabel}" to another column</li>
-                      <li>Verify the column is empty</li>
-                      <li>Try deleting the column again</li>
-                    </ol>
-                  </div>
-                </>
-              ) : columnToDelete ? (
-                <>
-                  <p className="text-slate-900">
-                    You are about to permanently delete the custom column <strong>"{columnToDelete.label}"</strong>.
+                <div className="space-y-2">
+                  <p className="text-red-600">
+                    The column "{columnDeleteError.columnLabel}" contains {columnDeleteError.count} proposal(s).
                   </p>
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-900 text-sm">
-                      ✓ This column is currently empty, so no proposals will be affected.
-                    </p>
-                  </div>
-                  <p className="text-amber-700 font-medium">
-                    ⚠️ This action cannot be undone.
-                  </p>
-                </>
-              ) : null}
+                  <p>Please move all proposals out of this column before deleting it.</p>
+                </div>
+              ) : (
+                `Are you sure you want to delete the "${columnToDelete?.label}" column? This action cannot be undone.`
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1175,7 +832,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                 }}>
                   Cancel
                 </AlertDialogCancel>
-                <AlertDialogAction 
+                <AlertDialogAction
                   onClick={confirmDeleteColumn}
                   className="bg-red-600 hover:bg-red-700"
                 >
@@ -1188,7 +845,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Proposal Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1196,30 +852,14 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               <AlertTriangle className="w-5 h-5 text-red-600" />
               Permanently Delete Proposal?
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3 pt-2">
-              <p className="font-medium text-slate-900">
-                You are about to permanently delete: <span className="font-bold text-red-600">{proposalToDelete?.proposal_name}</span>
-              </p>
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-900 font-semibold mb-2">⚠️ This action cannot be undone!</p>
-                <p className="text-red-800 text-sm">All associated data will be irretrievably lost, including:</p>
-                <ul className="list-disc pl-5 mt-2 space-y-1 text-red-800 text-sm">
-                  <li>All proposal sections and content</li>
-                  <li>Comments and discussions</li>
-                  <li>Tasks and assignments</li>
-                  <li>Uploaded documents and files</li>
-                  <li>Evaluation and scoring data</li>
-                  <li>Win themes and strategies</li>
-                </ul>
-              </div>
-              <p className="text-amber-700 font-medium">
-                💡 Consider moving to "Archived" status instead if you might need this data later.
-              </p>
+            <AlertDialogDescription>
+              You are about to permanently delete: <strong>{proposalToDelete?.proposal_name}</strong>. 
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmDelete}
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteProposalMutation.isPending}
@@ -1240,13 +880,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Quick Add Column Dialog */}
       <Dialog open={showQuickAddDialog} onOpenChange={setShowQuickAddDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Column</DialogTitle>
             <DialogDescription>
-              Create a new custom column.
+              Create a new custom column
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1281,7 +920,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                   <SelectItem value="bg-red-100">Red</SelectItem>
                   <SelectItem value="bg-pink-100">Pink</SelectItem>
                   <SelectItem value="bg-amber-100">Amber</SelectItem>
-                  <SelectItem value="bg-teal-100">Teal</option>
+                  <SelectItem value="bg-teal-100">Teal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1298,7 +937,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </DialogContent>
       </Dialog>
 
-      {/* Render Kanban Board with Swimlanes - use filteredProposals instead of proposals */}
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {groupedProposals.swimlanes.map((swimlane) => (
           <div key={swimlane.id} className="mb-8">
@@ -1329,10 +967,10 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                           </div>
                         </div>
 
-                        <Draggable 
-                          key={column.id} 
-                          draggableId={column.id} 
-                          index={index} 
+                        <Draggable
+                          key={column.id}
+                          draggableId={column.id}
+                          index={index}
                           type="column"
                         >
                           {(provided, snapshot) => (
@@ -1357,13 +995,13 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                                       onProposalClick={handleProposalClick}
                                       onDeleteProposal={handleDeleteProposal}
                                       isDraggingOver={snapshot.isDraggingOver}
-                                      isBoardDragging={isDragging} {/* Added this prop for global drag state */}
+                                      isBoardDragging={isDragging}
                                       isCollapsed={isColumnCollapsed}
-                                      onToggleCollapse={() => handleToggleCollapse(column.id)} {/* Updated prop usage */}
+                                      onToggleCollapse={() => handleToggleCollapse(column.id)}
                                       dragHandleProps={provided.dragHandleProps}
                                       onSortChange={handleSortChange}
                                       currentSort={columnSorts[column.id]}
-                                      onDeleteColumn={() => handleDeleteColumn(column)} {/* Updated prop usage */}
+                                      onDeleteColumn={() => handleDeleteColumn(column)}
                                       organization={organization}
                                     />
                                     {provided.placeholder}
