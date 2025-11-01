@@ -371,7 +371,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               <React.Fragment key={column.id}>
                 {/* Add Column Button - Before First Column */}
                 {index === 0 && (
-                  <div className="flex-shrink-0 flex items-center justify-center px-2">
+                  <div className="flex-shrink-0 flex items-start justify-center px-2 pt-4">
                     <button
                       onClick={handleAddColumn}
                       className="w-10 h-10 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
@@ -433,7 +433,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 )}
 
                 {/* Add Column Button - Between Columns and After Last Column */}
-                <div className="flex-shrink-0 flex items-center justify-center px-2">
+                <div className="flex-shrink-0 flex items-start justify-center px-2 pt-4">
                   <button
                     onClick={handleAddColumn}
                     className="w-10 h-10 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
