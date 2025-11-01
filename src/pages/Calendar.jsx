@@ -45,17 +45,18 @@ import {
   FileText,    // For Proposal Deadline
   Users,       // For Client Meeting
   Shield,      // For Review Deadline
-  Briefcase,   // For Compliance Due
+  Briefcase,   // (original icon for Compliance Due, but changed to AlertCircle in config)
   X,           // For clear button
   ExternalLink, // For external links
-  Settings     // For sync settings
+  Settings,    // For sync settings
+  List         // For Agenda View - NEW
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 import { cn } from "@/lib/utils";
-import CalendarSync from "../components/calendar/CalendarSync"; // Assuming this path is correct
+import CalendarSync from "../components/calendar/CalendarSync";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -97,8 +98,8 @@ const EVENT_TYPE_CONFIG = {
   proposal_task: {
     label: "Proposal Task",
     icon: CheckSquare,
-    color: "from-emerald-400 to-emerald-600", // Changed to emerald
-    badgeColor: "bg-emerald-500 text-white", // Changed to emerald
+    color: "from-orange-400 to-orange-600", // Changed to orange
+    badgeColor: "bg-orange-500 text-white", // Changed to orange
     canDrag: true, // Can drag proposal tasks (due date change)
     canEdit: false // Edit from proposal context
   },
@@ -120,7 +121,7 @@ const EVENT_TYPE_CONFIG = {
   },
   compliance_due: {
     label: "Compliance Due",
-    icon: Briefcase, // Changed to Briefcase
+    icon: AlertCircle, // Changed to AlertCircle
     color: "from-amber-400 to-amber-600",
     badgeColor: "bg-amber-500 text-white",
     canDrag: false,
@@ -129,8 +130,8 @@ const EVENT_TYPE_CONFIG = {
   client_meeting: {
     label: "Client Meeting",
     icon: Users,
-    color: "from-indigo-400 to-indigo-600", // Changed to indigo
-    badgeColor: "bg-indigo-500 text-white", // Changed to indigo
+    color: "from-green-400 to-green-600", // Changed to green
+    badgeColor: "bg-green-500 text-white", // Changed to green
     canDrag: true, // Can drag client meetings
     canEdit: false // Edit from client meeting context
   }
@@ -140,7 +141,6 @@ const EVENT_TYPE_CONFIG = {
 const generateRecurringInstances = (event, viewStartDate, viewEndDate) => {
   if (!event.recurrence_rule) return [event];
 
-  const instances = [];
   let recurrence;
   try {
     recurrence = typeof event.recurrence_rule === 'string'
@@ -153,11 +153,12 @@ const generateRecurringInstances = (event, viewStartDate, viewEndDate) => {
 
   if (!recurrence || !recurrence.frequency) return [event];
 
+  const instances = [];
   const eventStart = moment(event.start_date);
   const eventEnd = moment(event.end_date);
   const duration = moment.duration(eventEnd.diff(eventStart));
 
-  // Start from the original event's start date
+  // Start generation from the original event's start date
   let current = moment(eventStart);
   const finalViewEndDate = moment(viewEndDate);
 
@@ -183,7 +184,7 @@ const generateRecurringInstances = (event, viewStartDate, viewEndDate) => {
         is_recurring_instance: true,
         source_type: 'calendar_event', // Explicitly set source type for instances
         color_category: EVENT_TYPE_CONFIG.calendar_event.color,
-        can_drag: false, // Recurring instances cannot be dragged individually
+        can_drag: false, // Recurring instances cannot be dragged individually, only the series edited
         can_edit: true // Can open edit dialog for the series
       });
     }
@@ -290,7 +291,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         start_date: moment(entity.due_date).startOf('day').toISOString(),
         end_date: moment(entity.due_date).endOf('day').toISOString(),
         event_type: 'compliance_due',
-        link_url: `/compliance-dashboard?orgId=${orgId}`, // Placeholder
+        link_url: `/proposal-builder?id=${entity.proposal_id}`, // Changed to proposal_id
         color_category: config.color,
         priority: entity.risk_level, // Assuming 'risk_level' maps to priority
         proposal_id: entity.proposal_id,
@@ -306,7 +307,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         id: `meeting-${entity.id}`,
         original_id: entity.id,
         source_type: sourceType,
-        title: `👥 ${entity.meeting_title || 'Client Meeting'}`,
+        title: `👥 ${entity.meeting_title}`, // Changed to directly use entity.meeting_title
         description: entity.agenda,
         start_date: clientMeetingStart.toISOString(),
         end_date: clientMeetingEnd.toISOString(),
@@ -351,7 +352,7 @@ export default function Calendar() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null); // This holds the *original* event object or the instance if it's external
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState("month"); // month, week, day
+  const [viewMode, setViewMode] = useState("month"); // month, week, day, agenda
   const [deleteRecurringOption, setDeleteRecurringOption] = useState(null); // Stores original_id for delete confirmation for CalendarEvent
 
   // Filtering and search state
@@ -378,7 +379,7 @@ export default function Calendar() {
       frequency: "daily",
       interval: 1,
       end_type: "never",
-      end_date: moment().format('YYYY-MM-DD'), // Default to today for consistency
+      end_date: "", // Changed from moment().format('YYYY-MM-DD') to ""
       occurrence_count: 10
     }
   });
@@ -400,6 +401,19 @@ export default function Calendar() {
     loadData();
   }, []);
 
+  // Fetch proposals list separately to get proposalIds for other queries
+  const { data: proposalsList = [] } = useQuery({
+    queryKey: ['proposals-list', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Proposal.filter({ organization_id: organization.id });
+    },
+    enabled: !!organization?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  const proposalIds = React.useMemo(() => proposalsList.map(p => p.id), [proposalsList]);
+
+
   // Multi-source data fetching
   const queryResults = useQueries({
     queries: [
@@ -416,17 +430,17 @@ export default function Calendar() {
         enabled: !!organization?.id,
       },
       {
-        queryKey: ['proposal-tasks', organization?.id],
+        queryKey: ['proposal-tasks', organization?.id, proposalIds],
         queryFn: async () => {
-          if (!organization?.id) return [];
+          if (!organization?.id || proposalIds.length === 0) return [];
           const tasks = await base44.entities.ProposalTask.filter({
-            organization_id: organization.id,
+            proposal_id: { $in: proposalIds }, // Filter by proposal_id
             due_date: { $ne: null }
           });
           return tasks;
         },
         initialData: [],
-        enabled: !!organization?.id,
+        enabled: !!organization?.id && proposalIds.length > 0, // Enable only if proposalIds exist
       },
       {
         queryKey: ['proposals-deadlines', organization?.id],
@@ -442,30 +456,30 @@ export default function Calendar() {
         enabled: !!organization?.id,
       },
       {
-        queryKey: ['review-deadlines', organization?.id],
+        queryKey: ['review-deadlines', organization?.id, proposalIds],
         queryFn: async () => {
-          if (!organization?.id) return [];
+          if (!organization?.id || proposalIds.length === 0) return [];
           const reviews = await base44.entities.ReviewRound.filter({
-            organization_id: organization.id, // Assuming ReviewRound has organization_id
+            proposal_id: { $in: proposalIds }, // Filter by proposal_id
             due_date: { $ne: null }
           });
           return reviews;
         },
         initialData: [],
-        enabled: !!organization?.id,
+        enabled: !!organization?.id && proposalIds.length > 0, // Enable only if proposalIds exist
       },
       {
-        queryKey: ['compliance-deadlines', organization?.id],
+        queryKey: ['compliance-deadlines', organization?.id, proposalIds],
         queryFn: async () => {
-          if (!organization?.id) return [];
+          if (!organization?.id || proposalIds.length === 0) return [];
           const compliances = await base44.entities.ComplianceRequirement.filter({
-            organization_id: organization.id, // Assuming ComplianceRequirement has organization_id
+            proposal_id: { $in: proposalIds }, // Filter by proposal_id
             due_date: { $ne: null }
           });
           return compliances;
         },
         initialData: [],
-        enabled: !!organization?.id,
+        enabled: !!organization?.id && proposalIds.length > 0, // Enable only if proposalIds exist
       },
       {
         queryKey: ['client-meetings', organization?.id],
@@ -499,7 +513,14 @@ export default function Calendar() {
     } else if (viewMode === 'week') {
       startDate = moment(currentDate).startOf('week').subtract(moment.duration(3, 'days'));
       endDate = moment(currentDate).endOf('week').add(moment.duration(3, 'days'));
-    } else { // Day view
+    } else if (viewMode === 'day') { // Day view
+      startDate = moment(currentDate).startOf('day').subtract(moment.duration(1, 'day'));
+      endDate = moment(currentDate).endOf('day').add(moment.duration(1, 'day'));
+    } else if (viewMode === 'agenda') { // Agenda view: from today for next X days/weeks
+      startDate = moment().startOf('day');
+      endDate = moment().add(6, 'months').endOf('day'); // Fetch events for next 6 months for agenda
+    } else {
+      // Default or fallback
       startDate = moment(currentDate).startOf('day').subtract(moment.duration(1, 'day'));
       endDate = moment(currentDate).endOf('day').add(moment.duration(1, 'day'));
     }
@@ -514,7 +535,8 @@ export default function Calendar() {
       } else {
         // Only include non-recurring calendar events if they fall within the extended view range
         if (moment(event.start_date).isSameOrBefore(endDate) && moment(event.end_date).isSameOrAfter(startDate)) {
-            normalizedEvents.push(normalizeEvent(event, 'calendar_event', organization.id));
+            const normalized = normalizeEvent(event, 'calendar_event', organization.id);
+            if (normalized) normalizedEvents.push(normalized);
         }
       }
     });
@@ -553,9 +575,15 @@ export default function Calendar() {
     } else if (viewMode === 'week') {
       displayStartDate = moment(currentDate).startOf('week');
       displayEndDate = moment(currentDate).endOf('week');
-    } else { // Day view
+    } else if (viewMode === 'day') { // Day view
       displayStartDate = moment(currentDate).startOf('day');
       displayEndDate = moment(currentDate).endOf('day');
+    } else if (viewMode === 'agenda') { // Agenda view: from today for display
+      displayStartDate = moment().startOf('day');
+      displayEndDate = moment().add(6, 'months').endOf('day'); // display up to 6 months
+    } else {
+        displayStartDate = moment().startOf('day');
+        displayEndDate = moment().endOf('day');
     }
 
     return normalizedEvents.filter(event =>
@@ -617,15 +645,6 @@ export default function Calendar() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const { data: proposalsList = [] } = useQuery({
-    queryKey: ['proposals-list', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return [];
-      return base44.entities.Proposal.filter({ organization_id: organization.id });
-    },
-    enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
 
   const createEventMutation = useMutation({
     mutationFn: async (data) => {
@@ -667,8 +686,9 @@ export default function Calendar() {
         return base44.entities.ProposalTask.update(id, { due_date: start_date });
       } else if (source_type === 'client_meeting') {
         // For client meetings, map start_date to scheduled_date
+        // We need the original meeting to derive duration if only scheduled_date is stored
         const originalMeeting = clientMeetings.find(m => m.id === id);
-        const originalDuration = moment(originalMeeting.end_date).diff(moment(originalMeeting.start_date));
+        const originalDuration = originalMeeting ? moment(originalMeeting.end_date).diff(moment(originalMeeting.start_date)) : moment.duration(60, 'minutes');
         const newScheduledDate = start_date;
         const newEndDate = moment(start_date).add(originalDuration).toISOString();
 
@@ -715,7 +735,7 @@ export default function Calendar() {
         frequency: "daily",
         interval: 1,
         end_type: "never",
-        end_date: moment().format('YYYY-MM-DD'), // Default to today for consistency
+        end_date: "", // Default to empty string
         occurrence_count: 10
       }
     });
@@ -723,9 +743,9 @@ export default function Calendar() {
 
   const handleEdit = (event) => {
     if (event.source_type === 'calendar_event') {
-      const originalEventId = event.original_id || event.id;
       // Find the base event if it's an instance, otherwise use the event itself
-      const eventToEdit = baseCalendarEvents.find(e => e.id === originalEventId) || event;
+      const originalEventId = event.original_id || event.id;
+      const eventToEdit = baseCalendarEvents.find(e => e.id === originalEventId) || event; // Ensure we get the original event's data
 
       if (eventToEdit) {
         setEditingEvent(eventToEdit);
@@ -749,7 +769,7 @@ export default function Calendar() {
             frequency: "daily",
             interval: 1,
             end_type: "never",
-            end_date: moment().format('YYYY-MM-DD'),
+            end_date: "", // Default to empty string
             occurrence_count: 10
           }
         });
@@ -766,14 +786,14 @@ export default function Calendar() {
   const handleDelete = (event) => {
     if (event.source_type === 'calendar_event' && event.can_edit) {
       const originalEventId = event.original_id || event.id;
-      const eventToDelete = baseCalendarEvents.find(e => e.id === originalEventId);
+      const eventToDelete = baseCalendarEvents.find(e => e.id === originalEventId); // Get the original event
 
       if (eventToDelete && eventToDelete.recurrence_rule) {
         // If it's a recurring event (either original or an instance of one)
-        setDeleteRecurringOption(originalEventId); // Trigger the recurring delete dialog
+        setDeleteRecurringOption(originalEventId); // Trigger the recurring delete dialog for the original event ID
       } else {
         // Non-recurring calendar event
-        if (confirm('Delete this event?')) {
+        if (confirm('Are you sure you want to delete this event?')) {
           deleteEventMutation.mutate(event.id);
         }
       }
@@ -806,9 +826,10 @@ export default function Calendar() {
       setCurrentDate(moment(currentDate).subtract(1, 'month').toDate());
     } else if (viewMode === "week") {
       setCurrentDate(moment(currentDate).subtract(1, 'week').toDate());
-    } else {
+    } else if (viewMode === "day") {
       setCurrentDate(moment(currentDate).subtract(1, 'day').toDate());
     }
+    // Agenda view doesn't have previous/next buttons
   };
 
   const nextPeriod = () => {
@@ -816,9 +837,10 @@ export default function Calendar() {
       setCurrentDate(moment(currentDate).add(1, 'month').toDate());
     } else if (viewMode === "week") {
       setCurrentDate(moment(currentDate).add(1, 'week').toDate());
-    } else {
+    } else if (viewMode === "day") {
       setCurrentDate(moment(currentDate).add(1, 'day').toDate());
     }
+    // Agenda view doesn't have previous/next buttons
   };
 
   const today = () => {
@@ -835,9 +857,12 @@ export default function Calendar() {
         return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`;
       }
       return `${start.format('MMM D, YYYY')} - ${end.format('MMM D, YYYY')}`;
-    } else {
+    } else if (viewMode === "day") {
       return moment(currentDate).format('dddd, MMMM D, YYYY');
+    } else if (viewMode === "agenda") {
+      return "Upcoming Events"; // New title for agenda view
     }
+    return ""; // Fallback
   };
 
   const getRecurrenceDescription = (recurrence) => {
@@ -850,20 +875,36 @@ export default function Calendar() {
     }
 
     let desc = `Repeats `;
-    const intervalText = rule.interval > 1 ? `every ${rule.interval} ` : '';
+    const interval = rule.interval || 1;
+    const intervalText = interval > 1 ? `every ${interval} ` : '';
 
     switch (rule.frequency) {
         case 'daily':
-            desc += `${intervalText}day${rule.interval > 1 ? 's' : ''}`;
+            desc += `${intervalText}day${interval > 1 ? 's' : ''}`;
             break;
         case 'weekly':
-            desc += `${intervalText}week${rule.interval > 1 ? 's' : ''}`;
+            desc += `${intervalText}week${interval > 1 ? 's' : ''}`;
+            if (rule.byweekday && rule.byweekday.length > 0) {
+              const days = rule.byweekday.map(d => moment().day(d).format('ddd')).join(', ');
+              desc += ` on ${days}`; // More complex to render for specific days
+            }
             break;
         case 'monthly':
-            desc += `${intervalText}month${rule.interval > 1 ? 's' : ''}`;
+            desc += `${intervalText}month${interval > 1 ? 's' : ''}`;
+            if (rule.bymonthday) {
+                desc += ` on day ${rule.bymonthday}`;
+            } else if (rule.byweekday && rule.byweekday.length > 0) {
+                // This is an oversimplification, actual rule can be complex (e.g., first Monday)
+                const dayOfWeek = moment().day(rule.byweekday[0]).format('dddd');
+                desc += ` on a ${dayOfWeek}`;
+            }
             break;
         case 'yearly':
-            desc += `${intervalText}year${rule.interval > 1 ? 's' : ''}`;
+            desc += `${intervalText}year${interval > 1 ? 's' : ''}`;
+            if (rule.bymonth && rule.bymonthday) {
+              const monthName = moment().month(rule.bymonth - 1).format('MMMM');
+              desc += ` on ${monthName} ${rule.bymonthday}`;
+            }
             break;
         default:
             return "Unknown recurrence";
@@ -893,16 +934,27 @@ export default function Calendar() {
       return;
     }
 
-    const destinationDate = result.destination.droppableId; // YYYY-MM-DD
+    const destinationDate = result.destination.droppableId; // YYYY-MM-DD (or YYYY-MM-DD-HH for day view)
     const eventOriginalStart = moment(event.start_date);
     const eventOriginalEnd = moment(event.end_date);
     const duration = moment.duration(eventOriginalEnd.diff(eventOriginalStart));
 
-    const newStart = moment(destinationDate)
+    let newStart;
+    if (viewMode === 'day' && destinationDate.includes('-')) {
+        const [datePart, hourPart] = destinationDate.split('-');
+        newStart = moment(datePart)
+                       .hour(parseInt(hourPart, 10))
+                       .minute(eventOriginalStart.minute())
+                       .second(eventOriginalStart.second())
+                       .millisecond(eventOriginalStart.millisecond());
+    } else { // Month or Week view, or Day view if droppable is just the day
+        newStart = moment(destinationDate)
                       .hour(eventOriginalStart.hour())
                       .minute(eventOriginalStart.minute())
                       .second(eventOriginalStart.second())
                       .millisecond(eventOriginalStart.millisecond());
+    }
+
     const newEnd = moment(newStart).add(duration);
 
     updateEventMutation.mutate({
@@ -911,6 +963,89 @@ export default function Calendar() {
       end_date: newEnd.toISOString(),
       source_type: event.source_type
     });
+  };
+
+  // Event Popover Component - Refactored for reusability
+  const EventPopover = ({ event, children }) => {
+    const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          {children}
+        </PopoverTrigger>
+        <PopoverContent className="w-80" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-3">
+            <div>
+              <h4 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <Icon className="w-5 h-5" />
+                {event.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
+                {event.title}
+              </h4>
+              <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
+                {EVENT_TYPE_CONFIG[event.source_type]?.label}
+              </Badge>
+            </div>
+            {event.description && (
+              <p className="text-sm text-slate-600">{event.description}</p>
+            )}
+            {event.is_recurring_instance && event.source_type === 'calendar_event' && (
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
+                <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{getRecurrenceDescription(baseCalendarEvents.find(e => e.id === event.original_id)?.recurrence_rule)}</span>
+              </div>
+            )}
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center gap-2 text-slate-600">
+                <Clock className="w-4 h-4" />
+                {moment(event.start_date).format('MMM D, h:mm A')} - {moment(event.end_date).format('h:mm A')}
+              </div>
+              {event.location && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <MapPin className="w-4 h-4" />
+                  {event.location}
+                </div>
+              )}
+              {event.meeting_link && (
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Video className="w-4 h-4" />
+                  <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    Join Meeting
+                  </a>
+                </div>
+              )}
+              {event.assigned_to && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Users className="w-4 h-4" />
+                  {teamMembers.find(m => m.email === event.assigned_to)?.full_name || event.assigned_to}
+                </div>
+              )}
+              {event.priority && (
+                <div className="flex items-center gap-2">
+                  <Badge variant={
+                    event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
+                    event.priority === 'high' ? 'default' : 'secondary'
+                  }>
+                    {event.priority}
+                  </Badge>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 pt-2 border-t">
+              <Button size="sm" onClick={() => handleEdit(event)} className="flex-1">
+                {event.can_edit ? (event.is_recurring_instance ? "Edit Series" : "Edit Event") : "View"}
+                {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
+              </Button>
+              {event.can_edit && event.source_type === 'calendar_event' && (
+                <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
   };
 
   // Month View
@@ -943,167 +1078,93 @@ export default function Calendar() {
     };
 
     return (
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-7 border-l border-t">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName) => (
-            <div key={dayName} className="p-3 text-center font-bold text-slate-700 border-b border-r bg-gradient-to-br from-slate-50 to-slate-100">
-              {dayName}
-            </div>
-          ))}
+      <div className="grid grid-cols-7 border-l border-t">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName) => (
+          <div key={dayName} className="p-3 text-center font-bold text-slate-700 border-b border-r bg-gradient-to-br from-slate-50 to-slate-100">
+            {dayName}
+          </div>
+        ))}
 
-          {days.map((dayMoment, index) => {
-            const dayEvents = getEventsForDay(dayMoment);
-            const isToday = dayMoment.isSame(moment(), 'day');
-            const isCurrentMonth = dayMoment.isSame(currentDate, 'month');
-            const droppableId = dayMoment.format('YYYY-MM-DD');
+        {days.map((dayMoment, index) => {
+          const dayEvents = getEventsForDay(dayMoment);
+          const isToday = dayMoment.isSame(moment(), 'day');
+          const isCurrentMonth = dayMoment.isSame(currentDate, 'month');
+          const droppableId = dayMoment.format('YYYY-MM-DD');
 
-            return (
-              <Droppable key={droppableId} droppableId={droppableId}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={cn(
-                      "min-h-[140px] border-b border-r p-2 transition-all flex flex-col",
-                      !isCurrentMonth && "bg-slate-50 text-slate-400",
-                      isCurrentMonth && "bg-white",
-                      isToday && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
-                      snapshot.isDraggingOver && "bg-blue-100 ring-2 ring-blue-500"
-                    )}
-                    onClick={() => {
-                        const newDate = dayMoment.toDate();
-                        setEventData({
-                          ...eventData,
-                          start_date: moment(newDate).hour(9).format('YYYY-MM-DDTHH:mm'),
-                          end_date: moment(newDate).hour(10).format('YYYY-MM-DDTHH:mm')
-                        });
-                        setShowEventDialog(true);
-                    }}
-                  >
-                    <div className={cn(
-                        "text-sm font-bold mb-2 flex items-center justify-center w-8 h-8 rounded-full ml-auto",
-                        isToday ? "bg-blue-600 text-white shadow-lg" : "text-slate-700"
-                    )}>
-                        {dayMoment.format('D')}
-                    </div>
-                    <div className="space-y-1 flex-grow">
-                          {dayEvents.slice(0, 3).map((event, idx) => {
-                            const EventIcon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
-                            return (
-                              <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
-                                {(provided, snapshot) => (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
-                                        className={cn(
-                                          "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
-                                          getEventTypeColor(event.source_type),
-                                          snapshot.isDragging && "rotate-3 scale-105 shadow-xl",
-                                          !event.can_drag && "cursor-default opacity-80"
-                                        )}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                        }}
-                                      >
-                                        <div className="truncate flex items-center gap-1">
-                                          <EventIcon className="w-3 h-3 flex-shrink-0" />
-                                          {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
-                                          {moment(event.start_date).format('h:mm A')} {event.title}
-                                        </div>
-                                      </div>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-80" onClick={(e) => e.stopPropagation()}>
-                                      <div className="space-y-3">
-                                        <div>
-                                          <h4 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                                            <EventIcon className="w-5 h-5" />
-                                            {event.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
-                                            {event.title}
-                                          </h4>
-                                          <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
-                                            {EVENT_TYPE_CONFIG[event.source_type]?.label}
-                                          </Badge>
-                                        </div>
-                                        {event.description && (
-                                          <p className="text-sm text-slate-600">{event.description}</p>
-                                        )}
-                                        {event.is_recurring_instance && event.source_type === 'calendar_event' && (
-                                          <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
-                                            <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                            <span>{getRecurrenceDescription(baseCalendarEvents.find(e => e.id === event.original_id)?.recurrence_rule)}</span>
-                                          </div>
-                                        )}
-                                        <div className="space-y-1 text-sm">
-                                          <div className="flex items-center gap-2 text-slate-600">
-                                            <Clock className="w-4 h-4" />
-                                            {moment(event.start_date).format('MMM D, h:mm A')} - {moment(event.end_date).format('h:mm A')}
-                                          </div>
-                                          {event.location && (
-                                            <div className="flex items-center gap-2 text-slate-600">
-                                              <MapPin className="w-4 h-4" />
-                                              {event.location}
-                                            </div>
-                                          )}
-                                          {event.meeting_link && (
-                                            <div className="flex items-center gap-2 text-blue-600">
-                                              <Video className="w-4 h-4" />
-                                              <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                                Join Meeting
-                                              </a>
-                                            </div>
-                                          )}
-                                          {event.assigned_to && (
-                                            <div className="flex items-center gap-2 text-slate-600">
-                                              <Users className="w-4 h-4" />
-                                              {teamMembers.find(m => m.email === event.assigned_to)?.full_name || event.assigned_to}
-                                            </div>
-                                          )}
-                                          {event.priority && (
-                                            <div className="flex items-center gap-2">
-                                              <Badge variant={
-                                                event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
-                                                event.priority === 'high' ? 'default' : 'secondary'
-                                              }>
-                                                {event.priority}
-                                              </Badge>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex gap-2 pt-2 border-t">
-                                          <Button size="sm" onClick={() => handleEdit(event)} className="flex-1">
-                                            {event.can_edit ? (event.is_recurring_instance ? "Edit Series" : "Edit Event") : "View"}
-                                            {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
-                                          </Button>
-                                          {event.can_edit && event.source_type === 'calendar_event' && (
-                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
-                                              <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
-                                )}
-                              </Draggable>
-                            );
-                          })}
-                          {dayEvents.length > 3 && (
-                            <div className="text-xs text-slate-500 px-2 font-medium">
-                              +{dayEvents.length - 3} more
-                            </div>
-                          )}
-                        </div>
-                    {provided.placeholder}
+          return (
+            <Droppable key={droppableId} droppableId={droppableId}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={cn(
+                    "min-h-[140px] border-b border-r p-2 transition-all flex flex-col",
+                    !isCurrentMonth && "bg-slate-50 text-slate-400",
+                    isCurrentMonth && "bg-white",
+                    isToday && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
+                    snapshot.isDraggingOver && "bg-blue-100 ring-2 ring-blue-500"
+                  )}
+                  onClick={() => {
+                      const newDate = dayMoment.toDate();
+                      setEventData({
+                        ...eventData,
+                        start_date: moment(newDate).hour(9).format('YYYY-MM-DDTHH:mm'),
+                        end_date: moment(newDate).hour(10).format('YYYY-MM-DDTHH:mm')
+                      });
+                      setShowEventDialog(true);
+                  }}
+                >
+                  <div className={cn(
+                      "text-sm font-bold mb-2 flex items-center justify-center w-8 h-8 rounded-full ml-auto",
+                      isToday ? "bg-blue-600 text-white shadow-lg" : "text-slate-700"
+                  )}>
+                      {dayMoment.format('D')}
                   </div>
-                )}
-              </Droppable>
-            );
-          })}
-        </div>
-      </DragDropContext>
+                  <div className="space-y-1 flex-grow">
+                        {dayEvents.slice(0, 3).map((event, idx) => {
+                          const EventIcon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                          return (
+                            <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
+                              {(provided, snapshot) => (
+                                <EventPopover event={event}>
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={cn(
+                                      "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
+                                      getEventTypeColor(event.source_type),
+                                      snapshot.isDragging && "rotate-3 scale-105 shadow-xl",
+                                      !event.can_drag && "cursor-default opacity-80"
+                                    )}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                    }}
+                                  >
+                                    <div className="truncate flex items-center gap-1">
+                                      <EventIcon className="w-3 h-3 flex-shrink-0" />
+                                      {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
+                                      {moment(event.start_date).format('h:mm A')} {event.title}
+                                    </div>
+                                  </div>
+                                </EventPopover>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {dayEvents.length > 3 && (
+                          <div className="text-xs text-slate-500 px-2 font-medium">
+                            +{dayEvents.length - 3} more
+                          </div>
+                        )}
+                      </div>
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          );
+        })}
+      </div>
     );
   };
 
@@ -1111,166 +1172,107 @@ export default function Calendar() {
   const renderWeekView = () => {
     const startOfWeek = moment(currentDate).startOf('week');
     const days = Array.from({ length: 7 }, (_, i) => moment(startOfWeek).add(i, 'days'));
+    const hours = Array.from({ length: 24 }, (_, i) => i);
 
-    const getEventsForDay = (day) => {
+    const getEventsForDayAndHour = (day, hour) => {
       // Filtered events should already contain only relevant ones based on view date range
-      // Further filter for specific day display
       return filteredEvents.filter(event => {
-        const eventStartMoment = moment(event.start_date);
-        const eventEndMoment = moment(event.end_date);
+        const eventStart = moment(event.start_date);
+        const eventEnd = moment(event.end_date);
+        const targetHourMoment = moment(day).hour(hour).startOf('hour');
+        const nextHourMoment = moment(day).hour(hour + 1).startOf('hour');
+
+        // An event falls into an hour slot if it:
+        // 1. Starts within that hour
+        // 2. Ends within that hour
+        // 3. Spans across that entire hour
         return (
-            eventStartMoment.isSame(day, 'day') ||
-            (eventStartMoment.isBefore(day, 'day') && eventEndMoment.isAfter(day, 'day'))
-        );
-      }).sort((a,b) => moment(a.start_date).unix() - moment(b.start_date).unix()); // Sort by start time
+            (eventStart.isSameOrAfter(targetHourMoment) && eventStart.isBefore(nextHourMoment)) ||
+            (eventEnd.isAfter(targetHourMoment) && eventEnd.isSameOrBefore(nextHourMoment)) ||
+            (eventStart.isBefore(targetHourMoment) && eventEnd.isAfter(nextHourMoment))
+        ) && moment(event.start_date).isSame(day, 'day'); // Also ensure it starts on this day for primary display
+      }).sort((a,b) => moment(a.start_date).unix() - moment(b.start_date).unix());
     };
 
     return (
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-7 gap-2">
-          {days.map((day) => {
-            const dayEvents = getEventsForDay(day);
-            const isToday = day.isSame(moment(), 'day');
-            const droppableId = day.format('YYYY-MM-DD');
-
-            return (
-              <Droppable key={day.format('YYYY-MM-DD')} droppableId={droppableId}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={cn(
-                      "border-2 rounded-xl p-3 min-h-[500px] transition-all flex flex-col",
-                      isToday && "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg",
-                      !isToday && "border-slate-200 bg-white",
-                      snapshot.isDraggingOver && "bg-blue-100 border-blue-400"
-                    )}
-                  >
-                    <div className="text-center mb-3">
-                      <div className="text-xs font-semibold text-slate-500 uppercase">
-                        {day.format('ddd')}
-                      </div>
-                      <div className={cn(
-                        "text-2xl font-bold mt-1 mx-auto w-10 h-10 flex items-center justify-center rounded-full",
-                        isToday && "bg-blue-600 text-white shadow-lg"
-                      )}>
-                        {day.format('D')}
-                      </div>
-                    </div>
-                    <div className="space-y-2 flex-grow">
-                      {dayEvents.map((event, idx) => {
-                         const EventIcon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
-                        return (
-                          <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
-                            {(provided, snapshot) => (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    className={cn(
-                                      "p-3 rounded-lg cursor-pointer shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white",
-                                      getEventTypeColor(event.source_type),
-                                      snapshot.isDragging && "rotate-2 scale-105 shadow-2xl",
-                                      !event.can_drag && "cursor-default opacity-80"
-                                    )}
-                                  >
-                                    <div className="font-bold text-sm mb-1 flex items-center gap-1">
-                                      <EventIcon className="w-3 h-3" />
-                                      {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                                      {event.title}
-                                    </div>
-                                    <div className="text-xs opacity-90 flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />
-                                      {moment(event.start_date).format('h:mm A')}
-                                    </div>
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-80">
-                                  <div className="space-y-3">
-                                    <div>
-                                      <h4 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                                        <EventIcon className="w-5 h-5" />
-                                        {event.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
-                                        {event.title}
-                                      </h4>
-                                      <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
-                                        {EVENT_TYPE_CONFIG[event.source_type]?.label}
-                                      </Badge>
-                                    </div>
-                                    {event.description && (
-                                      <p className="text-sm text-slate-600">{event.description}</p>
-                                    )}
-                                    {event.is_recurring_instance && event.source_type === 'calendar_event' && (
-                                      <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
-                                        <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                        <span>{getRecurrenceDescription(baseCalendarEvents.find(e => e.id === event.original_id)?.recurrence_rule)}</span>
-                                      </div>
-                                    )}
-                                    <div className="space-y-1 text-sm">
-                                      <div className="flex items-center gap-2 text-slate-600">
-                                        <Clock className="w-4 h-4" />
-                                        {moment(event.start_date).format('MMM D, h:mm A')} - {moment(event.end_date).format('h:mm A')}
-                                      </div>
-                                      {event.location && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                          <MapPin className="w-4 h-4" />
-                                          {event.location}
-                                        </div>
-                                      )}
-                                      {event.meeting_link && (
-                                        <div className="flex items-center gap-2 text-blue-600">
-                                          <Video className="w-4 h-4" />
-                                          <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                            Join Meeting
-                                          </a>
-                                        </div>
-                                      )}
-                                      {event.assigned_to && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                          <Users className="w-4 h-4" />
-                                          {teamMembers.find(m => m.email === event.assigned_to)?.full_name || event.assigned_to}
-                                        </div>
-                                      )}
-                                      {event.priority && (
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant={
-                                            event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
-                                            event.priority === 'high' ? 'default' : 'secondary'
-                                          }>
-                                            {event.priority}
-                                          </Badge>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="flex gap-2 pt-2 border-t">
-                                      <Button size="sm" onClick={() => handleEdit(event)} className="flex-1">
-                                        {event.can_edit ? (event.is_recurring_instance ? "Edit Series" : "Edit Event") : "View"}
-                                        {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
-                                      </Button>
-                                      {event.can_edit && event.source_type === 'calendar_event' && (
-                                        <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                          </Draggable>
-                        );
-                      })}
-                    </div>
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            );
-          })}
+      <div className="border rounded-xl overflow-hidden">
+        <div className="grid grid-cols-8 border-b bg-slate-50">
+          <div className="p-3 border-r font-bold text-slate-700">Time</div>
+          {days.map((day) => (
+            <div key={day.format('YYYY-MM-DD')} className={cn(
+              "p-3 text-center border-r",
+              day.isSame(moment(), 'day') && "bg-blue-50"
+            )}>
+              <div className="text-xs font-semibold text-slate-500 uppercase">
+                {day.format('ddd')}
+              </div>
+              <div className={cn(
+                "text-lg font-bold mt-1",
+                day.isSame(moment(), 'day') && "text-blue-600"
+              )}>
+                {day.format('D')}
+              </div>
+            </div>
+          ))}
         </div>
-      </DragDropContext>
+        <div className="max-h-[600px] overflow-y-auto">
+          {hours.map((hour) => (
+            <div key={hour} className="grid grid-cols-8 border-b min-h-[80px]">
+              <div className="p-3 text-right text-sm font-semibold text-slate-600 border-r bg-slate-50">
+                {moment().hour(hour).format('h A')}
+              </div>
+              {days.map((day) => {
+                const hourEvents = getEventsForDayAndHour(day, hour);
+                const droppableId = day.format('YYYY-MM-DD'); // Each day is droppable
+                return (
+                    <Droppable key={`${droppableId}-${hour}`} droppableId={droppableId}>
+                        {(provided, snapshot) => (
+                            <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={cn(
+                                    "p-2 border-r hover:bg-slate-50 transition-all",
+                                    snapshot.isDraggingOver && "bg-blue-100"
+                                )}
+                            >
+                                {hourEvents.map((event, idx) => (
+                                    <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
+                                        {(provided, snapshot) => (
+                                            <EventPopover event={event}>
+                                                <div
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    className={cn(
+                                                        "p-2 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white text-xs",
+                                                        getEventTypeColor(event.source_type),
+                                                        snapshot.isDragging && "rotate-2 scale-105 shadow-2xl",
+                                                        !event.can_drag && "cursor-default opacity-90"
+                                                    )}
+                                                >
+                                                    <div className="font-bold flex items-center gap-1 mb-1">
+                                                        {EVENT_TYPE_CONFIG[event.source_type]?.icon && <EVENT_TYPE_CONFIG[event.source_type].icon className="w-3 h-3" />}
+                                                        {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                                                        {event.title}
+                                                    </div>
+                                                    <div className="opacity-90">
+                                                        {moment(event.start_date).format('h:mm A')}
+                                                    </div>
+                                                </div>
+                                            </EventPopover>
+                                        )}
+                                    </Draggable>
+                                ))}
+                                {provided.placeholder}
+                            </div>
+                        )}
+                    </Droppable>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
     );
   };
 
@@ -1289,108 +1291,195 @@ export default function Calendar() {
             {moment(currentDate).format('dddd, MMMM D, YYYY')}
           </h3>
         </div>
-        <div className="grid grid-cols-[100px_1fr]">
-          {hours.map((hour) => {
-            const hourEvents = dayEvents.filter(event => {
-              const eventStartMoment = moment(event.start_date);
-              const eventEndMoment = moment(event.end_date);
-              const targetHourMoment = moment(currentDate).hour(hour).startOf('hour');
-              const nextHourMoment = moment(currentDate).hour(hour + 1).startOf('hour');
+        <div className="max-h-[600px] overflow-y-auto">
+          <div className="grid grid-cols-[100px_1fr]">
+            {hours.map((hour) => {
+              const hourEvents = dayEvents.filter(event => {
+                const eventStartMoment = moment(event.start_date);
+                const eventEndMoment = moment(event.end_date);
+                const targetHourMoment = moment(currentDate).hour(hour).startOf('hour');
+                const nextHourMoment = moment(currentDate).hour(hour + 1).startOf('hour');
+
+                return (
+                    (eventStartMoment.isSameOrAfter(targetHourMoment) && eventStartMoment.isBefore(nextHourMoment)) || // Starts in this hour
+                    (eventEndMoment.isAfter(targetHourMoment) && eventEndMoment.isSameOrBefore(nextHourMoment)) || // Ends in this hour
+                    (eventStartMoment.isBefore(targetHourMoment) && eventEndMoment.isAfter(nextHourMoment)) // Spans across this hour
+                );
+              });
+
+              const droppableId = moment(currentDate).format('YYYY-MM-DD');
 
               return (
-                  (eventStartMoment.isSameOrAfter(targetHourMoment) && eventStartMoment.isBefore(nextHourMoment)) || // Starts in this hour
-                  (eventEndMoment.isAfter(targetHourMoment) && eventEndMoment.isSameOrBefore(nextHourMoment)) || // Ends in this hour
-                  (eventStartMoment.isBefore(targetHourMoment) && eventEndMoment.isAfter(nextHourMoment)) // Spans across this hour
+                <React.Fragment key={hour}>
+                  <div className="p-3 text-right text-sm font-semibold text-slate-600 border-b border-r bg-slate-50">
+                    {moment().hour(hour).format('h A')}
+                  </div>
+                  <Droppable droppableId={droppableId + '-' + hour}> {/* Make hour slots droppable */}
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={cn(
+                            "p-2 border-b min-h-[80px] hover:bg-slate-50 transition-all",
+                            snapshot.isDraggingOver && "bg-blue-100"
+                        )}
+                      >
+                        {hourEvents.map((event, idx) => {
+                          const EventIcon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                          return (
+                            <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
+                                {(provided, snapshot) => (
+                                    <EventPopover event={event}>
+                                        <div
+                                            ref={provided.innerRef}
+                                            {...provided.draggableProps}
+                                            {...provided.dragHandleProps}
+                                            className={cn(
+                                                "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white",
+                                                getEventTypeColor(event.source_type),
+                                                snapshot.isDragging && "rotate-2 scale-105 shadow-2xl",
+                                                !event.can_drag && "cursor-default opacity-90"
+                                            )}
+                                        >
+                                            <div className="font-bold text-sm flex items-center gap-1">
+                                                <EventIcon className="w-3 h-3" />
+                                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                                                {event.title}
+                                            </div>
+                                            <div className="text-xs opacity-90 mt-1">
+                                                {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
+                                            </div>
+                                        </div>
+                                    </EventPopover>
+                                )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </React.Fragment>
               );
-            });
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-            return (
-              <React.Fragment key={hour}>
-                <div className="p-3 text-right text-sm font-semibold text-slate-600 border-b border-r bg-slate-50">
-                  {moment().hour(hour).format('h A')}
-                </div>
-                <div className="p-2 border-b min-h-[80px] hover:bg-slate-50 transition-all">
-                  {hourEvents.map((event) => {
-                     const EventIcon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
-                    return (
-                      <Popover key={event.id}>
-                        <PopoverTrigger asChild>
-                          <div
-                            className={cn(
-                              "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white",
+  // Agenda View
+  const renderAgendaView = () => {
+    const sortedEvents = [...filteredEvents]
+      .filter(event => moment(event.start_date).isSameOrAfter(moment(), 'day'))
+      .sort((a, b) => moment(a.start_date).unix() - moment(b.start_date).unix());
+
+    const groupedEvents = sortedEvents.reduce((acc, event) => {
+      const dateKey = moment(event.start_date).format('YYYY-MM-DD');
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(event);
+      return acc;
+    }, {});
+
+    return (
+      <div className="space-y-6">
+        {Object.keys(groupedEvents).length === 0 && (
+          <div className="text-center py-20 text-slate-500">
+            <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+            <p className="text-lg font-medium">No upcoming events</p>
+            <p className="text-sm">Create your first event to get started</p>
+          </div>
+        )}
+        {Object.entries(groupedEvents).map(([dateKey, events]) => {
+          const date = moment(dateKey);
+          const isToday = date.isSame(moment(), 'day');
+          const isTomorrow = date.isSame(moment().add(1, 'day'), 'day');
+
+          return (
+            <div key={dateKey}>
+              <div className={cn(
+                "sticky top-0 bg-white z-10 p-3 border-b-2 mb-3",
+                isToday && "bg-blue-50 border-blue-400"
+              )}>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : date.format('dddd, MMMM D, YYYY')}
+                  <span className="text-sm font-normal text-slate-500 ml-2">
+                    ({events.length} event{events.length !== 1 ? 's' : ''})
+                  </span>
+                </h3>
+              </div>
+
+              <div className="space-y-3">
+                {events.map((event) => {
+                  const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                  return (
+                    <Card key={event.id} className="border-none shadow-md hover:shadow-xl transition-all">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0">
+                            <div className={cn(
+                              "w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-r text-white shadow-md",
                               getEventTypeColor(event.source_type)
-                            )}
-                          >
-                            <div className="font-bold text-sm flex items-center gap-1">
-                              <EventIcon className="w-3 h-3" />
-                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                              {event.title}
-                            </div>
-                            <div className="text-xs opacity-90 mt-1">
-                              {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
+                            )}>
+                              <Icon className="w-6 h-6" />
                             </div>
                           </div>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80">
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                                <EventIcon className="w-5 h-5" />
-                                {event.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
-                                {event.title}
-                              </h4>
-                              <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
-                                {EVENT_TYPE_CONFIG[event.source_type]?.label}
-                              </Badge>
-                            </div>
-                            {event.description && (
-                              <p className="text-sm text-slate-600">{event.description}</p>
-                            )}
-                            {event.is_recurring_instance && event.source_type === 'calendar_event' && (
-                              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
-                                <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                <span>{getRecurrenceDescription(baseCalendarEvents.find(e => e.id === event.original_id)?.recurrence_rule)}</span>
+
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                                  {event.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
+                                  {event.title}
+                                </h4>
+                                <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
+                                  {EVENT_TYPE_CONFIG[event.source_type]?.label}
+                                </Badge>
                               </div>
+                              {event.priority && (
+                                <Badge variant={
+                                  event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
+                                  event.priority === 'high' ? 'default' : 'secondary'
+                                }>
+                                  {event.priority}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {event.description && (
+                              <p className="text-sm text-slate-600 mb-3">{event.description}</p>
                             )}
-                            <div className="space-y-1 text-sm">
-                              <div className="flex items-center gap-2 text-slate-600">
+
+                            <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+                              <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
                                 {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
                               </div>
                               {event.location && (
-                                <div className="flex items-center gap-2 text-slate-600">
+                                <div className="flex items-center gap-2">
                                   <MapPin className="w-4 h-4" />
                                   {event.location}
                                 </div>
                               )}
                               {event.meeting_link && (
-                                <div className="flex items-center gap-2 text-blue-600">
+                                <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
                                   <Video className="w-4 h-4" />
-                                  <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                    Join Meeting
-                                  </a>
-                                </div>
+                                  Join Meeting
+                                </a>
                               )}
                               {event.assigned_to && (
-                                <div className="flex items-center gap-2 text-slate-600">
+                                <div className="flex items-center gap-2">
                                   <Users className="w-4 h-4" />
                                   {teamMembers.find(m => m.email === event.assigned_to)?.full_name || event.assigned_to}
                                 </div>
                               )}
-                              {event.priority && (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={
-                                    event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
-                                    event.priority === 'high' ? 'default' : 'secondary'
-                                  }>
-                                    {event.priority}
-                                  </Badge>
-                                </div>
-                              )}
                             </div>
-                            <div className="flex gap-2 pt-2 border-t">
-                              <Button size="sm" onClick={() => handleEdit(event)} className="flex-1">
-                                {event.can_edit ? (event.is_recurring_instance ? "Edit Series" : "Edit Event") : "View"}
+
+                            <div className="flex gap-2 mt-3">
+                              <Button size="sm" onClick={() => handleEdit(event)}>
+                                {event.can_edit ? 'Edit' : 'View'}
                                 {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
                               </Button>
                               {event.can_edit && event.source_type === 'calendar_event' && (
@@ -1400,15 +1489,15 @@ export default function Calendar() {
                               )}
                             </div>
                           </div>
-                        </PopoverContent>
-                      </Popover>
-                    );
-                  })}
-                </div>
-              </React.Fragment>
-            );
-          })}
-        </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -1514,7 +1603,7 @@ export default function Calendar() {
                         <label className="block text-sm font-medium mb-2">Event Type</label>
                         <Select value={filters.eventType} onValueChange={(value) => setFilters({...filters, eventType: value})}>
                           <SelectTrigger>
-                            <SelectValue placeholder="All Types"/>
+                            <SelectValue /> {/* Removed placeholder */}
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Types</SelectItem>
@@ -1529,7 +1618,7 @@ export default function Calendar() {
                         <label className="block text-sm font-medium mb-2">Assigned To</label>
                         <Select value={filters.assignedUser} onValueChange={(value) => setFilters({...filters, assignedUser: value})}>
                           <SelectTrigger>
-                            <SelectValue placeholder="All Users"/>
+                            <SelectValue /> {/* Removed placeholder */}
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Users</SelectItem>
@@ -1546,7 +1635,7 @@ export default function Calendar() {
                         <label className="block text-sm font-medium mb-2">Priority</label>
                         <Select value={filters.priority} onValueChange={(value) => setFilters({...filters, priority: value})}>
                           <SelectTrigger>
-                            <SelectValue placeholder="All Priorities"/>
+                            <SelectValue /> {/* Removed placeholder */}
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Priorities</SelectItem>
@@ -1562,7 +1651,7 @@ export default function Calendar() {
                         <label className="block text-sm font-medium mb-2">Proposal</label>
                         <Select value={filters.proposal} onValueChange={(value) => setFilters({...filters, proposal: value})}>
                           <SelectTrigger>
-                            <SelectValue placeholder="All Proposals"/>
+                            <SelectValue /> {/* Removed placeholder */}
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Proposals</SelectItem>
@@ -1632,20 +1721,29 @@ export default function Calendar() {
               <CardHeader className="border-b bg-gradient-to-r from-slate-50 to-slate-100">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <Button variant="outline" size="icon" onClick={previousPeriod} className="shadow-sm">
-                      <ChevronLeft className="w-5 h-5" />
-                    </Button>
-                    <h2 className="text-2xl font-bold text-slate-900">
-                      {getTitle()}
-                    </h2>
-                    <Button variant="outline" size="icon" onClick={nextPeriod} className="shadow-sm">
-                      <ChevronRight className="w-5 h-5" />
-                    </Button>
+                    {viewMode !== 'agenda' && (
+                      <>
+                        <Button variant="outline" size="icon" onClick={previousPeriod} className="shadow-sm">
+                          <ChevronLeft className="w-5 h-5" />
+                        </Button>
+                        <h2 className="text-2xl font-bold text-slate-900">
+                          {getTitle()}
+                        </h2>
+                        <Button variant="outline" size="icon" onClick={nextPeriod} className="shadow-sm">
+                          <ChevronRight className="w-5 h-5" />
+                        </Button>
+                      </>
+                    )}
+                    {viewMode === 'agenda' && (
+                      <h2 className="text-2xl font-bold text-slate-900">{getTitle()}</h2>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={today} className="shadow-sm">
-                      Today
-                    </Button>
+                    {viewMode !== 'agenda' && (
+                      <Button variant="outline" onClick={today} className="shadow-sm">
+                        Today
+                      </Button>
+                    )}
                     <div className="flex gap-1 border rounded-lg p-1 bg-white shadow-sm">
                       <Button
                         variant={viewMode === "month" ? "secondary" : "ghost"}
@@ -1674,14 +1772,26 @@ export default function Calendar() {
                         <Square className="w-4 h-4" />
                         <span className="hidden sm:inline">Day</span>
                       </Button>
+                      <Button // NEW: Agenda View Button
+                        variant={viewMode === "agenda" ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setViewMode("agenda")}
+                        className="gap-1"
+                      >
+                        <List className="w-4 h-4" />
+                        <span className="hidden sm:inline">Agenda</span>
+                      </Button>
                     </div>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                {viewMode === "month" && renderMonthView()}
-                {viewMode === "week" && renderWeekView()}
-                {viewMode === "day" && renderDayView()}
+                <DragDropContext onDragEnd={handleDragEnd}> {/* Moved DragDropContext here to wrap all views */}
+                    {viewMode === "month" && renderMonthView()}
+                    {viewMode === "week" && renderWeekView()}
+                    {viewMode === "day" && renderDayView()}
+                    {viewMode === "agenda" && renderAgendaView()}
+                </DragDropContext>
               </CardContent>
             </Card>
           )}
@@ -1736,12 +1846,12 @@ export default function Calendar() {
 
             <div>
               <label className="block text-sm font-medium mb-2">Event Type</label>
-              <Select
+              <Select // Kept Shadcn Select as in original code
                 value={eventData.event_type}
                 onValueChange={(value) => setEventData({ ...eventData, event_type: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select event type" />
+                  <SelectValue /> {/* Removed placeholder */}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="meeting">Meeting</SelectItem>
@@ -1831,7 +1941,7 @@ export default function Calendar() {
                         })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select frequency" />
+                          <SelectValue /> {/* Removed placeholder */}
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="daily">Daily</SelectItem>
@@ -1867,7 +1977,7 @@ export default function Calendar() {
                       })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select end type" />
+                        <SelectValue /> {/* Removed placeholder */}
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="never">Never</SelectItem>
@@ -1918,7 +2028,7 @@ export default function Calendar() {
               {editingEvent && editingEvent.source_type === 'calendar_event' && !editingEvent.is_recurring_instance && (
                 <Button
                   variant="destructive"
-                  onClick={() => handleDelete(editingEvent)}
+                  onClick={() => handleDelete(editingEvent)} // Use common handleDelete
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Event
