@@ -8,7 +8,7 @@ import BoardConfigDialog from "./BoardConfigDialog";
 import ProposalCardModal from "./ProposalCardModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,14 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
@@ -41,9 +33,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   
-  // Sorting state
-  const [sortBy, setSortBy] = useState(null); // 'name', 'due_date', 'created_date'
-  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
+  // Column-specific sorting state: { columnId: { sortBy: 'name'|'due_date'|'created_date', sortDirection: 'asc'|'desc' } }
+  const [columnSorts, setColumnSorts] = useState({});
 
   useEffect(() => {
     const handleResize = () => {
@@ -211,8 +202,45 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     setShowProposalModal(true);
   };
 
-  const sortProposals = useCallback((proposalsList) => {
-    if (!sortBy) return proposalsList;
+  const handleColumnSortChange = useCallback((columnId, sortBy) => {
+    setColumnSorts(prev => {
+      const currentSort = prev[columnId];
+      
+      if (currentSort?.sortBy === sortBy) {
+        // Toggle direction
+        return {
+          ...prev,
+          [columnId]: {
+            sortBy,
+            sortDirection: currentSort.sortDirection === 'asc' ? 'desc' : 'asc'
+          }
+        };
+      } else {
+        // New sort criteria
+        return {
+          ...prev,
+          [columnId]: {
+            sortBy,
+            sortDirection: 'asc'
+          }
+        };
+      }
+    });
+  }, []);
+
+  const handleClearColumnSort = useCallback((columnId) => {
+    setColumnSorts(prev => {
+      const newSorts = { ...prev };
+      delete newSorts[columnId];
+      return newSorts;
+    });
+  }, []);
+
+  const sortProposals = useCallback((proposalsList, columnId) => {
+    const columnSort = columnSorts[columnId];
+    if (!columnSort) return proposalsList;
+
+    const { sortBy, sortDirection } = columnSort;
 
     const sorted = [...proposalsList].sort((a, b) => {
       let aValue, bValue;
@@ -240,7 +268,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     });
 
     return sorted;
-  }, [sortBy, sortDirection]);
+  }, [columnSorts]);
 
   const getProposalsForColumn = useCallback((column) => {
     let columnProposals = [];
@@ -271,8 +299,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       );
     }
 
-    // Apply sorting
-    columnProposals = sortProposals(columnProposals);
+    // Apply column-specific sorting
+    columnProposals = sortProposals(columnProposals, column.id);
 
     return columnProposals;
   }, [proposals, searchQuery, filterAgency, filterAssignee, sortProposals]);
@@ -309,27 +337,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     setFilterAssignee("all");
   };
 
-  const handleSortChange = (newSortBy) => {
-    if (sortBy === newSortBy) {
-      // Toggle direction
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      // New sort criteria
-      setSortBy(newSortBy);
-      setSortDirection('asc');
-    }
-  };
-
-  const clearSort = () => {
-    setSortBy(null);
-    setSortDirection('asc');
-  };
-
-  const getSortIcon = (sortType) => {
-    if (sortBy !== sortType) return <ArrowUpDown className="w-4 h-4 ml-2" />;
-    return sortDirection === 'asc' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
-  };
-
   if (isMobile) {
     return (
       <MobileKanbanView
@@ -360,46 +367,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               </span>
             )}
           </Button>
-          
-          {/* Sort Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Sort Columns By</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleSortChange('name')}>
-                <span className="flex items-center flex-1">
-                  A to Z
-                  {getSortIcon('name')}
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSortChange('due_date')}>
-                <span className="flex items-center flex-1">
-                  Due Date
-                  {getSortIcon('due_date')}
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSortChange('created_date')}>
-                <span className="flex items-center flex-1">
-                  Date Added
-                  {getSortIcon('created_date')}
-                </span>
-              </DropdownMenuItem>
-              {sortBy && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={clearSort} className="text-red-600">
-                    <X className="w-4 h-4 mr-2" />
-                    Clear Sort
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
           
           <Button
             variant="outline"
@@ -474,29 +441,12 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         </div>
       )}
 
-      {/* Active Sort Indicator */}
-      {sortBy && (
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-          <span className="text-sm text-blue-900 font-medium">
-            Sorted by: {sortBy === 'name' ? 'A to Z' : sortBy === 'due_date' ? 'Due Date' : 'Date Added'}
-            {' '}({sortDirection === 'asc' ? 'Ascending' : 'Descending'})
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearSort}
-            className="ml-auto h-6 px-2"
-          >
-            <X className="w-3 h-3" />
-          </Button>
-        </div>
-      )}
-
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-0 overflow-x-auto pb-4">
           {columns.map((column, index) => {
             const isCollapsed = effectiveCollapsedColumns.includes(column.id);
             const columnProposals = getProposalsForColumn(column);
+            const columnSort = columnSorts[column.id];
 
             return (
               <React.Fragment key={column.id}>
@@ -556,6 +506,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                             onToggleCollapse={toggleColumnCollapse}
                             isCollapsed={isCollapsed}
                             organization={organization}
+                            columnSort={columnSort}
+                            onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
+                            onClearSort={() => handleClearColumnSort(column.id)}
                           />
                         </div>
                       )}
