@@ -366,18 +366,23 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             );
           })}
 
-          {/* Add Column Button */}
-          <div className="flex-shrink-0">
+          {/* Add Column Button - FIXED: Now clearly visible after all columns */}
+          <div className="flex-shrink-0 w-64">
             <button
               onClick={() => setShowBoardConfig(true)}
-              className="w-64 h-full min-h-[400px] border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-3 group"
+              className="w-full h-[500px] border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-4 group bg-white shadow-sm"
+              style={{ minHeight: '500px' }}
             >
-              <div className="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors">
-                <Plus className="w-6 h-6 text-slate-400 group-hover:text-blue-600" />
+              <div className="w-16 h-16 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors shadow-md">
+                <Plus className="w-8 h-8 text-slate-500 group-hover:text-blue-600 transition-colors" />
               </div>
-              <div className="text-center">
-                <div className="font-semibold text-slate-700 group-hover:text-blue-700">Add Column</div>
-                <div className="text-xs text-slate-500 mt-1">Create custom stage</div>
+              <div className="text-center px-4">
+                <div className="font-bold text-base text-slate-700 group-hover:text-blue-700 transition-colors mb-1">
+                  Add Column
+                </div>
+                <div className="text-sm text-slate-500 group-hover:text-blue-600 transition-colors">
+                  Create custom workflow stage
+                </div>
               </div>
             </button>
           </div>
