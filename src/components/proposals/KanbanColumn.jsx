@@ -28,17 +28,17 @@ export default function KanbanColumn({
   organization
 }) {
   const proposalCount = proposals?.length || 0;
-  const wipLimit = column.wip_limit || 0;
-  const wipLimitType = column.wip_limit_type || 'soft';
+  const wipLimit = column?.wip_limit || 0;
+  const wipLimitType = column?.wip_limit_type || 'soft';
   const hasWipLimit = wipLimit > 0;
   const isApproachingLimit = hasWipLimit && proposalCount >= wipLimit * 0.8;
   const isExceedingLimit = hasWipLimit && proposalCount > wipLimit;
 
-  // Ensure column always has an ID and label
-  if (!column?.id || !column?.label) {
-    console.error("KanbanColumn: Missing column id or label", column);
-    return null;
-  }
+  // Fallback for missing column data
+  const columnId = column?.id || 'unknown';
+  const columnLabel = column?.label || 'Untitled Column';
+  const columnType = column?.type || 'default_status';
+  const columnColor = column?.color || 'bg-white';
 
   return (
     <Card
@@ -46,21 +46,20 @@ export default function KanbanColumn({
         "h-full flex flex-col border-2 transition-all duration-200",
         isDraggingOver && "border-blue-500 bg-blue-50",
         isCollapsed ? "w-16" : "w-80",
-        column.color || "bg-white"
+        columnColor
       )}
     >
       <CardHeader className="p-3 border-b flex-shrink-0">
         <div className="flex items-center justify-between gap-2 min-h-[32px]">
-          {/* Always render the structure, just change visibility/layout based on collapsed state */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            {!isCollapsed && (
+            {!isCollapsed && dragHandleProps && (
               <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing flex-shrink-0">
                 <GripVertical className="w-4 h-4 text-slate-400" />
               </div>
             )}
 
             <button
-              onClick={() => onToggleCollapse && onToggleCollapse(column.id)}
+              onClick={() => onToggleCollapse && onToggleCollapse(columnId)}
               className={cn(
                 "flex items-center gap-2 min-w-0",
                 isCollapsed ? "flex-col justify-center w-full" : "flex-1"
@@ -68,8 +67,8 @@ export default function KanbanColumn({
             >
               {isCollapsed ? (
                 <div className="flex flex-col items-center gap-2 w-full py-1">
-                  <span className="text-xs font-semibold transform -rotate-90 whitespace-nowrap origin-center writing-mode-vertical">
-                    {column.label}
+                  <span className="text-xs font-semibold transform -rotate-90 whitespace-nowrap origin-center">
+                    {columnLabel}
                   </span>
                   <Badge variant="secondary" className="text-[10px] px-1 min-w-[20px] justify-center">
                     {proposalCount}
@@ -79,8 +78,8 @@ export default function KanbanColumn({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-semibold text-sm text-slate-900 flex items-center gap-2 truncate">
-                      {column.label}
-                      {column.type === 'custom_stage' && (
+                      {columnLabel}
+                      {columnType === 'custom_stage' && (
                         <Badge variant="outline" className="text-[10px] px-1 flex-shrink-0">Custom</Badge>
                       )}
                     </h3>
@@ -89,7 +88,6 @@ export default function KanbanColumn({
                     </Badge>
                   </div>
 
-                  {/* WIP Limit Indicator - only show when not collapsed */}
                   {hasWipLimit && (
                     <div className="mt-2">
                       <div className="flex items-center justify-between text-xs mb-1">
@@ -140,7 +138,6 @@ export default function KanbanColumn({
             </button>
           </div>
 
-          {/* Menu - only show when not collapsed */}
           {!isCollapsed && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -149,19 +146,19 @@ export default function KanbanColumn({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onSortChange && onSortChange(column.id, 'date_newest')}>
+                <DropdownMenuItem onClick={() => onSortChange && onSortChange(columnId, 'date_newest')}>
                   <ArrowUpDown className="w-4 h-4 mr-2" />
                   Sort by Date (Newest)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange && onSortChange(column.id, 'name_asc')}>
+                <DropdownMenuItem onClick={() => onSortChange && onSortChange(columnId, 'name_asc')}>
                   <ArrowUpDown className="w-4 h-4 mr-2" />
                   Sort by Name (A-Z)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange && onSortChange(column.id, 'name_desc')}>
+                <DropdownMenuItem onClick={() => onSortChange && onSortChange(columnId, 'name_desc')}>
                   <ArrowUpDown className="w-4 h-4 mr-2" />
                   Sort by Name (Z-A)
                 </DropdownMenuItem>
-                {column.type === 'custom_stage' && (
+                {columnType === 'custom_stage' && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
