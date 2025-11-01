@@ -53,9 +53,12 @@ import {
   Share2,
   Tag,
   Bell,
-  Printer, // Added Printer icon
-  Sparkles, // New icon
-  TrendingUp // New icon
+  Printer,
+  Sparkles,
+  TrendingUp, // New icon
+  AlertTriangle, // Added AlertTriangle icon
+  Package, // Added Package icon
+  Focus // Added Focus icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -70,12 +73,15 @@ import CalendarSharing from "../components/calendar/CalendarSharing";
 import QuickAddEvent from "../components/calendar/QuickAddEvent";
 import AISchedulingAssistant from "../components/calendar/AISchedulingAssistant";
 import EventResizeHandle from "../components/calendar/EventResizeHandle";
-import ConflictDetector from "../components/calendar/ConflictDetector"; // New Import
-import PrintableCalendar from "../components/calendar/PrintableCalendar"; // New Import
-import TimeBlockingPanel from "../components/calendar/TimeBlockingPanel"; // New Import
-import PredictiveRiskAlerts from "../components/calendar/PredictiveRiskAlerts"; // New Import
-import ScheduleOptimizer from "../components/calendar/ScheduleOptimizer"; // New Import
-import EventContextPanel from "../components/calendar/EventContextPanel"; // New Import
+import ConflictDetector from "../components/calendar/ConflictDetector";
+import PrintableCalendar from "../components/calendar/PrintableCalendar";
+import TimeBlockingPanel from "../components/calendar/TimeBlockingPanel";
+import PredictiveRiskAlerts from "../components/calendar/PredictiveRiskAlerts";
+import ScheduleOptimizer from "../components/calendar/ScheduleOptimizer";
+import EventContextPanel from "../components/calendar/EventContextPanel";
+import ResourceManager from "../components/calendar/ResourceManager"; // New Import
+import GanttChartView from "../components/calendar/GanttChartView"; // New Import
+import TimeDebtTracker from "../components/calendar/TimeDebtTracker"; // New Import
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -185,10 +191,12 @@ const iconMap = {
   Share2: Share2,
   Tag: Tag,
   Bell: Bell,
-  Printer: Printer, // Added to icon map
-  Sparkles: Sparkles, // New to icon map
-  TrendingUp: TrendingUp // New to icon map
-  // Add other Lucide icons as needed, especially if custom types can specify them
+  Printer: Printer,
+  Sparkles: Sparkles,
+  TrendingUp: TrendingUp,
+  AlertTriangle: AlertTriangle, // Added to icon map
+  Package: Package, // Added to icon map
+  Focus: Focus // Added to icon map
 };
 
 // Helper function to generate recurring event instances
@@ -531,29 +539,9 @@ export default function Calendar() {
     customEventTypes.forEach(customType => {
       const IconComponent = customType.icon_name ? iconMap[customType.icon_name] || CalendarIcon : CalendarIcon;
 
-      // Custom types create 'calendar_event' entries with their type_key as event_type
-      // So here, we map the customType.type_key to a display configuration
-      // The `source_type` of these events will still be `calendar_event`.
-      // The `event_type` property of the `CalendarEvent` will hold the `type_key`.
-      // We need to decide how to represent custom types in the merged config.
-      // A common approach is to add them as new keys, or extend calendar_event's internal types.
-      // For simplicity, let's treat `type_key` as a `source_type` for display purposes,
-      // even if the underlying database `source_type` is `calendar_event`.
-      // This means we might need to adjust how `source_type` is determined for display.
-
-      // Option 1: Add custom types as new distinct 'source_type' keys for direct lookup
-      // This requires events coming from `CalendarEvent` to specify their `type_key` as `source_type` if custom.
-      // Current `allEvents` only sets `source_type: 'calendar_event'`.
-
-      // Option 2 (more flexible):
       // Custom event types are just _additional internal types_ for `calendar_event`s.
       // So, `source_type` remains `calendar_event` for them.
       // We'll need a function to get display config that checks `source_type` first, then `event_type` if `source_type` is `calendar_event`.
-
-      // Let's go with Option 1 for now, assuming `source_type` can dynamically be a `type_key`
-      // This means that when a CalendarEvent has a custom `event_type`, we map its `source_type` to that `event_type`
-      // for display config lookup. This is a hacky simplification for the current setup.
-      // A cleaner solution would be to augment CalendarEvent objects with a derived `display_source_type` or similar.
 
       // For now, I'll update allEvents to consider event.event_type if source_type is calendar_event and it matches a custom type.
       merged[customType.type_key] = {
@@ -654,7 +642,7 @@ export default function Calendar() {
     });
 
     return normalized;
-  }, [queries, currentDate, viewMode, organization?.id, mergedEventTypeConfig]); // Depend on mergedEventTypeConfig
+  }, [queries, currentDate, viewMode, organization?.id, mergedEventTypeConfig]);
 
 
   // Apply filters and search
@@ -1658,14 +1646,26 @@ export default function Calendar() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <TabsList>
+            <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="calendar">
                 <CalendarIcon className="w-4 h-4 mr-2" />
                 Calendar
               </TabsTrigger>
-              <TabsTrigger value="risks">
+              <TabsTrigger value="gantt">
                 <TrendingUp className="w-4 h-4 mr-2" />
+                Gantt Chart
+              </TabsTrigger>
+              <TabsTrigger value="risks">
+                <AlertTriangle className="w-4 h-4 mr-2" />
                 AI Risks
+              </TabsTrigger>
+              <TabsTrigger value="resources">
+                <Package className="w-4 h-4 mr-2" />
+                Resources
+              </TabsTrigger>
+              <TabsTrigger value="time-debt">
+                <Focus className="w-4 h-4 mr-2" />
+                Time Debt
               </TabsTrigger>
               <TabsTrigger value="team">
                 <Users className="w-4 h-4 mr-2" />
@@ -2002,11 +2002,30 @@ export default function Calendar() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="gantt">
+          <GanttChartView organization={organization} user={user} />
+        </TabsContent>
+
         <TabsContent value="risks">
           <PredictiveRiskAlerts
             organization={organization}
             allEvents={allEvents}
             teamMembers={teamMembers}
+          />
+        </TabsContent>
+
+        <TabsContent value="resources">
+          <ResourceManager
+            organization={organization}
+            user={user}
+            trigger={null}
+          />
+        </TabsContent>
+
+        <TabsContent value="time-debt">
+          <TimeDebtTracker
+            organization={organization}
+            user={user}
           />
         </TabsContent>
 
