@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getUserActiveOrganization } from "@/utils/organizationHelper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Sparkles } from "lucide-react";
@@ -33,58 +34,62 @@ export default function Dashboard() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
 
-      const orgs = await base44.entities.Organization.filter(
-        { created_by: currentUser.email },
-        '-created_date',
-        1
+      // Use helper to get active organization
+      const org = await getUserActiveOrganization(currentUser);
+      if (!org) {
+        console.error("No organization found for user");
+        return;
+      }
+      setOrganization(org);
+
+      // CRITICAL: Filter proposals by organization_id
+      const userProposals = await base44.entities.Proposal.filter(
+        { organization_id: org.id },
+        '-created_date'
       );
+      setProposals(userProposals);
 
-      if (orgs.length > 0) {
-        setOrganization(orgs[0]);
-
-        const userProposals = await base44.entities.Proposal.filter(
-          { organization_id: orgs[0].id },
-          '-created_date'
-        );
-        setProposals(userProposals);
-
-        // Load activity log
-        try {
+      // Load activity log - CRITICAL: Filter by organization
+      try {
+        const proposalIds = userProposals.map(p => p.id);
+        if (proposalIds.length > 0) {
           const activities = await base44.entities.ActivityLog.filter(
-            { proposal_id: { $in: userProposals.map(p => p.id) } },
+            { proposal_id: { $in: proposalIds } },
             '-created_date',
             20
           );
           setActivityLog(activities);
-        } catch (error) {
-          console.error("Error loading activity log:", error);
+        } else {
           setActivityLog([]);
         }
-
-        const activeProposals = userProposals.filter(p => 
-          ['evaluating', 'draft', 'in_progress'].includes(p.status)
-        );
-
-        const wonProposals = userProposals.filter(p => p.status === 'won');
-        const submittedProposals = userProposals.filter(p => 
-          ['submitted', 'won', 'lost'].includes(p.status)
-        );
-
-        const totalValue = userProposals.reduce((sum, p) => 
-          sum + (p.contract_value || 0), 0
-        );
-
-        const winRate = submittedProposals.length > 0
-          ? (wonProposals.length / submittedProposals.length) * 100
-          : 0;
-
-        setStats({
-          total_proposals: userProposals.length,
-          active_proposals: activeProposals.length,
-          total_value: totalValue,
-          win_rate: Math.round(winRate)
-        });
+      } catch (error) {
+        console.error("Error loading activity log:", error);
+        setActivityLog([]);
       }
+
+      const activeProposals = userProposals.filter(p => 
+        ['evaluating', 'draft', 'in_progress'].includes(p.status)
+      );
+
+      const wonProposals = userProposals.filter(p => p.status === 'won');
+      const submittedProposals = userProposals.filter(p => 
+        ['submitted', 'won', 'lost'].includes(p.status)
+      );
+
+      const totalValue = userProposals.reduce((sum, p) => 
+        sum + (p.contract_value || 0), 0
+      );
+
+      const winRate = submittedProposals.length > 0
+        ? (wonProposals.length / submittedProposals.length) * 100
+        : 0;
+
+      setStats({
+        total_proposals: userProposals.length,
+        active_proposals: activeProposals.length,
+        total_value: totalValue,
+        win_rate: Math.round(winRate)
+      });
     } catch (error) {
       console.error("Error loading dashboard:", error);
     }
