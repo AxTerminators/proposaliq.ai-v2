@@ -815,7 +815,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           disabled={isDragging}
         >
           <Sliders className="w-4 h-4 mr-2" />
-          Board Settings
+          Configure Board
         </Button>
         <Button 
           variant="outline" 
@@ -1040,6 +1040,24 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </Dialog>
       </div>
 
+      {/* Board Config Dialog */}
+      <BoardConfigDialog
+        open={showBoardConfig} {/* Changed isOpen to open */}
+        onClose={() => {
+          setShowBoardConfig(false);
+          // Reload config after changes
+          queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+        }}
+        organization={organization}
+        currentConfig={boardConfig}
+        onConfigSaved={(newConfig) => {
+          setBoardConfig(newConfig);
+          // Re-fetch proposals or re-evaluate groupedProposals if swimlanes changed
+          queryClient.invalidateQueries({ queryKey: ['proposals'] });
+          queryClient.invalidateQueries({ queryKey: ['kanban-config'] }); // Ensure this is invalidated too
+        }}
+      />
+
       {/* Reset Warning Dialog */}
       <AlertDialog open={showResetWarning} onOpenChange={setShowResetWarning}>
         <AlertDialogContent>
@@ -1228,13 +1246,14 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           <DialogHeader>
             <DialogTitle>Add New Column</DialogTitle>
             <DialogDescription>
-              Create a new custom column at position {quickAddPosition !== null ? quickAddPosition + 1 : ''}.
+              Create a new custom column.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Column Name</Label>
+              <Label htmlFor="quick-column-name">Column Name</Label>
               <Input
+                id="quick-column-name"
                 value={quickColumnName}
                 onChange={(e) => setQuickColumnName(e.target.value)}
                 placeholder="e.g., Client Review, Legal Approval..."
@@ -1247,23 +1266,24 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               />
             </div>
             <div className="space-y-2">
-              <Label>Color</Label>
-              <select
-                value={quickColumnColor}
-                onChange={(e) => setQuickColumnColor(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-              >
-                <option value="bg-slate-100">Gray</option>
-                <option value="bg-blue-100">Blue</option>
-                <option value="bg-purple-100">Purple</option>
-                <option value="bg-indigo-100">Indigo</option>
-                <option value="bg-green-100">Green</option>
-                <option value="bg-yellow-100">Yellow</option>
-                <option value="bg-red-100">Red</option>
-                <option value="bg-pink-100">Pink</option>
-                <option value="bg-amber-100">Amber</option>
-                <option value="bg-teal-100">Teal</option>
-              </select>
+              <Label htmlFor="quick-column-color">Color</Label>
+              <Select value={quickColumnColor} onValueChange={setQuickColumnColor}>
+                <SelectTrigger id="quick-column-color">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bg-slate-100">Gray</SelectItem>
+                  <SelectItem value="bg-blue-100">Blue</SelectItem>
+                  <SelectItem value="bg-purple-100">Purple</SelectItem>
+                  <SelectItem value="bg-indigo-100">Indigo</SelectItem>
+                  <SelectItem value="bg-green-100">Green</SelectItem>
+                  <SelectItem value="bg-yellow-100">Yellow</SelectItem>
+                  <SelectItem value="bg-red-100">Red</SelectItem>
+                  <SelectItem value="bg-pink-100">Pink</SelectItem>
+                  <SelectItem value="bg-amber-100">Amber</SelectItem>
+                  <SelectItem value="bg-teal-100">Teal</option>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -1277,18 +1297,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Board Config Dialog */}
-      <BoardConfigDialog
-        isOpen={showBoardConfig}
-        onClose={() => {
-          setShowBoardConfig(false);
-          // Reload config after changes
-          queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-        }}
-        organization={organization}
-        currentConfig={boardConfig}
-      />
 
       {/* Render Kanban Board with Swimlanes - use filteredProposals instead of proposals */}
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -1349,12 +1357,13 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                                       onProposalClick={handleProposalClick}
                                       onDeleteProposal={handleDeleteProposal}
                                       isDraggingOver={snapshot.isDraggingOver}
+                                      isBoardDragging={isDragging} {/* Added this prop for global drag state */}
                                       isCollapsed={isColumnCollapsed}
-                                      onToggleCollapse={handleToggleCollapse}
+                                      onToggleCollapse={() => handleToggleCollapse(column.id)} {/* Updated prop usage */}
                                       dragHandleProps={provided.dragHandleProps}
                                       onSortChange={handleSortChange}
                                       currentSort={columnSorts[column.id]}
-                                      onDeleteColumn={handleDeleteColumn}
+                                      onDeleteColumn={() => handleDeleteColumn(column)} {/* Updated prop usage */}
                                       organization={organization}
                                     />
                                     {provided.placeholder}
