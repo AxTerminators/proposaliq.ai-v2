@@ -6,7 +6,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -39,8 +37,7 @@ import {
   X,
   Plus,
   Trash2,
-  ExternalLink,
-  Flame
+  ExternalLink
 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import moment from "moment";
@@ -51,14 +48,12 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const [isEditing, setIsEditing] = useState(false);
   const [editedProposal, setEditedProposal] = useState(proposal);
   const [activeTab, setActiveTab] = useState("overview");
-  const [showLabelDialog, setShowLabelDialog] = useState(false);
-  const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState("bg-blue-500 text-white");
 
   useEffect(() => {
     setEditedProposal(proposal);
   }, [proposal]);
 
+  // Fetch subtasks
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks', proposal?.id],
     queryFn: () => base44.entities.ProposalSubtask.filter(
@@ -69,6 +64,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     initialData: []
   });
 
+  // Fetch dependencies
   const { data: dependencies = [] } = useQuery({
     queryKey: ['proposal-dependencies', proposal?.id],
     queryFn: () => base44.entities.ProposalDependency.filter(
@@ -78,6 +74,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     initialData: []
   });
 
+  // Fetch comments
   const { data: comments = [] } = useQuery({
     queryKey: ['proposal-comments', proposal?.id],
     queryFn: () => base44.entities.ProposalComment.filter(
@@ -88,6 +85,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     initialData: []
   });
 
+  // Fetch activity log
   const { data: activities = [] } = useQuery({
     queryKey: ['proposal-activities', proposal?.id],
     queryFn: () => base44.entities.ActivityLog.filter(
@@ -118,28 +116,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
   const handleOpenProposal = () => {
     window.open(createPageUrl("ProposalBuilder") + `?id=${proposal.id}`, '_blank');
-  };
-
-  const handleAddLabel = () => {
-    if (!newLabelName.trim()) return;
-    
-    const currentLabels = editedProposal.labels || [];
-    const newLabels = [...currentLabels, { name: newLabelName, color: newLabelColor }];
-    
-    setEditedProposal({ ...editedProposal, labels: newLabels });
-    updateProposalMutation.mutate({ labels: newLabels });
-    
-    setNewLabelName("");
-    setNewLabelColor("bg-blue-500 text-white");
-    setShowLabelDialog(false);
-  };
-
-  const handleRemoveLabel = (index) => {
-    const currentLabels = editedProposal.labels || [];
-    const newLabels = currentLabels.filter((_, i) => i !== index);
-    
-    setEditedProposal({ ...editedProposal, labels: newLabels });
-    updateProposalMutation.mutate({ labels: newLabels });
   };
 
   if (!proposal) return null;
@@ -173,39 +149,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 </Badge>
                 {proposal.project_type && (
                   <Badge variant="secondary">{proposal.project_type}</Badge>
-                )}
-                {proposal.priority_level && (
-                  <Badge className={cn(
-                    proposal.priority_level === 'urgent' && 'bg-red-100 text-red-700',
-                    proposal.priority_level === 'high' && 'bg-orange-100 text-orange-700',
-                    proposal.priority_level === 'medium' && 'bg-yellow-100 text-yellow-700',
-                    proposal.priority_level === 'low' && 'bg-slate-100 text-slate-600'
-                  )}>
-                    {proposal.priority_level === 'urgent' && <Flame className="w-3 h-3 mr-1" />}
-                    {proposal.priority_level.charAt(0).toUpperCase() + proposal.priority_level.slice(1)} Priority
-                  </Badge>
-                )}
-                {proposal.labels?.map((label, idx) => (
-                  <Badge key={idx} className={cn("text-xs cursor-pointer", label.color)}>
-                    {label.name}
-                    {isEditing && (
-                      <X 
-                        className="w-3 h-3 ml-1 hover:bg-black/20 rounded-full" 
-                        onClick={() => handleRemoveLabel(idx)}
-                      />
-                    )}
-                  </Badge>
-                ))}
-                {isEditing && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => setShowLabelDialog(true)}
-                    className="h-6 px-2"
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Add Label
-                  </Button>
                 )}
                 {proposal.is_blocked && (
                   <Badge className="bg-red-100 text-red-700">
@@ -248,50 +191,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
             </div>
           </div>
         </DialogHeader>
-
-        <Dialog open={showLabelDialog} onOpenChange={setShowLabelDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Label</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Label Name</Label>
-                <Input
-                  value={newLabelName}
-                  onChange={(e) => setNewLabelName(e.target.value)}
-                  placeholder="e.g., Strategic, High Impact..."
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddLabel()}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <Label>Color</Label>
-                <Select value={newLabelColor} onValueChange={setNewLabelColor}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bg-blue-500 text-white">Blue</SelectItem>
-                    <SelectItem value="bg-green-500 text-white">Green</SelectItem>
-                    <SelectItem value="bg-red-500 text-white">Red</SelectItem>
-                    <SelectItem value="bg-yellow-500 text-white">Yellow</SelectItem>
-                    <SelectItem value="bg-purple-500 text-white">Purple</SelectItem>
-                    <SelectItem value="bg-pink-500 text-white">Pink</SelectItem>
-                    <SelectItem value="bg-indigo-500 text-white">Indigo</SelectItem>
-                    <SelectItem value="bg-orange-500 text-white">Orange</SelectItem>
-                    <SelectItem value="bg-teal-500 text-white">Teal</SelectItem>
-                    <SelectItem value="bg-slate-500 text-white">Gray</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowLabelDialog(false)}>Cancel</Button>
-              <Button onClick={handleAddLabel}>Add Label</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <div className="flex-1 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
@@ -361,9 +260,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   );
 }
 
+// Overview Tab Component
 function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependencies, organization }) {
   return (
     <div className="space-y-6 px-1">
+      {/* Progress Section */}
       {subtaskProgress > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -374,6 +275,7 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         </div>
       )}
 
+      {/* Key Details Grid */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-3">
           <div className="flex items-start gap-3">
@@ -470,29 +372,6 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
             </div>
           </div>
 
-          {isEditing && (
-            <div className="flex items-start gap-3">
-              <Flame className="w-5 h-5 text-slate-400 mt-0.5" />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-slate-600">Priority Level</div>
-                <Select 
-                  value={proposal.priority_level || 'medium'} 
-                  onValueChange={(value) => onUpdate({...proposal, priority_level: value})}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
           {dependencies.length > 0 && (
             <div className="flex items-start gap-3">
               <Link2 className="w-5 h-5 text-slate-400 mt-0.5" />
@@ -507,6 +386,7 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         </div>
       </div>
 
+      {/* Blocker Alert */}
       {proposal.is_blocked && (
         <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
           <div className="flex items-start gap-3">
@@ -524,6 +404,7 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         </div>
       )}
 
+      {/* Project Title/Description */}
       <div className="space-y-2">
         <div className="text-sm font-medium text-slate-600">Project Title</div>
         {isEditing ? (
@@ -540,6 +421,7 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         )}
       </div>
 
+      {/* Custom Fields */}
       {proposal.custom_fields && Object.keys(proposal.custom_fields).length > 0 && (
         <div className="space-y-3">
           <div className="text-sm font-semibold text-slate-700">Custom Fields</div>
@@ -557,6 +439,7 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
   );
 }
 
+// Subtasks Tab Component
 function SubtasksTab({ proposal, subtasks, organization }) {
   const queryClient = useQueryClient();
   const [newSubtask, setNewSubtask] = useState("");
@@ -701,6 +584,7 @@ function SubtasksTab({ proposal, subtasks, organization }) {
   );
 }
 
+// Comments Tab Component
 function CommentsTab({ proposal, comments, organization }) {
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
@@ -786,6 +670,7 @@ function CommentsTab({ proposal, comments, organization }) {
   );
 }
 
+// Activity Tab Component
 function ActivityTab({ activities }) {
   return (
     <div className="space-y-3 px-1">

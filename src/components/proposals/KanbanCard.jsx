@@ -23,9 +23,7 @@ import {
   Copy,
   Archive,
   Tag,
-  Link2,
-  AlertTriangle,
-  Flame
+  Link2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,6 +49,7 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(proposal.proposal_name);
 
+  // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks', proposal.id],
     queryFn: () => base44.entities.ProposalSubtask.filter(
@@ -60,6 +59,7 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
     initialData: []
   });
 
+  // Fetch dependencies
   const { data: dependencies = [] } = useQuery({
     queryKey: ['proposal-dependencies', proposal.id],
     queryFn: () => base44.entities.ProposalDependency.filter(
@@ -124,44 +124,18 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
 
   const activeDependencies = dependencies.filter(d => d.status === 'active').length;
 
+  // Calculate time in current stage
   const getTimeInStage = () => {
-    const stageDate = proposal.stage_entered_date || proposal.updated_date || proposal.created_date;
-    const daysSince = moment().diff(moment(stageDate), 'days');
-    if (daysSince === 0) return { text: 'Today', days: 0 };
-    if (daysSince === 1) return { text: '1 day', days: 1 };
-    if (daysSince < 7) return { text: `${daysSince} days`, days: daysSince };
-    if (daysSince < 30) return { text: `${Math.floor(daysSince / 7)} weeks`, days: daysSince };
-    return { text: `${Math.floor(daysSince / 30)} months`, days: daysSince };
+    const createdDate = moment(proposal.updated_date || proposal.created_date);
+    const daysSince = moment().diff(createdDate, 'days');
+    if (daysSince === 0) return 'Today';
+    if (daysSince === 1) return '1 day';
+    if (daysSince < 7) return `${daysSince} days`;
+    if (daysSince < 30) return `${Math.floor(daysSince / 7)} weeks`;
+    return `${Math.floor(daysSince / 30)} months`;
   };
 
-  const timeInStage = getTimeInStage();
-  const isStale = timeInStage.days > 14;
-  const isAging = timeInStage.days > 7 && timeInStage.days <= 14;
-
-  const getPriorityInfo = () => {
-    if (proposal.priority_level) {
-      return {
-        level: proposal.priority_level,
-        label: proposal.priority_level.charAt(0).toUpperCase() + proposal.priority_level.slice(1),
-        color: proposal.priority_level === 'urgent' ? 'bg-red-100 text-red-700' :
-               proposal.priority_level === 'high' ? 'bg-orange-100 text-orange-700' :
-               proposal.priority_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-               'bg-slate-100 text-slate-600'
-      };
-    }
-    
-    if (proposal.contract_value) {
-      if (proposal.contract_value >= 1000000) {
-        return { level: 'high', label: 'High Value', color: 'bg-green-100 text-green-700' };
-      } else if (proposal.contract_value >= 100000) {
-        return { level: 'medium', label: 'Medium Value', color: 'bg-blue-100 text-blue-700' };
-      }
-    }
-    
-    return null;
-  };
-
-  const priorityInfo = getPriorityInfo();
+  const isStale = moment().diff(moment(proposal.updated_date || proposal.created_date), 'days') > 14;
 
   const handleSaveTitle = () => {
     if (editedTitle.trim() && editedTitle !== proposal.proposal_name) {
@@ -208,16 +182,17 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
               >
                 <Card
                   className={cn(
-                    "mb-3 cursor-pointer hover:shadow-lg transition-all group",
+                    "mb-3 cursor-pointer hover:shadow-lg transition-all",
                     snapshot.isDragging && "shadow-2xl rotate-2 opacity-80",
                     isOverdue && "border-l-4 border-l-red-600 bg-red-50",
-                    isDueSoon && !isOverdue && "border-l-4 border-l-amber-500 bg-amber-50",
-                    isStale && !isOverdue && !isDueSoon && "border-l-4 border-l-slate-400",
+                    isDueSoon && !isOverdue && "border-l-4 border-l-amber-500",
+                    isStale && "border-2 border-dashed border-amber-300",
                     proposal.is_blocked && "border-2 border-red-400 bg-red-50"
                   )}
                   onClick={() => !isEditingTitle && setShowModal(true)}
                 >
                   <CardContent className="p-3 space-y-2">
+                    {/* Header with Title and Actions */}
                     <div className="flex items-start justify-between gap-2">
                       {isEditingTitle ? (
                         <div className="flex-1 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -273,6 +248,7 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
                       </DropdownMenu>
                     </div>
 
+                    {/* Badges */}
                     <div className="flex flex-wrap gap-1">
                       {proposal.is_sample_data && (
                         <Badge className="text-[10px] bg-amber-100 text-amber-700">
@@ -286,42 +262,32 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
                           Blocked
                         </Badge>
                       )}
-                      {priorityInfo && (
-                        <Badge className={cn("text-[10px]", priorityInfo.color)}>
-                          {priorityInfo.level === 'urgent' && <Flame className="w-3 h-3 mr-1" />}
-                          {priorityInfo.label}
-                        </Badge>
-                      )}
-                      {isStale && !isOverdue && !isDueSoon && (
-                        <Badge className="text-[10px] bg-slate-100 text-slate-600">
+                      {isStale && (
+                        <Badge className="text-[10px] bg-amber-100 text-amber-700">
                           <Clock className="w-3 h-3 mr-1" />
                           Stale
-                        </Badge>
-                      )}
-                      {isAging && !isOverdue && !isDueSoon && (
-                        <Badge className="text-[10px] bg-amber-100 text-amber-700">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          Aging
                         </Badge>
                       )}
                       {activeDependencies > 0 && (
                         <Badge variant="outline" className="text-[10px]">
                           <Link2 className="w-3 h-3 mr-1" />
-                          {activeDependencies} deps
+                          {activeDependencies}
                         </Badge>
                       )}
-                      {proposal.labels?.map((label, idx) => (
-                        <Badge key={idx} className={cn("text-[10px]", label.color || "bg-blue-100 text-blue-700")}>
+                      {proposal.project_type && (
+                        <Badge variant="outline" className="text-[10px]">
                           <Tag className="w-3 h-3 mr-1" />
-                          {label.name}
+                          {proposal.project_type}
                         </Badge>
-                      ))}
+                      )}
                     </div>
 
+                    {/* Details */}
                     {proposal.agency_name && (
                       <p className="text-xs text-slate-600 truncate">{proposal.agency_name}</p>
                     )}
 
+                    {/* Subtasks */}
                     {totalSubtasks > 0 && (
                       <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between text-xs">
@@ -333,6 +299,7 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
                         </div>
                         <Progress value={subtaskProgress} className="h-1.5" />
                         
+                        {/* Show first 2 subtasks */}
                         {subtasks.slice(0, 2).map(subtask => (
                           <button
                             key={subtask.id}
@@ -366,13 +333,14 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
                       </div>
                     )}
 
+                    {/* Footer Info */}
                     <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
                       <div className="flex items-center gap-3">
                         {proposal.due_date && (
                           <div className={cn(
                             "flex items-center gap-1",
                             isOverdue && "text-red-700 font-semibold",
-                            isDueSoon && !isOverdue && "text-amber-700 font-semibold"
+                            isDueSoon && !isOverdue && "text-amber-700"
                           )}>
                             <Calendar className="w-3 h-3" />
                             {moment(proposal.due_date).format('MMM D')}
@@ -391,13 +359,9 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
                           </div>
                         )}
                       </div>
-                      <div className={cn(
-                        "flex items-center gap-1",
-                        isStale && "text-slate-500 font-semibold",
-                        isAging && "text-amber-600"
-                      )}>
+                      <div className="flex items-center gap-1 text-slate-500">
                         <Clock className="w-3 h-3" />
-                        {timeInStage.text}
+                        {getTimeInStage()}
                       </div>
                     </div>
                   </CardContent>
@@ -405,6 +369,7 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
               </div>
             </ContextMenuTrigger>
             
+            {/* Right-click Context Menu */}
             <ContextMenuContent>
               <ContextMenuItem onClick={() => setShowModal(true)}>
                 Open
@@ -431,6 +396,7 @@ export default function KanbanCard({ proposal, index, onDelete, organization }) 
         )}
       </Draggable>
 
+      {/* Card Modal */}
       {showModal && (
         <ProposalCardModal
           proposal={proposal}
