@@ -4,11 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Bell, Shield, Palette, Save } from "lucide-react";
+import { Building2, User, Bell, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -104,11 +102,11 @@ export default function Settings() {
     setSaving(true);
     try {
       await base44.entities.Organization.update(organization.id, orgData);
-      toast.success("Organization settings saved");
+      alert("Organization settings saved");
       await loadData();
     } catch (error) {
       console.error("Error saving organization:", error);
-      toast.error("Failed to save organization settings");
+      alert("Failed to save organization settings");
     } finally {
       setSaving(false);
     }
@@ -120,11 +118,11 @@ export default function Settings() {
     setSaving(true);
     try {
       await base44.auth.updateMe(userData);
-      toast.success("Profile settings saved");
+      alert("Profile settings saved");
       await loadData();
     } catch (error) {
       console.error("Error saving user:", error);
-      toast.error("Failed to save profile settings");
+      alert("Failed to save profile settings");
     } finally {
       setSaving(false);
     }
@@ -169,7 +167,7 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <Label>Organization Name</Label>
+                  <label className="block text-sm font-medium mb-2">Organization Name</label>
                   <Input
                     value={orgData.organization_name}
                     onChange={(e) => setOrgData({ ...orgData, organization_name: e.target.value })}
@@ -178,7 +176,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>Organization Type</Label>
+                  <label className="block text-sm font-medium mb-2">Organization Type</label>
                   <select
                     className="w-full border rounded-md p-2"
                     value={orgData.organization_type}
@@ -195,7 +193,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>Phone</Label>
+                  <label className="block text-sm font-medium mb-2">Phone</label>
                   <Input
                     value={orgData.phone}
                     onChange={(e) => setOrgData({ ...orgData, phone: e.target.value })}
@@ -204,7 +202,7 @@ export default function Settings() {
                 </div>
 
                 <div className="col-span-2">
-                  <Label>Website</Label>
+                  <label className="block text-sm font-medium mb-2">Website</label>
                   <Input
                     value={orgData.website}
                     onChange={(e) => setOrgData({ ...orgData, website: e.target.value })}
@@ -213,7 +211,7 @@ export default function Settings() {
                 </div>
 
                 <div className="col-span-2">
-                  <Label>Address</Label>
+                  <label className="block text-sm font-medium mb-2">Address</label>
                   <Textarea
                     value={orgData.address}
                     onChange={(e) => setOrgData({ ...orgData, address: e.target.value })}
@@ -223,7 +221,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>UEI</Label>
+                  <label className="block text-sm font-medium mb-2">UEI</label>
                   <Input
                     value={orgData.uei}
                     onChange={(e) => setOrgData({ ...orgData, uei: e.target.value })}
@@ -232,7 +230,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>CAGE Code</Label>
+                  <label className="block text-sm font-medium mb-2">CAGE Code</label>
                   <Input
                     value={orgData.cage_code}
                     onChange={(e) => setOrgData({ ...orgData, cage_code: e.target.value })}
@@ -241,7 +239,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>DUNS</Label>
+                  <label className="block text-sm font-medium mb-2">DUNS</label>
                   <Input
                     value={orgData.duns}
                     onChange={(e) => setOrgData({ ...orgData, duns: e.target.value })}
@@ -268,7 +266,7 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <Label>Full Name</Label>
+                  <label className="block text-sm font-medium mb-2">Full Name</label>
                   <Input
                     value={userData.full_name}
                     onChange={(e) => setUserData({ ...userData, full_name: e.target.value })}
@@ -277,13 +275,13 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>Email</Label>
+                  <label className="block text-sm font-medium mb-2">Email</label>
                   <Input value={user.email} disabled className="bg-slate-50" />
                   <p className="text-xs text-slate-500 mt-1">Email cannot be changed</p>
                 </div>
 
                 <div>
-                  <Label>Phone</Label>
+                  <label className="block text-sm font-medium mb-2">Phone</label>
                   <Input
                     value={userData.phone}
                     onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
@@ -292,7 +290,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>Job Title</Label>
+                  <label className="block text-sm font-medium mb-2">Job Title</label>
                   <Input
                     value={userData.job_title}
                     onChange={(e) => setUserData({ ...userData, job_title: e.target.value })}
@@ -301,7 +299,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <Label>Department</Label>
+                  <label className="block text-sm font-medium mb-2">Department</label>
                   <Input
                     value={userData.department}
                     onChange={(e) => setUserData({ ...userData, department: e.target.value })}
