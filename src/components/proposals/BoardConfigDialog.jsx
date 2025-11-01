@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   Dialog,
   DialogContent,
@@ -22,9 +22,29 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus, Lock, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge"; // Added Badge component import
+
+// Available color options for columns
+const COLOR_OPTIONS = [
+  { value: 'from-slate-400 to-slate-600', label: 'Slate', preview: 'bg-gradient-to-r from-slate-400 to-slate-600' },
+  { value: 'from-gray-400 to-gray-600', label: 'Gray', preview: 'bg-gradient-to-r from-gray-400 to-gray-600' },
+  { value: 'from-amber-400 to-amber-600', label: 'Amber', preview: 'bg-gradient-to-r from-amber-400 to-amber-600' },
+  { value: 'from-orange-400 to-orange-600', label: 'Orange', preview: 'bg-gradient-to-r from-orange-400 to-orange-600' },
+  { value: 'from-blue-400 to-blue-600', label: 'Blue', preview: 'bg-gradient-to-r from-blue-400 to-blue-600' },
+  { value: 'from-cyan-400 to-cyan-600', label: 'Cyan', preview: 'bg-gradient-to-r from-cyan-400 to-cyan-600' },
+  { value: 'from-purple-400 to-purple-600', label: 'Purple', preview: 'bg-gradient-to-r from-purple-400 to-purple-600' },
+  { value: 'from-indigo-400 to-indigo-600', label: 'Indigo', preview: 'bg-gradient-to-r from-indigo-400 to-indigo-600' },
+  { value: 'from-pink-400 to-pink-600', label: 'Pink', preview: 'bg-gradient-to-r from-pink-400 to-pink-600' },
+  { value: 'from-rose-400 to-rose-600', label: 'Rose', preview: 'bg-gradient-to-r from-rose-400 to-rose-600' },
+  { value: 'from-green-400 to-green-600', label: 'Green', preview: 'bg-gradient-to-r from-green-400 to-green-600' },
+  { value: 'from-emerald-400 to-emerald-600', label: 'Emerald', preview: 'bg-gradient-to-r from-emerald-400 to-emerald-600' },
+  { value: 'from-teal-400 to-teal-600', label: 'Teal', preview: 'bg-gradient-to-r from-teal-400 to-teal-600' },
+  { value: 'from-red-400 to-red-600', label: 'Red', preview: 'bg-gradient-to-r from-red-400 to-red-600' },
+  { value: 'from-violet-400 to-violet-600', label: 'Violet', preview: 'bg-gradient-to-r from-violet-400 to-violet-600' },
+  { value: 'from-fuchsia-400 to-fuchsia-600', label: 'Fuchsia', preview: 'bg-gradient-to-r from-fuchsia-400 to-fuchsia-600' },
+];
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
   const queryClient = useQueryClient();
@@ -117,11 +137,39 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     });
   };
 
+  const handleColumnColorChange = (columnId, newColor) => {
+    setConfig({
+      ...config,
+      columns: config.columns.map(col => 
+        col.id === columnId ? { ...col, color: newColor } : col
+      )
+    });
+  };
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const items = Array.from(config.columns);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update order property
+    const updatedColumns = items.map((col, index) => ({
+      ...col,
+      order: index
+    }));
+
+    setConfig({
+      ...config,
+      columns: updatedColumns
+    });
+  };
+
   const handleAddColumn = () => {
     const newColumn = {
       id: `custom_${Date.now()}`,
       label: 'New Column',
-      color: 'from-blue-400 to-blue-600', // Default color, can be expanded later
+      color: 'from-blue-400 to-blue-600',
       type: 'custom_stage',
       order: config.columns.length
     };
@@ -147,6 +195,11 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     }
   };
 
+  const isLockedColumn = (column) => {
+    return column.default_status_mapping === 'evaluating' || column.default_status_mapping === 'draft';
+  };
+
+  // Swimlane handlers
   const handleSwimlaneToggle = (enabled) => {
     setConfig({
       ...config,
@@ -214,7 +267,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5" />
@@ -263,53 +316,136 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {config.columns.map((column, index) => (
-                  <div
-                    key={column.id}
-                    className="flex items-center gap-3 p-3 border-2 border-slate-200 rounded-lg hover:border-blue-300 transition-all bg-white"
-                  >
-                    <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
-                    
-                    <div className="flex-1">
-                      <Input
-                        value={column.label}
-                        onChange={(e) => handleColumnLabelChange(column.id, e.target.value)}
-                        placeholder="Column name"
-                        className="font-medium"
-                      />
+              {/* Important Notice about Locked Columns */}
+              <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg mb-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-amber-900 mb-1">
+                      <Lock className="w-4 h-4 inline mr-1" />
+                      Locked Columns: Evaluating & Draft
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      {column.type === 'default_status' && (
-                        <Badge variant="secondary" className="text-xs">
-                          Default
-                        </Badge>
-                      )}
-                      {column.type === 'custom_stage' && (
-                        <Badge variant="outline" className="text-xs">
-                          Custom
-                        </Badge>
-                      )}
-                      
-                      {column.type === 'custom_stage' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteColumn(column.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                    <div className="text-sm text-amber-800">
+                      The <strong>Evaluating</strong> and <strong>Draft</strong> columns are required for the Proposal Builder's 7-phase workflow and cannot be repositioned or renamed. These columns are essential for proposals to progress correctly through the builder phases.
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
+
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="columns">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-3"
+                    >
+                      {config.columns.map((column, index) => {
+                        const locked = isLockedColumn(column);
+                        return (
+                          <Draggable
+                            key={column.id}
+                            draggableId={column.id}
+                            index={index}
+                            isDragDisabled={locked}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={cn(
+                                  "flex items-center gap-3 p-3 border-2 rounded-lg transition-all bg-white",
+                                  snapshot.isDragging ? "border-blue-400 shadow-lg" : "border-slate-200 hover:border-blue-300",
+                                  locked && "bg-amber-50 border-amber-200"
+                                )}
+                              >
+                                <div {...provided.dragHandleProps}>
+                                  {locked ? (
+                                    <Lock className="w-5 h-5 text-amber-600" />
+                                  ) : (
+                                    <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
+                                  )}
+                                </div>
+                                
+                                <div className="flex-1 space-y-2">
+                                  <Input
+                                    value={column.label}
+                                    onChange={(e) => handleColumnLabelChange(column.id, e.target.value)}
+                                    placeholder="Column name"
+                                    className="font-medium"
+                                    disabled={locked}
+                                  />
+                                  
+                                  {/* Color Picker */}
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs text-slate-600">Color:</Label>
+                                    <Select
+                                      value={column.color}
+                                      onValueChange={(value) => handleColumnColorChange(column.id, value)}
+                                    >
+                                      <SelectTrigger className="w-40 h-8">
+                                        <div className="flex items-center gap-2">
+                                          <div className={cn("w-4 h-4 rounded", `bg-gradient-to-r ${column.color}`)} />
+                                          <SelectValue />
+                                        </div>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {COLOR_OPTIONS.map(colorOption => (
+                                          <SelectItem key={colorOption.value} value={colorOption.value}>
+                                            <div className="flex items-center gap-2">
+                                              <div className={cn("w-4 h-4 rounded", colorOption.preview)} />
+                                              <span>{colorOption.label}</span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  {column.type === 'default_status' && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Default
+                                    </Badge>
+                                  )}
+                                  {column.type === 'custom_stage' && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Custom
+                                    </Badge>
+                                  )}
+                                  {locked && (
+                                    <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+                                      <Lock className="w-3 h-3 mr-1" />
+                                      Locked
+                                    </Badge>
+                                  )}
+                                  
+                                  {column.type === 'custom_stage' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteColumn(column.id)}
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
                 <div className="text-sm text-blue-900">
-                  <strong>Tip:</strong> Default columns map to proposal statuses. Custom columns create new workflow stages.
+                  <strong>Tip:</strong> Drag columns to reorder them on your board. Default columns map to proposal statuses, while custom columns create new workflow stages.
                 </div>
               </div>
             </TabsContent>
@@ -380,35 +516,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                         checked={config.swimlane_config?.show_empty_swimlanes || false}
                         onCheckedChange={handleShowEmptySwimlanes}
                       />
-                    </div>
-
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-                        <Zap className="w-4 h-4" />
-                        Swimlane Preview
-                      </div>
-                      <div className="text-sm text-green-800">
-                        {config.swimlane_config?.group_by === 'none' && (
-                          "Swimlanes disabled - all proposals will appear in a single view."
-                        )}
-                        {config.swimlane_config?.group_by === 'lead_writer' && (
-                          "Proposals will be grouped by Lead Writer. Each writer gets their own row."
-                        )}
-                        {config.swimlane_config?.group_by === 'project_type' && (
-                          "Proposals will be grouped by Project Type (RFP, RFI, RFQ, etc.)."
-                        )}
-                        {config.swimlane_config?.group_by === 'agency' && (
-                          "Proposals will be grouped by Agency Name."
-                        )}
-                        {config.swimlane_config?.group_by === 'contract_value_range' && (
-                          "Proposals will be grouped by Contract Value ranges (e.g., <$100K, $100K-$1M, >$1M)."
-                        )}
-                        {config.swimlane_config?.group_by === 'custom_field' && (
-                          config.swimlane_config?.custom_field_name
-                            ? `Proposals will be grouped by values in the "${config.swimlane_config.custom_field_name}" custom field.`
-                            : "Enter a custom field name above to enable this grouping."
-                        )}
-                      </div>
                     </div>
                   </>
                 )}
