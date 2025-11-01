@@ -41,27 +41,35 @@ function KanbanColumn({
     }
   };
 
+  const handleHeaderClick = (e) => {
+    // Only toggle collapse if clicking on the header itself, not on interactive elements
+    if (e.target === e.currentTarget || e.target.closest('.column-header-content')) {
+      onToggleCollapse(column.id);
+    }
+  };
+
   return (
     <Card className={cn(
       "flex-shrink-0 border-slate-200",
       isDraggingOver && "ring-2 ring-blue-400 bg-blue-50"
     )}>
       <CardHeader 
+        {...dragHandleProps}
         className={cn(
-          "p-4 border-b bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors",
+          "p-4 border-b bg-slate-50 cursor-move hover:bg-slate-100 transition-colors",
           column.color
         )}
-        onClick={() => onToggleCollapse(column.id)}
+        onClick={handleHeaderClick}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
+          <div className="flex items-center gap-2 flex-1 min-w-0 column-header-content">
+            <div className="cursor-grab active:cursor-grabbing">
               <GripVertical className="w-4 h-4 text-slate-400" />
             </div>
             {!isCollapsed && (
               <>
                 <h3 className="font-semibold text-slate-900 truncate">{column.label}</h3>
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs pointer-events-none">
                   {proposals.length}
                 </Badge>
                 
@@ -102,7 +110,7 @@ function KanbanColumn({
               </>
             )}
             {isCollapsed && (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-2 pointer-events-none">
                 <h3 className="font-semibold text-slate-900 text-sm" style={{ writingMode: 'vertical-rl' }}>
                   {column.label}
                 </h3>
@@ -114,10 +122,12 @@ function KanbanColumn({
               </div>
             )}
           </div>
-          <ChevronRight className={cn(
-            "w-4 h-4 text-slate-400 transition-transform flex-shrink-0",
-            isCollapsed && "rotate-180"
-          )} />
+          <ChevronRight 
+            className={cn(
+              "w-4 h-4 text-slate-400 transition-transform flex-shrink-0 pointer-events-none",
+              isCollapsed && "rotate-180"
+            )} 
+          />
         </div>
       </CardHeader>
       {!isCollapsed && (
