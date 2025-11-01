@@ -43,6 +43,24 @@ const PHASES = [
   { id: "phase7", label: "Finalize" }
 ];
 
+// Helper function to map builder phases to Kanban statuses
+const getKanbanStatusFromPhase = (phaseId) => {
+  switch (phaseId) {
+    case "phase1":
+    case "phase2":
+    case "phase3":
+    case "phase4":
+      return "evaluating";
+    case "phase5":
+    case "phase6":
+      return "draft";
+    case "phase7":
+      return "in_progress"; // Maps to "Review" column
+    default:
+      return "evaluating";
+  }
+};
+
 export default function ProposalBuilder() {
   const navigate = useNavigate();
   const [organization, setOrganization] = React.useState(null);
@@ -120,6 +138,7 @@ export default function ProposalBuilder() {
         setProposalId(id);
         setProposalData(proposal);
         
+        // Priority: URL phase > database current_phase > default to phase1
         if (phaseFromUrl && PHASES.some(p => p.id === phaseFromUrl)) {
           setCurrentPhase(phaseFromUrl);
         } else if (proposal.current_phase) {
@@ -144,6 +163,9 @@ export default function ProposalBuilder() {
     }
 
     try {
+      // Define the final statuses that should NOT be overwritten by phase-based automation
+      const manualOverrideStatuses = ["won", "lost", "archived"];
+      
       if (proposalId) {
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
@@ -155,16 +177,38 @@ export default function ProposalBuilder() {
           return;
         }
 
+        const currentProposal = existing[0];
+        
+        // Determine the status to save based on hierarchy
+        let statusToSave = currentProposal.status;
+        
+        // Level 3: If user manually set a status (won, lost, archived), preserve it
+        if (manualOverrideStatuses.includes(currentProposal.status)) {
+          statusToSave = currentProposal.status;
+        } 
+        // Level 2: If explicitly marked as submitted (should be set by Phase 7 finalization action)
+        // For now, we check if it's already submitted and don't override it unless user drags it
+        else if (currentProposal.status === "submitted") {
+          statusToSave = "submitted";
+        }
+        // Level 1: Apply phase-based status mapping
+        else {
+          statusToSave = getKanbanStatusFromPhase(currentPhase);
+        }
+
         await base44.entities.Proposal.update(proposalId, {
           ...proposalData,
-          current_phase: currentPhase
+          current_phase: currentPhase,
+          status: statusToSave
         });
       } else {
+        // New proposal - apply Level 1 phase-based status
+        const initialStatus = getKanbanStatusFromPhase(currentPhase);
         const created = await base44.entities.Proposal.create({
           ...proposalData,
           organization_id: organization.id,
           current_phase: currentPhase,
-          status: "evaluating"
+          status: initialStatus
         });
         setProposalId(created.id);
         return created.id;
