@@ -224,7 +224,21 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     loadData();
   }, [proposalId]);
 
-  // Load context data for AI with caching
+  const { data: sections = [], isLoading, error: sectionsError } = useQuery({
+    queryKey: ['proposal-sections', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      return base44.entities.ProposalSection.filter(
+        { proposal_id: proposalId },
+        'order'
+      );
+    },
+    enabled: !!proposalId,
+    staleTime: 30000, // Cache for 30 seconds
+    retry: 2
+  });
+
+  // Load context data for AI with caching - MOVED AFTER sections query
   useEffect(() => {
     const loadContextData = async () => {
       if (!proposalId || !organization?.id) return;
@@ -274,20 +288,6 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
 
     loadContextData();
   }, [proposalId, organization?.id, proposalData.teaming_partner_ids, sections]);
-
-  const { data: sections = [], isLoading, error: sectionsError } = useQuery({
-    queryKey: ['proposal-sections', proposalId],
-    queryFn: async () => {
-      if (!proposalId) return [];
-      return base44.entities.ProposalSection.filter(
-        { proposal_id: proposalId },
-        'order'
-      );
-    },
-    enabled: !!proposalId,
-    staleTime: 30000, // Cache for 30 seconds
-    retry: 2
-  });
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks', proposalId],
