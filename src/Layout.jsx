@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -57,6 +58,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
+import MobileNavigation from "./components/mobile/MobileNavigation"; // Added import
 import { cn } from "@/lib/utils";
 
 // Workspace sub-menu items
@@ -733,7 +735,7 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0"> {/* Modified className */}
           <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -759,6 +761,9 @@ export default function Layout({ children }) {
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <MobileNavigation user={user} organization={organization} /> {/* Added MobileNavigation component */}
       </div>
     </SidebarProvider>
   );
