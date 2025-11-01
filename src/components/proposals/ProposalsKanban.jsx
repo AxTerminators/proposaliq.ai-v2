@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings2, Plus, Loader2, RotateCcw, GripVertical, AlertTriangle, Trash2 } from "lucide-react";
+import { Settings2, Plus, Loader2, RotateCcw, GripVertical, AlertTriangle, Trash2, Sliders } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
+import BoardConfigDialog from "./BoardConfigDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,14 +23,14 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const defaultColumns = [
-  { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating' },
-  { id: 'watch_list', label: 'Watch List', color: 'bg-yellow-100', order: 1, type: 'default_status', default_status_mapping: 'watch_list' },
-  { id: 'draft', label: 'Draft', color: 'bg-slate-100', order: 2, type: 'default_status', default_status_mapping: 'draft' },
-  { id: 'in_progress', label: 'In Review', color: 'bg-purple-100', order: 3, type: 'default_status', default_status_mapping: 'in_progress' },
-  { id: 'submitted', label: 'Submitted', color: 'bg-indigo-100', order: 4, type: 'default_status', default_status_mapping: 'submitted' },
-  { id: 'won', label: 'Won', color: 'bg-green-100', order: 5, type: 'default_status', default_status_mapping: 'won' },
-  { id: 'lost', label: 'Lost', color: 'bg-red-100', order: 6, type: 'default_status', default_status_mapping: 'lost' },
-  { id: 'archived', label: 'Archived', color: 'bg-slate-100', order: 7, type: 'default_status', default_status_mapping: 'archived' }
+  { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating', wip_limit: 0, wip_limit_type: 'soft' },
+  { id: 'watch_list', label: 'Watch List', color: 'bg-yellow-100', order: 1, type: 'default_status', default_status_mapping: 'watch_list', wip_limit: 0, wip_limit_type: 'soft' },
+  { id: 'draft', label: 'Draft', color: 'bg-slate-100', order: 2, type: 'default_status', default_status_mapping: 'draft', wip_limit: 0, wip_limit_type: 'soft' },
+  { id: 'in_progress', label: 'In Review', color: 'bg-purple-100', order: 3, type: 'default_status', default_status_mapping: 'in_progress', wip_limit: 5, wip_limit_type: 'soft' },
+  { id: 'submitted', label: 'Submitted', color: 'bg-indigo-100', order: 4, type: 'default_status', default_status_mapping: 'submitted', wip_limit: 0, wip_limit_type: 'soft' },
+  { id: 'won', label: 'Won', color: 'bg-green-100', order: 5, type: 'default_status', default_status_mapping: 'won', wip_limit: 0, wip_limit_type: 'soft' },
+  { id: 'lost', label: 'Lost', color: 'bg-red-100', order: 6, type: 'default_status', default_status_mapping: 'lost', wip_limit: 0, wip_limit_type: 'soft' },
+  { id: 'archived', label: 'Archived', color: 'bg-slate-100', order: 7, type: 'default_status', default_status_mapping: 'archived', wip_limit: 0, wip_limit_type: 'soft' }
 ];
 
 export default function ProposalsKanban({ proposals = [], onProposalClick, isLoading, user, organization }) {
@@ -36,6 +38,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   const [columns, setColumns] = useState(defaultColumns);
   const [columnConfig, setColumnConfig] = useState(defaultColumns);
   const [isEditingColumns, setIsEditingColumns] = useState(false);
+  const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("bg-blue-100");
   const [proposalToDelete, setProposalToDelete] = useState(null);
@@ -51,6 +54,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
   const [showColumnDeleteWarning, setShowColumnDeleteWarning] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
   const [columnDeleteError, setColumnDeleteError] = useState(null);
+  const [boardConfig, setBoardConfig] = useState(null);
 
   // Load saved config on mount
   useEffect(() => {
@@ -72,6 +76,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
           if (configs[0].collapsed_column_ids) {
             setCollapsedColumns(configs[0].collapsed_column_ids);
           }
+
+          setBoardConfig(configs[0]);
         }
       } catch (error) {
         console.error("Error loading kanban config:", error);
@@ -158,6 +164,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       setColumnConfig(defaultColumns);
       setCollapsedColumns([]);
       setColumnSorts({});
+      setBoardConfig(null); // Reset board config as well
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       setShowResetWarning(false);
     }
@@ -189,6 +196,19 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       return;
     }
 
+    // Check if the destination column has a WIP limit and if it would be exceeded
+    const destinationColumn = columns.find(col => col.id === destination.droppableId);
+    const currentProposalsInDest = groupedProposals[destination.droppableId]?.length || 0;
+
+    if (destinationColumn && destinationColumn.wip_limit > 0 && currentProposalsInDest >= destinationColumn.wip_limit) {
+      // For now, we'll just prevent the drag. In a real app, you might show a warning.
+      // Or, if wip_limit_type is 'soft', allow but highlight.
+      // For a 'hard' limit, this prevention is appropriate.
+      console.warn(`WIP limit of ${destinationColumn.wip_limit} exceeded for column "${destinationColumn.label}". Cannot move proposal.`);
+      return;
+    }
+
+
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
@@ -199,12 +219,14 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     if (!sourceColumn || !destColumn) return;
 
     const proposal = proposals.find(p => {
+      // Find the proposal based on its current column (either default status or custom stage ID)
       if (sourceColumn.type === 'default_status') {
-        return p.status === sourceColumn.default_status_mapping;
+        return p?.status === sourceColumn.default_status_mapping && !p?.custom_workflow_stage_id;
       } else {
-        return p.custom_workflow_stage_id === sourceColumn.id;
+        return p?.custom_workflow_stage_id === sourceColumn.id;
       }
     });
+
 
     if (!proposal) return;
 
@@ -217,7 +239,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     } else {
       updates = {
         custom_workflow_stage_id: destColumn.id,
-        status: 'in_progress'
+        // When moving to a custom stage, default status to 'in_progress' if not already a default_status type
+        status: destColumn.type === 'custom_stage' ? 'in_progress' : proposal.status // Keep existing status if moving between default columns, otherwise 'in_progress' for custom.
       };
     }
 
@@ -249,7 +272,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       label: newColumnLabel,
       color: newColumnColor,
       order: columnConfig.length,
-      type: 'custom_stage'
+      type: 'custom_stage',
+      wip_limit: 0,
+      wip_limit_type: 'soft'
     };
 
     const updatedColumns = [...columnConfig, newColumn];
@@ -276,7 +301,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       label: quickColumnName,
       color: quickColumnColor,
       order: quickAddPosition,
-      type: 'custom_stage'
+      type: 'custom_stage',
+      wip_limit: 0,
+      wip_limit_type: 'soft'
     };
 
     const updatedColumns = [...columnConfig];
@@ -312,7 +339,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
       const configData = {
         organization_id: organization.id,
         columns: columns,
-        collapsed_column_ids: newCollapsed
+        collapsed_column_ids: newCollapsed,
+        ...(boardConfig ? { board_title: boardConfig.board_title } : {}) // Preserve other board configs
       };
 
       if (configs.length > 0) {
@@ -702,6 +730,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
                 <li>All collapsed columns will be expanded</li>
                 <li>Column order will be reset to the default sequence</li>
                 <li>All column sorting preferences will be cleared</li>
+                <li>All WIP limits and types will be reset to default settings</li>
               </ul>
               <p className="text-amber-700 font-medium pt-2">⚠️ This action cannot be undone. Your proposals and data will remain safe.</p>
             </AlertDialogDescription>
