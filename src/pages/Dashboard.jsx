@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +11,7 @@ import ProposalPipeline from "../components/dashboard/ProposalPipeline";
 import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
+import MobileDashboard from "../components/mobile/MobileDashboard";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -60,6 +62,17 @@ export default function Dashboard() {
     total_value: 0,
     win_rate: 0
   });
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // Tailwind's 'lg' breakpoint is 1024px
+    };
+
+    checkMobile(); // Check on initial mount
+    window.addEventListener('resize', checkMobile); // Add event listener for resize
+    return () => window.removeEventListener('resize', checkMobile); // Clean up
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -103,16 +116,16 @@ export default function Dashboard() {
         setActivityLog([]);
       }
 
-      const activeProposals = userProposals.filter(p => 
+      const activeProposals = userProposals.filter(p =>
         ['evaluating', 'draft', 'in_progress'].includes(p.status)
       );
 
       const wonProposals = userProposals.filter(p => p.status === 'won');
-      const submittedProposals = userProposals.filter(p => 
+      const submittedProposals = userProposals.filter(p =>
         ['submitted', 'won', 'lost'].includes(p.status)
       );
 
-      const totalValue = userProposals.reduce((sum, p) => 
+      const totalValue = userProposals.reduce((sum, p) =>
         sum + (p.contract_value || 0), 0
       );
 
@@ -134,6 +147,20 @@ export default function Dashboard() {
   const handleCreateProposal = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+        <MobileDashboard
+          user={user}
+          organization={organization}
+          proposals={proposals}
+          stats={stats}
+          onCreateProposal={handleCreateProposal} // Pass the handler
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
