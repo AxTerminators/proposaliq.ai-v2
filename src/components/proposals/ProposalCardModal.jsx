@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter // Added DialogFooter
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label"; // Added Label
 import {
   Calendar,
   DollarSign,
@@ -37,7 +40,8 @@ import {
   X,
   Plus,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  Flame // Added Flame
 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import moment from "moment";
@@ -48,6 +52,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const [isEditing, setIsEditing] = useState(false);
   const [editedProposal, setEditedProposal] = useState(proposal);
   const [activeTab, setActiveTab] = useState("overview");
+  const [showLabelDialog, setShowLabelDialog] = useState(false); // New state for label dialog
+  const [newLabelName, setNewLabelName] = useState(""); // New state for new label name
+  const [newLabelColor, setNewLabelColor] = useState("bg-blue-500 text-white"); // New state for new label color
 
   useEffect(() => {
     setEditedProposal(proposal);
@@ -118,6 +125,28 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     window.open(createPageUrl("ProposalBuilder") + `?id=${proposal.id}`, '_blank');
   };
 
+  const handleAddLabel = () => {
+    if (!newLabelName.trim()) return;
+    
+    const currentLabels = editedProposal.labels || [];
+    const newLabels = [...currentLabels, { name: newLabelName, color: newLabelColor }];
+    
+    setEditedProposal({ ...editedProposal, labels: newLabels });
+    updateProposalMutation.mutate({ labels: newLabels });
+    
+    setNewLabelName("");
+    setNewLabelColor("bg-blue-500 text-white");
+    setShowLabelDialog(false);
+  };
+
+  const handleRemoveLabel = (index) => {
+    const currentLabels = editedProposal.labels || [];
+    const newLabels = currentLabels.filter((_, i) => i !== index);
+    
+    setEditedProposal({ ...editedProposal, labels: newLabels });
+    updateProposalMutation.mutate({ labels: newLabels });
+  };
+
   if (!proposal) return null;
 
   const completedSubtasks = subtasks.filter(s => s.status === 'completed').length;
@@ -149,6 +178,39 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 </Badge>
                 {proposal.project_type && (
                   <Badge variant="secondary">{proposal.project_type}</Badge>
+                )}
+                {proposal.priority_level && (
+                  <Badge className={cn(
+                    proposal.priority_level === 'urgent' && 'bg-red-100 text-red-700',
+                    proposal.priority_level === 'high' && 'bg-orange-100 text-orange-700',
+                    proposal.priority_level === 'medium' && 'bg-yellow-100 text-yellow-700',
+                    proposal.priority_level === 'low' && 'bg-slate-100 text-slate-600'
+                  )}>
+                    {proposal.priority_level === 'urgent' && <Flame className="w-3 h-3 mr-1" />}
+                    {proposal.priority_level.charAt(0).toUpperCase() + proposal.priority_level.slice(1)} Priority
+                  </Badge>
+                )}
+                {proposal.labels?.map((label, idx) => (
+                  <Badge key={idx} className={cn("text-xs cursor-pointer", label.color)}>
+                    {label.name}
+                    {isEditing && (
+                      <X 
+                        className="w-3 h-3 ml-1 hover:bg-black/20 rounded-full" 
+                        onClick={() => handleRemoveLabel(idx)}
+                      />
+                    )}
+                  </Badge>
+                ))}
+                {isEditing && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => setShowLabelDialog(true)}
+                    className="h-6 px-2"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Label
+                  </Button>
                 )}
                 {proposal.is_blocked && (
                   <Badge className="bg-red-100 text-red-700">
@@ -191,6 +253,50 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
             </div>
           </div>
         </DialogHeader>
+
+        {/* Add Label Dialog */}
+        <Dialog open={showLabelDialog} onOpenChange={setShowLabelDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Label</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Label Name</Label>
+                <Input
+                  value={newLabelName}
+                  onChange={(e) => setNewLabelName(e.target.value)}
+                  placeholder="e.g., Strategic, High Impact..."
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddLabel()}
+                />
+              </div>
+              <div>
+                <Label>Color</Label>
+                <Select value={newLabelColor} onValueChange={setNewLabelColor}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bg-blue-500 text-white">Blue</SelectItem>
+                    <SelectItem value="bg-green-500 text-white">Green</SelectItem>
+                    <SelectItem value="bg-red-500 text-white">Red</SelectItem>
+                    <SelectItem value="bg-yellow-500 text-white">Yellow</SelectItem>
+                    <SelectItem value="bg-purple-500 text-white">Purple</SelectItem>
+                    <SelectItem value="bg-pink-500 text-white">Pink</SelectItem>
+                    <SelectItem value="bg-indigo-500 text-white">Indigo</SelectItem>
+                    <SelectItem value="bg-orange-500 text-white">Orange</SelectItem>
+                    <SelectItem value="bg-teal-500 text-white">Teal</SelectItem>
+                    <SelectItem value="bg-slate-500 text-white">Gray</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowLabelDialog(false)}>Cancel</Button>
+              <Button onClick={handleAddLabel}>Add Label</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="flex-1 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
