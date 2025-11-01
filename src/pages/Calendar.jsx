@@ -12,9 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Plus, Clock, MapPin, Users, Video, Trash2, Edit } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Clock, MapPin, Users, Video, Trash2, Edit, ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import moment from "moment";
+import { cn } from "@/lib/utils";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -50,6 +51,7 @@ export default function Calendar() {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const [eventData, setEventData] = useState({
     title: "",
@@ -153,18 +155,68 @@ export default function Calendar() {
 
   const getEventTypeColor = (type) => {
     const colors = {
-      proposal_deadline: "bg-red-100 text-red-800 border-red-300",
-      task_deadline: "bg-orange-100 text-orange-800 border-orange-300",
-      meeting: "bg-blue-100 text-blue-800 border-blue-300",
-      review_session: "bg-purple-100 text-purple-800 border-purple-300",
-      milestone: "bg-green-100 text-green-800 border-green-300"
+      proposal_deadline: "bg-red-500 text-white",
+      task_deadline: "bg-orange-500 text-white",
+      meeting: "bg-blue-500 text-white",
+      review_session: "bg-purple-500 text-white",
+      milestone: "bg-green-500 text-white"
     };
-    return colors[type] || colors.meeting;
+    return colors[type] || "bg-blue-500 text-white";
   };
 
-  const upcomingEvents = events
-    .filter(e => new Date(e.start_date) >= new Date())
-    .slice(0, 10);
+  // Calendar grid helpers
+  const getDaysInMonth = (date) => {
+    return moment(date).daysInMonth();
+  };
+
+  const getFirstDayOfMonth = (date) => {
+    return moment(date).startOf('month').day();
+  };
+
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Previous month's trailing days
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+
+    // Current month's days
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+
+    return days;
+  };
+
+  const getEventsForDay = (day) => {
+    if (!day) return [];
+    const dateStr = moment(currentMonth).date(day).format('YYYY-MM-DD');
+    return events.filter(event => {
+      const eventDate = moment(event.start_date).format('YYYY-MM-DD');
+      return eventDate === dateStr;
+    });
+  };
+
+  const previousMonth = () => {
+    setCurrentMonth(moment(currentMonth).subtract(1, 'month').toDate());
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(moment(currentMonth).add(1, 'month').toDate());
+  };
+
+  const today = () => {
+    setCurrentMonth(new Date());
+  };
+
+  const isToday = (day) => {
+    if (!day) return false;
+    const date = moment(currentMonth).date(day);
+    return date.isSame(moment(), 'day');
+  };
 
   if (!organization || !user) {
     return (
@@ -173,6 +225,8 @@ export default function Calendar() {
       </div>
     );
   }
+
+  const calendarDays = generateCalendarDays();
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -188,83 +242,98 @@ export default function Calendar() {
       </div>
 
       {isLoading ? (
-        <div className="grid md:grid-cols-2 gap-6">
-          <Skeleton className="h-96 w-full" />
-          <Skeleton className="h-96 w-full" />
-        </div>
-      ) : upcomingEvents.length === 0 ? (
+        <Skeleton className="h-[600px] w-full" />
+      ) : (
         <Card className="border-none shadow-lg">
-          <CardContent className="p-12 text-center">
-            <CalendarIcon className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Events Scheduled</h3>
-            <p className="text-slate-600 mb-6">
-              Start adding events to your calendar
-            </p>
-            <Button onClick={() => { resetForm(); setShowEventDialog(true); }}>
-              <Plus className="w-5 h-5 mr-2" />
-              Add Your First Event
-            </Button>
+          <CardHeader className="border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="outline" size="icon" onClick={previousMonth}>
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {moment(currentMonth).format('MMMM YYYY')}
+                </h2>
+                <Button variant="outline" size="icon" onClick={nextMonth}>
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+              <Button variant="outline" onClick={today}>
+                Today
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7">
+              {/* Day headers */}
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                <div key={day} className="p-4 text-center font-semibold text-slate-600 border-b bg-slate-50">
+                  {day}
+                </div>
+              ))}
+
+              {/* Calendar days */}
+              {calendarDays.map((day, index) => {
+                const dayEvents = day ? getEventsForDay(day) : [];
+                return (
+                  <div
+                    key={index}
+                    className={cn(
+                      "min-h-[120px] border-b border-r p-2 hover:bg-slate-50 transition-colors",
+                      !day && "bg-slate-50",
+                      isToday(day) && "bg-blue-50"
+                    )}
+                    onClick={() => {
+                      if (day) {
+                        const newDate = moment(currentMonth).date(day).toDate();
+                        setEventData({
+                          ...eventData,
+                          start_date: moment(newDate).format('YYYY-MM-DDTHH:mm'),
+                          end_date: moment(newDate).add(1, 'hour').format('YYYY-MM-DDTHH:mm')
+                        });
+                        setShowEventDialog(true);
+                      }
+                    }}
+                  >
+                    {day && (
+                      <>
+                        <div className={cn(
+                          "text-sm font-medium mb-2",
+                          isToday(day) ? "text-blue-600 font-bold" : "text-slate-900"
+                        )}>
+                          {day}
+                        </div>
+                        <div className="space-y-1">
+                          {dayEvents.slice(0, 3).map((event) => (
+                            <div
+                              key={event.id}
+                              className={cn(
+                                "text-xs px-2 py-1 rounded cursor-pointer truncate",
+                                getEventTypeColor(event.event_type)
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(event);
+                              }}
+                            >
+                              {moment(event.start_date).format('h:mm A')} {event.title}
+                            </div>
+                          ))}
+                          {dayEvents.length > 3 && (
+                            <div className="text-xs text-slate-500 px-2">
+                              +{dayEvents.length - 3} more
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-900">Upcoming Events</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingEvents.map((event) => (
-              <Card key={event.id} className={`border-2 ${getEventTypeColor(event.event_type)}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-base mb-2">{event.title}</CardTitle>
-                      <Badge variant="secondary" className="capitalize text-xs">
-                        {event.event_type?.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(event)}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => {
-                          if (confirm('Delete this event?')) {
-                            deleteEventMutation.mutate(event.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {event.description && (
-                    <p className="text-sm text-slate-600 line-clamp-2">{event.description}</p>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Clock className="w-4 h-4" />
-                    <span>{moment(event.start_date).format('MMM D, YYYY h:mm A')}</span>
-                  </div>
-                  {event.location && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <MapPin className="w-4 h-4" />
-                      <span>{event.location}</span>
-                    </div>
-                  )}
-                  {event.meeting_link && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Video className="w-4 h-4 text-blue-600" />
-                      <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        Join Meeting
-                      </a>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
       )}
 
       <Dialog open={showEventDialog} onOpenChange={(open) => { 
@@ -353,13 +422,31 @@ export default function Calendar() {
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowEventDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={!eventData.title.trim() || createEventMutation.isPending}>
-                {createEventMutation.isPending ? 'Saving...' : (editingEvent ? 'Update Event' : 'Add Event')}
-              </Button>
+            <div className="flex justify-between items-center pt-4">
+              {editingEvent && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    if (confirm('Delete this event?')) {
+                      deleteEventMutation.mutate(editingEvent.id);
+                      setShowEventDialog(false);
+                      setEditingEvent(null);
+                      resetForm();
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+              <div className="flex gap-3 ml-auto">
+                <Button variant="outline" onClick={() => setShowEventDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={!eventData.title.trim() || createEventMutation.isPending}>
+                  {createEventMutation.isPending ? 'Saving...' : (editingEvent ? 'Update Event' : 'Add Event')}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
