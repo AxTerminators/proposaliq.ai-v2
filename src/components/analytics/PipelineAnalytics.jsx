@@ -41,11 +41,13 @@ import {
   BarChart3,
   Download,
   Calendar,
-  Loader2
+  Loader2,
+  Sparkles // Added Sparkles import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import ProcessEfficiencyReport from "./ProcessEfficiencyReport";
+import PredictiveAnalytics from "./PredictiveAnalytics"; // Added PredictiveAnalytics import
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
@@ -355,12 +357,16 @@ export default function PipelineAnalytics({ organization, proposals = [] }) {
 
       {/* Charts Tabs */}
       <Tabs defaultValue="lead-time" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6"> {/* Changed to grid-cols-6 */}
           <TabsTrigger value="lead-time">Lead & Cycle Time</TabsTrigger>
           <TabsTrigger value="stage-duration">Stage Duration</TabsTrigger>
           <TabsTrigger value="cumulative-flow">Cumulative Flow</TabsTrigger>
           <TabsTrigger value="velocity">Velocity</TabsTrigger>
           <TabsTrigger value="efficiency">Process Efficiency</TabsTrigger>
+          <TabsTrigger value="predictions"> {/* New TabsTrigger */}
+            <Sparkles className="w-4 h-4 mr-1" />
+            AI Predictions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="lead-time">
@@ -538,6 +544,10 @@ export default function PipelineAnalytics({ organization, proposals = [] }) {
 
         <TabsContent value="efficiency">
           <ProcessEfficiencyReport proposals={proposals} snapshots={snapshots} />
+        </TabsContent>
+
+        <TabsContent value="predictions"> {/* New TabsContent */}
+          <PredictiveAnalytics organization={organization} proposals={proposals} snapshots={snapshots} />
         </TabsContent>
       </Tabs>
     </div>
