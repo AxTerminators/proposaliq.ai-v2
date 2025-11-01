@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +46,7 @@ import moment from "moment";
 import { cn } from "@/lib/utils";
 
 export default function ProposalCardModal({ proposal, isOpen, onClose, organization }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [editedProposal, setEditedProposal] = useState(proposal);
@@ -115,7 +118,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const handleOpenProposal = () => {
-    window.open(createPageUrl("ProposalBuilder") + `?id=${proposal.id}`, '_blank');
+    const phase = proposal.current_phase || 'phase1';
+    const url = createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`;
+    window.open(url, '_blank');
   };
 
   if (!proposal) return null;
