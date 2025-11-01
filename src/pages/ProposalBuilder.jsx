@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -163,10 +164,8 @@ export default function ProposalBuilder() {
     }
 
     try {
-      // Define the final statuses that should NOT be overwritten by phase-based automation
-      const manualOverrideStatuses = ["won", "lost", "archived"];
-      
       if (proposalId) {
+        // Fetch the latest proposal data from database to check current status
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
           organization_id: organization.id
@@ -179,21 +178,26 @@ export default function ProposalBuilder() {
 
         const currentProposal = existing[0];
         
-        // Determine the status to save based on hierarchy
-        let statusToSave = currentProposal.status;
+        // Calculate what status the current phase would derive
+        const derivedPhaseStatus = getKanbanStatusFromPhase(currentPhase);
         
-        // Level 3: If user manually set a status (won, lost, archived), preserve it
-        if (manualOverrideStatuses.includes(currentProposal.status)) {
-          statusToSave = currentProposal.status;
-        } 
-        // Level 2: If explicitly marked as submitted (should be set by Phase 7 finalization action)
-        // For now, we check if it's already submitted and don't override it unless user drags it
-        else if (currentProposal.status === "submitted") {
+        // Determine the status to save based on hierarchy
+        let statusToSave;
+        
+        // Level 2: If explicitly marked as submitted, preserve it
+        // (This will be set by explicit action in Phase7)
+        if (currentProposal.status === "submitted") {
           statusToSave = "submitted";
         }
-        // Level 1: Apply phase-based status mapping
+        // Level 3: Manual Kanban Drag Override (Highest Precedence)
+        // If current DB status differs from what the phase would derive,
+        // it means user manually moved it on Kanban - preserve their choice
+        else if (currentProposal.status !== derivedPhaseStatus && currentProposal.status !== "") {
+          statusToSave = currentProposal.status;
+        }
+        // Level 1: Apply automated phase-based status
         else {
-          statusToSave = getKanbanStatusFromPhase(currentPhase);
+          statusToSave = derivedPhaseStatus;
         }
 
         await base44.entities.Proposal.update(proposalId, {
@@ -216,6 +220,22 @@ export default function ProposalBuilder() {
       return proposalId;
     } catch (error) {
       console.error("Error saving proposal:", error);
+    }
+  };
+
+  // Function to explicitly mark proposal as submitted (called from Phase7)
+  const markAsSubmitted = async () => {
+    if (!proposalId || !organization?.id) return;
+    
+    try {
+      await base44.entities.Proposal.update(proposalId, {
+        status: "submitted"
+      });
+      
+      // Update local state to reflect the change
+      setProposalData(prev => ({ ...prev, status: "submitted" }));
+    } catch (error) {
+      console.error("Error marking proposal as submitted:", error);
     }
   };
 
@@ -394,6 +414,7 @@ export default function ProposalBuilder() {
                     user={user}
                     organization={organization}
                     teamMembers={[]}
+                    onMarkAsSubmitted={markAsSubmitted}
                   />
                 )}
               </div>
