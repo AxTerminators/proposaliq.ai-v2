@@ -1,189 +1,338 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, FileText, ArrowRight, Calculator, Users } from "lucide-react";
-import PricingModule from "../components/pricing/PricingModule";
+import { Input } from "@/components/ui/input";
+import { DollarSign, Plus, Trash2, Calculator } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function CostEstimatorPage() {
-  const navigate = useNavigate();
-  const [selectedProposal, setSelectedProposal] = useState(null);
-  const [proposals, setProposals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [organizationId, setOrganizationId] = useState(null);
+// Helper function to get user's active organization
+async function getUserActiveOrganization(user) {
+  if (!user) return null;
+  let orgId = null;
+  if (user.active_client_id) {
+    orgId = user.active_client_id;
+  } else if (user.client_accesses && user.client_accesses.length > 0) {
+    orgId = user.client_accesses[0].organization_id;
+  } else {
+    const orgs = await base44.entities.Organization.filter(
+      { created_by: user.email },
+      '-created_date',
+      1
+    );
+    if (orgs.length > 0) {
+      orgId = orgs[0].id;
+    }
+  }
+  if (orgId) {
+    const orgs = await base44.entities.Organization.filter({ id: orgId });
+    if (orgs.length > 0) {
+      return orgs[0];
+    }
+  }
+  return null;
+}
+
+export default function CostEstimator() {
+  const [user, setUser] = useState(null);
+  const [organization, setOrganization] = useState(null);
+  const [laborCategories, setLaborCategories] = useState([
+    { name: "", hours: 0, rate: 0 }
+  ]);
+  const [odcItems, setOdcItems] = useState([
+    { name: "", quantity: 0, cost: 0 }
+  ]);
+  const [feePercentage, setFeePercentage] = useState(10);
 
   useEffect(() => {
-    const loadProposals = async () => {
+    const loadData = async () => {
       try {
-        const user = await base44.auth.me();
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
-          '-created_date',
-          1
-        );
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
         
-        if (orgs.length > 0) {
-          setOrganizationId(orgs[0].id);
-          const allProposals = await base44.entities.Proposal.filter(
-            { organization_id: orgs[0].id },
-            '-created_date'
-          );
-          setProposals(allProposals);
+        const org = await getUserActiveOrganization(currentUser);
+        if (org) {
+          setOrganization(org);
         }
       } catch (error) {
-        console.error("Error loading proposals:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error loading data:", error);
       }
     };
-    loadProposals();
+    loadData();
   }, []);
 
-  if (loading) {
+  const addLaborCategory = () => {
+    setLaborCategories([...laborCategories, { name: "", hours: 0, rate: 0 }]);
+  };
+
+  const removeLaborCategory = (index) => {
+    setLaborCategories(laborCategories.filter((_, i) => i !== index));
+  };
+
+  const updateLaborCategory = (index, field, value) => {
+    const updated = [...laborCategories];
+    updated[index][field] = value;
+    setLaborCategories(updated);
+  };
+
+  const addOdcItem = () => {
+    setOdcItems([...odcItems, { name: "", quantity: 0, cost: 0 }]);
+  };
+
+  const removeOdcItem = (index) => {
+    setOdcItems(odcItems.filter((_, i) => i !== index));
+  };
+
+  const updateOdcItem = (index, field, value) => {
+    const updated = [...odcItems];
+    updated[index][field] = value;
+    setOdcItems(updated);
+  };
+
+  const calculateTotalLabor = () => {
+    return laborCategories.reduce((sum, cat) => sum + (cat.hours * cat.rate), 0);
+  };
+
+  const calculateTotalOdc = () => {
+    return odcItems.reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+  };
+
+  const calculateSubtotal = () => {
+    return calculateTotalLabor() + calculateTotalOdc();
+  };
+
+  const calculateFee = () => {
+    return calculateSubtotal() * (feePercentage / 100);
+  };
+
+  const calculateGrandTotal = () => {
+    return calculateSubtotal() + calculateFee();
+  };
+
+  if (!organization || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-slate-600">Loading...</p>
-      </div>
-    );
-  }
-
-  if (!selectedProposal) {
-    return (
-      <div className="p-6 lg:p-8 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Cost Estimator</h1>
-          <p className="text-slate-600">
-            Select a proposal to manage labor rates, CLINs, and pricing strategy
-          </p>
-        </div>
-
-        {proposals.length === 0 ? (
-          <Card className="border-none shadow-xl">
-            <CardContent className="p-12 text-center">
-              <DollarSign className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Proposals Yet</h3>
-              <p className="text-slate-600 mb-6">
-                Create a proposal first to start managing pricing and costs
-              </p>
-              <Button onClick={() => navigate(createPageUrl("ProposalBuilder"))}>
-                Create Proposal
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {proposals.map((proposal) => (
-              <Card 
-                key={proposal.id}
-                className="border-none shadow-lg hover:shadow-xl transition-all cursor-pointer hover:border-blue-300"
-                onClick={() => setSelectedProposal(proposal)}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-2">
-                    <CardTitle className="text-base">{proposal.proposal_name}</CardTitle>
-                    <Badge variant="secondary" className="capitalize">
-                      {proposal.status?.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  <CardDescription className="line-clamp-2">
-                    {proposal.agency_name} • {proposal.solicitation_number}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-slate-600 mb-4">
-                    <span>{proposal.project_type}</span>
-                    {proposal.due_date && (
-                      <span>Due: {new Date(proposal.due_date).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                  <Button className="w-full" size="sm">
-                    <Calculator className="w-4 h-4 mr-2" />
-                    Manage Pricing
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardHeader>
-            <CardTitle className="text-lg">Cost Estimator Features</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <Users className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Labor Rate Management</h4>
-                  <p className="text-sm text-slate-600">
-                    Fully burdened rates with fringe, overhead, and G&A calculations
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">CLIN Builder</h4>
-                  <p className="text-sm text-slate-600">
-                    Build CLINs with labor allocations, ODCs, and automatic cost rollup
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">AI Price-to-Win</h4>
-                  <p className="text-sm text-slate-600">
-                    AI-powered pricing analysis and competitive strategy recommendations
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Skeleton className="h-32 w-32 rounded-xl" />
       </div>
     );
   }
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button 
-            variant="ghost" 
-            onClick={() => setSelectedProposal(null)}
-            className="mb-2"
-          >
-            ← Back to Proposals
-          </Button>
-          <h1 className="text-3xl font-bold text-slate-900">{selectedProposal.proposal_name}</h1>
-          <p className="text-slate-600">
-            {selectedProposal.agency_name} • {selectedProposal.solicitation_number}
-          </p>
-        </div>
-        <Badge className="text-base capitalize">
-          {selectedProposal.status?.replace('_', ' ')}
-        </Badge>
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Cost Estimator</h1>
+        <p className="text-slate-600">Quick cost estimation tool for proposals</p>
       </div>
 
-      <PricingModule
-        proposalId={selectedProposal.id}
-        proposalData={selectedProposal}
-        organizationId={organizationId}
-      />
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Labor Categories */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Labor Categories</CardTitle>
+                <Button size="sm" onClick={addLaborCategory}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {laborCategories.map((cat, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  <Input
+                    placeholder="Category name"
+                    value={cat.name}
+                    onChange={(e) => updateLaborCategory(idx, 'name', e.target.value)}
+                    className="col-span-5"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Hours"
+                    value={cat.hours || ''}
+                    onChange={(e) => updateLaborCategory(idx, 'hours', parseFloat(e.target.value) || 0)}
+                    className="col-span-3"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Rate"
+                    value={cat.rate || ''}
+                    onChange={(e) => updateLaborCategory(idx, 'rate', parseFloat(e.target.value) || 0)}
+                    className="col-span-3"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeLaborCategory(idx)}
+                    disabled={laborCategories.length === 1}
+                    className="col-span-1"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </Button>
+                </div>
+              ))}
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-900">Total Labor</span>
+                  <span className="text-lg font-bold text-slate-900">
+                    ${calculateTotalLabor().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>ODC Items</CardTitle>
+                <Button size="sm" onClick={addOdcItem}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {odcItems.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  <Input
+                    placeholder="Item name"
+                    value={item.name}
+                    onChange={(e) => updateOdcItem(idx, 'name', e.target.value)}
+                    className="col-span-5"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity || ''}
+                    onChange={(e) => updateOdcItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                    className="col-span-3"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Cost"
+                    value={item.cost || ''}
+                    onChange={(e) => updateOdcItem(idx, 'cost', parseFloat(e.target.value) || 0)}
+                    className="col-span-3"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeOdcItem(idx)}
+                    disabled={odcItems.length === 1}
+                    className="col-span-1"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </Button>
+                </div>
+              ))}
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-900">Total ODC</span>
+                  <span className="text-lg font-bold text-slate-900">
+                    ${calculateTotalOdc().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Summary */}
+        <div className="space-y-4">
+          <Card className="border-none shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-blue-600" />
+                Cost Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Labor</span>
+                  <span className="font-semibold text-slate-900">
+                    ${calculateTotalLabor().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">ODC</span>
+                  <span className="font-semibold text-slate-900">
+                    ${calculateTotalOdc().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="pt-3 border-t border-slate-300">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-900">Subtotal</span>
+                    <span className="font-bold text-slate-900">
+                      ${calculateSubtotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="pt-3 border-t border-slate-300">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-slate-600">Fee %</span>
+                    <Input
+                      type="number"
+                      value={feePercentage}
+                      onChange={(e) => setFeePercentage(parseFloat(e.target.value) || 0)}
+                      className="w-20 text-right"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Fee Amount</span>
+                    <span className="font-semibold text-slate-900">
+                      ${calculateFee().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t-2 border-slate-300">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold text-slate-900">Grand Total</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      ${calculateGrandTotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-base">Quick Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Total Hours</span>
+                <span className="font-medium text-slate-900">
+                  {laborCategories.reduce((sum, cat) => sum + cat.hours, 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Avg Hourly Rate</span>
+                <span className="font-medium text-slate-900">
+                  ${(calculateTotalLabor() / (laborCategories.reduce((sum, cat) => sum + cat.hours, 0) || 1)).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Labor %</span>
+                <span className="font-medium text-slate-900">
+                  {((calculateTotalLabor() / calculateSubtotal()) * 100 || 0).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">ODC %</span>
+                <span className="font-medium text-slate-900">
+                  {((calculateTotalOdc() / calculateSubtotal()) * 100 || 0).toFixed(1)}%
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

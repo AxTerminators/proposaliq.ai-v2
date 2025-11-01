@@ -1,46 +1,71 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   MessageSquare, 
-  Bug, 
-  Lightbulb, 
+  Plus, 
+  Search,
+  Bug,
+  Lightbulb,
   HelpCircle,
-  Upload,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  Send
+  AlertCircle
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import moment from "moment";
+
+// Helper function to get user's active organization
+async function getUserActiveOrganization(user) {
+  if (!user) return null;
+  let orgId = null;
+  if (user.active_client_id) {
+    orgId = user.active_client_id;
+  } else if (user.client_accesses && user.client_accesses.length > 0) {
+    orgId = user.client_accesses[0].organization_id;
+  } else {
+    const orgs = await base44.entities.Organization.filter(
+      { created_by: user.email },
+      '-created_date',
+      1
+    );
+    if (orgs.length > 0) {
+      orgId = orgs[0].id;
+    }
+  }
+  if (orgId) {
+    const orgs = await base44.entities.Organization.filter({ id: orgId });
+    if (orgs.length > 0) {
+      return orgs[0];
+    }
+  }
+  return null;
+}
 
 export default function Feedback() {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [screenshotFile, setScreenshotFile] = useState(null);
-  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
-
-  const [formData, setFormData] = useState({
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDialog, setShowDialog] = useState(false);
+  
+  const [feedbackData, setFeedbackData] = useState({
     issue_type: "bug",
     priority: "medium",
     title: "",
     description: "",
     steps_to_reproduce: "",
     expected_behavior: "",
-    actual_behavior: "",
-    screenshot_url: "",
-    browser_info: "",
-    page_url: ""
+    actual_behavior: ""
   });
 
   useEffect(() => {
@@ -48,25 +73,11 @@ export default function Feedback() {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setOrganization(orgs[0]);
+        
+        const org = await getUserActiveOrganization(currentUser);
+        if (org) {
+          setOrganization(org);
         }
-
-        // Auto-capture browser and page info
-        const browserInfo = `${navigator.userAgent}`;
-        const pageUrl = window.location.href;
-
-        setFormData(prev => ({
-          ...prev,
-          browser_info: browserInfo,
-          page_url: pageUrl
-        }));
       } catch (error) {
         console.error("Error loading data:", error);
       }
@@ -74,439 +85,282 @@ export default function Feedback() {
     loadData();
   }, []);
 
-  const submitFeedbackMutation = useMutation({
+  const { data: feedback, isLoading } = useQuery({
+    queryKey: ['feedback', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Feedback.filter(
+        { organization_id: organization.id },
+        '-created_date'
+      );
+    },
+    initialData: [],
+    enabled: !!organization?.id,
+  });
+
+  const createFeedbackMutation = useMutation({
     mutationFn: async (data) => {
-      const feedback = await base44.entities.Feedback.create({
+      return base44.entities.Feedback.create({
         ...data,
-        organization_id: organization?.id || "unknown",
+        organization_id: organization.id,
         reporter_email: user.email,
         reporter_name: user.full_name,
-        status: "new"
+        page_url: window.location.href,
+        browser_info: navigator.userAgent
       });
-
-      // Get all admin users for notifications
-      const allUsers = await base44.entities.User.list();
-      const adminUsers = allUsers.filter(u => u.admin_role && u.admin_role !== '');
-
-      // Send email notifications to all admins
-      for (const admin of adminUsers) {
-        try {
-          await base44.integrations.Core.SendEmail({
-            from_name: "ProposalIQ.ai Feedback System",
-            to: admin.email,
-            subject: `[${data.priority.toUpperCase()}] New Feedback: ${data.title}`,
-            body: `
-<html>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-      <h1 style="color: white; margin: 0; font-size: 24px;">New Feedback Submitted</h1>
-    </div>
-    
-    <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-      <div style="margin-bottom: 20px;">
-        <span style="display: inline-block; padding: 4px 12px; background: ${
-          data.priority === 'critical' ? '#ef4444' :
-          data.priority === 'high' ? '#f97316' :
-          data.priority === 'medium' ? '#eab308' : '#3b82f6'
-        }; color: white; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-          ${data.priority} Priority
-        </span>
-        <span style="display: inline-block; padding: 4px 12px; background: #e0e7ff; color: #4f46e5; border-radius: 4px; font-size: 12px; font-weight: bold; margin-left: 8px;">
-          ${data.issue_type.replace('_', ' ')}
-        </span>
-      </div>
-      
-      <h2 style="color: #1f2937; font-size: 20px; margin: 20px 0 10px 0;">${data.title}</h2>
-      
-      <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 14px; color: #4b5563;"><strong>Reported by:</strong> ${user.full_name} (${user.email})</p>
-        <p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Organization:</strong> ${organization?.organization_name || 'N/A'}</p>
-        <p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Page:</strong> ${data.page_url}</p>
-      </div>
-      
-      <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Description:</h3>
-      <p style="margin: 0 0 20px 0; color: #4b5563;">${data.description}</p>
-      
-      ${data.steps_to_reproduce ? `
-        <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Steps to Reproduce:</h3>
-        <p style="margin: 0 0 20px 0; color: #4b5563; white-space: pre-wrap;">${data.steps_to_reproduce}</p>
-      ` : ''}
-      
-      ${data.screenshot_url ? `
-        <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Screenshot:</h3>
-        <img src="${data.screenshot_url}" alt="Screenshot" style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;">
-      ` : ''}
-      
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="https://app.proposaliq.ai/AdminPortal" style="background: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-          View in Admin Portal →
-        </a>
-      </div>
-      
-      <p style="font-size: 12px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-        Feedback ID: ${feedback.id}
-      </p>
-    </div>
-  </div>
-</body>
-</html>
-            `
-          });
-        } catch (emailError) {
-          console.error(`Error sending email to ${admin.email}:`, emailError);
-        }
-      }
-
-      return feedback;
     },
     onSuccess: () => {
-      setSubmitSuccess(true);
-      setFormData({
-        issue_type: "bug",
-        priority: "medium",
-        title: "",
-        description: "",
-        steps_to_reproduce: "",
-        expected_behavior: "",
-        actual_behavior: "",
-        screenshot_url: "",
-        browser_info: formData.browser_info,
-        page_url: formData.page_url
-      });
-      setScreenshotFile(null);
-      setTimeout(() => setSubmitSuccess(false), 5000);
+      queryClient.invalidateQueries({ queryKey: ['feedback'] });
+      setShowDialog(false);
+      resetForm();
+      alert("Feedback submitted successfully!");
     },
   });
 
-  const handleScreenshotUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const resetForm = () => {
+    setFeedbackData({
+      issue_type: "bug",
+      priority: "medium",
+      title: "",
+      description: "",
+      steps_to_reproduce: "",
+      expected_behavior: "",
+      actual_behavior: ""
+    });
+  };
 
-    setUploadingScreenshot(true);
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData({ ...formData, screenshot_url: file_url });
-      setScreenshotFile(file);
-    } catch (error) {
-      console.error("Error uploading screenshot:", error);
-      alert("Error uploading screenshot. Please try again.");
-    } finally {
-      setUploadingScreenshot(false);
+  const handleSubmit = () => {
+    if (feedbackData.title.trim() && feedbackData.description.trim()) {
+      createFeedbackMutation.mutate(feedbackData);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.title || !formData.description) {
-      alert("Please fill in the title and description");
-      return;
-    }
+  const filteredFeedback = feedback.filter(f => 
+    f.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    f.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-    setIsSubmitting(true);
-    try {
-      await submitFeedbackMutation.mutateAsync(formData);
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      alert("Error submitting feedback. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const getStatusColor = (status) => {
+    const colors = {
+      new: "bg-blue-100 text-blue-800",
+      in_progress: "bg-amber-100 text-amber-800",
+      resolved: "bg-green-100 text-green-800",
+      closed: "bg-slate-100 text-slate-800",
+      wont_fix: "bg-red-100 text-red-800"
+    };
+    return colors[status] || colors.new;
   };
 
-  const issueTypes = [
-    { value: "bug", label: "Bug Report", icon: Bug, color: "red" },
-    { value: "feature_request", label: "Feature Request", icon: Lightbulb, color: "blue" },
-    { value: "question", label: "Question", icon: HelpCircle, color: "purple" },
-    { value: "improvement", label: "Improvement", icon: MessageSquare, color: "green" },
-    { value: "other", label: "Other", icon: MessageSquare, color: "slate" }
-  ];
+  const getTypeIcon = (type) => {
+    const icons = {
+      bug: Bug,
+      feature_request: Lightbulb,
+      question: HelpCircle,
+      improvement: AlertCircle,
+      other: MessageSquare
+    };
+    const Icon = icons[type] || MessageSquare;
+    return <Icon className="w-4 h-4" />;
+  };
 
-  const selectedIssueType = issueTypes.find(t => t.value === formData.issue_type);
+  if (!organization || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Skeleton className="h-32 w-32 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-            <MessageSquare className="w-8 h-8 text-blue-600" />
-            Feedback & Bug Reports
-          </h1>
-          <p className="text-slate-600">
-            Help us improve ProposalIQ.ai by reporting bugs, requesting features, or asking questions
-          </p>
+    <div className="p-6 lg:p-8 space-y-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Feedback & Support</h1>
+          <p className="text-slate-600">Report issues and suggest improvements</p>
         </div>
+        <Button onClick={() => { resetForm(); setShowDialog(true); }}>
+          <Plus className="w-5 h-5 mr-2" />
+          Submit Feedback
+        </Button>
+      </div>
 
-        {submitSuccess && (
-          <Alert className="bg-green-50 border-green-200 mb-6">
-            <CheckCircle2 className="w-4 h-4 text-green-600" />
-            <AlertDescription>
-              <p className="font-semibold text-green-900 mb-1">✓ Feedback Submitted Successfully!</p>
-              <p className="text-sm text-green-800">
-                Thank you for your feedback. Our team has been notified and will review it shortly.
-              </p>
-            </AlertDescription>
-          </Alert>
-        )}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+        <Input
+          placeholder="Search feedback..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
-        <Card className="border-none shadow-xl">
-          <CardHeader className="border-b">
-            <CardTitle>Submit Feedback</CardTitle>
-            <CardDescription>
-              Please provide as much detail as possible to help us address your feedback
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Issue Type Selection */}
-              <div className="space-y-3">
-                <Label>What type of feedback is this? *</Label>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {issueTypes.map((type) => {
-                    const Icon = type.icon;
-                    const isSelected = formData.issue_type === type.value;
-                    return (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, issue_type: type.value })}
-                        className={`p-4 border-2 rounded-lg transition-all text-left ${
-                          isSelected
-                            ? `border-${type.color}-500 bg-${type.color}-50`
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon className={`w-6 h-6 ${isSelected ? `text-${type.color}-600` : 'text-slate-400'}`} />
-                          <div>
-                            <p className={`font-semibold ${isSelected ? `text-${type.color}-900` : 'text-slate-900'}`}>
-                              {type.label}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1,2,3].map(i => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      ) : filteredFeedback.length === 0 ? (
+        <Card className="border-none shadow-lg">
+          <CardContent className="p-12 text-center">
+            <MessageSquare className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Feedback Yet</h3>
+            <p className="text-slate-600 mb-6">
+              Have a bug to report or feature to suggest?
+            </p>
+            <Button onClick={() => { resetForm(); setShowDialog(true); }}>
+              <Plus className="w-5 h-5 mr-2" />
+              Submit Your First Feedback
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {filteredFeedback.map((item) => (
+            <Card key={item.id} className="border-none shadow-md hover:shadow-lg transition-all">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    {getTypeIcon(item.issue_type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h3 className="font-semibold text-slate-900 line-clamp-2">{item.title}</h3>
+                      <Badge className={getStatusColor(item.status)}>
+                        {item.status?.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 line-clamp-2 mb-3">{item.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                      <span>{moment(item.created_date).fromNow()}</span>
+                      <Badge variant="secondary" className="capitalize text-xs">
+                        {item.issue_type?.replace('_', ' ')}
+                      </Badge>
+                      <Badge variant="outline" className="capitalize text-xs">
+                        {item.priority}
+                      </Badge>
+                    </div>
+                    {item.public_response && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-900">{item.public_response}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-              {/* Priority */}
-              <div className="space-y-2">
-                <Label htmlFor="priority">Priority *</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                >
-                  <SelectTrigger id="priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">Low</Badge>
-                        <span className="text-sm text-slate-600">Minor issue, cosmetic</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700">Medium</Badge>
-                        <span className="text-sm text-slate-600">Affects some functionality</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700">High</Badge>
-                        <span className="text-sm text-slate-600">Blocking work significantly</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="critical">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-red-50 text-red-700">Critical</Badge>
-                        <span className="text-sm text-slate-600">App is broken/unusable</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      <Dialog open={showDialog} onOpenChange={(open) => { 
+        setShowDialog(open); 
+        if (!open) resetForm(); 
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Submit Feedback</DialogTitle>
+          </DialogHeader>
 
-              {/* Title */}
-              <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Brief summary of the issue or request"
-                  required
-                />
-              </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Type *</label>
+              <select
+                className="w-full border rounded-md p-2"
+                value={feedbackData.issue_type}
+                onChange={(e) => setFeedbackData({ ...feedbackData, issue_type: e.target.value })}
+              >
+                <option value="bug">Bug Report</option>
+                <option value="feature_request">Feature Request</option>
+                <option value="question">Question</option>
+                <option value="improvement">Improvement</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Provide detailed information about the issue or your request"
-                  rows={5}
-                  required
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Priority</label>
+              <select
+                className="w-full border rounded-md p-2"
+                value={feedbackData.priority}
+                onChange={(e) => setFeedbackData({ ...feedbackData, priority: e.target.value })}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
 
-              {/* Bug-specific fields */}
-              {formData.issue_type === "bug" && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="steps">Steps to Reproduce</Label>
+            <div>
+              <label className="block text-sm font-medium mb-2">Title *</label>
+              <Input
+                value={feedbackData.title}
+                onChange={(e) => setFeedbackData({ ...feedbackData, title: e.target.value })}
+                placeholder="Brief summary of the issue"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Description *</label>
+              <Textarea
+                value={feedbackData.description}
+                onChange={(e) => setFeedbackData({ ...feedbackData, description: e.target.value })}
+                placeholder="Detailed description"
+                rows={4}
+              />
+            </div>
+
+            {feedbackData.issue_type === 'bug' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Steps to Reproduce</label>
+                  <Textarea
+                    value={feedbackData.steps_to_reproduce}
+                    onChange={(e) => setFeedbackData({ ...feedbackData, steps_to_reproduce: e.target.value })}
+                    placeholder="1. Go to...&#10;2. Click on...&#10;3. See error"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Expected Behavior</label>
                     <Textarea
-                      id="steps"
-                      value={formData.steps_to_reproduce}
-                      onChange={(e) => setFormData({ ...formData, steps_to_reproduce: e.target.value })}
-                      placeholder="1. Go to...\n2. Click on...\n3. See error..."
-                      rows={4}
+                      value={feedbackData.expected_behavior}
+                      onChange={(e) => setFeedbackData({ ...feedbackData, expected_behavior: e.target.value })}
+                      placeholder="What should happen"
+                      rows={2}
                     />
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expected">Expected Behavior</Label>
-                      <Textarea
-                        id="expected"
-                        value={formData.expected_behavior}
-                        onChange={(e) => setFormData({ ...formData, expected_behavior: e.target.value })}
-                        placeholder="What should have happened?"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="actual">Actual Behavior</Label>
-                      <Textarea
-                        id="actual"
-                        value={formData.actual_behavior}
-                        onChange={(e) => setFormData({ ...formData, actual_behavior: e.target.value })}
-                        placeholder="What actually happened?"
-                        rows={3}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Actual Behavior</label>
+                    <Textarea
+                      value={feedbackData.actual_behavior}
+                      onChange={(e) => setFeedbackData({ ...feedbackData, actual_behavior: e.target.value })}
+                      placeholder="What actually happens"
+                      rows={2}
+                    />
                   </div>
-                </>
-              )}
-
-              {/* Screenshot Upload */}
-              <div className="space-y-2">
-                <Label>Screenshot (Optional)</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center bg-slate-50">
-                  {screenshotFile ? (
-                    <div className="space-y-3">
-                      <img 
-                        src={formData.screenshot_url} 
-                        alt="Screenshot preview" 
-                        className="max-h-48 mx-auto rounded border"
-                      />
-                      <p className="text-sm font-medium text-slate-700">{screenshotFile.name}</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setScreenshotFile(null);
-                          setFormData({ ...formData, screenshot_url: "" });
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                      <input
-                        type="file"
-                        id="screenshot-upload"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleScreenshotUpload}
-                        disabled={uploadingScreenshot}
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        disabled={uploadingScreenshot}
-                      >
-                        <label htmlFor="screenshot-upload" className="cursor-pointer">
-                          {uploadingScreenshot ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Uploading...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2" />
-                              Upload Screenshot
-                            </>
-                          )}
-                        </label>
-                      </Button>
-                      <p className="text-xs text-slate-500 mt-2">PNG, JPG, or GIF</p>
-                    </>
-                  )}
                 </div>
-              </div>
+              </>
+            )}
 
-              {/* System Information (Read-only) */}
-              <Alert className="bg-blue-50 border-blue-200">
-                <AlertDescription>
-                  <p className="font-semibold text-blue-900 mb-2">System Information (Auto-captured)</p>
-                  <div className="text-xs text-blue-800 space-y-1">
-                    <p><strong>Page URL:</strong> {formData.page_url}</p>
-                    <p><strong>Browser:</strong> {formData.browser_info.substring(0, 100)}...</p>
-                    <p><strong>User:</strong> {user?.full_name} ({user?.email})</p>
-                    <p><strong>Organization:</strong> {organization?.organization_name || 'N/A'}</p>
-                  </div>
-                </AlertDescription>
-              </Alert>
-
-              {/* Submit Button */}
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || !formData.title || !formData.description}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Submit Feedback
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Additional Help */}
-        <Alert className="mt-6">
-          <AlertTriangle className="w-4 h-4" />
-          <AlertDescription>
-            <p className="font-semibold text-slate-900 mb-1">Need Urgent Help?</p>
-            <p className="text-sm text-slate-700">
-              For critical issues or urgent support, please contact us directly at{" "}
-              <a href="mailto:support@proposaliq.ai" className="text-blue-600 hover:underline">
-                support@proposaliq.ai
-              </a>
-            </p>
-          </AlertDescription>
-        </Alert>
-      </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmit} 
+                disabled={!feedbackData.title.trim() || !feedbackData.description.trim() || createFeedbackMutation.isPending}
+              >
+                {createFeedbackMutation.isPending ? 'Submitting...' : 'Submit Feedback'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
