@@ -1,22 +1,14 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import KanbanColumn from "./KanbanColumn";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Settings2, RotateCcw, AlertTriangle, Trash2, GripVertical } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Settings2, Plus, Loader2, RotateCcw, GripVertical, AlertTriangle, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import KanbanColumn from "./KanbanColumn";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,344 +19,224 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
-export default function ProposalsKanban({ proposals = [], onProposalClick, onDeleteProposal, isLoading, user, organization }) {
+const defaultColumns = [
+  { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating' },
+  { id: 'watch_list', label: 'Watch List', color: 'bg-yellow-100', order: 1, type: 'default_status', default_status_mapping: 'watch_list' },
+  { id: 'draft', label: 'Draft', color: 'bg-slate-100', order: 2, type: 'default_status', default_status_mapping: 'draft' },
+  { id: 'in_progress', label: 'In Review', color: 'bg-purple-100', order: 3, type: 'default_status', default_status_mapping: 'in_progress' },
+  { id: 'submitted', label: 'Submitted', color: 'bg-indigo-100', order: 4, type: 'default_status', default_status_mapping: 'submitted' },
+  { id: 'won', label: 'Won', color: 'bg-green-100', order: 5, type: 'default_status', default_status_mapping: 'won' },
+  { id: 'lost', label: 'Lost', color: 'bg-red-100', order: 6, type: 'default_status', default_status_mapping: 'lost' },
+  { id: 'archived', label: 'Archived', color: 'bg-slate-100', order: 7, type: 'default_status', default_status_mapping: 'archived' }
+];
+
+export default function ProposalsKanban({ proposals = [], onProposalClick, isLoading, user, organization }) {
   const queryClient = useQueryClient();
-  const [columns, setColumns] = useState([]);
+  const [columns, setColumns] = useState(defaultColumns);
+  const [columnConfig, setColumnConfig] = useState(defaultColumns);
   const [isEditingColumns, setIsEditingColumns] = useState(false);
-  const [columnConfig, setColumnConfig] = useState([]);
-  const [collapsedColumns, setCollapsedColumns] = useState([]);
-  const [configId, setConfigId] = useState(null);
-  const [showResetWarning, setShowResetWarning] = useState(false);
-  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
-  const [proposalToDelete, setProposalToDelete] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
-  
-  // New column states
   const [newColumnLabel, setNewColumnLabel] = useState("");
-  const [newColumnColor, setNewColumnColor] = useState("bg-slate-100");
+  const [newColumnColor, setNewColumnColor] = useState("bg-blue-100");
+  const [proposalToDelete, setProposalToDelete] = useState(null);
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [collapsedColumns, setCollapsedColumns] = useState([]);
+  const [showResetWarning, setShowResetWarning] = useState(false);
+  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
+  const [quickAddPosition, setQuickAddPosition] = useState(null);
+  const [quickColumnName, setQuickColumnName] = useState("");
+  const [quickColumnColor, setQuickColumnColor] = useState("bg-blue-100");
+  const [columnSorts, setColumnSorts] = useState({});
   const [showColumnDeleteWarning, setShowColumnDeleteWarning] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
   const [columnDeleteError, setColumnDeleteError] = useState(null);
 
-  // Quick add column states
-  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
-  const [quickAddPosition, setQuickAddPosition] = useState(null);
-  const [quickColumnName, setQuickColumnName] = useState("");
-  const [quickColumnColor, setQuickColumnColor] = useState("bg-slate-100");
-
-  // Column sort preferences
-  const [columnSorts, setColumnSorts] = useState({});
-
-  const defaultColumns = [
-    { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0, type: "default_status", default_status_mapping: "evaluating" },
-    { id: "watch_list", label: "Watch List", color: "bg-yellow-100", order: 1, type: "default_status", default_status_mapping: "watch_list" },
-    { id: "draft", label: "Draft", color: "bg-blue-100", order: 2, type: "default_status", default_status_mapping: "draft" },
-    { id: "in_progress", label: "In Review", color: "bg-purple-100", order: 3, type: "default_status", default_status_mapping: "in_progress" },
-    { id: "submitted", label: "Submitted", color: "bg-indigo-100", order: 4, type: "default_status", default_status_mapping: "submitted" },
-    { id: "won", label: "Won", color: "bg-green-100", order: 5, type: "default_status", default_status_mapping: "won" },
-    { id: "lost", label: "Lost", color: "bg-red-100", order: 6, type: "default_status", default_status_mapping: "lost" },
-    { id: "archived", label: "Archived", color: "bg-gray-100", order: 7, type: "default_status", default_status_mapping: "archived" },
-  ];
-
+  // Load saved config on mount
   useEffect(() => {
     const loadConfig = async () => {
       if (!organization?.id) return;
-      
+
       try {
-        const configs = await base44.entities.KanbanConfig.filter({
-          organization_id: organization.id
-        });
+        const configs = await base44.entities.KanbanConfig.filter(
+          { organization_id: organization.id },
+          '-created_date',
+          1
+        );
 
-        if (configs.length > 0) {
-          const config = configs[0];
-          setConfigId(config.id);
+        if (configs.length > 0 && configs[0].columns) {
+          const savedColumns = configs[0].columns.sort((a, b) => a.order - b.order);
+          setColumns(savedColumns);
+          setColumnConfig(savedColumns);
           
-          let savedColumns = config.columns || defaultColumns;
-          
-          // Ensure all columns have required properties
-          savedColumns = savedColumns.map((col, idx) => {
-            const defaultCol = defaultColumns.find(dc => dc.id === col.id);
-            return {
-              id: col.id || `col_${idx}`,
-              label: col.label || (defaultCol ? defaultCol.label : col.id || `Column ${idx + 1}`),
-              color: col.color || (defaultCol ? defaultCol.color : 'bg-slate-100'),
-              order: col.order !== undefined ? col.order : (defaultCol ? defaultCol.order : idx),
-              type: col.type || (defaultCol ? 'default_status' : 'custom_stage'),
-              default_status_mapping: col.default_status_mapping || (defaultCol ? defaultCol.default_status_mapping : null)
-            };
-          });
-          
-          const sortedColumns = [...savedColumns].sort((a, b) => (a.order || 0) - (b.order || 0));
-          
-          setColumns(sortedColumns);
-          setColumnConfig(sortedColumns);
-          
-          if (config.collapsed_column_ids) {
-            setCollapsedColumns(config.collapsed_column_ids);
+          if (configs[0].collapsed_column_ids) {
+            setCollapsedColumns(configs[0].collapsed_column_ids);
           }
-
-          // Load column sort preferences
-          if (config.column_sorts) {
-            setColumnSorts(config.column_sorts);
-          }
-        } else {
-          setColumns(defaultColumns);
-          setColumnConfig(defaultColumns);
         }
       } catch (error) {
         console.error("Error loading kanban config:", error);
-        setColumns(defaultColumns);
-        setColumnConfig(defaultColumns);
       }
     };
 
     loadConfig();
   }, [organization?.id]);
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ proposalId, newColumnId, oldColumnId }) => {
-      if (!proposalId || !newColumnId || !columns || columns.length === 0) {
-        throw new Error("Missing required data for status update");
-      }
-
-      const newColumn = columns.find(c => c?.id === newColumnId);
-      const oldColumn = columns.find(c => c?.id === oldColumnId);
-
-      if (!newColumn) {
-        throw new Error("Destination column not found");
-      }
-
-      // Prepare update data
-      const updateData = {};
-
-      if (newColumn.type === 'default_status') {
-        // Moving to a default status column
-        updateData.status = newColumn.default_status_mapping;
-        updateData.custom_workflow_stage_id = null;
-      } else {
-        // Moving to a custom column
-        updateData.custom_workflow_stage_id = newColumnId;
-        updateData.status = 'in_progress'; // Set a reasonable default status
-      }
-
-      await base44.entities.Proposal.update(proposalId, updateData);
-
-      const allUsers = await base44.entities.User.list();
-      const teamEmails = allUsers
-        .filter(u => {
-          const accesses = u?.client_accesses || [];
-          return accesses.some(a => a?.organization_id === organization?.id);
-        })
-        .map(u => u.email);
-
-      return { proposalId, newColumnId, oldColumnId, teamEmails };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-    },
-    onError: (error) => {
-      console.error("Error updating proposal status:", error);
-      alert("Error moving proposal. Please try again.");
-    },
-  });
-
   const saveColumnConfigMutation = useMutation({
-    mutationFn: async (newColumns) => {
-      if (!organization?.id) {
-        throw new Error("Organization ID is required");
-      }
+    mutationFn: async (columnsToSave) => {
+      if (!organization?.id) throw new Error("No organization");
 
-      const configs = await base44.entities.KanbanConfig.filter({
-        organization_id: organization.id
-      });
+      const configs = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
 
-      const columnsWithOrder = newColumns.map((col, idx) => ({
-        ...col,
-        order: idx
-      }));
+      const configData = {
+        organization_id: organization.id,
+        columns: columnsToSave.map((col, idx) => ({
+          ...col,
+          order: idx
+        })),
+        collapsed_column_ids: collapsedColumns
+      };
 
       if (configs.length > 0) {
-        await base44.entities.KanbanConfig.update(configs[0].id, {
-          columns: columnsWithOrder,
-          collapsed_column_ids: collapsedColumns,
-          column_sorts: columnSorts
-        });
+        return base44.entities.KanbanConfig.update(configs[0].id, configData);
       } else {
-        const created = await base44.entities.KanbanConfig.create({
-          organization_id: organization.id,
-          columns: columnsWithOrder,
-          collapsed_column_ids: collapsedColumns,
-          column_sorts: columnSorts
-        });
-        setConfigId(created.id);
+        return base44.entities.KanbanConfig.create(configData);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-    },
-    onError: (error) => {
-      console.error("Error saving column config:", error);
-      alert("Error saving column configuration. Please try again.");
     }
   });
 
-  const saveCollapsedStateMutation = useMutation({
-    mutationFn: async (newCollapsedColumns) => {
-      if (!organization?.id) {
-        throw new Error("Organization ID is required");
-      }
-
-      if (configId) {
-        await base44.entities.KanbanConfig.update(configId, {
-          collapsed_column_ids: newCollapsedColumns
-        });
-      } else {
-        const created = await base44.entities.KanbanConfig.create({
-          organization_id: organization.id,
-          columns: columns,
-          collapsed_column_ids: newCollapsedColumns,
-          column_sorts: columnSorts
-        });
-        setConfigId(created.id);
-      }
+  const updateProposalMutation = useMutation({
+    mutationFn: async ({ proposalId, updates }) => {
+      return base44.entities.Proposal.update(proposalId, updates);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-    },
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    }
   });
 
-  const saveSortPreferenceMutation = useMutation({
-    mutationFn: async (newColumnSorts) => {
-      if (!organization?.id) {
-        throw new Error("Organization ID is required");
-      }
-
-      if (configId) {
-        await base44.entities.KanbanConfig.update(configId, {
-          column_sorts: newColumnSorts
-        });
-      } else {
-        const created = await base44.entities.KanbanConfig.create({
-          organization_id: organization.id,
-          columns: columns,
-          collapsed_column_ids: collapsedColumns,
-          column_sorts: newColumnSorts
-        });
-        setConfigId(created.id);
-      }
+  const deleteProposalMutation = useMutation({
+    mutationFn: async (proposalId) => {
+      return base44.entities.Proposal.delete(proposalId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-    },
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      setShowDeleteWarning(false);
+      setProposalToDelete(null);
+    }
   });
 
   const resetToDefaultMutation = useMutation({
     mutationFn: async () => {
-      if (!organization?.id) {
-        throw new Error("Organization ID is required");
-      }
+      if (!organization?.id) throw new Error("No organization");
 
-      const configs = await base44.entities.KanbanConfig.filter({
-        organization_id: organization.id
-      });
+      const configs = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+
+      const configData = {
+        organization_id: organization.id,
+        columns: defaultColumns,
+        collapsed_column_ids: []
+      };
 
       if (configs.length > 0) {
-        await base44.entities.KanbanConfig.update(configs[0].id, {
-          columns: defaultColumns,
-          collapsed_column_ids: [],
-          column_sorts: {}
-        });
+        return base44.entities.KanbanConfig.update(configs[0].id, configData);
       } else {
-        const created = await base44.entities.KanbanConfig.create({
-          organization_id: organization.id,
-          columns: defaultColumns,
-          collapsed_column_ids: [],
-          column_sorts: {}
-        });
-        setConfigId(created.id);
+        return base44.entities.KanbanConfig.create(configData);
       }
     },
     onSuccess: () => {
       setColumns(defaultColumns);
       setColumnConfig(defaultColumns);
       setCollapsedColumns([]);
-      setColumnSorts({}); // Reset sort preferences on default
+      setColumnSorts({});
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       setShowResetWarning(false);
-      setIsEditingColumns(false);
-    },
+    }
   });
 
-  const deleteProposalMutation = useMutation({
-    mutationFn: async (proposalId) => {
-      await base44.entities.Proposal.delete(proposalId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      setShowDeleteWarning(false);
-      setProposalToDelete(null);
-    },
-  });
-
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     setIsDragging(true);
-  }, []);
+  };
 
-  const handleDragEnd = useCallback((result) => {
+  const handleDragEnd = (result) => {
     setIsDragging(false);
-    
+
     if (!result.destination) return;
 
-    const { source, destination, draggableId, type } = result;
+    const { source, destination, type } = result;
 
-    try {
-      // Handle column reordering
-      if (type === 'column') {
-        const newColumns = Array.from(columns);
-        const [movedColumn] = newColumns.splice(source.index, 1);
-        newColumns.splice(destination.index, 0, movedColumn);
+    if (type === 'column') {
+      const newColumns = Array.from(columns);
+      const [removed] = newColumns.splice(source.index, 1);
+      newColumns.splice(destination.index, 0, removed);
 
-        // Update order property
-        const reorderedColumns = newColumns.map((col, idx) => ({
-          ...col,
-          order: idx
-        }));
+      const updatedColumns = newColumns.map((col, idx) => ({
+        ...col,
+        order: idx
+      }));
 
-        setColumns(reorderedColumns);
-        saveColumnConfigMutation.mutate(reorderedColumns);
-        return;
-      }
-
-      // Handle proposal card moving between columns
-      if (source.droppableId === destination.droppableId && source.index === destination.index) {
-        return;
-      }
-
-      const proposalId = draggableId;
-      const newColumnId = destination.droppableId;
-      const oldColumnId = source.droppableId;
-
-      if (!proposalId || !newColumnId || !oldColumnId) {
-        console.error("Missing drag data", { proposalId, newColumnId, oldColumnId });
-        return;
-      }
-
-      // Clear sort for the target column when a user manually drags a card
-      if (columnSorts[newColumnId]) {
-        const newColumnSorts = { ...columnSorts };
-        delete newColumnSorts[newColumnId];
-        setColumnSorts(newColumnSorts);
-        saveSortPreferenceMutation.mutate(newColumnSorts);
-      }
-
-      updateStatusMutation.mutate({ proposalId, newColumnId, oldColumnId });
-    } catch (error) {
-      console.error("Error in handleDragEnd:", error);
+      setColumns(updatedColumns);
+      saveColumnConfigMutation.mutate(updatedColumns);
+      return;
     }
-  }, [columns, updateStatusMutation, saveColumnConfigMutation, columnSorts, saveSortPreferenceMutation]);
+
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
+
+    const sourceColumn = columns.find(col => col.id === source.droppableId);
+    const destColumn = columns.find(col => col.id === destination.droppableId);
+
+    if (!sourceColumn || !destColumn) return;
+
+    const proposal = proposals.find(p => {
+      if (sourceColumn.type === 'default_status') {
+        return p.status === sourceColumn.default_status_mapping;
+      } else {
+        return p.custom_workflow_stage_id === sourceColumn.id;
+      }
+    });
+
+    if (!proposal) return;
+
+    let updates = {};
+    if (destColumn.type === 'default_status') {
+      updates = {
+        status: destColumn.default_status_mapping,
+        custom_workflow_stage_id: null
+      };
+    } else {
+      updates = {
+        custom_workflow_stage_id: destColumn.id,
+        status: 'in_progress'
+      };
+    }
+
+    updateProposalMutation.mutate({
+      proposalId: proposal.id,
+      updates
+    });
+  };
+
+  const handleProposalClick = (proposal) => {
+    if (onProposalClick) {
+      onProposalClick(proposal);
+    }
+  };
+
+  const handleDeleteProposal = (proposal) => {
+    setProposalToDelete(proposal);
+    setShowDeleteWarning(true);
+  };
 
   const handleAddColumn = () => {
     if (!newColumnLabel.trim()) {
@@ -372,21 +244,92 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       return;
     }
 
-    // Generate unique ID for custom column
-    const customId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
     const newColumn = {
-      id: customId,
-      label: newColumnLabel.trim(),
+      id: `custom_${Date.now()}`,
+      label: newColumnLabel,
       color: newColumnColor,
       order: columnConfig.length,
-      type: 'custom_stage',
-      default_status_mapping: null
+      type: 'custom_stage'
     };
 
-    setColumnConfig(prev => [...prev, newColumn]);
+    const updatedColumns = [...columnConfig, newColumn];
+    setColumnConfig(updatedColumns);
     setNewColumnLabel("");
-    setNewColumnColor("bg-slate-100");
+    setNewColumnColor("bg-blue-100");
+  };
+
+  const handleQuickAddColumn = (position) => {
+    setQuickAddPosition(position);
+    setQuickColumnName("");
+    setQuickColumnColor("bg-blue-100");
+    setShowQuickAddDialog(true);
+  };
+
+  const handleQuickAddSubmit = () => {
+    if (!quickColumnName.trim()) {
+      alert("Please enter a column name");
+      return;
+    }
+
+    const newColumn = {
+      id: `custom_${Date.now()}`,
+      label: quickColumnName,
+      color: quickColumnColor,
+      order: quickAddPosition,
+      type: 'custom_stage'
+    };
+
+    const updatedColumns = [...columnConfig];
+    updatedColumns.splice(quickAddPosition, 0, newColumn);
+    
+    const reorderedColumns = updatedColumns.map((col, idx) => ({
+      ...col,
+      order: idx
+    }));
+
+    setColumnConfig(reorderedColumns);
+    setColumns(reorderedColumns);
+    saveColumnConfigMutation.mutate(reorderedColumns);
+    setShowQuickAddDialog(false);
+  };
+
+  const handleToggleCollapse = async (columnId) => {
+    const newCollapsed = collapsedColumns.includes(columnId)
+      ? collapsedColumns.filter(id => id !== columnId)
+      : [...collapsedColumns, columnId];
+    
+    setCollapsedColumns(newCollapsed);
+
+    if (!organization?.id) return;
+
+    try {
+      const configs = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+
+      const configData = {
+        organization_id: organization.id,
+        columns: columns,
+        collapsed_column_ids: newCollapsed
+      };
+
+      if (configs.length > 0) {
+        await base44.entities.KanbanConfig.update(configs[0].id, configData);
+      } else {
+        await base44.entities.KanbanConfig.create(configData);
+      }
+    } catch (error) {
+      console.error("Error saving collapse state:", error);
+    }
+  };
+
+  const handleSortChange = (columnId, sortType) => {
+    setColumnSorts(prev => ({
+      ...prev,
+      [columnId]: sortType
+    }));
   };
 
   const handleDeleteColumn = async (column) => {
@@ -400,7 +343,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       return;
     }
 
-    // Check if column has any proposals
     const proposalsInColumn = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
 
     if (proposalsInColumn.length > 0) {
@@ -413,7 +355,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       return;
     }
 
-    // Column is empty, show confirmation
     setColumnToDelete(column);
     setColumnDeleteError(null);
     setShowColumnDeleteWarning(true);
@@ -422,12 +363,10 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const confirmDeleteColumn = () => {
     if (!columnToDelete) return;
 
-    // Remove from both columns and columnConfig
     const newColumns = columns.filter(col => col?.id !== columnToDelete.id);
     setColumns(newColumns);
     setColumnConfig(prev => prev.filter(col => col?.id !== columnToDelete.id));
     
-    // Save to backend
     saveColumnConfigMutation.mutate(newColumns);
     
     setShowColumnDeleteWarning(false);
@@ -436,13 +375,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   };
 
   const handleSaveColumns = () => {
-    const sortedConfig = columnConfig.map((col, idx) => ({
-      ...col,
-      order: idx
-    }));
-    
-    setColumns(sortedConfig);
-    saveColumnConfigMutation.mutate(sortedConfig);
+    setColumns(columnConfig);
+    saveColumnConfigMutation.mutate(columnConfig);
     setIsEditingColumns(false);
   };
 
@@ -457,172 +391,94 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const handleColumnChange = (columnId, field, value) => {
     setColumnConfig(prev =>
       prev.map(col =>
-        col?.id === columnId ? { ...col, [field]: value } : col
+        col.id === columnId ? { ...col, [field]: value } : col
       )
     );
   };
 
-  const handleColumnOrderChange = (columnId, newOrder) => {
-    const orderNum = parseInt(newOrder, 10);
-    if (isNaN(orderNum) || orderNum < 1 || orderNum > columnConfig.length) return;
+  const handleColumnOrderChange = (columnId, newOrderStr) => {
+    const newOrder = parseInt(newOrderStr);
+    if (isNaN(newOrder) || newOrder < 1 || newOrder > columnConfig.length) return;
 
-    const targetIndex = orderNum - 1;
     const currentIndex = columnConfig.findIndex(col => col.id === columnId);
-    
-    if (currentIndex === -1 || targetIndex === currentIndex) return;
+    if (currentIndex === -1) return;
+
+    const targetIndex = newOrder - 1;
+    if (currentIndex === targetIndex) return;
 
     const newColumns = Array.from(columnConfig);
-    const [movedColumn] = newColumns.splice(currentIndex, 1);
-    newColumns.splice(Math.min(targetIndex, newColumns.length), 0, movedColumn);
+    const [removed] = newColumns.splice(currentIndex, 1);
+    newColumns.splice(targetIndex, 0, removed);
 
-    setColumnConfig(newColumns);
+    const reorderedColumns = newColumns.map((col, idx) => ({
+      ...col,
+      order: idx
+    }));
+
+    setColumnConfig(reorderedColumns);
   };
 
   const handleConfigDragEnd = (result) => {
     if (!result.destination) return;
 
-    const { source, destination } = result;
-    if (source.index === destination.index) return;
+    const items = Array.from(columnConfig);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
 
-    const newColumns = Array.from(columnConfig);
-    const [movedColumn] = newColumns.splice(source.index, 1);
-    newColumns.splice(destination.index, 0, movedColumn);
+    const reorderedColumns = items.map((col, idx) => ({
+      ...col,
+      order: idx
+    }));
 
-    setColumnConfig(newColumns);
+    setColumnConfig(reorderedColumns);
   };
-
-  const handleToggleCollapse = useCallback((columnId) => {
-    if (!columnId || isDragging) return; // Prevent collapse during drag
-
-    const newCollapsedColumns = collapsedColumns.includes(columnId) 
-      ? collapsedColumns.filter(id => id !== columnId)
-      : [...collapsedColumns, columnId];
-    
-    setCollapsedColumns(newCollapsedColumns);
-    
-    saveCollapsedStateMutation.mutate(newCollapsedColumns);
-  }, [collapsedColumns, isDragging, saveCollapsedStateMutation]);
-
-  const handleSortChange = useCallback((columnId, sortType) => {
-    const newColumnSorts = { ...columnSorts };
-    
-    if (sortType === null) {
-      // Clear sort for this column
-      delete newColumnSorts[columnId];
-    } else {
-      // Set new sort
-      newColumnSorts[columnId] = sortType;
-    }
-    
-    setColumnSorts(newColumnSorts);
-    saveSortPreferenceMutation.mutate(newColumnSorts);
-  }, [columnSorts, saveSortPreferenceMutation]);
-
-  const handleQuickAddColumn = useCallback((position) => {
-    setQuickAddPosition(position);
-    setQuickColumnName("");
-    setQuickColumnColor("bg-slate-100");
-    setShowQuickAddDialog(true);
-  }, []);
-
-  const handleQuickAddSubmit = () => {
-    if (!quickColumnName.trim()) {
-      alert("Please enter a column name");
-      return;
-    }
-
-    const customId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const newColumn = {
-      id: customId,
-      label: quickColumnName.trim(),
-      color: quickColumnColor,
-      order: quickAddPosition,
-      type: 'custom_stage',
-      default_status_mapping: null
-    };
-
-    // Insert at the specified position
-    const newColumns = [...columns];
-    newColumns.splice(quickAddPosition, 0, newColumn);
-    
-    const reorderedColumns = newColumns.map((col, idx) => ({ ...col, order: idx }));
-
-    setColumns(reorderedColumns);
-    saveColumnConfigMutation.mutate(reorderedColumns); // Save the updated configuration
-    setShowQuickAddDialog(false);
-  };
-
-  const handleDeleteProposal = useCallback((proposal) => {
-    setProposalToDelete(proposal);
-    setShowDeleteWarning(true);
-  }, []);
 
   const confirmDelete = () => {
-    if (proposalToDelete?.id) {
+    if (proposalToDelete) {
       deleteProposalMutation.mutate(proposalToDelete.id);
     }
   };
 
   const groupedProposals = useMemo(() => {
-    return columns.reduce((acc, column) => {
-      if (!column || !column.id) return acc;
-
+    const grouped = {};
+    
+    columns.forEach(column => {
       let columnProposals = [];
       
       if (column.type === 'default_status') {
-        columnProposals = (proposals || []).filter(p => p?.status === column.default_status_mapping);
+        columnProposals = proposals.filter(p => 
+          p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
+        );
       } else {
-        columnProposals = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
-      }
-
-      // Apply sorting if a sort preference exists
-      const sortType = columnSorts[column.id];
-      if (sortType && columnProposals.length > 0) {
-        const sorted = [...columnProposals];
-        
-        switch(sortType) {
-          case "date_newest":
-            sorted.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-            break;
-          case "name_asc":
-            sorted.sort((a, b) => (a.proposal_name || '').localeCompare(b.proposal_name || ''));
-            break;
-          case "name_desc":
-            sorted.sort((a, b) => (b.proposal_name || '').localeCompare(a.proposal_name || ''));
-            break;
-          default:
-            // If an unknown sort type is present, just use the default ordering
-            sorted.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-            break;
-        }
-        
-        acc[column.id] = sorted;
-      } else {
-        // Default sort: by created_date descending if no specific sort preference is set
-        acc[column.id] = [...columnProposals].sort((a, b) => 
-          new Date(b.created_date) - new Date(a.created_date)
+        columnProposals = proposals.filter(p => 
+          p?.custom_workflow_stage_id === column.id
         );
       }
-      
-      return acc;
-    }, {});
-  }, [columns, proposals, columnSorts]);
 
-  const handleProposalClick = useCallback((proposal) => {
-    if (onProposalClick) {
-      onProposalClick(proposal);
-    }
-  }, [onProposalClick]);
+      const sortType = columnSorts[column.id];
+      if (sortType) {
+        columnProposals = [...columnProposals].sort((a, b) => {
+          if (sortType === 'date_newest') {
+            return new Date(b.created_date) - new Date(a.created_date);
+          } else if (sortType === 'name_asc') {
+            return (a.proposal_name || '').localeCompare(b.proposal_name || '');
+          } else if (sortType === 'name_desc') {
+            return (b.proposal_name || '').localeCompare(a.proposal_name || '');
+          }
+          return 0;
+        });
+      }
 
-  if (isLoading || !organization) {
+      grouped[column.id] = columnProposals;
+    });
+
+    return grouped;
+  }, [proposals, columns, columnSorts]);
+
+  if (isLoading) {
     return (
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="flex-shrink-0 w-80">
-            <Skeleton className="h-64 w-full" />
-          </div>
-        ))}
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -1079,7 +935,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                 const isColumnCollapsed = collapsedColumns.includes(column.id);
                 return (
                   <React.Fragment key={column.id}>
-                    {/* Column Divider with + button */}
                     <div className="group relative flex items-start flex-shrink-0">
                       <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(index)}>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
@@ -1093,7 +948,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                       draggableId={column.id} 
                       index={index} 
                       type="column"
-                      isDragDisabled={isDragging}
                     >
                       {(provided, snapshot) => (
                         <div
@@ -1122,7 +976,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                                   dragHandleProps={provided.dragHandleProps}
                                   onSortChange={handleSortChange}
                                   currentSort={columnSorts[column.id]}
-                                  onDeleteColumn={handleDeleteColumn} // Add this prop
+                                  onDeleteColumn={handleDeleteColumn}
                                 />
                                 {provided.placeholder}
                               </div>
@@ -1135,7 +989,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                 );
               })}
 
-              {/* Final divider after last column */}
               <div className="group relative flex items-start flex-shrink-0">
                 <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(columns.length)}>
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
