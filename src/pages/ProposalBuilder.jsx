@@ -80,7 +80,6 @@ export default function ProposalBuilder() {
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
           
-          // Load subscription to check features
           const subs = await base44.entities.Subscription.filter(
             { organization_id: orgs[0].id },
             '-created_date',
@@ -100,12 +99,16 @@ export default function ProposalBuilder() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
+    const phaseParam = urlParams.get('phase');
+    
     if (id && organization?.id) {
-      loadProposal(id);
+      loadProposal(id, phaseParam);
+    } else if (phaseParam) {
+      setCurrentPhase(phaseParam);
     }
   }, [organization?.id]);
 
-  const loadProposal = async (id) => {
+  const loadProposal = async (id, phaseFromUrl) => {
     try {
       const proposals = await base44.entities.Proposal.filter({ 
         id,
@@ -116,7 +119,14 @@ export default function ProposalBuilder() {
         const proposal = proposals[0];
         setProposalId(id);
         setProposalData(proposal);
-        setCurrentPhase(proposal.current_phase || "phase1");
+        
+        if (phaseFromUrl && PHASES.some(p => p.id === phaseFromUrl)) {
+          setCurrentPhase(phaseFromUrl);
+        } else if (proposal.current_phase) {
+          setCurrentPhase(proposal.current_phase);
+        } else {
+          setCurrentPhase("phase1");
+        }
       } else {
         alert("Proposal not found or you don't have access to it.");
         navigate(createPageUrl("Pipeline"));
@@ -201,10 +211,8 @@ export default function ProposalBuilder() {
   const currentPhaseIndex = PHASES.findIndex(p => p.id === currentPhase);
   const progress = ((currentPhaseIndex + 1) / PHASES.length) * 100;
 
-  // Check if client portal features are available
   const hasClientPortal = subscription?.features_enabled?.client_portal === true;
 
-  // Guard clause - ensure all data is loaded before rendering tabs
   const isDataLoaded = proposalId && user && organization;
 
   return (
@@ -441,7 +449,6 @@ export default function ProposalBuilder() {
         )}
       </div>
 
-      {/* AI Assistant Sidebar */}
       {showAssistant && proposalId && (
         <ProposalAssistant
           proposal={{ id: proposalId, ...proposalData }}
@@ -455,10 +462,8 @@ export default function ProposalBuilder() {
         />
       )}
 
-      {/* Floating AI Chat Button - Now Draggable */}
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
