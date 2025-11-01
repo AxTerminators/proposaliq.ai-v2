@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Zap, X } from "lucide-react";
+import { Zap, X, Clock } from "lucide-react";
 import moment from "moment";
 
 export default function QuickAddEvent({ 
@@ -22,11 +22,12 @@ export default function QuickAddEvent({
   const [title, setTitle] = useState("");
   const [eventType, setEventType] = useState("meeting");
   const [duration, setDuration] = useState("60");
+  const [startTime, setStartTime] = useState(initialTime);
 
   const handleSave = () => {
     if (!title.trim()) return;
 
-    const startDateTime = moment(`${initialDate} ${initialTime}`, 'YYYY-MM-DD HH:mm');
+    const startDateTime = moment(`${initialDate} ${startTime}`, 'YYYY-MM-DD HH:mm');
     const endDateTime = moment(startDateTime).add(parseInt(duration), 'minutes');
 
     const eventData = {
@@ -101,6 +102,16 @@ export default function QuickAddEvent({
               <SelectItem value="120">2 hours</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <Input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="text-sm h-8"
+          />
         </div>
 
         <div className="flex gap-2">
