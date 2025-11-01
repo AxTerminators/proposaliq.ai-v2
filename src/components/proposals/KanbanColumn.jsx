@@ -15,6 +15,9 @@ export default function KanbanColumn({
   organization
 }) {
   const proposalCount = proposals?.length || 0;
+  
+  // Get the column label - try multiple properties for backward compatibility
+  const columnLabel = column?.label || column?.name || column?.title || column?.id || 'Untitled Column';
 
   return (
     <div className="flex flex-col h-full min-h-[500px]">
@@ -23,7 +26,7 @@ export default function KanbanColumn({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <h3 className="font-bold text-lg text-slate-900" style={{ color: '#0f172a' }}>
-              {column?.label || 'Untitled Column'}
+              {columnLabel}
             </h3>
           </div>
           <Badge variant="secondary" className="text-sm ml-2">
