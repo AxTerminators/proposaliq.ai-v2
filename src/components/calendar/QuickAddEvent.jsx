@@ -1,126 +1,117 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Calendar, Clock, X, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Zap, X } from "lucide-react";
 import moment from "moment";
 
 export default function QuickAddEvent({ 
   initialDate, 
   initialTime, 
+  customEventTypes = [],
   onSave, 
-  onCancel,
-  customEventTypes = []
+  onCancel 
 }) {
   const [title, setTitle] = useState("");
   const [eventType, setEventType] = useState("meeting");
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState("60");
 
-  useEffect(() => {
-    // Auto-focus on mount
-    const input = document.getElementById('quick-add-title');
-    if (input) {
-      input.focus();
-    }
-  }, []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSave = () => {
     if (!title.trim()) return;
 
-    const startDateTime = moment(initialDate)
-      .hour(moment(initialTime, 'HH:mm').hour())
-      .minute(moment(initialTime, 'HH:mm').minute());
-    
-    const endDateTime = moment(startDateTime).add(duration, 'minutes');
+    const startDateTime = moment(`${initialDate} ${initialTime}`, 'YYYY-MM-DD HH:mm');
+    const endDateTime = moment(startDateTime).add(parseInt(duration), 'minutes');
 
-    onSave({
-      title: title.trim(),
+    const eventData = {
+      title,
       event_type: eventType,
       start_date: startDateTime.toISOString(),
       end_date: endDateTime.toISOString(),
-      description: "",
-      location: "",
-      meeting_link: "",
-      all_day: false,
-      is_recurring: false
-    });
+      all_day: false
+    };
+
+    onSave(eventData);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
       onCancel();
     }
   };
 
   return (
-    <Card className="border-2 border-blue-500 shadow-xl p-3 space-y-2 bg-white z-50">
-      <form onSubmit={handleSubmit} className="space-y-2">
+    <Card className="shadow-xl border-2 border-blue-500 animate-in fade-in zoom-in-95">
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1 text-xs text-blue-600 font-semibold">
+            <Zap className="w-3 h-3" />
+            Quick Add
+          </div>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCancel}>
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+        
         <Input
-          id="quick-add-title"
+          placeholder="Event title..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Event title..."
-          className="font-medium"
-          autoComplete="off"
+          onKeyPress={handleKeyPress}
+          autoFocus
+          className="text-sm"
         />
+        
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={eventType} onValueChange={setEventType}>
+            <SelectTrigger className="text-xs h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="meeting">Meeting</SelectItem>
+              <SelectItem value="task_deadline">Task</SelectItem>
+              <SelectItem value="review_session">Review</SelectItem>
+              <SelectItem value="time_block">Focus Time</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+              {customEventTypes.map(type => (
+                <SelectItem key={type.type_key} value={type.type_key}>
+                  {type.type_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <div className="flex gap-2">
-          <select
-            value={eventType}
-            onChange={(e) => setEventType(e.target.value)}
-            className="flex-1 text-sm border rounded-md px-2 py-1"
-          >
-            <optgroup label="System Types">
-              <option value="meeting">Meeting</option>
-              <option value="task_deadline">Task</option>
-              <option value="milestone">Milestone</option>
-              <option value="other">Other</option>
-            </optgroup>
-            {customEventTypes.length > 0 && (
-              <optgroup label="Custom Types">
-                {customEventTypes.map(type => (
-                  <option key={type.type_key} value={type.type_key}>
-                    {type.type_name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-
-          <select
-            value={duration}
-            onChange={(e) => setDuration(parseInt(e.target.value))}
-            className="text-sm border rounded-md px-2 py-1"
-          >
-            <option value={15}>15 min</option>
-            <option value={30}>30 min</option>
-            <option value={60}>1 hour</option>
-            <option value={90}>1.5 hours</option>
-            <option value={120}>2 hours</option>
-          </select>
+          <Select value={duration} onValueChange={setDuration}>
+            <SelectTrigger className="text-xs h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="15">15 min</SelectItem>
+              <SelectItem value="30">30 min</SelectItem>
+              <SelectItem value="60">1 hour</SelectItem>
+              <SelectItem value="90">1.5 hours</SelectItem>
+              <SelectItem value="120">2 hours</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex gap-2">
-          <Button type="submit" size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
-            <Check className="w-3 h-3 mr-1" />
-            Create
+          <Button size="sm" onClick={handleSave} disabled={!title.trim()} className="flex-1 h-8 text-xs">
+            Save
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onCancel}>
-            <X className="w-3 h-3 mr-1" />
+          <Button size="sm" variant="outline" onClick={onCancel} className="h-8 text-xs">
             Cancel
           </Button>
         </div>
-      </form>
-
-      <div className="text-xs text-slate-500 flex items-center gap-2">
-        <Calendar className="w-3 h-3" />
-        {moment(initialDate).format('MMM D, YYYY')}
-        <Clock className="w-3 h-3 ml-2" />
-        {initialTime}
-      </div>
+      </CardContent>
     </Card>
   );
 }
