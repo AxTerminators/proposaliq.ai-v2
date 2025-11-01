@@ -1,15 +1,9 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Settings2, Plus, Loader2, RotateCcw, GripVertical, AlertTriangle, Trash2, Sliders, Search, X, Filter } from "lucide-react";
-import { cn } from "@/lib/utils";
-import KanbanColumn from "./KanbanColumn";
-import BoardConfigDialog from "./BoardConfigDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,15 +14,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import moment from "moment";
+import { Settings, Plus, ChevronsLeft, ChevronsRight, Loader2, AlertTriangle, Trash2, RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import KanbanColumn from "./KanbanColumn";
+import MobileKanbanView from "../mobile/MobileKanbanView";
+import BoardConfigDialog from "./BoardConfigDialog";
+import ProposalCardModal from "./ProposalCardModal";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import moment from "moment"; // Keep moment as it might be used internally by other components or future features
 
 const defaultColumns = [
   { id: 'evaluating', label: 'Evaluating', color: 'bg-blue-100', order: 0, type: 'default_status', default_status_mapping: 'evaluating', wip_limit: 0, wip_limit_type: 'soft' },
@@ -41,92 +35,88 @@ const defaultColumns = [
   { id: 'archived', label: 'Archived', color: 'bg-slate-100', order: 7, type: 'default_status', default_status_mapping: 'archived', wip_limit: 0, wip_limit_type: 'soft' }
 ];
 
-export default function ProposalsKanban({ proposals = [], onProposalClick, isLoading, user, organization }) {
+// New defaultColumns based on outline (different color classes, removed order/wip_limit)
+const outlineDefaultColumns = [
+  { id: 'evaluating', label: 'Evaluating', color: 'from-slate-400 to-slate-600', type: 'default_status', default_status_mapping: 'evaluating' },
+  { id: 'watch_list', label: 'Watch List', color: 'from-amber-400 to-amber-600', type: 'default_status', default_status_mapping: 'watch_list' },
+  { id: 'draft', label: 'Draft', color: 'from-blue-400 to-blue-600', type: 'default_status', default_status_mapping: 'draft' },
+  { id: 'in_progress', label: 'In Progress', color: 'from-purple-400 to-purple-600', type: 'default_status', default_status_mapping: 'in_progress' },
+  { id: 'submitted', label: 'Submitted', color: 'from-indigo-400 to-indigo-600', type: 'default_status', default_status_mapping: 'submitted' },
+  { id: 'won', label: 'Won', color: 'from-green-400 to-green-600', type: 'default_status', default_status_mapping: 'won' },
+  { id: 'lost', label: 'Lost', color: 'from-red-400 to-red-600', type: 'default_status', default_status_mapping: 'lost' },
+  { id: 'archived', label: 'Archived', color: 'from-gray-400 to-gray-600', type: 'default_status', default_status_mapping: 'archived' }
+];
+
+
+export default function ProposalsKanban({ proposals = [], organization, onRefresh }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [columns, setColumns] = useState(defaultColumns);
-  const [columnConfig, setColumnConfig] = useState(defaultColumns);
-  const [isEditingColumns, setIsEditingColumns] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // Changed from 1024 to 768
   const [showBoardConfig, setShowBoardConfig] = useState(false);
-  const [newColumnLabel, setNewColumnLabel] = useState("");
-  const [newColumnColor, setNewColumnColor] = useState("bg-blue-100");
+  const [collapsedColumns, setCollapsedColumns] = useState([]); // This state is now managed by the config
+  const [selectedProposal, setSelectedProposal] = useState(null);
+  const [showProposalModal, setShowProposalModal] = useState(false);
+
+  // Remaining state variables from original code that are still needed for dialogs
   const [proposalToDelete, setProposalToDelete] = useState(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [collapsedColumns, setCollapsedColumns] = useState([]);
   const [showResetWarning, setShowResetWarning] = useState(false);
-  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
-  const [quickAddPosition, setQuickAddPosition] = useState(null);
-  const [quickColumnName, setQuickColumnName] = useState("");
-  const [quickColumnColor, setQuickColumnColor] = useState("bg-blue-100");
-  const [columnSorts, setColumnSorts] = useState({});
-  const [showColumnDeleteWarning, setShowColumnDeleteWarning] = useState(false);
-  const [columnToDelete, setColumnToDelete] = useState(null);
-  const [columnDeleteError, setColumnDeleteError] = useState(null);
-  const [boardConfig, setBoardConfig] = useState(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [filterDueDate, setFilterDueDate] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    const loadConfig = async () => {
-      if (!organization?.id) return;
-
-      try {
-        const configs = await base44.entities.KanbanConfig.filter(
-          { organization_id: organization.id },
-          '-created_date',
-          1
-        );
-
-        if (configs.length > 0) {
-          if (configs[0].columns) {
-            const savedColumns = configs[0].columns.sort((a, b) => a.order - b.order);
-            setColumns(savedColumns);
-            setColumnConfig(savedColumns);
-          }
-          
-          if (configs[0].collapsed_column_ids) {
-            setCollapsedColumns(configs[0].collapsed_column_ids);
-          }
-
-          setBoardConfig(configs[0]);
-        }
-      } catch (error) {
-        console.error("Error loading kanban config:", error);
-      }
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768); // Changed from 1024 to 768
     };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-    loadConfig();
-  }, [organization?.id]);
-
-  const saveColumnConfigMutation = useMutation({
-    mutationFn: async (columnsToSave) => {
-      if (!organization?.id) throw new Error("No organization");
-
+  const { data: kanbanConfigData } = useQuery({
+    queryKey: ['kanban-config', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return null;
       const configs = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         '-created_date',
         1
       );
+      return configs.length > 0 ? configs[0] : null;
+    },
+    enabled: !!organization?.id,
+    initialData: null
+  });
 
-      const configData = {
-        organization_id: organization.id,
-        columns: columnsToSave.map((col, idx) => ({
-          ...col,
-          order: idx
-        })),
-        collapsed_column_ids: collapsedColumns,
-        swimlane_config: boardConfig?.swimlane_config || { enabled: false, group_by: 'none' },
-        view_settings: boardConfig?.view_settings || { default_view: 'kanban', show_card_details: [], compact_mode: false }
+  const columns = useMemo(() => {
+    if (kanbanConfigData?.columns) {
+      // Ensure existing columns have the new 'order' property for dnd if not present
+      return kanbanConfigData.columns.map((col, idx) => ({ ...col, order: col.order ?? idx })).sort((a,b) => a.order - b.order);
+    }
+    // For initial load, if no config, use the outlineDefaultColumns for desktop view, but ensure order is set.
+    // The original defaultColumns have more properties which are useful, so merging outline changes into them.
+    return outlineDefaultColumns.map((outlineCol, idx) => {
+      const existingCol = defaultColumns.find(dc => dc.id === outlineCol.id);
+      return {
+        ...existingCol, // retain existing properties like wip_limit if present
+        ...outlineCol, // override with new color and ensure type/default_status_mapping
+        order: existingCol?.order ?? idx, // Keep existing order or assign new
       };
+    }).sort((a,b) => a.order - b.order);
+  }, [kanbanConfigData]);
 
-      if (configs.length > 0) {
-        return base44.entities.KanbanConfig.update(configs[0].id, configData);
+  const effectiveCollapsedColumns = useMemo(() => {
+    if (kanbanConfigData?.collapsed_column_ids) {
+      return kanbanConfigData.collapsed_column_ids;
+    }
+    return []; // Default to empty array if no config or property exists
+  }, [kanbanConfigData?.collapsed_column_ids]);
+
+  const updateKanbanConfigMutation = useMutation({
+    mutationFn: async (updatedConfig) => {
+      if (!organization?.id) throw new Error("No organization");
+
+      if (kanbanConfigData?.id) {
+        return base44.entities.KanbanConfig.update(kanbanConfigData.id, updatedConfig);
       } else {
-        return base44.entities.KanbanConfig.create(configData);
+        return base44.entities.KanbanConfig.create(updatedConfig);
       }
     },
     onSuccess: () => {
@@ -134,12 +124,28 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     }
   });
 
+
+  const toggleColumnCollapse = useCallback((columnId) => {
+    const newCollapsedIds = effectiveCollapsedColumns.includes(columnId)
+      ? effectiveCollapsedColumns.filter(id => id !== columnId)
+      : [...effectiveCollapsedColumns, columnId];
+    
+    updateKanbanConfigMutation.mutate({
+      organization_id: organization.id,
+      columns: columns.map((col, idx) => ({ ...col, order: idx })), // Ensure current column order is saved
+      collapsed_column_ids: newCollapsedIds,
+      swimlane_config: kanbanConfigData?.swimlane_config || { enabled: false, group_by: 'none' },
+      view_settings: kanbanConfigData?.view_settings || { default_view: 'kanban', show_card_details: ['assignees', 'due_date', 'progress', 'value'], compact_mode: false }
+    });
+  }, [columns, effectiveCollapsedColumns, kanbanConfigData, organization.id, updateKanbanConfigMutation]);
+
   const updateProposalMutation = useMutation({
     mutationFn: async ({ proposalId, updates }) => {
       return base44.entities.Proposal.update(proposalId, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      if (onRefresh) onRefresh();
     }
   });
 
@@ -149,6 +155,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      if (onRefresh) onRefresh();
       setShowDeleteWarning(false);
       setProposalToDelete(null);
     }
@@ -158,187 +165,101 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     mutationFn: async () => {
       if (!organization?.id) throw new Error("No organization");
 
-      const configs = await base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
-      );
-
       const configData = {
         organization_id: organization.id,
-        columns: defaultColumns,
+        columns: outlineDefaultColumns.map((col, idx) => ({ ...col, order: idx })), // Use the outline's default columns
         collapsed_column_ids: [],
         swimlane_config: { enabled: false, group_by: 'none' },
         view_settings: { default_view: 'kanban', show_card_details: ['assignees', 'due_date', 'progress', 'value'], compact_mode: false }
       };
 
-      if (configs.length > 0) {
-        return base44.entities.KanbanConfig.update(configs[0].id, configData);
+      if (kanbanConfigData?.id) {
+        return base44.entities.KanbanConfig.update(kanbanConfigData.id, configData);
       } else {
         return base44.entities.KanbanConfig.create(configData);
       }
     },
     onSuccess: () => {
-      setColumns(defaultColumns);
-      setColumnConfig(defaultColumns);
-      setCollapsedColumns([]);
-      setColumnSorts({});
-      setBoardConfig(null);
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Invalidate proposals as their column might change
       setShowResetWarning(false);
+      if (onRefresh) onRefresh();
     }
   });
 
-  const uniqueAssignees = useMemo(() => {
-    const assignees = new Set();
-    proposals.forEach(p => {
-      if (p.lead_writer_email) assignees.add(p.lead_writer_email);
-      if (p.assigned_team_members) {
-        p.assigned_team_members.forEach(email => assignees.add(email));
-      }
-    });
-    return Array.from(assignees);
-  }, [proposals]);
-
-  const filteredProposals = useMemo(() => {
-    return proposals.filter(proposal => {
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = proposal.proposal_name?.toLowerCase().includes(query);
-        const matchesAgency = proposal.agency_name?.toLowerCase().includes(query);
-        const matchesNumber = proposal.solicitation_number?.toLowerCase().includes(query);
-        if (!matchesName && !matchesAgency && !matchesNumber) return false;
-      }
-
-      if (filterAssignee !== "all") {
-        if (filterAssignee === "me") {
-          const isAssigned = 
-            proposal.lead_writer_email === user?.email ||
-            proposal.assigned_team_members?.includes(user?.email);
-          if (!isAssigned) return false;
-        } else if (filterAssignee === "unassigned") {
-          if (proposal.lead_writer_email || proposal.assigned_team_members?.length > 0) return false;
-        } else {
-          const hasAssignee = 
-            proposal.lead_writer_email === filterAssignee ||
-            proposal.assigned_team_members?.includes(filterAssignee);
-          if (!hasAssignee) return false;
-        }
-      }
-
-      if (filterPriority !== "all") {
-        if (filterPriority === "high" && (!proposal.contract_value || proposal.contract_value < 1000000)) return false;
-        if (filterPriority === "medium" && (!proposal.contract_value || proposal.contract_value < 100000 || proposal.contract_value >= 1000000)) return false;
-        if (filterPriority === "low" && proposal.contract_value >= 100000) return false;
-      }
-
-      if (filterDueDate !== "all") {
-        if (!proposal.due_date) return false;
-        const daysUntil = moment(proposal.due_date).diff(moment(), 'days');
-        if (filterDueDate === "overdue" && daysUntil >= 0) return false;
-        if (filterDueDate === "week" && (daysUntil < 0 || daysUntil > 7)) return false;
-        if (filterDueDate === "month" && (daysUntil < 0 || daysUntil > 30)) return false;
-      }
-
-      return true;
-    });
-  }, [proposals, searchQuery, filterAssignee, filterPriority, filterDueDate, user]);
-
-  const hasActiveFilters = searchQuery || filterAssignee !== "all" || filterPriority !== "all" || filterDueDate !== "all";
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFilterAssignee("all");
-    setFilterPriority("all");
-    setFilterDueDate("all");
-  };
-
-  const handleDragStart = () => {
-    setIsDragging(true);
-  };
 
   const handleDragEnd = (result) => {
-    setIsDragging(false);
+    const { destination, source, draggableId, type } = result;
 
-    if (!result.destination) return;
-
-    const { source, destination, type } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     if (type === 'column') {
-      const newColumns = Array.from(columns);
-      const [removed] = newColumns.splice(source.index, 1);
-      newColumns.splice(destination.index, 0, removed);
-
-      const updatedColumns = newColumns.map((col, idx) => ({
-        ...col,
-        order: idx
-      }));
-
-      setColumns(updatedColumns);
-      saveColumnConfigMutation.mutate(updatedColumns);
+      // Column reordering logic (kept from original code but not in outline's dragEnd)
+      // If column reordering is desired, it would be implemented here,
+      // but the outline only refers to proposal dragging in handleDragEnd.
+      // For now, removing it to match outline's intent.
+      // If needed, it would look like:
+      // const newColumns = Array.from(columns);
+      // const [removed] = newColumns.splice(source.index, 1);
+      // newColumns.splice(destination.index, 0, removed);
+      // const updatedColumns = newColumns.map((col, idx) => ({ ...col, order: idx }));
+      // updateKanbanConfigMutation.mutate({ ...kanbanConfigData, columns: updatedColumns });
       return;
     }
 
     if (type === 'proposal') {
-      if (source.droppableId === destination.droppableId && source.index === destination.index) {
-        return;
-      }
-
-      const draggedProposal = filteredProposals.find(p => p.id === result.draggableId);
+      const draggedProposal = proposals.find(p => p.id === draggableId);
       if (!draggedProposal) {
-        console.error("Dragged proposal not found in filtered list:", result.draggableId);
+        console.error("Dragged proposal not found:", draggableId);
         return;
       }
 
-      const sourceColumn = columns.find(col => col.id === source.droppableId);
-      const destColumn = columns.find(col => col.id === destination.droppableId);
+      const destinationColumn = columns.find(col => col.id === destination.droppableId);
+      if (!destinationColumn) return;
 
-      if (!sourceColumn || !destColumn) {
-        console.error("Source or destination column not found.");
-        return;
-      }
-
-      const proposalsInDestColumnBeforeMove = filteredProposals.filter(p => {
-        const isInDest = destColumn.type === 'default_status'
-          ? p?.status === destColumn.default_status_mapping && !p?.custom_workflow_stage_id
-          : p?.custom_workflow_stage_id === destColumn.id;
+      // WIP Limit check (re-introduced from original for safety, as outline didn't specify removal)
+      const proposalsInDestColumnBeforeMove = proposals.filter(p => {
+        const isInDest = destinationColumn.type === 'default_status'
+          ? p?.status === destinationColumn.default_status_mapping && !p?.custom_workflow_stage_id
+          : p?.custom_workflow_stage_id === destinationColumn.id;
         
         return isInDest && p.id !== draggedProposal.id;
       });
 
-      const wipLimit = destColumn.wip_limit || 0;
-      const wipLimitType = destColumn.wip_limit_type || 'soft';
+      const wipLimit = destinationColumn.wip_limit || 0;
+      const wipLimitType = destinationColumn.wip_limit_type || 'soft';
       const hasHardLimit = wipLimit > 0 && wipLimitType === 'hard';
 
       if (hasHardLimit && proposalsInDestColumnBeforeMove.length >= wipLimit) {
-        alert(`Cannot move proposal. Hard WIP limit of ${wipLimit} reached for "${destColumn.label}" column.`);
+        alert(`Cannot move proposal. Hard WIP limit of ${wipLimit} reached for "${destinationColumn.label}" column.`);
         return;
       }
 
       let updates = {};
-      if (destColumn.type === 'default_status') {
+      if (destinationColumn.type === 'default_status') {
         updates = {
-          status: destColumn.default_status_mapping,
+          status: destinationColumn.default_status_mapping,
           custom_workflow_stage_id: null
         };
       } else {
+        // If moving to a custom column, status should typically be 'in_progress' or a suitable default
         updates = {
-          custom_workflow_stage_id: destColumn.id,
-          status: 'in_progress'
+          custom_workflow_stage_id: destinationColumn.id,
+          status: 'in_progress' // Assuming custom stages imply 'in_progress'
         };
       }
 
       updateProposalMutation.mutate({
-        proposalId: draggedProposal.id,
+        proposalId: draggableId,
         updates
       });
     }
   };
 
-  const handleProposalClick = (proposal) => {
-    if (onProposalClick) {
-      onProposalClick(proposal);
-    }
+  const handleCardClick = (proposal) => {
+    setSelectedProposal(proposal);
+    setShowProposalModal(true);
   };
 
   const handleDeleteProposal = (proposal) => {
@@ -346,124 +267,10 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     setShowDeleteWarning(true);
   };
 
-  const handleQuickAddColumn = (position) => {
-    setQuickAddPosition(position);
-    setQuickColumnName("");
-    setQuickColumnColor("bg-blue-100");
-    setShowQuickAddDialog(true);
-  };
-
-  const handleQuickAddSubmit = () => {
-    if (!quickColumnName.trim()) {
-      alert("Please enter a column name");
-      return;
+  const confirmDelete = () => {
+    if (proposalToDelete) {
+      deleteProposalMutation.mutate(proposalToDelete.id);
     }
-
-    const newColumn = {
-      id: `custom_${Date.now()}`,
-      label: quickColumnName,
-      color: quickColumnColor,
-      order: quickAddPosition,
-      type: 'custom_stage',
-      wip_limit: 0,
-      wip_limit_type: 'soft'
-    };
-
-    const updatedColumns = [...columnConfig];
-    updatedColumns.splice(quickAddPosition, 0, newColumn);
-    
-    const reorderedColumns = updatedColumns.map((col, idx) => ({
-      ...col,
-      order: idx
-    }));
-
-    setColumnConfig(reorderedColumns);
-    setColumns(reorderedColumns);
-    saveColumnConfigMutation.mutate(reorderedColumns);
-    setShowQuickAddDialog(false);
-  };
-
-  const handleToggleCollapse = async (columnId) => {
-    const newCollapsed = collapsedColumns.includes(columnId)
-      ? collapsedColumns.filter(id => id !== columnId)
-      : [...collapsedColumns, columnId];
-    
-    setCollapsedColumns(newCollapsed);
-
-    if (!organization?.id) return;
-
-    try {
-      const configs = await base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
-      );
-
-      const configData = {
-        organization_id: organization.id,
-        columns: columns,
-        collapsed_column_ids: newCollapsed,
-        swimlane_config: boardConfig?.swimlane_config,
-        view_settings: boardConfig?.view_settings
-      };
-
-      if (configs.length > 0) {
-        await base44.entities.KanbanConfig.update(configs[0].id, configData);
-      } else {
-        await base44.entities.KanbanConfig.create(configData);
-      }
-    } catch (error) {
-      console.error("Error saving collapse state:", error);
-    }
-  };
-
-  const handleSortChange = (columnId, sortType) => {
-    setColumnSorts(prev => ({
-      ...prev,
-      [columnId]: sortType
-    }));
-  };
-
-  const handleDeleteColumn = async (column) => {
-    if (!column || !column.id) {
-      alert("Invalid column");
-      return;
-    }
-
-    if (column.type === 'default_status') {
-      alert("Default columns cannot be deleted. You can only customize their labels and colors.");
-      return;
-    }
-
-    const proposalsInColumn = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
-
-    if (proposalsInColumn.length > 0) {
-      setColumnDeleteError({
-        columnLabel: column.label,
-        count: proposalsInColumn.length
-      });
-      setColumnToDelete(null);
-      setShowColumnDeleteWarning(true);
-      return;
-    }
-
-    setColumnToDelete(column);
-    setColumnDeleteError(null);
-    setShowColumnDeleteWarning(true);
-  };
-
-  const confirmDeleteColumn = () => {
-    if (!columnToDelete) return;
-
-    const newColumns = columns.filter(col => col?.id !== columnToDelete.id);
-    setColumns(newColumns);
-    setColumnConfig(prev => prev.filter(col => col?.id !== columnToDelete.id));
-    
-    saveColumnConfigMutation.mutate(newColumns);
-    
-    setShowColumnDeleteWarning(false);
-    setColumnToDelete(null);
-    setColumnDeleteError(null);
   };
 
   const handleResetToDefault = () => {
@@ -474,287 +281,71 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
     resetToDefaultMutation.mutate();
   };
 
-  const confirmDelete = () => {
-    if (proposalToDelete) {
-      deleteProposalMutation.mutate(proposalToDelete.id);
+  const getProposalsForColumn = useCallback((column) => {
+    if (column.type === 'default_status') {
+      return proposals.filter(p =>
+        p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
+      );
+    } else if (column.type === 'custom_stage') {
+      return proposals.filter(p =>
+        p?.custom_workflow_stage_id === column.id
+      );
     }
+    return [];
+  }, [proposals]);
+
+  const handleCreateProposal = () => {
+    navigate(createPageUrl("ProposalBuilder"));
   };
 
-  const groupedProposals = useMemo(() => {
-    const swimlaneConfig = boardConfig?.swimlane_config;
-    const isSwimlanesEnabled = swimlaneConfig?.enabled && swimlaneConfig?.group_by !== 'none';
-
-    if (!isSwimlanesEnabled) {
-      const grouped = {};
-      
-      columns.forEach(column => {
-        let columnProposals = [];
-        
-        if (column.type === 'default_status') {
-          columnProposals = filteredProposals.filter(p => 
-            p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
-          );
-        } else {
-          columnProposals = filteredProposals.filter(p => 
-            p?.custom_workflow_stage_id === column.id
-          );
-        }
-
-        const sortType = columnSorts[column.id];
-        if (sortType) {
-          columnProposals = [...columnProposals].sort((a, b) => {
-            if (sortType === 'date_newest') {
-              return new Date(b.created_date) - new Date(a.created_date);
-            } else if (sortType === 'name_asc') {
-              return (a.proposal_name || '').localeCompare(b.proposal_name || '');
-            } else if (sortType === 'name_desc') {
-              return (b.proposal_name || '').localeCompare(a.proposal_name || '');
-            }
-            return 0;
-          });
-        }
-
-        grouped[column.id] = columnProposals;
-      });
-
-      return { swimlanes: [{ id: 'default', label: 'All Proposals', data: grouped }] };
-    }
-
-    const swimlanes = [];
-    const groupBy = swimlaneConfig.group_by;
-    const customFieldName = swimlaneConfig.custom_field_name;
-
-    const swimlaneValues = new Set();
-    filteredProposals.forEach(p => {
-      let value = 'Unassigned';
-      if (groupBy === 'lead_writer') {
-        value = p.lead_writer_email || 'Unassigned';
-      } else if (groupBy === 'project_type') {
-        value = p.project_type || 'Other';
-      } else if (groupBy === 'agency') {
-        value = p.agency_name || 'Unknown Agency';
-      } else if (groupBy === 'contract_value_range') {
-        if (!p.contract_value) value = 'Unknown';
-        else if (p.contract_value < 100000) value = '<$100K';
-        else if (p.contract_value < 1000000) value = '$100K-$1M';
-        else value = '>$1M';
-      } else if (groupBy === 'custom_field' && customFieldName) {
-        value = p.custom_fields?.[customFieldName] || 'Not Set';
-      }
-      swimlaneValues.add(value);
-    });
-
-    Array.from(swimlaneValues).sort().forEach(swimlaneValue => {
-      const swimlaneProposals = filteredProposals.filter(p => {
-        let value = 'Unassigned';
-        if (groupBy === 'lead_writer') {
-          value = p.lead_writer_email || 'Unassigned';
-        } else if (groupBy === 'project_type') {
-          value = p.project_type || 'Other';
-        } else if (groupBy === 'agency') {
-          value = p.agency_name || 'Unknown Agency';
-        } else if (groupBy === 'contract_value_range') {
-          if (!p.contract_value) value = 'Unknown';
-          else if (p.contract_value < 100000) value = '<$100K';
-          else if (p.contract_value < 1000000) value = '$100K-$1M';
-          else value = '>$1M';
-        } else if (groupBy === 'custom_field' && customFieldName) {
-          value = p.custom_fields?.[customFieldName] || 'Not Set';
-        }
-        return value === swimlaneValue;
-      });
-
-      const grouped = {};
-      columns.forEach(column => {
-        let columnProposals = [];
-        
-        if (column.type === 'default_status') {
-          columnProposals = swimlaneProposals.filter(p => 
-            p?.status === column.default_status_mapping && !p?.custom_workflow_stage_id
-          );
-        } else {
-          columnProposals = swimlaneProposals.filter(p => 
-            p?.custom_workflow_stage_id === column.id
-          );
-        }
-
-        const sortType = columnSorts[column.id];
-        if (sortType) {
-          columnProposals = [...columnProposals].sort((a, b) => {
-            if (sortType === 'date_newest') {
-              return new Date(b.created_date) - new Date(a.created_date);
-            } else if (sortType === 'name_asc') {
-              return (a.proposal_name || '').localeCompare(b.proposal_name || '');
-            } else if (sortType === 'name_desc') {
-              return (b.proposal_name || '').localeCompare(a.proposal_name || '');
-            }
-            return 0;
-          });
-        }
-
-        grouped[column.id] = columnProposals;
-      });
-
-      swimlanes.push({
-        id: swimlaneValue,
-        label: swimlaneValue,
-        data: grouped
-      });
-    });
-
-    return { swimlanes };
-  }, [filteredProposals, columns, columnSorts, boardConfig]);
-
-  if (isLoading) {
+  if (isMobile) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
+      <MobileKanbanView
+        proposals={proposals}
+        columns={columns}
+        organization={organization}
+        onCardClick={handleCardClick}
+        onCreateProposal={handleCreateProposal}
+        onDeleteProposal={handleDeleteProposal} // Pass delete handler to mobile view
+        onRefresh={onRefresh} // Pass refresh handler to mobile view
+        kanbanConfig={kanbanConfigData} // Pass config to mobile view if needed
+      />
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-slate-900">Proposal Pipeline</h2>
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Search proposals by name, agency, or solicitation number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-10"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
           <Button
-            variant={showFilters ? "default" : "outline"}
-            onClick={() => setShowFilters(!showFilters)}
-            className="gap-2"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBoardConfig(true)}
+            disabled={updateKanbanConfigMutation.isPending || resetToDefaultMutation.isPending}
           >
-            <Filter className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <Badge className="ml-1 bg-blue-600 text-white h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                {[searchQuery, filterAssignee !== "all", filterPriority !== "all", filterDueDate !== "all"].filter(Boolean).length}
-              </Badge>
+            <Settings className="w-4 h-4 mr-2" />
+            Configure Board
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetToDefault}
+            disabled={resetToDefaultMutation.isPending || updateKanbanConfigMutation.isPending}
+          >
+            {resetToDefaultMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RotateCcw className="w-4 h-4 mr-2" />
             )}
+            Reset to Default
+          </Button>
+          <Button size="sm" onClick={handleCreateProposal}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Proposal
           </Button>
         </div>
-
-        {showFilters && (
-          <div className="flex flex-wrap gap-3 p-4 bg-slate-50 rounded-lg border">
-            <div className="flex-1 min-w-[200px]">
-              <Label className="text-xs mb-2 block">Assignee</Label>
-              <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assignees</SelectItem>
-                  <SelectItem value="me">My Proposals</SelectItem>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {uniqueAssignees.map(email => (
-                    <SelectItem key={email} value={email}>{email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <Label className="text-xs mb-2 block">Priority (by value)</Label>
-              <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="high">High (&gt;$1M)</SelectItem>
-                  <SelectItem value="medium">Medium ($100K-$1M)</SelectItem>
-                  <SelectItem value="low">Low (&lt;$100K)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <Label className="text-xs mb-2 block">Due Date</Label>
-              <Select value={filterDueDate} onValueChange={setFilterDueDate}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Dates</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="week">Due This Week</SelectItem>
-                  <SelectItem value="month">Due This Month</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {hasActiveFilters && (
-              <div className="flex items-end">
-                <Button variant="outline" size="sm" onClick={clearFilters}>
-                  <X className="w-4 h-4 mr-2" />
-                  Clear All
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {hasActiveFilters && (
-          <div className="flex items-center gap-2 text-sm text-slate-600 px-1">
-            <span>Showing <strong>{filteredProposals.length}</strong> of <strong>{proposals.length}</strong> proposals</span>
-          </div>
-        )}
       </div>
-
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowBoardConfig(true)}
-          disabled={isDragging}
-        >
-          <Sliders className="w-4 h-4 mr-2" />
-          Configure Board
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleResetToDefault}
-          disabled={resetToDefaultMutation.isPending || isDragging}
-        >
-          {resetToDefaultMutation.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RotateCcw className="w-4 h-4 mr-2" />
-          )}
-          Reset to Default
-        </Button>
-      </div>
-
-      <BoardConfigDialog
-        open={showBoardConfig}
-        onClose={() => {
-          setShowBoardConfig(false);
-          queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-        }}
-        organization={organization}
-        currentConfig={boardConfig}
-        onConfigSaved={(newConfig) => {
-          setBoardConfig(newConfig);
-          queryClient.invalidateQueries({ queryKey: ['proposals'] });
-          queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-        }}
-      />
 
       <AlertDialog open={showResetWarning} onOpenChange={setShowResetWarning}>
         <AlertDialogContent>
@@ -787,64 +378,6 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showColumnDeleteWarning} onOpenChange={setShowColumnDeleteWarning}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              {columnDeleteError ? (
-                <>
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  Cannot Delete Non-Empty Column
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  Delete Custom Column?
-                </>
-              )}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {columnDeleteError ? (
-                <div className="space-y-2">
-                  <p className="text-red-600">
-                    The column "{columnDeleteError.columnLabel}" contains {columnDeleteError.count} proposal(s).
-                  </p>
-                  <p>Please move all proposals out of this column before deleting it.</p>
-                </div>
-              ) : (
-                `Are you sure you want to delete the "${columnToDelete?.label}" column? This action cannot be undone.`
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {columnDeleteError ? (
-              <AlertDialogAction onClick={() => {
-                setShowColumnDeleteWarning(false);
-                setColumnDeleteError(null);
-              }}>
-                Got It!
-              </AlertDialogAction>
-            ) : (
-              <>
-                <AlertDialogCancel onClick={() => {
-                  setShowColumnDeleteWarning(false);
-                  setColumnToDelete(null);
-                }}>
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={confirmDeleteColumn}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Column
-                </AlertDialogAction>
-              </>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -853,7 +386,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
               Permanently Delete Proposal?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to permanently delete: <strong>{proposalToDelete?.proposal_name}</strong>. 
+              You are about to permanently delete: <strong>{proposalToDelete?.proposal_name}</strong>.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -880,156 +413,88 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, isLoa
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={showQuickAddDialog} onOpenChange={setShowQuickAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Column</DialogTitle>
-            <DialogDescription>
-              Create a new custom column
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="quick-column-name">Column Name</Label>
-              <Input
-                id="quick-column-name"
-                value={quickColumnName}
-                onChange={(e) => setQuickColumnName(e.target.value)}
-                placeholder="e.g., Client Review, Legal Approval..."
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleQuickAddSubmit();
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quick-column-color">Color</Label>
-              <Select value={quickColumnColor} onValueChange={setQuickColumnColor}>
-                <SelectTrigger id="quick-column-color">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bg-slate-100">Gray</SelectItem>
-                  <SelectItem value="bg-blue-100">Blue</SelectItem>
-                  <SelectItem value="bg-purple-100">Purple</SelectItem>
-                  <SelectItem value="bg-indigo-100">Indigo</SelectItem>
-                  <SelectItem value="bg-green-100">Green</SelectItem>
-                  <SelectItem value="bg-yellow-100">Yellow</SelectItem>
-                  <SelectItem value="bg-red-100">Red</SelectItem>
-                  <SelectItem value="bg-pink-100">Pink</SelectItem>
-                  <SelectItem value="bg-amber-100">Amber</SelectItem>
-                  <SelectItem value="bg-teal-100">Teal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuickAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleQuickAddSubmit} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Column
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {columns.map((column) => {
+            const isCollapsed = effectiveCollapsedColumns.includes(column.id);
+            const columnProposals = getProposalsForColumn(column);
 
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        {groupedProposals.swimlanes.map((swimlane) => (
-          <div key={swimlane.id} className="mb-8">
-            {groupedProposals.swimlanes.length > 1 && (
-              <div className="mb-4 px-4 py-2 bg-gradient-to-r from-slate-100 to-slate-50 border-l-4 border-blue-500 rounded-r-lg">
-                <h3 className="font-semibold text-slate-900">{swimlane.label}</h3>
-              </div>
-            )}
-            
-            <Droppable droppableId="all-columns" direction="horizontal" type="column">
-              {(provided) => (
+            if (isCollapsed) {
+              return (
                 <div
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className="flex gap-0 overflow-x-auto pb-4"
+                  key={column.id}
+                  className="flex-shrink-0 w-16 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between p-2 cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => toggleColumnCollapse(column.id)}
                 >
-                  {columns.map((column, index) => {
-                    if (!column || !column.id) return null;
-
-                    const isColumnCollapsed = collapsedColumns.includes(column.id);
-                    return (
-                      <React.Fragment key={column.id}>
-                        <div className="group relative flex items-start flex-shrink-0">
-                          <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(index)}>
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
-                              <Plus className="w-4 h-4" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <Draggable
-                          key={column.id}
-                          draggableId={column.id}
-                          index={index}
-                          type="column"
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={cn(
-                                "flex-shrink-0 transition-all duration-300",
-                                isColumnCollapsed ? 'w-16' : 'w-80',
-                                snapshot.isDragging && 'opacity-50'
-                              )}
-                            >
-                              <Droppable droppableId={column.id} type="proposal">
-                                {(provided, snapshot) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                  >
-                                    <KanbanColumn
-                                      column={column}
-                                      proposals={swimlane.data[column.id] || []}
-                                      onProposalClick={handleProposalClick}
-                                      onDeleteProposal={handleDeleteProposal}
-                                      isDraggingOver={snapshot.isDraggingOver}
-                                      isBoardDragging={isDragging}
-                                      isCollapsed={isColumnCollapsed}
-                                      onToggleCollapse={() => handleToggleCollapse(column.id)}
-                                      dragHandleProps={provided.dragHandleProps}
-                                      onSortChange={handleSortChange}
-                                      currentSort={columnSorts[column.id]}
-                                      onDeleteColumn={() => handleDeleteColumn(column)}
-                                      organization={organization}
-                                    />
-                                    {provided.placeholder}
-                                  </div>
-                                )}
-                              </Droppable>
-                            </div>
-                          )}
-                        </Draggable>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  <div className="group relative flex items-start flex-shrink-0">
-                    <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(columns.length)}>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
-                        <Plus className="w-4 h-4" />
-                      </div>
-                    </div>
+                  <div className="writing-mode-vertical text-sm font-semibold text-slate-700 whitespace-nowrap">
+                    {column.label}
                   </div>
-
-                  {provided.placeholder}
+                  <div className="mt-2 px-2 py-1 bg-white rounded-full text-xs font-bold text-slate-600">
+                    {columnProposals.length}
+                  </div>
+                  <ChevronsRight className="w-4 h-4 text-slate-500 mt-2" />
                 </div>
-              )}
-            </Droppable>
-          </div>
-        ))}
+              );
+            }
+
+            return (
+              <div key={column.id} className="flex-shrink-0 relative">
+                <button
+                  onClick={() => toggleColumnCollapse(column.id)}
+                  className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-6 h-12 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
+                  title="Collapse column"
+                >
+                  <ChevronsLeft className="w-4 h-4 text-slate-500" />
+                </button>
+                
+                <Droppable droppableId={column.id} type="proposal">
+                  {(provided, snapshot) => (
+                    <KanbanColumn
+                      column={column}
+                      proposals={columnProposals}
+                      provided={provided}
+                      snapshot={snapshot}
+                      onCardClick={handleCardClick}
+                      onDeleteProposal={handleDeleteProposal}
+                      organization={organization}
+                      // Pass down other required props if KanbanColumn needs them for filtering/sorting/etc.
+                      boardConfig={kanbanConfigData}
+                    />
+                  )}
+                </Droppable>
+              </div>
+            );
+          })}
+        </div>
       </DragDropContext>
+
+      {showBoardConfig && (
+        <BoardConfigDialog
+          isOpen={showBoardConfig}
+          onClose={() => {
+            setShowBoardConfig(false);
+            queryClient.invalidateQueries({ queryKey: ['kanban-config'] }); // Re-fetch config when dialog closes
+            queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Re-fetch proposals in case swimlanes changed
+          }}
+          organization={organization}
+          currentConfig={kanbanConfigData} // Pass the data from useQuery
+        />
+      )}
+
+      {showProposalModal && selectedProposal && (
+        <ProposalCardModal
+          proposal={selectedProposal}
+          isOpen={showProposalModal}
+          onClose={() => {
+            setShowProposalModal(false);
+            setSelectedProposal(null);
+            queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Invalidate to reflect any changes made in modal
+            if (onRefresh) onRefresh();
+          }}
+          organization={organization}
+          kanbanConfig={kanbanConfigData} // Pass the board config
+        />
+      )}
     </div>
   );
 }
