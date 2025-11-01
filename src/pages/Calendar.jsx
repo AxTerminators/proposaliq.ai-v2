@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
@@ -24,19 +25,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Calendar as CalendarIcon, 
-  Plus, 
-  Clock, 
-  MapPin, 
-  Video, 
-  Trash2, 
-  ChevronLeft, 
-  ChevronRight, 
-  LayoutGrid, 
-  Columns, 
-  Square, 
-  Repeat, 
+import {
+  Calendar as CalendarIcon,
+  Plus,
+  Clock,
+  MapPin,
+  Video,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  Columns,
+  Square,
+  Repeat,
   AlertCircle,
   Filter,
   Search,
@@ -48,7 +49,10 @@ import {
   X,
   ExternalLink,
   Settings,
-  List
+  List,
+  Share2, // New import
+  Tag,    // New import
+  Bell    // New import
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -56,6 +60,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 import { cn } from "@/lib/utils";
 import CalendarSync from "../components/calendar/CalendarSync";
+import CustomEventTypeManager from "../components/calendar/CustomEventTypeManager";
+import NotificationPreferences from "../components/calendar/NotificationPreferences";
+import TeamCalendarView from "../components/calendar/TeamCalendarView";
+import CalendarSharing from "../components/calendar/CalendarSharing";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -84,7 +92,7 @@ async function getUserActiveOrganization(user) {
   return null;
 }
 
-// Event type configurations
+// Event type configurations (static, built-in types)
 const EVENT_TYPE_CONFIG = {
   calendar_event: {
     label: "Calendar Event",
@@ -136,30 +144,62 @@ const EVENT_TYPE_CONFIG = {
   }
 };
 
+// Map Lucide icon names to components for dynamic rendering
+const iconMap = {
+  CalendarIcon: CalendarIcon,
+  Plus: Plus,
+  Clock: Clock,
+  MapPin: MapPin,
+  Video: Video,
+  Trash2: Trash2,
+  ChevronLeft: ChevronLeft,
+  ChevronRight: ChevronRight,
+  LayoutGrid: LayoutGrid,
+  Columns: Columns,
+  Square: Square,
+  Repeat: Repeat,
+  AlertCircle: AlertCircle,
+  Filter: Filter,
+  Search: Search,
+  CheckSquare: CheckSquare,
+  FileText: FileText,
+  Users: Users,
+  Shield: Shield,
+  Briefcase: Briefcase,
+  X: X,
+  ExternalLink: ExternalLink,
+  Settings: Settings,
+  List: List,
+  Share2: Share2,
+  Tag: Tag,
+  Bell: Bell
+  // Add other Lucide icons as needed, especially if custom types can specify them
+};
+
 // Helper function to generate recurring event instances
 const generateRecurringInstances = (event, startDate, endDate) => {
   if (!event.recurrence_rule) return [event];
-  
+
   const instances = [];
   let recurrence;
   try {
-    recurrence = typeof event.recurrence_rule === 'string' 
-      ? JSON.parse(event.recurrence_rule) 
+    recurrence = typeof event.recurrence_rule === 'string'
+      ? JSON.parse(event.recurrence_rule)
       : event.recurrence_rule;
   } catch (e) {
     return [event];
   }
-  
+
   if (!recurrence.frequency) return [event];
-  
+
   const eventStart = moment(event.start_date);
   const eventEnd = moment(event.end_date);
   const duration = eventEnd.diff(eventStart);
-  
+
   let current = moment(eventStart);
   const viewStart = moment(startDate);
   const viewEnd = moment(endDate);
-  
+
   let maxDate;
   if (recurrence.end_type === 'date' && recurrence.end_date) {
     maxDate = moment(recurrence.end_date);
@@ -179,10 +219,10 @@ const generateRecurringInstances = (event, startDate, endDate) => {
   } else {
     maxDate = moment().add(2, 'years');
   }
-  
+
   let count = 0;
   const maxCount = recurrence.end_type === 'count' ? recurrence.occurrence_count : 1000;
-  
+
   while (current.isSameOrBefore(maxDate) && current.isSameOrBefore(viewEnd) && count < maxCount) {
     if (current.isSameOrAfter(viewStart)) {
       instances.push({
@@ -194,7 +234,7 @@ const generateRecurringInstances = (event, startDate, endDate) => {
         is_recurring_instance: true
       });
     }
-    
+
     if (recurrence.frequency === 'daily') {
       current.add(recurrence.interval || 1, 'days');
     } else if (recurrence.frequency === 'weekly') {
@@ -204,17 +244,19 @@ const generateRecurringInstances = (event, startDate, endDate) => {
     } else if (recurrence.frequency === 'yearly') {
       current.add(recurrence.interval || 1, 'years');
     }
-    
+
     count++;
   }
-  
+
   return instances;
 };
 
 // Data normalization function
 const normalizeEvent = (entity, sourceType, orgId) => {
+  // Use the static EVENT_TYPE_CONFIG for normalization to ensure consistency
+  // The merged config will be used for display properties like color/icon
   const config = EVENT_TYPE_CONFIG[sourceType];
-  
+
   switch (sourceType) {
     case 'proposal_task':
       return {
@@ -225,7 +267,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         description: entity.description,
         start_date: entity.due_date,
         end_date: entity.due_date,
-        event_type: 'task_deadline',
+        event_type: 'task_deadline', // Internal event type for CalendarEvent model
         link_url: `/tasks`,
         color_category: config.color,
         priority: entity.priority,
@@ -234,7 +276,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         can_drag: config.canDrag,
         can_edit: config.canEdit
       };
-      
+
     case 'proposal_deadline':
       return {
         id: `proposal-${entity.id}`,
@@ -244,7 +286,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         description: `Proposal: ${entity.proposal_name}`,
         start_date: entity.due_date,
         end_date: entity.due_date,
-        event_type: 'proposal_deadline',
+        event_type: 'proposal_deadline', // Internal event type
         link_url: `/proposal-builder?id=${entity.id}`,
         color_category: config.color,
         priority: 'high',
@@ -252,7 +294,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         can_drag: config.canDrag,
         can_edit: config.canEdit
       };
-      
+
     case 'review_deadline':
       return {
         id: `review-${entity.id}`,
@@ -262,7 +304,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         description: entity.description,
         start_date: entity.due_date,
         end_date: entity.due_date,
-        event_type: 'review_session',
+        event_type: 'review_session', // Internal event type
         link_url: `/proposal-builder?id=${entity.proposal_id}`,
         color_category: config.color,
         priority: 'high',
@@ -270,7 +312,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         can_drag: config.canDrag,
         can_edit: config.canEdit
       };
-      
+
     case 'compliance_due':
       return {
         id: `compliance-${entity.id}`,
@@ -280,7 +322,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         description: entity.requirement_description,
         start_date: entity.due_date,
         end_date: entity.due_date,
-        event_type: 'compliance_due',
+        event_type: 'compliance_due', // Internal event type
         link_url: `/proposal-builder?id=${entity.proposal_id}`,
         color_category: config.color,
         priority: entity.risk_level,
@@ -288,7 +330,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         can_drag: config.canDrag,
         can_edit: config.canEdit
       };
-      
+
     case 'client_meeting':
       return {
         id: `meeting-${entity.id}`,
@@ -298,7 +340,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         description: entity.agenda,
         start_date: entity.scheduled_date,
         end_date: moment(entity.scheduled_date).add(entity.duration_minutes || 60, 'minutes').toISOString(),
-        event_type: 'meeting',
+        event_type: 'meeting', // Internal event type
         link_url: `/clients`,
         color_category: config.color,
         location: entity.location,
@@ -306,7 +348,7 @@ const normalizeEvent = (entity, sourceType, orgId) => {
         can_drag: config.canDrag,
         can_edit: config.canEdit
       };
-      
+
     default:
       return null;
   }
@@ -321,7 +363,7 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState("month");
   const [deleteRecurringOption, setDeleteRecurringOption] = useState(null);
-  
+
   // Filtering and search state
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -335,7 +377,7 @@ export default function Calendar() {
   const [eventData, setEventData] = useState({
     title: "",
     description: "",
-    event_type: "meeting",
+    event_type: "meeting", // Default internal event type for new CalendarEvent
     start_date: new Date().toISOString().slice(0, 16),
     end_date: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
     location: "",
@@ -356,7 +398,7 @@ export default function Calendar() {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        
+
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
@@ -386,7 +428,7 @@ export default function Calendar() {
           const proposals = await base44.entities.Proposal.filter({ organization_id: organization.id });
           const proposalIds = proposals.map(p => p.id);
           if (proposalIds.length === 0) return [];
-          return base44.entities.ProposalTask.filter({ 
+          return base44.entities.ProposalTask.filter({
             proposal_id: { $in: proposalIds },
             due_date: { $ne: null }
           });
@@ -397,7 +439,7 @@ export default function Calendar() {
         queryKey: ['proposal-deadlines', organization?.id],
         queryFn: async () => {
           if (!organization?.id) return [];
-          return base44.entities.Proposal.filter({ 
+          return base44.entities.Proposal.filter({
             organization_id: organization.id,
             due_date: { $ne: null }
           });
@@ -411,7 +453,7 @@ export default function Calendar() {
           const proposals = await base44.entities.Proposal.filter({ organization_id: organization.id });
           const proposalIds = proposals.map(p => p.id);
           if (proposalIds.length === 0) return [];
-          return base44.entities.ReviewRound.filter({ 
+          return base44.entities.ReviewRound.filter({
             proposal_id: { $in: proposalIds },
             due_date: { $ne: null }
           });
@@ -425,7 +467,7 @@ export default function Calendar() {
           const proposals = await base44.entities.Proposal.filter({ organization_id: organization.id });
           const proposalIds = proposals.map(p => p.id);
           if (proposalIds.length === 0) return [];
-          return base44.entities.ComplianceRequirement.filter({ 
+          return base44.entities.ComplianceRequirement.filter({
             proposal_id: { $in: proposalIds },
             due_date: { $ne: null }
           });
@@ -436,7 +478,7 @@ export default function Calendar() {
         queryKey: ['client-meetings', organization?.id],
         queryFn: async () => {
           if (!organization?.id) return [];
-          return base44.entities.ClientMeeting.filter({ 
+          return base44.entities.ClientMeeting.filter({
             organization_id: organization.id,
             scheduled_date: { $ne: null }
           });
@@ -446,14 +488,74 @@ export default function Calendar() {
     ]
   });
 
+  // Load custom event types
+  const { data: customEventTypes = [] } = useQuery({
+    queryKey: ['custom-event-types', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.CustomEventType.filter({
+        organization_id: organization.id,
+        is_active: true
+      });
+    },
+    enabled: !!organization?.id,
+  });
+
   const isLoading = queries.some(q => q.isLoading);
-  
+
+  // Merge custom event types into EVENT_TYPE_CONFIG dynamically for display
+  const mergedEventTypeConfig = React.useMemo(() => {
+    const merged = { ...EVENT_TYPE_CONFIG };
+
+    customEventTypes.forEach(customType => {
+      const IconComponent = customType.icon_name ? iconMap[customType.icon_name] || CalendarIcon : CalendarIcon;
+
+      // Custom types create 'calendar_event' entries with their type_key as event_type
+      // So here, we map the customType.type_key to a display configuration
+      // The `source_type` of these events will still be `calendar_event`.
+      // The `event_type` property of the `CalendarEvent` will hold the `type_key`.
+      // We need to decide how to represent custom types in the merged config.
+      // A common approach is to add them as new keys, or extend calendar_event's internal types.
+      // For simplicity, let's treat `type_key` as a `source_type` for display purposes,
+      // even if the underlying database `source_type` is `calendar_event`.
+      // This means we might need to adjust how `source_type` is determined for display.
+
+      // Option 1: Add custom types as new distinct 'source_type' keys for direct lookup
+      // This requires events coming from `CalendarEvent` to specify their `type_key` as `source_type` if custom.
+      // Current `allEvents` only sets `source_type: 'calendar_event'`.
+
+      // Option 2 (more flexible):
+      // Custom event types are just _additional internal types_ for `calendar_event`s.
+      // So, `source_type` remains `calendar_event` for them.
+      // We'll need a function to get display config that checks `source_type` first, then `event_type` if `source_type` is `calendar_event`.
+
+      // Let's go with Option 1 for now, assuming `source_type` can dynamically be a `type_key`
+      // This means that when a CalendarEvent has a custom `event_type`, we map its `source_type` to that `event_type`
+      // for display config lookup. This is a hacky simplification for the current setup.
+      // A cleaner solution would be to augment CalendarEvent objects with a derived `display_source_type` or similar.
+
+      // For now, I'll update allEvents to consider event.event_type if source_type is calendar_event and it matches a custom type.
+      merged[customType.type_key] = {
+        label: customType.type_name,
+        icon: IconComponent,
+        color: customType.color,
+        badgeColor: customType.badge_color,
+        canDrag: customType.is_draggable,
+        canEdit: customType.is_editable,
+        isCustom: true // Mark as custom
+      };
+    });
+
+    return merged;
+  }, [customEventTypes]);
+
+
   // Normalize and combine all events
   const allEvents = React.useMemo(() => {
     if (!organization?.id) return [];
-    
+
     const [calendarEvents, proposalTasks, proposalDeadlines, reviewDeadlines, complianceDeadlines, clientMeetings] = queries.map(q => q.data || []);
-    
+
     // Get date range
     let startDate, endDate;
     if (viewMode === 'month') {
@@ -469,61 +571,70 @@ export default function Calendar() {
       startDate = moment(currentDate).startOf('day');
       endDate = moment(currentDate).endOf('day');
     }
-    
+
     const normalized = [];
-    
+
     // Calendar events (with recurrence support)
     calendarEvents.forEach(event => {
+      // Determine the effective source_type for display purposes based on custom types
+      let effectiveSourceType = 'calendar_event';
+      if (event.event_type && mergedEventTypeConfig[event.event_type]?.isCustom) {
+        effectiveSourceType = event.event_type;
+      }
+
       if (event.recurrence_rule) {
         const instances = generateRecurringInstances(event, startDate, endDate);
         instances.forEach(instance => {
           normalized.push({
             ...instance,
-            source_type: 'calendar_event',
-            color_category: EVENT_TYPE_CONFIG.calendar_event.color,
-            can_drag: !instance.is_recurring_instance,
-            can_edit: true
+            source_type: effectiveSourceType, // Use effectiveSourceType for display properties
+            color_category: mergedEventTypeConfig[effectiveSourceType]?.color || mergedEventTypeConfig.calendar_event.color,
+            can_drag: mergedEventTypeConfig[effectiveSourceType]?.canDrag && !instance.is_recurring_instance,
+            can_edit: mergedEventTypeConfig[effectiveSourceType]?.canEdit,
           });
         });
       } else {
         normalized.push({
           ...event,
-          source_type: 'calendar_event',
-          color_category: EVENT_TYPE_CONFIG.calendar_event.color,
-          can_drag: true,
-          can_edit: true
+          source_type: effectiveSourceType, // Use effectiveSourceType for display properties
+          color_category: mergedEventTypeConfig[effectiveSourceType]?.color || mergedEventTypeConfig.calendar_event.color,
+          can_drag: mergedEventTypeConfig[effectiveSourceType]?.canDrag,
+          can_edit: mergedEventTypeConfig[effectiveSourceType]?.canEdit,
         });
       }
     });
-    
+
     // Normalize other entity types
+    // These still use the static EVENT_TYPE_CONFIG for normalization
+    // Their display properties will be resolved by mergedEventTypeConfig later
     proposalTasks.forEach(task => {
       const norm = normalizeEvent(task, 'proposal_task', organization.id);
       if (norm) normalized.push(norm);
     });
-    
+
     proposalDeadlines.forEach(proposal => {
       const norm = normalizeEvent(proposal, 'proposal_deadline', organization.id);
       if (norm) normalized.push(norm);
     });
-    
+
     reviewDeadlines.forEach(review => {
       const norm = normalizeEvent(review, 'review_deadline', organization.id);
       if (norm) normalized.push(norm);
     });
-    
+
     complianceDeadlines.forEach(compliance => {
       const norm = normalizeEvent(compliance, 'compliance_due', organization.id);
       if (norm) normalized.push(norm);
     });
-    
+
     clientMeetings.forEach(meeting => {
       const norm = normalizeEvent(meeting, 'client_meeting', organization.id);
       if (norm) normalized.push(norm);
     });
-    
+
     return normalized;
-  }, [queries, currentDate, viewMode, organization?.id]);
+  }, [queries, currentDate, viewMode, organization?.id, mergedEventTypeConfig]); // Depend on mergedEventTypeConfig
+
 
   // Apply filters and search
   const filteredEvents = React.useMemo(() => {
@@ -531,33 +642,34 @@ export default function Calendar() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           event.title?.toLowerCase().includes(query) ||
           event.description?.toLowerCase().includes(query) ||
           event.location?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
-      
+
       // Event type filter
+      // Filter based on the actual source_type, which might be a custom type key
       if (filters.eventType !== "all" && event.source_type !== filters.eventType) {
         return false;
       }
-      
+
       // Assigned user filter
       if (filters.assignedUser !== "all" && event.assigned_to !== filters.assignedUser) {
         return false;
       }
-      
+
       // Priority filter
       if (filters.priority !== "all" && event.priority !== filters.priority) {
         return false;
       }
-      
+
       // Proposal filter
       if (filters.proposal !== "all" && event.proposal_id !== filters.proposal) {
         return false;
       }
-      
+
       return true;
     });
   }, [allEvents, searchQuery, filters]);
@@ -568,7 +680,7 @@ export default function Calendar() {
     queryFn: async () => {
       if (!organization?.id) return [];
       const users = await base44.entities.User.filter({});
-      return users.filter(u => 
+      return users.filter(u =>
         u.client_accesses?.some(access => access.organization_id === organization.id)
       );
     },
@@ -589,11 +701,15 @@ export default function Calendar() {
     mutationFn: async (data) => {
       const eventToSave = {
         ...data,
+        // The source_type will always be 'calendar_event' for user-created events
+        // The actual specific type is stored in 'event_type' field.
+        source_type: 'calendar_event',
         recurrence_rule: data.is_recurring ? JSON.stringify(data.recurrence_rule) : null
       };
-      
+
       if (editingEvent && !editingEvent.is_recurring_instance) {
-        return base44.entities.CalendarEvent.update(editingEvent.id, eventToSave);
+        // If editing an existing calendar_event, ensure it retains its source_type
+        return base44.entities.CalendarEvent.update(editingEvent.original_id || editingEvent.id, eventToSave);
       } else {
         return base44.entities.CalendarEvent.create({
           ...eventToSave,
@@ -612,13 +728,17 @@ export default function Calendar() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: async ({ id, start_date, end_date, source_type }) => {
-      if (source_type === 'calendar_event') {
-        return base44.entities.CalendarEvent.update(id, { start_date, end_date });
+    mutationFn: async ({ id, start_date, end_date, source_type, original_id }) => {
+      // The `id` here could be the instance ID. Need to use `original_id` for actual event update.
+      const eventIdToUpdate = original_id || id;
+
+      if (source_type === 'calendar_event' || mergedEventTypeConfig[source_type]?.isCustom) {
+        // If it's a calendar_event or a custom type treated as a calendar_event
+        return base44.entities.CalendarEvent.update(eventIdToUpdate, { start_date, end_date });
       } else if (source_type === 'proposal_task') {
-        return base44.entities.ProposalTask.update(id, { due_date: start_date });
+        return base44.entities.ProposalTask.update(eventIdToUpdate, { due_date: start_date });
       } else if (source_type === 'client_meeting') {
-        return base44.entities.ClientMeeting.update(id, { scheduled_date: start_date });
+        return base44.entities.ClientMeeting.update(eventIdToUpdate, { scheduled_date: start_date });
       }
     },
     onSuccess: () => {
@@ -640,7 +760,7 @@ export default function Calendar() {
     setEventData({
       title: "",
       description: "",
-      event_type: "meeting",
+      event_type: "meeting", // Reset to default internal type
       start_date: new Date().toISOString().slice(0, 16),
       end_date: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
       location: "",
@@ -658,75 +778,70 @@ export default function Calendar() {
   };
 
   const handleEdit = (event) => {
-    if (event.source_type === 'calendar_event') {
-      const isRecurringInstance = event.is_recurring_instance;
-      const originalId = event.original_id || event.id;
-      
-      if (isRecurringInstance) {
-        const [calendarEvents] = queries.map(q => q.data || []);
-        const originalEvent = calendarEvents.find(e => e.id === originalId);
-        if (originalEvent) {
-          setEditingEvent(originalEvent);
-          const recurrence = originalEvent.recurrence_rule 
-            ? (typeof originalEvent.recurrence_rule === 'string' 
-                ? JSON.parse(originalEvent.recurrence_rule) 
-                : originalEvent.recurrence_rule)
-            : null;
-          
-          setEventData({
-            ...originalEvent,
-            start_date: originalEvent.start_date ? originalEvent.start_date.slice(0, 16) : new Date().toISOString().slice(0, 16),
-            end_date: originalEvent.end_date ? originalEvent.end_date.slice(0, 16) : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
-            is_recurring: !!recurrence,
-            recurrence_rule: recurrence || {
-              frequency: "daily",
-              interval: 1,
-              end_type: "never",
-              end_date: "",
-              occurrence_count: 10
-            }
-          });
-        }
+    // Determine the original event ID for recurrence handling
+    const originalId = event.original_id || event.id;
+    // Find the original event from the fetched calendar events to get its recurrence rule, etc.
+    const [allCalendarEvents] = queries.map(q => q.data || []);
+    const originalEvent = allCalendarEvents?.find(e => e.id === originalId);
+
+    // Only allow editing if the event configuration permits it
+    const config = mergedEventTypeConfig[event.source_type];
+    if (!config || !config.canEdit) {
+      if (event.link_url) {
+        window.open(event.link_url, '_blank'); // Open in new tab for external links
       } else {
-        setEditingEvent(event);
-        const recurrence = event.recurrence_rule 
-          ? (typeof event.recurrence_rule === 'string' 
-              ? JSON.parse(event.recurrence_rule) 
-              : event.recurrence_rule)
-          : null;
-        
-        setEventData({
-          ...event,
-          start_date: event.start_date ? event.start_date.slice(0, 16) : new Date().toISOString().slice(0, 16),
-          end_date: event.end_date ? event.end_date.slice(0, 16) : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
-          is_recurring: !!recurrence,
-          recurrence_rule: recurrence || {
-            frequency: "daily",
-            interval: 1,
-            end_type: "never",
-            end_date: "",
-            occurrence_count: 10
-          }
-        });
+        alert(`This ${config?.label || 'event'} cannot be edited here.`);
       }
+      return;
+    }
+
+    if (config.isCustom || event.source_type === 'calendar_event') {
+      const eventToEdit = originalEvent || event; // Use original event data for recurrence details
+      const recurrence = eventToEdit.recurrence_rule
+        ? (typeof eventToEdit.recurrence_rule === 'string'
+          ? JSON.parse(eventToEdit.recurrence_rule)
+          : eventToEdit.recurrence_rule)
+        : null;
+
+      setEditingEvent(event); // Store the instance that was clicked for deletion logic etc.
+      setEventData({
+        ...eventToEdit,
+        start_date: eventToEdit.start_date ? eventToEdit.start_date.slice(0, 16) : new Date().toISOString().slice(0, 16),
+        end_date: eventToEdit.end_date ? eventToEdit.end_date.slice(0, 16) : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+        is_recurring: !!recurrence,
+        recurrence_rule: recurrence || {
+          frequency: "daily",
+          interval: 1,
+          end_type: "never",
+          end_date: "",
+          occurrence_count: 10
+        },
+        event_type: eventToEdit.event_type || 'meeting' // Ensure event_type is set for the dialog
+      });
       setShowEventDialog(true);
     } else {
-      // Navigate to source
+      // Navigate to source for non-editable system events
       if (event.link_url) {
-        window.location.href = event.link_url;
+        window.open(event.link_url, '_blank');
       }
     }
   };
 
   const handleDelete = (event) => {
-    if (event.source_type === 'calendar_event') {
+    const config = mergedEventTypeConfig[event.source_type];
+    if (!config || !config.canEdit) {
+      alert(`This ${config?.label || 'event'} cannot be deleted here.`);
+      return;
+    }
+
+    if (config.isCustom || event.source_type === 'calendar_event') {
       const isRecurringInstance = event.is_recurring_instance;
       const originalId = event.original_id || event.id;
-      
+
       if (isRecurringInstance) {
-        setDeleteRecurringOption(originalId);
+        setDeleteRecurringOption(originalId); // Show dialog for recurring options
       } else if (event.recurrence_rule) {
-        setDeleteRecurringOption(event.id);
+        setDeleteRecurringOption(event.id); // Show dialog for recurring options
       } else {
         if (confirm('Delete this event?')) {
           deleteEventMutation.mutate(event.id);
@@ -742,11 +857,11 @@ export default function Calendar() {
   };
 
   const getEventTypeColor = (sourceType) => {
-    return EVENT_TYPE_CONFIG[sourceType]?.color || EVENT_TYPE_CONFIG.calendar_event.color;
+    return mergedEventTypeConfig[sourceType]?.color || mergedEventTypeConfig.calendar_event.color;
   };
 
   const getEventTypeBadgeColor = (sourceType) => {
-    return EVENT_TYPE_CONFIG[sourceType]?.badgeColor || EVENT_TYPE_CONFIG.calendar_event.badgeColor;
+    return mergedEventTypeConfig[sourceType]?.badgeColor || mergedEventTypeConfig.calendar_event.badgeColor;
   };
 
   // Calendar navigation
@@ -791,18 +906,18 @@ export default function Calendar() {
   const getRecurrenceDescription = (recurrence) => {
     if (!recurrence) return null;
     const rule = typeof recurrence === 'string' ? JSON.parse(recurrence) : recurrence;
-    
+
     let desc = `Repeats ${rule.frequency}`;
     if (rule.interval > 1) {
       desc += ` every ${rule.interval} ${rule.frequency === 'daily' ? 'days' : rule.frequency === 'weekly' ? 'weeks' : rule.frequency === 'monthly' ? 'months' : 'years'}`;
     }
-    
+
     if (rule.end_type === 'date' && rule.end_date) {
       desc += `, until ${moment(rule.end_date).format('MMM D, YYYY')}`;
     } else if (rule.end_type === 'count') {
       desc += `, ${rule.occurrence_count} times`;
     }
-    
+
     return desc;
   };
 
@@ -813,15 +928,17 @@ export default function Calendar() {
     const eventId = result.draggableId;
     const event = filteredEvents.find(e => e.id === eventId);
     if (!event) return;
-    
+
+    // Check if the event's actual source type (not just the derived display source type) can be dragged
+    // The `can_drag` property on `event` from `allEvents` already uses mergedEventTypeConfig
     if (!event.can_drag) {
-      alert(`Cannot reschedule ${EVENT_TYPE_CONFIG[event.source_type]?.label || 'this item'}. Please edit it in its original location.`);
+      alert(`Cannot reschedule ${mergedEventTypeConfig[event.source_type]?.label || 'this item'}. Please edit it in its original location.`);
       return;
     }
 
     const destinationDate = result.destination.droppableId;
     const [year, month, day] = destinationDate.split('-').map(Number);
-    
+
     const eventStart = moment(event.start_date);
     const eventEnd = moment(event.end_date);
     const duration = eventEnd.diff(eventStart);
@@ -829,18 +946,20 @@ export default function Calendar() {
     const newStart = moment({ year, month: month - 1, day, hour: eventStart.hour(), minute: eventStart.minute() });
     const newEnd = moment(newStart).add(duration);
 
+    // Pass original_id and source_type to mutation for correct entity update
     updateEventMutation.mutate({
       id: event.original_id || event.id,
       start_date: newStart.toISOString(),
       end_date: newEnd.toISOString(),
-      source_type: event.source_type
+      source_type: event.source_type, // Use the effective source_type
+      original_id: event.original_id || event.id // Pass original_id for calendar events
     });
   };
 
   // Event Popover Component
   const EventPopover = ({ event, children }) => {
-    const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
-    
+    const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+
     return (
       <Popover>
         <PopoverTrigger asChild>
@@ -855,13 +974,13 @@ export default function Calendar() {
                 {event.title}
               </h4>
               <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
-                {EVENT_TYPE_CONFIG[event.source_type]?.label}
+                {mergedEventTypeConfig[event.source_type]?.label || 'Event'}
               </Badge>
             </div>
             {event.description && (
               <p className="text-sm text-slate-600">{event.description}</p>
             )}
-            {event.is_recurring_instance && event.source_type === 'calendar_event' && (
+            {event.is_recurring_instance && (mergedEventTypeConfig[event.source_type]?.isCustom || event.source_type === 'calendar_event') && (
               <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
                 <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>{getRecurrenceDescription(queries[0].data?.find(e => e.id === event.original_id)?.recurrence_rule)}</span>
@@ -908,7 +1027,7 @@ export default function Calendar() {
                 {event.can_edit ? (event.is_recurring_instance ? 'Edit Series' : 'Edit') : 'View'}
                 {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
               </Button>
-              {event.can_edit && event.source_type === 'calendar_event' && (
+              {event.can_edit && (mergedEventTypeConfig[event.source_type]?.isCustom || event.source_type === 'calendar_event') && (
                 <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -961,7 +1080,7 @@ export default function Calendar() {
           {days.map((day, index) => {
             const dayEvents = day ? getEventsForDay(day) : [];
             const droppableId = day ? moment(currentDate).date(day).format('YYYY-MM-DD') : `empty-${index}`;
-            
+
             return (
               <Droppable key={index} droppableId={droppableId}>
                 {(provided, snapshot) => (
@@ -996,7 +1115,7 @@ export default function Calendar() {
                         </div>
                         <div className="space-y-1">
                           {dayEvents.slice(0, 3).map((event, idx) => {
-                            const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                            const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                             return (
                               <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
                                 {(provided, snapshot) => (
@@ -1050,14 +1169,14 @@ export default function Calendar() {
     const startOfWeek = moment(currentDate).startOf('week');
     const days = Array.from({ length: 7 }, (_, i) => moment(startOfWeek).add(i, 'days'));
     const hours = Array.from({ length: 24 }, (_, i) => i);
-    
+
     const getEventsForDayAndHour = (day, hour) => {
       return filteredEvents.filter(event => {
         const eventStart = moment(event.start_date);
         const eventEnd = moment(event.end_date);
         const targetHour = moment(day).hour(hour);
         const nextHour = moment(day).hour(hour + 1);
-        
+
         return (
           (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
           (eventEnd.isAfter(targetHour) && eventEnd.isSameOrBefore(nextHour)) ||
@@ -1065,7 +1184,7 @@ export default function Calendar() {
         );
       });
     };
-    
+
     return (
       <div className="border rounded-xl overflow-hidden">
         <div className="grid grid-cols-8 border-b bg-slate-50">
@@ -1098,7 +1217,7 @@ export default function Calendar() {
                 return (
                   <div key={day.format('YYYY-MM-DD')} className="p-2 border-r hover:bg-slate-50 transition-all">
                     {hourEvents.map((event) => {
-                      const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                      const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                       return (
                         <EventPopover key={event.id} event={event}>
                           <div className={cn(
@@ -1134,7 +1253,7 @@ export default function Calendar() {
       const eventDate = moment(event.start_date).format('YYYY-MM-DD');
       return eventDate === moment(currentDate).format('YYYY-MM-DD');
     });
-    
+
     return (
       <div className="border-2 rounded-xl overflow-hidden">
         <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-4 border-b-2">
@@ -1150,14 +1269,14 @@ export default function Calendar() {
                 const eventEnd = moment(event.end_date);
                 const targetHour = moment(currentDate).hour(hour);
                 const nextHour = moment(currentDate).hour(hour + 1);
-                
+
                 return (
                   (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
                   (eventEnd.isAfter(targetHour) && eventEnd.isSameOrBefore(nextHour)) ||
                   (eventStart.isBefore(targetHour) && eventEnd.isAfter(nextHour))
                 );
               });
-              
+
               return (
                 <React.Fragment key={hour}>
                   <div className="p-3 text-right text-sm font-semibold text-slate-600 border-b border-r bg-slate-50">
@@ -1165,7 +1284,7 @@ export default function Calendar() {
                   </div>
                   <div className="p-2 border-b min-h-[80px] hover:bg-slate-50 transition-all">
                     {hourEvents.map((event) => {
-                      const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                      const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                       return (
                         <EventPopover key={event.id} event={event}>
                           <div className={cn(
@@ -1199,7 +1318,7 @@ export default function Calendar() {
     const sortedEvents = [...filteredEvents]
       .filter(event => moment(event.start_date).isSameOrAfter(moment(), 'day'))
       .sort((a, b) => moment(a.start_date).unix() - moment(b.start_date).unix());
-    
+
     const groupedEvents = sortedEvents.reduce((acc, event) => {
       const dateKey = moment(event.start_date).format('YYYY-MM-DD');
       if (!acc[dateKey]) {
@@ -1208,14 +1327,14 @@ export default function Calendar() {
       acc[dateKey].push(event);
       return acc;
     }, {});
-    
+
     return (
       <div className="space-y-6">
         {Object.entries(groupedEvents).map(([dateKey, events]) => {
           const date = moment(dateKey);
           const isToday = date.isSame(moment(), 'day');
           const isTomorrow = date.isSame(moment().add(1, 'day'), 'day');
-          
+
           return (
             <div key={dateKey}>
               <div className={cn(
@@ -1229,10 +1348,10 @@ export default function Calendar() {
                   </span>
                 </h3>
               </div>
-              
+
               <div className="space-y-3">
                 {events.map((event) => {
-                  const Icon = EVENT_TYPE_CONFIG[event.source_type]?.icon || CalendarIcon;
+                  const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                   return (
                     <Card key={event.id} className="border-none shadow-md hover:shadow-xl transition-all">
                       <CardContent className="p-4">
@@ -1245,7 +1364,7 @@ export default function Calendar() {
                               <Icon className="w-6 h-6" />
                             </div>
                           </div>
-                          
+
                           <div className="flex-1">
                             <div className="flex items-start justify-between mb-2">
                               <div>
@@ -1254,7 +1373,7 @@ export default function Calendar() {
                                   {event.title}
                                 </h4>
                                 <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
-                                  {EVENT_TYPE_CONFIG[event.source_type]?.label}
+                                  {mergedEventTypeConfig[event.source_type]?.label || 'Event'}
                                 </Badge>
                               </div>
                               {event.priority && (
@@ -1266,11 +1385,11 @@ export default function Calendar() {
                                 </Badge>
                               )}
                             </div>
-                            
+
                             {event.description && (
                               <p className="text-sm text-slate-600 mb-3">{event.description}</p>
                             )}
-                            
+
                             <div className="flex flex-wrap gap-3 text-sm text-slate-600">
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
@@ -1295,13 +1414,13 @@ export default function Calendar() {
                                 </div>
                               )}
                             </div>
-                            
+
                             <div className="flex gap-2 mt-3">
                               <Button size="sm" onClick={() => handleEdit(event)}>
                                 {event.can_edit ? 'Edit' : 'View'}
                                 {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
                               </Button>
-                              {event.can_edit && event.source_type === 'calendar_event' && (
+                              {event.can_edit && (mergedEventTypeConfig[event.source_type]?.isCustom || event.source_type === 'calendar_event') && (
                                 <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -1317,7 +1436,7 @@ export default function Calendar() {
             </div>
           );
         })}
-        
+
         {Object.keys(groupedEvents).length === 0 && (
           <div className="text-center py-20 text-slate-500">
             <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
@@ -1326,6 +1445,38 @@ export default function Calendar() {
           </div>
         )}
       </div>
+    );
+  };
+
+  // Update the event dialog to include custom types in the dropdown
+  const renderEventTypeOptions = () => {
+    // These are the *internal* event_type fields for user-created CalendarEvents
+    const systemCalendarEventTypes = [
+      { value: "meeting", label: "Meeting" },
+      { value: "task_deadline", label: "Task Deadline" },
+      { value: "proposal_deadline", label: "Proposal Deadline" },
+      { value: "review_session", label: "Review Session" },
+      { value: "milestone", label: "Milestone" },
+      { value: "other", label: "Other" },
+    ];
+
+    return (
+      <>
+        <optgroup label="System Event Types">
+          {systemCalendarEventTypes.map(type => (
+            <option key={type.value} value={type.value}>{type.label}</option>
+          ))}
+        </optgroup>
+        {customEventTypes.length > 0 && (
+          <optgroup label="Custom Event Types">
+            {customEventTypes.map(type => (
+              <option key={type.type_key} value={type.type_key}>
+                {type.type_name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </>
     );
   };
 
@@ -1357,16 +1508,32 @@ export default function Calendar() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Master Calendar</h1>
             <p className="text-slate-600">All your events, tasks, deadlines, and meetings in one place</p>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <TabsList>
               <TabsTrigger value="calendar">
                 <CalendarIcon className="w-4 h-4 mr-2" />
                 Calendar
               </TabsTrigger>
+              <TabsTrigger value="team">
+                <Users className="w-4 h-4 mr-2" />
+                Team View
+              </TabsTrigger>
+              <TabsTrigger value="sharing">
+                <Share2 className="w-4 h-4 mr-2" />
+                Sharing
+              </TabsTrigger>
+              <TabsTrigger value="types">
+                <Tag className="w-4 h-4 mr-2" />
+                Event Types
+              </TabsTrigger>
+              <TabsTrigger value="notifications">
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
+              </TabsTrigger>
               <TabsTrigger value="sync">
                 <Settings className="w-4 h-4 mr-2" />
-                Sync Settings
+                Sync
               </TabsTrigger>
             </TabsList>
             <Button onClick={() => { resetForm(); setShowEventDialog(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
@@ -1431,12 +1598,11 @@ export default function Calendar() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="calendar_event">Calendar Events</SelectItem>
-                            <SelectItem value="proposal_task">Proposal Tasks</SelectItem>
-                            <SelectItem value="proposal_deadline">Proposal Deadlines</SelectItem>
-                            <SelectItem value="review_deadline">Review Deadlines</SelectItem>
-                            <SelectItem value="compliance_due">Compliance Deadlines</SelectItem>
-                            <SelectItem value="client_meeting">Client Meetings</SelectItem>
+                            {Object.entries(mergedEventTypeConfig).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>
+                                {config.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1505,7 +1671,7 @@ export default function Calendar() {
                   )}
                   {filters.eventType !== "all" && (
                     <Badge variant="secondary" className="gap-1">
-                      Type: {EVENT_TYPE_CONFIG[filters.eventType]?.label}
+                      Type: {mergedEventTypeConfig[filters.eventType]?.label || filters.eventType}
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({...filters, eventType: "all"})} />
                     </Badge>
                   )}
@@ -1620,9 +1786,9 @@ export default function Calendar() {
 
           <Card className="border-none shadow-lg">
             <CardContent className="p-4">
-              <h4 className="font-semibold text-slate-900 mb-3">Event Types</h4>
+              <h4 className="font-semibold text-slate-900 mb-3">Event Types Legend</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {Object.entries(EVENT_TYPE_CONFIG).map(([key, config]) => {
+                {Object.entries(mergedEventTypeConfig).map(([key, config]) => {
                   const Icon = config.icon;
                   return (
                     <div key={key} className="flex items-center gap-2">
@@ -1637,18 +1803,34 @@ export default function Calendar() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="team">
+          <TeamCalendarView organization={organization} currentUser={user} />
+        </TabsContent>
+
+        <TabsContent value="sharing">
+          <CalendarSharing organization={organization} user={user} />
+        </TabsContent>
+
+        <TabsContent value="types">
+          <CustomEventTypeManager organization={organization} />
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <NotificationPreferences user={user} organization={organization} />
+        </TabsContent>
+
         <TabsContent value="sync">
           <CalendarSync organization={organization} />
         </TabsContent>
       </Tabs>
 
       {/* Event Dialog */}
-      <Dialog open={showEventDialog} onOpenChange={(open) => { 
-        setShowEventDialog(open); 
-        if (!open) { 
-          setEditingEvent(null); 
-          resetForm(); 
-        } 
+      <Dialog open={showEventDialog} onOpenChange={(open) => {
+        setShowEventDialog(open);
+        if (!open) {
+          setEditingEvent(null);
+          resetForm();
+        }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1672,12 +1854,7 @@ export default function Calendar() {
                 value={eventData.event_type}
                 onChange={(e) => setEventData({ ...eventData, event_type: e.target.value })}
               >
-                <option value="meeting">Meeting</option>
-                <option value="proposal_deadline">Proposal Deadline</option>
-                <option value="task_deadline">Task Deadline</option>
-                <option value="review_session">Review Session</option>
-                <option value="milestone">Milestone</option>
-                <option value="other">Other</option>
+                {renderEventTypeOptions()}
               </select>
             </div>
 
@@ -1749,7 +1926,7 @@ export default function Calendar() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">Frequency</label>
-                      <Select 
+                      <Select
                         value={eventData.recurrence_rule.frequency}
                         onValueChange={(value) => setEventData({
                           ...eventData,
@@ -1785,7 +1962,7 @@ export default function Calendar() {
 
                   <div>
                     <label className="block text-sm font-medium mb-2">Ends</label>
-                    <Select 
+                    <Select
                       value={eventData.recurrence_rule.end_type}
                       onValueChange={(value) => setEventData({
                         ...eventData,
@@ -1841,12 +2018,13 @@ export default function Calendar() {
             </div>
 
             <div className="flex justify-between items-center pt-4">
-              {editingEvent && !editingEvent.is_recurring_instance && (
-                <Button 
-                  variant="destructive" 
+              {editingEvent && (mergedEventTypeConfig[editingEvent.source_type]?.isCustom || editingEvent.source_type === 'calendar_event') && (
+                <Button
+                  variant="destructive"
                   onClick={() => {
                     if (confirm('Delete this event?')) {
-                      deleteEventMutation.mutate(editingEvent.id);
+                      // Use the original_id for deletion if it's a recurring instance
+                      deleteEventMutation.mutate(editingEvent.original_id || editingEvent.id);
                       setShowEventDialog(false);
                       setEditingEvent(null);
                       resetForm();
@@ -1887,8 +2065,8 @@ export default function Calendar() {
               <Button variant="outline" onClick={() => setDeleteRecurringOption(null)}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => {
                   deleteEventMutation.mutate(deleteRecurringOption);
                 }}
