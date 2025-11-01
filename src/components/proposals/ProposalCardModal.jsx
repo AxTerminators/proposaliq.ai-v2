@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter // Added DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label"; // Added Label
 import {
   Calendar,
   DollarSign,
@@ -41,7 +40,7 @@ import {
   Plus,
   Trash2,
   ExternalLink,
-  Flame // Added Flame
+  Flame
 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import moment from "moment";
@@ -52,15 +51,14 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const [isEditing, setIsEditing] = useState(false);
   const [editedProposal, setEditedProposal] = useState(proposal);
   const [activeTab, setActiveTab] = useState("overview");
-  const [showLabelDialog, setShowLabelDialog] = useState(false); // New state for label dialog
-  const [newLabelName, setNewLabelName] = useState(""); // New state for new label name
-  const [newLabelColor, setNewLabelColor] = useState("bg-blue-500 text-white"); // New state for new label color
+  const [showLabelDialog, setShowLabelDialog] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("bg-blue-500 text-white");
 
   useEffect(() => {
     setEditedProposal(proposal);
   }, [proposal]);
 
-  // Fetch subtasks
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks', proposal?.id],
     queryFn: () => base44.entities.ProposalSubtask.filter(
@@ -71,7 +69,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     initialData: []
   });
 
-  // Fetch dependencies
   const { data: dependencies = [] } = useQuery({
     queryKey: ['proposal-dependencies', proposal?.id],
     queryFn: () => base44.entities.ProposalDependency.filter(
@@ -81,7 +78,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     initialData: []
   });
 
-  // Fetch comments
   const { data: comments = [] } = useQuery({
     queryKey: ['proposal-comments', proposal?.id],
     queryFn: () => base44.entities.ProposalComment.filter(
@@ -92,7 +88,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     initialData: []
   });
 
-  // Fetch activity log
   const { data: activities = [] } = useQuery({
     queryKey: ['proposal-activities', proposal?.id],
     queryFn: () => base44.entities.ActivityLog.filter(
@@ -254,7 +249,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
           </div>
         </DialogHeader>
 
-        {/* Add Label Dialog */}
         <Dialog open={showLabelDialog} onOpenChange={setShowLabelDialog}>
           <DialogContent>
             <DialogHeader>
@@ -268,6 +262,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   onChange={(e) => setNewLabelName(e.target.value)}
                   placeholder="e.g., Strategic, High Impact..."
                   onKeyPress={(e) => e.key === 'Enter' && handleAddLabel()}
+                  autoFocus
                 />
               </div>
               <div>
@@ -366,11 +361,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   );
 }
 
-// Overview Tab Component
 function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependencies, organization }) {
   return (
     <div className="space-y-6 px-1">
-      {/* Progress Section */}
       {subtaskProgress > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -381,7 +374,6 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         </div>
       )}
 
-      {/* Key Details Grid */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-3">
           <div className="flex items-start gap-3">
@@ -478,6 +470,29 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
             </div>
           </div>
 
+          {isEditing && (
+            <div className="flex items-start gap-3">
+              <Flame className="w-5 h-5 text-slate-400 mt-0.5" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-slate-600">Priority Level</div>
+                <Select 
+                  value={proposal.priority_level || 'medium'} 
+                  onValueChange={(value) => onUpdate({...proposal, priority_level: value})}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {dependencies.length > 0 && (
             <div className="flex items-start gap-3">
               <Link2 className="w-5 h-5 text-slate-400 mt-0.5" />
@@ -492,7 +507,6 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         </div>
       </div>
 
-      {/* Blocker Alert */}
       {proposal.is_blocked && (
         <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
           <div className="flex items-start gap-3">
@@ -510,7 +524,6 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         </div>
       )}
 
-      {/* Project Title/Description */}
       <div className="space-y-2">
         <div className="text-sm font-medium text-slate-600">Project Title</div>
         {isEditing ? (
@@ -527,7 +540,6 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
         )}
       </div>
 
-      {/* Custom Fields */}
       {proposal.custom_fields && Object.keys(proposal.custom_fields).length > 0 && (
         <div className="space-y-3">
           <div className="text-sm font-semibold text-slate-700">Custom Fields</div>
@@ -545,7 +557,6 @@ function OverviewTab({ proposal, isEditing, onUpdate, subtaskProgress, dependenc
   );
 }
 
-// Subtasks Tab Component
 function SubtasksTab({ proposal, subtasks, organization }) {
   const queryClient = useQueryClient();
   const [newSubtask, setNewSubtask] = useState("");
@@ -690,7 +701,6 @@ function SubtasksTab({ proposal, subtasks, organization }) {
   );
 }
 
-// Comments Tab Component
 function CommentsTab({ proposal, comments, organization }) {
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
@@ -776,7 +786,6 @@ function CommentsTab({ proposal, comments, organization }) {
   );
 }
 
-// Activity Tab Component
 function ActivityTab({ activities }) {
   return (
     <div className="space-y-3 px-1">
