@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -466,19 +467,19 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 {/* Column */}
                 {isCollapsed ? (
                   <div
-                    className="flex-shrink-0 w-16 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between p-2 cursor-pointer hover:shadow-lg transition-shadow"
+                    className="flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow"
                     onClick={() => toggleColumnCollapse(column.id)}
                   >
                     <div 
-                      className="text-sm font-semibold text-slate-700 whitespace-nowrap"
+                      className="text-xs font-semibold text-slate-700 whitespace-nowrap"
                       style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                     >
                       {column.label}
                     </div>
-                    <div className="mt-2 px-2 py-1 bg-white rounded-full text-xs font-bold text-slate-600">
+                    <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
                       {columnProposals.length}
                     </div>
-                    <ChevronsRight className="w-4 h-4 text-slate-500 mt-2" />
+                    <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
                   </div>
                 ) : (
                   <div className="flex-shrink-0 relative">
