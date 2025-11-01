@@ -997,14 +997,12 @@ export default function Calendar() {
                 </div>
               )}
               {event.priority && (
-                <div className="flex items-center gap-2">
-                  <Badge variant={
-                    event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
-                    event.priority === 'high' ? 'default' : 'secondary'
-                  }>
-                    {event.priority}
-                  </Badge>
-                </div>
+                <Badge variant={
+                  event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
+                  event.priority === 'high' ? 'default' : 'secondary'
+                }>
+                  {event.priority}
+                </Badge>
               )}
             </div>
             
@@ -1604,7 +1602,7 @@ export default function Calendar() {
               </TabsTrigger>
               <TabsTrigger value="external">
                 <ExternalLink className="w-4 h-4 mr-2" />
-                External
+                Client & External Collaborator
               </TabsTrigger>
               <TabsTrigger value="team">
                 <Users className="w-4 h-4 mr-2" />
@@ -1624,7 +1622,7 @@ export default function Calendar() {
               </TabsTrigger>
               <TabsTrigger value="sync">
                 <Settings className="w-4 h-4 mr-2" />
-                Sync
+                My & Team Calendar Sync
               </TabsTrigger>
             </TabsList>
             
