@@ -55,6 +55,9 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const [quickColumnName, setQuickColumnName] = useState("");
   const [quickColumnColor, setQuickColumnColor] = useState("bg-slate-100");
 
+  // Column sort preferences
+  const [columnSorts, setColumnSorts] = useState({});
+
   const defaultColumns = [
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0, type: "default_status", default_status_mapping: "evaluating" },
     { id: "watch_list", label: "Watch List", color: "bg-yellow-100", order: 1, type: "default_status", default_status_mapping: "watch_list" },
@@ -101,6 +104,11 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
           
           if (config.collapsed_column_ids) {
             setCollapsedColumns(config.collapsed_column_ids);
+          }
+
+          // Load column sort preferences
+          if (config.column_sorts) {
+            setColumnSorts(config.column_sorts);
           }
         } else {
           setColumns(defaultColumns);
@@ -181,13 +189,15 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       if (configs.length > 0) {
         await base44.entities.KanbanConfig.update(configs[0].id, {
           columns: columnsWithOrder,
-          collapsed_column_ids: collapsedColumns
+          collapsed_column_ids: collapsedColumns,
+          column_sorts: columnSorts
         });
       } else {
         const created = await base44.entities.KanbanConfig.create({
           organization_id: organization.id,
           columns: columnsWithOrder,
-          collapsed_column_ids: collapsedColumns
+          collapsed_column_ids: collapsedColumns,
+          column_sorts: columnSorts
         });
         setConfigId(created.id);
       }
@@ -215,7 +225,33 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
         const created = await base44.entities.KanbanConfig.create({
           organization_id: organization.id,
           columns: columns,
-          collapsed_column_ids: newCollapsedColumns
+          collapsed_column_ids: newCollapsedColumns,
+          column_sorts: columnSorts
+        });
+        setConfigId(created.id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    },
+  });
+
+  const saveSortPreferenceMutation = useMutation({
+    mutationFn: async (newColumnSorts) => {
+      if (!organization?.id) {
+        throw new Error("Organization ID is required");
+      }
+
+      if (configId) {
+        await base44.entities.KanbanConfig.update(configId, {
+          column_sorts: newColumnSorts
+        });
+      } else {
+        const created = await base44.entities.KanbanConfig.create({
+          organization_id: organization.id,
+          columns: columns,
+          collapsed_column_ids: collapsedColumns,
+          column_sorts: newColumnSorts
         });
         setConfigId(created.id);
       }
@@ -238,13 +274,15 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       if (configs.length > 0) {
         await base44.entities.KanbanConfig.update(configs[0].id, {
           columns: defaultColumns,
-          collapsed_column_ids: []
+          collapsed_column_ids: [],
+          column_sorts: {}
         });
       } else {
         const created = await base44.entities.KanbanConfig.create({
           organization_id: organization.id,
           columns: defaultColumns,
-          collapsed_column_ids: []
+          collapsed_column_ids: [],
+          column_sorts: {}
         });
         setConfigId(created.id);
       }
@@ -253,6 +291,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
       setColumns(defaultColumns);
       setColumnConfig(defaultColumns);
       setCollapsedColumns([]);
+      setColumnSorts({}); // Reset sort preferences on default
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       setShowResetWarning(false);
       setIsEditingColumns(false);
@@ -313,11 +352,19 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
         return;
       }
 
+      // Clear sort for the target column when a user manually drags a card
+      if (columnSorts[newColumnId]) {
+        const newColumnSorts = { ...columnSorts };
+        delete newColumnSorts[newColumnId];
+        setColumnSorts(newColumnSorts);
+        saveSortPreferenceMutation.mutate(newColumnSorts);
+      }
+
       updateStatusMutation.mutate({ proposalId, newColumnId, oldColumnId });
     } catch (error) {
       console.error("Error in handleDragEnd:", error);
     }
-  }, [columns, updateStatusMutation, saveColumnConfigMutation]);
+  }, [columns, updateStatusMutation, saveColumnConfigMutation, columnSorts, saveSortPreferenceMutation]);
 
   const handleAddColumn = () => {
     if (!newColumnLabel.trim()) {
@@ -450,6 +497,21 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     saveCollapsedStateMutation.mutate(newCollapsedColumns);
   }, [collapsedColumns, isDragging, saveCollapsedStateMutation]);
 
+  const handleSortChange = useCallback((columnId, sortType) => {
+    const newColumnSorts = { ...columnSorts };
+    
+    if (sortType === null) {
+      // Clear sort for this column
+      delete newColumnSorts[columnId];
+    } else {
+      // Set new sort
+      newColumnSorts[columnId] = sortType;
+    }
+    
+    setColumnSorts(newColumnSorts);
+    saveSortPreferenceMutation.mutate(newColumnSorts);
+  }, [columnSorts, saveSortPreferenceMutation]);
+
   const handleQuickAddColumn = useCallback((position) => {
     setQuickAddPosition(position);
     setQuickColumnName("");
@@ -500,14 +562,46 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     return columns.reduce((acc, column) => {
       if (!column || !column.id) return acc;
 
+      let columnProposals = [];
+      
       if (column.type === 'default_status') {
-        acc[column.id] = (proposals || []).filter(p => p?.status === column.default_status_mapping);
+        columnProposals = (proposals || []).filter(p => p?.status === column.default_status_mapping);
       } else {
-        acc[column.id] = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
+        columnProposals = (proposals || []).filter(p => p?.custom_workflow_stage_id === column.id);
       }
+
+      // Apply sorting if a sort preference exists
+      const sortType = columnSorts[column.id];
+      if (sortType && columnProposals.length > 0) {
+        const sorted = [...columnProposals];
+        
+        switch(sortType) {
+          case "date_newest":
+            sorted.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+            break;
+          case "name_asc":
+            sorted.sort((a, b) => (a.proposal_name || '').localeCompare(b.proposal_name || ''));
+            break;
+          case "name_desc":
+            sorted.sort((a, b) => (b.proposal_name || '').localeCompare(a.proposal_name || ''));
+            break;
+          default:
+            // If an unknown sort type is present, just use the default ordering
+            sorted.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+            break;
+        }
+        
+        acc[column.id] = sorted;
+      } else {
+        // Default sort: by created_date descending if no specific sort preference is set
+        acc[column.id] = [...columnProposals].sort((a, b) => 
+          new Date(b.created_date) - new Date(a.created_date)
+        );
+      }
+      
       return acc;
     }, {});
-  }, [columns, proposals]);
+  }, [columns, proposals, columnSorts]);
 
   const handleProposalClick = useCallback((proposal) => {
     if (onProposalClick) {
@@ -745,6 +839,7 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                 <li>All custom workflow stages will be permanently deleted</li>
                 <li>All collapsed columns will be expanded</li>
                 <li>Column order will be reset to the default sequence</li>
+                <li>All column sorting preferences will be cleared</li>
               </ul>
               <p className="text-amber-700 font-medium pt-2">⚠️ This action cannot be undone. Your proposals and data will remain safe.</p>
             </AlertDialogDescription>
@@ -1019,6 +1114,8 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
                                   isCollapsed={isColumnCollapsed}
                                   onToggleCollapse={handleToggleCollapse}
                                   dragHandleProps={provided.dragHandleProps}
+                                  onSortChange={handleSortChange}
+                                  currentSort={columnSorts[column.id]}
                                 />
                                 {provided.placeholder}
                               </div>
