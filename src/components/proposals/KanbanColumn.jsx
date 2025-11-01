@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, GripVertical, ArrowUpDown } from "lucide-react";
+import { ChevronRight, GripVertical, ArrowUpDown, Trash2 } from "lucide-react";
 import KanbanCard from "./KanbanCard";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +22,8 @@ function KanbanColumn({
   onToggleCollapse,
   dragHandleProps,
   onSortChange,
-  currentSort
+  currentSort,
+  onDeleteColumn
 }) {
   const handleSortClick = (e, sortType) => {
     e.stopPropagation();
@@ -38,6 +39,13 @@ function KanbanColumn({
       case "name_asc": return "A-Z";
       case "name_desc": return "Z-A";
       default: return "Sort";
+    }
+  };
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    if (onDeleteColumn) {
+      onDeleteColumn(column);
     }
   };
 
@@ -101,6 +109,20 @@ function KanbanColumn({
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                )}
+
+                {/* Delete Button - Only for custom columns */}
+                {column.type === 'custom_stage' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={handleDeleteClick}
+                    title="Delete column"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
                 )}
               </>
             )}
