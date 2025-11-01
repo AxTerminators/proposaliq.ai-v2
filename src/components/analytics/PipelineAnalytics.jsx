@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
+import ProcessEfficiencyReport from "./ProcessEfficiencyReport";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
@@ -353,11 +355,12 @@ export default function PipelineAnalytics({ organization, proposals = [] }) {
 
       {/* Charts Tabs */}
       <Tabs defaultValue="lead-time" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="lead-time">Lead & Cycle Time</TabsTrigger>
           <TabsTrigger value="stage-duration">Stage Duration</TabsTrigger>
           <TabsTrigger value="cumulative-flow">Cumulative Flow</TabsTrigger>
           <TabsTrigger value="velocity">Velocity</TabsTrigger>
+          <TabsTrigger value="efficiency">Process Efficiency</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lead-time">
@@ -531,6 +534,10 @@ export default function PipelineAnalytics({ organization, proposals = [] }) {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="efficiency">
+          <ProcessEfficiencyReport proposals={proposals} snapshots={snapshots} />
         </TabsContent>
       </Tabs>
     </div>
