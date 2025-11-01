@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -169,8 +168,61 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     }
   });
 
+  const deleteColumnMutation = useMutation({
+    mutationFn: async (columnId) => {
+      if (!organization?.id) throw new Error("No organization");
+
+      const configs = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+
+      const currentConfig = configs.length > 0 ? configs[0] : null;
+      const currentColumns = currentConfig?.columns || defaultColumns;
+
+      // Remove the column
+      const updatedColumns = currentColumns
+        .filter(col => col.id !== columnId)
+        .map((col, idx) => ({
+          ...col,
+          order: idx
+        }));
+
+      const configData = {
+        organization_id: organization.id,
+        columns: updatedColumns,
+        swimlane_config: currentConfig?.swimlane_config || {
+          enabled: false,
+          group_by: 'none',
+          custom_field_name: '',
+          show_empty_swimlanes: false
+        },
+        view_settings: currentConfig?.view_settings || {
+          default_view: 'kanban',
+          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
+          compact_mode: false
+        },
+        collapsed_column_ids: (currentConfig?.collapsed_column_ids || []).filter(id => id !== columnId)
+      };
+
+      if (currentConfig) {
+        return base44.entities.KanbanConfig.update(currentConfig.id, configData);
+      } else {
+        return base44.entities.KanbanConfig.create(configData);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    }
+  });
+
   const handleAddColumn = (insertIndex) => {
     addColumnMutation.mutate(insertIndex);
+  };
+
+  const handleDeleteColumn = (columnId) => {
+    deleteColumnMutation.mutate(columnId);
   };
 
   const handleDragEnd = (result) => {
@@ -513,6 +565,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                             columnSort={columnSort}
                             onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
                             onClearSort={() => handleClearColumnSort(column.id)}
+                            onDeleteColumn={handleDeleteColumn}
                           />
                         </div>
                       )}
