@@ -1,11 +1,11 @@
 import React from "react";
-import { Draggable } from "@hello-pangea/dnd";
-import KanbanCard from "./KanbanCard";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronRight, GripVertical } from "lucide-react";
+import KanbanCard from "./KanbanCard";
+import { cn } from "@/lib/utils";
 
-export default function KanbanColumn({ 
+function KanbanColumn({ 
   column, 
   proposals, 
   onProposalClick, 
@@ -16,91 +16,67 @@ export default function KanbanColumn({
   dragHandleProps
 }) {
   return (
-    <div className={`flex flex-col h-full ${column.color} rounded-lg border-2 ${
-      isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
-    } transition-all`}>
-      <div className="p-3 border-b border-slate-200 bg-white/50 rounded-t-lg">
-        <div className="flex items-center justify-between gap-2">
-          {!isCollapsed && (
-            <div 
-              {...dragHandleProps} 
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200 rounded transition-colors"
-              title="Drag to reorder column"
-            >
+    <Card className={cn(
+      "flex-shrink-0 border-slate-200",
+      isDraggingOver && "ring-2 ring-blue-400 bg-blue-50"
+    )}>
+      <CardHeader 
+        className={cn(
+          "p-4 border-b bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors",
+          column.color
+        )}
+        onClick={() => onToggleCollapse(column.id)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
               <GripVertical className="w-4 h-4 text-slate-400" />
             </div>
-          )}
-          
-          <div className="flex-1 min-w-0">
             {!isCollapsed && (
               <>
                 <h3 className="font-semibold text-slate-900 truncate">{column.label}</h3>
-                <Badge variant="secondary" className="text-xs mt-1">
-                  {proposals.length} {proposals.length === 1 ? 'proposal' : 'proposals'}
+                <Badge variant="secondary" className="text-xs">
+                  {proposals.length}
                 </Badge>
               </>
             )}
             {isCollapsed && (
-              <div className="text-center">
-                <div className="transform -rotate-90 whitespace-nowrap text-xs font-semibold text-slate-700">
+              <div className="flex flex-col items-center gap-1">
+                <h3 className="font-semibold text-slate-900 text-sm writing-mode-vertical transform -rotate-180">
                   {column.label}
-                </div>
-                <Badge variant="secondary" className="text-xs mt-2">
+                </h3>
+                <Badge variant="secondary" className="text-xs">
                   {proposals.length}
                 </Badge>
               </div>
             )}
           </div>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="flex-shrink-0 h-6 w-6"
-            onClick={() => onToggleCollapse(column.id)}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <ChevronLeft className="w-4 h-4" />
-            )}
-          </Button>
+          {!isCollapsed && (
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          )}
         </div>
-      </div>
-
+      </CardHeader>
       {!isCollapsed && (
-        <div className="flex-1 p-3 space-y-3 overflow-y-auto min-h-[200px]">
-          {proposals.map((proposal, index) => (
-            <Draggable key={proposal.id} draggableId={proposal.id} index={index} type="proposal">
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.draggableProps}
-                  {...provided.dragHandleProps}
-                >
-                  <KanbanCard
-                    proposal={proposal}
-                    onClick={() => onProposalClick(proposal)}
-                    onDelete={() => onDeleteProposal(proposal)}
-                    isDragging={snapshot.isDragging}
-                  />
-                </div>
-              )}
-            </Draggable>
-          ))}
-          
-          {proposals.length === 0 && !isDraggingOver && (
+        <CardContent className="p-4 space-y-3 min-h-[200px] max-h-[calc(100vh-300px)] overflow-y-auto">
+          {proposals.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">
               No proposals
             </div>
+          ) : (
+            proposals.map((proposal, index) => (
+              <KanbanCard
+                key={proposal.id}
+                proposal={proposal}
+                index={index}
+                onProposalClick={onProposalClick}
+                onDeleteProposal={onDeleteProposal}
+              />
+            ))
           )}
-          
-          {isDraggingOver && proposals.length === 0 && (
-            <div className="text-center py-8 text-blue-500 text-sm">
-              Drop here
-            </div>
-          )}
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }
+
+export default React.memo(KanbanColumn);
