@@ -16,20 +16,24 @@ export default function KanbanColumn({
 }) {
   const proposalCount = proposals?.length || 0;
   
-  // Get the column label - try multiple properties for backward compatibility
+  // Get the column label and color
   const columnLabel = column?.label || column?.name || column?.title || column?.id || 'Untitled Column';
+  const columnColor = column?.color || 'from-slate-400 to-slate-600';
 
   return (
     <div className="flex flex-col h-full min-h-[500px]">
-      {/* Column Header */}
-      <div className="p-4 border-b border-slate-200 bg-white">
+      {/* Column Header with Gradient Color */}
+      <div className={cn(
+        "p-4 border-b border-slate-200",
+        `bg-gradient-to-r ${columnColor}`
+      )}>
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h3 className="font-bold text-lg text-slate-900" style={{ color: '#0f172a' }}>
+            <h3 className="font-bold text-lg text-white drop-shadow-md">
               {columnLabel}
             </h3>
           </div>
-          <Badge variant="secondary" className="text-sm ml-2">
+          <Badge className="bg-white/90 text-slate-900 hover:bg-white text-sm ml-2 font-semibold">
             {proposalCount}
           </Badge>
         </div>
