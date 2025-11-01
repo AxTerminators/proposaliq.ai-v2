@@ -108,7 +108,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   });
 
   const addColumnMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (insertIndex) => {
       if (!organization?.id) throw new Error("No organization");
 
       const configs = await base44.entities.KanbanConfig.filter(
@@ -125,10 +125,18 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         label: 'New Column',
         color: 'from-blue-400 to-blue-600',
         type: 'custom_stage',
-        order: currentColumns.length
+        order: insertIndex
       };
 
-      const updatedColumns = [...currentColumns, newColumn];
+      // Insert the new column at the specified position
+      const updatedColumns = [
+        ...currentColumns.slice(0, insertIndex),
+        newColumn,
+        ...currentColumns.slice(insertIndex)
+      ].map((col, idx) => ({
+        ...col,
+        order: idx
+      }));
 
       const configData = {
         organization_id: organization.id,
@@ -158,8 +166,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     }
   });
 
-  const handleAddColumn = () => {
-    addColumnMutation.mutate();
+  const handleAddColumn = (insertIndex) => {
+    addColumnMutation.mutate(insertIndex);
   };
 
   const handleDragEnd = (result) => {
@@ -373,7 +381,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 {index === 0 && (
                   <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
                     <button
-                      onClick={handleAddColumn}
+                      onClick={() => handleAddColumn(0)}
                       className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                       title="Add new column"
                     >
@@ -435,7 +443,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 {/* Add Column Button - Between Columns and After Last Column */}
                 <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
                   <button
-                    onClick={handleAddColumn}
+                    onClick={() => handleAddColumn(index + 1)}
                     className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                     title="Add new column"
                   >
