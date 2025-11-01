@@ -53,9 +53,10 @@ function KanbanColumn({
               </div>
             )}
           </div>
-          {!isCollapsed && (
-            <ChevronRight className="w-4 h-4 text-slate-400" />
-          )}
+          <ChevronRight className={cn(
+            "w-4 h-4 text-slate-400 transition-transform flex-shrink-0",
+            isCollapsed && "rotate-180"
+          )} />
         </div>
       </CardHeader>
       {!isCollapsed && (
