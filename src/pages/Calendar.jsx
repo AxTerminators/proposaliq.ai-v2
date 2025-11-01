@@ -45,7 +45,7 @@ import {
   FileText,    // For Proposal Deadline
   Users,       // For Client Meeting
   Shield,      // For Review Deadline
-  Briefcase,   // (original icon for Compliance Due, but changed to AlertCircle in config)
+  Briefcase,   // For Compliance Due
   X,           // For clear button
   ExternalLink, // For external links
   Settings,    // For sync settings
@@ -121,7 +121,7 @@ const EVENT_TYPE_CONFIG = {
   },
   compliance_due: {
     label: "Compliance Due",
-    icon: AlertCircle, // Changed to AlertCircle
+    icon: Briefcase, // Changed from AlertCircle to Briefcase
     color: "from-amber-400 to-amber-600",
     badgeColor: "bg-amber-500 text-white",
     canDrag: false,
