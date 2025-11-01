@@ -182,22 +182,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const scrollPositionRef = useRef(0);
   const sectionRefs = useRef({});
 
-  // Load sections FIRST before using them
-  const { data: sections = [], isLoading, error: sectionsError } = useQuery({
-    queryKey: ['proposal-sections', proposalId],
-    queryFn: async () => {
-      if (!proposalId) return [];
-      return base44.entities.ProposalSection.filter(
-        { proposal_id: proposalId },
-        'order'
-      );
-    },
-    enabled: !!proposalId,
-    staleTime: 30000,
-    retry: 2
-  });
-
-  // Enhanced context fetching with error handling - NOW sections is already defined
+  // Enhanced context fetching with error handling
   const [contextData, setContextData] = useState({
     solicitationDocs: [],
     teamingPartners: [],
@@ -239,7 +224,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     loadData();
   }, [proposalId]);
 
-  // Load context data for AI with caching - sections is now safe to use
+  // Load context data for AI with caching
   useEffect(() => {
     const loadContextData = async () => {
       if (!proposalId || !organization?.id) return;
@@ -289,6 +274,20 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
 
     loadContextData();
   }, [proposalId, organization?.id, proposalData.teaming_partner_ids, sections]);
+
+  const { data: sections = [], isLoading, error: sectionsError } = useQuery({
+    queryKey: ['proposal-sections', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      return base44.entities.ProposalSection.filter(
+        { proposal_id: proposalId },
+        'order'
+      );
+    },
+    enabled: !!proposalId,
+    staleTime: 30000, // Cache for 30 seconds
+    retry: 2
+  });
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks', proposalId],
