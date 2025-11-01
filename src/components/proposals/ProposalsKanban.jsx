@@ -106,6 +106,61 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     }
   });
 
+  const addColumnMutation = useMutation({
+    mutationFn: async () => {
+      if (!organization?.id) throw new Error("No organization");
+
+      const configs = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+
+      const currentConfig = configs.length > 0 ? configs[0] : null;
+      const currentColumns = currentConfig?.columns || defaultColumns;
+
+      const newColumn = {
+        id: `custom_${Date.now()}`,
+        label: 'New Column',
+        color: 'from-blue-400 to-blue-600',
+        type: 'custom_stage',
+        order: currentColumns.length
+      };
+
+      const updatedColumns = [...currentColumns, newColumn];
+
+      const configData = {
+        organization_id: organization.id,
+        columns: updatedColumns,
+        swimlane_config: currentConfig?.swimlane_config || {
+          enabled: false,
+          group_by: 'none',
+          custom_field_name: '',
+          show_empty_swimlanes: false
+        },
+        view_settings: currentConfig?.view_settings || {
+          default_view: 'kanban',
+          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
+          compact_mode: false
+        },
+        collapsed_column_ids: currentConfig?.collapsed_column_ids || []
+      };
+
+      if (currentConfig) {
+        return base44.entities.KanbanConfig.update(currentConfig.id, configData);
+      } else {
+        return base44.entities.KanbanConfig.create(configData);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    }
+  });
+
+  const handleAddColumn = () => {
+    addColumnMutation.mutate();
+  };
+
   const handleDragEnd = (result) => {
     const { destination, source, draggableId } = result;
 
@@ -306,86 +361,89 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((column) => {
+        <div className="flex gap-0 overflow-x-auto pb-4">
+          {columns.map((column, index) => {
             const isCollapsed = effectiveCollapsedColumns.includes(column.id);
             const columnProposals = getProposalsForColumn(column);
 
-            if (isCollapsed) {
-              return (
-                <div
-                  key={column.id}
-                  className="flex-shrink-0 w-16 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between p-2 cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => toggleColumnCollapse(column.id)}
-                >
-                  <div className="writing-mode-vertical text-sm font-semibold text-slate-700 whitespace-nowrap">
-                    {column.label}
-                  </div>
-                  <div className="mt-2 px-2 py-1 bg-white rounded-full text-xs font-bold text-slate-600">
-                    {columnProposals.length}
-                  </div>
-                  <ChevronsRight className="w-4 h-4 text-slate-500 mt-2" />
-                </div>
-              );
-            }
-
             return (
-              <div key={column.id} className="flex-shrink-0 relative">
-                <button
-                  onClick={() => toggleColumnCollapse(column.id)}
-                  className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-6 h-12 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
-                  title="Collapse column"
-                >
-                  <ChevronsLeft className="w-4 h-4 text-slate-500" />
-                </button>
-                
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={cn(
-                        "w-80 bg-white rounded-lg shadow-md border-2 transition-all",
-                        snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
-                      )}
+              <React.Fragment key={column.id}>
+                {/* Add Column Button - Before First Column */}
+                {index === 0 && (
+                  <div className="flex-shrink-0 flex items-center justify-center w-8 group">
+                    <button
+                      onClick={handleAddColumn}
+                      className="w-8 h-8 rounded-full bg-slate-100 hover:bg-blue-100 flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-sm hover:shadow-md"
+                      title="Add new column"
                     >
-                      <KanbanColumn
-                        column={column}
-                        proposals={columnProposals}
-                        provided={provided}
-                        snapshot={snapshot}
-                        onCardClick={handleCardClick}
-                        onToggleCollapse={toggleColumnCollapse}
-                        isCollapsed={isCollapsed}
-                        organization={organization}
-                      />
+                      <Plus className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Column */}
+                {isCollapsed ? (
+                  <div
+                    className="flex-shrink-0 w-16 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between p-2 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => toggleColumnCollapse(column.id)}
+                  >
+                    <div className="writing-mode-vertical text-sm font-semibold text-slate-700 whitespace-nowrap">
+                      {column.label}
                     </div>
-                  )}
-                </Droppable>
-              </div>
+                    <div className="mt-2 px-2 py-1 bg-white rounded-full text-xs font-bold text-slate-600">
+                      {columnProposals.length}
+                    </div>
+                    <ChevronsRight className="w-4 h-4 text-slate-500 mt-2" />
+                  </div>
+                ) : (
+                  <div className="flex-shrink-0 relative">
+                    <button
+                      onClick={() => toggleColumnCollapse(column.id)}
+                      className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-6 h-12 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
+                      title="Collapse column"
+                    >
+                      <ChevronsLeft className="w-4 h-4 text-slate-500" />
+                    </button>
+                    
+                    <Droppable droppableId={column.id}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={cn(
+                            "w-80 bg-white rounded-lg shadow-md border-2 transition-all",
+                            snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
+                          )}
+                        >
+                          <KanbanColumn
+                            column={column}
+                            proposals={columnProposals}
+                            provided={provided}
+                            snapshot={snapshot}
+                            onCardClick={handleCardClick}
+                            onToggleCollapse={toggleColumnCollapse}
+                            isCollapsed={isCollapsed}
+                            organization={organization}
+                          />
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                )}
+
+                {/* Add Column Button - Between Columns and After Last Column */}
+                <div className="flex-shrink-0 flex items-center justify-center w-8 group">
+                  <button
+                    onClick={handleAddColumn}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-blue-100 flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-sm hover:shadow-md"
+                    title="Add new column"
+                  >
+                    <Plus className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </button>
+                </div>
+              </React.Fragment>
             );
           })}
-
-          {/* Add Column Button - FIXED: Now clearly visible after all columns */}
-          <div className="flex-shrink-0 w-64">
-            <button
-              onClick={() => setShowBoardConfig(true)}
-              className="w-full h-[500px] border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-4 group bg-white shadow-sm"
-              style={{ minHeight: '500px' }}
-            >
-              <div className="w-16 h-16 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors shadow-md">
-                <Plus className="w-8 h-8 text-slate-500 group-hover:text-blue-600 transition-colors" />
-              </div>
-              <div className="text-center px-4">
-                <div className="font-bold text-base text-slate-700 group-hover:text-blue-700 transition-colors mb-1">
-                  Add Column
-                </div>
-                <div className="text-sm text-slate-500 group-hover:text-blue-600 transition-colors">
-                  Create custom workflow stage
-                </div>
-              </div>
-            </button>
-          </div>
         </div>
       </DragDropContext>
 
