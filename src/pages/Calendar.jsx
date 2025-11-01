@@ -50,9 +50,9 @@ import {
   ExternalLink,
   Settings,
   List,
-  Share2, // New import
-  Tag,    // New import
-  Bell    // New import
+  Share2,
+  Tag,
+  Bell
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -64,6 +64,9 @@ import CustomEventTypeManager from "../components/calendar/CustomEventTypeManage
 import NotificationPreferences from "../components/calendar/NotificationPreferences";
 import TeamCalendarView from "../components/calendar/TeamCalendarView";
 import CalendarSharing from "../components/calendar/CalendarSharing";
+import QuickAddEvent from "../components/calendar/QuickAddEvent";
+import AISchedulingAssistant from "../components/calendar/AISchedulingAssistant";
+import EventResizeHandle from "../components/calendar/EventResizeHandle";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -180,61 +183,55 @@ const iconMap = {
 const generateRecurringInstances = (event, startDate, endDate) => {
   if (!event.recurrence_rule) return [event];
 
-  const instances = [];
   let recurrence;
   try {
     recurrence = typeof event.recurrence_rule === 'string'
       ? JSON.parse(event.recurrence_rule)
       : event.recurrence_rule;
   } catch (e) {
+    console.error("Error parsing recurrence rule:", e);
     return [event];
   }
 
-  if (!recurrence.frequency) return [event];
+  if (!recurrence || !recurrence.frequency) return [event];
 
-  const eventStart = moment(event.start_date);
-  const eventEnd = moment(event.end_date);
-  const duration = eventEnd.diff(eventStart);
+  const instances = [];
+  const eventStartMoment = moment(event.start_date);
+  const eventEndMoment = moment(event.end_date);
+  const duration = eventEndMoment.diff(eventStartMoment);
 
-  let current = moment(eventStart);
+  let current = moment(eventStartMoment);
   const viewStart = moment(startDate);
   const viewEnd = moment(endDate);
 
   let maxDate;
   if (recurrence.end_type === 'date' && recurrence.end_date) {
-    maxDate = moment(recurrence.end_date);
+    maxDate = moment(recurrence.end_date).endOf('day');
   } else if (recurrence.end_type === 'count' && recurrence.occurrence_count) {
-    maxDate = moment(eventStart);
-    for (let i = 0; i < recurrence.occurrence_count; i++) {
-      if (recurrence.frequency === 'daily') {
-        maxDate.add(recurrence.interval || 1, 'days');
-      } else if (recurrence.frequency === 'weekly') {
-        maxDate.add(recurrence.interval || 1, 'weeks');
-      } else if (recurrence.frequency === 'monthly') {
-        maxDate.add(recurrence.interval || 1, 'months');
-      } else if (recurrence.frequency === 'yearly') {
-        maxDate.add(recurrence.interval || 1, 'years');
-      }
-    }
+    // For count, we need to generate up to the count.
+    // This isn't perfect for displaying in a calendar view that has a specific end,
+    // but it ensures we don't infinitely loop.
+    maxDate = moment().add(5, 'years'); // Arbitrary large end date if count is used without end_date
   } else {
-    maxDate = moment().add(2, 'years');
+    maxDate = moment().add(2, 'years'); // Default for 'never'
   }
 
   let count = 0;
-  const maxCount = recurrence.end_type === 'count' ? recurrence.occurrence_count : 1000;
+  const maxOccurrences = recurrence.end_type === 'count' ? recurrence.occurrence_count : Infinity;
 
-  while (current.isSameOrBefore(maxDate) && current.isSameOrBefore(viewEnd) && count < maxCount) {
-    if (current.isSameOrAfter(viewStart)) {
+  while (current.isSameOrBefore(maxDate) && current.isSameOrBefore(viewEnd) && count < maxOccurrences) {
+    if (current.isSameOrAfter(viewStart) && current.isSameOrBefore(viewEnd)) {
       instances.push({
         ...event,
-        id: `${event.id}-${current.format('YYYY-MM-DD')}`,
-        original_id: event.id,
+        id: `${event.id}-${current.format('YYYY-MM-DD')}`, // Unique ID for this instance
+        original_id: event.id, // Reference to the original recurring event
         start_date: current.toISOString(),
         end_date: moment(current).add(duration).toISOString(),
         is_recurring_instance: true
       });
     }
 
+    // Move to the next recurrence
     if (recurrence.frequency === 'daily') {
       current.add(recurrence.interval || 1, 'days');
     } else if (recurrence.frequency === 'weekly') {
@@ -243,6 +240,8 @@ const generateRecurringInstances = (event, startDate, endDate) => {
       current.add(recurrence.interval || 1, 'months');
     } else if (recurrence.frequency === 'yearly') {
       current.add(recurrence.interval || 1, 'years');
+    } else {
+      break; // Unknown frequency, stop recurrence
     }
 
     count++;
@@ -363,6 +362,9 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState("month");
   const [deleteRecurringOption, setDeleteRecurringOption] = useState(null);
+
+  // Quick Add state
+  const [quickAddSlot, setQuickAddSlot] = useState(null);
 
   // Filtering and search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -567,7 +569,7 @@ export default function Calendar() {
     } else if (viewMode === 'agenda') {
       startDate = moment();
       endDate = moment().add(30, 'days');
-    } else {
+    } else { // Day view
       startDate = moment(currentDate).startOf('day');
       endDate = moment(currentDate).endOf('day');
     }
@@ -723,6 +725,7 @@ export default function Calendar() {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       setShowEventDialog(false);
       setEditingEvent(null);
+      setQuickAddSlot(null); // Clear quick add slot on success
       resetForm();
     },
   });
@@ -734,6 +737,8 @@ export default function Calendar() {
 
       if (source_type === 'calendar_event' || mergedEventTypeConfig[source_type]?.isCustom) {
         // If it's a calendar_event or a custom type treated as a calendar_event
+        // For recurring instances, we update the original event.
+        // For single events, `id` is the original event's ID.
         return base44.entities.CalendarEvent.update(eventIdToUpdate, { start_date, end_date });
       } else if (source_type === 'proposal_task') {
         return base44.entities.ProposalTask.update(eventIdToUpdate, { due_date: start_date });
@@ -806,8 +811,8 @@ export default function Calendar() {
       setEditingEvent(event); // Store the instance that was clicked for deletion logic etc.
       setEventData({
         ...eventToEdit,
-        start_date: eventToEdit.start_date ? eventToEdit.start_date.slice(0, 16) : new Date().toISOString().slice(0, 16),
-        end_date: eventToEdit.end_date ? eventToEdit.end_date.slice(0, 16) : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+        start_date: eventToEdit.start_date ? moment(eventToEdit.start_date).format('YYYY-MM-DDTHH:mm') : new Date().toISOString().slice(0, 16),
+        end_date: eventToEdit.end_date ? moment(eventToEdit.end_date).format('YYYY-MM-DDTHH:mm') : new Date(Date.now() + 3600000).toISOString().slice(0, 16),
         is_recurring: !!recurrence,
         recurrence_rule: recurrence || {
           frequency: "daily",
@@ -854,6 +859,15 @@ export default function Calendar() {
     if (eventData.title.trim()) {
       createEventMutation.mutate(eventData);
     }
+  };
+
+  const handleQuickAdd = (quickEventData) => {
+    createEventMutation.mutate({
+      ...quickEventData,
+      organization_id: organization.id,
+      created_by_email: user.email,
+      created_by_name: user.full_name
+    });
   };
 
   const getEventTypeColor = (sourceType) => {
@@ -1015,7 +1029,7 @@ export default function Calendar() {
                 <div className="flex items-center gap-2">
                   <Badge variant={
                     event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
-                    event.priority === 'high' ? 'default' : 'secondary'
+                      event.priority === 'high' ? 'default' : 'secondary'
                   }>
                     {event.priority}
                   </Badge>
@@ -1057,8 +1071,9 @@ export default function Calendar() {
       if (!day) return [];
       const dateStr = moment(currentDate).date(day).format('YYYY-MM-DD');
       return filteredEvents.filter(event => {
-        const eventDate = moment(event.start_date).format('YYYY-MM-DD');
-        return eventDate === dateStr;
+        const eventStart = moment(event.start_date).format('YYYY-MM-DD');
+        const eventEnd = moment(event.end_date).format('YYYY-MM-DD');
+        return eventStart <= dateStr && eventEnd >= dateStr;
       });
     };
 
@@ -1080,6 +1095,7 @@ export default function Calendar() {
           {days.map((day, index) => {
             const dayEvents = day ? getEventsForDay(day) : [];
             const droppableId = day ? moment(currentDate).date(day).format('YYYY-MM-DD') : `empty-${index}`;
+            const isQuickAddActive = quickAddSlot?.date === droppableId;
 
             return (
               <Droppable key={index} droppableId={droppableId}>
@@ -1088,20 +1104,15 @@ export default function Calendar() {
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={cn(
-                      "min-h-[140px] border-b border-r p-2 transition-all",
+                      "min-h-[140px] border-b border-r p-2 transition-all relative",
                       !day && "bg-slate-50",
                       isToday(day) && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
                       snapshot.isDraggingOver && "bg-blue-100"
                     )}
-                    onClick={() => {
+                    onDoubleClick={() => {
                       if (day) {
-                        const newDate = moment(currentDate).date(day).toDate();
-                        setEventData({
-                          ...eventData,
-                          start_date: moment(newDate).hour(9).format('YYYY-MM-DDTHH:mm'),
-                          end_date: moment(newDate).hour(10).format('YYYY-MM-DDTHH:mm')
-                        });
-                        setShowEventDialog(true);
+                        const dateStr = moment(currentDate).date(day).format('YYYY-MM-DD');
+                        setQuickAddSlot({ date: dateStr, time: "09:00" });
                       }
                     }}
                   >
@@ -1113,44 +1124,57 @@ export default function Calendar() {
                         )}>
                           {day}
                         </div>
-                        <div className="space-y-1">
-                          {dayEvents.slice(0, 3).map((event, idx) => {
-                            const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
-                            return (
-                              <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
-                                {(provided, snapshot) => (
-                                  <EventPopover event={event}>
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={cn(
-                                        "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
-                                        getEventTypeColor(event.source_type),
-                                        snapshot.isDragging && "rotate-3 scale-105 shadow-xl",
-                                        !event.can_drag && "cursor-default opacity-90"
-                                      )}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                    >
-                                      <div className="truncate flex items-center gap-1">
-                                        <Icon className="w-3 h-3 flex-shrink-0" />
-                                        {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
-                                        {moment(event.start_date).format('h:mm A')} {event.title}
+
+                        {isQuickAddActive ? (
+                          <div className="absolute top-12 left-2 right-2 z-20">
+                            <QuickAddEvent
+                              initialDate={droppableId}
+                              initialTime={quickAddSlot.time}
+                              customEventTypes={customEventTypes}
+                              onSave={handleQuickAdd}
+                              onCancel={() => setQuickAddSlot(null)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {dayEvents.slice(0, 3).map((event, idx) => {
+                              const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+                              return (
+                                <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
+                                  {(provided, snapshot) => (
+                                    <EventPopover event={event}>
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        className={cn(
+                                          "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
+                                          getEventTypeColor(event.source_type),
+                                          snapshot.isDragging && "rotate-3 scale-105 shadow-xl",
+                                          !event.can_drag && "cursor-default opacity-90"
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                      >
+                                        <div className="truncate flex items-center gap-1">
+                                          <Icon className="w-3 h-3 flex-shrink-0" />
+                                          {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
+                                          {moment(event.start_date).format('h:mm A')} {event.title}
+                                        </div>
                                       </div>
-                                    </div>
-                                  </EventPopover>
-                                )}
-                              </Draggable>
-                            );
-                          })}
-                          {dayEvents.length > 3 && (
-                            <div className="text-xs text-slate-500 px-2 font-medium">
-                              +{dayEvents.length - 3} more
-                            </div>
-                          )}
-                        </div>
+                                    </EventPopover>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {dayEvents.length > 3 && (
+                              <div className="text-xs text-slate-500 px-2 font-medium">
+                                +{dayEvents.length - 3} more
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     )}
                     {provided.placeholder}
@@ -1164,7 +1188,7 @@ export default function Calendar() {
     );
   };
 
-  // Week View
+  // Week View with resize and quick add
   const renderWeekView = () => {
     const startOfWeek = moment(currentDate).startOf('week');
     const days = Array.from({ length: 7 }, (_, i) => moment(startOfWeek).add(i, 'days'));
@@ -1174,12 +1198,12 @@ export default function Calendar() {
       return filteredEvents.filter(event => {
         const eventStart = moment(event.start_date);
         const eventEnd = moment(event.end_date);
-        const targetHour = moment(day).hour(hour);
-        const nextHour = moment(day).hour(hour + 1);
+        const targetHour = moment(day).hour(hour).startOf('hour');
+        const nextHour = moment(day).hour(hour + 1).startOf('hour');
 
         return (
-          (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
-          (eventEnd.isAfter(targetHour) && eventEnd.isSameOrBefore(nextHour)) ||
+          (eventStart.isBetween(targetHour, nextHour, 'minute', '[)')) ||
+          (eventEnd.isBetween(targetHour, nextHour, 'minute', '(]')) ||
           (eventStart.isBefore(targetHour) && eventEnd.isAfter(nextHour))
         );
       });
@@ -1214,28 +1238,56 @@ export default function Calendar() {
               </div>
               {days.map((day) => {
                 const hourEvents = getEventsForDayAndHour(day, hour);
+                const dateStr = day.format('YYYY-MM-DD');
+                const timeStr = moment().hour(hour).format('HH:mm');
+                const isQuickAddActive = quickAddSlot?.date === dateStr && quickAddSlot?.time === timeStr;
+
                 return (
-                  <div key={day.format('YYYY-MM-DD')} className="p-2 border-r hover:bg-slate-50 transition-all">
-                    {hourEvents.map((event) => {
-                      const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
-                      return (
-                        <EventPopover key={event.id} event={event}>
-                          <div className={cn(
-                            "p-2 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white text-xs",
-                            getEventTypeColor(event.source_type)
-                          )}>
-                            <div className="font-bold flex items-center gap-1 mb-1">
-                              <Icon className="w-3 h-3" />
-                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                              {event.title}
+                  <div
+                    key={day.format('YYYY-MM-DD')}
+                    className="p-2 border-r hover:bg-slate-50 transition-all relative"
+                    onDoubleClick={() => {
+                      setQuickAddSlot({ date: dateStr, time: timeStr });
+                    }}
+                  >
+                    {isQuickAddActive ? (
+                      <div className="absolute inset-0 z-20 p-2">
+                        <QuickAddEvent
+                          initialDate={dateStr}
+                          initialTime={timeStr}
+                          customEventTypes={customEventTypes}
+                          onSave={handleQuickAdd}
+                          onCancel={() => setQuickAddSlot(null)}
+                        />
+                      </div>
+                    ) : (
+                      hourEvents.map((event) => {
+                        const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+                        return (
+                          <EventPopover key={event.id} event={event}>
+                            <div className={cn(
+                              "p-2 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white text-xs relative",
+                              getEventTypeColor(event.source_type)
+                            )}>
+                              <div className="font-bold flex items-center gap-1 mb-1">
+                                <Icon className="w-3 h-3" />
+                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                                {event.title}
+                              </div>
+                              <div className="opacity-90">
+                                {moment(event.start_date).format('h:mm A')}
+                              </div>
+                              <EventResizeHandle
+                                event={event}
+                                position="bottom"
+                                onResize={(resizeData) => updateEventMutation.mutate(resizeData)}
+                                disabled={!event.can_edit || event.is_recurring_instance}
+                              />
                             </div>
-                            <div className="opacity-90">
-                              {moment(event.start_date).format('h:mm A')}
-                            </div>
-                          </div>
-                        </EventPopover>
-                      );
-                    })}
+                          </EventPopover>
+                        );
+                      })
+                    )}
                   </div>
                 );
               })}
@@ -1246,7 +1298,7 @@ export default function Calendar() {
     );
   };
 
-  // Day View
+  // Day View with resize and quick add
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const dayEvents = filteredEvents.filter(event => {
@@ -1267,42 +1319,69 @@ export default function Calendar() {
               const hourEvents = dayEvents.filter(event => {
                 const eventStart = moment(event.start_date);
                 const eventEnd = moment(event.end_date);
-                const targetHour = moment(currentDate).hour(hour);
-                const nextHour = moment(currentDate).hour(hour + 1);
+                const targetHour = moment(currentDate).hour(hour).startOf('hour');
+                const nextHour = moment(currentDate).hour(hour + 1).startOf('hour');
 
                 return (
-                  (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
-                  (eventEnd.isAfter(targetHour) && eventEnd.isSameOrBefore(nextHour)) ||
+                  (eventStart.isBetween(targetHour, nextHour, 'minute', '[)')) ||
+                  (eventEnd.isBetween(targetHour, nextHour, 'minute', '(]')) ||
                   (eventStart.isBefore(targetHour) && eventEnd.isAfter(nextHour))
                 );
               });
+
+              const dateStr = moment(currentDate).format('YYYY-MM-DD');
+              const timeStr = moment().hour(hour).format('HH:mm');
+              const isQuickAddActive = quickAddSlot?.date === dateStr && quickAddSlot?.time === timeStr;
 
               return (
                 <React.Fragment key={hour}>
                   <div className="p-3 text-right text-sm font-semibold text-slate-600 border-b border-r bg-slate-50">
                     {moment().hour(hour).format('h A')}
                   </div>
-                  <div className="p-2 border-b min-h-[80px] hover:bg-slate-50 transition-all">
-                    {hourEvents.map((event) => {
-                      const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
-                      return (
-                        <EventPopover key={event.id} event={event}>
-                          <div className={cn(
-                            "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white",
-                            getEventTypeColor(event.source_type)
-                          )}>
-                            <div className="font-bold text-sm flex items-center gap-1 mb-1">
-                              <Icon className="w-3 h-3" />
-                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                              {event.title}
+                  <div
+                    className="p-2 border-b min-h-[80px] hover:bg-slate-50 transition-all relative"
+                    onDoubleClick={() => {
+                      setQuickAddSlot({ date: dateStr, time: timeStr });
+                    }}
+                  >
+                    {isQuickAddActive ? (
+                      <div className="absolute inset-0 z-20 p-2">
+                        <QuickAddEvent
+                          initialDate={dateStr}
+                          initialTime={timeStr}
+                          customEventTypes={customEventTypes}
+                          onSave={handleQuickAdd}
+                          onCancel={() => setQuickAddSlot(null)}
+                        />
+                      </div>
+                    ) : (
+                      hourEvents.map((event) => {
+                        const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+                        return (
+                          <EventPopover key={event.id} event={event}>
+                            <div className={cn(
+                              "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white relative",
+                              getEventTypeColor(event.source_type)
+                            )}>
+                              <div className="font-bold text-sm flex items-center gap-1 mb-1">
+                                <Icon className="w-3 h-3" />
+                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                                {event.title}
+                              </div>
+                              <div className="text-xs opacity-90">
+                                {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
+                              </div>
+                              <EventResizeHandle
+                                event={event}
+                                position="bottom"
+                                onResize={(resizeData) => updateEventMutation.mutate(resizeData)}
+                                disabled={!event.can_edit || event.is_recurring_instance}
+                              />
                             </div>
-                            <div className="text-xs opacity-90">
-                              {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
-                            </div>
-                          </div>
-                        </EventPopover>
-                      );
-                    })}
+                          </EventPopover>
+                        );
+                      })
+                    )}
                   </div>
                 </React.Fragment>
               );
@@ -1379,7 +1458,7 @@ export default function Calendar() {
                               {event.priority && (
                                 <Badge variant={
                                   event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
-                                  event.priority === 'high' ? 'default' : 'secondary'
+                                    event.priority === 'high' ? 'default' : 'secondary'
                                 }>
                                   {event.priority}
                                 </Badge>
@@ -1536,6 +1615,13 @@ export default function Calendar() {
                 Sync
               </TabsTrigger>
             </TabsList>
+            <AISchedulingAssistant
+              organization={organization}
+              user={user}
+              onEventScheduled={() => {
+                queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+              }}
+            />
             <Button onClick={() => { resetForm(); setShowEventDialog(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
               <Plus className="w-5 h-5 mr-2" />
               Add Event
@@ -1592,7 +1678,7 @@ export default function Calendar() {
 
                       <div>
                         <label className="block text-sm font-medium mb-2">Event Type</label>
-                        <Select value={filters.eventType} onValueChange={(value) => setFilters({...filters, eventType: value})}>
+                        <Select value={filters.eventType} onValueChange={(value) => setFilters({ ...filters, eventType: value })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -1609,7 +1695,7 @@ export default function Calendar() {
 
                       <div>
                         <label className="block text-sm font-medium mb-2">Assigned To</label>
-                        <Select value={filters.assignedUser} onValueChange={(value) => setFilters({...filters, assignedUser: value})}>
+                        <Select value={filters.assignedUser} onValueChange={(value) => setFilters({ ...filters, assignedUser: value })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -1626,7 +1712,7 @@ export default function Calendar() {
 
                       <div>
                         <label className="block text-sm font-medium mb-2">Priority</label>
-                        <Select value={filters.priority} onValueChange={(value) => setFilters({...filters, priority: value})}>
+                        <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -1642,7 +1728,7 @@ export default function Calendar() {
 
                       <div>
                         <label className="block text-sm font-medium mb-2">Proposal</label>
-                        <Select value={filters.proposal} onValueChange={(value) => setFilters({...filters, proposal: value})}>
+                        <Select value={filters.proposal} onValueChange={(value) => setFilters({ ...filters, proposal: value })}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -1672,25 +1758,25 @@ export default function Calendar() {
                   {filters.eventType !== "all" && (
                     <Badge variant="secondary" className="gap-1">
                       Type: {mergedEventTypeConfig[filters.eventType]?.label || filters.eventType}
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({...filters, eventType: "all"})} />
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({ ...filters, eventType: "all" })} />
                     </Badge>
                   )}
                   {filters.assignedUser !== "all" && (
                     <Badge variant="secondary" className="gap-1">
                       Assigned: {teamMembers.find(m => m.email === filters.assignedUser)?.full_name}
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({...filters, assignedUser: "all"})} />
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({ ...filters, assignedUser: "all" })} />
                     </Badge>
                   )}
                   {filters.priority !== "all" && (
                     <Badge variant="secondary" className="gap-1">
                       Priority: {filters.priority}
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({...filters, priority: "all"})} />
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({ ...filters, priority: "all" })} />
                     </Badge>
                   )}
                   {filters.proposal !== "all" && (
                     <Badge variant="secondary" className="gap-1">
                       Proposal: {proposals.find(p => p.id === filters.proposal)?.proposal_name}
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({...filters, proposal: "all"})} />
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => setFilters({ ...filters, proposal: "all" })} />
                     </Badge>
                   )}
                 </div>
@@ -1703,6 +1789,10 @@ export default function Calendar() {
               <span>Showing {filteredEvents.length} of {allEvents.length} events</span>
             </div>
           )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+            <strong>💡 Pro Tip:</strong> Double-click any empty cell in Month, Week or Day view to quick-add an event. Drag the bottom edge of events in Week/Day view to resize them!
+          </div>
 
           {isLoading ? (
             <Skeleton className="h-[600px] w-full" />
