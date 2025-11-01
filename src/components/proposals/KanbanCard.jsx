@@ -23,17 +23,14 @@ const KanbanCard = React.memo(({ proposal, index, onClick }) => {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          style={{
-            ...provided.draggableProps.style,
-            opacity: snapshot.isDragging ? 0.8 : 1,
-            transform: snapshot.isDragging 
-              ? `${provided.draggableProps.style?.transform} rotate(2deg)`
-              : provided.draggableProps.style?.transform,
-          }}
+          style={provided.draggableProps.style}
+          className={`mb-3 transition-shadow ${
+            snapshot.isDragging ? 'opacity-80 rotate-2' : ''
+          }`}
         >
           <Card
             onClick={onClick}
-            className={`cursor-pointer hover:shadow-md transition-shadow border-slate-200 mb-3 ${
+            className={`cursor-pointer hover:shadow-md transition-all duration-200 border-slate-200 ${
               snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-400' : ''
             }`}
           >
