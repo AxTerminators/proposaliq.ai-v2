@@ -43,6 +43,24 @@ const PHASES = [
   { id: "phase7", label: "Finalize" }
 ];
 
+// Helper function to map builder phases to Kanban statuses
+const getKanbanStatusFromPhase = (phaseId) => {
+  switch (phaseId) {
+    case "phase1":
+    case "phase2":
+    case "phase3":
+    case "phase4":
+      return "evaluating";
+    case "phase5":
+    case "phase6":
+      return "draft";
+    case "phase7":
+      return "in_progress"; // Phase 7 maps to 'in_progress' (Review column)
+    default:
+      return "evaluating";
+  }
+};
+
 export default function ProposalBuilder() {
   const navigate = useNavigate();
   const [organization, setOrganization] = React.useState(null);
@@ -145,6 +163,7 @@ export default function ProposalBuilder() {
 
     try {
       if (proposalId) {
+        // Fetch the latest proposal data from database to check current status
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
           organization_id: organization.id
@@ -155,9 +174,30 @@ export default function ProposalBuilder() {
           return;
         }
 
+        const currentDbProposal = existing[0];
+        const currentDbStatus = currentDbProposal.status;
+
+        // Calculate what the status SHOULD be based on the current phase
+        const derivedPhaseStatus = getKanbanStatusFromPhase(currentPhase);
+
+        // Determine the status to save based on our hierarchy:
+        let statusToSave = currentDbStatus; // Default: keep existing status
+
+        // Check if user has manually overridden the status on Kanban board
+        // If current DB status is different from what the phase mapping suggests,
+        // it means user manually moved the card - respect that override
+        if (currentDbStatus === derivedPhaseStatus) {
+          // Status matches phase-derived status, so we can update it
+          // This allows automatic progression through evaluating -> draft -> in_progress
+          statusToSave = derivedPhaseStatus;
+        }
+        // else: Status doesn't match phase mapping, meaning user manually set it
+        // Keep the user's manual status (don't overwrite)
+
         await base44.entities.Proposal.update(proposalId, {
           ...proposalData,
-          current_phase: currentPhase
+          current_phase: currentPhase,
+          status: statusToSave
         });
       } else {
         const created = await base44.entities.Proposal.create({
