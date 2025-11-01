@@ -135,189 +135,183 @@ Return actionable patterns and specific recommendations.`;
   const teamPatterns = patterns.filter(p => !p.user_email);
 
   return (
-    <>
-      {trigger && React.cloneElement(trigger, {
-        onClick: () => setShowDialog(true)
-      })}
-
-      <div className="space-y-6">
-        <Card className="border-none shadow-lg bg-gradient-to-r from-indigo-50 to-purple-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-indigo-600" />
-                Adaptive Learning & Pattern Recognition
-              </CardTitle>
-              <Button 
-                onClick={runAdaptiveLearning}
-                disabled={analyzing || performanceHistory.length < 5}
-                size="sm"
-                className="bg-gradient-to-r from-indigo-600 to-purple-600"
-              >
-                {analyzing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-4 h-4 mr-2" />
-                    Analyze Patterns
-                  </>
-                )}
-              </Button>
+    <div className="space-y-6">
+      <Card className="border-none shadow-lg bg-gradient-to-r from-indigo-50 to-purple-50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-indigo-600" />
+              Adaptive Learning & Pattern Recognition
+            </CardTitle>
+            <Button 
+              onClick={runAdaptiveLearning}
+              disabled={analyzing || performanceHistory.length < 5}
+              size="sm"
+              className="bg-gradient-to-r from-indigo-600 to-purple-600"
+            >
+              {analyzing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Brain className="w-4 h-4 mr-2" />
+                  Analyze Patterns
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-indigo-600">{patterns.length}</div>
+              <div className="text-sm text-slate-600">Active Patterns</div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-indigo-600">{patterns.length}</div>
-                <div className="text-sm text-slate-600">Active Patterns</div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-600">{performanceHistory.length}</div>
+              <div className="text-sm text-slate-600">Tasks Analyzed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-pink-600">
+                {patterns.length > 0 
+                  ? Math.round(patterns.reduce((sum, p) => sum + (p.accuracy_rate || 0), 0) / patterns.length)
+                  : 0}%
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">{performanceHistory.length}</div>
-                <div className="text-sm text-slate-600">Tasks Analyzed</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-pink-600">
-                  {patterns.length > 0 
-                    ? Math.round(patterns.reduce((sum, p) => sum + (p.accuracy_rate || 0), 0) / patterns.length)
-                    : 0}%
-                </div>
-                <div className="text-sm text-slate-600">Avg Accuracy</div>
+              <div className="text-sm text-slate-600">Avg Accuracy</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {performanceHistory.length < 5 && (
+        <Card className="border-2 border-amber-300 bg-amber-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-900">
+                <strong>Learning in Progress:</strong> Complete at least 5 tasks to enable adaptive learning. 
+                The system needs historical data to identify your patterns and improve scheduling accuracy.
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {performanceHistory.length < 5 && (
-          <Card className="border-2 border-amber-300 bg-amber-50">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-900">
-                  <strong>Learning in Progress:</strong> Complete at least 5 tasks to enable adaptive learning. 
-                  The system needs historical data to identify your patterns and improve scheduling accuracy.
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Your Personal Patterns */}
-        {userPatterns.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-slate-900 mb-3">Your Scheduling Patterns</h4>
-            <div className="space-y-3">
-              {userPatterns.map((pattern) => (
-                <Card key={pattern.id} className="border-none shadow-md">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="font-semibold text-slate-900 flex items-center gap-2">
-                          <Target className="w-4 h-4 text-indigo-600" />
-                          {pattern.pattern_name}
-                        </div>
-                        <div className="text-xs text-slate-600 mt-1">
-                          Based on {pattern.sample_size} tasks • {pattern.confidence_score}% confidence
-                        </div>
+      {/* Your Personal Patterns */}
+      {userPatterns.length > 0 && (
+        <div>
+          <h4 className="font-semibold text-slate-900 mb-3">Your Scheduling Patterns</h4>
+          <div className="space-y-3">
+            {userPatterns.map((pattern) => (
+              <Card key={pattern.id} className="border-none shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-slate-900 flex items-center gap-2">
+                        <Target className="w-4 h-4 text-indigo-600" />
+                        {pattern.pattern_name}
                       </div>
-                      <Badge className="bg-indigo-600">
-                        {pattern.pattern_type.replace(/_/g, ' ')}
-                      </Badge>
+                      <div className="text-xs text-slate-600 mt-1">
+                        Based on {pattern.sample_size} tasks • {pattern.confidence_score}% confidence
+                      </div>
                     </div>
+                    <Badge className="bg-indigo-600">
+                      {pattern.pattern_type.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
 
-                    {pattern.pattern_data?.average_duration_hours && (
-                      <div className="text-sm text-slate-700 mb-2">
-                        <strong>Avg Duration:</strong> {pattern.pattern_data.average_duration_hours.toFixed(1)} hours
-                      </div>
-                    )}
-
-                    {pattern.pattern_data?.typical_overrun_percentage && (
-                      <div className="text-sm mb-2">
-                        <span className="text-slate-700"><strong>Typical Overrun:</strong> </span>
-                        <span className={cn(
-                          "font-semibold",
-                          pattern.pattern_data.typical_overrun_percentage > 20 ? "text-red-600" :
-                          pattern.pattern_data.typical_overrun_percentage > 10 ? "text-amber-600" :
-                          "text-green-600"
-                        )}>
-                          {pattern.pattern_data.typical_overrun_percentage.toFixed(0)}%
-                        </span>
-                      </div>
-                    )}
-
-                    {pattern.pattern_data?.best_hours?.length > 0 && (
-                      <div className="text-sm text-slate-700 mb-2">
-                        <strong>Peak Hours:</strong> {pattern.pattern_data.best_hours.map(h => 
-                          moment().hour(h).format('ha')
-                        ).join(', ')}
-                      </div>
-                    )}
-
-                    {pattern.accuracy_rate !== undefined && (
-                      <div className="mt-3">
-                        <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                          <span>Pattern Accuracy</span>
-                          <span>{pattern.accuracy_rate?.toFixed(0)}%</span>
-                        </div>
-                        <Progress value={pattern.accuracy_rate || 0} className="h-2" />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Team-Wide Patterns */}
-        {teamPatterns.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-slate-900 mb-3">Team-Wide Patterns</h4>
-            <div className="space-y-3">
-              {teamPatterns.map((pattern) => (
-                <Card key={pattern.id} className="border-none shadow-md">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-semibold text-slate-900 flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-purple-600" />
-                          {pattern.pattern_name}
-                        </div>
-                        <div className="text-xs text-slate-600 mt-1">
-                          Team-wide pattern • {pattern.confidence_score}% confidence
-                        </div>
-                      </div>
-                      <Badge variant="secondary">
-                        {pattern.pattern_type.replace(/_/g, ' ')}
-                      </Badge>
+                  {pattern.pattern_data?.average_duration_hours && (
+                    <div className="text-sm text-slate-700 mb-2">
+                      <strong>Avg Duration:</strong> {pattern.pattern_data.average_duration_hours.toFixed(1)} hours
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
+                  )}
 
-        {/* AI Recommendations */}
-        {patterns.length > 0 && (
-          <Card className="border-2 border-green-300 bg-green-50">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Lightbulb className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-green-900">
-                  <strong>AI is Adapting Your Schedule:</strong> Based on your patterns, the system is automatically 
-                  adjusting future task estimates and suggesting optimal scheduling times. Tasks similar to ones you've 
-                  completed are now being scheduled {patterns[0]?.pattern_data?.typical_overrun_percentage > 0 
-                    ? `with ${Math.round(patterns[0].pattern_data.typical_overrun_percentage)}% more time` 
-                    : 'more accurately'} to match your actual performance.
-                </div>
+                  {pattern.pattern_data?.typical_overrun_percentage && (
+                    <div className="text-sm mb-2">
+                      <span className="text-slate-700"><strong>Typical Overrun:</strong> </span>
+                      <span className={cn(
+                        "font-semibold",
+                        pattern.pattern_data.typical_overrun_percentage > 20 ? "text-red-600" :
+                        pattern.pattern_data.typical_overrun_percentage > 10 ? "text-amber-600" :
+                        "text-green-600"
+                      )}>
+                        {pattern.pattern_data.typical_overrun_percentage.toFixed(0)}%
+                      </span>
+                    </div>
+                  )}
+
+                  {pattern.pattern_data?.best_hours?.length > 0 && (
+                    <div className="text-sm text-slate-700 mb-2">
+                      <strong>Peak Hours:</strong> {pattern.pattern_data.best_hours.map(h => 
+                        moment().hour(h).format('ha')
+                      ).join(', ')}
+                    </div>
+                  )}
+
+                  {pattern.accuracy_rate !== undefined && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                        <span>Pattern Accuracy</span>
+                        <span>{pattern.accuracy_rate?.toFixed(0)}%</span>
+                      </div>
+                      <Progress value={pattern.accuracy_rate || 0} className="h-2" />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Team-Wide Patterns */}
+      {teamPatterns.length > 0 && (
+        <div>
+          <h4 className="font-semibold text-slate-900 mb-3">Team-Wide Patterns</h4>
+          <div className="space-y-3">
+            {teamPatterns.map((pattern) => (
+              <Card key={pattern.id} className="border-none shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-900 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-purple-600" />
+                        {pattern.pattern_name}
+                      </div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        Team-wide pattern • {pattern.confidence_score}% confidence
+                      </div>
+                    </div>
+                    <Badge variant="secondary">
+                      {pattern.pattern_type.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* AI Recommendations */}
+      {patterns.length > 0 && (
+        <Card className="border-2 border-green-300 bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Lightbulb className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-green-900">
+                <strong>AI is Adapting Your Schedule:</strong> Based on your patterns, the system is automatically 
+                adjusting future task estimates and suggesting optimal scheduling times. Tasks similar to ones you've 
+                completed are now being scheduled {patterns[0]?.pattern_data?.typical_overrun_percentage > 0 
+                  ? `with ${Math.round(patterns[0].pattern_data.typical_overrun_percentage)}% more time` 
+                  : 'more accurately'} to match your actual performance.
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
