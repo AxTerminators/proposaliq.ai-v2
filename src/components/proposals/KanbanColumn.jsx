@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { Droppable } from "@hello-pangea/dnd";
 import KanbanCard from "./KanbanCard";
+import { cn } from "@/lib/utils";
 
 const KanbanColumn = React.memo(({ 
   column, 
@@ -24,14 +25,14 @@ const KanbanColumn = React.memo(({
 
   return (
     <Card className="border-slate-200 shadow-sm h-full flex flex-col">
-      <CardHeader className="pb-3 space-y-0">
+      <CardHeader className={cn("pb-3 space-y-0 border-b-4 transition-colors", column.color)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onToggleCollapse(column.id)}
-              className="h-6 w-6"
+              className="h-6 w-6 hover:bg-white/50"
             >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -40,7 +41,7 @@ const KanbanColumn = React.memo(({
               )}
             </Button>
             <h3 className="font-semibold text-slate-900 text-sm">{column.label}</h3>
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs bg-white/80">
               {columnProposals.length}
             </Badge>
           </div>
@@ -49,7 +50,7 @@ const KanbanColumn = React.memo(({
               variant="ghost"
               size="icon"
               onClick={() => onEditColumn(column)}
-              className="h-6 w-6"
+              className="h-6 w-6 hover:bg-white/50"
             >
               <Pencil className="w-3 h-3" />
             </Button>
@@ -58,15 +59,16 @@ const KanbanColumn = React.memo(({
       </CardHeader>
 
       {!isCollapsed && (
-        <CardContent className="flex-1 overflow-y-auto pt-0" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+        <CardContent className="flex-1 overflow-y-auto pt-4" style={{ maxHeight: 'calc(100vh - 300px)' }}>
           <Droppable droppableId={column.id}>
             {(provided, snapshot) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className={`min-h-[200px] transition-colors ${
-                  snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg' : ''
-                }`}
+                className={cn(
+                  "min-h-[200px] transition-colors rounded-lg",
+                  snapshot.isDraggingOver && "bg-blue-50 ring-2 ring-blue-200"
+                )}
               >
                 {columnProposals.map((proposal, index) => (
                   <KanbanCard
