@@ -195,232 +195,205 @@ Return JSON:
   };
 
   return (
-    <div className="space-y-6">
-      {/* ... keep existing code (header, key metrics cards) ... */}
+    <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-6 h-6 text-purple-600" />
+              AI-Powered Predictions
+            </CardTitle>
+            <CardDescription>
+              Forecast future outcomes and identify at-risk proposals
+            </CardDescription>
+          </div>
+          <Button onClick={generateAIPredictions} disabled={generatingPredictions}>
+            {generatingPredictions ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate AI Insights
+              </>
+            )}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {predictiveForecast && (
+          <div>
+            <h4 className="font-semibold text-slate-900 mb-4">12-Week Forecast</h4>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={predictiveForecast}>
+                <defs>
+                  <linearGradient id="colorWins" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorCompletions" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="week" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Area 
+                  type="monotone" 
+                  dataKey="expectedCompletions" 
+                  stroke="#3b82f6" 
+                  fillOpacity={1} 
+                  fill="url(#colorCompletions)"
+                  name="Expected Completions"
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="expectedWins" 
+                  stroke="#10b981" 
+                  fillOpacity={1} 
+                  fill="url(#colorWins)"
+                  name="Expected Wins"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
-      {/* Charts Tabs */}
-      <Tabs defaultValue="lead-time" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="lead-time">Lead & Cycle Time</TabsTrigger>
-          <TabsTrigger value="stage-duration">Stage Duration</TabsTrigger>
-          <TabsTrigger value="cumulative-flow">Cumulative Flow</TabsTrigger>
-          <TabsTrigger value="velocity">Velocity</TabsTrigger>
-          <TabsTrigger value="efficiency">Process Efficiency</TabsTrigger>
-          <TabsTrigger value="predictions">
-            <Sparkles className="w-4 h-4 mr-1" />
-            AI Predictions
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ... keep existing code (lead-time, stage-duration, cumulative-flow, velocity TabsContent) ... */}
-
-        <TabsContent value="efficiency">
-          <ProcessEfficiencyReport proposals={proposals} snapshots={snapshots} />
-        </TabsContent>
-
-        <TabsContent value="predictions" className="space-y-6">
-          <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Brain className="w-6 h-6 text-purple-600" />
-                    AI-Powered Predictions
-                  </CardTitle>
-                  <CardDescription>
-                    Forecast future outcomes and identify at-risk proposals
-                  </CardDescription>
+        {predictions && (
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="p-4 bg-white rounded-lg border-2 border-blue-200 text-center">
+                <div className="text-3xl font-bold text-blue-600">
+                  {predictions.next_30_days.expected_completions}
                 </div>
-                <Button onClick={generateAIPredictions} disabled={generatingPredictions}>
-                  {generatingPredictions ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate AI Insights
-                    </>
-                  )}
-                </Button>
+                <div className="text-sm text-slate-600 mt-1">Expected Completions</div>
+                <div className="text-xs text-slate-500 mt-1">Next 30 days</div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {predictiveForecast && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-4">12-Week Forecast</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={predictiveForecast}>
-                      <defs>
-                        <linearGradient id="colorWins" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorCompletions" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="week" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Area 
-                        type="monotone" 
-                        dataKey="expectedCompletions" 
-                        stroke="#3b82f6" 
-                        fillOpacity={1} 
-                        fill="url(#colorCompletions)"
-                        name="Expected Completions"
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="expectedWins" 
-                        stroke="#10b981" 
-                        fillOpacity={1} 
-                        fill="url(#colorWins)"
-                        name="Expected Wins"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+              <div className="p-4 bg-white rounded-lg border-2 border-green-200 text-center">
+                <div className="text-3xl font-bold text-green-600">
+                  {predictions.next_30_days.expected_wins}
                 </div>
-              )}
+                <div className="text-sm text-slate-600 mt-1">Expected Wins</div>
+                <div className="text-xs text-slate-500 mt-1">Based on win rate</div>
+              </div>
+              <div className="p-4 bg-white rounded-lg border-2 border-purple-200 text-center">
+                <div className="text-3xl font-bold text-purple-600">
+                  ${(predictions.next_30_days.expected_revenue / 1000000).toFixed(1)}M
+                </div>
+                <div className="text-sm text-slate-600 mt-1">Expected Revenue</div>
+                <div className="text-xs text-slate-500 mt-1">Pipeline value</div>
+              </div>
+            </div>
 
-              {predictions && (
-                <div className="space-y-4">
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-white rounded-lg border-2 border-blue-200 text-center">
-                      <div className="text-3xl font-bold text-blue-600">
-                        {predictions.next_30_days.expected_completions}
-                      </div>
-                      <div className="text-sm text-slate-600 mt-1">Expected Completions</div>
-                      <div className="text-xs text-slate-500 mt-1">Next 30 days</div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <div className="font-semibold text-red-900 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  Top Risks
+                </div>
+                <ul className="space-y-2">
+                  {predictions.top_risks?.map((risk, idx) => (
+                    <li key={idx} className="text-sm text-red-800 flex items-start gap-2">
+                      <span className="text-red-600 font-bold">•</span>
+                      <span>{risk}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <div className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Opportunities
+                </div>
+                <ul className="space-y-2">
+                  {predictions.top_opportunities?.map((opp, idx) => (
+                    <li key={idx} className="text-sm text-green-800 flex items-start gap-2">
+                      <span className="text-green-600 font-bold">•</span>
+                      <span>{opp}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+              <div className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                AI Recommendations
+              </div>
+              <ul className="space-y-2">
+                {predictions.recommendations?.map((rec, idx) => (
+                  <li key={idx} className="text-sm text-blue-800 flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5">
+                      {idx + 1}
                     </div>
-                    <div className="p-4 bg-white rounded-lg border-2 border-green-200 text-center">
-                      <div className="text-3xl font-bold text-green-600">
-                        {predictions.next_30_days.expected_wins}
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* At-Risk Proposals */}
+        {proposalPredictions.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              Completion Risk Analysis
+            </h4>
+            <div className="space-y-3">
+              {proposalPredictions.slice(0, 5).map((pred, idx) => (
+                <div 
+                  key={idx}
+                  className={cn(
+                    "p-4 rounded-lg border-2",
+                    pred.risk === 'high' && "bg-red-50 border-red-300",
+                    pred.risk === 'medium' && "bg-amber-50 border-amber-300",
+                    pred.risk === 'low' && "bg-green-50 border-green-300"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1">
+                      <div className="font-semibold text-slate-900">{pred.proposal.proposal_name}</div>
+                      <div className="text-sm text-slate-600 mt-1">
+                        Due in {pred.daysUntilDue} days • {pred.proposal.agency_name}
                       </div>
-                      <div className="text-sm text-slate-600 mt-1">Expected Wins</div>
-                      <div className="text-xs text-slate-500 mt-1">Based on win rate</div>
                     </div>
-                    <div className="p-4 bg-white rounded-lg border-2 border-purple-200 text-center">
-                      <div className="text-3xl font-bold text-purple-600">
-                        ${(predictions.next_30_days.expected_revenue / 1000000).toFixed(1)}M
-                      </div>
-                      <div className="text-sm text-slate-600 mt-1">Expected Revenue</div>
-                      <div className="text-xs text-slate-500 mt-1">Pipeline value</div>
-                    </div>
+                    <Badge className={cn(
+                      pred.risk === 'high' && "bg-red-600 text-white",
+                      pred.risk === 'medium' && "bg-amber-600 text-white",
+                      pred.risk === 'low' && "bg-green-600 text-white"
+                    )}>
+                      {pred.risk} risk
+                    </Badge>
                   </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                      <div className="font-semibold text-red-900 mb-3 flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5" />
-                        Top Risks
-                      </div>
-                      <ul className="space-y-2">
-                        {predictions.top_risks?.map((risk, idx) => (
-                          <li key={idx} className="text-sm text-red-800 flex items-start gap-2">
-                            <span className="text-red-600 font-bold">•</span>
-                            <span>{risk}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">On-time completion probability</span>
+                      <span className={cn(
+                        "font-semibold",
+                        pred.completionProbability >= 75 && "text-green-600",
+                        pred.completionProbability >= 50 && pred.completionProbability < 75 && "text-amber-600",
+                        pred.completionProbability < 50 && "text-red-600"
+                      )}>
+                        {pred.completionProbability}%
+                      </span>
                     </div>
-
-                    <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                      <div className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                        <Target className="w-5 h-5" />
-                        Opportunities
-                      </div>
-                      <ul className="space-y-2">
-                        {predictions.top_opportunities?.map((opp, idx) => (
-                          <li key={idx} className="text-sm text-green-800 flex items-start gap-2">
-                            <span className="text-green-600 font-bold">•</span>
-                            <span>{opp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                    <div className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <Sparkles className="w-5 h-5" />
-                      AI Recommendations
-                    </div>
-                    <ul className="space-y-2">
-                      {predictions.recommendations?.map((rec, idx) => (
-                        <li key={idx} className="text-sm text-blue-800 flex items-start gap-3">
-                          <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5">
-                            {idx + 1}
-                          </div>
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <Progress value={pred.completionProbability} className="h-2" />
                   </div>
                 </div>
-              )}
-
-              {/* At-Risk Proposals */}
-              {proposalPredictions.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                    Completion Risk Analysis
-                  </h4>
-                  <div className="space-y-3">
-                    {proposalPredictions.slice(0, 5).map((pred, idx) => (
-                      <div 
-                        key={idx}
-                        className={cn(
-                          "p-4 rounded-lg border-2",
-                          pred.risk === 'high' && "bg-red-50 border-red-300",
-                          pred.risk === 'medium' && "bg-amber-50 border-amber-300",
-                          pred.risk === 'low' && "bg-green-50 border-green-300"
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1">
-                            <div className="font-semibold text-slate-900">{pred.proposal.proposal_name}</div>
-                            <div className="text-sm text-slate-600 mt-1">
-                              Due in {pred.daysUntilDue} days • {pred.proposal.agency_name}
-                            </div>
-                          </div>
-                          <Badge className={cn(
-                            pred.risk === 'high' && "bg-red-600 text-white",
-                            pred.risk === 'medium' && "bg-amber-600 text-white",
-                            pred.risk === 'low' && "bg-green-600 text-white"
-                          )}>
-                            {pred.risk} risk
-                          </Badge>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-600">On-time completion probability</span>
-                            <span className={cn(
-                              "font-semibold",
-                              pred.completionProbability >= 75 && "text-green-600",
-                              pred.completionProbability >= 50 && pred.completionProbability < 75 && "text-amber-600",
-                              pred.completionProbability < 50 && "text-red-600"
-                            )}>
-                              {pred.completionProbability}%
-                            </span>
-                          </div>
-                          <Progress value={pred.completionProbability} className="h-2" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
