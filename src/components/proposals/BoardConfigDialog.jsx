@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -196,7 +197,8 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   };
 
   const isLockedColumn = (column) => {
-    return column.default_status_mapping === 'evaluating' || column.default_status_mapping === 'draft';
+    const lockedStatuses = ['evaluating', 'draft', 'in_progress', 'submitted'];
+    return lockedStatuses.includes(column.default_status_mapping);
   };
 
   // Swimlane handlers
@@ -323,10 +325,10 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                   <div>
                     <div className="font-semibold text-amber-900 mb-1">
                       <Lock className="w-4 h-4 inline mr-1" />
-                      Locked Columns: Evaluating & Draft
+                      Locked Columns: Evaluating, Draft, In Progress & Submitted
                     </div>
                     <div className="text-sm text-amber-800">
-                      The <strong>Evaluating</strong> and <strong>Draft</strong> columns are required for the Proposal Builder's 7-phase workflow and cannot be repositioned or renamed. These columns are essential for proposals to progress correctly through the builder phases.
+                      The <strong>Evaluating</strong>, <strong>Draft</strong>, <strong>In Progress</strong>, and <strong>Submitted</strong> columns are required for the Proposal Builder's 7-phase workflow and cannot be repositioned or renamed. These columns are essential for proposals to progress correctly through the builder phases.
                     </div>
                   </div>
                 </div>
