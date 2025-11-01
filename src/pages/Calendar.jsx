@@ -52,7 +52,8 @@ import {
   List,
   Share2,
   Tag,
-  Bell
+  Bell,
+  Printer // Added Printer icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -67,6 +68,9 @@ import CalendarSharing from "../components/calendar/CalendarSharing";
 import QuickAddEvent from "../components/calendar/QuickAddEvent";
 import AISchedulingAssistant from "../components/calendar/AISchedulingAssistant";
 import EventResizeHandle from "../components/calendar/EventResizeHandle";
+import ConflictDetector from "../components/calendar/ConflictDetector"; // New Import
+import PrintableCalendar from "../components/calendar/PrintableCalendar"; // New Import
+import TimeBlockingPanel from "../components/calendar/TimeBlockingPanel"; // New Import
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -175,7 +179,8 @@ const iconMap = {
   List: List,
   Share2: Share2,
   Tag: Tag,
-  Bell: Bell
+  Bell: Bell,
+  Printer: Printer // Added to icon map
   // Add other Lucide icons as needed, especially if custom types can specify them
 };
 
@@ -365,6 +370,9 @@ export default function Calendar() {
 
   // Quick Add state
   const [quickAddSlot, setQuickAddSlot] = useState(null);
+
+  // Conflict detection state
+  const [conflicts, setConflicts] = useState([]); // New state
 
   // Filtering and search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -703,15 +711,13 @@ export default function Calendar() {
     mutationFn: async (data) => {
       const eventToSave = {
         ...data,
-        // The source_type will always be 'calendar_event' for user-created events
-        // The actual specific type is stored in 'event_type' field.
-        source_type: 'calendar_event',
         recurrence_rule: data.is_recurring ? JSON.stringify(data.recurrence_rule) : null
       };
 
-      if (editingEvent && !editingEvent.is_recurring_instance) {
-        // If editing an existing calendar_event, ensure it retains its source_type
-        return base44.entities.CalendarEvent.update(editingEvent.original_id || editingEvent.id, eventToSave);
+      if (editingEvent) {
+        // When editing, `eventData.id` (which is passed as `data.id` here) should be the ID
+        // of the master event, as `eventData` is populated from `originalEvent` in `handleEdit`.
+        return base44.entities.CalendarEvent.update(data.id, eventToSave);
       } else {
         return base44.entities.CalendarEvent.create({
           ...eventToSave,
@@ -725,7 +731,8 @@ export default function Calendar() {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       setShowEventDialog(false);
       setEditingEvent(null);
-      setQuickAddSlot(null); // Clear quick add slot on success
+      setQuickAddSlot(null);
+      setConflicts([]); // Added to clear conflicts on success
       resetForm();
     },
   });
@@ -857,11 +864,46 @@ export default function Calendar() {
 
   const handleSave = () => {
     if (eventData.title.trim()) {
-      createEventMutation.mutate(eventData);
+      // Check for conflicts before saving
+      const proposedStart = moment(eventData.start_date);
+      const proposedEnd = moment(eventData.end_date);
+
+      const eventConflicts = allEvents.filter(event => {
+        // Skip the event being edited from conflict detection if it's the same event
+        // We compare against original_id for recurring instances, or id for single events
+        const isEditingThisEvent = editingEvent && (
+          (event.id === editingEvent.id && !editingEvent.is_recurring_instance) ||
+          (event.original_id === editingEvent.original_id && event.source_type === editingEvent.source_type)
+        );
+        if (isEditingThisEvent) return false;
+
+        const eventStart = moment(event.start_date);
+        const eventEnd = moment(event.end_date);
+
+        return proposedStart.isBefore(eventEnd) && proposedEnd.isAfter(eventStart);
+      });
+
+      if (eventConflicts.length > 0) {
+        setConflicts(eventConflicts);
+      } else {
+        createEventMutation.mutate(eventData);
+      }
     }
   };
 
+  const handleConflictResolution = (resolution) => {
+    setEventData({
+      ...eventData,
+      start_date: resolution.new_start.format('YYYY-MM-DDTHH:mm'),
+      end_date: resolution.new_end.format('YYYY-MM-DDTHH:mm')
+    });
+    setConflicts([]); // Clear conflicts after resolving
+    // Optionally, you might trigger the save again here if the resolution is to save with new times
+    // For now, it just updates the form fields. User clicks 'Save' again.
+  };
+
   const handleQuickAdd = (quickEventData) => {
+    // This function needs to include organization and user data for the mutation
     createEventMutation.mutate({
       ...quickEventData,
       organization_id: organization.id,
@@ -1588,7 +1630,7 @@ export default function Calendar() {
             <p className="text-slate-600">All your events, tasks, deadlines, and meetings in one place</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap"> {/* Added flex-wrap for responsiveness */}
             <TabsList>
               <TabsTrigger value="calendar">
                 <CalendarIcon className="w-4 h-4 mr-2" />
@@ -1615,6 +1657,31 @@ export default function Calendar() {
                 Sync
               </TabsTrigger>
             </TabsList>
+
+            <TimeBlockingPanel
+              organization={organization}
+              user={user}
+              trigger={
+                <Button variant="outline" className="border-purple-200 hover:bg-purple-50">
+                  <Clock className="w-4 h-4 mr-2" />
+                  Block Time
+                </Button>
+              }
+            />
+
+            <PrintableCalendar
+              events={filteredEvents}
+              viewMode={viewMode}
+              currentDate={currentDate}
+              organization={organization}
+              trigger={
+                <Button variant="outline">
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
+              }
+            />
+
             <AISchedulingAssistant
               organization={organization}
               user={user}
@@ -1622,6 +1689,7 @@ export default function Calendar() {
                 queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
               }}
             />
+
             <Button onClick={() => { resetForm(); setShowEventDialog(true); }} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
               <Plus className="w-5 h-5 mr-2" />
               Add Event
@@ -1919,6 +1987,7 @@ export default function Calendar() {
         setShowEventDialog(open);
         if (!open) {
           setEditingEvent(null);
+          setConflicts([]); // Added to clear conflicts when closing dialog
           resetForm();
         }
       }}>
@@ -1928,6 +1997,15 @@ export default function Calendar() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {conflicts.length > 0 && (
+              <ConflictDetector
+                proposedEvent={eventData}
+                existingEvents={conflicts}
+                onResolve={handleConflictResolution}
+                onProceed={() => createEventMutation.mutate(eventData)}
+              />
+            )}
+
             <div>
               <label className="block text-sm font-medium mb-2">Event Title *</label>
               <Input
@@ -2108,12 +2186,12 @@ export default function Calendar() {
             </div>
 
             <div className="flex justify-between items-center pt-4">
-              {editingEvent && (mergedEventTypeConfig[editingEvent.source_type]?.isCustom || editingEvent.source_type === 'calendar_event') && (
+              {editingEvent && (mergedEventTypeConfig[editingEvent.source_type]?.canEdit || editingEvent.source_type === 'calendar_event') && !editingEvent.is_recurring_instance && (
                 <Button
                   variant="destructive"
                   onClick={() => {
                     if (confirm('Delete this event?')) {
-                      // Use the original_id for deletion if it's a recurring instance
+                      // For a single event or the master of a recurring series (if not instance), use its ID
                       deleteEventMutation.mutate(editingEvent.original_id || editingEvent.id);
                       setShowEventDialog(false);
                       setEditingEvent(null);
@@ -2130,7 +2208,7 @@ export default function Calendar() {
                   Cancel
                 </Button>
                 <Button onClick={handleSave} disabled={!eventData.title.trim() || createEventMutation.isPending}>
-                  {createEventMutation.isPending ? 'Saving...' : (editingEvent ? 'Update Event' : 'Add Event')}
+                  {createEventMutation.isPending ? 'Saving...' : (conflicts.length > 0 ? 'Save Anyway' : (editingEvent ? 'Update Event' : 'Add Event'))}
                 </Button>
               </div>
             </div>
