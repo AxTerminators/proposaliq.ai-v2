@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
@@ -81,6 +82,10 @@ import EventContextPanel from "../components/calendar/EventContextPanel";
 import ResourceManager from "../components/calendar/ResourceManager";
 import GanttChartView from "../components/calendar/GanttChartView";
 import TimeDebtTracker from "../components/calendar/TimeDebtTracker";
+import SmartSchedulingAgent from "../components/calendar/SmartSchedulingAgent";
+import AdaptiveLearningPanel from "../components/calendar/AdaptiveLearningPanel";
+import LiveProposalProgress from "../components/calendar/LiveProposalProgress";
+import ExternalCalendarIntegration from "../components/calendar/ExternalCalendarIntegration";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -165,7 +170,6 @@ const EVENT_TYPE_CONFIG = {
 const generateRecurringInstances = (event, startDate, endDate) => {
   if (!event.recurrence_rule) return [event];
   
-  const instances = [];
   let recurrence;
   try {
     recurrence = typeof event.recurrence_rule === 'string' 
@@ -177,6 +181,7 @@ const generateRecurringInstances = (event, startDate, endDate) => {
   
   if (!recurrence.frequency) return [event];
   
+  const instances = [];
   const eventStart = moment(event.start_date);
   const eventEnd = moment(event.end_date);
   const duration = eventEnd.diff(eventStart);
@@ -1560,7 +1565,7 @@ export default function Calendar() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Master Calendar</h1>
-            <p className="text-slate-600">All your events, tasks, deadlines, and meetings in one place</p>
+            <p className="text-slate-600">AI-powered scheduling with adaptive learning and automation</p>
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
@@ -1571,11 +1576,23 @@ export default function Calendar() {
               </TabsTrigger>
               <TabsTrigger value="gantt">
                 <TrendingUp className="w-4 h-4 mr-2" />
-                Gantt Chart
+                Gantt
+              </TabsTrigger>
+              <TabsTrigger value="progress">
+                <FileText className="w-4 h-4 mr-2" />
+                Live Progress
+              </TabsTrigger>
+              <TabsTrigger value="ai-agent">
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Agent
+              </TabsTrigger>
+              <TabsTrigger value="learning">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Learning
               </TabsTrigger>
               <TabsTrigger value="risks">
                 <AlertTriangle className="w-4 h-4 mr-2" />
-                AI Risks
+                Risks
               </TabsTrigger>
               <TabsTrigger value="resources">
                 <Package className="w-4 h-4 mr-2" />
@@ -1585,9 +1602,13 @@ export default function Calendar() {
                 <Focus className="w-4 h-4 mr-2" />
                 Time Debt
               </TabsTrigger>
+              <TabsTrigger value="external">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                External
+              </TabsTrigger>
               <TabsTrigger value="team">
                 <Users className="w-4 h-4 mr-2" />
-                Team View
+                Team
               </TabsTrigger>
               <TabsTrigger value="sharing">
                 <Share2 className="w-4 h-4 mr-2" />
@@ -1595,17 +1616,28 @@ export default function Calendar() {
               </TabsTrigger>
               <TabsTrigger value="types">
                 <Tag className="w-4 h-4 mr-2" />
-                Event Types
+                Types
               </TabsTrigger>
               <TabsTrigger value="notifications">
                 <Bell className="w-4 h-4 mr-2" />
-                Notifications
+                Alerts
               </TabsTrigger>
               <TabsTrigger value="sync">
                 <Settings className="w-4 h-4 mr-2" />
                 Sync
               </TabsTrigger>
             </TabsList>
+            
+            <SmartSchedulingAgent
+              organization={organization}
+              user={user}
+              trigger={
+                <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Agent
+                </Button>
+              }
+            />
             
             <ScheduleOptimizer
               organization={organization}
@@ -1925,6 +1957,43 @@ export default function Calendar() {
           <GanttChartView organization={organization} user={user} />
         </TabsContent>
 
+        <TabsContent value="progress">
+          <LiveProposalProgress organization={organization} allEvents={allEvents} />
+        </TabsContent>
+
+        <TabsContent value="ai-agent">
+          <Card className="border-none shadow-lg">
+            <CardContent className="p-8 text-center">
+              <div className="max-w-2xl mx-auto space-y-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center mx-auto">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900">AI Scheduling Agent</h3>
+                <p className="text-slate-600">
+                  Your intelligent scheduling assistant can autonomously manage your calendar, 
+                  coordinate meetings, book resources, and optimize schedules using natural language.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <SmartSchedulingAgent
+                    organization={organization}
+                    user={user}
+                    trigger={
+                      <Button className="bg-gradient-to-r from-indigo-600 to-purple-600">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Start Conversation
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="learning">
+          <AdaptiveLearningPanel organization={organization} user={user} />
+        </TabsContent>
+
         <TabsContent value="risks">
           <PredictiveRiskAlerts 
             organization={organization} 
@@ -1945,6 +2014,10 @@ export default function Calendar() {
             organization={organization} 
             user={user}
           />
+        </TabsContent>
+
+        <TabsContent value="external">
+          <ExternalCalendarIntegration organization={organization} user={user} />
         </TabsContent>
 
         <TabsContent value="team">

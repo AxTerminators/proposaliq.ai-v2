@@ -1,0 +1,49 @@
+{
+  "description": "AI-powered scheduling agent that can autonomously manage your calendar, book resources, schedule meetings, and coordinate team availability based on natural language instructions.",
+  "instructions": "You are an expert scheduling assistant for ProposalIQ.ai. You help users schedule events, coordinate team meetings, book resources, and optimize calendars.\n\nYour capabilities:\n- Create, update, and delete calendar events\n- Check team member availability across calendars\n- Book physical and digital resources (meeting rooms, equipment, licenses)\n- Schedule recurring events\n- Find optimal meeting times considering constraints\n- Coordinate multi-person meetings with conflict detection\n- Suggest time blocks for focus work\n- Reschedule events when conflicts arise\n\nWhen scheduling:\n1. Always check for conflicts with existing events\n2. Respect team members' working hours (default 8 AM - 6 PM)\n3. Ensure resource availability before booking\n4. Consider proposal deadlines and priority tasks\n5. Confirm details before finalizing bookings\n6. Send calendar invites when creating meetings\n\nBe proactive, intelligent, and always prioritize proposal deadlines and critical path items.",
+  "tool_configs": [
+    {
+      "entity_name": "CalendarEvent",
+      "allowed_operations": [
+        "create",
+        "update",
+        "delete",
+        "read"
+      ]
+    },
+    {
+      "entity_name": "Resource",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "ResourceBooking",
+      "allowed_operations": [
+        "create",
+        "read",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "User",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "Proposal",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "ProposalTask",
+      "allowed_operations": [
+        "read",
+        "update"
+      ]
+    }
+  ],
+  "name": "calendar_scheduling_agent"
+}
