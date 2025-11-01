@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { getUserActiveOrganization } from "@/utils/organizationHelper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Sparkles } from "lucide-react";
@@ -11,6 +10,43 @@ import ProposalPipeline from "../components/dashboard/ProposalPipeline";
 import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
+
+// Helper function to get user's active organization
+async function getUserActiveOrganization(user) {
+  if (!user) return null;
+
+  let orgId = null;
+
+  // Priority 1: Use active_client_id if set
+  if (user.active_client_id) {
+    orgId = user.active_client_id;
+  }
+  // Priority 2: Get first organization from client_accesses
+  else if (user.client_accesses && user.client_accesses.length > 0) {
+    orgId = user.client_accesses[0].organization_id;
+  }
+  // Priority 3: Fallback to organizations they created (backward compatibility)
+  else {
+    const orgs = await base44.entities.Organization.filter(
+      { created_by: user.email },
+      '-created_date',
+      1
+    );
+    if (orgs.length > 0) {
+      orgId = orgs[0].id;
+    }
+  }
+
+  // Load the full organization details
+  if (orgId) {
+    const orgs = await base44.entities.Organization.filter({ id: orgId });
+    if (orgs.length > 0) {
+      return orgs[0];
+    }
+  }
+
+  return null;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
