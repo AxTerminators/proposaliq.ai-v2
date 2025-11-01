@@ -469,7 +469,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                     className="flex-shrink-0 w-16 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between p-2 cursor-pointer hover:shadow-lg transition-shadow"
                     onClick={() => toggleColumnCollapse(column.id)}
                   >
-                    <div className="writing-mode-vertical text-sm font-semibold text-slate-700 whitespace-nowrap">
+                    <div 
+                      className="text-sm font-semibold text-slate-700 whitespace-nowrap"
+                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                    >
                       {column.label}
                     </div>
                     <div className="mt-2 px-2 py-1 bg-white rounded-full text-xs font-bold text-slate-600">
