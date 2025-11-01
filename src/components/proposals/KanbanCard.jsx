@@ -1,200 +1,97 @@
 import React from "react";
-import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
+import { Draggable } from "@hello-pangea/dnd";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Calendar, Building2, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Calendar,
-  DollarSign,
-  Users,
-  Clock,
-  Target,
-  Award,
-  TrendingDown,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  MoreVertical
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createPageUrl } from "@/utils";
-import moment from "moment";
+import { cn } from "@/lib/utils";
 
-export default function KanbanCard({ proposal, onClick, user, organization }) {
-  const getStatusColor = (status) => {
-    const colors = {
-      evaluating: "#3b82f6",
-      watch_list: "#eab308",
-      draft: "#64748b",
-      in_progress: "#f97316",
-      submitted: "#8b5cf6",
-      won: "#10b981",
-      lost: "#ef4444",
-      archived: "#94a3b8"
-    };
-    return colors[status] || "#64748b";
+function KanbanCard({ proposal, index, onProposalClick, onDeleteProposal }) {
+  const statusColors = {
+    evaluating: "border-l-blue-500",
+    watch_list: "border-l-yellow-500",
+    draft: "border-l-slate-500",
+    in_progress: "border-l-purple-500",
+    submitted: "border-l-indigo-500",
+    won: "border-l-green-500",
+    lost: "border-l-red-500",
+    archived: "border-l-gray-500"
   };
-
-  const getStatusIcon = (status) => {
-    const icons = {
-      evaluating: Target,
-      watch_list: Eye,
-      draft: AlertCircle,
-      in_progress: Clock,
-      submitted: CheckCircle2,
-      won: Award,
-      lost: TrendingDown,
-      archived: AlertCircle
-    };
-    const Icon = icons[status] || AlertCircle;
-    return <Icon className="w-4 h-4" />;
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      evaluating: "Evaluating",
-      watch_list: "Watch List",
-      draft: "Draft",
-      in_progress: "In Progress",
-      submitted: "Submitted",
-      won: "Won",
-      lost: "Lost",
-      archived: "Archived"
-    };
-    return labels[status] || status;
-  };
-
-  const daysUntilDue = proposal.due_date
-    ? Math.ceil((new Date(proposal.due_date) - new Date()) / (1000 * 60 * 60 * 24))
-    : null;
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="group"
-    >
-      <Card 
-        className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4"
-        style={{ borderLeftColor: getStatusColor(proposal.status) }}
-        onClick={onClick}
-      >
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-slate-900 line-clamp-2 flex-1">
-                {proposal.proposal_name}
-              </h3>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={(e) => {
+    <Draggable draggableId={proposal.id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+        >
+          <Card 
+            className={cn(
+              "mb-3 border-l-4 cursor-pointer hover:shadow-lg transition-shadow bg-white",
+              statusColors[proposal.status] || "border-l-slate-300",
+              snapshot.isDragging && "shadow-2xl rotate-2 scale-105"
+            )}
+          >
+            <CardHeader className="p-4 pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle 
+                  className="text-sm font-semibold line-clamp-2 flex-1"
+                  onClick={() => onProposalClick(proposal)}
+                >
+                  {proposal.proposal_name}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                  onClick={(e) => {
                     e.stopPropagation();
-                    onClick();
-                  }}>
-                    Open Proposal
-                  </DropdownMenuItem>
-                  {(proposal.status === 'won' || proposal.status === 'lost') && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      window.location.href = createPageUrl(`WinLossCapture?proposalId=${proposal.id}`);
-                    }}>
-                      Capture Win/Loss
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Status Badge */}
-            <Badge 
-              className="flex items-center gap-1 w-fit"
-              style={{ 
-                backgroundColor: getStatusColor(proposal.status),
-                color: 'white'
-              }}
+                    onDeleteProposal(proposal);
+                  }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+              {proposal.is_sample_data && (
+                <Badge className="bg-amber-100 text-amber-700 w-fit mt-2">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  SAMPLE
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent 
+              className="p-4 pt-2 space-y-2 text-xs"
+              onClick={() => onProposalClick(proposal)}
             >
-              {getStatusIcon(proposal.status)}
-              {getStatusLabel(proposal.status)}
-            </Badge>
-
-            {/* Agency */}
-            {proposal.agency_name && (
-              <p className="text-sm text-slate-600 line-clamp-1">
-                {proposal.agency_name}
-              </p>
-            )}
-
-            {/* Metadata */}
-            <div className="space-y-1.5 text-xs text-slate-600">
+              {proposal.agency_name && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Building2 className="w-3 h-3" />
+                  <span className="truncate">{proposal.agency_name}</span>
+                </div>
+              )}
               {proposal.due_date && (
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {moment(proposal.due_date).format('MMM D, YYYY')}
-                    {daysUntilDue !== null && daysUntilDue >= 0 && (
-                      <span className={`ml-1 ${daysUntilDue <= 7 ? 'text-red-600 font-semibold' : ''}`}>
-                        ({daysUntilDue}d)
-                      </span>
-                    )}
-                  </span>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Calendar className="w-3 h-3" />
+                  <span>{new Date(proposal.due_date).toLocaleDateString()}</span>
                 </div>
               )}
-
-              {proposal.contract_value && (
-                <div className="flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>${(proposal.contract_value / 1000000).toFixed(1)}M</span>
+              {proposal.solicitation_number && (
+                <div className="text-slate-500 truncate">
+                  {proposal.solicitation_number}
                 </div>
               )}
-
-              {proposal.teaming_partner_ids?.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5" />
-                  <span>{proposal.teaming_partner_ids.length} partners</span>
-                </div>
+              {proposal.match_score && (
+                <Badge variant="outline" className="text-xs">
+                  Match: {proposal.match_score}%
+                </Badge>
               )}
-            </div>
-
-            {/* Win/Loss Capture Button for won/lost proposals */}
-            {(proposal.status === 'won' || proposal.status === 'lost') && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = createPageUrl(`WinLossCapture?proposalId=${proposal.id}`);
-                }}
-              >
-                {proposal.status === 'won' ? (
-                  <>
-                    <Award className="w-4 h-4 mr-2" />
-                    Capture Win Insights
-                  </>
-                ) : (
-                  <>
-                    <TrendingDown className="w-4 h-4 mr-2" />
-                    Capture Loss Insights
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </Draggable>
   );
 }
+
+export default React.memo(KanbanCard);
