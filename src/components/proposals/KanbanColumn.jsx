@@ -41,13 +41,15 @@ function KanbanColumn({
               </>
             )}
             {isCollapsed && (
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-2">
                 <h3 className="font-semibold text-slate-900 text-sm" style={{ writingMode: 'vertical-rl' }}>
                   {column.label}
                 </h3>
-                <Badge variant="secondary" className="text-xs">
-                  {proposals.length}
-                </Badge>
+                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-slate-700">
+                    {proposals.length}
+                  </span>
+                </div>
               </div>
             )}
           </div>
