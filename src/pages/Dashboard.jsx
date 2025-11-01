@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [proposals, setProposals] = useState([]);
+  const [activityLog, setActivityLog] = useState([]);
   const [stats, setStats] = useState({
     total_proposals: 0,
     active_proposals: 0,
@@ -46,6 +47,19 @@ export default function Dashboard() {
           '-created_date'
         );
         setProposals(userProposals);
+
+        // Load activity log
+        try {
+          const activities = await base44.entities.ActivityLog.filter(
+            { proposal_id: { $in: userProposals.map(p => p.id) } },
+            '-created_date',
+            20
+          );
+          setActivityLog(activities);
+        } catch (error) {
+          console.error("Error loading activity log:", error);
+          setActivityLog([]);
+        }
 
         const activeProposals = userProposals.filter(p => 
           ['evaluating', 'draft', 'in_progress'].includes(p.status)
@@ -187,7 +201,7 @@ export default function Dashboard() {
           {/* Right Column - 1/3 width */}
           <div className="space-y-6">
             <AIInsightsCard proposals={proposals} organization={organization} />
-            <ActivityTimeline organization={organization} />
+            <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
           </div>
         </div>
       </div>
