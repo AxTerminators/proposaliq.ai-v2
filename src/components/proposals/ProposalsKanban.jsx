@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 export default function ProposalsKanban({ proposals = [], onProposalClick, onDeleteProposal, isLoading, user, organization }) {
   const queryClient = useQueryClient();
@@ -47,6 +48,12 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
   const [showColumnDeleteWarning, setShowColumnDeleteWarning] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
   const [columnDeleteError, setColumnDeleteError] = useState(null);
+
+  // Quick add column states
+  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
+  const [quickAddPosition, setQuickAddPosition] = useState(null);
+  const [quickColumnName, setQuickColumnName] = useState("");
+  const [quickColumnColor, setQuickColumnColor] = useState("bg-slate-100");
 
   const defaultColumns = [
     { id: "evaluating", label: "Evaluating", color: "bg-slate-100", order: 0, type: "default_status", default_status_mapping: "evaluating" },
@@ -442,6 +449,41 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
     
     saveCollapsedStateMutation.mutate(newCollapsedColumns);
   }, [collapsedColumns, isDragging, saveCollapsedStateMutation]);
+
+  const handleQuickAddColumn = useCallback((position) => {
+    setQuickAddPosition(position);
+    setQuickColumnName("");
+    setQuickColumnColor("bg-slate-100");
+    setShowQuickAddDialog(true);
+  }, []);
+
+  const handleQuickAddSubmit = () => {
+    if (!quickColumnName.trim()) {
+      alert("Please enter a column name");
+      return;
+    }
+
+    const customId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const newColumn = {
+      id: customId,
+      label: quickColumnName.trim(),
+      color: quickColumnColor,
+      order: quickAddPosition,
+      type: 'custom_stage',
+      default_status_mapping: null
+    };
+
+    // Insert at the specified position
+    const newColumns = [...columns];
+    newColumns.splice(quickAddPosition, 0, newColumn);
+    
+    const reorderedColumns = newColumns.map((col, idx) => ({ ...col, order: idx }));
+
+    setColumns(reorderedColumns);
+    saveColumnConfigMutation.mutate(reorderedColumns); // Save the updated configuration
+    setShowQuickAddDialog(false);
+  };
 
   const handleDeleteProposal = useCallback((proposal) => {
     setProposalToDelete(proposal);
@@ -866,59 +908,138 @@ export default function ProposalsKanban({ proposals = [], onProposalClick, onDel
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Quick Add Column Dialog */}
+      <Dialog open={showQuickAddDialog} onOpenChange={setShowQuickAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Column</DialogTitle>
+            <DialogDescription>
+              Create a new custom column at position {quickAddPosition !== null ? quickAddPosition + 1 : ''}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Column Name</Label>
+              <Input
+                value={quickColumnName}
+                onChange={(e) => setQuickColumnName(e.target.value)}
+                placeholder="e.g., Client Review, Legal Approval..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleQuickAddSubmit();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <select
+                value={quickColumnColor}
+                onChange={(e) => setQuickColumnColor(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="bg-slate-100">Gray</option>
+                <option value="bg-blue-100">Blue</option>
+                <option value="bg-purple-100">Purple</option>
+                <option value="bg-indigo-100">Indigo</option>
+                <option value="bg-green-100">Green</option>
+                <option value="bg-yellow-100">Yellow</option>
+                <option value="bg-red-100">Red</option>
+                <option value="bg-pink-100">Pink</option>
+                <option value="bg-amber-100">Amber</option>
+                <option value="bg-teal-100">Teal</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleQuickAddSubmit} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Column
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <Droppable droppableId="all-columns" direction="horizontal" type="column">
           {(provided) => (
             <div
               {...provided.droppableProps}
               ref={provided.innerRef}
-              className="flex gap-4 overflow-x-auto pb-4"
+              className="flex gap-0 overflow-x-auto pb-4"
             >
               {columns.map((column, index) => {
                 if (!column || !column.id) return null;
 
                 const isColumnCollapsed = collapsedColumns.includes(column.id);
                 return (
-                  <Draggable 
-                    key={column.id} 
-                    draggableId={column.id} 
-                    index={index} 
-                    type="column"
-                    isDragDisabled={isDragging}
-                  >
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className={`flex-shrink-0 transition-all duration-300 ${
-                          isColumnCollapsed ? 'w-16' : 'w-80'
-                        } ${snapshot.isDragging ? 'opacity-50' : ''}`}
-                      >
-                        <Droppable droppableId={column.id} type="proposal">
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                            >
-                              <KanbanColumn
-                                column={column}
-                                proposals={groupedProposals[column.id] || []}
-                                onProposalClick={handleProposalClick}
-                                onDeleteProposal={handleDeleteProposal}
-                                isDraggingOver={snapshot.isDraggingOver}
-                                isCollapsed={isColumnCollapsed}
-                                onToggleCollapse={handleToggleCollapse}
-                                dragHandleProps={provided.dragHandleProps}
-                              />
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
+                  <React.Fragment key={column.id}>
+                    {/* Column Divider with + button */}
+                    <div className="group relative flex items-start flex-shrink-0">
+                      <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(index)}>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                          <Plus className="w-4 h-4" />
+                        </div>
                       </div>
-                    )}
-                  </Draggable>
+                    </div>
+
+                    <Draggable 
+                      key={column.id} 
+                      draggableId={column.id} 
+                      index={index} 
+                      type="column"
+                      isDragDisabled={isDragging}
+                    >
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={cn(
+                            "flex-shrink-0 transition-all duration-300",
+                            isColumnCollapsed ? 'w-16' : 'w-80',
+                            snapshot.isDragging && 'opacity-50'
+                          )}
+                        >
+                          <Droppable droppableId={column.id} type="proposal">
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                              >
+                                <KanbanColumn
+                                  column={column}
+                                  proposals={groupedProposals[column.id] || []}
+                                  onProposalClick={handleProposalClick}
+                                  onDeleteProposal={handleDeleteProposal}
+                                  isDraggingOver={snapshot.isDraggingOver}
+                                  isCollapsed={isColumnCollapsed}
+                                  onToggleCollapse={handleToggleCollapse}
+                                  dragHandleProps={provided.dragHandleProps}
+                                />
+                                {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
+                        </div>
+                      )}
+                    </Draggable>
+                  </React.Fragment>
                 );
               })}
+
+              {/* Final divider after last column */}
+              <div className="group relative flex items-start flex-shrink-0">
+                <div className="h-16 w-2 hover:w-8 transition-all duration-200 flex items-center justify-center cursor-pointer" onClick={() => handleQuickAddColumn(columns.length)}>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+
               {provided.placeholder}
             </div>
           )}
