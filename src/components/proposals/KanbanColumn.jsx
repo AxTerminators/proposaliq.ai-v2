@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -164,7 +165,7 @@ export default function KanbanColumn({
                 <div className="flex items-center gap-2">
                   {/* Collapse Icon - Inside Header */}
                   <ChevronsLeft 
-                    className="w-4 h-4 text-white cursor-pointer hover:opacity-70 transition-opacity flex-shrink-0" 
+                    className="w-5 h-5 text-white cursor-pointer hover:opacity-70 transition-opacity flex-shrink-0" 
                     onClick={() => onToggleCollapse(column.id)}
                     title={`Collapse ${columnLabel} column`}
                   />
