@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation } from "@tanstack/react-query";
@@ -17,7 +18,8 @@ import {
   CheckCircle2,
   Loader2,
   Send,
-  ArrowLeft
+  ArrowLeft,
+  Shield
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -29,6 +31,8 @@ export default function ClientFeedbackForm() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [screenshotFile, setScreenshotFile] = useState(null);
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminPreviewMode, setAdminPreviewMode] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const clientId = urlParams.get('client');
@@ -48,17 +52,31 @@ export default function ClientFeedbackForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Get client
-        const clients = await base44.entities.Client.filter({ id: clientId });
-        if (clients.length > 0) {
-          setClient(clients[0]);
+        // Check if user is super admin
+        const user = await base44.auth.me();
+        const isAdmin = user && user.admin_role === 'super_admin';
+        setIsSuperAdmin(isAdmin);
+
+        // If super admin and no client ID, show in preview mode
+        if (isAdmin && !clientId) {
+          setAdminPreviewMode(true);
+          setLoading(false);
+          return;
         }
 
-        // Get proposal if provided
-        if (proposalId) {
-          const proposals = await base44.entities.Proposal.filter({ id: proposalId });
-          if (proposals.length > 0) {
-            setProposal(proposals[0]);
+        // Get client
+        if (clientId) {
+          const clients = await base44.entities.Client.filter({ id: clientId });
+          if (clients.length > 0) {
+            setClient(clients[0]);
+          }
+
+          // Get proposal if provided
+          if (proposalId) {
+            const proposals = await base44.entities.Proposal.filter({ id: proposalId });
+            if (proposals.length > 0) {
+              setProposal(proposals[0]);
+            }
           }
         }
 
@@ -69,11 +87,7 @@ export default function ClientFeedbackForm() {
       }
     };
 
-    if (clientId) {
-      loadData();
-    } else {
-      setLoading(false);
-    }
+    loadData();
   }, [clientId, proposalId]);
 
   const submitFeedbackMutation = useMutation({
@@ -213,6 +227,24 @@ export default function ClientFeedbackForm() {
     );
   }
 
+  // Admin preview mode banner
+  const AdminBanner = () => (
+    <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Shield className="w-5 h-5" />
+        <div>
+          <p className="font-semibold">Super Admin Preview Mode</p>
+          <p className="text-sm text-red-100">This is how the feedback form appears to clients</p>
+        </div>
+      </div>
+      <Link to={createPageUrl("AdminPortal") + "?tab=admin-pages"}>
+        <Button variant="outline" size="sm" className="bg-white text-red-600 hover:bg-red-50">
+          Back to Admin
+        </Button>
+      </Link>
+    </div>
+  );
+
   const issueTypes = [
     { value: "bug", label: "Bug Report", icon: Bug, color: "red" },
     { value: "feature_request", label: "Feature Request", icon: Lightbulb, color: "blue" },
@@ -222,17 +254,21 @@ export default function ClientFeedbackForm() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <Link 
-            to={createPageUrl("ClientPortal") + `?token=${urlParams.get('token') || client?.access_token}`}
-            className="inline-flex items-center text-purple-600 hover:text-purple-700"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Portal
-          </Link>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
+      {adminPreviewMode && <AdminBanner />}
+      
+      <div className="p-6 max-w-4xl mx-auto">
+        {!adminPreviewMode && (
+          <div className="mb-6">
+            <Link 
+              to={createPageUrl("ClientPortal") + `?token=${urlParams.get('token') || client?.access_token}`}
+              className="inline-flex items-center text-purple-600 hover:text-purple-700"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Portal
+            </Link>
+          </div>
+        )}
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
@@ -245,6 +281,11 @@ export default function ClientFeedbackForm() {
           {proposal && (
             <Badge className="mt-2 bg-purple-100 text-purple-700">
               Regarding: {proposal.proposal_name}
+            </Badge>
+          )}
+          {adminPreviewMode && (
+            <Badge className="mt-2 bg-red-100 text-red-700 ml-2">
+              Preview Mode - Form is read-only
             </Badge>
           )}
         </div>
@@ -286,11 +327,12 @@ export default function ClientFeedbackForm() {
                         key={type.value}
                         type="button"
                         onClick={() => setFormData({ ...formData, issue_type: type.value })}
+                        disabled={adminPreviewMode}
                         className={`p-4 border-2 rounded-lg transition-all text-left ${
                           isSelected
                             ? `border-${type.color}-500 bg-${type.color}-50`
                             : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}
+                        } ${adminPreviewMode ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <div className="flex items-center gap-3">
                           <Icon className={`w-6 h-6 ${isSelected ? `text-${type.color}-600` : 'text-slate-400'}`} />
@@ -312,6 +354,7 @@ export default function ClientFeedbackForm() {
                 <Select
                   value={formData.priority}
                   onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                  disabled={adminPreviewMode}
                 >
                   <SelectTrigger id="priority">
                     <SelectValue />
@@ -353,6 +396,7 @@ export default function ClientFeedbackForm() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Brief summary of your feedback"
+                  disabled={adminPreviewMode}
                   required
                 />
               </div>
@@ -366,6 +410,7 @@ export default function ClientFeedbackForm() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Please provide details about your feedback..."
                   rows={5}
+                  disabled={adminPreviewMode}
                   required
                 />
               </div>
@@ -390,6 +435,7 @@ export default function ClientFeedbackForm() {
                           setScreenshotFile(null);
                           setFormData({ ...formData, screenshot_url: "" });
                         }}
+                        disabled={adminPreviewMode}
                       >
                         Remove
                       </Button>
@@ -403,14 +449,14 @@ export default function ClientFeedbackForm() {
                         className="hidden"
                         accept="image/*"
                         onChange={handleScreenshotUpload}
-                        disabled={uploadingScreenshot}
+                        disabled={uploadingScreenshot || adminPreviewMode}
                       />
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         asChild
-                        disabled={uploadingScreenshot}
+                        disabled={uploadingScreenshot || adminPreviewMode}
                       >
                         <label htmlFor="screenshot-upload" className="cursor-pointer">
                           {uploadingScreenshot ? (
@@ -434,23 +480,37 @@ export default function ClientFeedbackForm() {
 
               {/* Submit Button */}
               <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="submit"
-                  disabled={submitFeedbackMutation.isPending || !formData.title || !formData.description}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {submitFeedbackMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Submit Feedback
-                    </>
-                  )}
-                </Button>
+                {adminPreviewMode ? (
+                  <div className="text-center w-full">
+                    <p className="text-sm text-slate-600 mb-3">
+                      This form is in preview mode. Clients would be able to submit feedback here.
+                    </p>
+                    <Link to={createPageUrl("AdminPortal") + "?tab=admin-pages"}>
+                      <Button type="button" className="bg-red-600 hover:bg-red-700">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Admin Portal
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={submitFeedbackMutation.isPending || !formData.title || !formData.description}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {submitFeedbackMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Submit Feedback
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
