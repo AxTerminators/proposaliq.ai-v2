@@ -44,6 +44,15 @@ export default function ClientPortal() {
 
         // Super Admin bypass mode
         if (superadmin === 'true') {
+          // First check if user is authenticated
+          const isAuth = await base44.auth.isAuthenticated();
+          if (!isAuth) {
+            // Redirect to login with return URL
+            const returnUrl = window.location.href;
+            base44.auth.redirectToLogin(returnUrl);
+            return;
+          }
+
           const currentUser = await base44.auth.me();
           if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
             setIsSuperAdminMode(true);
