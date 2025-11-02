@@ -739,7 +739,10 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        <main className="flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0">
+        <main className={cn(
+          "flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0 transition-all duration-300",
+          sidebarCollapsed ? "lg:ml-0" : "lg:ml-0"
+        )}>
           <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
