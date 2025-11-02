@@ -103,9 +103,9 @@ export default function CustomizableAIAgentNode({
     >
       {/* Main Card */}
       <div
-        className={`neuro-card h-full flex flex-col ${isSelected ? 'ring-2 ring-purple-500' : ''}`}
+        className={`bg-white rounded-xl border-2 shadow-lg h-full flex flex-col ${isSelected ? 'ring-2 ring-purple-500' : ''}`}
         style={{
-          background: node.color || '#e0e0e0',
+          background: node.color || '#f8f9fa',
           transition: 'box-shadow 0.2s',
         }}
       >
@@ -132,7 +132,7 @@ export default function CustomizableAIAgentNode({
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={handleTitleBlur}
                 onKeyDown={handleTitleKeyDown}
-                className="neuro-input px-2 py-1 text-sm flex-1 min-w-0 border-none"
+                className="px-2 py-1 text-sm flex-1 min-w-0 border border-slate-300 rounded bg-white"
                 style={{ color: '#2d3748' }}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -159,8 +159,9 @@ export default function CustomizableAIAgentNode({
               e.stopPropagation();
               onDelete(node.id);
             }}
-            className="neuro-button p-1 rounded flex-shrink-0"
-            style={{ color: '#991b1b' }}
+            variant="ghost"
+            size="sm"
+            className="p-1 rounded flex-shrink-0 text-red-700 hover:bg-red-50"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
@@ -301,8 +302,8 @@ export default function CustomizableAIAgentNode({
                 onRunAgent && onRunAgent(node);
               }}
               size="sm"
-              className="flex-1"
-              style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white' }}
+              className="flex-1 text-white"
+              style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}
             >
               <Zap className="w-3 h-3 mr-1" />
               Run
@@ -312,13 +313,13 @@ export default function CustomizableAIAgentNode({
 
         {/* Resize Handle */}
         <div
-          className="resize-handle absolute -bottom-2 -right-2 neuro-button rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize"
+          className="resize-handle absolute -bottom-2 -right-2 bg-white border-2 border-slate-200 rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize shadow-md"
           onMouseDown={(e) => {
             e.stopPropagation();
             onResizeStart(node.id, e.clientX, e.clientY, node.width || 350, node.height || 400);
           }}
           title="Resize node"
-          style={{ background: '#e0e0e0', zIndex: 20 }}
+          style={{ zIndex: 20 }}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M10 2L2 10M10 6L6 10M10 10H6" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round"/>

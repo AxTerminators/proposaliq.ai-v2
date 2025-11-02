@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -106,7 +107,8 @@ export default function VisualStrategyCanvas({
           tone: ['professional', 'clear'],
           creativity: 70,
           section_focus: 'full_proposal',
-          agency_type: proposalData.agency_name || 'generic'
+          agency_type: proposalData.agency_name || 'generic',
+          output_storage: 'none' // Default to none, can be 'create_section'
         },
         document_ids: []
       }
@@ -170,9 +172,113 @@ export default function VisualStrategyCanvas({
   };
 
   const handleRunAgent = async (node) => {
-    // TODO: Implement AI agent execution
-    console.log('Running agent:', node);
-    alert('AI Agent execution will be implemented - this will generate proposal sections based on the agent configuration!');
+    try {
+      const nodeData = typeof node.data === 'string' ? JSON.parse(node.data) : node.data || {};
+      const session = nodeData.session || {};
+      const config = session.config || {};
+      const documentIds = session.document_ids || [];
+
+      if (!config.model) {
+        alert('Please configure the AI agent first');
+        return;
+      }
+
+      // Fetch connected documents
+      const documents = await Promise.all(
+        documentIds.map(async (docId) => {
+          try {
+            const docs = await base44.entities.SolicitationDocument.filter({ id: docId });
+            return docs[0];
+          } catch (error) {
+            console.error(`Error fetching document ${docId}:`, error);
+            return null;
+          }
+        })
+      );
+
+      const validDocuments = documents.filter(d => d !== null);
+
+      if (validDocuments.length === 0 && documentIds.length > 0) {
+        alert('No valid documents found. Please check your document connections.');
+        return;
+      }
+
+      // Build comprehensive AI prompt
+      const sectionFocusLabel = config.section_focus?.replace(/_/g, ' ') || 'full proposal';
+      const personaLabel = config.persona?.replace(/_/g, ' ') || 'proposal manager';
+      
+      const prompt = `You are a ${personaLabel} for government proposals working on: ${proposalData.proposal_name}
+
+**PROJECT DETAILS:**
+- Agency: ${proposalData.agency_name || 'N/A'}
+- Project: ${proposalData.project_title || 'N/A'}
+- Type: ${proposalData.project_type || 'N/A'}
+- Prime: ${proposalData.prime_contractor_name || 'N/A'}
+
+**YOUR TASK:**
+Generate professional ${sectionFocusLabel} content.
+
+**WRITING PARAMETERS:**
+- Model: ${config.model}
+- Tone: ${config.tone?.join(', ') || 'professional, clear'}
+- Creativity: ${config.creativity || 50}%
+- Agency Type: ${config.agency_type || 'generic'}
+
+${config.win_themes && config.win_themes.length > 0 ? `
+**WIN THEMES TO EMPHASIZE:**
+${config.win_themes.map(theme => `- ${theme}`).join('\n')}
+` : ''}
+
+${validDocuments.length > 0 ? `
+**REFERENCE DOCUMENTS:**
+${validDocuments.map(doc => `- ${doc.file_name} (${doc.document_type})`).join('\n')}
+` : ''}
+
+**REQUIREMENTS:**
+1. Write compelling, government-appropriate content for ${sectionFocusLabel}
+2. Maintain the specified tone and creativity level
+3. Emphasize win themes throughout
+4. Use clear headings and structure
+5. Make it persuasive and evaluation-ready
+6. Use HTML formatting for structure
+
+Generate the content now:`;
+
+      const fileUrls = validDocuments
+        .filter(doc => doc.file_url)
+        .map(doc => doc.file_url);
+
+      // Call AI
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: prompt,
+        file_urls: fileUrls.length > 0 ? fileUrls : undefined
+      });
+
+      // Create proposal section if configured
+      if (config.output_storage === 'create_section') {
+        const wordCount = response.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+        
+        await base44.entities.ProposalSection.create({
+          proposal_id: proposalId,
+          section_name: config.section_focus?.replace(/_/g, ' ') || 'AI Generated Section',
+          section_type: config.section_focus || 'custom',
+          content: response,
+          word_count: wordCount,
+          status: 'ai_generated',
+          ai_prompt_used: prompt.substring(0, 500),
+          order: sections.length
+        });
+
+        alert(`✅ AI generated ${wordCount} words and created a new proposal section!`);
+        queryClient.invalidateQueries(['proposal-sections', proposalId]);
+      } else {
+        alert(`✅ AI generated content successfully!\n\nOutput: ${response.substring(0, 200)}...`);
+      }
+
+    } catch (error) {
+      console.error("Error running AI agent:", error);
+      alert(`❌ Error running AI agent: ${error.message}`);
+    }
   };
 
   const handleDeleteConnection = (connectionId) => {
@@ -267,7 +373,7 @@ export default function VisualStrategyCanvas({
           <div className="absolute left-4 top-4 z-20">
             <Button
               onClick={() => setShowSidebar(true)}
-              className="neuro-button p-2 rounded-lg"
+              className="p-2 rounded-lg bg-white shadow-lg border-2 border-slate-200"
               title="Show sidebar"
             >
               <List className="w-4 h-4" />

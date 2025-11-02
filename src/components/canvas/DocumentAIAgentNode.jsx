@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -132,9 +133,9 @@ export default function DocumentAIAgentNode({
       >
         {/* Main Card */}
         <div
-          className={`neuro-card h-full flex flex-col ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
+          className={`bg-white rounded-xl border-2 shadow-lg h-full flex flex-col ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
           style={{
-            background: node.color || '#e0e0e0',
+            background: node.color || '#f8f9fa',
             transition: 'box-shadow 0.2s',
           }}
         >
@@ -156,19 +157,21 @@ export default function DocumentAIAgentNode({
                   onChange={(e) => setTitle(e.target.value)}
                   onBlur={handleTitleBlur}
                   onKeyDown={handleTitleKeyDown}
-                  className="neuro-input px-2 py-1 text-sm flex-1 min-w-0 border-none"
+                  className="px-2 py-1 text-sm flex-1 min-w-0 border border-slate-300 rounded bg-white"
                   style={{ color: '#2d3748' }}
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <h3 
-                  className="font-bold text-sm flex-1 min-w-0 truncate"
-                  style={{ color: '#2d3748' }}
-                  onDoubleClick={handleTitleDoubleClick}
-                  title={title}
-                >
-                  {title}
-                </h3>
+                <div className="flex-1 min-w-0">
+                  <h3 
+                    className="font-bold text-sm truncate"
+                    style={{ color: '#2d3748' }}
+                    onDoubleClick={handleTitleDoubleClick}
+                    title={title}
+                  >
+                    {title}
+                  </h3>
+                </div>
               )}
               <Badge className="text-xs" style={{ background: '#667eea20', color: '#667eea' }}>
                 Document AI
@@ -179,8 +182,9 @@ export default function DocumentAIAgentNode({
                 e.stopPropagation();
                 onDelete(node.id);
               }}
-              className="neuro-button p-1 rounded flex-shrink-0"
-              style={{ color: '#991b1b' }}
+              variant="ghost"
+              size="sm"
+              className="p-1 rounded flex-shrink-0 text-red-700 hover:bg-red-50"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -253,13 +257,13 @@ export default function DocumentAIAgentNode({
 
           {/* Resize Handle */}
           <div
-            className="resize-handle absolute -bottom-2 -right-2 neuro-button rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize"
+            className="resize-handle absolute -bottom-2 -right-2 bg-white border-2 border-slate-200 rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize shadow-md"
             onMouseDown={(e) => {
               e.stopPropagation();
               onResizeStart(node.id, e.clientX, e.clientY, node.width || 500, node.height || 400);
             }}
             title="Resize node"
-            style={{ background: '#e0e0e0', zIndex: 20 }}
+            style={{ zIndex: 20 }}
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M10 2L2 10M10 6L6 10M10 10H6" stroke="#667eea" strokeWidth="2" strokeLinecap="round"/>
