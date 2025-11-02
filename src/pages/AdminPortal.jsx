@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,8 @@ import {
   Building2,
   Calendar
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
 import AuditLogModule from "../components/admin/AuditLogModule";
@@ -42,6 +45,7 @@ import EnhancedEmailTemplateModule from "../components/admin/EnhancedEmailTempla
 import GlobalReportingModule from "../components/admin/GlobalReportingModule";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import ErrorMonitoringDashboard from "./ErrorMonitoringDashboard";
+import AdminPagesModule from "../components/admin/AdminPagesModule"; // Added this import
 
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -85,6 +89,7 @@ export default function AdminPortal() {
   }
 
   const modules = [
+    { id: "admin-pages", label: "Admin Pages", icon: FileText, category: "admin", component: AdminPagesModule }, // Added this module
     { id: "analytics", label: "Analytics", icon: Activity, category: "analytics", component: AnalyticsDashboard },
     { id: "error-monitoring", label: "Error Monitor", icon: TrendingUp, category: "analytics", component: ErrorMonitoringDashboard },
     { id: "overview", label: "Overview", icon: BarChart3, category: "analytics", component: GlobalReportingModule },
@@ -113,6 +118,7 @@ export default function AdminPortal() {
   ];
 
   const categories = [
+    { id: "admin", label: "Admin Tools", color: "purple" }, // Added this category
     { id: "analytics", label: "Analytics & Reporting", color: "blue" },
     { id: "management", label: "User Management", color: "purple" },
     { id: "content", label: "Content & Communication", color: "green" },
