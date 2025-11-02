@@ -1,13 +1,47 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Zap, Crown, Building2 } from "lucide-react";
+import { Check, Sparkles, Zap, Crown, Building2, Shield } from "lucide-react";
 
 export default function PricingPage() {
   const navigate = useNavigate();
+  const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const authenticated = await base44.auth.isAuthenticated();
+        if (authenticated) {
+          const user = await base44.auth.me();
+          setIsSuperAdmin(user?.admin_role === 'super_admin');
+        }
+      } catch (error) {
+        console.error("Failed to check authentication status:", error);
+        setIsSuperAdmin(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  // Show loading state briefly
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const plans = [
     {
@@ -87,6 +121,26 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Super Admin Banner */}
+      {isSuperAdmin && (
+        <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5" />
+            <div>
+              <p className="font-semibold">Super Admin Preview Mode</p>
+              <p className="text-sm text-red-100">Viewing public pricing page</p>
+            </div>
+          </div>
+          <Button 
+            size="sm" 
+            className="bg-white text-red-600 hover:bg-red-50"
+            onClick={() => navigate(createPageUrl("AdminPortal") + "?tab=admin-pages")}
+          >
+            Back to Admin
+          </Button>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Header */}
         <div className="text-center mb-16">

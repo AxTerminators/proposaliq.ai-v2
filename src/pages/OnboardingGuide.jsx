@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -15,7 +16,8 @@ import {
   Award,
   Briefcase,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -76,14 +78,38 @@ export default function OnboardingGuide() {
   const [user, setUser] = useState(null);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        setIsSuperAdmin(currentUser?.admin_role === 'super_admin');
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        // If not authenticated, redirect to login
+        base44.auth.redirectToLogin(createPageUrl("OnboardingGuide"));
+        return; // Exit early as we are redirecting
+      } finally {
+        setLoading(false);
+      }
     };
     loadUser();
   }, []);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length) {
@@ -143,6 +169,26 @@ export default function OnboardingGuide() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6">
       <div className="max-w-4xl w-full">
+        {/* Super Admin Banner */}
+        {isSuperAdmin && (
+          <div className="bg-red-600 text-white px-6 py-3 mb-6 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Shield className="w-5 h-5" />
+              <div>
+                <p className="font-semibold">Super Admin Preview Mode</p>
+                <p className="text-sm text-red-100">Viewing onboarding guide</p>
+              </div>
+            </div>
+            <Button 
+              size="sm" 
+              className="bg-white text-red-600 hover:bg-red-50"
+              onClick={() => navigate(createPageUrl("AdminPortal") + "?tab=admin-pages")}
+            >
+              Back to Admin
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-2xl mb-4">

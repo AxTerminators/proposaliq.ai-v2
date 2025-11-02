@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -5,12 +6,12 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Sparkles, 
-  FileText, 
-  Target, 
-  Zap, 
-  Shield, 
+import {
+  Sparkles,
+  FileText,
+  Target,
+  Zap,
+  Shield,
   TrendingUp,
   CheckCircle,
   ArrowRight,
@@ -26,18 +27,40 @@ import {
 export default function LandingPage() {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const checkAuth = async () => {
       try {
         const authenticated = await base44.auth.isAuthenticated();
         setIsAuthenticated(authenticated);
+
+        if (authenticated) {
+          const user = await base44.auth.me();
+          setIsSuperAdmin(user?.admin_role === 'super_admin');
+        }
       } catch (error) {
         setIsAuthenticated(false);
+        setIsSuperAdmin(false);
+      } finally {
+        setLoading(false);
       }
     };
     checkAuth();
   }, []);
+
+  // Show loading state briefly
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
@@ -49,6 +72,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Super Admin Banner */}
+      {isSuperAdmin && (
+        <div className="bg-red-600 text-white px-6 py-2 text-center text-sm">
+          <strong>Super Admin Preview Mode</strong> - Viewing public landing page
+        </div>
+      )}
+
       {/* Header/Navigation */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -61,7 +91,7 @@ export default function LandingPage() {
               <p className="text-xs text-slate-500">AI-Powered Proposals</p>
             </div>
           </div>
-          
+
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-slate-700 hover:text-blue-600 transition-colors">Features</a>
             <a href="#how-it-works" className="text-slate-700 hover:text-blue-600 transition-colors">How It Works</a>
@@ -101,20 +131,20 @@ export default function LandingPage() {
                 Win More Government Contracts with AI
               </h1>
               <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-                Streamline your proposal writing from strategy to submission with our intelligent platform. 
+                Streamline your proposal writing from strategy to submission with our intelligent platform.
                 Save time, increase win rates, and focus on what matters most.
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button 
+                <Button
                   onClick={handleGetStarted}
-                  size="lg" 
+                  size="lg"
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 shadow-lg shadow-blue-500/30"
                 >
                   Start Free Trial
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="lg"
                   className="text-lg px-8"
                   onClick={() => document.getElementById('how-it-works').scrollIntoView({ behavior: 'smooth' })}
@@ -138,7 +168,7 @@ export default function LandingPage() {
               <div className="relative bg-white rounded-2xl shadow-2xl p-8 border border-slate-200">
                 <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full opacity-20 blur-2xl"></div>
                 <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full opacity-20 blur-2xl"></div>
-                
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                     <div className="flex items-center gap-3">
@@ -536,16 +566,16 @@ export default function LandingPage() {
             Join hundreds of government contractors using AI to streamline their proposal process
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Button 
+            <Button
               onClick={handleGetStarted}
-              size="lg" 
+              size="lg"
               className="bg-white text-blue-600 hover:bg-blue-50 text-lg px-8"
             >
               Start Free Trial
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="lg"
               className="border-2 border-white text-white hover:bg-white/10 text-lg px-8"
             >
