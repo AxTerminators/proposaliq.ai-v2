@@ -161,13 +161,14 @@ export default function Pipeline() {
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
             <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
           </div>
-          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto">
+          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
                 <Button
                   variant={showAutomation ? "default" : "outline"}
                   onClick={() => setShowAutomation(!showAutomation)}
                   size="sm"
+                  className="h-9"
                   title={showAutomation ? "Hide automation panel" : "Show automation panel"}
                 >
                   <Zap className="w-4 h-4 mr-2" title="Automation" />
@@ -177,6 +178,7 @@ export default function Pipeline() {
                   variant={showAnalytics ? "default" : "outline"}
                   onClick={() => setShowAnalytics(!showAnalytics)}
                   size="sm"
+                  className="h-9"
                   title={showAnalytics ? "Hide analytics panel" : "Show analytics panel"}
                 >
                   <BarChart3 className="w-4 h-4 mr-2" title="Analytics" />
@@ -185,10 +187,11 @@ export default function Pipeline() {
               </>
             )}
             
-            <div className="hidden lg:flex gap-1 border rounded-lg p-1">
+            <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
               <Button
                 variant={viewMode === "kanban" ? "secondary" : "ghost"}
                 size="sm"
+                className="h-8"
                 onClick={() => setViewMode("kanban")}
                 title="Kanban board view"
               >
@@ -197,6 +200,7 @@ export default function Pipeline() {
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
+                className="h-8"
                 onClick={() => setViewMode("list")}
                 title="List view"
               >
@@ -205,6 +209,7 @@ export default function Pipeline() {
               <Button
                 variant={viewMode === "table" ? "secondary" : "ghost"}
                 size="sm"
+                className="h-8"
                 onClick={() => setViewMode("table")}
                 title="Table view"
               >
