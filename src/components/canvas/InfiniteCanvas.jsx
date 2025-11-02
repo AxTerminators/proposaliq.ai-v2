@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import CanvasNode from "./CanvasNode";
 import GroupNode from "./GroupNode";
@@ -20,6 +19,7 @@ export default function InfiniteCanvas({
   onNodeConfigClick,
   onRunAgent,
   onAddNodeFromDrop,
+  onDragEnd,
   selectedNodeId,
   initialOffset = { x: 0, y: 0 },
   initialScale = 1
@@ -157,6 +157,12 @@ export default function InfiniteCanvas({
 
   const handleMouseUp = () => {
     setIsPanning(false);
+    
+    // Call onDragEnd when finishing drag to sync with database
+    if (draggingNode && onDragEnd) {
+      onDragEnd();
+    }
+    
     setDraggingNode(null);
     setResizingNode(null);
   };
@@ -272,7 +278,8 @@ export default function InfiniteCanvas({
   return (
     <div
       ref={canvasRef}
-      className="w-full h-full overflow-hidden relative bg-white cursor-grab active:cursor-grabbing"
+      className="w-full h-full overflow-hidden relative bg-white"
+      style={{ cursor: isPanning ? 'grabbing' : draggingNode ? 'grabbing' : 'grab' }}
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -280,14 +287,13 @@ export default function InfiniteCanvas({
       onClick={handleCanvasClick}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      style={{ touchAction: 'none' }}
     >
       <div
         style={{
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
           transformOrigin: '0 0',
-          width: '100%',
-          height: '100%',
+          width: '10000px',
+          height: '10000px',
           position: 'relative',
         }}
       >
@@ -297,8 +303,8 @@ export default function InfiniteCanvas({
             position: 'absolute',
             top: 0,
             left: 0,
-            width: '10000px',
-            height: '10000px',
+            width: '100%',
+            height: '100%',
             pointerEvents: 'none',
             zIndex: 0,
           }}
