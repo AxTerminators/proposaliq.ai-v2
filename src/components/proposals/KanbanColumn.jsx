@@ -162,10 +162,10 @@ export default function KanbanColumn({
                   title="Press Enter to save, Escape to cancel"
                 />
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
                   {/* Collapse Icon - Inside Header */}
                   <ChevronsLeft 
-                    className="w-5 h-5 text-white cursor-pointer hover:opacity-70 transition-opacity flex-shrink-0" 
+                    className="w-5 h-5 text-white cursor-pointer hover:opacity-70 transition-opacity flex-shrink-0 -ml-1" 
                     onClick={() => onToggleCollapse(column.id)}
                     title={`Collapse ${columnLabel} column`}
                   />
