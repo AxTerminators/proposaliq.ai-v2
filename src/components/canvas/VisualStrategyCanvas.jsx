@@ -167,7 +167,7 @@ export default function VisualStrategyCanvas({
 
   const handleRunAgent = async (node) => {
     try {
-      const nodeData = typeof node.data === 'string' ? JSON.parse(node.data) : node.data || {};
+      const nodeData = node.data || {};  // Data is already an object
       const session = nodeData.session || {};
       const config = session.config || {};
       const documentIds = session.document_ids || [];
