@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Bot, BookTemplate, ChevronLeft, ChevronRight } from "lucide-react";
@@ -8,7 +9,7 @@ export default function CanvasSidebar({
   documents = [],
   sessions = [],
   templates = [],
-  onAddNode,
+  onAddNode, // This prop is defined but no longer directly used for click-to-add after drag-and-drop implementation
   isCollapsed = false,
   onToggleCollapse
 }) {
@@ -17,6 +18,14 @@ export default function CanvasSidebar({
   const truncateText = (text, maxLength = 30) => {
     if (!text) return '';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
+  const handleDragStart = (e, nodeType, nodeConfig) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      nodeType,
+      nodeConfig
+    }));
   };
 
   if (isCollapsed) {
@@ -79,8 +88,13 @@ export default function CanvasSidebar({
                 documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-                    onClick={() => onAddNode && onAddNode('document', { document_id: doc.id, name: doc.file_name })}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'document', {
+                      document_id: doc.id,
+                      name: doc.file_name,
+                      document_type: doc.document_type
+                    })}
+                    className="p-3 border rounded-lg cursor-move hover:bg-slate-50 hover:border-blue-300 transition-colors"
                   >
                     <div className="flex items-start gap-2">
                       <FileText className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -111,8 +125,12 @@ export default function CanvasSidebar({
                 sessions.map((session) => (
                   <div
                     key={session.id}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-                    onClick={() => onAddNode && onAddNode('ai_agent', { session_id: session.id, name: session.name || 'AI Session' })}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'ai_agent', {
+                      session_id: session.id,
+                      name: session.name || 'AI Session'
+                    })}
+                    className="p-3 border rounded-lg cursor-move hover:bg-slate-50 hover:border-purple-300 transition-colors"
                   >
                     <div className="flex items-start gap-2">
                       <Bot className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
@@ -143,13 +161,14 @@ export default function CanvasSidebar({
                 templates.map((template) => (
                   <div
                     key={template.id}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-                    onClick={() => onAddNode && onAddNode('ai_agent', { 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'ai_agent', {
                       name: template.name,
                       session: {
                         config: template.config
                       }
                     })}
+                    className="p-3 border rounded-lg cursor-move hover:bg-slate-50 hover:border-indigo-300 transition-colors"
                   >
                     <div className="flex items-start gap-2">
                       <div className="text-2xl flex-shrink-0">
