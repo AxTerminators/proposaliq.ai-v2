@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
@@ -9,7 +8,7 @@ import BoardConfigDialog from "./BoardConfigDialog";
 import ProposalCardModal from "./ProposalCardModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter } from "lucide-react";
+import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter, ZoomIn, ZoomOut } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -24,6 +23,7 @@ import { cn } from "@/lib/utils";
 export default function ProposalsKanban({ proposals, organization, onRefresh }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const boardRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState([]);
@@ -33,6 +33,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   
   // Column-specific sorting state: { columnId: { sortBy: 'name'|'due_date'|'created_date', sortDirection: 'asc'|'desc' } }
   const [columnSorts, setColumnSorts] = useState({});
@@ -44,6 +45,45 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Pinch to zoom handler
+  useEffect(() => {
+    const handleWheel = (e) => {
+      // Check if Ctrl/Cmd key is pressed (pinch gesture on trackpad)
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        
+        const delta = -e.deltaY;
+        const zoomSpeed = 0.001;
+        const newZoom = Math.min(Math.max(zoomLevel + delta * zoomSpeed, 0.5), 2);
+        
+        setZoomLevel(newZoom);
+      }
+    };
+
+    const boardElement = boardRef.current;
+    if (boardElement) {
+      boardElement.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (boardElement) {
+        boardElement.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, [zoomLevel]);
+
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.1, 2));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+  };
+
+  const handleZoomReset = () => {
+    setZoomLevel(1);
+  };
 
   const { data: kanbanConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
@@ -458,6 +498,37 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Proposal Pipeline</h2>
         <div className="flex gap-2">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1 border rounded-lg p-1 bg-white">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 0.5}
+              className="h-8 w-8 p-0"
+              title="Zoom out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <button
+              onClick={handleZoomReset}
+              className="px-2 text-xs font-medium text-slate-600 hover:text-slate-900 min-w-[3rem]"
+              title="Reset zoom"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 2}
+              className="h-8 w-8 p-0"
+              title="Zoom in"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+
           <Button
             variant={showFilters ? "default" : "outline"}
             size="sm"
@@ -545,101 +616,117 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         </div>
       )}
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-0 overflow-x-auto pb-4">
-          {columns.map((column, index) => {
-            const isCollapsed = effectiveCollapsedColumns.includes(column.id);
-            const columnProposals = getProposalsForColumn(column);
-            const columnSort = columnSorts[column.id];
+      {/* Zoom Hint */}
+      {zoomLevel !== 1 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700 text-center">
+          💡 Tip: Hold Ctrl/Cmd and scroll to zoom, or use the zoom controls above
+        </div>
+      )}
 
-            return (
-              <React.Fragment key={column.id}>
-                {/* Add Column Button - Before First Column */}
-                {index === 0 && (
+      <div ref={boardRef} className="relative">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div 
+            className="flex gap-0 overflow-x-auto pb-4 transition-transform duration-150"
+            style={{ 
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'top left',
+              minHeight: `${500 * zoomLevel}px`
+            }}
+          >
+            {columns.map((column, index) => {
+              const isCollapsed = effectiveCollapsedColumns.includes(column.id);
+              const columnProposals = getProposalsForColumn(column);
+              const columnSort = columnSorts[column.id];
+
+              return (
+                <React.Fragment key={column.id}>
+                  {/* Add Column Button - Before First Column */}
+                  {index === 0 && (
+                    <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
+                      <button
+                        onClick={() => handleAddColumn(0)}
+                        className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
+                        title="Add new column"
+                      >
+                        <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Column */}
+                  {isCollapsed ? (
+                    <div
+                      className="flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => toggleColumnCollapse(column.id)}
+                    >
+                      <div 
+                        className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                      >
+                        {column.label}
+                      </div>
+                      <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
+                        {columnProposals.length}
+                      </div>
+                      <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 relative">
+                      <button
+                        onClick={() => toggleColumnCollapse(column.id)}
+                        className="absolute -left-2 top-4 z-10 w-5 h-8 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
+                        title="Collapse column"
+                      >
+                        <ChevronsLeft className="w-2.5 h-2.5 text-slate-500" />
+                      </button>
+                      
+                      <Droppable droppableId={column.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              "w-80 bg-white rounded-lg shadow-md border-2 transition-all",
+                              snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
+                            )}
+                          >
+                            <KanbanColumn
+                              column={column}
+                              proposals={columnProposals}
+                              provided={provided}
+                              snapshot={snapshot}
+                              onCardClick={handleCardClick}
+                              onToggleCollapse={toggleColumnCollapse}
+                              isCollapsed={isCollapsed}
+                              organization={organization}
+                              columnSort={columnSort}
+                              onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
+                              onClearSort={() => handleClearColumnSort(column.id)}
+                              onDeleteColumn={handleDeleteColumn}
+                              onRenameColumn={handleRenameColumn}
+                            />
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  )}
+
+                  {/* Add Column Button - Between Columns and After Last Column */}
                   <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
                     <button
-                      onClick={() => handleAddColumn(0)}
+                      onClick={() => handleAddColumn(index + 1)}
                       className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                       title="Add new column"
                     >
                       <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
                     </button>
                   </div>
-                )}
-
-                {/* Column */}
-                {isCollapsed ? (
-                  <div
-                    className="flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => toggleColumnCollapse(column.id)}
-                  >
-                    <div 
-                      className="text-xs font-semibold text-slate-700 whitespace-nowrap"
-                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                    >
-                      {column.label}
-                    </div>
-                    <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
-                      {columnProposals.length}
-                    </div>
-                    <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 relative">
-                    <button
-                      onClick={() => toggleColumnCollapse(column.id)}
-                      className="absolute -left-2 top-4 z-10 w-5 h-8 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
-                      title="Collapse column"
-                    >
-                      <ChevronsLeft className="w-2.5 h-2.5 text-slate-500" />
-                    </button>
-                    
-                    <Droppable droppableId={column.id}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={cn(
-                            "w-80 bg-white rounded-lg shadow-md border-2 transition-all",
-                            snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
-                          )}
-                        >
-                          <KanbanColumn
-                            column={column}
-                            proposals={columnProposals}
-                            provided={provided}
-                            snapshot={snapshot}
-                            onCardClick={handleCardClick}
-                            onToggleCollapse={toggleColumnCollapse}
-                            isCollapsed={isCollapsed}
-                            organization={organization}
-                            columnSort={columnSort}
-                            onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
-                            onClearSort={() => handleClearColumnSort(column.id)}
-                            onDeleteColumn={handleDeleteColumn}
-                            onRenameColumn={handleRenameColumn}
-                          />
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-                )}
-
-                {/* Add Column Button - Between Columns and After Last Column */}
-                <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
-                  <button
-                    onClick={() => handleAddColumn(index + 1)}
-                    className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                    title="Add new column"
-                  >
-                    <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
-                  </button>
-                </div>
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </DragDropContext>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </DragDropContext>
+      </div>
 
       {showBoardConfig && (
         <BoardConfigDialog
