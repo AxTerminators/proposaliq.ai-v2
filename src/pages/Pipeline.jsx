@@ -166,16 +166,18 @@ export default function Pipeline() {
                 variant={showAutomation ? "default" : "outline"}
                 onClick={() => setShowAutomation(!showAutomation)}
                 size="sm"
+                title={showAutomation ? "Hide automation panel" : "Show automation panel"}
               >
-                <Zap className="w-4 h-4 mr-2" />
+                <Zap className="w-4 h-4 mr-2" title="Automation" />
                 {showAutomation ? 'Hide' : 'Show'} Automation
               </Button>
               <Button
                 variant={showAnalytics ? "default" : "outline"}
                 onClick={() => setShowAnalytics(!showAnalytics)}
                 size="sm"
+                title={showAnalytics ? "Hide analytics panel" : "Show analytics panel"}
               >
-                <BarChart3 className="w-4 h-4 mr-2" />
+                <BarChart3 className="w-4 h-4 mr-2" title="Analytics" />
                 {showAnalytics ? 'Hide' : 'Show'} Analytics
               </Button>
             </>
@@ -186,27 +188,30 @@ export default function Pipeline() {
               variant={viewMode === "kanban" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setViewMode("kanban")}
+              title="Kanban board view"
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid className="w-4 h-4" title="Kanban view" />
             </Button>
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
+              title="List view"
             >
-              <List className="w-4 h-4" />
+              <List className="w-4 h-4" title="List view" />
             </Button>
             <Button
               variant={viewMode === "table" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setViewMode("table")}
+              title="Table view"
             >
-              <Table className="w-4 h-4" />
+              <Table className="w-4 h-4" title="Table view" />
             </Button>
           </div>
           
-          <Button onClick={handleCreateProposal} className="flex-1 lg:flex-initial" size={isMobile ? "default" : "sm"}>
-            <Plus className="w-5 h-5 mr-2" />
+          <Button onClick={handleCreateProposal} className="flex-1 lg:flex-initial" size={isMobile ? "default" : "sm"} title="Create a new proposal">
+            <Plus className="w-5 h-5 mr-2" title="New proposal" />
             New Proposal
           </Button>
         </div>
