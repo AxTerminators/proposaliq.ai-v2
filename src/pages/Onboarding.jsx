@@ -22,6 +22,7 @@ export default function Onboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   const [orgData, setOrgData] = useState({
     organization_name: "",
@@ -71,10 +72,26 @@ export default function Onboarding() {
         }
       } catch (error) {
         console.error("Auth check failed:", error);
+        // Don't redirect - allow page to load for everyone
+      } finally {
+        // CRITICAL: Always set loading to false
+        setLoading(false);
       }
     };
     checkAuth();
   }, []);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleFileUpload = async (files, entityType, entityId) => {
     for (const file of files) {

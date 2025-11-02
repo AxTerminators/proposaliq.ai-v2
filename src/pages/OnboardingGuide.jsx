@@ -80,6 +80,7 @@ export default function OnboardingGuide() {
   const [isClearing, setIsClearing] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -95,10 +96,25 @@ export default function OnboardingGuide() {
       } catch (error) {
         console.error("Auth check failed:", error);
         // Don't redirect - allow page to load for everyone
+      } finally {
+        // CRITICAL: Always set loading to false
+        setLoading(false);
       }
     };
     loadUser();
   }, []);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length) {
