@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, X, Trash2, AlertCircle, Edit2 } from "lucide-react";
+import { MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, X, Trash2, AlertCircle, Edit2, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
 
@@ -49,6 +49,11 @@ export default function KanbanColumn({
   const inputRef = useRef(null);
   
   const proposalCount = proposals?.length || 0;
+  
+  // Calculate total contract value for this column
+  const totalContractValue = proposals?.reduce((sum, proposal) => {
+    return sum + (proposal.contract_value || 0);
+  }, 0) || 0;
   
   // Get the column label and color
   const columnLabel = column?.label || column?.name || column?.title || column?.id || 'Untitled Column';
@@ -123,6 +128,18 @@ export default function KanbanColumn({
 
   const canDeleteColumn = column.type === 'custom_stage';
 
+  // Format currency
+  const formatCurrency = (value) => {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(0)}K`;
+    } else if (value > 0) {
+      return `$${value.toLocaleString()}`;
+    }
+    return '$0';
+  };
+
   return (
     <>
       <div className="flex flex-col h-full min-h-[500px]">
@@ -163,6 +180,17 @@ export default function KanbanColumn({
                   )}
                 </div>
               )}
+              
+              {/* Total Contract Value */}
+              {totalContractValue > 0 && !isEditing && (
+                <div className="flex items-center gap-1 mt-1">
+                  <DollarSign className="w-3 h-3 text-white/80" />
+                  <span className="text-sm font-semibold text-white/90">
+                    {formatCurrency(totalContractValue)}
+                  </span>
+                </div>
+              )}
+              
               {columnSort && !isEditing && (
                 <div className="text-xs text-white/90 mt-1 flex items-center gap-1">
                   Sorted: {getSortLabel()}
