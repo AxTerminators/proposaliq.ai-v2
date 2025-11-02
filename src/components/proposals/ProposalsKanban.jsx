@@ -370,6 +370,17 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-slate-900">Proposal Pipeline</h2>
           <div className="flex gap-2">
+            {/* Start New Proposal Button */}
+            <Button
+              onClick={handleCreateProposal}
+              className="bg-blue-600 hover:bg-blue-700"
+              size="sm"
+              title="Create a new proposal"
+            >
+              <Plus className="w-4 h-4 mr-2" title="New proposal" />
+              Start New Proposal
+            </Button>
+
             {/* Zoom Controls */}
             <div className="flex items-center gap-1 border rounded-lg p-1 bg-white">
               <Button
@@ -424,10 +435,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             >
               <Settings className="w-4 h-4 mr-2" title="Settings" />
               Configure Board
-            </Button>
-            <Button size="sm" onClick={handleCreateProposal} title="Create a new proposal">
-              <Plus className="w-4 h-4 mr-2" title="Add" />
-              New Proposal
             </Button>
           </div>
         </div>

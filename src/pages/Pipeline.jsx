@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -210,11 +211,6 @@ export default function Pipeline() {
                 <Table className="w-4 h-4" title="Table view" />
               </Button>
             </div>
-            
-            <Button onClick={handleCreateProposal} className="flex-1 lg:flex-initial" size={isMobile ? "default" : "sm"} title="Create a new proposal">
-              <Plus className="w-5 h-5 mr-2" title="New proposal" />
-              New Proposal
-            </Button>
           </div>
         </div>
       </div>
