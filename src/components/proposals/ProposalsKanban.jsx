@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -549,44 +550,34 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                         <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" title="Expand" />
                       </div>
                     ) : (
-                      <div className="flex-shrink-0 relative h-full">
-                        <button
-                          onClick={() => toggleColumnCollapse(column.id)}
-                          className="absolute -left-2 top-4 z-10 w-5 h-8 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
-                          title={`Collapse ${column.label} column`}
-                        >
-                          <ChevronsLeft className="w-2.5 h-2.5 text-slate-500" title="Collapse" />
-                        </button>
-                        
-                        <Droppable droppableId={column.id}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={cn(
-                                "w-80 h-full bg-white rounded-lg shadow-md border-2 transition-all",
-                                snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
-                              )}
-                            >
-                              <KanbanColumn
-                                column={column}
-                                proposals={columnProposals}
-                                provided={provided}
-                                snapshot={snapshot}
-                                onCardClick={handleCardClick}
-                                onToggleCollapse={toggleColumnCollapse}
-                                isCollapsed={isCollapsed}
-                                organization={organization}
-                                columnSort={columnSort}
-                                onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
-                                onClearSort={() => handleClearColumnSort(column.id)}
-                                onDeleteColumn={handleDeleteColumn}
-                                onRenameColumn={handleRenameColumn}
-                              />
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
+                      <Droppable droppableId={column.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              "w-80 h-full bg-white rounded-lg shadow-md border-2 transition-all flex-shrink-0",
+                              snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
+                            )}
+                          >
+                            <KanbanColumn
+                              column={column}
+                              proposals={columnProposals}
+                              provided={provided}
+                              snapshot={snapshot}
+                              onCardClick={handleCardClick}
+                              onToggleCollapse={toggleColumnCollapse}
+                              isCollapsed={isCollapsed}
+                              organization={organization}
+                              columnSort={columnSort}
+                              onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
+                              onClearSort={() => handleClearColumnSort(column.id)}
+                              onDeleteColumn={handleDeleteColumn}
+                              onRenameColumn={handleRenameColumn}
+                            />
+                          </div>
+                        )}
+                      </Droppable>
                     )}
 
                     {/* Add Column Button - Between Columns and After Last Column */}
