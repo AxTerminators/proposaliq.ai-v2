@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createPageUrl } from "@/utils";
+import { useQuery } from "@tanstack/react-query";
 import {
   Shield,
   Users,
@@ -23,7 +24,8 @@ import {
   Building2,
   Calendar,
   ExternalLink,
-  Layers
+  Layers,
+  AlertCircle
 } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
@@ -51,6 +53,12 @@ export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+
+  const { data: sampleClients } = useQuery({
+    queryKey: ['admin-sample-clients'],
+    queryFn: () => base44.entities.Client.list('-created_date', 5),
+    initialData: []
+  });
 
   useEffect(() => {
     const loadUser = async () => {
@@ -119,11 +127,18 @@ export default function AdminPortal() {
 
   // All internal/admin pages organized by category
   const adminPages = {
-    "Client Portal Pages": [
-      { name: "Client Portal", url: createPageUrl("ClientPortal"), description: "Main client portal access page (requires token)" },
-      { name: "Client Proposal View", url: createPageUrl("ClientProposalView"), description: "Individual proposal view for clients" },
-      { name: "Client Satisfaction Survey", url: createPageUrl("ClientSatisfactionSurvey"), description: "Post-proposal satisfaction survey" },
-      { name: "Client Feedback Form", url: createPageUrl("ClientFeedbackForm"), description: "Client feedback submission form" }
+    "Client Portal Pages (Test Access)": [
+      ...(sampleClients && sampleClients.length > 0 ? sampleClients.map(client => ({
+        name: `${client.client_name || 'Client'} - Portal Access`,
+        url: createPageUrl("ClientPortal") + `?token=${client.access_token}`,
+        description: `Access ${client.client_name}'s portal view (${client.contact_email})`
+      })) : []),
+      ...((!sampleClients || sampleClients.length === 0) ? [{
+        name: "ℹ️ How to access client portals",
+        url: "#",
+        description: "Client portal links appear here when you have clients in the system. Go to Clients page to add clients, then return here to access their portals.",
+        isInfo: true
+      }] : [])
     ],
     "User Onboarding & Setup": [
       { name: "Onboarding Flow", url: createPageUrl("Onboarding"), description: "New user onboarding wizard" },
@@ -256,23 +271,42 @@ export default function AdminPortal() {
                       </CardHeader>
                       <CardContent className="p-4">
                         <div className="grid gap-3">
-                          {pages.map((page) => (
-                            <a
-                              key={page.name}
-                              href={page.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all group"
-                            >
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                                  {page.name}
-                                </h3>
-                                <p className="text-sm text-slate-600 mt-1">{page.description}</p>
-                              </div>
-                              <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors ml-4" />
-                            </a>
-                          ))}
+                          {pages.map((page, idx) => {
+                            if (page.isInfo) {
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+                                >
+                                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <AlertCircle className="w-6 h-6 text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-blue-900">{page.name}</h3>
+                                    <p className="text-sm text-blue-800 mt-1">{page.description}</p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <a
+                                key={idx}
+                                href={page.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all group"
+                              >
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                    {page.name}
+                                  </h3>
+                                  <p className="text-sm text-slate-600 mt-1">{page.description}</p>
+                                </div>
+                                <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors ml-4" />
+                              </a>
+                            );
+                          })}
                         </div>
                       </CardContent>
                     </Card>
@@ -287,13 +321,14 @@ export default function AdminPortal() {
                         <div>
                           <h3 className="font-semibold text-slate-900 mb-2">About Admin Pages</h3>
                           <p className="text-sm text-slate-700 mb-3">
-                            This section provides direct access to all internal application pages that are not visible in the standard navigation. 
+                            This section provides direct access to all internal application pages that are not visible in the standard navigation.
                             Use these links to test functionality, debug issues, and manage various aspects of the platform.
                           </p>
                           <div className="text-xs text-slate-600 space-y-1">
                             <p>• Links open in new tabs for easy testing</p>
-                            <p>• Some pages require specific URL parameters or authentication tokens</p>
-                            <p>• Client portal pages require valid access tokens to view</p>
+                            <p>• Client portal links are generated from actual client records in your database</p>
+                            <p>• Super admins can access any client portal using the generated links above</p>
+                            <p>• To add more test clients, go to the Clients page and create new client records</p>
                           </div>
                         </div>
                       </div>
