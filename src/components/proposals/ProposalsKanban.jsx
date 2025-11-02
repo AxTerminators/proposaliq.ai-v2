@@ -321,12 +321,57 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
-    
-    // Prevent reordering within the same column (we don't persist manual order yet)
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    // Check if user is reordering within the same column
     if (destination.droppableId === source.droppableId) {
+      // Get all proposals in this column
+      const column = columns.find(col => col.id === destination.droppableId);
+      const columnProposals = getProposalsForColumn(column); // This list is already sorted by current criteria
+
+      // Update the moved proposal's order
+      updateProposalMutation.mutate({
+        proposalId: draggableId,
+        updates: {
+          manual_order: destination.index
+        }
+      });
+      
+      // Update all other proposals in the column to maintain proper ordering
+      columnProposals.forEach((proposal, idx) => {
+        if (proposal.id === draggableId) return; // Skip the moved one
+        
+        let adjustedOrder = idx;
+        if (source.index < destination.index) {
+          // Moving down: shift items up
+          // If a proposal is between the original source index and the new destination index (inclusive of destination),
+          // its order should decrease by 1.
+          if (idx > source.index && idx <= destination.index) {
+            adjustedOrder = idx - 1;
+          }
+        } else {
+          // Moving up: shift items down
+          // If a proposal is between the new destination index (inclusive) and the original source index (exclusive),
+          // its order should increase by 1.
+          if (idx >= destination.index && idx < source.index) {
+            adjustedOrder = idx + 1;
+          }
+        }
+        
+        if (adjustedOrder !== idx) {
+          updateProposalMutation.mutate({
+            proposalId: proposal.id,
+            updates: {
+              manual_order: adjustedOrder
+            }
+          });
+        }
+      });
+      
       return;
     }
 
+    // Moving to a different column
     const destinationColumn = columns.find(col => col.id === destination.droppableId);
     if (!destinationColumn) return;
 
@@ -341,7 +386,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       proposalId: draggableId,
       updates: {
         status: newStatus,
-        custom_workflow_stage_id: destinationColumn.type === 'custom_stage' ? destinationColumn.id : null
+        custom_workflow_stage_id: destinationColumn.type === 'custom_stage' ? destinationColumn.id : null,
+        manual_order: destination.index
       }
     });
   };
@@ -387,7 +433,16 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
 
   const sortProposals = useCallback((proposalsList, columnId) => {
     const columnSort = columnSorts[columnId];
-    if (!columnSort) return proposalsList;
+    
+    // If no sort is active, sort by manual_order
+    if (!columnSort) {
+      return [...proposalsList].sort((a, b) => {
+        // Treat undefined or null manual_order as a very high number to put them at the end
+        const orderA = a.manual_order == null ? 999999 : a.manual_order;
+        const orderB = b.manual_order == null ? 999999 : b.manual_order;
+        return orderA - orderB;
+      });
+    }
 
     const { sortBy, sortDirection } = columnSort;
 
