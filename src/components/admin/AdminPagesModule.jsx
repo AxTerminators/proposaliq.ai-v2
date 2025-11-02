@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -27,31 +28,35 @@ export default function AdminPagesModule({ currentUser }) {
       pages: [
         {
           name: "Client Portal",
-          url: "ClientPortal",
+          url: "ClientPortal?admin_preview=true",
           icon: Users,
           description: "Main client dashboard and portal entry",
-          requiresToken: true
+          requiresToken: true,
+          openInSameWindow: true
         },
         {
           name: "Client Proposal View",
-          url: "ClientProposalView",
+          url: "ClientProposalView?admin_preview=true",
           icon: FileText,
           description: "Client-facing proposal viewing page",
-          requiresToken: true
+          requiresToken: true,
+          openInSameWindow: true
         },
         {
           name: "Client Feedback Form",
           url: "ClientFeedbackForm",
           icon: MessageSquare,
           description: "Client feedback submission form",
-          requiresToken: false
+          requiresToken: false,
+          openInSameWindow: true
         },
         {
           name: "Client Satisfaction Survey",
-          url: "ClientSatisfactionSurvey",
+          url: "ClientSatisfactionSurvey?admin_preview=true",
           icon: Star,
           description: "Post-proposal satisfaction survey",
-          requiresToken: false
+          requiresToken: false,
+          openInSameWindow: true
         }
       ]
     },
@@ -192,7 +197,7 @@ export default function AdminPagesModule({ currentUser }) {
                     <Link
                       key={pageIdx}
                       to={createPageUrl(page.url)}
-                      target="_blank"
+                      target={page.openInSameWindow ? "_self" : "_blank"}
                       className="group p-4 border-2 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all"
                     >
                       <div className="flex items-start gap-3">
@@ -204,7 +209,9 @@ export default function AdminPagesModule({ currentUser }) {
                             <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
                               {page.name}
                             </h3>
-                            <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                            {!page.openInSameWindow && (
+                              <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                            )}
                           </div>
                           <p className="text-sm text-slate-600 mb-2">{page.description}</p>
                           {page.requiresToken && (

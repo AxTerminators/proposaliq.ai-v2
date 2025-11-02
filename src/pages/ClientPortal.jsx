@@ -42,44 +42,50 @@ export default function ClientPortal() {
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
+        const isAdminPreview = urlParams.get('admin_preview') === 'true';
 
         // Check if user is super admin
-        const user = await base44.auth.me();
-        const isAdmin = user && user.admin_role === 'super_admin';
-        setIsSuperAdmin(isAdmin);
+        try {
+          const user = await base44.auth.me();
+          const isAdmin = user && user.admin_role === 'super_admin';
+          setIsSuperAdmin(isAdmin);
 
-        // If super admin and no token, show in preview mode
-        if (isAdmin && !token) {
-          setAdminPreviewMode(true);
-          // Load a sample client for preview purposes
-          const allClients = await base44.entities.Client.list('-created_date', 1); // Get the latest client
-          if (allClients.length > 0) {
-            const sampleClient = allClients[0];
-            setClient(sampleClient);
-            setCurrentMember({
-              id: 'admin-preview',
-              member_name: 'Admin Preview',
-              member_email: user.email,
-              team_role: 'owner',
-              permissions: {
-                can_approve: true,
-                can_comment: true,
-                can_upload_files: true,
-                can_invite_others: true,
-                can_see_internal_comments: true
+          // If super admin with admin_preview flag and no token, show in preview mode
+          if (isAdmin && isAdminPreview && !token) {
+            setAdminPreviewMode(true);
+            // Load a sample client for preview purposes
+            const allClients = await base44.entities.Client.list('-created_date', 1);
+            if (allClients.length > 0) {
+              const sampleClient = allClients[0];
+              setClient(sampleClient);
+              setCurrentMember({
+                id: 'admin-preview',
+                member_name: 'Admin Preview',
+                member_email: user.email,
+                team_role: 'owner',
+                permissions: {
+                  can_approve: true,
+                  can_comment: true,
+                  can_upload_files: true,
+                  can_invite_others: true,
+                  can_see_internal_comments: true
+                }
+              });
+              
+              // Get organization
+              const orgs = await base44.entities.Organization.filter({ id: sampleClient.organization_id });
+              if (orgs.length > 0) {
+                setOrganization(orgs[0]);
               }
-            });
-            
-            // Get organization
-            const orgs = await base44.entities.Organization.filter({ id: sampleClient.organization_id });
-            if (orgs.length > 0) {
-              setOrganization(orgs[0]);
+            } else {
+              setError("No clients found to preview.");
             }
-          } else {
-            setError("No clients found to preview.");
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-          return;
+        } catch (authError) {
+          console.log("User not authenticated or not admin:", authError);
+          // Continue with token-based authentication below
         }
 
         if (!token) {
