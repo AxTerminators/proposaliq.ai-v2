@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Building2, TrendingUp, FileText, Sparkles } from "lucide-react";
+import { Calendar, Building2, TrendingUp, FileText, Sparkles, DollarSign } from "lucide-react";
 
 const statusConfig = {
   evaluating: { label: "Evaluating", color: "bg-blue-100 text-blue-700" },
@@ -14,6 +14,18 @@ const statusConfig = {
   won: { label: "Won", color: "bg-green-100 text-green-700" },
   lost: { label: "Lost", color: "bg-red-100 text-red-700" },
   archived: { label: "Archived", color: "bg-slate-100 text-slate-500" }
+};
+
+// Format currency
+const formatCurrency = (value) => {
+  if (!value) return null;
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  } else {
+    return `$${value.toLocaleString()}`;
+  }
 };
 
 export default function ProposalsList({ proposals }) {
@@ -75,6 +87,14 @@ export default function ProposalsList({ proposals }) {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-slate-400" />
                       Due: {new Date(proposal.due_date).toLocaleDateString()}
+                    </div>
+                  )}
+                  {proposal.contract_value && (
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-green-600" />
+                      <span className="font-semibold text-green-700">
+                        {formatCurrency(proposal.contract_value)}
+                      </span>
                     </div>
                   )}
                   {proposal.match_score && (
