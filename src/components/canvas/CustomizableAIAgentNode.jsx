@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, Settings, Brain, Zap, FileText, Target, Workflow, Database, Bell } from "lucide-react";
@@ -71,8 +72,8 @@ export default function CustomizableAIAgentNode({
     return icons[persona] || '🤖';
   };
 
-  // Parse node data
-  const nodeData = typeof node.data === 'string' ? JSON.parse(node.data) : node.data || {};
+  // Parse node data - data is stored as object, not string
+  const nodeData = node.data || {};
   const session = nodeData.session || {};
   const config = session.config || {};
   const documentIds = session.document_ids || [];
