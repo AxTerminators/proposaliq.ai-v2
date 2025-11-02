@@ -58,7 +58,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
-import MobileNavigation from "./components/mobile/MobileNavigation"; // Added import
+import MobileNavigation from "./components/mobile/MobileNavigation";
 import { cn } from "@/lib/utils";
 
 // Workspace sub-menu items
@@ -242,11 +242,12 @@ export default function Layout({ children }) {
               size="icon"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className="absolute -right-3 top-6 h-6 w-6 rounded-full border bg-white shadow-md hover:bg-slate-100 z-10"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {sidebarCollapsed ? (
-                <ChevronsRight className="h-4 w-4" />
+                <ChevronsRight className="h-4 w-4" title="Expand" />
               ) : (
-                <ChevronsLeft className="h-4 w-4" />
+                <ChevronsLeft className="h-4 w-4" title="Collapse" />
               )}
             </Button>
 
@@ -254,7 +255,7 @@ export default function Layout({ children }) {
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Sparkles className="w-6 h-6 text-white" />
+                    <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
                   </div>
                   <div>
                     <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
@@ -283,7 +284,7 @@ export default function Layout({ children }) {
             {sidebarCollapsed && (
               <div className="flex justify-center">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-6 h-6 text-white" />
+                  <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
                 </div>
               </div>
             )}
@@ -330,14 +331,14 @@ export default function Layout({ children }) {
                                   "flex items-center w-full",
                                   sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
                                 )}>
-                                  <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} />
+                                  <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} title={item.title} />
                                   {!sidebarCollapsed && (
                                     <>
                                       <span className="flex-1">{item.title}</span>
                                       <ChevronDown className={cn(
                                         "w-4 h-4 transition-transform",
                                         isOpen && "rotate-180"
-                                      )} />
+                                      )} title={isOpen ? "Collapse menu" : "Expand menu"} />
                                     </>
                                   )}
                                 </div>
@@ -356,7 +357,7 @@ export default function Layout({ children }) {
                                         )}
                                       >
                                         <Link to={subItem.url} className="flex items-center gap-3 py-2 px-3">
-                                          <subItem.icon className="w-4 h-4" />
+                                          <subItem.icon className="w-4 h-4" title={subItem.title} />
                                           <span className="text-sm">{subItem.title}</span>
                                         </Link>
                                       </SidebarMenuButton>
@@ -388,7 +389,7 @@ export default function Layout({ children }) {
                           )}>
                             <item.icon className={cn(
                               sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
-                            )} />
+                            )} title={item.title} />
                             {!sidebarCollapsed && <span>{item.title}</span>}
                           </Link>
                         </SidebarMenuButton>
@@ -425,7 +426,7 @@ export default function Layout({ children }) {
                           )}>
                             <item.icon className={cn(
                               sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
-                            )} />
+                            )} title={item.title} />
                             {!sidebarCollapsed && <span>{item.title}</span>}
                           </Link>
                         </SidebarMenuButton>
@@ -470,7 +471,7 @@ export default function Layout({ children }) {
                     </div>
                     <Link to={createPageUrl("Settings")}>
                       <Button variant="outline" size="sm" className="w-full">
-                        <CreditCard className="w-4 h-4 mr-2" />
+                        <CreditCard className="w-4 h-4 mr-2" title="Manage plan" />
                         Manage Plan
                       </Button>
                     </Link>
@@ -501,8 +502,9 @@ export default function Layout({ children }) {
                   size="icon"
                   onClick={handleLogout}
                   className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  title="Logout"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-4 h-4" title="Logout" />
                 </Button>
               </div>
             ) : (
@@ -519,7 +521,7 @@ export default function Layout({ children }) {
                   className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-10 h-10"
                   title="Logout"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-5 h-5" title="Logout" />
                 </Button>
               </div>
             )}
@@ -543,7 +545,7 @@ export default function Layout({ children }) {
           <div className="flex items-center justify-between p-6 border-b border-slate-200">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
+                <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
               </div>
               <div>
                 <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
@@ -553,8 +555,9 @@ export default function Layout({ children }) {
             <button
               onClick={() => setMobileMenuOpen(false)}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Close menu"
             >
-              <X className="w-5 h-5 text-slate-600" />
+              <X className="w-5 h-5 text-slate-600" title="Close" />
             </button>
           </div>
 
@@ -598,9 +601,9 @@ export default function Layout({ children }) {
                               : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
                           )}
                         >
-                          <item.icon className="w-5 h-5" />
+                          <item.icon className="w-5 h-5" title={item.title} />
                           <span className="text-base flex-1">{item.title}</span>
-                          <ChevronRight className="w-4 h-4" />
+                          <ChevronRight className="w-4 h-4" title="View submenu" />
                         </Link>
                         {/* Show sub-items in mobile */}
                         <div className="ml-8 mt-1 space-y-1">
@@ -615,7 +618,7 @@ export default function Layout({ children }) {
                                   : 'text-slate-600 hover:bg-slate-50'
                               )}
                             >
-                              <subItem.icon className="w-4 h-4" />
+                              <subItem.icon className="w-4 h-4" title={subItem.title} />
                               <span className="text-sm">{subItem.title}</span>
                             </Link>
                           ))}
@@ -635,7 +638,7 @@ export default function Layout({ children }) {
                           : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
                       )}
                     >
-                      <item.icon className="w-5 h-5" />
+                      <item.icon className="w-5 h-5" title={item.title} />
                       <span className="text-base">{item.title}</span>
                     </Link>
                   );
@@ -660,7 +663,7 @@ export default function Layout({ children }) {
                           : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'
                       )}
                     >
-                      <item.icon className="w-5 h-5" />
+                      <item.icon className="w-5 h-5" title={item.title} />
                       <span className="text-base">{item.title}</span>
                     </Link>
                   ))}
@@ -701,7 +704,7 @@ export default function Layout({ children }) {
                   </div>
                   <Link to={createPageUrl("Settings")}>
                     <Button variant="outline" size="sm" className="w-full min-h-[44px]">
-                      <CreditCard className="w-4 h-4 mr-2" />
+                      <CreditCard className="w-4 h-4 mr-2" title="Manage plan" />
                       Manage Plan
                     </Button>
                   </Link>
@@ -728,14 +731,15 @@ export default function Layout({ children }) {
                 size="icon"
                 onClick={handleLogout}
                 className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 min-h-[44px] min-w-[44px]"
+                title="Logout"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5" title="Logout" />
               </Button>
             </div>
           </div>
         </div>
 
-        <main className="flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0"> {/* Modified className */}
+        <main className="flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0">
           <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -743,13 +747,14 @@ export default function Layout({ children }) {
                 <button
                   onClick={() => setMobileMenuOpen(true)}
                   className="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  title="Open menu"
                 >
-                  <Menu className="w-6 h-6 text-slate-600" />
+                  <Menu className="w-6 h-6 text-slate-600" title="Menu" />
                 </button>
 
                 {/* Mobile Logo */}
                 <div className="flex items-center gap-2 lg:hidden">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  <Sparkles className="w-5 h-5 text-blue-600" title="ProposalIQ.ai" />
                   <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
                 </div>
               </div>
@@ -763,7 +768,7 @@ export default function Layout({ children }) {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <MobileNavigation user={user} organization={organization} /> {/* Added MobileNavigation component */}
+        <MobileNavigation user={user} organization={organization} />
       </div>
     </SidebarProvider>
   );
