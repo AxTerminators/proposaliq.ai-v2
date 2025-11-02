@@ -368,7 +368,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       {/* Header Section - Fixed */}
       <div className="flex-shrink-0 p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-900">Proposal Pipeline</h2>
           <div className="flex gap-2">
             {/* Start New Proposal Button */}
             <Button
@@ -411,7 +410,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 <ZoomIn className="w-4 h-4" title="Zoom in" />
               </Button>
             </div>
+          </div>
 
+          <div className="flex gap-2">
             <Button
               variant={showFilters ? "default" : "outline"}
               size="sm"
