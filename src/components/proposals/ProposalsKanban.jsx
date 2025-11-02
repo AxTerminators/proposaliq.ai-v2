@@ -1,15 +1,9 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DragDropContext, Droppable } from "@hello-pangea/dnd";
-import KanbanColumn from "./KanbanColumn";
-import MobileKanbanView from "../mobile/MobileKanbanView";
-import BoardConfigDialog from "./BoardConfigDialog";
-import ProposalCardModal from "./ProposalCardModal";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, ChevronsLeft, ChevronsRight, Search, X, Filter, ZoomIn, ZoomOut } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,75 +11,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Plus,
+  Settings,
+  Filter,
+  Search,
+  X,
+  ChevronsLeft,
+  ChevronsRight,
+  ZoomIn,
+  ZoomOut
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import KanbanColumn from "./KanbanColumn";
+import KanbanCard from "./KanbanCard";
+import BoardConfigDialog from "./BoardConfigDialog";
+import ProposalCardModal from "./ProposalCardModal";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { cn } from "@/lib/utils";
+
+// Default columns configuration
+const DEFAULT_COLUMNS = [
+  { id: 'evaluating', label: 'Evaluating', emoji: '🔍', type: 'default_status', default_status_mapping: 'evaluating' },
+  { id: 'watch_list', label: 'Watch List', emoji: '👀', type: 'default_status', default_status_mapping: 'watch_list' },
+  { id: 'draft', label: 'Draft', emoji: '📝', type: 'default_status', default_status_mapping: 'draft' },
+  { id: 'in_progress', label: 'In Progress', emoji: '⚡', type: 'default_status', default_status_mapping: 'in_progress' },
+  { id: 'submitted', label: 'Submitted', emoji: '📤', type: 'default_status', default_status_mapping: 'submitted' },
+  { id: 'won', label: 'Won', emoji: '🏆', type: 'default_status', default_status_mapping: 'won' },
+  { id: 'lost', label: 'Lost', emoji: '❌', type: 'default_status', default_status_mapping: 'lost' },
+  { id: 'archived', label: 'Archived', emoji: '📦', type: 'default_status', default_status_mapping: 'archived' }
+];
 
 export default function ProposalsKanban({ proposals, organization, onRefresh }) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const boardRef = useRef(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showBoardConfig, setShowBoardConfig] = useState(false);
-  const [collapsedColumns, setCollapsedColumns] = useState([]);
-  const [selectedProposal, setSelectedProposal] = useState(null);
-  const [showProposalModal, setShowProposalModal] = useState(false);
+  
+  const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  
-  // Column-specific sorting state: { columnId: { sortBy: 'name'|'due_date'|'created_date', sortDirection: 'asc'|'desc' } }
+  const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [columnSorts, setColumnSorts] = useState({});
+  const [selectedProposal, setSelectedProposal] = useState(null);
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Pinch to zoom handler
-  useEffect(() => {
-    const handleWheel = (e) => {
-      // Check if Ctrl/Cmd key is pressed (pinch gesture on trackpad)
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        
-        const delta = -e.deltaY;
-        const zoomSpeed = 0.001;
-        const newZoom = Math.min(Math.max(zoomLevel + delta * zoomSpeed, 0.5), 2);
-        
-        setZoomLevel(newZoom);
-      }
-    };
-
-    const boardElement = boardRef.current;
-    if (boardElement) {
-      boardElement.addEventListener('wheel', handleWheel, { passive: false });
-    }
-
-    return () => {
-      if (boardElement) {
-        boardElement.removeEventListener('wheel', handleWheel);
-      }
-    };
-  }, [zoomLevel]);
-
-  const handleZoomIn = () => {
-    setZoomLevel(prev => Math.min(prev + 0.1, 2));
-  };
-
-  const handleZoomOut = () => {
-    setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
-  };
-
-  const handleZoomReset = () => {
-    setZoomLevel(1);
-  };
-
+  // Fetch kanban config
   const { data: kanbanConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -97,49 +69,149 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id,
-    initialData: null
+    enabled: !!organization?.id
   });
 
-  const defaultColumns = [
-    { id: 'evaluating', label: 'Evaluating', color: 'from-slate-400 to-slate-600', type: 'default_status', default_status_mapping: 'evaluating' },
-    { id: 'watch_list', label: 'Watch List', color: 'from-amber-400 to-amber-600', type: 'default_status', default_status_mapping: 'watch_list' },
-    { id: 'draft', label: 'Draft', color: 'from-blue-400 to-blue-600', type: 'default_status', default_status_mapping: 'draft' },
-    { id: 'in_progress', label: 'In Progress', color: 'from-purple-400 to-purple-600', type: 'default_status', default_status_mapping: 'in_progress' },
-    { id: 'submitted', label: 'Submitted', color: 'from-indigo-400 to-indigo-600', type: 'default_status', default_status_mapping: 'submitted' },
-    { id: 'won', label: 'Won', color: 'from-green-400 to-green-600', type: 'default_status', default_status_mapping: 'won' },
-    { id: 'lost', label: 'Lost', color: 'from-red-400 to-red-600', type: 'default_status', default_status_mapping: 'lost' },
-    { id: 'archived', label: 'Archived', color: 'from-gray-400 to-gray-600', type: 'default_status', default_status_mapping: 'archived' }
-  ];
+  const columns = kanbanConfig?.columns || DEFAULT_COLUMNS;
+  const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
-  const columns = kanbanConfig?.columns || defaultColumns;
+  const toggleColumnCollapse = async (columnId) => {
+    if (!kanbanConfig) return;
+    
+    const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
+    const newCollapsed = currentCollapsed.includes(columnId)
+      ? currentCollapsed.filter(id => id !== columnId)
+      : [...currentCollapsed, columnId];
+    
+    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+      collapsed_column_ids: newCollapsed
+    });
+    
+    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+  };
 
-  const effectiveCollapsedColumns = useMemo(() => {
-    if (kanbanConfig?.collapsed_column_ids) {
-      return kanbanConfig.collapsed_column_ids;
+  // Zoom controls
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+  const handleZoomReset = () => setZoomLevel(1);
+
+  // Keyboard zoom control
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          handleZoomIn();
+        } else {
+          handleZoomOut();
+        }
+      }
+    };
+
+    const board = boardRef.current;
+    if (board) {
+      board.addEventListener('wheel', handleWheel, { passive: false });
     }
-    return collapsedColumns;
-  }, [kanbanConfig?.collapsed_column_ids, collapsedColumns]);
 
-  const toggleColumnCollapse = useCallback((columnId) => {
-    setCollapsedColumns(prev => 
-      prev.includes(columnId) 
-        ? prev.filter(id => id !== columnId)
-        : [...prev, columnId]
-    );
+    return () => {
+      if (board) {
+        board.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, []);
 
-    if (kanbanConfig?.id) {
-      const newCollapsedIds = effectiveCollapsedColumns.includes(columnId)
-        ? effectiveCollapsedColumns.filter(id => id !== columnId)
-        : [...effectiveCollapsedColumns, columnId];
+  const uniqueAgencies = useMemo(() => {
+    const agencies = proposals
+      .map(p => p.agency_name)
+      .filter(Boolean);
+    return [...new Set(agencies)].sort();
+  }, [proposals]);
+
+  const uniqueAssignees = useMemo(() => {
+    const assignees = proposals
+      .flatMap(p => p.assigned_team_members || [])
+      .filter(Boolean);
+    return [...new Set(assignees)].sort();
+  }, [proposals]);
+
+  const filteredProposals = useMemo(() => {
+    return proposals.filter(proposal => {
+      const matchesSearch = !searchQuery || 
+        proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        proposal.project_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        proposal.solicitation_number?.toLowerCase().includes(searchQuery.toLowerCase());
       
-      base44.entities.KanbanConfig.update(kanbanConfig.id, {
-        collapsed_column_ids: newCollapsedIds
-      }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      const matchesAgency = filterAgency === "all" || proposal.agency_name === filterAgency;
+      
+      const matchesAssignee = filterAssignee === "all" || 
+        (proposal.assigned_team_members || []).includes(filterAssignee);
+      
+      return matchesSearch && matchesAgency && matchesAssignee;
+    });
+  }, [proposals, searchQuery, filterAgency, filterAssignee]);
+
+  const getProposalsForColumn = (column) => {
+    let columnProposals = [];
+    
+    if (column.type === 'default_status') {
+      columnProposals = filteredProposals.filter(p => p.status === column.default_status_mapping);
+    } else if (column.type === 'custom_stage') {
+      columnProposals = filteredProposals.filter(p => p.custom_workflow_stage_id === column.id);
+    }
+
+    const sort = columnSorts[column.id];
+    if (sort) {
+      columnProposals = [...columnProposals].sort((a, b) => {
+        if (sort.by === 'name') {
+          return sort.direction === 'asc' 
+            ? a.proposal_name.localeCompare(b.proposal_name)
+            : b.proposal_name.localeCompare(a.proposal_name);
+        } else if (sort.by === 'due_date') {
+          const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
+          const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
+          return sort.direction === 'asc' ? dateA - dateB : dateB - dateA;
+        } else if (sort.by === 'created_date') {
+          return sort.direction === 'asc'
+            ? new Date(a.created_date) - new Date(b.created_date)
+            : new Date(b.created_date) - new Date(a.created_date);
+        }
+        return 0;
+      });
+    } else {
+      columnProposals = [...columnProposals].sort((a, b) => {
+        const orderA = a.manual_order ?? 999999;
+        const orderB = b.manual_order ?? 999999;
+        return orderA - orderB;
       });
     }
-  }, [kanbanConfig, effectiveCollapsedColumns, queryClient]);
+
+    return columnProposals;
+  };
+
+  const handleColumnSortChange = (columnId, sortBy) => {
+    setColumnSorts(prev => {
+      const current = prev[columnId];
+      if (current?.by === sortBy) {
+        return {
+          ...prev,
+          [columnId]: { by: sortBy, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        };
+      } else {
+        return {
+          ...prev,
+          [columnId]: { by: sortBy, direction: 'asc' }
+        };
+      }
+    });
+  };
+
+  const handleClearColumnSort = (columnId) => {
+    setColumnSorts(prev => {
+      const newSorts = { ...prev };
+      delete newSorts[columnId];
+      return newSorts;
+    });
+  };
 
   const updateProposalMutation = useMutation({
     mutationFn: async ({ proposalId, updates }) => {
@@ -147,249 +219,54 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      if (onRefresh) onRefresh();
-    }
-  });
-
-  const addColumnMutation = useMutation({
-    mutationFn: async (insertIndex) => {
-      if (!organization?.id) throw new Error("No organization");
-
-      const configs = await base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
-      );
-
-      const currentConfig = configs.length > 0 ? configs[0] : null;
-      const currentColumns = currentConfig?.columns || defaultColumns;
-
-      const newColumn = {
-        id: `custom_${Date.now()}`,
-        label: 'New Column',
-        color: 'from-blue-400 to-blue-600',
-        type: 'custom_stage',
-        order: insertIndex
-      };
-
-      // Insert the new column at the specified position
-      const updatedColumns = [
-        ...currentColumns.slice(0, insertIndex),
-        newColumn,
-        ...currentColumns.slice(insertIndex)
-      ].map((col, idx) => ({
-        ...col,
-        order: idx
-      }));
-
-      const configData = {
-        organization_id: organization.id,
-        columns: updatedColumns,
-        swimlane_config: currentConfig?.swimlane_config || {
-          enabled: false,
-          group_by: 'none',
-          custom_field_name: '',
-          show_empty_swimlanes: false
-        },
-        view_settings: currentConfig?.view_settings || {
-          default_view: 'kanban',
-          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
-          compact_mode: false
-        },
-        collapsed_column_ids: currentConfig?.collapsed_column_ids || []
-      };
-
-      if (currentConfig) {
-        return base44.entities.KanbanConfig.update(currentConfig.id, configData);
-      } else {
-        return base44.entities.KanbanConfig.create(configData);
-      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-    }
   });
 
-  const deleteColumnMutation = useMutation({
-    mutationFn: async (columnId) => {
-      if (!organization?.id) throw new Error("No organization");
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
 
-      const configs = await base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
-      );
-
-      const currentConfig = configs.length > 0 ? configs[0] : null;
-      const currentColumns = currentConfig?.columns || defaultColumns;
-
-      // Remove the column
-      const updatedColumns = currentColumns
-        .filter(col => col.id !== columnId)
-        .map((col, idx) => ({
-          ...col,
-          order: idx
-        }));
-
-      const configData = {
-        organization_id: organization.id,
-        columns: updatedColumns,
-        swimlane_config: currentConfig?.swimlane_config || {
-          enabled: false,
-          group_by: 'none',
-          custom_field_name: '',
-          show_empty_swimlanes: false
-        },
-        view_settings: currentConfig?.view_settings || {
-          default_view: 'kanban',
-          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
-          compact_mode: false
-        },
-        collapsed_column_ids: (currentConfig?.collapsed_column_ids || []).filter(id => id !== columnId)
-      };
-
-      if (currentConfig) {
-        return base44.entities.KanbanConfig.update(currentConfig.id, configData);
-      } else {
-        return base44.entities.KanbanConfig.create(configData);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-    }
-  });
-
-  const renameColumnMutation = useMutation({
-    mutationFn: async ({ columnId, newLabel }) => {
-      if (!organization?.id) throw new Error("No organization");
-
-      const configs = await base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
-      );
-
-      const currentConfig = configs.length > 0 ? configs[0] : null;
-      const currentColumns = currentConfig?.columns || defaultColumns;
-
-      // Update the column label
-      const updatedColumns = currentColumns.map(col => 
-        col.id === columnId ? { ...col, label: newLabel } : col
-      );
-
-      const configData = {
-        organization_id: organization.id,
-        columns: updatedColumns,
-        swimlane_config: currentConfig?.swimlane_config || {
-          enabled: false,
-          group_by: 'none',
-          custom_field_name: '',
-          show_empty_swimlanes: false
-        },
-        view_settings: currentConfig?.view_settings || {
-          default_view: 'kanban',
-          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
-          compact_mode: false
-        },
-        collapsed_column_ids: currentConfig?.collapsed_column_ids || []
-      };
-
-      if (currentConfig) {
-        return base44.entities.KanbanConfig.update(currentConfig.id, configData);
-      } else {
-        return base44.entities.KanbanConfig.create(configData);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-    }
-  });
-
-  const handleAddColumn = (insertIndex) => {
-    addColumnMutation.mutate(insertIndex);
-  };
-
-  const handleDeleteColumn = (columnId) => {
-    deleteColumnMutation.mutate(columnId);
-  };
-
-  const handleRenameColumn = (columnId, newLabel) => {
-    renameColumnMutation.mutate({ columnId, newLabel });
-  };
-
-  const handleDragEnd = (result) => {
-    const { destination, source, draggableId } = result;
-
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-    // Check if user is reordering within the same column
-    if (destination.droppableId === source.droppableId) {
-      // Get all proposals in this column
-      const column = columns.find(col => col.id === destination.droppableId);
-      const columnProposals = getProposalsForColumn(column);
-      
-      // Calculate new manual_order values
-      const movedProposal = columnProposals[source.index];
-      const newOrder = destination.index;
-      
-      // Update the moved proposal's order
-      updateProposalMutation.mutate({
-        proposalId: draggableId,
-        updates: {
-          manual_order: newOrder
-        }
-      });
-      
-      // Update all other proposals in the column to maintain proper ordering
-      columnProposals.forEach((proposal, idx) => {
-        if (proposal.id === draggableId) return; // Skip the moved one
-        
-        let adjustedOrder = idx;
-        if (source.index < destination.index) {
-          // Moving down: shift items up
-          if (idx > source.index && idx <= destination.index) {
-            adjustedOrder = idx - 1;
-          }
-        } else {
-          // Moving up: shift items down
-          if (idx >= destination.index && idx < source.index) {
-            adjustedOrder = idx + 1;
-          }
-        }
-        
-        if (adjustedOrder !== idx) {
-          updateProposalMutation.mutate({
-            proposalId: proposal.id,
-            updates: {
-              manual_order: adjustedOrder
-            }
-          });
-        }
-      });
-      
+    const { source, destination, draggableId } = result;
+    
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
 
-    // Moving to a different column
-    const destinationColumn = columns.find(col => col.id === destination.droppableId);
-    if (!destinationColumn) return;
-
-    let newStatus;
-    if (destinationColumn.type === 'default_status') {
-      newStatus = destinationColumn.default_status_mapping;
-    } else if (destinationColumn.type === 'custom_stage') {
-      newStatus = 'draft';
+    const sourceColumn = columns.find(c => c.id === source.droppableId);
+    const destColumn = columns.find(c => c.id === destination.droppableId);
+    
+    const updates = {};
+    
+    if (destColumn.type === 'default_status') {
+      updates.status = destColumn.default_status_mapping;
+      updates.custom_workflow_stage_id = null;
+    } else if (destColumn.type === 'custom_stage') {
+      updates.custom_workflow_stage_id = destColumn.id;
     }
 
-    updateProposalMutation.mutate({
-      proposalId: draggableId,
-      updates: {
-        status: newStatus,
-        custom_workflow_stage_id: destinationColumn.type === 'custom_stage' ? destinationColumn.id : null,
-        manual_order: destination.index
-      }
+    const destProposals = getProposalsForColumn(destColumn);
+    const reorderedProposals = Array.from(destProposals);
+    const movedProposal = proposals.find(p => p.id === draggableId);
+    
+    if (source.droppableId === destination.droppableId) {
+      reorderedProposals.splice(source.index, 1);
+    }
+    reorderedProposals.splice(destination.index, 0, movedProposal);
+
+    updates.manual_order = destination.index;
+
+    await updateProposalMutation.mutateAsync({ 
+      proposalId: draggableId, 
+      updates 
     });
+
+    for (let i = 0; i < reorderedProposals.length; i++) {
+      if (reorderedProposals[i].id !== draggableId) {
+        await updateProposalMutation.mutateAsync({
+          proposalId: reorderedProposals[i].id,
+          updates: { manual_order: i }
+        });
+      }
+    }
   };
 
   const handleCardClick = (proposal) => {
@@ -397,142 +274,79 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     setShowProposalModal(true);
   };
 
-  const handleColumnSortChange = useCallback((columnId, sortBy) => {
-    setColumnSorts(prev => {
-      const currentSort = prev[columnId];
-      
-      if (currentSort?.sortBy === sortBy) {
-        // Toggle direction
-        return {
-          ...prev,
-          [columnId]: {
-            sortBy,
-            sortDirection: currentSort.sortDirection === 'asc' ? 'desc' : 'asc'
-          }
-        };
-      } else {
-        // New sort criteria
-        return {
-          ...prev,
-          [columnId]: {
-            sortBy,
-            sortDirection: 'asc'
-          }
-        };
-      }
-    });
-  }, []);
-
-  const handleClearColumnSort = useCallback((columnId) => {
-    setColumnSorts(prev => {
-      const newSorts = { ...prev };
-      delete newSorts[columnId];
-      return newSorts;
-    });
-  }, []);
-
-  const sortProposals = useCallback((proposalsList, columnId) => {
-    const columnSort = columnSorts[columnId];
-    
-    // If no sort is active, sort by manual_order
-    if (!columnSort) {
-      return [...proposalsList].sort((a, b) => {
-        const orderA = a.manual_order ?? 999999;
-        const orderB = b.manual_order ?? 999999;
-        return orderA - orderB;
-      });
-    }
-
-    const { sortBy, sortDirection } = columnSort;
-
-    const sorted = [...proposalsList].sort((a, b) => {
-      let aValue, bValue;
-
-      switch (sortBy) {
-        case 'name':
-          aValue = (a.proposal_name || '').toLowerCase();
-          bValue = (b.proposal_name || '').toLowerCase();
-          break;
-        case 'due_date':
-          aValue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-          bValue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-          break;
-        case 'created_date':
-          aValue = a.created_date ? new Date(a.created_date).getTime() : 0;
-          bValue = b.created_date ? new Date(b.created_date).getTime() : 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return sorted;
-  }, [columnSorts]);
-
-  const getProposalsForColumn = useCallback((column) => {
-    let columnProposals = [];
-    
-    if (column.type === 'default_status') {
-      columnProposals = proposals.filter(p => p.status === column.default_status_mapping);
-    } else if (column.type === 'custom_stage') {
-      columnProposals = proposals.filter(p => p.custom_workflow_stage_id === column.id);
-    }
-
-    // Apply filters
-    if (searchQuery) {
-      columnProposals = columnProposals.filter(p => 
-        p.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.project_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.solicitation_number?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (filterAgency !== "all") {
-      columnProposals = columnProposals.filter(p => p.agency_name === filterAgency);
-    }
-
-    if (filterAssignee !== "all") {
-      columnProposals = columnProposals.filter(p => 
-        p.lead_writer_email === filterAssignee ||
-        p.assigned_team_members?.includes(filterAssignee)
-      );
-    }
-
-    // Apply column-specific sorting
-    columnProposals = sortProposals(columnProposals, column.id);
-
-    return columnProposals;
-  }, [proposals, searchQuery, filterAgency, filterAssignee, sortProposals]);
-
   const handleCreateProposal = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
-  const uniqueAgencies = useMemo(() => {
-    const agencies = [...new Set(proposals.map(p => p.agency_name).filter(Boolean))];
-    return agencies.sort();
-  }, [proposals]);
+  const handleAddColumn = async (insertIndex) => {
+    if (!kanbanConfig) {
+      alert("Please configure your board first using the 'Configure Board' button");
+      return;
+    }
 
-  const uniqueAssignees = useMemo(() => {
-    const assignees = new Set();
-    proposals.forEach(p => {
-      if (p.lead_writer_email) assignees.add(p.lead_writer_email);
-      if (p.assigned_team_members) {
-        p.assigned_team_members.forEach(email => assignees.add(email));
-      }
+    const newColumnId = `custom_${Date.now()}`;
+    const newColumn = {
+      id: newColumnId,
+      label: `New Stage ${columns.length + 1}`,
+      color: 'from-gray-400 to-gray-600',
+      type: 'custom_stage',
+      order: insertIndex
+    };
+
+    const updatedColumns = [...columns];
+    updatedColumns.splice(insertIndex, 0, newColumn);
+
+    updatedColumns.forEach((col, idx) => {
+      col.order = idx;
     });
-    return Array.from(assignees).sort();
-  }, [proposals]);
 
-  const activeFiltersCount = [
-    searchQuery !== "",
-    filterAgency !== "all",
-    filterAssignee !== "all"
-  ].filter(Boolean).length;
+    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+      columns: updatedColumns
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+  };
+
+  const handleDeleteColumn = async (columnId) => {
+    if (!kanbanConfig) return;
+
+    const columnToDelete = columns.find(c => c.id === columnId);
+    if (!columnToDelete || columnToDelete.type === 'default_status') {
+      return;
+    }
+
+    const proposalsInColumn = proposals.filter(p => p.custom_workflow_stage_id === columnId);
+    
+    if (proposalsInColumn.length > 0) {
+      return;
+    }
+
+    const updatedColumns = columns.filter(c => c.id !== columnId);
+    
+    updatedColumns.forEach((col, idx) => {
+      col.order = idx;
+    });
+
+    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+      columns: updatedColumns
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+  };
+
+  const handleRenameColumn = async (columnId, newLabel) => {
+    if (!kanbanConfig) return;
+
+    const updatedColumns = columns.map(col => 
+      col.id === columnId ? { ...col, label: newLabel } : col
+    );
+
+    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+      columns: updatedColumns
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+  };
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -540,17 +354,13 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     setFilterAssignee("all");
   };
 
-  if (isMobile) {
-    return (
-      <MobileKanbanView
-        proposals={proposals}
-        columns={columns}
-        organization={organization}
-        onCardClick={handleCardClick}
-        onCreateProposal={handleCreateProposal}
-      />
-    );
-  }
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (filterAgency !== "all") count++;
+    if (filterAssignee !== "all") count++;
+    return count;
+  }, [searchQuery, filterAgency, filterAssignee]);
 
   return (
     <div className="space-y-4">
