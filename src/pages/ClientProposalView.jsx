@@ -39,93 +39,84 @@ export default function ClientProposalView() {
 
   useEffect(() => {
     const loadProposalData = async () => {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const proposalId = urlParams.get('proposal');
-        const superadmin = urlParams.get('superadmin');
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const proposalId = urlParams.get('proposal');
+      const superadmin = urlParams.get('superadmin');
 
-        // Super Admin bypass mode
-        if (superadmin === 'true') {
-          // First check if authenticated without throwing
-          const isAuth = await base44.auth.isAuthenticated();
+      // Super Admin bypass mode
+      if (superadmin === 'true') {
+        try {
+          const currentUser = await base44.auth.me();
           
-          if (!isAuth) {
-            setError("Please log in as a super admin to preview this page.");
+          if (!currentUser || currentUser.role !== 'admin' || currentUser.admin_role !== 'super_admin') {
+            setError("Super admin access denied. You must be a super admin to use this mode.");
             setLoading(false);
             return;
           }
 
-          try {
-            const currentUser = await base44.auth.me();
-            
-            if (!currentUser || currentUser.role !== 'admin' || currentUser.admin_role !== 'super_admin') {
-              setError("Super admin access denied. You must be a super admin to use this mode.");
-              setLoading(false);
-              return;
-            }
+          setIsSuperAdminMode(true);
 
-            setIsSuperAdminMode(true);
-
-            // Get first available client and proposal
-            const allClients = await base44.entities.Client.list('-created_date', 1);
-            if (allClients.length === 0) {
-              setError("No clients in system. Create a client first to preview this page.");
-              setLoading(false);
-              return;
-            }
-
-            const clientData = allClients[0];
-            const allProposals = await base44.entities.Proposal.list('-created_date', 1);
-            
-            if (allProposals.length === 0) {
-              setError("No proposals in system. Create a proposal first to preview this page.");
-              setLoading(false);
-              return;
-            }
-
-            const proposalData = allProposals[0];
-
-            const memberData = {
-              id: 'super-admin',
-              member_name: currentUser.full_name,
-              member_email: currentUser.email,
-              team_role: 'owner',
-              permissions: {
-                can_approve: true,
-                can_comment: true,
-                can_upload_files: true,
-                can_invite_others: true,
-                can_see_internal_comments: true
-              }
-            };
-
-            // Get sections
-            const proposalSections = await base44.entities.ProposalSection.filter({ 
-              proposal_id: proposalData.id 
-            }, 'order');
-
-            // Get organization
-            const orgs = await base44.entities.Organization.filter({ id: proposalData.organization_id });
-            if (orgs.length > 0) {
-              setOrganization(orgs[0]);
-            }
-
-            setProposal(proposalData);
-            setClient(clientData);
-            setCurrentMember(memberData);
-            setSections(proposalSections);
-            setLoading(false);
-            return;
-          } catch (authError) {
-            console.error("Error in super admin mode:", authError);
-            setError("Error accessing super admin preview. Please ensure you're logged in as a super admin.");
+          // Get first available client and proposal
+          const allClients = await base44.entities.Client.list('-created_date', 1);
+          if (allClients.length === 0) {
+            setError("No clients in system. Create a client first to preview this page.");
             setLoading(false);
             return;
           }
+
+          const clientData = allClients[0];
+          const allProposals = await base44.entities.Proposal.list('-created_date', 1);
+          
+          if (allProposals.length === 0) {
+            setError("No proposals in system. Create a proposal first to preview this page.");
+            setLoading(false);
+            return;
+          }
+
+          const proposalData = allProposals[0];
+
+          const memberData = {
+            id: 'super-admin',
+            member_name: currentUser.full_name,
+            member_email: currentUser.email,
+            team_role: 'owner',
+            permissions: {
+              can_approve: true,
+              can_comment: true,
+              can_upload_files: true,
+              can_invite_others: true,
+              can_see_internal_comments: true
+            }
+          };
+
+          // Get sections
+          const proposalSections = await base44.entities.ProposalSection.filter({ 
+            proposal_id: proposalData.id 
+          }, 'order');
+
+          // Get organization
+          const orgs = await base44.entities.Organization.filter({ id: proposalData.organization_id });
+          if (orgs.length > 0) {
+            setOrganization(orgs[0]);
+          }
+
+          setProposal(proposalData);
+          setClient(clientData);
+          setCurrentMember(memberData);
+          setSections(proposalSections);
+          setLoading(false);
+          return;
+        } catch (authError) {
+          console.error("Error in super admin mode:", authError);
+          setError("Not authenticated. Please log in to your admin account first, then access this page again.");
+          setLoading(false);
+          return;
         }
+      }
 
-        // Normal token-based authentication
+      // Normal token-based authentication
+      try {
         if (!token || !proposalId) {
           setError("Missing required parameters");
           setLoading(false);

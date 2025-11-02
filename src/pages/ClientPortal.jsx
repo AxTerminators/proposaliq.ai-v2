@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +23,7 @@ import ClientTeamManager from "../components/client/ClientTeamManager";
 import MeetingScheduler from "../components/client/MeetingScheduler";
 import FloatingFeedbackButton from "../components/client/FloatingFeedbackButton";
 import ClientFeedbackDashboard from "../components/client/ClientFeedbackDashboard";
-import { useQuery } from '@tanstack/react-query'; // Assuming useQuery is from react-query, as it's used in ProposalsView
+import { useQuery } from '@tanstack/react-query';
 
 export default function ClientPortal() {
   const [client, setClient] = useState(null);
@@ -37,75 +36,67 @@ export default function ClientPortal() {
 
   useEffect(() => {
     const loadClientData = async () => {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const superadmin = urlParams.get('superadmin');
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const superadmin = urlParams.get('superadmin');
 
-        // Super Admin bypass mode
-        if (superadmin === 'true') {
-          // First check if authenticated without throwing
-          const isAuth = await base44.auth.isAuthenticated();
+      // Super Admin bypass mode
+      if (superadmin === 'true') {
+        try {
+          const currentUser = await base44.auth.me();
           
-          if (!isAuth) {
-            setError("Please log in as a super admin to preview this page.");
+          // Check if user has admin rights
+          if (!currentUser || currentUser.role !== 'admin' || currentUser.admin_role !== 'super_admin') {
+            setError("Super admin access denied. You must be a super admin to use this mode.");
             setLoading(false);
             return;
           }
 
-          try {
-            const currentUser = await base44.auth.me();
-            
-            if (!currentUser || currentUser.role !== 'admin' || currentUser.admin_role !== 'super_admin') {
-              setError("Super admin access denied. You must be a super admin to use this mode.");
-              setLoading(false);
-              return;
-            }
+          setIsSuperAdminMode(true);
 
-            setIsSuperAdminMode(true);
-
-            // Get first available client for preview
-            const allClients = await base44.entities.Client.list('-created_date', 1);
-            if (allClients.length === 0) {
-              setError("No clients in system. Create a client first to preview this page.");
-              setLoading(false);
-              return;
-            }
-
-            const clientData = allClients[0];
-            const memberData = {
-              id: 'super-admin',
-              member_name: currentUser.full_name,
-              member_email: currentUser.email,
-              team_role: 'owner',
-              permissions: {
-                can_approve: true,
-                can_comment: true,
-                can_upload_files: true,
-                can_invite_others: true,
-                can_see_internal_comments: true
-              }
-            };
-
-            // Get organization
-            const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
-            if (orgs.length > 0) {
-              setOrganization(orgs[0]);
-            }
-
-            setClient(clientData);
-            setCurrentMember(memberData);
-            setLoading(false);
-            return;
-          } catch (authError) {
-            console.error("Error in super admin mode:", authError);
-            setError("Error accessing super admin preview. Please ensure you're logged in as a super admin.");
+          // Get first available client for preview
+          const allClients = await base44.entities.Client.list('-created_date', 1);
+          if (allClients.length === 0) {
+            setError("No clients in system. Create a client first to preview this page.");
             setLoading(false);
             return;
           }
+
+          const clientData = allClients[0];
+          const memberData = {
+            id: 'super-admin',
+            member_name: currentUser.full_name,
+            member_email: currentUser.email,
+            team_role: 'owner',
+            permissions: {
+              can_approve: true,
+              can_comment: true,
+              can_upload_files: true,
+              can_invite_others: true,
+              can_see_internal_comments: true
+            }
+          };
+
+          // Get organization
+          const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
+          if (orgs.length > 0) {
+            setOrganization(orgs[0]);
+          }
+
+          setClient(clientData);
+          setCurrentMember(memberData);
+          setLoading(false);
+          return;
+        } catch (authError) {
+          console.error("Error in super admin mode:", authError);
+          setError("Not authenticated. Please log in to your admin account first, then access this page again.");
+          setLoading(false);
+          return;
         }
+      }
 
-        // Normal token-based authentication
+      // Normal token-based authentication
+      try {
         if (!token) {
           setError("No access token provided");
           setLoading(false);
