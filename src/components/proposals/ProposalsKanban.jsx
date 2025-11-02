@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -363,9 +364,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   }, [searchQuery, filterAgency, filterAssignee]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="w-full h-full flex flex-col">
       {/* Header Section - Fixed */}
-      <div className="flex-shrink-0 p-6 space-y-4">
+      <div className="flex-shrink-0 p-6 space-y-4 w-full">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-slate-900">Proposal Pipeline</h2>
           <div className="flex gap-2">
@@ -499,12 +500,12 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         )}
       </div>
 
-      {/* Kanban Board - Scrollable */}
-      <div className="flex-1 overflow-hidden">
-        <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible px-6">
+      {/* Kanban Board - Scrollable and Full Width */}
+      <div className="flex-1 overflow-hidden w-full">
+        <div ref={boardRef} className="h-full w-full overflow-x-auto overflow-y-visible px-6">
           <DragDropContext onDragEnd={handleDragEnd}>
             <div 
-              className="flex gap-0 pb-4 pt-4 h-full"
+              className="flex gap-0 pb-4 pt-4 h-full w-full"
               style={{ 
                 zoom: zoomLevel,
                 minWidth: 'min-content'
