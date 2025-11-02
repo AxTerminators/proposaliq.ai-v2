@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import CanvasNode from "./CanvasNode";
 import GroupNode from "./GroupNode";
@@ -18,6 +19,7 @@ export default function InfiniteCanvas({
   onDocumentAIAgentDoubleClick,
   onNodeConfigClick,
   onRunAgent,
+  onAddNodeFromDrop,
   selectedNodeId,
   initialOffset = { x: 0, y: 0 },
   initialScale = 1
@@ -47,6 +49,30 @@ export default function InfiniteCanvas({
       onCanvasViewChange(offset, scale);
     }
   }, [offset, scale, onCanvasViewChange]);
+
+  // Handle drop from sidebar
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (data && onAddNodeFromDrop) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = (e.clientX - rect.left - offset.x) / scale;
+        const y = (e.clientY - rect.top - offset.y) / scale;
+        
+        onAddNodeFromDrop(data.nodeType, data.nodeConfig, x, y);
+      }
+    } catch (error) {
+      console.error("Error handling drop:", error);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
 
   const getBestConnectionPoints = (fromNode, toNode) => {
     const fromCenterX = fromNode.position_x + (fromNode.width || 200) / 2;
@@ -186,7 +212,7 @@ export default function InfiniteCanvas({
     }
 
     if (node.node_type === 'ai_agent') {
-      const data = typeof node.data === 'string' ? JSON.parse(node.data) : node.data;
+      const data = node.data || {};
       const isDocumentAgent = data?.agent_type === 'document_analyzer';
 
       if (isDocumentAgent) {
@@ -252,6 +278,8 @@ export default function InfiniteCanvas({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onClick={handleCanvasClick}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
       style={{ touchAction: 'none' }}
     >
       <div
