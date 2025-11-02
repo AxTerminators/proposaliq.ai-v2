@@ -383,7 +383,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
 
           <div className="flex gap-2">
             {/* Zoom Controls */}
-            <div className="flex items-center gap-1 border rounded-lg p-1 bg-white h-9">
+            <div className="flex items-center gap-0.5 border rounded-lg px-1 bg-white h-9">
               <Button
                 variant="ghost"
                 size="sm"
@@ -396,7 +396,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               </Button>
               <button
                 onClick={handleZoomReset}
-                className="px-2 text-xs font-medium text-slate-600 hover:text-slate-900 min-w-[3rem] h-7"
+                className="px-2 text-xs font-medium text-slate-600 hover:text-slate-900 min-w-[3rem]"
                 title="Reset zoom to 100%"
               >
                 {Math.round(zoomLevel * 100)}%
