@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +159,7 @@ export default function KanbanColumn({
                   onBlur={handleSaveLabel}
                   onKeyDown={handleKeyDown}
                   className="font-bold text-lg bg-white/90 text-slate-900 border-white h-9 px-2"
+                  title="Press Enter to save, Escape to cancel"
                 />
               ) : (
                 <div className="flex items-center gap-2">
@@ -167,7 +169,7 @@ export default function KanbanColumn({
                       canRename && "cursor-pointer hover:opacity-80 transition-opacity"
                     )}
                     onDoubleClick={handleDoubleClick}
-                    title={canRename ? "Double-click to rename" : ""}
+                    title={canRename ? "Double-click to rename column" : columnLabel}
                   >
                     {columnLabel}
                   </h3>
@@ -184,8 +186,8 @@ export default function KanbanColumn({
               {/* Total Contract Value */}
               {totalContractValue > 0 && !isEditing && (
                 <div className="flex items-center gap-1 mt-1">
-                  <DollarSign className="w-3 h-3 text-white/80" />
-                  <span className="text-sm font-semibold text-white/90">
+                  <DollarSign className="w-3 h-3 text-white/80" title="Total contract value" />
+                  <span className="text-sm font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
                     {formatCurrency(totalContractValue)}
                   </span>
                 </div>
@@ -198,7 +200,7 @@ export default function KanbanColumn({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Badge className="bg-white/90 text-slate-900 hover:bg-white text-sm font-semibold">
+              <Badge className="bg-white/90 text-slate-900 hover:bg-white text-sm font-semibold" title={`${proposalCount} proposal${proposalCount !== 1 ? 's' : ''} in this column`}>
                 {proposalCount}
               </Badge>
               
@@ -209,26 +211,27 @@ export default function KanbanColumn({
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0 text-white hover:bg-white/20"
+                    title="Column options"
                   >
-                    <MoreVertical className="w-4 h-4" />
+                    <MoreVertical className="w-4 h-4" title="Options" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Sort This Column By</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onSortChange('name')}>
+                  <DropdownMenuItem onClick={() => onSortChange('name')} title="Sort proposals alphabetically">
                     <span className="flex items-center flex-1">
                       A to Z
                       {getSortIcon('name')}
                     </span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onSortChange('due_date')}>
+                  <DropdownMenuItem onClick={() => onSortChange('due_date')} title="Sort proposals by due date">
                     <span className="flex items-center flex-1">
                       Due Date
                       {getSortIcon('due_date')}
                     </span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onSortChange('created_date')}>
+                  <DropdownMenuItem onClick={() => onSortChange('created_date')} title="Sort proposals by date created">
                     <span className="flex items-center flex-1">
                       Date Added
                       {getSortIcon('created_date')}
@@ -237,8 +240,8 @@ export default function KanbanColumn({
                   {columnSort && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onClearSort} className="text-slate-600">
-                        <X className="w-4 h-4 mr-2" />
+                      <DropdownMenuItem onClick={onClearSort} className="text-slate-600" title="Remove sorting">
+                        <X className="w-4 h-4 mr-2" title="Clear" />
                         Clear Sort
                       </DropdownMenuItem>
                     </>
@@ -248,8 +251,8 @@ export default function KanbanColumn({
                   {canRename && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleDoubleClick} className="text-blue-600">
-                        <Edit2 className="w-4 h-4 mr-2" />
+                      <DropdownMenuItem onClick={handleDoubleClick} className="text-blue-600" title="Change column name">
+                        <Edit2 className="w-4 h-4 mr-2" title="Rename" />
                         Rename Column
                       </DropdownMenuItem>
                     </>
@@ -259,8 +262,8 @@ export default function KanbanColumn({
                   {canDeleteColumn && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
-                        <Trash2 className="w-4 h-4 mr-2" />
+                      <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600" title="Delete this column">
+                        <Trash2 className="w-4 h-4 mr-2" title="Delete" />
                         Delete Column
                       </DropdownMenuItem>
                     </>
@@ -307,7 +310,7 @@ export default function KanbanColumn({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="w-5 h-5" />
+              <AlertCircle className="w-5 h-5" title="Warning" />
               Cannot Delete Column
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-700">
