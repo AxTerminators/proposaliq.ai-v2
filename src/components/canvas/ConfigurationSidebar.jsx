@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function ConfigurationSidebar({ node, onClose, onSave }) {
-  const nodeData = typeof node.data === 'string' ? JSON.parse(node.data) : node.data || {};
+  const nodeData = node.data || {}; // Data is stored as object, not string
   const session = nodeData.session || {};
   
   const [activePanel, setActivePanel] = useState("behavior");
@@ -90,7 +91,7 @@ export default function ConfigurationSidebar({ node, onClose, onSave }) {
         ...nodeData,
         session: { ...session, config: config, document_ids: documentIds }
       };
-      await onSave(node.id, updatedData);
+      await onSave(updatedData); // Pass the object directly
       onClose();
     } catch (error) {
       console.error("Error saving configuration:", error);
