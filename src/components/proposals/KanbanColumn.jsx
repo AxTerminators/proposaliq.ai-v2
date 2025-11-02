@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
@@ -262,9 +263,9 @@ export default function KanbanColumn({
             </div>
           </div>
           
-          {/* Total Contract Value - Positioned absolutely in bottom right corner */}
+          {/* Total Contract Value - Positioned in center between title and badge */}
           {totalContractValue > 0 && !isEditing && (
-            <div className="absolute bottom-1 right-2 flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded px-2 py-0.5">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded px-2 py-0.5">
               <DollarSign className="w-3 h-3 text-white/80" title="Total contract value" />
               <span className="text-xs font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
                 {formatCurrency(totalContractValue)}
