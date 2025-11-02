@@ -33,8 +33,8 @@ export default function DocumentAIAgentNode({
     initialData: [],
   });
 
-  // Parse node data
-  const nodeData = typeof node.data === 'string' ? JSON.parse(node.data) : node.data || {};
+  // Parse node data - data is stored as object, not string
+  const nodeData = node.data || {};
   const selectedDocuments = allDocuments.filter(doc => 
     nodeData.document_ids?.includes(doc.id)
   );
@@ -99,10 +99,10 @@ export default function DocumentAIAgentNode({
       : [...currentDocs, docId];
 
     base44.entities.CanvasNode.update(node.id, {
-      data: JSON.stringify({
+      data: {
         ...nodeData,
         document_ids: updatedDocs
-      })
+      }
     });
   };
 
