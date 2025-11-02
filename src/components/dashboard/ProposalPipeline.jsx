@@ -1,116 +1,80 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Cell
-} from 'recharts';
-import { TrendingUp, DollarSign, Target } from "lucide-react";
+import { TrendingUp, DollarSign } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
-export default function ProposalPipeline({ proposals = [] }) {
-  // Calculate pipeline stages
-  const pipelineData = [
-    {
-      stage: "Evaluating",
-      count: proposals.filter(p => p?.status === 'evaluating').length,
-      color: "#3b82f6"
-    },
-    {
-      stage: "Watch List",
-      count: proposals.filter(p => p?.status === 'watch_list').length,
-      color: "#eab308"
-    },
-    {
-      stage: "In Progress",
-      count: proposals.filter(p => p?.status === 'in_progress').length,
-      color: "#f59e0b"
-    },
-    {
-      stage: "Submitted",
-      count: proposals.filter(p => p?.status === 'submitted').length,
-      color: "#8b5cf6"
-    },
-    {
-      stage: "Won",
-      count: proposals.filter(p => p?.status === 'won').length,
-      color: "#10b981"
-    },
-    {
-      stage: "Lost",
-      count: proposals.filter(p => p?.status === 'lost').length,
-      color: "#ef4444"
-    }
-  ];
+export default function ProposalPipeline({ proposals = [], organization }) {
+  const navigate = useNavigate();
+  
+  // Defensive check to ensure we have an array
+  const safeProposals = Array.isArray(proposals) ? proposals : [];
 
-  const totalActive = proposals.filter(p => 
-    p && ['evaluating', 'watch_list', 'in_progress', 'submitted'].includes(p.status)
-  ).length;
+  const activeProposals = safeProposals.filter(p => 
+    ['evaluating', 'draft', 'in_progress'].includes(p.status)
+  ).slice(0, 5);
 
-  const wonCount = proposals.filter(p => p?.status === 'won').length;
-  const lostCount = proposals.filter(p => p && ['won', 'lost'].includes(p.status)).length;
-  const conversionRate = lostCount > 0 ? (wonCount / lostCount) * 100 : 0;
+  const getStatusColor = (status) => {
+    const colors = {
+      evaluating: "bg-yellow-100 text-yellow-800",
+      draft: "bg-gray-100 text-gray-800",
+      in_progress: "bg-blue-100 text-blue-800",
+      submitted: "bg-purple-100 text-purple-800",
+      won: "bg-green-100 text-green-800",
+      lost: "bg-red-100 text-red-800",
+    };
+    return colors[status] || colors.draft;
+  };
 
   return (
     <Card className="border-none shadow-lg">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-600" />
-            Proposal Pipeline
-          </CardTitle>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Active</p>
-              <p className="text-lg font-bold text-blue-600">{totalActive}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Conversion</p>
-              <p className="text-lg font-bold text-green-600">{conversionRate.toFixed(0)}%</p>
-            </div>
-          </div>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-blue-600" />
+          Active Proposals
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={pipelineData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="stage" angle={-45} textAnchor="end" height={80} />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-              {pipelineData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-
-        <div className="grid grid-cols-3 gap-4 mt-6">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <p className="text-2xl font-bold text-blue-600">
-              {proposals.filter(p => p && ['evaluating', 'watch_list'].includes(p.status)).length}
-            </p>
-            <p className="text-xs text-slate-600 mt-1">Early Stage</p>
-          </div>
-          <div className="text-center p-3 bg-amber-50 rounded-lg">
-            <p className="text-2xl font-bold text-amber-600">
-              {proposals.filter(p => p?.status === 'in_progress').length}
-            </p>
-            <p className="text-xs text-slate-600 mt-1">In Progress</p>
-          </div>
-          <div className="text-center p-3 bg-purple-50 rounded-lg">
-            <p className="text-2xl font-bold text-purple-600">
-              {proposals.filter(p => p?.status === 'submitted').length}
-            </p>
-            <p className="text-xs text-slate-600 mt-1">Awaiting Decision</p>
-          </div>
+        <div className="space-y-3">
+          {activeProposals.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <TrendingUp className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+              <p className="text-sm">No active proposals</p>
+              <p className="text-xs mt-1">Create your first proposal to get started</p>
+            </div>
+          ) : (
+            activeProposals.map((proposal) => (
+              <div
+                key={proposal.id}
+                onClick={() => navigate(createPageUrl(`ProposalBuilder?id=${proposal.id}`))}
+                className="p-4 border border-slate-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold text-slate-900 line-clamp-1">
+                    {proposal.proposal_name}
+                  </h3>
+                  <Badge className={getStatusColor(proposal.status)}>
+                    {proposal.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm text-slate-600">
+                  <span>{proposal.agency_name || 'Agency'}</span>
+                  {proposal.contract_value && (
+                    <span className="flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      {(proposal.contract_value / 1000000).toFixed(1)}M
+                    </span>
+                  )}
+                </div>
+                {proposal.due_date && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    Due: {new Date(proposal.due_date).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </CardContent>
     </Card>

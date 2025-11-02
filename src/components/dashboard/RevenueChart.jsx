@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,52 +15,84 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import moment from 'moment';
 
 export default function RevenueChart({ proposals = [] }) {
-  // Calculate monthly revenue data
-  const monthlyData = [];
-  const currentDate = new Date();
-  
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-    const monthKey = date.toLocaleString('default', { month: 'short' });
-    
-    const monthProposals = proposals.filter(p => {
-      if (!p || !p.updated_date) return false;
-      const pDate = new Date(p.updated_date);
-      return pDate.getMonth() === date.getMonth() && 
-             pDate.getFullYear() === date.getFullYear();
+  // Defensive check to ensure we have an array
+  const safeProposals = Array.isArray(proposals) ? proposals : [];
+
+  const monthlyData = React.useMemo(() => {
+    const dataMap = {};
+    const currentDate = moment();
+
+    // Initialize data for the last 6 months to ensure all months are present, even if no data
+    for (let i = 5; i >= 0; i--) {
+      const monthMoment = currentDate.clone().subtract(i, 'months').startOf('month');
+      const monthKey = monthMoment.format('YYYY-MM'); // Use YYYY-MM for consistent mapping and sorting
+      dataMap[monthKey] = {
+        month: monthMoment.format('MMM'), // Short month name for chart display (e.g., Jan)
+        won: 0,
+        submitted: 0,
+        pipeline: 0,
+        _sortKey: monthMoment.valueOf() // For chronological sorting
+      };
+    }
+
+    safeProposals.forEach(p => {
+      let targetMonthKey = null;
+      let targetValue = 0;
+      let targetField = null;
+
+      // For 'won' proposals, use created_date and contract_value as suggested by the outline
+      if (p?.status === 'won' && p.created_date && p.contract_value != null) {
+        const proposalDate = moment(p.created_date);
+        targetMonthKey = proposalDate.format('YYYY-MM');
+        targetValue = p.contract_value;
+        targetField = 'won';
+      }
+      // For 'submitted' proposals, retain original logic using updated_date and estimated_value
+      else if (p?.status === 'submitted' && p.updated_date && p.estimated_value != null) {
+        const proposalDate = moment(p.updated_date);
+        targetMonthKey = proposalDate.format('YYYY-MM');
+        targetValue = p.estimated_value;
+        targetField = 'submitted';
+      }
+      // For 'pipeline' proposals, retain original logic using updated_date and estimated_value
+      else if (p && ['in_progress', 'draft'].includes(p.status) && p.updated_date && p.estimated_value != null) {
+        const proposalDate = moment(p.updated_date);
+        targetMonthKey = proposalDate.format('YYYY-MM');
+        targetValue = p.estimated_value;
+        targetField = 'pipeline';
+      }
+
+      // Aggregate value if the month key exists in our initialized dataMap (i.e., it's within the last 6 months)
+      if (targetMonthKey && targetField && dataMap[targetMonthKey]) {
+        dataMap[targetMonthKey][targetField] += targetValue;
+      }
     });
 
-    // Calculate won and submitted values (in thousands)
-    const wonValue = monthProposals
-      .filter(p => p?.status === 'won' && p.contract_value)
-      .reduce((sum, p) => sum + (p.contract_value || 0), 0) / 1000;
+    // Convert aggregated values to thousands and round them
+    const result = Object.values(dataMap).map(item => ({
+      month: item.month,
+      won: Math.round(item.won / 1000),
+      submitted: Math.round(item.submitted / 1000),
+      pipeline: Math.round(item.pipeline / 1000),
+      _sortKey: item._sortKey
+    }));
 
-    const submittedValue = monthProposals
-      .filter(p => p?.status === 'submitted' && p.estimated_value)
-      .reduce((sum, p) => sum + (p.estimated_value || 0), 0) / 1000;
+    // Sort the months chronologically
+    return result.sort((a, b) => a._sortKey - b._sortKey);
+  }, [safeProposals]);
 
-    const pipelineValue = monthProposals
-      .filter(p => p && ['in_progress', 'draft'].includes(p.status) && p.estimated_value)
-      .reduce((sum, p) => sum + (p.estimated_value || 0), 0) / 1000;
-
-    monthlyData.push({
-      month: monthKey,
-      won: Math.round(wonValue),
-      submitted: Math.round(submittedValue),
-      pipeline: Math.round(pipelineValue)
-    });
-  }
-
-  // Calculate totals and trends
+  // Calculate totals and trends based on the new monthlyData
   const totalWon = monthlyData.reduce((sum, m) => sum + (m.won || 0), 0);
   const totalSubmitted = monthlyData.reduce((sum, m) => sum + (m.submitted || 0), 0);
   const totalPipeline = monthlyData.reduce((sum, m) => sum + (m.pipeline || 0), 0);
 
   const lastMonth = monthlyData[monthlyData.length - 1]?.won || 0;
   const previousMonth = monthlyData[monthlyData.length - 2]?.won || 0;
-  const trend = previousMonth > 0 ? ((lastMonth - previousMonth) / previousMonth * 100) : 0;
+  // Calculate trend, handling division by zero appropriately
+  const trend = previousMonth !== 0 ? ((lastMonth - previousMonth) / previousMonth * 100) : (lastMonth > 0 ? 100 : 0);
 
   return (
     <Card className="border-none shadow-lg">
