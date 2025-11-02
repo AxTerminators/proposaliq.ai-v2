@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -513,7 +514,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 <React.Fragment key={column.id}>
                   {/* Add Column Button - Before First Column */}
                   {index === 0 && (
-                    <div className="flex-shrink-0 flex items-start justify-center px-0.5 pt-2">
+                    <div className="flex-shrink-0 flex items-start justify-center w-3 relative" style={{ top: '-12px' }}>
                       <button
                         onClick={() => handleAddColumn(0)}
                         className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
@@ -584,7 +585,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                   )}
 
                   {/* Add Column Button - Between Columns and After Last Column */}
-                  <div className="flex-shrink-0 flex items-start justify-center px-0.5 pt-2">
+                  <div className="flex-shrink-0 flex items-start justify-center w-3 relative" style={{ top: '-12px' }}>
                     <button
                       onClick={() => handleAddColumn(index + 1)}
                       className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
