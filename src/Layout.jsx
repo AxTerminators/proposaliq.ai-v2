@@ -48,6 +48,7 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarProvider,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
   Collapsible,
@@ -115,7 +116,7 @@ export default function Layout({ children }) {
   const [organization, setOrganization] = React.useState(null);
   const [subscription, setSubscription] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  // Removed sidebarCollapsed state as it's now managed internally by SidebarProvider
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [toolsOpen, setToolsOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -231,72 +232,54 @@ export default function Layout({ children }) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
         {/* Desktop Sidebar */}
-        <Sidebar className={cn(
-          "border-r border-slate-200 bg-white hidden lg:flex transition-all duration-300",
-          sidebarCollapsed ? "w-20" : "w-64"
-        )}>
+        <Sidebar collapsible="icon" className="border-r border-slate-200 bg-white hidden lg:flex">
           <SidebarHeader className="border-b border-slate-200 p-6 relative">
-            {/* Collapse/Expand Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            {/* Collapse/Expand Button - replaced by SidebarTrigger */}
+            <SidebarTrigger 
               className="absolute -right-3 top-6 h-6 w-6 rounded-full border bg-white shadow-md hover:bg-slate-100 z-10"
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {sidebarCollapsed ? (
-                <ChevronsRight className="h-4 w-4" title="Expand" />
-              ) : (
-                <ChevronsLeft className="h-4 w-4" title="Collapse" />
-              )}
-            </Button>
+              collapsedIcon={<ChevronsRight className="h-4 w-4" title="Expand" />}
+              expandedIcon={<ChevronsLeft className="h-4 w-4" title="Collapse" />}
+              title={(isCollapsed) => isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            />
 
-            {!sidebarCollapsed && (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
-                    <p className="text-xs text-slate-500">AI-Powered Proposals</p>
-                  </div>
-                </div>
+            <div className="flex items-center gap-3 mb-4 group-data-[collapsible=icon]:hidden">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
+                <p className="text-xs text-slate-500">AI-Powered Proposals</p>
+              </div>
+            </div>
 
-                {organization && (
-                  <div className="p-3 bg-slate-50 rounded-lg">
-                    <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
-                    {organization.organization_type && (
-                      <Badge className={cn(
-                        "text-xs mt-1",
-                        organization.organization_type === 'consultancy' 
-                          ? 'bg-purple-100 text-purple-700' 
-                          : 'bg-blue-100 text-blue-700'
-                      )}>
-                        {organization.organization_type === 'consultancy' ? 'Consultant' : 'Corporate'}
-                      </Badge>
-                    )}
-                  </div>
+            <div className="flex justify-center group-data-[collapsible=icon]:block hidden">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
+              </div>
+            </div>
+
+            {organization && (
+              <div className="p-3 bg-slate-50 rounded-lg group-data-[collapsible=icon]:hidden">
+                <p className="text-sm font-medium text-slate-900 truncate">{organization.organization_name}</p>
+                {organization.organization_type && (
+                  <Badge className={cn(
+                    "text-xs mt-1",
+                    organization.organization_type === 'consultancy' 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-blue-100 text-blue-700'
+                  )}>
+                    {organization.organization_type === 'consultancy' ? 'Consultant' : 'Corporate'}
+                  </Badge>
                 )}
-              </>
-            )}
-
-            {sidebarCollapsed && (
-              <div className="flex justify-center">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-6 h-6 text-white" title="ProposalIQ.ai" />
-                </div>
               </div>
             )}
           </SidebarHeader>
 
-          <SidebarContent className={cn(sidebarCollapsed ? "px-2" : "p-3")}>
+          <SidebarContent className="p-3 group-data-[collapsible=icon]:px-2">
             <SidebarGroup>
-              {!sidebarCollapsed && (
-                <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
-                  Navigation
-                </SidebarGroupLabel>
-              )}
+              <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 group-data-[collapsible=icon]:hidden">
+                Navigation
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {navigationItems.map((item) => {
@@ -323,29 +306,26 @@ export default function Layout({ children }) {
                                 className={cn(
                                   "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
                                   (location.pathname === item.url || subItems.some(sub => location.pathname === sub.url)) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
-                                  sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
+                                  'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3 group-data-[collapsible=icon]:w-full',
+                                  'group-data-[collapsible=icon]:!gap-0 px-3' // !gap-0 to override gap-3 from the div inside
                                 )}
-                                title={sidebarCollapsed ? item.title : undefined}
+                                title={item.title}
                               >
                                 <div className={cn(
                                   "flex items-center w-full",
-                                  sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
+                                  'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:py-0',
+                                  'gap-3 py-2.5'
                                 )}>
-                                  <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} title={item.title} />
-                                  {!sidebarCollapsed && (
-                                    <>
-                                      <span className="flex-1">{item.title}</span>
-                                      <ChevronDown className={cn(
-                                        "w-4 h-4 transition-transform",
-                                        isOpen && "rotate-180"
-                                      )} title={isOpen ? "Collapse menu" : "Expand menu"} />
-                                    </>
-                                  )}
+                                  <item.icon className={cn("w-5 h-5", "group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6")} title={item.title} />
+                                  <span className="flex-1 group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                  <ChevronDown className={cn(
+                                    "w-4 h-4 transition-transform group-data-[collapsible=icon]:hidden",
+                                    isOpen && "rotate-180"
+                                  )} title={isOpen ? "Collapse menu" : "Expand menu"} />
                                 </div>
                               </SidebarMenuButton>
                             </CollapsibleTrigger>
-                            {!sidebarCollapsed && (
-                              <CollapsibleContent>
+                            <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
                                 <SidebarMenu className="ml-4 border-l-2 border-slate-200">
                                   {subItems.map((subItem) => (
                                     <SidebarMenuItem key={subItem.title}>
@@ -365,7 +345,6 @@ export default function Layout({ children }) {
                                   ))}
                                 </SidebarMenu>
                               </CollapsibleContent>
-                            )}
                           </SidebarMenuItem>
                         </Collapsible>
                       );
@@ -379,18 +358,20 @@ export default function Layout({ children }) {
                           className={cn(
                             "hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1",
                             location.pathname === item.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
-                            sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
+                            'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3 group-data-[collapsible=icon]:w-full'
                           )}
-                          title={sidebarCollapsed ? item.title : undefined}
+                          title={item.title}
                         >
                           <Link to={item.url} className={cn(
                             "flex items-center w-full",
-                            sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
+                            'group-data-[collapsible=icon]:justify-center',
+                            'gap-3 py-2.5'
                           )}>
                             <item.icon className={cn(
-                              sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
+                              "w-5 h-5",
+                              'group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6'
                             )} title={item.title} />
-                            {!sidebarCollapsed && <span>{item.title}</span>}
+                            <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -402,11 +383,9 @@ export default function Layout({ children }) {
 
             {userIsAdmin && (
               <SidebarGroup>
-                {!sidebarCollapsed && (
-                  <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
-                    Admin
-                  </SidebarGroupLabel>
-                )}
+                <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2 group-data-[collapsible=icon]:hidden">
+                  Admin
+                </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {adminItems.map((item) => (
@@ -416,18 +395,20 @@ export default function Layout({ children }) {
                           className={cn(
                             "hover:bg-red-50 hover:text-red-700 transition-all duration-200 rounded-lg mb-1",
                             location.pathname === item.url ? 'bg-red-50 text-red-700 font-medium' : 'text-slate-600',
-                            sidebarCollapsed ? 'justify-center px-2 py-3 w-full' : 'px-3'
+                            'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3 group-data-[collapsible=icon]:w-full'
                           )}
-                          title={sidebarCollapsed ? item.title : undefined}
+                          title={item.title}
                         >
                           <Link to={item.url} className={cn(
                             "flex items-center w-full",
-                            sidebarCollapsed ? 'justify-center' : 'gap-3 py-2.5'
+                            'group-data-[collapsible=icon]:justify-center',
+                            'gap-3 py-2.5'
                           )}>
                             <item.icon className={cn(
-                              sidebarCollapsed ? "w-6 h-6" : "w-5 h-5"
+                              "w-5 h-5",
+                              'group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6'
                             )} title={item.title} />
-                            {!sidebarCollapsed && <span>{item.title}</span>}
+                            <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -437,12 +418,12 @@ export default function Layout({ children }) {
               </SidebarGroup>
             )}
 
-            {subscription && !sidebarCollapsed && (
+            {subscription && (
               <SidebarGroup>
-                <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
+                <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 group-data-[collapsible=icon]:hidden">
                   Subscription
                 </SidebarGroupLabel>
-                <SidebarGroupContent>
+                <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
                   <div className="px-3 py-2 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Plan</span>
@@ -482,49 +463,47 @@ export default function Layout({ children }) {
           </SidebarContent>
 
           <SidebarFooter className="border-t border-slate-200 p-4">
-            {!sidebarCollapsed ? (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">
-                      {user?.full_name?.[0]?.toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 text-sm truncate">
-                      {user?.full_name || 'User'}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleLogout}
-                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4" title="Logout" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center justify-between gap-3 group-data-[collapsible=icon]:hidden">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                   <span className="text-white font-semibold text-sm">
                     {user?.full_name?.[0]?.toUpperCase() || 'U'}
                   </span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleLogout}
-                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-10 h-10"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" title="Logout" />
-                </Button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 text-sm truncate">
+                    {user?.full_name || 'User'}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                </div>
               </div>
-            )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" title="Logout" />
+              </Button>
+            </div>
+            
+            <div className="flex flex-col items-center gap-3 group-data-[collapsible=icon]:flex hidden">
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-semibold text-sm">
+                  {user?.full_name?.[0]?.toUpperCase() || 'U'}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-10 h-10"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" title="Logout" />
+              </Button>
+            </div>
           </SidebarFooter>
         </Sidebar>
 
@@ -740,12 +719,22 @@ export default function Layout({ children }) {
         </div>
 
         <main className={cn(
-          "flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0 transition-all duration-300",
-          sidebarCollapsed ? "lg:ml-0" : "lg:ml-0"
+          "flex-1 flex flex-col overflow-hidden pb-16 lg:pb-0"
         )}>
           <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
+                {/* Sidebar Toggle for Desktop */}
+                <div className="hidden lg:block">
+                  <SidebarTrigger
+                    asChild
+                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    collapsedIcon={<Menu className="w-6 h-6 text-slate-600" title="Menu" />}
+                    expandedIcon={<Menu className="w-6 h-6 text-slate-600" title="Menu" />}
+                    title="Toggle sidebar"
+                  />
+                </div>
+
                 {/* Mobile Menu Button */}
                 <button
                   onClick={() => setMobileMenuOpen(true)}
