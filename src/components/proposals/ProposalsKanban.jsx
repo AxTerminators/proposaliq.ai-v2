@@ -567,12 +567,12 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               className="h-8 w-8 p-0"
               title="Zoom out"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-4 h-4" title="Zoom out" />
             </Button>
             <button
               onClick={handleZoomReset}
               className="px-2 text-xs font-medium text-slate-600 hover:text-slate-900 min-w-[3rem]"
-              title="Reset zoom"
+              title="Reset zoom to 100%"
             >
               {Math.round(zoomLevel * 100)}%
             </button>
@@ -584,7 +584,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
               className="h-8 w-8 p-0"
               title="Zoom in"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-4 h-4" title="Zoom in" />
             </Button>
           </div>
 
@@ -592,8 +592,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             variant={showFilters ? "default" : "outline"}
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
+            title={showFilters ? "Hide filters" : "Show filters"}
           >
-            <Filter className="w-4 h-4 mr-2" />
+            <Filter className="w-4 h-4 mr-2" title="Filter" />
             Filters
             {activeFiltersCount > 0 && (
               <span className="ml-2 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
@@ -606,12 +607,13 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             variant="outline"
             size="sm"
             onClick={() => setShowBoardConfig(true)}
+            title="Configure board columns and settings"
           >
-            <Settings className="w-4 h-4 mr-2" />
+            <Settings className="w-4 h-4 mr-2" title="Settings" />
             Configure Board
           </Button>
-          <Button size="sm" onClick={handleCreateProposal}>
-            <Plus className="w-4 h-4 mr-2" />
+          <Button size="sm" onClick={handleCreateProposal} title="Create a new proposal">
+            <Plus className="w-4 h-4 mr-2" title="Add" />
             New Proposal
           </Button>
         </div>
@@ -627,8 +629,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
+                title="Clear all active filters"
               >
-                <X className="w-4 h-4 mr-1" />
+                <X className="w-4 h-4 mr-1" title="Clear" />
                 Clear All
               </Button>
             )}
@@ -637,18 +640,19 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" title="Search" />
               <Input
                 placeholder="Search proposals..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
+                title="Search by name, title, or solicitation number"
               />
             </div>
 
             {/* Agency Filter */}
             <Select value={filterAgency} onValueChange={setFilterAgency}>
-              <SelectTrigger>
+              <SelectTrigger title="Filter by agency">
                 <SelectValue placeholder="Filter by Agency" />
               </SelectTrigger>
               <SelectContent>
@@ -661,7 +665,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
 
             {/* Assignee Filter */}
             <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-              <SelectTrigger>
+              <SelectTrigger title="Filter by team member">
                 <SelectValue placeholder="Filter by Assignee" />
               </SelectTrigger>
               <SelectContent>
@@ -703,9 +707,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                       <button
                         onClick={() => handleAddColumn(0)}
                         className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                        title="Add new column"
+                        title="Add new column before this one"
                       >
-                        <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                        <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
                       </button>
                     </div>
                   )}
@@ -715,6 +719,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                     <div
                       className="flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow"
                       onClick={() => toggleColumnCollapse(column.id)}
+                      title={`Expand ${column.label} column`}
                     >
                       <div 
                         className="text-xs font-semibold text-slate-700 whitespace-nowrap"
@@ -725,16 +730,16 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                       <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
                         {columnProposals.length}
                       </div>
-                      <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
+                      <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" title="Expand" />
                     </div>
                   ) : (
                     <div className="flex-shrink-0 relative">
                       <button
                         onClick={() => toggleColumnCollapse(column.id)}
                         className="absolute -left-2 top-4 z-10 w-5 h-8 bg-white rounded-l-lg shadow-md flex items-center justify-center hover:bg-slate-50 transition-colors border-r"
-                        title="Collapse column"
+                        title={`Collapse ${column.label} column`}
                       >
-                        <ChevronsLeft className="w-2.5 h-2.5 text-slate-500" />
+                        <ChevronsLeft className="w-2.5 h-2.5 text-slate-500" title="Collapse" />
                       </button>
                       
                       <Droppable droppableId={column.id}>
@@ -773,9 +778,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                     <button
                       onClick={() => handleAddColumn(index + 1)}
                       className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                      title="Add new column"
+                      title="Add new column after this one"
                     >
-                      <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                      <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
                     </button>
                   </div>
                 </React.Fragment>
