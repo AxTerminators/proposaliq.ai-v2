@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -681,16 +682,12 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         </div>
       )}
 
-      <div ref={boardRef} className="relative overflow-x-auto" style={{ isolation: 'isolate' }}>
+      <div ref={boardRef} className="relative overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div 
             className="flex gap-0 pb-4"
             style={{ 
-              transform: `scale(${zoomLevel})`,
-              transformOrigin: 'top left',
-              width: `${100 / zoomLevel}%`,
-              minHeight: `${500 * zoomLevel}px`,
-              transition: 'transform 0.15s ease-out'
+              zoom: zoomLevel
             }}
           >
             {columns.map((column, index) => {
