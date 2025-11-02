@@ -11,7 +11,6 @@ import { Check, Sparkles, Zap, Crown, Building2, Shield } from "lucide-react";
 export default function PricingPage() {
   const navigate = useNavigate();
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const checkAuth = async () => {
@@ -23,25 +22,12 @@ export default function PricingPage() {
         }
       } catch (error) {
         console.error("Failed to check authentication status:", error);
+        // Don't redirect - this is a public page
         setIsSuperAdmin(false);
-      } finally {
-        setLoading(false);
       }
     };
     checkAuth();
   }, []);
-
-  // Show loading state briefly
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const plans = [
     {

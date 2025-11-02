@@ -28,7 +28,6 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const checkAuth = async () => {
@@ -41,26 +40,13 @@ export default function LandingPage() {
           setIsSuperAdmin(user?.admin_role === 'super_admin');
         }
       } catch (error) {
+        // Don't redirect - this is a public page
         setIsAuthenticated(false);
         setIsSuperAdmin(false);
-      } finally {
-        setLoading(false);
       }
     };
     checkAuth();
   }, []);
-
-  // Show loading state briefly
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
@@ -74,8 +60,17 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       {/* Super Admin Banner */}
       {isSuperAdmin && (
-        <div className="bg-red-600 text-white px-6 py-2 text-center text-sm">
+        <div className="bg-red-600 text-white px-6 py-2 text-center text-sm flex items-center justify-center gap-3">
+          <Shield className="w-4 h-4" />
           <strong>Super Admin Preview Mode</strong> - Viewing public landing page
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-white hover:text-white hover:bg-red-700 ml-2"
+            onClick={() => navigate(createPageUrl("AdminPortal") + "?tab=admin-pages")}
+          >
+            Back to Admin
+          </Button>
         </div>
       )}
 

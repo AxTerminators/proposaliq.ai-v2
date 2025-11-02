@@ -21,7 +21,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [orgData, setOrgData] = useState({
     organization_name: "",
@@ -62,38 +62,19 @@ export default function Onboarding() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // First check if authenticated
         const isAuth = await base44.auth.isAuthenticated();
+        setIsAuthenticated(isAuth);
         
-        if (!isAuth) {
-          // Not authenticated - redirect to login
-          base44.auth.redirectToLogin(createPageUrl("Onboarding"));
-          return;
+        if (isAuth) {
+          const user = await base44.auth.me();
+          setIsSuperAdmin(user?.admin_role === 'super_admin');
         }
-
-        // User is authenticated, now get their details
-        const user = await base44.auth.me();
-        setIsSuperAdmin(user?.admin_role === 'super_admin');
-        setLoading(false);
       } catch (error) {
         console.error("Auth check failed:", error);
-        setLoading(false); // Ensure loading is stopped even on error after isAuthenticated
       }
     };
     checkAuth();
   }, []);
-
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleFileUpload = async (files, entityType, entityId) => {
     for (const file of files) {
@@ -129,6 +110,12 @@ export default function Onboarding() {
   };
 
   const handleFinalSubmit = async () => {
+    if (!isAuthenticated) {
+      alert("You must be logged in to complete onboarding. Please log in first.");
+      base44.auth.redirectToLogin(createPageUrl("Onboarding"));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const createdOrg = await base44.entities.Organization.create({
@@ -209,7 +196,7 @@ export default function Onboarding() {
             <Shield className="w-5 h-5" />
             <div>
               <p className="font-semibold">Super Admin Preview Mode</p>
-              <p className="text-sm text-red-100">Viewing onboarding flow</p>
+              <p className="text-sm text-red-100">Viewing onboarding flow - form is functional</p>
             </div>
           </div>
           <Button 
@@ -219,6 +206,25 @@ export default function Onboarding() {
           >
             Back to Admin
           </Button>
+        </div>
+      )}
+
+      {!isAuthenticated && !isSuperAdmin && (
+        <div className="max-w-4xl mx-auto mb-6">
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4">
+              <p className="text-sm text-amber-900">
+                <strong>Note:</strong> You'll need to{" "}
+                <button 
+                  onClick={() => base44.auth.redirectToLogin(createPageUrl("Onboarding"))}
+                  className="underline font-semibold hover:text-amber-700"
+                >
+                  log in
+                </button>
+                {" "}to complete the onboarding process.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 

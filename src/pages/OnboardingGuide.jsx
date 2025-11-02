@@ -79,44 +79,26 @@ export default function OnboardingGuide() {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        // First check if authenticated
         const isAuth = await base44.auth.isAuthenticated();
+        setIsAuthenticated(isAuth);
         
-        if (!isAuth) {
-          // Not authenticated - redirect to login
-          base44.auth.redirectToLogin(createPageUrl("OnboardingGuide"));
-          return;
+        if (isAuth) {
+          const currentUser = await base44.auth.me();
+          setUser(currentUser);
+          setIsSuperAdmin(currentUser?.admin_role === 'super_admin');
         }
-
-        // User is authenticated, now get their details
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        setIsSuperAdmin(currentUser?.admin_role === 'super_admin');
-        setLoading(false);
       } catch (error) {
         console.error("Auth check failed:", error);
-        setLoading(false); // Ensure loading is set to false even on error
+        // Don't redirect - allow page to load for everyone
       }
     };
     loadUser();
   }, []);
-
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length) {
@@ -131,6 +113,12 @@ export default function OnboardingGuide() {
   };
 
   const handleSkipGuide = async () => {
+    if (!isAuthenticated) {
+      alert("Please log in to continue.");
+      base44.auth.redirectToLogin(createPageUrl("Dashboard"));
+      return;
+    }
+
     try {
       await base44.auth.updateMe({
         onboarding_guide_completed: true
@@ -138,10 +126,17 @@ export default function OnboardingGuide() {
       navigate(createPageUrl("Dashboard"));
     } catch (error) {
       console.error("Error updating user:", error);
+      alert("There was an error skipping the guide. Please try again.");
     }
   };
 
   const handleClearSampleData = async () => {
+    if (!isAuthenticated) {
+      alert("Please log in to continue.");
+      base44.auth.redirectToLogin(createPageUrl("Onboarding"));
+      return;
+    }
+
     setIsClearing(true);
     try {
       // Call backend function to clear all sample data
