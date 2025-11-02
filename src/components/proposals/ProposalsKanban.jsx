@@ -57,6 +57,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [dragOverColumnId, setDragOverColumnId] = useState(null);
 
   // Fetch kanban config
   const { data: kanbanConfig } = useQuery({
@@ -223,7 +224,22 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     },
   });
 
+  const handleDragStart = (start) => {
+    // Track when drag starts
+  };
+
+  const handleDragUpdate = (update) => {
+    // Track which column is being dragged over
+    if (update.destination) {
+      setDragOverColumnId(update.destination.droppableId);
+    } else {
+      setDragOverColumnId(null);
+    }
+  };
+
   const handleDragEnd = async (result) => {
+    setDragOverColumnId(null);
+    
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
@@ -249,25 +265,44 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     const movedProposal = proposals.find(p => p.id === draggableId);
     
     if (source.droppableId === destination.droppableId) {
-      reorderedProposals.splice(source.index, 1);
+      // Find the index of the moved proposal in the current list
+      const originalIndexInColumn = reorderedProposals.findIndex(p => p.id === draggableId);
+      if (originalIndexInColumn !== -1) {
+        reorderedProposals.splice(originalIndexInColumn, 1);
+      }
     }
+    
+    // Insert the moved proposal at the destination index
     reorderedProposals.splice(destination.index, 0, movedProposal);
 
-    updates.manual_order = destination.index;
+    // Update manual_order for all proposals in the destination column
+    // This part of the logic needs to be careful to avoid unnecessary updates and ensure consistency.
+    // For simplicity, we'll iterate through all affected proposals.
 
+    // First, update the dropped proposal
     await updateProposalMutation.mutateAsync({ 
       proposalId: draggableId, 
-      updates 
+      updates: { ...updates, manual_order: destination.index } 
     });
 
+    // Then, update the manual_order for other proposals in the destination column
+    // This is crucial to maintain correct ordering after the drag
+    const updatesToBatch = [];
     for (let i = 0; i < reorderedProposals.length; i++) {
-      if (reorderedProposals[i].id !== draggableId) {
-        await updateProposalMutation.mutateAsync({
+      if (reorderedProposals[i].id !== draggableId && reorderedProposals[i].manual_order !== i) {
+        updatesToBatch.push({
           proposalId: reorderedProposals[i].id,
           updates: { manual_order: i }
         });
       }
     }
+
+    // Execute batched updates if any
+    if (updatesToBatch.length > 0) {
+      await Promise.all(updatesToBatch.map(item => updateProposalMutation.mutateAsync(item)));
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Invalidate after all updates
   };
 
   const handleCardClick = (proposal) => {
@@ -319,6 +354,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     const proposalsInColumn = proposals.filter(p => p.custom_workflow_stage_id === columnId);
     
     if (proposalsInColumn.length > 0) {
+      alert(`Cannot delete column "${columnToDelete.label}" because it contains ${proposalsInColumn.length} proposals. Please move them to another column first.`);
       return;
     }
 
@@ -511,7 +547,11 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       {/* Kanban Board - Scrollable */}
       <div className="flex-1 overflow-hidden">
         <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible px-6">
-          <DragDropContext onDragEnd={handleDragEnd}>
+          <DragDropContext 
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+            onDragUpdate={handleDragUpdate}
+          >
             <div 
               className="flex gap-0 pb-4 pt-4 h-full"
               style={{ 
@@ -523,6 +563,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 const isCollapsed = effectiveCollapsedColumns.includes(column.id);
                 const columnProposals = getProposalsForColumn(column);
                 const columnSort = columnSorts[column.id];
+                const dragOverColor = dragOverColumnId === column.id ? column.color : null;
 
                 return (
                   <React.Fragment key={column.id}>
@@ -570,7 +611,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                           >
                             <KanbanColumn
                               column={column}
-                              proposals={columnProposals}
+                              proposals={columnProposals.map(proposal => ({
+                                ...proposal,
+                                __dragOverColumnColor: dragOverColor
+                              }))}
                               provided={provided}
                               snapshot={snapshot}
                               onCardClick={handleCardClick}
@@ -582,6 +626,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                               onClearSort={() => handleClearColumnSort(column.id)}
                               onDeleteColumn={handleDeleteColumn}
                               onRenameColumn={handleRenameColumn}
+                              dragOverColumnColor={dragOverColor}
                             />
                           </div>
                         )}

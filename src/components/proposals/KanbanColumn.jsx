@@ -41,7 +41,8 @@ export default function KanbanColumn({
   onSortChange,
   onClearSort,
   onDeleteColumn,
-  onRenameColumn
+  onRenameColumn,
+  dragOverColumnColor
 }) {
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [deleteWarningMessage, setDeleteWarningMessage] = useState('');
@@ -294,6 +295,8 @@ export default function KanbanColumn({
                     onClick={() => onCardClick(proposal)}
                     isDragging={snapshot.isDragging}
                     organization={organization}
+                    columnColor={column.color}
+                    dragOverColumnColor={proposal.__dragOverColumnColor || dragOverColumnColor}
                   />
                 </div>
               )}

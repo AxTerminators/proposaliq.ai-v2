@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -9,9 +8,9 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"; // Kept these imports, though the Card component itself is replaced with motion.div
-import { Badge } from "@/components/ui/badge"; // Kept, though not used in the new outline
-import { Progress } from "@/components/ui/progress"; // Kept, but its usage is manual in the new outline
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,16 +36,36 @@ import {
   AlertCircle,
   Clock,
   MoreVertical,
-  Edit, // Added Edit icon
+  Edit,
   Archive,
   Trash2,
-  Building2, // Added Building2 icon
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-import { motion } from "framer-motion"; // Added framer-motion import
+import { motion } from "framer-motion";
 
-export default function KanbanCard({ proposal, onClick, isDragging, organization }) {
+// Map gradient colors to solid shadow colors
+const GRADIENT_TO_SHADOW_COLOR = {
+  'from-slate-400 to-slate-600': 'rgba(100, 116, 139, 0.4)',
+  'from-gray-400 to-gray-600': 'rgba(107, 114, 128, 0.4)',
+  'from-amber-400 to-amber-600': 'rgba(251, 191, 36, 0.4)',
+  'from-orange-400 to-orange-600': 'rgba(251, 146, 60, 0.4)',
+  'from-blue-400 to-blue-600': 'rgba(96, 165, 250, 0.4)',
+  'from-cyan-400 to-cyan-600': 'rgba(34, 211, 238, 0.4)',
+  'from-purple-400 to-purple-600': 'rgba(192, 132, 252, 0.4)',
+  'from-indigo-400 to-indigo-600': 'rgba(129, 140, 248, 0.4)',
+  'from-pink-400 to-pink-600': 'rgba(244, 114, 182, 0.4)',
+  'from-rose-400 to-rose-600': 'rgba(251, 113, 133, 0.4)',
+  'from-green-400 to-green-600': 'rgba(74, 222, 128, 0.4)',
+  'from-emerald-400 to-emerald-600': 'rgba(52, 211, 153, 0.4)',
+  'from-teal-400 to-teal-600': 'rgba(45, 212, 191, 0.4)',
+  'from-red-400 to-red-600': 'rgba(248, 113, 113, 0.4)',
+  'from-violet-400 to-violet-600': 'rgba(167, 139, 250, 0.4)',
+  'from-fuchsia-400 to-fuchsia-600': 'rgba(232, 121, 249, 0.4)',
+};
+
+export default function KanbanCard({ proposal, onClick, isDragging, organization, columnColor, dragOverColumnColor }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -70,10 +89,18 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
     'approved': 'border-green-500',
     'declined': 'border-red-500',
     'archived': 'border-gray-500',
-    'active': 'border-purple-500', // Example additional status
-    // Default color if status not found
+    'active': 'border-purple-500',
   };
 
+  // Get shadow color based on column or drag state
+  const getShadowColor = () => {
+    if (isDragging && dragOverColumnColor) {
+      return GRADIENT_TO_SHADOW_COLOR[dragOverColumnColor] || 'rgba(0, 0, 0, 0.1)';
+    }
+    return GRADIENT_TO_SHADOW_COLOR[columnColor] || 'rgba(0, 0, 0, 0.1)';
+  };
+
+  const shadowColor = getShadowColor();
 
   const updateProposalMutation = useMutation({
     mutationFn: async (updates) => {
@@ -98,13 +125,13 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
   };
 
   const handleEdit = (e) => {
-    e.stopPropagation(); // Stop propagation from the dropdown item
+    e.stopPropagation();
     const phase = proposal.current_phase || 'phase1';
     navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`);
   };
 
   const handleDeleteClick = (e) => {
-    e.stopPropagation(); // Stop propagation from the dropdown item
+    e.stopPropagation();
     setShowDeleteDialog(true);
   };
 
@@ -121,11 +148,16 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
         exit={{ opacity: 0, scale: 0.95 }}
         whileHover={{ scale: 1.02 }}
         className={cn(
-          "group relative bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-200 cursor-pointer",
+          "group relative bg-white rounded-lg transition-all duration-200 cursor-pointer",
           "border-l-4",
-          isDragging ? 'shadow-2xl rotate-2 opacity-90' : '',
+          isDragging ? 'rotate-2 opacity-90' : '',
           statusColors[proposal.status] || 'border-slate-400'
         )}
+        style={{
+          boxShadow: isDragging 
+            ? `0 20px 25px -5px ${shadowColor}, 0 10px 10px -5px ${shadowColor}`
+            : `0 4px 6px -1px ${shadowColor}, 0 2px 4px -1px ${shadowColor}`
+        }}
         onClick={onClick}
       >
         {/* Three Dots Menu - Top Right */}
@@ -151,9 +183,9 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
                 Move to Archived
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -192,7 +224,7 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
           )}
 
           {/* Progress Bar */}
-          {progressPercentage >= 0 && ( // Changed from > 0 to >= 0 to show for 0%
+          {progressPercentage >= 0 && (
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-slate-600">Progress</span>
