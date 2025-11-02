@@ -35,7 +35,6 @@ export default function ClientProposalView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("content");
-  const [adminPreviewMode, setAdminPreviewMode] = useState(false);
 
   useEffect(() => {
     const loadProposalData = async () => {
@@ -43,76 +42,9 @@ export default function ClientProposalView() {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const proposalId = urlParams.get('proposal');
-        const isAdminPreview = urlParams.get('admin_preview') === 'true';
 
-        // Check if user is super admin in preview mode
-        if (isAdminPreview && !token) { // Only attempt admin preview if no token is provided
-          try {
-            const user = await base44.auth.me();
-            const isAdmin = user && user.admin_role === 'super_admin';
-            
-            if (isAdmin) {
-              setAdminPreviewMode(true);
-              
-              // Load sample data for preview
-              // Try to get a recent client to base the preview on
-              const allClients = await base44.entities.Client.list('-created_date', 1);
-              if (allClients.length > 0) {
-                const sampleClient = allClients[0];
-                setClient(sampleClient);
-                setCurrentMember({
-                  id: 'admin-preview',
-                  member_name: 'Admin Preview',
-                  member_email: user.email,
-                  team_role: 'owner',
-                  permissions: {
-                    can_approve: true,
-                    can_comment: true,
-                    can_upload_files: true,
-                    can_invite_others: true,
-                    can_see_internal_comments: true
-                  }
-                });
-                
-                // Get a sample proposal from this client's organization
-                const proposals = await base44.entities.Proposal.filter({
-                  organization_id: sampleClient.organization_id
-                }, '-created_date', 1);
-                
-                if (proposals.length > 0) {
-                  const sampleProposal = proposals[0];
-                  setProposal(sampleProposal);
-                  
-                  // Get sections for the sample proposal
-                  const proposalSections = await base44.entities.ProposalSection.filter({ 
-                    proposal_id: sampleProposal.id 
-                  }, 'order');
-                  setSections(proposalSections);
-                  
-                  // Get organization
-                  const orgs = await base44.entities.Organization.filter({ id: sampleProposal.organization_id });
-                  if (orgs.length > 0) {
-                    setOrganization(orgs[0]);
-                  }
-                } else {
-                  setError("No proposals found in the latest client's organization to preview. Please create a proposal.");
-                }
-              } else {
-                setError("No clients found to preview. Please create a client and proposal.");
-              }
-              
-              setLoading(false);
-              return; // Exit the function as admin preview mode is handled
-            }
-          } catch (authError) {
-            console.log("User not authenticated or not a super admin for preview, falling back to client access:", authError);
-            // If authentication fails or not an admin, continue to normal token-based check
-          }
-        }
-
-        // --- Normal client access logic starts here ---
         if (!token || !proposalId) {
-          setError("Missing required parameters or invalid access link.");
+          setError("Missing required parameters");
           setLoading(false);
           return;
         }
@@ -127,7 +59,7 @@ export default function ClientProposalView() {
         if (clients.length > 0) {
           clientData = clients[0];
           memberData = {
-            id: 'primary', // Primary client is represented with a generic ID
+            id: 'primary',
             member_name: clientData.contact_name,
             member_email: clientData.contact_email,
             team_role: 'owner',
@@ -148,7 +80,7 @@ export default function ClientProposalView() {
         }
 
         if (!clientData) {
-          setError("Invalid or expired access token.");
+          setError("Invalid access token");
           setLoading(false);
           return;
         }
@@ -156,16 +88,16 @@ export default function ClientProposalView() {
         // Get proposal
         const proposals = await base44.entities.Proposal.filter({ id: proposalId });
         if (proposals.length === 0) {
-          setError("Proposal not found.");
+          setError("Proposal not found");
           setLoading(false);
           return;
         }
 
         const proposalData = proposals[0];
 
-        // Verify access for normal client view
+        // Verify access
         if (!proposalData.shared_with_client_ids?.includes(clientData.id) || !proposalData.client_view_enabled) {
-          setError("You don't have access to this proposal, or it's not enabled for client view.");
+          setError("You don't have access to this proposal");
           setLoading(false);
           return;
         }
@@ -193,7 +125,7 @@ export default function ClientProposalView() {
         setLoading(false);
       } catch (err) {
         console.error("Error loading proposal:", err);
-        setError("Failed to load proposal. Please try again later.");
+        setError("Failed to load proposal");
         setLoading(false);
       }
     };
@@ -219,36 +151,12 @@ export default function ClientProposalView() {
           <CardContent className="p-8 text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Error</h2>
             <p className="text-slate-600 mb-6">{error}</p>
-            {!adminPreviewMode && (
-              <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token') || ''}`}>
-                <Button>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Portal
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Handle cases where client, proposal, or currentMember might still be null after loading (e.g. specific preview errors)
-  if (!client || !proposal || !currentMember) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-6">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Error</h2>
-            <p className="text-slate-600 mb-6">Could not load all necessary data for the proposal view.</p>
-            {!adminPreviewMode && (
-              <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token') || ''}`}>
-                <Button>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Portal
-                </Button>
-              </Link>
-            )}
+            <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token')}`}>
+              <Button>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Portal
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -275,20 +183,12 @@ export default function ClientProposalView() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {!adminPreviewMode && (
-                <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token')}`}>
-                  <Button variant="ghost" className="text-white hover:bg-white/20">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Portal
-                  </Button>
-                </Link>
-              )}
-              {adminPreviewMode && (
-                 <Button variant="ghost" className="text-white hover:bg-white/20">
-                   <ArrowLeft className="w-4 h-4 mr-2" />
-                   Admin Preview Mode
-                 </Button>
-              )}
+              <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token')}`}>
+                <Button variant="ghost" className="text-white hover:bg-white/20">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Portal
+                </Button>
+              </Link>
               {branding.logo_url && (
                 <img 
                   src={branding.logo_url} 
@@ -449,7 +349,7 @@ export default function ClientProposalView() {
       </div>
 
       {/* Floating Feedback Button */}
-      {client && proposal && !adminPreviewMode && <FloatingFeedbackButton clientId={client.id} proposalId={proposal.id} />}
+      {client && proposal && <FloatingFeedbackButton clientId={client.id} proposalId={proposal.id} />}
     </div>
   );
 }

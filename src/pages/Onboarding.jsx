@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, Upload, Plus, X, Building2, Users, Briefcase, Shield } from "lucide-react";
+import { Sparkles, Upload, Plus, X, Building2, Users, Briefcase } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
@@ -20,9 +20,6 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
   
   const [orgData, setOrgData] = useState({
     organization_name: "",
@@ -38,7 +35,7 @@ export default function Onboarding() {
     certifications: [],
     is_primary: true,
     onboarding_completed: false,
-    is_sample_data: false 
+    is_sample_data: false // Added this line
   });
 
   const [newNaics, setNewNaics] = useState("");
@@ -60,39 +57,6 @@ export default function Onboarding() {
     certifications: []
   });
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const isAuth = await base44.auth.isAuthenticated();
-        setIsAuthenticated(isAuth);
-        
-        if (isAuth) {
-          const user = await base44.auth.me();
-          setIsSuperAdmin(user?.admin_role === 'super_admin');
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-        // Don't redirect - allow page to load for everyone
-      } finally {
-        // CRITICAL: Always set loading to false
-        setLoading(false);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   const handleFileUpload = async (files, entityType, entityId) => {
     for (const file of files) {
       try {
@@ -106,7 +70,7 @@ export default function Onboarding() {
           file_url: file_url,
           file_size: file.size,
           entity_type: entityType,
-          is_sample_data: false 
+          is_sample_data: false // Added this line
         });
         
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
@@ -127,18 +91,12 @@ export default function Onboarding() {
   };
 
   const handleFinalSubmit = async () => {
-    if (!isAuthenticated) {
-      alert("You must be logged in to complete onboarding. Please log in first.");
-      base44.auth.redirectToLogin(createPageUrl("Onboarding"));
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const createdOrg = await base44.entities.Organization.create({
         ...orgData,
         onboarding_completed: true,
-        is_sample_data: false 
+        is_sample_data: false // Added this line
       });
 
       const subscriptionData = {
@@ -163,7 +121,7 @@ export default function Onboarding() {
         await base44.entities.TeamingPartner.create({
           ...partner,
           organization_id: createdOrg.id,
-          is_sample_data: false 
+          is_sample_data: false // Added this line
         });
       }
 
@@ -206,52 +164,13 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      {/* Super Admin Banner */}
-      {isSuperAdmin && (
-        <div className="bg-red-600 text-white px-6 py-3 mb-6 rounded-lg flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5" />
-            <div>
-              <p className="font-semibold">Super Admin Preview Mode</p>
-              <p className="text-sm text-red-100">Viewing onboarding flow - form is functional</p>
-            </div>
-          </div>
-          <Button 
-            size="sm" 
-            className="bg-white text-red-600 hover:bg-red-50"
-            onClick={() => navigate(createPageUrl("AdminPortal") + "?tab=admin-pages")}
-          >
-            Back to Admin
-          </Button>
-        </div>
-      )}
-
-      {!isAuthenticated && !isSuperAdmin && (
-        <div className="max-w-4xl mx-auto mb-6">
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="p-4">
-              <p className="text-sm text-amber-900">
-                <strong>Note:</strong> You'll need to{" "}
-                <button 
-                  onClick={() => base44.auth.redirectToLogin(createPageUrl("Onboarding"))}
-                  className="underline font-semibold hover:text-amber-700"
-                >
-                  log in
-                </button>
-                {" "}to complete the onboarding process.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-4">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Set Up Your Organization</h1>
-          <p className="text-slate-600">Create your real organization profile to get started</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Set Up Your Organization</h1> {/* Changed title */}
+          <p className="text-slate-600">Create your real organization profile to get started</p> {/* Changed description */}
         </div>
 
         <div className="mb-8">

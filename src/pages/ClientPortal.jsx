@@ -13,8 +13,7 @@ import {
   CheckCircle2,
   MessageSquare,
   LogOut,
-  Home,
-  Shield
+  Home
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,59 +33,12 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [adminPreviewMode, setAdminPreviewMode] = useState(false);
 
   useEffect(() => {
     const loadClientData = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
-        const isAdminPreview = urlParams.get('admin_preview') === 'true';
-
-        // Check if user is super admin
-        try {
-          const user = await base44.auth.me();
-          const isAdmin = user && user.admin_role === 'super_admin';
-          setIsSuperAdmin(isAdmin);
-
-          // If super admin with admin_preview flag and no token, show in preview mode
-          if (isAdmin && isAdminPreview && !token) {
-            setAdminPreviewMode(true);
-            // Load a sample client for preview purposes
-            const allClients = await base44.entities.Client.list('-created_date', 1);
-            if (allClients.length > 0) {
-              const sampleClient = allClients[0];
-              setClient(sampleClient);
-              setCurrentMember({
-                id: 'admin-preview',
-                member_name: 'Admin Preview',
-                member_email: user.email,
-                team_role: 'owner',
-                permissions: {
-                  can_approve: true,
-                  can_comment: true,
-                  can_upload_files: true,
-                  can_invite_others: true,
-                  can_see_internal_comments: true
-                }
-              });
-              
-              // Get organization
-              const orgs = await base44.entities.Organization.filter({ id: sampleClient.organization_id });
-              if (orgs.length > 0) {
-                setOrganization(orgs[0]);
-              }
-            } else {
-              setError("No clients found to preview.");
-            }
-            setLoading(false);
-            return;
-          }
-        } catch (authError) {
-          console.log("User not authenticated or not admin:", authError);
-          // Continue with token-based authentication below
-        }
 
         if (!token) {
           setError("No access token provided");
@@ -174,27 +126,6 @@ export default function ClientPortal() {
     );
   }
 
-  // If in admin preview mode and no client was found to preview
-  if (adminPreviewMode && !client) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-6">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-red-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Admin Preview Unavailable</h2>
-            <p className="text-slate-600 mb-6">{error || "No client data found for preview. Please create a client first."}</p>
-            <Link to={createPageUrl("AdminPortal") + "?tab=admin-pages"}>
-              <Button>Back to Admin</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-6">
@@ -218,28 +149,8 @@ export default function ClientPortal() {
   const branding = client.custom_branding || {};
   const primaryColor = branding.primary_color || "#2563eb";
 
-  // Admin preview mode banner
-  const AdminBanner = () => (
-    <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <Shield className="w-5 h-5" />
-        <div>
-          <p className="font-semibold">Super Admin Preview Mode</p>
-          <p className="text-sm text-red-100">Viewing as: {client?.client_name || 'Sample Client'}</p>
-        </div>
-      </div>
-      <Link to={createPageUrl("AdminPortal") + "?tab=admin-pages"}>
-        <Button size="sm" className="bg-white text-red-600 hover:bg-red-50">
-          Back to Admin
-        </Button>
-      </Link>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {adminPreviewMode && <AdminBanner />}
-      
       {/* Custom CSS if provided */}
       {branding.custom_css && (
         <style dangerouslySetInnerHTML={{ __html: branding.custom_css }} />
@@ -249,7 +160,7 @@ export default function ClientPortal() {
       <header
         className="border-b bg-white shadow-sm"
         style={{
-          background: adminPreviewMode ? '#e5e7eb' : `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
+          background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
@@ -262,7 +173,7 @@ export default function ClientPortal() {
                   className="h-10 object-contain bg-white/10 backdrop-blur rounded px-2"
                 />
               )}
-              <div className={adminPreviewMode ? "text-slate-900" : "text-white"}>
+              <div className="text-white">
                 <h1 className="text-xl font-bold">
                   {branding.company_name || client.client_organization || 'Client Portal'}
                 </h1>
@@ -272,7 +183,7 @@ export default function ClientPortal() {
 
             <div className="flex items-center gap-3">
               <ClientNotificationCenter client={client} />
-              <Badge className={adminPreviewMode ? "bg-slate-200 text-slate-900" : "bg-white/20 text-white backdrop-blur"}>
+              <Badge className="bg-white/20 text-white backdrop-blur">
                 {currentMember.team_role === 'owner' ? 'Owner' :
                  currentMember.team_role === 'approver' ? 'Approver' :
                  currentMember.team_role === 'reviewer' ? 'Reviewer' : 'Observer'}
@@ -280,15 +191,9 @@ export default function ClientPortal() {
             </div>
           </div>
 
-          {branding.welcome_message && !adminPreviewMode && (
+          {branding.welcome_message && (
             <div className="mt-3 p-3 bg-white/20 backdrop-blur rounded text-sm text-white">
               {branding.welcome_message}
-            </div>
-          )}
-          
-          {adminPreviewMode && (
-            <div className="mt-3 p-3 bg-amber-100 rounded text-sm text-amber-900">
-              <strong>Preview Mode:</strong> This is how the client portal appears to {client?.client_name || 'the client'}. All data shown is real but interactions are read-only.
             </div>
           )}
         </div>
@@ -356,8 +261,8 @@ export default function ClientPortal() {
         </Tabs>
       </div>
 
-      {/* Floating Feedback Button - only show if not admin preview */}
-      {!adminPreviewMode && client && <FloatingFeedbackButton clientId={client.id} />}
+      {/* Floating Feedback Button */}
+      <FloatingFeedbackButton clientId={client.id} />
     </div>
   );
 }
