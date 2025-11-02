@@ -300,10 +300,10 @@ Generate the content now:`;
     setCanvasScale(scale);
   };
 
-  const handleSaveConfiguration = (nodeId, config) => {
+  const handleSaveConfiguration = (nodeId, updatedData) => {
     updateNodeMutation.mutate({
       id: nodeId,
-      data: { data: JSON.stringify(config) }
+      data: { data: updatedData }
     });
     setShowConfigSidebar(false);
   };
