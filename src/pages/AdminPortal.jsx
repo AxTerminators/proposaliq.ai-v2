@@ -50,7 +50,11 @@ import AdminPagesModule from "../components/admin/AdminPagesModule"; // Added th
 export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+
+  // Get initial tab from URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialTab = urlParams.get('tab') || 'overview';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
     const loadUser = async () => {

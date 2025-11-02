@@ -94,6 +94,7 @@ const ALL_NAVIGATION_ITEMS = [
 
 const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
+  { title: "Admin Pages", url: createPageUrl("AdminPortal") + "?tab=admin-pages", icon: FileText },
 ];
 
 export default function Layout({ children }) {
