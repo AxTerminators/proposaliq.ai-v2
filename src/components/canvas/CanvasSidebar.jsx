@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Bot, BookTemplate, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { FileText, Bot, BookTemplate, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -41,7 +41,6 @@ export default function CanvasSidebar({
 
   return (
     <div className="w-80 h-full bg-white border-r-2 border-slate-200 flex flex-col">
-      {/* Header */}
       <div className="p-4 border-b-2 border-slate-200 flex items-center justify-between">
         <h3 className="font-bold text-lg text-slate-800">Canvas Library</h3>
         <Button
@@ -53,7 +52,6 @@ export default function CanvasSidebar({
         </Button>
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-3 m-4 mb-0">
           <TabsTrigger value="documents">
@@ -70,7 +68,6 @@ export default function CanvasSidebar({
           </TabsTrigger>
         </TabsList>
 
-        {/* Documents Tab */}
         <TabsContent value="documents" className="flex-1 overflow-hidden m-0 p-4">
           <ScrollArea className="h-full">
             <div className="space-y-2">
@@ -82,14 +79,7 @@ export default function CanvasSidebar({
                 documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="neuro-card p-3 cursor-pointer hover:shadow-lg transition-shadow"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/json', JSON.stringify({
-                        type: 'document',
-                        data: doc
-                      }));
-                    }}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
                     onClick={() => onAddNode && onAddNode('document', { document_id: doc.id, name: doc.file_name })}
                   >
                     <div className="flex items-start gap-2">
@@ -110,7 +100,6 @@ export default function CanvasSidebar({
           </ScrollArea>
         </TabsContent>
 
-        {/* AI Sessions Tab */}
         <TabsContent value="sessions" className="flex-1 overflow-hidden m-0 p-4">
           <ScrollArea className="h-full">
             <div className="space-y-2">
@@ -122,14 +111,7 @@ export default function CanvasSidebar({
                 sessions.map((session) => (
                   <div
                     key={session.id}
-                    className="neuro-card p-3 cursor-pointer hover:shadow-lg transition-shadow"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/json', JSON.stringify({
-                        type: 'ai_session',
-                        data: session
-                      }));
-                    }}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
                     onClick={() => onAddNode && onAddNode('ai_agent', { session_id: session.id, name: session.name || 'AI Session' })}
                   >
                     <div className="flex items-start gap-2">
@@ -150,7 +132,6 @@ export default function CanvasSidebar({
           </ScrollArea>
         </TabsContent>
 
-        {/* Templates Tab */}
         <TabsContent value="templates" className="flex-1 overflow-hidden m-0 p-4">
           <ScrollArea className="h-full">
             <div className="space-y-2">
@@ -162,14 +143,7 @@ export default function CanvasSidebar({
                 templates.map((template) => (
                   <div
                     key={template.id}
-                    className="neuro-card p-3 cursor-pointer hover:shadow-lg transition-shadow"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/json', JSON.stringify({
-                        type: 'template',
-                        data: template
-                      }));
-                    }}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
                     onClick={() => onAddNode && onAddNode('ai_agent', { 
                       name: template.name,
                       session: {
