@@ -703,13 +703,13 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 <React.Fragment key={column.id}>
                   {/* Add Column Button - Before First Column */}
                   {index === 0 && (
-                    <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
+                    <div className="flex-shrink-0 flex items-start justify-center px-0.5 pt-2">
                       <button
                         onClick={() => handleAddColumn(0)}
-                        className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
+                        className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                         title="Add new column before this one"
                       >
-                        <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
+                        <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
                       </button>
                     </div>
                   )}
@@ -774,13 +774,13 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                   )}
 
                   {/* Add Column Button - Between Columns and After Last Column */}
-                  <div className="flex-shrink-0 flex items-start justify-center px-1 pt-4">
+                  <div className="flex-shrink-0 flex items-start justify-center px-0.5 pt-2">
                     <button
                       onClick={() => handleAddColumn(index + 1)}
-                      className="w-8 h-8 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
+                      className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                       title="Add new column after this one"
                     >
-                      <Plus className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
+                      <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
                     </button>
                   </div>
                 </React.Fragment>
