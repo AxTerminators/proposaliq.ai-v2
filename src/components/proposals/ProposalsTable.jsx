@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -24,6 +23,18 @@ const statusConfig = {
   archived: { label: "Archived", color: "bg-slate-100 text-slate-500" }
 };
 
+// Format currency
+const formatCurrency = (value) => {
+  if (!value) return '-';
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  } else {
+    return `$${value.toLocaleString()}`;
+  }
+};
+
 export default function ProposalsTable({ proposals }) {
   const navigate = useNavigate();
 
@@ -46,6 +57,7 @@ export default function ProposalsTable({ proposals }) {
             <TableHead className="font-semibold">Agency</TableHead>
             <TableHead className="font-semibold">Solicitation #</TableHead>
             <TableHead className="font-semibold">Due Date</TableHead>
+            <TableHead className="font-semibold">Contract Value</TableHead>
             <TableHead className="font-semibold">Status</TableHead>
             <TableHead className="font-semibold">Match Score</TableHead>
             <TableHead className="font-semibold">Type</TableHead>
@@ -65,6 +77,11 @@ export default function ProposalsTable({ proposals }) {
                 {proposal.due_date 
                   ? new Date(proposal.due_date).toLocaleDateString() 
                   : '-'}
+              </TableCell>
+              <TableCell>
+                <span className="font-semibold text-green-700">
+                  {formatCurrency(proposal.contract_value)}
+                </span>
               </TableCell>
               <TableCell>
                 <Badge className={statusConfig[proposal.status]?.color}>
