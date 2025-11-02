@@ -270,9 +270,9 @@ export default function KanbanColumn({
             </div>
           </div>
           
-          {/* Total Contract Value - Positioned in center between title and badge */}
+          {/* Total Contract Value - Positioned on the right side near the badge */}
           {totalContractValue > 0 && !isEditing && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
+            <div className="absolute top-1/2 right-16 -translate-y-1/2 flex items-center gap-1">
               <span className="text-xs font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
                 {formatCurrency(totalContractValue)}
               </span>
