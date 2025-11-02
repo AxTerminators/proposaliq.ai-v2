@@ -38,7 +38,6 @@ export default function CanvasNode({
   const Icon = nodeIcons[node.node_type] || Grid;
   const color = node.color || nodeColors[node.node_type] || '#667eea';
 
-  // Convert hex to rgba for gradient
   const hexToRgba = (hex, alpha) => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -47,7 +46,6 @@ export default function CanvasNode({
   };
 
   const handleMouseDown = (e) => {
-    // Check if the target is any action button
     if (e.target.closest('.node-action')) {
       return;
     }
@@ -98,30 +96,30 @@ export default function CanvasNode({
       }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}
-      className={`neuro-card p-4 transition-shadow ${
+      className={`bg-white rounded-xl border-2 shadow-lg p-4 transition-shadow ${
         isSelected ? 'ring-2 ring-offset-2' : ''
       } ${isConnecting ? 'ring-2 ring-blue-400' : ''}`}
     >
       {/* Delete Button */}
       <button
-        className="node-action absolute -top-2 -right-2 neuro-button rounded-full p-1 hover:scale-110 transition-transform"
+        className="node-action absolute -top-2 -right-2 bg-white border-2 border-slate-200 rounded-full p-1 hover:scale-110 transition-transform shadow-md"
         onClick={handleDelete}
         onMouseDown={(e) => {
           e.stopPropagation();
           e.preventDefault();
         }}
         title="Delete node"
-        style={{ background: '#e0e0e0', zIndex: 20 }}
+        style={{ zIndex: 20 }}
       >
         <X className="w-3 h-3" style={{ color: '#991b1b' }} />
       </button>
 
       {/* Resize Handle - Bottom Right */}
       <div
-        className="node-action absolute -bottom-2 -right-2 neuro-button rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize"
+        className="node-action absolute -bottom-2 -right-2 bg-white border-2 border-slate-200 rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize shadow-md"
         onMouseDown={handleResizeStart}
         title="Resize node"
-        style={{ background: '#e0e0e0', zIndex: 20 }}
+        style={{ zIndex: 20 }}
       >
         <Maximize2 className="w-3 h-3" style={{ color: '#667eea' }} />
       </div>
@@ -135,7 +133,7 @@ export default function CanvasNode({
         }}
       >
         <div 
-          className="neuro-card p-2 rounded-lg"
+          className="bg-white rounded-lg p-2 shadow-sm"
           style={{ background: `${color}20` }}
         >
           <Icon className="w-5 h-5" style={{ color }} />
@@ -165,7 +163,7 @@ export default function CanvasNode({
 
       {/* Data Preview */}
       {node.data && (
-        <div className="neuro-input p-2 rounded-lg">
+        <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg">
           <p className="text-xs" style={{ color: '#4a5568' }}>
             {node.data.agent_type && `Agent: ${node.data.agent_type}`}
             {node.data.document_id && `Document ID: ${node.data.document_id.slice(0, 8)}...`}
