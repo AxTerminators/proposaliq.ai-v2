@@ -204,7 +204,7 @@ export default function KanbanColumn({
                 </span>
               )}
               
-              <Badge className="bg-white/90 text-slate-900 hover:bg-white text-sm font-semibold" title={`${proposalCount} proposal${proposalCount !== 1 ? 's' : ''} in this column`}>
+              <Badge className="bg-white/40 text-white hover:bg-white/50 text-sm font-semibold backdrop-blur-sm" title={`${proposalCount} proposal${proposalCount !== 1 ? 's' : ''} in this column`}>
                 {proposalCount}
               </Badge>
               
