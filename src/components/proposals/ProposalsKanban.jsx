@@ -321,19 +321,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-    // Check if user is trying to reorder within the same column
+    
+    // Prevent reordering within the same column (we don't persist manual order yet)
     if (destination.droppableId === source.droppableId) {
-      // User is reordering within the same column
-      // Clear any active sort on this column to allow manual ordering
-      const columnId = destination.droppableId;
-      if (columnSorts[columnId]) {
-        handleClearColumnSort(columnId);
-        // Show a brief notification that sort was cleared
-        console.log(`Sort cleared for ${columnId} to enable manual ordering`);
-      }
-      // Note: We don't persist manual order yet, but clearing sort allows the drag to work
       return;
     }
 
