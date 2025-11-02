@@ -197,6 +197,13 @@ export default function KanbanColumn({
               )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Total Contract Value */}
+              {totalContractValue > 0 && !isEditing && (
+                <span className="text-xs font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
+                  {formatCurrency(totalContractValue)}
+                </span>
+              )}
+              
               <Badge className="bg-white/90 text-slate-900 hover:bg-white text-sm font-semibold" title={`${proposalCount} proposal${proposalCount !== 1 ? 's' : ''} in this column`}>
                 {proposalCount}
               </Badge>
@@ -269,15 +276,6 @@ export default function KanbanColumn({
               </DropdownMenu>
             </div>
           </div>
-          
-          {/* Total Contract Value - Positioned on the right side near the badge */}
-          {totalContractValue > 0 && !isEditing && (
-            <div className="absolute top-1/2 right-16 -translate-y-1/2 flex items-center gap-1">
-              <span className="text-xs font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
-                {formatCurrency(totalContractValue)}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Column Content */}
