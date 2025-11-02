@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createPageUrl } from "@/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils"; // Assuming cn utility is available here
 import {
   Shield,
   Users,
@@ -50,6 +51,7 @@ import AnalyticsDashboard from "./AnalyticsDashboard";
 import ErrorMonitoringDashboard from "./ErrorMonitoringDashboard";
 
 export default function AdminPortal() {
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -57,6 +59,12 @@ export default function AdminPortal() {
   const { data: sampleClients } = useQuery({
     queryKey: ['admin-sample-clients'],
     queryFn: () => base44.entities.Client.list('-created_date', 5),
+    initialData: []
+  });
+
+  const { data: sampleProposals } = useQuery({
+    queryKey: ['admin-sample-proposals'],
+    queryFn: () => base44.entities.Proposal.list('-created_date', 3),
     initialData: []
   });
 
@@ -96,6 +104,8 @@ export default function AdminPortal() {
     );
   }
 
+  const isSuperAdmin = currentUser.admin_role === 'super_admin';
+
   const modules = [
     { id: "admin-pages", label: "Admin Pages", icon: Layers, category: "navigation", component: null },
     { id: "analytics", label: "Analytics", icon: Activity, category: "analytics", component: AnalyticsDashboard },
@@ -127,7 +137,19 @@ export default function AdminPortal() {
 
   // All internal/admin pages organized by category
   const adminPages = {
-    "Client Portal Pages (Test Access)": [
+    "Client Portal Pages": [
+      {
+        name: "🔐 Client Portal (Super Admin Access)",
+        url: createPageUrl("ClientPortal") + "?superadmin=true",
+        description: "Access client portal as super admin without token - view any client",
+        isSuperAdminOnly: true
+      },
+      {
+        name: "🔐 Client Proposal View (Super Admin Access)",
+        url: createPageUrl("ClientProposalView") + "?superadmin=true",
+        description: "View client proposal interface as super admin",
+        isSuperAdminOnly: true
+      },
       ...(sampleClients && sampleClients.length > 0 ? sampleClients.map(client => ({
         name: `${client.client_name || 'Client'} - Portal Access`,
         url: createPageUrl("ClientPortal") + `?token=${client.access_token}`,
@@ -139,6 +161,26 @@ export default function AdminPortal() {
         description: "Client portal links appear here when you have clients in the system. Go to Clients page to add clients, then return here to access their portals.",
         isInfo: true
       }] : [])
+    ],
+    "Client Feedback & Surveys": [
+      {
+        name: "🔐 Client Satisfaction Survey (Super Admin Access)",
+        url: createPageUrl("ClientSatisfactionSurvey") + "?superadmin=true",
+        description: "View satisfaction survey as super admin",
+        isSuperAdminOnly: true
+      },
+      {
+        name: "🔐 Client Feedback Form (Super Admin Access)",
+        url: createPageUrl("ClientFeedbackForm") + "?superadmin=true",
+        description: "View client feedback form as super admin",
+        isSuperAdminOnly: true
+      },
+      {
+        name: "🔐 Rate Feedback (Super Admin Access)",
+        url: createPageUrl("RateFeedback") + "?superadmin=true",
+        description: "View feedback rating interface as super admin",
+        isSuperAdminOnly: true
+      }
     ],
     "User Onboarding & Setup": [
       { name: "Onboarding Flow", url: createPageUrl("Onboarding"), description: "New user onboarding wizard" },
@@ -157,9 +199,6 @@ export default function AdminPortal() {
     "Win/Loss Analysis": [
       { name: "Win/Loss Capture", url: createPageUrl("WinLossCapture"), description: "Capture win/loss data" },
       { name: "Win/Loss Insights", url: createPageUrl("WinLossInsights"), description: "Win/loss analysis and insights" }
-    ],
-    "Feedback & Rating": [
-      { name: "Rate Feedback", url: createPageUrl("RateFeedback"), description: "Rate and review feedback submissions" }
     ]
   };
 
@@ -262,6 +301,14 @@ export default function AdminPortal() {
                   <div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-2">Application Pages</h2>
                     <p className="text-slate-600">Access all internal and non-public pages for testing and management</p>
+                    {isSuperAdmin && (
+                      <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <p className="text-sm text-purple-900 font-semibold">🔐 Super Admin Access Enabled</p>
+                        <p className="text-xs text-purple-700 mt-1">
+                          You can access pages marked with 🔐 without requiring client tokens or authentication
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {Object.entries(adminPages).map(([category, pages]) => (
@@ -272,6 +319,11 @@ export default function AdminPortal() {
                       <CardContent className="p-4">
                         <div className="grid gap-3">
                           {pages.map((page, idx) => {
+                            // Hide super admin only pages if not super admin
+                            if (page.isSuperAdminOnly && !isSuperAdmin) {
+                              return null;
+                            }
+
                             if (page.isInfo) {
                               return (
                                 <div
@@ -295,15 +347,30 @@ export default function AdminPortal() {
                                 href={page.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all group"
+                                className={cn(
+                                  "flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-md transition-all group",
+                                  page.isSuperAdminOnly
+                                    ? "border-purple-300 hover:border-purple-500 bg-gradient-to-r from-purple-50 to-white"
+                                    : "border-slate-200 hover:border-blue-400"
+                                )}
                               >
                                 <div className="flex-1">
-                                  <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                  <h3 className={cn(
+                                    "font-semibold transition-colors",
+                                    page.isSuperAdminOnly
+                                      ? "text-purple-900 group-hover:text-purple-700"
+                                      : "text-slate-900 group-hover:text-blue-600"
+                                  )}>
                                     {page.name}
                                   </h3>
                                   <p className="text-sm text-slate-600 mt-1">{page.description}</p>
                                 </div>
-                                <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors ml-4" />
+                                <ExternalLink className={cn(
+                                  "w-5 h-5 transition-colors ml-4",
+                                  page.isSuperAdminOnly
+                                    ? "text-purple-400 group-hover:text-purple-600"
+                                    : "text-slate-400 group-hover:text-blue-600"
+                                )} />
                               </a>
                             );
                           })}
@@ -327,7 +394,7 @@ export default function AdminPortal() {
                           <div className="text-xs text-slate-600 space-y-1">
                             <p>• Links open in new tabs for easy testing</p>
                             <p>• Client portal links are generated from actual client records in your database</p>
-                            <p>• Super admins can access any client portal using the generated links above</p>
+                            {isSuperAdmin && <p>• 🔐 Super admin links bypass authentication for easy testing</p>}
                             <p>• To add more test clients, go to the Clients page and create new client records</p>
                           </div>
                         </div>

@@ -33,13 +33,62 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isSuperAdminMode, setIsSuperAdminMode] = useState(false);
 
   useEffect(() => {
     const loadClientData = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
+        const superadmin = urlParams.get('superadmin');
 
+        // Super Admin bypass mode
+        if (superadmin === 'true') {
+          const currentUser = await base44.auth.me();
+          if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
+            setIsSuperAdminMode(true);
+
+            // Get first available client for preview
+            const allClients = await base44.entities.Client.list('-created_date', 1);
+            if (allClients.length === 0) {
+              setError("No clients in system. Create a client first to preview this page.");
+              setLoading(false);
+              return;
+            }
+
+            const clientData = allClients[0];
+            const memberData = {
+              id: 'super-admin',
+              member_name: currentUser.full_name,
+              member_email: currentUser.email,
+              team_role: 'owner',
+              permissions: {
+                can_approve: true,
+                can_comment: true,
+                can_upload_files: true,
+                can_invite_others: true,
+                can_see_internal_comments: true
+              }
+            };
+
+            // Get organization
+            const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
+            if (orgs.length > 0) {
+              setOrganization(orgs[0]);
+            }
+
+            setClient(clientData);
+            setCurrentMember(memberData);
+            setLoading(false);
+            return; // Exit here to prevent normal token flow
+          } else {
+            setError("Super admin access denied. You must be a super admin to use this mode.");
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Normal token-based authentication
         if (!token) {
           setError("No access token provided");
           setLoading(false);
@@ -151,6 +200,13 @@ export default function ClientPortal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Super Admin Mode Banner */}
+      {isSuperAdminMode && client && (
+        <div className="bg-purple-600 text-white px-4 py-2 text-center text-sm font-semibold">
+          🔐 SUPER ADMIN MODE - Viewing as: {client.client_name}
+        </div>
+      )}
+
       {/* Custom CSS if provided */}
       {branding.custom_css && (
         <style dangerouslySetInnerHTML={{ __html: branding.custom_css }} />

@@ -35,6 +35,7 @@ export default function ClientProposalView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("content");
+  const [isSuperAdminMode, setIsSuperAdminMode] = useState(false);
 
   useEffect(() => {
     const loadProposalData = async () => {
@@ -42,7 +43,72 @@ export default function ClientProposalView() {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const proposalId = urlParams.get('proposal');
+        const superadmin = urlParams.get('superadmin');
 
+        // Super Admin bypass mode
+        if (superadmin === 'true') {
+          const currentUser = await base44.auth.me();
+          if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
+            setIsSuperAdminMode(true);
+
+            // Get first available client and proposal
+            const allClients = await base44.entities.Client.list('-created_date', 1);
+            if (allClients.length === 0) {
+              setError("No clients in system. Create a client first to preview this page.");
+              setLoading(false);
+              return;
+            }
+
+            const clientData = allClients[0];
+            const allProposals = await base44.entities.Proposal.list('-created_date', 1);
+            
+            if (allProposals.length === 0) {
+              setError("No proposals in system. Create a proposal first to preview this page.");
+              setLoading(false);
+              return;
+            }
+
+            const proposalData = allProposals[0];
+
+            const memberData = {
+              id: 'super-admin',
+              member_name: currentUser.full_name,
+              member_email: currentUser.email,
+              team_role: 'owner',
+              permissions: {
+                can_approve: true,
+                can_comment: true,
+                can_upload_files: true,
+                can_invite_others: true,
+                can_see_internal_comments: true
+              }
+            };
+
+            // Get sections
+            const proposalSections = await base44.entities.ProposalSection.filter({ 
+              proposal_id: proposalData.id 
+            }, 'order');
+
+            // Get organization
+            const orgs = await base44.entities.Organization.filter({ id: proposalData.organization_id });
+            if (orgs.length > 0) {
+              setOrganization(orgs[0]);
+            }
+
+            setProposal(proposalData);
+            setClient(clientData);
+            setCurrentMember(memberData);
+            setSections(proposalSections);
+            setLoading(false);
+            return;
+          } else {
+            setError("Super admin access denied. You must be a super admin to use this mode.");
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Normal token-based authentication
         if (!token || !proposalId) {
           setError("Missing required parameters");
           setLoading(false);
@@ -151,12 +217,14 @@ export default function ClientProposalView() {
           <CardContent className="p-8 text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Error</h2>
             <p className="text-slate-600 mb-6">{error}</p>
-            <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token')}`}>
-              <Button>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Portal
-              </Button>
-            </Link>
+            {!isSuperAdminMode && (
+              <Link to={createPageUrl('ClientPortal') + `?token=${new URLSearchParams(window.location.search).get('token')}`}>
+                <Button>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Portal
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -168,6 +236,13 @@ export default function ClientProposalView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Super Admin Mode Banner */}
+      {isSuperAdminMode && proposal && client && (
+        <div className="bg-purple-600 text-white px-4 py-2 text-center text-sm font-semibold">
+          🔐 SUPER ADMIN MODE - Viewing: {proposal.proposal_name} for {client.client_name}
+        </div>
+      )}
+
       {/* Custom CSS */}
       {branding.custom_css && (
         <style dangerouslySetInnerHTML={{ __html: branding.custom_css }} />

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
+import {
   Star,
   CheckCircle2,
   Loader2,
@@ -25,6 +26,7 @@ export default function RateFeedback() {
   const [error, setError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuperAdminMode, setIsSuperAdminMode] = useState(false); // New state for super admin mode
 
   useEffect(() => {
     const loadFeedback = async () => {
@@ -33,7 +35,37 @@ export default function RateFeedback() {
         const urlParams = new URLSearchParams(window.location.search);
         const feedbackId = urlParams.get('id');
         const presetRating = parseInt(urlParams.get('rating')) || 0;
+        const superadmin = urlParams.get('superadmin'); // New param for super admin mode
 
+        // Super Admin bypass mode
+        if (superadmin === 'true') {
+          const currentUser = await base44.auth.me();
+          if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
+            setIsSuperAdminMode(true);
+
+            // Fetch the latest feedback item for preview
+            const allFeedback = await base44.entities.Feedback.list('-created_date', 1);
+            if (allFeedback.length === 0) {
+              setError("No feedback items in system. Create feedback first to preview.");
+              setLoading(false);
+              return;
+            }
+
+            const foundFeedback = allFeedback[0];
+            setFeedback(foundFeedback);
+            if (presetRating > 0) {
+              setRating(presetRating);
+            }
+            setLoading(false);
+            return; // Exit early if in super admin mode
+          } else {
+            setError("Super admin access denied");
+            setLoading(false);
+            return; // Exit if unauthorized for super admin mode
+          }
+        }
+
+        // Normal flow (only executes if not in super admin mode)
         if (!feedbackId) {
           setError("No feedback ID provided");
           setLoading(false);
@@ -77,6 +109,9 @@ export default function RateFeedback() {
       if (!feedback || rating === 0) {
         throw new Error("Please select a rating");
       }
+      if (isSuperAdminMode) {
+        throw new Error("Submission is disabled in Super Admin Preview Mode.");
+      }
 
       await base44.entities.Feedback.update(feedback.id, {
         user_satisfaction_rating: rating,
@@ -88,7 +123,7 @@ export default function RateFeedback() {
       setSubmitSuccess(true);
     },
     onError: (error) => {
-      alert("Error submitting rating. Please try again.");
+      alert("Error submitting rating. " + error.message);
       console.error("Rating submission error:", error);
     }
   });
@@ -97,6 +132,10 @@ export default function RateFeedback() {
     e.preventDefault();
     if (rating === 0) {
       alert("Please select a rating");
+      return;
+    }
+    if (isSuperAdminMode) {
+      alert("Submission is disabled in Super Admin Preview Mode.");
       return;
     }
 
@@ -122,6 +161,13 @@ export default function RateFeedback() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+        {isSuperAdminMode && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+            <div className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+              🔐 SUPER ADMIN MODE
+            </div>
+          </div>
+        )}
         <Card className="max-w-md w-full border-none shadow-xl">
           <CardContent className="p-8 text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -170,6 +216,13 @@ export default function RateFeedback() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      {isSuperAdminMode && (
+        <div className="max-w-2xl mx-auto mb-4">
+          <div className="bg-purple-600 text-white px-4 py-2 rounded-lg text-center text-sm font-semibold">
+            🔐 SUPER ADMIN MODE - Rating Preview (submissions disabled in preview)
+          </div>
+        </div>
+      )}
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <ThumbsUp className="w-16 h-16 text-blue-600 mx-auto mb-4" />
@@ -224,11 +277,12 @@ export default function RateFeedback() {
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
                       className="transition-transform hover:scale-110 active:scale-95"
+                      disabled={isSuperAdminMode} // Disable interaction in super admin mode
                     >
-                      <Star 
+                      <Star
                         className={`w-12 h-12 ${
-                          (hoverRating || rating) >= star 
-                            ? 'text-yellow-500 fill-yellow-500' 
+                          (hoverRating || rating) >= star
+                            ? 'text-yellow-500 fill-yellow-500'
                             : 'text-slate-300'
                         }`}
                       />
@@ -257,13 +311,14 @@ export default function RateFeedback() {
                   placeholder="Tell us more about your experience..."
                   rows={4}
                   className="resize-none"
+                  disabled={isSuperAdminMode} // Disable interaction in super admin mode
                 />
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={rating === 0 || isSubmitting}
+                disabled={rating === 0 || isSubmitting || isSuperAdminMode} // Disable button if in super admin mode
                 className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-lg"
               >
                 {isSubmitting ? (

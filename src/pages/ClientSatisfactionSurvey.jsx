@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ export default function ClientSatisfactionSurvey() {
   const [proposal, setProposal] = useState(null);
   const [client, setClient] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isSuperAdminMode, setIsSuperAdminMode] = useState(false); // New state variable
 
   const [npsScore, setNpsScore] = useState(null);
   const [csatScore, setCsatScore] = useState(null);
@@ -32,7 +34,37 @@ export default function ClientSatisfactionSurvey() {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const proposalId = urlParams.get('proposal');
+        const superadmin = urlParams.get('superadmin'); // New URL parameter
 
+        // Super Admin bypass mode
+        if (superadmin === 'true') {
+          const currentUser = await base44.auth.me();
+          if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
+            setIsSuperAdminMode(true);
+
+            // Fetch any client and proposal for preview purposes
+            // This assumes there's at least one client and proposal in the system
+            const allClients = await base44.entities.Client.list('-created_date', 1);
+            const allProposals = await base44.entities.Proposal.list('-created_date', 1);
+
+            if (allClients.length === 0 || allProposals.length === 0) {
+              setError("Need at least one client and one proposal in system to preview.");
+              setLoading(false);
+              return;
+            }
+
+            setClient(allClients[0]);
+            setProposal(allProposals[0]);
+            setLoading(false);
+            return;
+          } else {
+            setError("Super admin access denied or not authenticated as a Super Admin.");
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Normal authentication flow
         if (!token || !proposalId) {
           setError("Invalid survey link");
           setLoading(false);
@@ -161,8 +193,28 @@ export default function ClientSatisfactionSurvey() {
     );
   }
 
+  // Ensure proposal and client are loaded before rendering the survey form
+  if (!proposal || !client) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Preparing survey...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      {isSuperAdminMode && (
+        <div className="max-w-3xl mx-auto mb-4">
+          <div className="bg-purple-600 text-white px-4 py-2 rounded-lg text-center text-sm font-semibold">
+            🔐 SUPER ADMIN MODE - Survey Preview (submissions disabled in preview)
+          </div>
+        </div>
+      )}
+      
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -276,7 +328,7 @@ export default function ClientSatisfactionSurvey() {
         <div className="text-center">
           <Button
             onClick={handleSubmit}
-            disabled={submitSurveyMutation.isPending || npsScore === null || csatScore === null}
+            disabled={submitSurveyMutation.isPending || npsScore === null || csatScore === null || isSuperAdminMode}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-6 text-lg"
             size="lg"
           >

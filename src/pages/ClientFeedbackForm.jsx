@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation } from "@tanstack/react-query";
@@ -8,10 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { 
-  MessageSquare, 
-  Bug, 
-  Lightbulb, 
+import {
+  MessageSquare,
+  Bug,
+  Lightbulb,
   HelpCircle,
   Upload,
   CheckCircle2,
@@ -29,10 +30,12 @@ export default function ClientFeedbackForm() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [screenshotFile, setScreenshotFile] = useState(null);
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [isSuperAdminMode, setIsSuperAdminMode] = useState(false); // New state for super admin mode
 
   const urlParams = new URLSearchParams(window.location.search);
   const clientId = urlParams.get('client');
   const proposalId = urlParams.get('proposal');
+  const superadmin = urlParams.get('superadmin'); // Get superadmin flag from URL
   const pageUrl = urlParams.get('page_url') || window.document.referrer;
 
   const [formData, setFormData] = useState({
@@ -48,6 +51,30 @@ export default function ClientFeedbackForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Super Admin bypass mode
+        if (superadmin === 'true') {
+          const currentUser = await base44.auth.me();
+          if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
+            setIsSuperAdminMode(true);
+
+            // Fetch some default client/proposal for preview purposes if no specific ones are provided
+            // For example, load the latest one created
+            const allClients = await base44.entities.Client.list('-created_date', 1);
+            if (allClients.length > 0) {
+              setClient(allClients[0]);
+            }
+
+            const allProposals = await base44.entities.Proposal.list('-created_date', 1);
+            if (allProposals.length > 0) {
+              setProposal(allProposals[0]);
+            }
+
+            setLoading(false);
+            return; // Exit loadData early as we're in superadmin mode
+          }
+        }
+
+        // Normal flow
         // Get client
         const clients = await base44.entities.Client.filter({ id: clientId });
         if (clients.length > 0) {
@@ -69,12 +96,12 @@ export default function ClientFeedbackForm() {
       }
     };
 
-    if (clientId) {
+    if (clientId || superadmin === 'true') { // Trigger loading if clientId is present OR superadmin mode is enabled
       loadData();
     } else {
       setLoading(false);
     }
-  }, [clientId, proposalId]);
+  }, [clientId, proposalId, superadmin]); // Add superadmin to dependencies
 
   const submitFeedbackMutation = useMutation({
     mutationFn: async (data) => {
@@ -105,7 +132,7 @@ export default function ClientFeedbackForm() {
     <div style="background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%); padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0;">
       <h1 style="color: white; margin: 0; font-size: 24px;">New Client Feedback</h1>
     </div>
-    
+
     <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
       <div style="margin-bottom: 20px;">
         <span style="display: inline-block; padding: 4px 12px; background: ${
@@ -119,30 +146,30 @@ export default function ClientFeedbackForm() {
           ${data.issue_type.replace('_', ' ')}
         </span>
       </div>
-      
+
       <h2 style="color: #1f2937; font-size: 20px; margin: 20px 0 10px 0;">${data.title}</h2>
-      
+
       <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; font-size: 14px; color: #4b5563;"><strong>From Client:</strong> ${client?.contact_name || 'Unknown'} (${client?.contact_email || 'unknown'})</p>
         <p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Organization:</strong> ${client?.client_organization || 'N/A'}</p>
         ${proposal ? `<p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Related to:</strong> ${proposal.proposal_name}</p>` : ''}
         <p style="margin: 5px 0 0 0; font-size: 14px; color: #4b5563;"><strong>Page:</strong> ${data.page_url}</p>
       </div>
-      
+
       <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Feedback:</h3>
       <p style="margin: 0 0 20px 0; color: #4b5563;">${data.description}</p>
-      
+
       ${data.screenshot_url ? `
         <h3 style="color: #1f2937; font-size: 16px; margin: 20px 0 10px 0;">Screenshot:</h3>
         <img src="${data.screenshot_url}" alt="Screenshot" style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;">
       ` : ''}
-      
+
       <div style="text-align: center; margin: 30px 0;">
         <a href="https://app.proposaliq.ai/AdminPortal" style="background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
           View in Admin Portal →
         </a>
       </div>
-      
+
       <p style="font-size: 12px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
         Feedback ID: ${feedback.id}
       </p>
@@ -198,6 +225,10 @@ export default function ClientFeedbackForm() {
       alert("Please fill in the title and description");
       return;
     }
+    if (isSuperAdminMode) { // Prevent submission in super admin preview mode
+        alert("Submissions are disabled in Super Admin Preview Mode.");
+        return;
+    }
 
     submitFeedbackMutation.mutate(formData);
   };
@@ -223,9 +254,16 @@ export default function ClientFeedbackForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-6">
+      {isSuperAdminMode && (
+        <div className="max-w-4xl mx-auto mb-4">
+          <div className="bg-purple-600 text-white px-4 py-2 rounded-lg text-center text-sm font-semibold">
+            🔐 SUPER ADMIN MODE - Feedback Form Preview (submissions disabled in preview)
+          </div>
+        </div>
+      )}
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <Link 
+          <Link
             to={createPageUrl("ClientPortal") + `?token=${urlParams.get('token') || client?.access_token}`}
             className="inline-flex items-center text-purple-600 hover:text-purple-700"
           >
@@ -376,9 +414,9 @@ export default function ClientFeedbackForm() {
                 <div className="border-2 border-dashed rounded-lg p-6 text-center bg-slate-50">
                   {screenshotFile ? (
                     <div className="space-y-3">
-                      <img 
-                        src={formData.screenshot_url} 
-                        alt="Screenshot preview" 
+                      <img
+                        src={formData.screenshot_url}
+                        alt="Screenshot preview"
                         className="max-h-48 mx-auto rounded border"
                       />
                       <p className="text-sm font-medium text-slate-700">{screenshotFile.name}</p>
@@ -403,14 +441,14 @@ export default function ClientFeedbackForm() {
                         className="hidden"
                         accept="image/*"
                         onChange={handleScreenshotUpload}
-                        disabled={uploadingScreenshot}
+                        disabled={uploadingScreenshot || isSuperAdminMode} // Disable upload in super admin mode
                       />
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         asChild
-                        disabled={uploadingScreenshot}
+                        disabled={uploadingScreenshot || isSuperAdminMode} // Disable upload in super admin mode
                       >
                         <label htmlFor="screenshot-upload" className="cursor-pointer">
                           {uploadingScreenshot ? (
@@ -436,7 +474,7 @@ export default function ClientFeedbackForm() {
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="submit"
-                  disabled={submitFeedbackMutation.isPending || !formData.title || !formData.description}
+                  disabled={submitFeedbackMutation.isPending || !formData.title || !formData.description || isSuperAdminMode} // Disable if in super admin mode
                   className="bg-purple-600 hover:bg-purple-700"
                 >
                   {submitFeedbackMutation.isPending ? (
