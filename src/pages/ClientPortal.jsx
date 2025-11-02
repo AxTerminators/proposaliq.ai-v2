@@ -44,54 +44,53 @@ export default function ClientPortal() {
 
         // Super Admin bypass mode
         if (superadmin === 'true') {
-          // First check if user is authenticated
-          const isAuth = await base44.auth.isAuthenticated();
-          if (!isAuth) {
-            // Redirect to login with return URL
-            const returnUrl = window.location.href;
-            base44.auth.redirectToLogin(returnUrl);
-            return;
-          }
+          try {
+            const currentUser = await base44.auth.me();
+            
+            if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
+              setIsSuperAdminMode(true);
 
-          const currentUser = await base44.auth.me();
-          if (currentUser && currentUser.role === 'admin' && currentUser.admin_role === 'super_admin') {
-            setIsSuperAdminMode(true);
+              // Get first available client for preview
+              const allClients = await base44.entities.Client.list('-created_date', 1);
+              if (allClients.length === 0) {
+                setError("No clients in system. Create a client first to preview this page.");
+                setLoading(false);
+                return;
+              }
 
-            // Get first available client for preview
-            const allClients = await base44.entities.Client.list('-created_date', 1);
-            if (allClients.length === 0) {
-              setError("No clients in system. Create a client first to preview this page.");
+              const clientData = allClients[0];
+              const memberData = {
+                id: 'super-admin',
+                member_name: currentUser.full_name,
+                member_email: currentUser.email,
+                team_role: 'owner',
+                permissions: {
+                  can_approve: true,
+                  can_comment: true,
+                  can_upload_files: true,
+                  can_invite_others: true,
+                  can_see_internal_comments: true
+                }
+              };
+
+              // Get organization
+              const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
+              if (orgs.length > 0) {
+                setOrganization(orgs[0]);
+              }
+
+              setClient(clientData);
+              setCurrentMember(memberData);
+              setLoading(false);
+              return;
+            } else {
+              setError("Super admin access denied. You must be a super admin to use this mode.");
               setLoading(false);
               return;
             }
-
-            const clientData = allClients[0];
-            const memberData = {
-              id: 'super-admin',
-              member_name: currentUser.full_name,
-              member_email: currentUser.email,
-              team_role: 'owner',
-              permissions: {
-                can_approve: true,
-                can_comment: true,
-                can_upload_files: true,
-                can_invite_others: true,
-                can_see_internal_comments: true
-              }
-            };
-
-            // Get organization
-            const orgs = await base44.entities.Organization.filter({ id: clientData.organization_id });
-            if (orgs.length > 0) {
-              setOrganization(orgs[0]);
-            }
-
-            setClient(clientData);
-            setCurrentMember(memberData);
-            setLoading(false);
-            return; // Exit here to prevent normal token flow
-          } else {
-            setError("Super admin access denied. You must be a super admin to use this mode.");
+          } catch (authError) {
+            console.error("Authentication error in super admin mode:", authError);
+            setError("Authentication required. Please log in as a super admin.");
             setLoading(false);
             return;
           }
