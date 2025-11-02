@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createPageUrl } from "@/utils";
 import {
   Shield,
   Users,
@@ -19,7 +21,9 @@ import {
   Zap,
   BarChart3,
   Building2,
-  Calendar
+  Calendar,
+  ExternalLink,
+  Layers
 } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
@@ -85,6 +89,7 @@ export default function AdminPortal() {
   }
 
   const modules = [
+    { id: "admin-pages", label: "Admin Pages", icon: Layers, category: "navigation", component: null },
     { id: "analytics", label: "Analytics", icon: Activity, category: "analytics", component: AnalyticsDashboard },
     { id: "error-monitoring", label: "Error Monitor", icon: TrendingUp, category: "analytics", component: ErrorMonitoringDashboard },
     { id: "overview", label: "Overview", icon: BarChart3, category: "analytics", component: GlobalReportingModule },
@@ -112,7 +117,39 @@ export default function AdminPortal() {
     { id: "feedback", label: "Feedback", icon: MessageSquare, category: "support", component: FeedbackModule }
   ];
 
+  // All internal/admin pages organized by category
+  const adminPages = {
+    "Client Portal Pages": [
+      { name: "Client Portal", url: createPageUrl("ClientPortal"), description: "Main client portal access page (requires token)" },
+      { name: "Client Proposal View", url: createPageUrl("ClientProposalView"), description: "Individual proposal view for clients" },
+      { name: "Client Satisfaction Survey", url: createPageUrl("ClientSatisfactionSurvey"), description: "Post-proposal satisfaction survey" },
+      { name: "Client Feedback Form", url: createPageUrl("ClientFeedbackForm"), description: "Client feedback submission form" }
+    ],
+    "User Onboarding & Setup": [
+      { name: "Onboarding Flow", url: createPageUrl("Onboarding"), description: "New user onboarding wizard" },
+      { name: "Onboarding Guide", url: createPageUrl("OnboardingGuide"), description: "Interactive onboarding guide" },
+      { name: "Subscription Management", url: createPageUrl("Subscription"), description: "Subscription plans and billing" }
+    ],
+    "Public Pages": [
+      { name: "Landing Page", url: createPageUrl("LandingPage"), description: "Public landing page" },
+      { name: "Home", url: createPageUrl("Home"), description: "Home page" },
+      { name: "Pricing", url: createPageUrl("Pricing"), description: "Public pricing page" }
+    ],
+    "Advanced Analytics & Monitoring": [
+      { name: "Analytics Dashboard", url: createPageUrl("AnalyticsDashboard"), description: "Advanced analytics dashboard" },
+      { name: "Error Monitoring", url: createPageUrl("ErrorMonitoringDashboard"), description: "System error monitoring" }
+    ],
+    "Win/Loss Analysis": [
+      { name: "Win/Loss Capture", url: createPageUrl("WinLossCapture"), description: "Capture win/loss data" },
+      { name: "Win/Loss Insights", url: createPageUrl("WinLossInsights"), description: "Win/loss analysis and insights" }
+    ],
+    "Feedback & Rating": [
+      { name: "Rate Feedback", url: createPageUrl("RateFeedback"), description: "Rate and review feedback submissions" }
+    ]
+  };
+
   const categories = [
+    { id: "navigation", label: "Navigation", color: "purple" },
     { id: "analytics", label: "Analytics & Reporting", color: "blue" },
     { id: "management", label: "User Management", color: "purple" },
     { id: "content", label: "Content & Communication", color: "green" },
@@ -204,7 +241,70 @@ export default function AdminPortal() {
             </div>
 
             <div className="p-6">
+              {/* Admin Pages Tab */}
+              <TabsContent value="admin-pages" className="mt-0">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Application Pages</h2>
+                    <p className="text-slate-600">Access all internal and non-public pages for testing and management</p>
+                  </div>
+
+                  {Object.entries(adminPages).map(([category, pages]) => (
+                    <Card key={category} className="border-none shadow-lg">
+                      <CardHeader className="border-b bg-slate-50">
+                        <CardTitle className="text-lg font-semibold text-slate-900">{category}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="grid gap-3">
+                          {pages.map((page) => (
+                            <a
+                              key={page.name}
+                              href={page.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all group"
+                            >
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                  {page.name}
+                                </h3>
+                                <p className="text-sm text-slate-600 mt-1">{page.description}</p>
+                              </div>
+                              <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors ml-4" />
+                            </a>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  <Card className="border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Layers className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-900 mb-2">About Admin Pages</h3>
+                          <p className="text-sm text-slate-700 mb-3">
+                            This section provides direct access to all internal application pages that are not visible in the standard navigation. 
+                            Use these links to test functionality, debug issues, and manage various aspects of the platform.
+                          </p>
+                          <div className="text-xs text-slate-600 space-y-1">
+                            <p>• Links open in new tabs for easy testing</p>
+                            <p>• Some pages require specific URL parameters or authentication tokens</p>
+                            <p>• Client portal pages require valid access tokens to view</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
               {modules.map((module) => {
+                // If a module doesn't have a component (like "admin-pages"), don't render a TabsContent for it here.
+                if (!module.component) return null;
                 const Component = module.component;
                 return (
                   <TabsContent key={module.id} value={module.id} className="mt-0">
