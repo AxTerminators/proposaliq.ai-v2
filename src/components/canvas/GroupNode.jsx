@@ -47,16 +47,25 @@ export default function GroupNode({
   };
 
   const handleMouseDown = (e) => {
-    // Don't start drag if clicking on interactive elements
-    const target = e.target;
-    const isInteractive = target.closest('button') || 
-                         target.closest('input') || 
-                         target.closest('.resize-handle') ||
-                         target.tagName === 'INPUT' ||
-                         target.tagName === 'BUTTON';
+    // Only handle left mouse button
+    if (e.button !== 0) return;
     
-    if (!isInteractive && e.button === 0) {
-      e.stopPropagation();
+    const target = e.target;
+    
+    // Check if clicking on interactive elements
+    if (target.closest('button') || 
+        target.closest('input') || 
+        target.closest('.resize-handle') ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'BUTTON') {
+      return;
+    }
+    
+    // Start dragging
+    e.stopPropagation();
+    e.preventDefault(); // Prevent default browser drag behavior
+
+    if (onDragStart) {
       onDragStart(node.id, e.clientX, e.clientY, node.position_x, node.position_y);
     }
   };
@@ -109,8 +118,9 @@ export default function GroupNode({
                 onBlur={handleTitleBlur}
                 onKeyDown={handleTitleKeyDown}
                 className="px-2 py-1 text-sm flex-1 min-w-0 border border-slate-300 rounded bg-white"
-                // Removed redundant style as className covers it
+                style={{ color: '#2d3748' }} // Added style for text color
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()} // Prevent drag from starting when interacting with input
               />
             ) : (
               <h3 
@@ -131,10 +141,10 @@ export default function GroupNode({
               e.stopPropagation();
               onDelete(node.id);
             }}
+            onMouseDown={(e) => e.stopPropagation()} // Prevent drag from starting when interacting with button
             variant="ghost"
             size="sm"
             className="p-1 rounded flex-shrink-0 text-red-700 hover:bg-red-50"
-            // Removed redundant style as className covers it
           >
             <Trash2 className="w-4 h-4" />
           </Button>
@@ -169,10 +179,11 @@ export default function GroupNode({
         className="resize-handle absolute -bottom-2 -right-2 bg-white border-2 border-slate-200 rounded-full p-1 hover:scale-110 transition-transform cursor-nwse-resize shadow-md"
         onMouseDown={(e) => {
           e.stopPropagation();
+          e.preventDefault(); // Prevent default browser drag behavior
           onResizeStart(node.id, e.clientX, e.clientY, node.width || 400, node.height || 300);
         }}
         title="Resize group"
-        style={{ zIndex: 20 }} // Keep zIndex
+        style={{ zIndex: 20 }}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M10 2L2 10M10 6L6 10M10 10H6" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round"/>
