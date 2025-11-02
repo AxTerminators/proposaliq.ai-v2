@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -327,13 +326,17 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     if (destination.droppableId === source.droppableId) {
       // Get all proposals in this column
       const column = columns.find(col => col.id === destination.droppableId);
-      const columnProposals = getProposalsForColumn(column); // This list is already sorted by current criteria
-
+      const columnProposals = getProposalsForColumn(column);
+      
+      // Calculate new manual_order values
+      const movedProposal = columnProposals[source.index];
+      const newOrder = destination.index;
+      
       // Update the moved proposal's order
       updateProposalMutation.mutate({
         proposalId: draggableId,
         updates: {
-          manual_order: destination.index
+          manual_order: newOrder
         }
       });
       
@@ -344,15 +347,11 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         let adjustedOrder = idx;
         if (source.index < destination.index) {
           // Moving down: shift items up
-          // If a proposal is between the original source index and the new destination index (inclusive of destination),
-          // its order should decrease by 1.
           if (idx > source.index && idx <= destination.index) {
             adjustedOrder = idx - 1;
           }
         } else {
           // Moving up: shift items down
-          // If a proposal is between the new destination index (inclusive) and the original source index (exclusive),
-          // its order should increase by 1.
           if (idx >= destination.index && idx < source.index) {
             adjustedOrder = idx + 1;
           }
@@ -437,9 +436,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     // If no sort is active, sort by manual_order
     if (!columnSort) {
       return [...proposalsList].sort((a, b) => {
-        // Treat undefined or null manual_order as a very high number to put them at the end
-        const orderA = a.manual_order == null ? 999999 : a.manual_order;
-        const orderB = b.manual_order == null ? 999999 : b.manual_order;
+        const orderA = a.manual_order ?? 999999;
+        const orderB = b.manual_order ?? 999999;
         return orderA - orderB;
       });
     }
@@ -683,14 +681,16 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         </div>
       )}
 
-      <div ref={boardRef} className="relative overflow-x-auto">
+      <div ref={boardRef} className="relative overflow-x-auto" style={{ isolation: 'isolate' }}>
         <DragDropContext onDragEnd={handleDragEnd}>
           <div 
-            className="flex gap-0 pb-4 transition-transform duration-150 origin-top-left"
+            className="flex gap-0 pb-4"
             style={{ 
               transform: `scale(${zoomLevel})`,
+              transformOrigin: 'top left',
               width: `${100 / zoomLevel}%`,
-              minHeight: `${500 * zoomLevel}px`
+              minHeight: `${500 * zoomLevel}px`,
+              transition: 'transform 0.15s ease-out'
             }}
           >
             {columns.map((column, index) => {
