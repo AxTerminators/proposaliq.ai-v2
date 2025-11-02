@@ -638,13 +638,13 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         </div>
       )}
 
-      <div ref={boardRef} className="relative">
+      <div ref={boardRef} className="relative overflow-x-auto">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div 
-            className="flex gap-0 overflow-x-auto pb-4 transition-transform duration-150"
+            className="flex gap-0 pb-4 transition-transform duration-150 origin-top-left"
             style={{ 
               transform: `scale(${zoomLevel})`,
-              transformOrigin: 'top left',
+              width: `${100 / zoomLevel}%`,
               minHeight: `${500 * zoomLevel}px`
             }}
           >
