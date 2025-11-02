@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
 
 // Hard-locked columns that cannot be renamed at all
-const HARD_LOCKED_COLUMNS = ['evaluating', 'draft', 'in_progress', 'submitted'];
+const HARD_LOCKED_COLUMNS = ['evaluating', 'draft', 'in_progress', 'submitted', 'archived'];
 
 export default function KanbanColumn({
   column,
