@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +20,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, X, Trash2, AlertCircle } from "lucide-react";
+import { MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, X, Trash2, AlertCircle, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
+
+// Hard-locked columns that cannot be renamed at all
+const HARD_LOCKED_COLUMNS = ['evaluating', 'draft', 'in_progress', 'submitted'];
 
 export default function KanbanColumn({
   column,
@@ -35,16 +39,55 @@ export default function KanbanColumn({
   columnSort,
   onSortChange,
   onClearSort,
-  onDeleteColumn
+  onDeleteColumn,
+  onRenameColumn
 }) {
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [deleteWarningMessage, setDeleteWarningMessage] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedLabel, setEditedLabel] = useState('');
+  const inputRef = useRef(null);
   
   const proposalCount = proposals?.length || 0;
   
   // Get the column label and color
   const columnLabel = column?.label || column?.name || column?.title || column?.id || 'Untitled Column';
   const columnColor = column?.color || 'from-slate-400 to-slate-600';
+
+  // Determine if this column can be renamed
+  const isHardLocked = column.type === 'default_status' && HARD_LOCKED_COLUMNS.includes(column.id);
+  const canRename = !isHardLocked; // Custom columns and soft-locked default columns can be renamed
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleDoubleClick = () => {
+    if (canRename) {
+      setEditedLabel(columnLabel);
+      setIsEditing(true);
+    }
+  };
+
+  const handleSaveLabel = () => {
+    if (editedLabel.trim() && editedLabel !== columnLabel) {
+      if (onRenameColumn) {
+        onRenameColumn(column.id, editedLabel.trim());
+      }
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveLabel();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
 
   const getSortIcon = (sortType) => {
     if (!columnSort || columnSort.sortBy !== sortType) {
@@ -89,11 +132,38 @@ export default function KanbanColumn({
           `bg-gradient-to-r ${columnColor}`
         )}>
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="font-bold text-lg text-white drop-shadow-md">
-                {columnLabel}
-              </h3>
-              {columnSort && (
+            <div className="flex-1 min-w-0 mr-2">
+              {isEditing ? (
+                <Input
+                  ref={inputRef}
+                  value={editedLabel}
+                  onChange={(e) => setEditedLabel(e.target.value)}
+                  onBlur={handleSaveLabel}
+                  onKeyDown={handleKeyDown}
+                  className="font-bold text-lg bg-white/90 text-slate-900 border-white h-9 px-2"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h3 
+                    className={cn(
+                      "font-bold text-lg text-white drop-shadow-md",
+                      canRename && "cursor-pointer hover:opacity-80 transition-opacity"
+                    )}
+                    onDoubleClick={handleDoubleClick}
+                    title={canRename ? "Double-click to rename" : ""}
+                  >
+                    {columnLabel}
+                  </h3>
+                  {canRename && (
+                    <Edit2 
+                      className="w-3 h-3 text-white/60 hover:text-white/90 cursor-pointer transition-colors"
+                      onClick={handleDoubleClick}
+                      title="Rename column"
+                    />
+                  )}
+                </div>
+              )}
+              {columnSort && !isEditing && (
                 <div className="text-xs text-white/90 mt-1 flex items-center gap-1">
                   Sorted: {getSortLabel()}
                 </div>
@@ -142,6 +212,17 @@ export default function KanbanColumn({
                       <DropdownMenuItem onClick={onClearSort} className="text-slate-600">
                         <X className="w-4 h-4 mr-2" />
                         Clear Sort
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  
+                  {/* Rename Option - For editable columns */}
+                  {canRename && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleDoubleClick} className="text-blue-600">
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Rename Column
                       </DropdownMenuItem>
                     </>
                   )}
