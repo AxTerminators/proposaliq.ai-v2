@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -146,7 +145,7 @@ export default function Pipeline() {
   ];
 
   return (
-    <div className="p-4 lg:p-8 space-y-4 lg:space-y-6">
+    <div className="h-full flex flex-col">
       {/* Background Automation Executor */}
       <AutomationExecutor 
         organization={organization} 
@@ -154,113 +153,125 @@ export default function Pipeline() {
         automationRules={automationRules}
       />
 
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
-          <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
-        </div>
-        <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto">
-          {!isMobile && (
-            <>
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
+            <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto">
+            {!isMobile && (
+              <>
+                <Button
+                  variant={showAutomation ? "default" : "outline"}
+                  onClick={() => setShowAutomation(!showAutomation)}
+                  size="sm"
+                  title={showAutomation ? "Hide automation panel" : "Show automation panel"}
+                >
+                  <Zap className="w-4 h-4 mr-2" title="Automation" />
+                  {showAutomation ? 'Hide' : 'Show'} Automation
+                </Button>
+                <Button
+                  variant={showAnalytics ? "default" : "outline"}
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  size="sm"
+                  title={showAnalytics ? "Hide analytics panel" : "Show analytics panel"}
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" title="Analytics" />
+                  {showAnalytics ? 'Hide' : 'Show'} Analytics
+                </Button>
+              </>
+            )}
+            
+            <div className="hidden lg:flex gap-1 border rounded-lg p-1">
               <Button
-                variant={showAutomation ? "default" : "outline"}
-                onClick={() => setShowAutomation(!showAutomation)}
+                variant={viewMode === "kanban" ? "secondary" : "ghost"}
                 size="sm"
-                title={showAutomation ? "Hide automation panel" : "Show automation panel"}
+                onClick={() => setViewMode("kanban")}
+                title="Kanban board view"
               >
-                <Zap className="w-4 h-4 mr-2" title="Automation" />
-                {showAutomation ? 'Hide' : 'Show'} Automation
+                <LayoutGrid className="w-4 h-4" title="Kanban view" />
               </Button>
               <Button
-                variant={showAnalytics ? "default" : "outline"}
-                onClick={() => setShowAnalytics(!showAnalytics)}
+                variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
-                title={showAnalytics ? "Hide analytics panel" : "Show analytics panel"}
+                onClick={() => setViewMode("list")}
+                title="List view"
               >
-                <BarChart3 className="w-4 h-4 mr-2" title="Analytics" />
-                {showAnalytics ? 'Hide' : 'Show'} Analytics
+                <List className="w-4 h-4" title="List view" />
               </Button>
-            </>
-          )}
-          
-          <div className="hidden lg:flex gap-1 border rounded-lg p-1">
-            <Button
-              variant={viewMode === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("kanban")}
-              title="Kanban board view"
-            >
-              <LayoutGrid className="w-4 h-4" title="Kanban view" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              title="List view"
-            >
-              <List className="w-4 h-4" title="List view" />
-            </Button>
-            <Button
-              variant={viewMode === "table" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("table")}
-              title="Table view"
-            >
-              <Table className="w-4 h-4" title="Table view" />
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("table")}
+                title="Table view"
+              >
+                <Table className="w-4 h-4" title="Table view" />
+              </Button>
+            </div>
+            
+            <Button onClick={handleCreateProposal} className="flex-1 lg:flex-initial" size={isMobile ? "default" : "sm"} title="Create a new proposal">
+              <Plus className="w-5 h-5 mr-2" title="New proposal" />
+              New Proposal
             </Button>
           </div>
-          
-          <Button onClick={handleCreateProposal} className="flex-1 lg:flex-initial" size={isMobile ? "default" : "sm"} title="Create a new proposal">
-            <Plus className="w-5 h-5 mr-2" title="New proposal" />
-            New Proposal
-          </Button>
         </div>
       </div>
 
-      {/* Desktop: Show Automation/Analytics panels */}
-      {!isMobile && showAutomation && (
-        <div className="space-y-6">
-          <AIWorkflowSuggestions 
-            organization={organization} 
-            proposals={proposals}
-            automationRules={automationRules}
-          />
-          <SmartAutomationEngine organization={organization} />
-        </div>
-      )}
+      {/* Content Area - Flexible */}
+      <div className="flex-1 overflow-hidden">
+        {/* Desktop: Show Automation/Analytics panels */}
+        {!isMobile && showAutomation && (
+          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+            <AIWorkflowSuggestions 
+              organization={organization} 
+              proposals={proposals}
+              automationRules={automationRules}
+            />
+            <SmartAutomationEngine organization={organization} />
+          </div>
+        )}
 
-      {!isMobile && showAnalytics && (
-        <div className="space-y-6">
-          <SnapshotGenerator organization={organization} proposals={proposals} />
-          <PipelineAnalytics organization={organization} proposals={proposals} />
-        </div>
-      )}
+        {!isMobile && showAnalytics && (
+          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+            <SnapshotGenerator organization={organization} proposals={proposals} />
+            <PipelineAnalytics organization={organization} proposals={proposals} />
+          </div>
+        )}
 
-      {isLoading ? (
-        <div className="text-center py-12">
-          <Skeleton className="h-64 w-full" />
-        </div>
-      ) : (
-        <>
-          {/* Mobile View */}
-          {isMobile ? (
-            <MobileKanbanView proposals={proposals} columns={columns} />
-          ) : (
-            /* Desktop Views */
-            <>
-              {viewMode === "kanban" && (
-                <ProposalsKanban proposals={proposals} organization={organization} user={user} />
-              )}
-              {viewMode === "list" && (
-                <ProposalsList proposals={proposals} organization={organization} />
-              )}
-              {viewMode === "table" && (
-                <ProposalsTable proposals={proposals} organization={organization} />
-              )}
-            </>
-          )}
-        </>
-      )}
+        {isLoading ? (
+          <div className="text-center py-12">
+            <Skeleton className="h-64 w-full" />
+          </div>
+        ) : (
+          <>
+            {/* Mobile View */}
+            {isMobile ? (
+              <div className="p-4">
+                <MobileKanbanView proposals={proposals} columns={columns} />
+              </div>
+            ) : (
+              /* Desktop Views */
+              <>
+                {viewMode === "kanban" && (
+                  <ProposalsKanban proposals={proposals} organization={organization} user={user} />
+                )}
+                {viewMode === "list" && (
+                  <div className="p-6">
+                    <ProposalsList proposals={proposals} organization={organization} />
+                  </div>
+                )}
+                {viewMode === "table" && (
+                  <div className="p-6">
+                    <ProposalsTable proposals={proposals} organization={organization} />
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
