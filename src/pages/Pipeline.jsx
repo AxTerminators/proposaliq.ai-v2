@@ -145,7 +145,7 @@ export default function Pipeline() {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <>
       {/* Background Automation Executor */}
       <AutomationExecutor 
         organization={organization} 
@@ -154,7 +154,7 @@ export default function Pipeline() {
       />
 
       {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white w-full">
+      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
@@ -219,11 +219,11 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Content Area - Flexible and Full Width */}
-      <div className="flex-1 overflow-hidden w-full">
+      {/* Content Area - Flexible */}
+      <div className="flex-1 overflow-hidden">
         {/* Desktop: Show Automation/Analytics panels */}
         {!isMobile && showAutomation && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-full w-full">
+          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
             <AIWorkflowSuggestions 
               organization={organization} 
               proposals={proposals}
@@ -234,38 +234,36 @@ export default function Pipeline() {
         )}
 
         {!isMobile && showAnalytics && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-full w-full">
+          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
             <SnapshotGenerator organization={organization} proposals={proposals} />
             <PipelineAnalytics organization={organization} proposals={proposals} />
           </div>
         )}
 
         {isLoading ? (
-          <div className="text-center py-12 w-full">
+          <div className="text-center py-12">
             <Skeleton className="h-64 w-full" />
           </div>
         ) : (
           <>
             {/* Mobile View */}
             {isMobile ? (
-              <div className="p-4 w-full">
+              <div className="p-4">
                 <MobileKanbanView proposals={proposals} columns={columns} />
               </div>
             ) : (
               /* Desktop Views */
               <>
                 {viewMode === "kanban" && (
-                  <div className="w-full h-full">
-                    <ProposalsKanban proposals={proposals} organization={organization} user={user} />
-                  </div>
+                  <ProposalsKanban proposals={proposals} organization={organization} user={user} />
                 )}
                 {viewMode === "list" && (
-                  <div className="p-6 w-full">
+                  <div className="p-6">
                     <ProposalsList proposals={proposals} organization={organization} />
                   </div>
                 )}
                 {viewMode === "table" && (
-                  <div className="p-6 w-full">
+                  <div className="p-6">
                     <ProposalsTable proposals={proposals} organization={organization} />
                   </div>
                 )}
@@ -274,6 +272,6 @@ export default function Pipeline() {
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }
