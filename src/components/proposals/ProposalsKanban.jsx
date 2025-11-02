@@ -368,7 +368,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       {/* Header Section - Fixed */}
       <div className="flex-shrink-0 p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex gap-2">
+          <div className="flex gap-2 pl-[30px]">
             {/* Start New Proposal Button */}
             <Button
               onClick={handleCreateProposal}
