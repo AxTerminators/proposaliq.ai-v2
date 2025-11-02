@@ -143,7 +143,7 @@ export default function KanbanColumn({
 
   return (
     <>
-      <div className="flex flex-col h-full min-h-[500px]">
+      <div className="flex flex-col h-full min-h-[500px] rounded-lg overflow-hidden">
         {/* Column Header with Gradient Color */}
         <div className={cn(
           "p-4 border-b border-slate-200 relative",
