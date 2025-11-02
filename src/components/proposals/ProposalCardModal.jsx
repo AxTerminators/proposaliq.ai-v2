@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -139,7 +138,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 pr-8">
             <div className="flex-1">
               <DialogTitle className="text-2xl font-bold text-slate-900 mb-2">
                 {proposal.proposal_name}
@@ -159,7 +158,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 )}
               </div>
             </div>
-            <Button onClick={handleOpenProposal} className="flex-shrink-0">
+            <Button onClick={handleOpenProposal} className="flex-shrink-0 mt-1">
               <ExternalLink className="w-4 h-4 mr-2" />
               Open Full
             </Button>
