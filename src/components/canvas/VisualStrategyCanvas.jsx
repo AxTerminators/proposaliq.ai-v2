@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,15 +23,16 @@ export default function VisualStrategyCanvas({
   const queryClient = useQueryClient();
   const canvasRef = useRef(null);
   
-  // Canvas state
+  // Canvas state - use local state for nodes to enable optimistic updates
   const [nodes, setNodes] = useState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [showConfigSidebar, setShowConfigSidebar] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasScale, setCanvasScale] = useState(1);
+  const [pendingUpdate, setPendingUpdate] = useState(null);
 
-  // Load canvas nodes into state
+  // Sync canvasNodes prop to local state
   useEffect(() => {
     setNodes(canvasNodes);
   }, [canvasNodes]);
@@ -53,6 +53,7 @@ export default function VisualStrategyCanvas({
     mutationFn: ({ id, data }) => base44.entities.CanvasNode.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['canvas-nodes', proposalId]);
+      setPendingUpdate(null);
     }
   });
 
@@ -129,12 +130,32 @@ export default function VisualStrategyCanvas({
     });
   };
 
-  // Node manipulation handlers
+  // Optimistic node move - update local state immediately
   const handleNodeMove = (nodeId, x, y) => {
-    updateNodeMutation.mutate({
-      id: nodeId,
-      data: { position_x: x, position_y: y }
-    });
+    // Update local state immediately for responsive UI
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, position_x: x, position_y: y }
+          : node
+      )
+    );
+    
+    // Store pending update to be sent on mouse up
+    setPendingUpdate({ id: nodeId, position_x: x, position_y: y });
+  };
+
+  // When dragging ends, sync with database
+  const handleDragEnd = () => {
+    if (pendingUpdate) {
+      updateNodeMutation.mutate({
+        id: pendingUpdate.id,
+        data: { 
+          position_x: pendingUpdate.position_x, 
+          position_y: pendingUpdate.position_y 
+        }
+      });
+    }
   };
 
   const handleNodeClick = (nodeId) => {
@@ -166,11 +187,17 @@ export default function VisualStrategyCanvas({
     }
   };
 
+  // Optimistic resize
   const handleNodeResize = (nodeId, width, height) => {
-    updateNodeMutation.mutate({
-      id: nodeId,
-      data: { width, height }
-    });
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, width, height }
+          : node
+      )
+    );
+    
+    setPendingUpdate({ id: nodeId, width, height });
   };
 
   const handleNodeTitleChange = (nodeId, title) => {
@@ -187,7 +214,7 @@ export default function VisualStrategyCanvas({
 
   const handleRunAgent = async (node) => {
     try {
-      const nodeData = node.data || {};  // Data is already an object
+      const nodeData = node.data || {};
       const session = nodeData.session || {};
       const config = session.config || {};
       const documentIds = session.document_ids || [];
@@ -197,7 +224,6 @@ export default function VisualStrategyCanvas({
         return;
       }
 
-      // Fetch connected documents
       const documents = await Promise.all(
         documentIds.map(async (docId) => {
           try {
@@ -217,7 +243,6 @@ export default function VisualStrategyCanvas({
         return;
       }
 
-      // Build comprehensive AI prompt
       const sectionFocusLabel = config.section_focus?.replace(/_/g, ' ') || 'full proposal';
       const personaLabel = config.persona?.replace(/_/g, ' ') || 'proposal manager';
       
@@ -262,13 +287,11 @@ Generate the content now:`;
         .filter(doc => doc.file_url)
         .map(doc => doc.file_url);
 
-      // Call AI
       const response = await base44.integrations.Core.InvokeLLM({
         prompt: prompt,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined
       });
 
-      // Create proposal section if configured
       if (config.output_storage === 'create_section') {
         const wordCount = response.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
         
@@ -296,7 +319,6 @@ Generate the content now:`;
   };
 
   const handleDeleteConnection = (connectionId) => {
-    // Parse connectionId format: "fromId-toId"
     const [fromId, toId] = connectionId.split('-');
     const fromNode = nodes.find(n => n.id === fromId);
     if (fromNode && fromNode.connections) {
@@ -339,7 +361,6 @@ Generate the content now:`;
 
   return (
     <div className="relative w-full" style={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}>
-      {/* Canvas Container */}
       <div className="absolute inset-0 border-2 border-slate-200 rounded-lg overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
         <InfiniteCanvas
           ref={canvasRef}
@@ -355,12 +376,12 @@ Generate the content now:`;
           onNodeConfigClick={handleNodeConfigClick}
           onRunAgent={handleRunAgent}
           onAddNodeFromDrop={handleAddNodeFromDrop}
+          onDragEnd={handleDragEnd}
           selectedNodeId={selectedNodeId}
           initialOffset={canvasOffset}
           initialScale={canvasScale}
         />
 
-        {/* Floating Toolbar */}
         <FloatingToolbar
           onAIAgentsClick={() => console.log('AI Agents clicked')}
           onFoldersClick={() => console.log('Folders clicked')}
@@ -370,12 +391,11 @@ Generate the content now:`;
           onCreateCustomizableAIAgent={handleCreateCustomizableAIAgent}
         />
 
-        {/* Sidebar with documents and templates */}
         {showSidebar && (
           <div className="absolute left-0 top-0 h-full z-20">
             <CanvasSidebar
               documents={documents}
-              sessions={[]} // AI sessions can be added later
+              sessions={[]}
               templates={agentTemplates}
               onAddNode={handleAddNode}
               isCollapsed={false}
@@ -396,7 +416,6 @@ Generate the content now:`;
           </div>
         )}
 
-        {/* Configuration Sidebar for AI Agents */}
         {showConfigSidebar && selectedNode && selectedNode.node_type === 'ai_agent' && (
           <div className="absolute right-0 top-0 h-full w-96 bg-white border-l-2 border-slate-200 shadow-xl overflow-y-auto z-30">
             <ConfigurationSidebar
@@ -407,7 +426,6 @@ Generate the content now:`;
           </div>
         )}
 
-        {/* Canvas Controls */}
         <div className="absolute bottom-4 right-4 flex gap-2 z-20">
           <Button
             variant="outline"
@@ -447,7 +465,6 @@ Generate the content now:`;
           </Button>
         </div>
 
-        {/* Node Count Badge */}
         <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg px-3 py-2 z-20">
           <div className="flex items-center gap-2">
             <Grid className="w-4 h-4 text-blue-600" />
