@@ -76,7 +76,27 @@ export default function VisualStrategyCanvas({
       width: nodeType === 'group' ? 400 : nodeType === 'ai_agent' ? 350 : 200,
       height: nodeType === 'group' ? 300 : nodeType === 'ai_agent' ? 400 : 150,
       color: getNodeColor(nodeType),
-      data: nodeConfig,  // Store as object directly
+      data: nodeConfig,
+      connections: [],
+      order: nodes.length
+    };
+
+    createNodeMutation.mutate(newNode);
+  };
+
+  const handleAddNodeFromDrop = (nodeType, nodeConfig = {}, x, y) => {
+    const newNode = {
+      proposal_id: proposalId,
+      organization_id: organizationId,
+      node_type: nodeType,
+      title: nodeConfig.name || nodeConfig.title || `New ${nodeType.replace('_', ' ')}`,
+      description: nodeConfig.description || '',
+      position_x: Math.max(0, x),
+      position_y: Math.max(0, y),
+      width: nodeType === 'group' ? 400 : nodeType === 'ai_agent' ? 350 : 200,
+      height: nodeType === 'group' ? 300 : nodeType === 'ai_agent' ? 400 : 150,
+      color: getNodeColor(nodeType),
+      data: nodeConfig,
       connections: [],
       order: nodes.length
     };
@@ -334,6 +354,7 @@ Generate the content now:`;
           onCanvasViewChange={handleCanvasViewChange}
           onNodeConfigClick={handleNodeConfigClick}
           onRunAgent={handleRunAgent}
+          onAddNodeFromDrop={handleAddNodeFromDrop}
           selectedNodeId={selectedNodeId}
           initialOffset={canvasOffset}
           initialScale={canvasScale}
