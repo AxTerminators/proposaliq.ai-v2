@@ -62,13 +62,22 @@ export default function Onboarding() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // First check if authenticated
+        const isAuth = await base44.auth.isAuthenticated();
+        
+        if (!isAuth) {
+          // Not authenticated - redirect to login
+          base44.auth.redirectToLogin(createPageUrl("Onboarding"));
+          return;
+        }
+
+        // User is authenticated, now get their details
         const user = await base44.auth.me();
         setIsSuperAdmin(user?.admin_role === 'super_admin');
         setLoading(false);
       } catch (error) {
         console.error("Auth check failed:", error);
-        // If not authenticated, redirect to login
-        base44.auth.redirectToLogin(createPageUrl("Onboarding"));
+        setLoading(false); // Ensure loading is stopped even on error after isAuthenticated
       }
     };
     checkAuth();
