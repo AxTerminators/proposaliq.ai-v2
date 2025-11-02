@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, X, Trash2, AlertCircle, Edit2, DollarSign } from "lucide-react";
+import { MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, X, Trash2, AlertCircle, Edit2, DollarSign, ChevronsLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
 
@@ -163,6 +162,13 @@ export default function KanbanColumn({
                 />
               ) : (
                 <div className="flex items-center gap-2">
+                  {/* Collapse Icon - Inside Header */}
+                  <ChevronsLeft 
+                    className="w-4 h-4 text-white cursor-pointer hover:opacity-70 transition-opacity flex-shrink-0" 
+                    onClick={() => onToggleCollapse(column.id)}
+                    title={`Collapse ${columnLabel} column`}
+                  />
+                  
                   <h3 
                     className={cn(
                       "font-bold text-lg text-white drop-shadow-md",
