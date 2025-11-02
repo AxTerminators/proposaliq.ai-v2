@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
@@ -138,7 +137,7 @@ export default function KanbanColumn({
     } else if (value > 0) {
       return `$${value.toLocaleString()}`;
     }
-    return '$0';
+    return null;
   };
 
   return (
@@ -146,7 +145,7 @@ export default function KanbanColumn({
       <div className="flex flex-col h-full min-h-[500px]">
         {/* Column Header with Gradient Color */}
         <div className={cn(
-          "p-4 border-b border-slate-200",
+          "p-4 border-b border-slate-200 relative",
           `bg-gradient-to-r ${columnColor}`
         )}>
           <div className="flex items-center justify-between">
@@ -180,16 +179,6 @@ export default function KanbanColumn({
                       title="Rename column"
                     />
                   )}
-                </div>
-              )}
-              
-              {/* Total Contract Value */}
-              {totalContractValue > 0 && !isEditing && (
-                <div className="flex items-center gap-1 mt-1">
-                  <DollarSign className="w-3 h-3 text-white/80" title="Total contract value" />
-                  <span className="text-sm font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
-                    {formatCurrency(totalContractValue)}
-                  </span>
                 </div>
               )}
               
@@ -272,6 +261,16 @@ export default function KanbanColumn({
               </DropdownMenu>
             </div>
           </div>
+          
+          {/* Total Contract Value - Positioned absolutely in bottom right corner */}
+          {totalContractValue > 0 && !isEditing && (
+            <div className="absolute bottom-1 right-2 flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded px-2 py-0.5">
+              <DollarSign className="w-3 h-3 text-white/80" title="Total contract value" />
+              <span className="text-xs font-semibold text-white/90" title={`Total: $${totalContractValue.toLocaleString()}`}>
+                {formatCurrency(totalContractValue)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Column Content */}
