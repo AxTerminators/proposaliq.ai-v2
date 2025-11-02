@@ -64,25 +64,24 @@ export default function VisualStrategyCanvas({
   });
 
   // Node creation handlers
-  const handleAddNode = async (nodeType, data = {}) => {
-    const centerX = -canvasOffset.x + (window.innerWidth / 2) / canvasScale;
-    const centerY = -canvasOffset.y + (window.innerHeight / 2) / canvasScale;
-
+  const handleAddNode = (nodeType, nodeConfig = {}) => {
     const newNode = {
+      proposal_id: proposalId,
+      organization_id: organizationId,
       node_type: nodeType,
-      title: data.name || data.title || `New ${nodeType}`,
-      description: data.description || '',
-      position_x: centerX - 100,
-      position_y: centerY - 75,
-      width: nodeType === 'group' ? 400 : 200,
-      height: nodeType === 'group' ? 300 : 150,
+      title: nodeConfig.name || nodeConfig.title || `New ${nodeType.replace('_', ' ')}`,
+      description: nodeConfig.description || '',
+      position_x: Math.random() * 400 + 100,
+      position_y: Math.random() * 300 + 100,
+      width: nodeType === 'group' ? 400 : nodeType === 'ai_agent' ? 350 : 200,
+      height: nodeType === 'group' ? 300 : nodeType === 'ai_agent' ? 400 : 150,
       color: getNodeColor(nodeType),
-      data: JSON.stringify(data),
+      data: nodeConfig,  // Store as object directly
       connections: [],
       order: nodes.length
     };
 
-    await createNodeMutation.mutateAsync(newNode);
+    createNodeMutation.mutate(newNode);
   };
 
   const handleCreateGroup = () => {
@@ -91,24 +90,19 @@ export default function VisualStrategyCanvas({
 
   const handleCreateDocumentAIAgent = () => {
     handleAddNode('ai_agent', { 
-      title: 'Document AI Agent',
       agent_type: 'document_analyzer',
       document_ids: []
     });
   };
 
   const handleCreateCustomizableAIAgent = () => {
-    handleAddNode('ai_agent', { 
-      title: 'AI Agent',
+    handleAddNode('ai_agent', {
       session: {
         config: {
           model: 'gemini',
           persona: 'proposal_manager',
-          tone: ['professional', 'clear'],
-          creativity: 70,
-          section_focus: 'full_proposal',
-          agency_type: proposalData.agency_name || 'generic',
-          output_storage: 'none' // Default to none, can be 'create_section'
+          tone: ['clear', 'professional'],
+          creativity: 50
         },
         document_ids: []
       }
