@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,27 +12,48 @@ import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
 import TaskBoard from "./TaskBoard";
 
-export default function TaskManager({ proposal, user, organization }) {
+export default function TaskManager({ user, organization, proposalId = null, embedded = false }) {
   const queryClient = useQueryClient();
+  const [viewMode, setViewMode] = useState("list");
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [viewMode, setViewMode] = useState("list"); // list or board
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: tasks, isLoading } = useQuery({
-    queryKey: ['proposal-tasks', proposal?.id],
+  // Fetch tasks - filter by proposalId if provided
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ['proposal-tasks', organization?.id, proposalId],
     queryFn: async () => {
-      if (!proposal?.id) return [];
-      return base44.entities.ProposalTask.filter(
-        { proposal_id: proposal.id },
-        '-created_date'
-      );
+      if (!organization?.id) return [];
+      
+      const filter = { organization_id: organization.id };
+      if (proposalId) {
+        filter.proposal_id = proposalId;
+      }
+      
+      return base44.entities.ProposalTask.filter(filter, '-created_date');
     },
-    initialData: [],
-    enabled: !!proposal?.id
+    enabled: !!organization?.id,
+    initialData: []
+  });
+
+  // Fetch subtasks - filter by proposalId if provided
+  const { data: subtasks = [] } = useQuery({
+    queryKey: ['proposal-subtasks', organization?.id, proposalId],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      
+      const filter = { organization_id: organization.id };
+      if (proposalId) {
+        filter.proposal_id = proposalId;
+      }
+      
+      return base44.entities.ProposalSubtask.filter(filter, '-created_date');
+    },
+    enabled: !!organization?.id,
+    initialData: []
   });
 
   const deleteTaskMutation = useMutation({
@@ -39,7 +61,7 @@ export default function TaskManager({ proposal, user, organization }) {
       await base44.entities.ProposalTask.delete(taskId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks', organization?.id, proposalId] });
     }
   });
 
@@ -52,22 +74,56 @@ export default function TaskManager({ proposal, user, organization }) {
       await base44.entities.ProposalTask.update(taskId, updateData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks', organization?.id, proposalId] });
     }
   });
 
-  const handleTaskSave = () => {
-    queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+  const deleteSubtaskMutation = useMutation({
+    mutationFn: async (subtaskId) => {
+      await base44.entities.ProposalSubtask.delete(subtaskId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-subtasks', organization?.id, proposalId] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks', organization?.id, proposalId] }); // Parent task might need re-evaluation
+    }
+  });
+
+  const updateSubtaskStatusMutation = useMutation({
+    mutationFn: async ({ subtaskId, status }) => {
+      const updateData = { status };
+      if (status === "completed") {
+        updateData.completed_date = new Date().toISOString();
+      }
+      await base44.entities.ProposalSubtask.update(subtaskId, updateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-subtasks', organization?.id, proposalId] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks', organization?.id, proposalId] }); // Parent task might need re-evaluation
+    }
+  });
+
+  const handleTaskSave = () => { // This will be passed as onSubmit for TaskForm
+    queryClient.invalidateQueries({ queryKey: ['proposal-tasks', organization?.id, proposalId] });
+    queryClient.invalidateQueries({ queryKey: ['proposal-subtasks', organization?.id, proposalId] }); // In case a task creation involves subtasks in the future
     setShowTaskForm(false);
     setEditingTask(null);
   };
 
-  const handleTaskEdit = (task) => {
+  const handleTaskSubmit = handleTaskSave; // Alias for embedded mode consistency
+
+  const handleCloseTaskForm = () => { // New handler for onCancel/onOpenChange
+    setShowTaskForm(false);
+    setEditingTask(null);
+  };
+
+  const handleEditTask = (task) => { // Used by both embedded and non-embedded TaskList
     setEditingTask(task);
     setShowTaskForm(true);
   };
 
-  const handleTaskDelete = async (task) => {
+  const handleTaskClick = handleEditTask; // Alias for backward compatibility if needed
+
+  const handleDeleteTask = async (task) => {
     if (confirm(`Delete task "${task.title}"?`)) {
       deleteTaskMutation.mutate(task.id);
     }
@@ -77,9 +133,24 @@ export default function TaskManager({ proposal, user, organization }) {
     updateTaskStatusMutation.mutate({ taskId: task.id, status: newStatus });
   };
 
-  const handleTaskClick = (task) => {
-    setEditingTask(task);
-    setShowTaskForm(true);
+  const handleEditSubtask = (subtask) => {
+    // For now, the TaskForm is primarily designed for ProposalTask.
+    // If subtasks need editing via a form, it would likely be a separate component
+    // or a heavily modified TaskForm. For this implementation, we'll just log.
+    console.warn("Editing subtasks not fully implemented via TaskForm yet.", subtask);
+    // If TaskForm were generic:
+    // setEditingTask(subtask);
+    // setShowTaskForm(true);
+  };
+
+  const handleDeleteSubtask = async (subtask) => {
+    if (confirm(`Delete subtask "${subtask.title}"?`)) {
+      deleteSubtaskMutation.mutate(subtask.id);
+    }
+  };
+
+  const handleSubtaskStatusChange = (subtask, newStatus) => {
+    updateSubtaskStatusMutation.mutate({ subtaskId: subtask.id, status: newStatus });
   };
 
   // Filter tasks
@@ -109,6 +180,57 @@ export default function TaskManager({ proposal, user, organization }) {
 
   // Get unique assignees for filter
   const uniqueAssignees = [...new Set(tasks.map(t => t.assigned_to_email))].filter(Boolean);
+
+  // For embedded mode, show simplified view
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        {/* Simplified header for embedded mode */}
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-slate-900">
+            Tasks {tasks.length > 0 && `(${tasks.filter(t => t.status === 'completed').length}/${tasks.length})`}
+          </h3>
+          <Button
+            size="sm"
+            onClick={() => { setEditingTask(null); setShowTaskForm(true); }}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Task
+          </Button>
+        </div>
+
+        {/* Task List */}
+        <TaskList
+          tasks={tasks} // Using unfiltered tasks as per outline for embedded view
+          subtasks={subtasks}
+          proposals={[]} // As per outline
+          onEditTask={handleEditTask}
+          onEditSubtask={handleEditSubtask}
+          onDeleteTask={handleDeleteTask}
+          onDeleteSubtask={handleDeleteSubtask}
+          onStatusChange={handleTaskStatusChange}
+          onSubtaskStatusChange={handleSubtaskStatusChange}
+          embedded={true}
+          currentUser={user} // Explicitly pass currentUser for TaskList
+        />
+
+        {/* Task Form Dialog */}
+        {showTaskForm && (
+          <TaskForm
+            open={showTaskForm} // Keep open prop for shadcn/ui dialog management
+            task={editingTask}
+            proposals={proposalId ? [{ id: proposalId }] : []}
+            onSubmit={handleTaskSubmit}
+            onCancel={handleCloseTaskForm}
+            organization={organization}
+            defaultProposalId={proposalId}
+            user={user} // Pass user to TaskForm for assignee selection etc.
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card className="border-none shadow-lg">
@@ -177,7 +299,7 @@ export default function TaskManager({ proposal, user, organization }) {
             </SelectContent>
           </Select>
 
-          {uniqueAssignees.length > 1 && (
+          {uniqueAssignees.length > 0 && ( // Changed from > 1 to > 0 to show dropdown if only one assignee
             <Select value={filterAssignee} onValueChange={setFilterAssignee}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Assignee" />
@@ -224,18 +346,20 @@ export default function TaskManager({ proposal, user, organization }) {
         ) : viewMode === "list" ? (
           <TaskList
             tasks={filteredTasks}
-            onTaskClick={handleTaskClick}
-            onTaskEdit={handleTaskEdit}
-            onTaskDelete={handleTaskDelete}
-            onTaskStatusChange={handleTaskStatusChange}
+            subtasks={subtasks} // Pass subtasks to the main TaskList view as well
+            onEditTask={handleEditTask} // Consistent prop name
+            onDeleteTask={handleDeleteTask} // Consistent prop name
+            onStatusChange={handleTaskStatusChange} // Consistent prop name
             currentUser={user}
+            onTaskClick={handleTaskClick} // Keep for backward compatibility with specific list item click
           />
         ) : (
           <TaskBoard
             tasks={filteredTasks}
+            subtasks={subtasks} // Pass subtasks to TaskBoard
             onTaskStatusChange={handleTaskStatusChange}
-            onTaskEdit={handleTaskEdit}
-            onTaskDelete={handleTaskDelete}
+            onTaskEdit={handleEditTask} // Consistent prop name
+            onTaskDelete={handleDeleteTask} // Consistent prop name
             onTaskClick={handleTaskClick}
           />
         )}
@@ -245,13 +369,11 @@ export default function TaskManager({ proposal, user, organization }) {
       {showTaskForm && (
         <TaskForm
           open={showTaskForm}
-          onOpenChange={(open) => {
-            setShowTaskForm(open);
-            if (!open) setEditingTask(null);
-          }}
-          proposal={proposal}
+          onCancel={handleCloseTaskForm} // Changed from onOpenChange
+          defaultProposalId={proposalId} // Changed from proposal prop
+          proposals={proposalId ? [{ id: proposalId }] : []} // Added for consistency with embedded mode
           task={editingTask}
-          onSave={handleTaskSave}
+          onSubmit={handleTaskSave} // Changed from onSave
           user={user}
           organization={organization}
         />
