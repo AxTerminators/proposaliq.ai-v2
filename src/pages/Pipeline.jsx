@@ -5,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone, AlertCircle, RefreshCw, Info } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone, AlertCircle, RefreshCw, Info, Database } from "lucide-react";
 import ProposalsKanban from "../components/proposals/ProposalsKanban";
 import ProposalsList from "../components/proposals/ProposalsList";
 import ProposalsTable from "../components/proposals/ProposalsTable";
@@ -27,7 +27,6 @@ export default function Pipeline() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -42,40 +41,37 @@ export default function Pipeline() {
   // Debug log when organization changes
   useEffect(() => {
     if (organization) {
-      console.log('Pipeline - Organization loaded:', {
+      console.log('=== PIPELINE DEBUG ===');
+      console.log('Organization:', {
         id: organization.id,
         name: organization.organization_name,
-        isLoadingOrg,
-        orgError
+        is_sample: organization.is_sample_data,
+        created_by: organization.created_by
       });
     }
-  }, [organization, isLoadingOrg, orgError]);
+  }, [organization]);
 
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) {
-        console.log('Pipeline - No organization ID, returning empty array');
+        console.log('❌ No organization ID');
         return [];
       }
       
-      console.log('Pipeline - Fetching proposals for org:', organization.id);
+      console.log('🔍 Fetching proposals for org:', organization.id);
       const fetchedProposals = await base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
       );
       
-      console.log('Pipeline - Fetched proposals:', {
+      console.log('✅ Fetched proposals:', {
         count: fetchedProposals.length,
-        proposals: fetchedProposals
-      });
-      
-      // Set debug info
-      setDebugInfo({
-        orgId: organization.id,
-        orgName: organization.organization_name,
-        proposalCount: fetchedProposals.length,
-        isSampleOrg: organization.is_sample_data || false
+        first_3: fetchedProposals.slice(0, 3).map(p => ({
+          id: p.id,
+          name: p.proposal_name,
+          status: p.status
+        }))
       });
       
       return fetchedProposals;
@@ -84,8 +80,6 @@ export default function Pipeline() {
     initialData: [],
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 30000,
-    cacheTime: 300000,
   });
 
   // Fetch automation rules for executor
@@ -100,12 +94,9 @@ export default function Pipeline() {
     },
     enabled: !!organization?.id,
     initialData: [],
-    retry: 1,
-    retryDelay: 2000,
-    staleTime: 60000,
   });
 
-  // Fetch kanban columns config for mobile view
+  // Fetch kanban columns config
   const { data: kanbanConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -118,21 +109,27 @@ export default function Pipeline() {
       return configs.length > 0 ? configs[0] : null;
     },
     enabled: !!organization?.id,
-    retry: 1,
-    retryDelay: 2000,
-    staleTime: 60000,
   });
 
   const handleCreateProposal = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
-  const handleRetry = () => {
-    refetch();
+  const handleGenerateSampleData = async () => {
+    if (confirm('Generate sample proposal data for testing?')) {
+      try {
+        await base44.functions.invoke('generateSampleData', {});
+        alert('Sample data generated! Refreshing...');
+        window.location.reload();
+      } catch (error) {
+        console.error('Error generating sample data:', error);
+        alert('Error generating sample data: ' + error.message);
+      }
+    }
   };
 
-  const handleForceRefresh = async () => {
-    window.location.reload();
+  const handleRetry = () => {
+    refetch();
   };
 
   // Show loading error
@@ -153,11 +150,6 @@ export default function Pipeline() {
                 ? "Rate limit exceeded. Please wait a moment before trying again."
                 : error?.message || "An error occurred while loading your pipeline"}
             </p>
-            {isRateLimit && (
-              <p className="text-sm text-slate-500 mb-6">
-                Too many requests were made in a short time. This helps keep the system running smoothly for everyone.
-              </p>
-            )}
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -202,75 +194,183 @@ export default function Pipeline() {
     { id: 'archived', label: 'Archived', emoji: '📦', type: 'default_status', default_status_mapping: 'archived' }
   ];
 
-  const showDebugInfo = proposals.length === 0 && !isLoadingProposals;
-
-  console.log('Pipeline - Render state:', {
-    proposalsCount: proposals.length,
-    isLoadingProposals,
-    showDebugInfo,
-    debugInfo,
-    organization: organization?.id
-  });
+  const showDataRecovery = proposals.length === 0 && !isLoadingProposals;
 
   return (
-    <div className="h-screen flex flex-col">
+    <>
       <AutomationExecutor 
         organization={organization} 
         proposals={proposals} 
         automationRules={automationRules}
       />
 
-      {showDebugInfo && debugInfo && (
-        <div className="bg-blue-50 border-b border-blue-200 p-4 flex-shrink-0">
-          <div className="max-w-7xl mx-auto flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-blue-900 mb-1">No Proposals Found</h3>
-              <p className="text-sm text-blue-800 mb-2">
-                You don't have any proposals in "{debugInfo.orgName}" yet. Get started by creating your first proposal!
-              </p>
-              <div className="flex flex-wrap gap-2 text-xs mb-3">
-                <Badge variant="outline" className="bg-white">
-                  Org ID: {debugInfo.orgId}
-                </Badge>
-                <Badge variant="outline" className="bg-white">
-                  Proposals: {debugInfo.proposalCount}
-                </Badge>
-                {debugInfo.isSampleOrg && (
-                  <Badge className="bg-amber-100 text-amber-800">
-                    Sample Data Organization
-                  </Badge>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleCreateProposal} size="sm" className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create First Proposal
-                </Button>
-                <Button onClick={handleForceRefresh} size="sm" variant="outline">
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Force Refresh
-                </Button>
+      {showDataRecovery && (
+        <div className="bg-amber-50 border-b border-amber-200 p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-start gap-4">
+              <Database className="w-8 h-8 text-amber-600 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-amber-900 mb-2">No Proposals Found</h3>
+                <p className="text-amber-800 mb-4">
+                  You're viewing <strong>"{organization.organization_name}"</strong> but there are no proposals in this organization.
+                </p>
+                
+                <div className="bg-white rounded-lg p-4 mb-4 border border-amber-200">
+                  <h4 className="font-semibold text-slate-900 mb-2">Debug Information:</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-slate-600">Organization ID:</span>
+                      <p className="font-mono text-xs text-slate-900">{organization.id}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Organization Name:</span>
+                      <p className="font-semibold text-slate-900">{organization.organization_name}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Is Sample Data:</span>
+                      <p className="font-semibold text-slate-900">{organization.is_sample_data ? 'Yes' : 'No'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Created By:</span>
+                      <p className="font-mono text-xs text-slate-900">{organization.created_by}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 border border-amber-200 mb-4">
+                  <h4 className="font-semibold text-slate-900 mb-2">💡 What happened to my data?</h4>
+                  <ul className="text-sm text-slate-700 space-y-2">
+                    <li>• If you cleared sample data during onboarding, your test proposals were intentionally deleted</li>
+                    <li>• You might be viewing a different organization than before</li>
+                    <li>• This could be a new organization that you just created</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button onClick={handleCreateProposal} className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Proposal
+                  </Button>
+                  <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
+                    <Database className="w-4 h-4 mr-2" />
+                    Generate Sample Data
+                  </Button>
+                  <Button onClick={() => window.location.reload()} variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Page
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {isMobile ? (
-        <div className="flex-1 overflow-auto">
-          <MobileKanbanView proposals={proposals} columns={columns} />
+      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
+            <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+            {!isMobile && (
+              <>
+                <Button
+                  variant={showAutomation ? "default" : "outline"}
+                  onClick={() => setShowAutomation(!showAutomation)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  {showAutomation ? 'Hide' : 'Show'} Automation
+                </Button>
+                <Button
+                  variant={showAnalytics ? "default" : "outline"}
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  {showAnalytics ? 'Hide' : 'Show'} Analytics
+                </Button>
+              </>
+            )}
+            
+            <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
+              <Button
+                variant={viewMode === "kanban" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8"
+                onClick={() => setViewMode("kanban")}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8"
+                onClick={() => setViewMode("table")}
+              >
+                <Table className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <ProposalsKanban 
-            proposals={proposals} 
-            organization={organization} 
-            user={user}
-            onRefresh={refetch}
-          />
-        </div>
-      )}
-    </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {!isMobile && showAutomation && (
+          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+            <AIWorkflowSuggestions 
+              organization={organization} 
+              proposals={proposals}
+              automationRules={automationRules}
+            />
+            <SmartAutomationEngine organization={organization} />
+          </div>
+        )}
+
+        {!isMobile && showAnalytics && (
+          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+            <SnapshotGenerator organization={organization} proposals={proposals} />
+            <PipelineAnalytics organization={organization} proposals={proposals} />
+          </div>
+        )}
+
+        {!showAutomation && !showAnalytics && (
+          <>
+            {isMobile ? (
+              <div className="p-4">
+                <MobileKanbanView proposals={proposals} columns={columns} />
+              </div>
+            ) : (
+              <>
+                {viewMode === "kanban" && (
+                  <ProposalsKanban proposals={proposals} organization={organization} user={user} />
+                )}
+                {viewMode === "list" && (
+                  <div className="p-6">
+                    <ProposalsList proposals={proposals} organization={organization} />
+                  </div>
+                )}
+                {viewMode === "table" && (
+                  <div className="p-6">
+                    <ProposalsTable proposals={proposals} organization={organization} />
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }
