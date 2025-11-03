@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       is_sample_data: true
     });
 
-    // Create sample subscription
+    // Create sample subscription (no is_sample_data field in Subscription entity)
     await base44.asServiceRole.entities.Subscription.create({
       organization_id: sampleOrg.id,
       plan_type: "free",
@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
       content: "<p>Acme Solutions Inc. is pleased to submit this proposal for the DoD Cloud Migration Initiative...</p>",
       order: 1,
       word_count: 250,
-      status: "reviewed"
+      status: "reviewed",
+      is_sample_data: true
     });
 
     await base44.asServiceRole.entities.ProposalSection.create({
@@ -125,7 +126,8 @@ Deno.serve(async (req) => {
       content: "<p>Our technical approach leverages industry-leading cloud technologies and proven methodologies...</p>",
       order: 2,
       word_count: 1200,
-      status: "draft"
+      status: "draft",
+      is_sample_data: true
     });
 
     // Create sample tasks
@@ -139,7 +141,8 @@ Deno.serve(async (req) => {
       assigned_by_name: user.full_name || "Sample User",
       status: "in_progress",
       priority: "high",
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      is_sample_data: true
     });
 
     await base44.asServiceRole.entities.ProposalTask.create({
@@ -152,7 +155,23 @@ Deno.serve(async (req) => {
       assigned_by_name: user.full_name || "Sample User",
       status: "todo",
       priority: "medium",
-      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      is_sample_data: true
+    });
+
+    // Create sample subtasks
+    await base44.asServiceRole.entities.ProposalSubtask.create({
+      proposal_id: proposal1.id,
+      organization_id: sampleOrg.id,
+      title: "Review architecture diagrams (SAMPLE)",
+      description: "Review and approve the technical architecture diagrams",
+      assigned_to_email: user.email,
+      assigned_to_name: user.full_name || "Sample User",
+      due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: "in_progress",
+      priority: "high",
+      order: 1,
+      is_sample_data: true
     });
 
     // Create sample past performance
@@ -178,8 +197,7 @@ Deno.serve(async (req) => {
         on_budget_pct: 98,
         customer_satisfaction: 4.8
       },
-      cpars_rating: "Exceptional",
-      is_sample_data: true
+      cpars_rating: "Exceptional"
     });
 
     // Create sample teaming partner
@@ -196,8 +214,7 @@ Deno.serve(async (req) => {
       primary_naics: "541519",
       certifications: ["HUBZone", "WOSB"],
       core_capabilities: ["Cybersecurity", "Cloud Services"],
-      status: "active",
-      is_sample_data: true
+      status: "active"
     });
 
     // Create sample key personnel
@@ -224,8 +241,7 @@ Deno.serve(async (req) => {
       ],
       clearance_level: "top_secret",
       skills: ["Cloud Architecture", "DevOps", "Agile Leadership"],
-      bio_short: "Dr. Chen brings 15+ years of experience in enterprise cloud solutions...",
-      is_sample_data: true
+      bio_short: "Dr. Chen brings 15+ years of experience in enterprise cloud solutions..."
     });
 
     // Create sample resource
@@ -240,6 +256,95 @@ Deno.serve(async (req) => {
       usage_count: 3,
       is_favorite: true,
       is_sample_data: true
+    });
+
+    // Create sample KanbanConfig
+    await base44.asServiceRole.entities.KanbanConfig.create({
+      organization_id: sampleOrg.id,
+      columns: [
+        {
+          id: "evaluating",
+          label: "Evaluating",
+          color: "bg-blue-100",
+          order: 1,
+          type: "default_status",
+          default_status_mapping: "evaluating"
+        },
+        {
+          id: "draft",
+          label: "Draft",
+          color: "bg-yellow-100",
+          order: 2,
+          type: "default_status",
+          default_status_mapping: "draft"
+        },
+        {
+          id: "in_progress",
+          label: "In Progress",
+          color: "bg-purple-100",
+          order: 3,
+          type: "default_status",
+          default_status_mapping: "in_progress"
+        },
+        {
+          id: "submitted",
+          label: "Submitted",
+          color: "bg-green-100",
+          order: 4,
+          type: "default_status",
+          default_status_mapping: "submitted"
+        }
+      ],
+      is_sample_data: true
+    });
+
+    // Create sample automation rule
+    await base44.asServiceRole.entities.ProposalAutomationRule.create({
+      organization_id: sampleOrg.id,
+      rule_name: "Auto-notify on high-value proposals (SAMPLE)",
+      description: "Send notification when a high-value proposal is created",
+      is_active: true,
+      trigger: {
+        trigger_type: "on_creation",
+        trigger_conditions: {}
+      },
+      conditions: [
+        {
+          field: "contract_value",
+          operator: "greater_than",
+          value: 1000000
+        }
+      ],
+      actions: [
+        {
+          action_type: "send_notification",
+          action_config: {
+            notification_message: "High-value proposal created - review required"
+          }
+        }
+      ],
+      is_sample_data: true
+    });
+
+    // Create sample client (if not already exists)
+    const sampleClient = await base44.asServiceRole.entities.Client.create({
+      organization_id: sampleOrg.id,
+      client_name: "Defense Logistics Agency (SAMPLE)",
+      contact_name: "John Director",
+      contact_email: "john.director@dla.example",
+      contact_phone: "(555) 987-6543",
+      client_organization: "DLA",
+      client_title: "Contracting Director",
+      industry: "Government",
+      relationship_status: "active",
+      portal_access_enabled: false,
+      is_sample_data: true
+    });
+
+    // Update user to reflect they're using sample data and have completed onboarding guide
+    await base44.auth.updateMe({
+      using_sample_data: true,
+      onboarding_guide_completed: true
     });
 
     return Response.json({ 
