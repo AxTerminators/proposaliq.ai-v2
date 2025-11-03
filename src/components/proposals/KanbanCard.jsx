@@ -194,10 +194,14 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
         onClick={handleCardClick}
         onMouseEnter={() => setShowQuickActions(true)}
         onMouseLeave={() => setShowQuickActions(false)}
+        style={{
+          ...provided.draggableProps.style,
+          // Important: Don't add any transform or transition styles here
+          // as they conflict with react-beautiful-dnd
+        }}
         className={cn(
           "relative bg-white rounded-lg p-4 mb-3 cursor-pointer",
           "border-2",
-          // Remove ALL transforms and transitions during drag
           snapshot.isDragging 
             ? "shadow-2xl border-blue-400" 
             : proposal.action_required
@@ -206,7 +210,6 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
           isDragDisabled && "opacity-60 cursor-not-allowed",
           !snapshot.isDragging && "group"
         )}
-        style={provided.draggableProps.style}
       >
         {/* Drag Indicator - Only show when not disabled */}
         {!isDragDisabled && (
