@@ -1011,6 +1011,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                               onRenameColumn={handleRenameColumn}
                               dragOverColumnColor={dragOverColor}
                               kanbanConfig={kanbanConfig}
+                              user={user}
                             />
                           </div>
                         )}
