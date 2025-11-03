@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -40,6 +40,14 @@ import {
   Archive,
   Trash2,
   Building2,
+  CheckSquare,
+  MessageCircle,
+  Paperclip,
+  Sparkles,
+  Target,
+  PlayCircle,
+  CheckCircle2,
+  Circle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -63,12 +71,46 @@ const GRADIENT_TO_SHADOW_COLOR = {
   'from-red-400 to-red-600': 'rgba(248, 113, 113, 0.4)',
   'from-violet-400 to-violet-600': 'rgba(167, 139, 250, 0.4)',
   'from-fuchsia-400 to-fuchsia-600': 'rgba(232, 121, 249, 0.4)',
+  'from-lime-400 to-lime-600': 'rgba(163, 230, 53, 0.4)',
+  'from-yellow-400 to-yellow-600': 'rgba(250, 204, 21, 0.4)',
 };
 
-export default function KanbanCard({ proposal, onClick, isDragging, organization, columnColor, dragOverColumnColor }) {
+export default function KanbanCard({ proposal, onClick, isDragging, organization, columnColor, dragOverColumnColor, column }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Fetch tasks for this proposal
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['proposal-tasks-count', proposal.id],
+    queryFn: () => base44.entities.ProposalTask.filter({ proposal_id: proposal.id }),
+    enabled: !!proposal.id,
+    initialData: []
+  });
+
+  // Fetch subtasks for this proposal
+  const { data: subtasks = [] } = useQuery({
+    queryKey: ['proposal-subtasks-count', proposal.id],
+    queryFn: () => base44.entities.ProposalSubtask.filter({ proposal_id: proposal.id }),
+    enabled: !!proposal.id,
+    initialData: []
+  });
+
+  // Fetch comments for this proposal
+  const { data: comments = [] } = useQuery({
+    queryKey: ['proposal-comments-count', proposal.id],
+    queryFn: () => base44.entities.ProposalComment.filter({ proposal_id: proposal.id }),
+    enabled: !!proposal.id,
+    initialData: []
+  });
+
+  // Fetch files for this proposal
+  const { data: files = [] } = useQuery({
+    queryKey: ['proposal-files-count', proposal.id],
+    queryFn: () => base44.entities.SolicitationDocument.filter({ proposal_id: proposal.id }),
+    enabled: !!proposal.id,
+    initialData: []
+  });
 
   const progressPercentage = proposal.progress_summary?.completion_percentage || 0;
 
@@ -91,6 +133,30 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
     'archived': 'border-gray-500',
     'active': 'border-purple-500',
   };
+
+  // Get checklist items from column configuration
+  const checklistItems = column?.checklist_items || [];
+  const checklistStatus = proposal.current_stage_checklist_status?.[column?.id] || {};
+  
+  // Calculate checklist completion
+  const completedChecklistItems = checklistItems.filter(item => 
+    checklistStatus[item.id]?.completed
+  ).length;
+  const totalChecklistItems = checklistItems.length;
+  const checklistPercentage = totalChecklistItems > 0 
+    ? Math.round((completedChecklistItems / totalChecklistItems) * 100) 
+    : 0;
+
+  // Check if there are required incomplete items
+  const hasActionRequired = checklistItems.some(item => 
+    item.required && !checklistStatus[item.id]?.completed
+  );
+
+  // Calculate task counts
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const completedSubtasks = subtasks.filter(s => s.status === 'completed').length;
+  const totalTasks = tasks.length + subtasks.length;
+  const totalCompletedTasks = completedTasks + completedSubtasks;
 
   // Get shadow color based on column or drag state
   const getShadowColor = () => {
@@ -160,6 +226,16 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
         }}
         onClick={onClick}
       >
+        {/* Action Required Indicator - Top Left */}
+        {hasActionRequired && (
+          <div className="absolute -top-2 -left-2 z-10">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
+              <PlayCircle className="relative w-6 h-6 text-red-600 bg-white rounded-full" title="Action Required" />
+            </div>
+          </div>
+        )}
+
         {/* Three Dots Menu - Top Right */}
         <div className="absolute top-2 right-2 z-10">
           <DropdownMenu>
@@ -223,11 +299,46 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
             </div>
           )}
 
+          {/* Checklist Display (if any items exist) */}
+          {totalChecklistItems > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-700">Stage Checklist</span>
+                <span className="text-xs text-slate-600">{completedChecklistItems}/{totalChecklistItems}</span>
+              </div>
+              <div className="space-y-1">
+                {checklistItems.slice(0, 3).map((item) => {
+                  const isCompleted = checklistStatus[item.id]?.completed;
+                  return (
+                    <div key={item.id} className="flex items-center gap-2 text-xs">
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />
+                      ) : item.required ? (
+                        <Circle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      ) : (
+                        <Circle className="w-3 h-3 text-slate-300 flex-shrink-0" />
+                      )}
+                      <span className={cn(
+                        "truncate",
+                        isCompleted ? "text-slate-400 line-through" : "text-slate-700"
+                      )}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+                {checklistItems.length > 3 && (
+                  <p className="text-xs text-slate-500 pl-5">+{checklistItems.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Progress Bar */}
           {progressPercentage >= 0 && (
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-slate-600">Progress</span>
+                <span className="text-xs text-slate-600">Overall Progress</span>
                 <span className="text-xs font-semibold text-slate-700">{progressPercentage}%</span>
               </div>
               <div className="w-full bg-slate-200 rounded-full h-1.5">
@@ -244,6 +355,41 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
               </div>
             </div>
           )}
+
+          {/* Quick Access Icons */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {/* Tasks */}
+            {totalTasks > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded text-xs">
+                <CheckSquare className="w-3 h-3 text-blue-600" />
+                <span className="text-blue-700 font-medium">{totalCompletedTasks}/{totalTasks}</span>
+              </div>
+            )}
+
+            {/* Comments/Discussions */}
+            {comments.length > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 rounded text-xs">
+                <MessageCircle className="w-3 h-3 text-purple-600" />
+                <span className="text-purple-700 font-medium">{comments.length}</span>
+              </div>
+            )}
+
+            {/* Files */}
+            {files.length > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded text-xs">
+                <Paperclip className="w-3 h-3 text-green-600" />
+                <span className="text-green-700 font-medium">{files.length}</span>
+              </div>
+            )}
+
+            {/* AI Insights (if evaluation or confidence score exists) */}
+            {(proposal.evaluation_results || proposal.ai_confidence_score) && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 rounded text-xs">
+                <Sparkles className="w-3 h-3 text-indigo-600" />
+                <span className="text-indigo-700 font-medium">AI</span>
+              </div>
+            )}
+          </div>
 
           {/* Footer */}
           <div className="flex items-center justify-between text-xs">
