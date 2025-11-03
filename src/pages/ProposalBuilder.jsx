@@ -33,6 +33,7 @@ import AutomationHub from "../components/workflows/AutomationHub";
 import FloatingChatButton from "../components/collaboration/FloatingChatButton";
 import ClientSharingPanel from "../components/builder/ClientSharingPanel";
 import ProposalAssistant from "../components/assistant/ProposalAssistant";
+import SampleDataGuard from "../components/ui/SampleDataGuard"; // New import
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -73,6 +74,7 @@ export default function ProposalBuilder() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [assistantMinimized, setAssistantMinimized] = useState(false);
+  const [showSampleDataGuard, setShowSampleDataGuard] = useState(false); // New state
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
     prime_contractor_id: "",
@@ -126,6 +128,22 @@ export default function ProposalBuilder() {
       setCurrentPhase(phaseParam);
     }
   }, [organization?.id]);
+
+  // Check if user is trying to create a new proposal with sample data
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
+    
+    // If no proposal ID (creating new) and user has sample data
+    if (!id && user?.using_sample_data === true) {
+      setShowSampleDataGuard(true);
+    }
+  }, [user, proposalId]);
+
+  const proceedWithNewProposal = () => {
+    // User cleared sample data, they can now create proposals
+    setShowSampleDataGuard(false);
+  };
 
   const loadProposal = async (id, phaseFromUrl) => {
     try {
@@ -596,6 +614,18 @@ export default function ProposalBuilder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SampleDataGuard
+        isOpen={showSampleDataGuard}
+        onClose={() => {
+          setShowSampleDataGuard(false);
+          // If they close without clearing, go back to pipeline
+          if (user?.using_sample_data === true && !proposalId) {
+            navigate(createPageUrl("Pipeline"));
+          }
+        }}
+        onProceed={proceedWithNewProposal}
+      />
     </div>
   );
 }

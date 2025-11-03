@@ -12,10 +12,25 @@ import {
   Zap
 } from "lucide-react";
 import CustomAlertDialog from "../ui/CustomAlertDialog";
+import SampleDataGuard from "../ui/SampleDataGuard";
 
 export default function QuickActionsPanel({ user, organization }) {
   const navigate = useNavigate();
   const [showComingSoonDialog, setShowComingSoonDialog] = React.useState(false);
+  const [showSampleDataGuard, setShowSampleDataGuard] = React.useState(false);
+
+  const handleNewProposal = () => {
+    // Check if user is using sample data
+    if (user?.using_sample_data === true) {
+      setShowSampleDataGuard(true);
+    } else {
+      navigate(createPageUrl("ProposalBuilder"));
+    }
+  };
+
+  const proceedToProposalBuilder = () => {
+    navigate(createPageUrl("ProposalBuilder"));
+  };
 
   const quickActions = [
     {
@@ -23,7 +38,7 @@ export default function QuickActionsPanel({ user, organization }) {
       label: "New Proposal",
       description: "Start a new proposal",
       color: "bg-blue-500 hover:bg-blue-600",
-      onClick: () => navigate(createPageUrl("ProposalBuilder"))
+      onClick: handleNewProposal
     },
     {
       icon: Search,
@@ -84,6 +99,13 @@ export default function QuickActionsPanel({ user, organization }) {
           icon={Search}
         />
       )}
+
+      {/* Sample Data Guard */}
+      <SampleDataGuard
+        isOpen={showSampleDataGuard}
+        onClose={() => setShowSampleDataGuard(false)}
+        onProceed={proceedToProposalBuilder}
+      />
     </>
   );
 }

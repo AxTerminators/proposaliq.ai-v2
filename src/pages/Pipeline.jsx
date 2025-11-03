@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,7 @@ import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
+import SampleDataGuard from "@/components/ui/SampleDataGuard";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ export default function Pipeline() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -131,6 +134,15 @@ export default function Pipeline() {
   });
 
   const handleCreateProposal = () => {
+    // Check if user is using sample data
+    if (user?.using_sample_data === true) {
+      setShowSampleDataGuard(true);
+    } else {
+      navigate(createPageUrl("ProposalBuilder"));
+    }
+  };
+
+  const proceedToProposalBuilder = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
@@ -389,6 +401,12 @@ export default function Pipeline() {
           </>
         )}
       </div>
+
+      <SampleDataGuard
+        isOpen={showSampleDataGuard}
+        onClose={() => setShowSampleDataGuard(false)}
+        onProceed={proceedToProposalBuilder}
+      />
     </>
   );
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +14,7 @@ import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
 import MobileDashboard from "../components/mobile/MobileDashboard";
 import { useOrganization } from "../components/layout/OrganizationContext";
+import SampleDataGuard from "../components/ui/SampleDataGuard";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -24,6 +26,7 @@ export default function Dashboard() {
     win_rate: 0
   });
   const [isMobile, setIsMobile] = useState(false);
+  const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -106,6 +109,15 @@ export default function Dashboard() {
   }, [proposals]);
 
   const handleCreateProposal = () => {
+    // Check if user is using sample data
+    if (user?.using_sample_data === true) {
+      setShowSampleDataGuard(true);
+    } else {
+      navigate(createPageUrl("ProposalBuilder"));
+    }
+  };
+
+  const proceedToProposalBuilder = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
@@ -132,6 +144,11 @@ export default function Dashboard() {
           proposals={proposals}
           stats={stats}
           onCreateProposal={handleCreateProposal}
+        />
+        <SampleDataGuard
+          isOpen={showSampleDataGuard}
+          onClose={() => setShowSampleDataGuard(false)}
+          onProceed={proceedToProposalBuilder}
         />
       </div>
     );
@@ -246,6 +263,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <SampleDataGuard
+        isOpen={showSampleDataGuard}
+        onClose={() => setShowSampleDataGuard(false)}
+        onProceed={proceedToProposalBuilder}
+      />
     </div>
   );
 }
