@@ -15,11 +15,9 @@ import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
-import { useOrganization } from "@/components/layout/OrganizationContext";
 
 export default function Pipeline() {
   const navigate = useNavigate();
-  const { user, organization, isLoading: isLoadingOrg } = useOrganization();
   const [viewMode, setViewMode] = useState("kanban");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
@@ -35,7 +33,55 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch proposals with proper caching and rate limiting prevention
+  // Load user directly
+  const { data: user, isLoading: isLoadingUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const currentUser = await base44.auth.me();
+      return currentUser;
+    },
+    staleTime: 300000,
+    retry: 1
+  });
+
+  // Load organization directly
+  const { data: organization, isLoading: isLoadingOrg } = useQuery({
+    queryKey: ['current-organization', user?.email],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      let orgId = user.active_client_id;
+      
+      if (!orgId && user.client_accesses?.length > 0) {
+        orgId = user.client_accesses[0].organization_id;
+      }
+      
+      if (!orgId) {
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          orgId = orgs[0].id;
+        }
+      }
+      
+      if (orgId) {
+        const orgs = await base44.entities.Organization.filter({ id: orgId });
+        if (orgs.length > 0) {
+          return orgs[0];
+        }
+      }
+      
+      return null;
+    },
+    enabled: !!user,
+    staleTime: 300000,
+    retry: 1
+  });
+
+  // Fetch proposals
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
@@ -45,20 +91,17 @@ export default function Pipeline() {
         '-created_date'
       );
     },
-    enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 30000, // 30 seconds
-    cacheTime: 300000, // 5 minutes
+    enabled: !!organization?.id,
+    staleTime: 30000,
     retry: 1,
-    retryDelay: 2000,
+    initialData: [],
   });
 
-  // Fetch kanban config with delay to prevent rate limiting
+  // Fetch kanban config
   const { data: kanbanConfig, isLoading: isLoadingConfig, refetch: refetchConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
       const configs = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         '-created_date',
@@ -66,30 +109,25 @@ export default function Pipeline() {
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 60000, // 1 minute
-    cacheTime: 300000,
+    enabled: !!organization?.id,
+    staleTime: 60000,
     retry: 1,
-    retryDelay: 2000,
   });
 
-  // Fetch automation rules with delay
+  // Fetch automation rules
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
       return base44.entities.ProposalAutomationRule.filter(
         { organization_id: organization.id },
         '-created_date'
       );
     },
-    enabled: !!organization?.id && !isLoadingOrg,
+    enabled: !!organization?.id,
     staleTime: 60000,
-    cacheTime: 300000,
     retry: 1,
-    retryDelay: 2000,
+    initialData: [],
   });
 
   const handleCreateProposal = () => {
@@ -125,7 +163,7 @@ export default function Pipeline() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
-              {proposalsError?.message || "Rate limit exceeded. Please try again in a moment."}
+              {proposalsError?.message || "An error occurred"}
             </p>
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
@@ -142,8 +180,8 @@ export default function Pipeline() {
     );
   }
 
-  // Show loading state while loading org
-  if (isLoadingOrg) {
+  // Show loading state
+  if (isLoadingUser || isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -166,7 +204,7 @@ export default function Pipeline() {
   }
 
   // Show "no organization" state
-  if (!organization) {
+  if (!organization && !isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -193,7 +231,6 @@ export default function Pipeline() {
     );
   }
 
-  // Show data recovery if no proposals
   const showDataRecovery = proposals.length === 0 && !isLoadingProposals;
 
   return (
