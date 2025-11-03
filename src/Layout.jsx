@@ -47,6 +47,7 @@ import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import MobileNavigation from "./components/mobile/MobileNavigation";
 import { cn } from "@/lib/utils";
+import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
@@ -96,46 +97,14 @@ const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
 ];
 
-export default function Layout({ children }) {
+function LayoutContent({ children }) {
   const location = useLocation();
-  const [user, setUser] = React.useState(null);
-  const [organization, setOrganization] = React.useState(null);
-  const [subscription, setSubscription] = React.useState(null);
+  const { user, organization, subscription } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [toolsOpen, setToolsOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    const loadData = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setOrganization(orgs[0]);
-          
-          // Load subscription
-          const subs = await base44.entities.Subscription.filter(
-            { organization_id: orgs[0].id },
-            '-created_date',
-            1
-          );
-          if (subs.length > 0) {
-            setSubscription(subs[0]);
-          }
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-      }
-    };
-    loadData();
-  }, []);
 
   // Close mobile menu on route change
   React.useEffect(() => {
@@ -730,5 +699,13 @@ export default function Layout({ children }) {
       {/* Mobile Bottom Navigation */}
       <MobileNavigation user={user} organization={organization} />
     </div>
+  );
+}
+
+export default function Layout({ children }) {
+  return (
+    <OrganizationProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </OrganizationProvider>
   );
 }
