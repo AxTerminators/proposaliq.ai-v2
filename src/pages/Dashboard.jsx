@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Sparkles, Trash2 } from "lucide-react";
+import { Plus, TrendingUp, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
 import ProposalPipeline from "../components/dashboard/ProposalPipeline";
@@ -34,7 +34,7 @@ export default function Dashboard() {
     win_rate: 0
   });
   const [isMobile, setIsMobile] = useState(false);
-  const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showSampleDataDialog, setShowSampleDataDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
@@ -118,26 +118,29 @@ export default function Dashboard() {
   }, [proposals]);
 
   const handleCreateProposal = () => {
-    navigate(createPageUrl("ProposalBuilder"));
+    // Check if user is using sample data
+    if (user?.using_sample_data) {
+      setShowSampleDataDialog(true);
+    } else {
+      navigate(createPageUrl("ProposalBuilder"));
+    }
   };
 
-  const handleClearAllProposals = async () => {
+  const handleClearSampleData = async () => {
     setIsClearing(true);
     try {
-      const result = await base44.functions.invoke('clearOrganizationProposals', {
-        organization_id: organization.id
-      });
+      await base44.functions.invoke('clearSampleData', {});
       
-      alert(`Success! Cleared ${result.data.deletedCount.proposals} proposals and all related data.`);
+      alert('✅ Sample data cleared! You can now create your first real proposal.');
       
-      // Refresh the page to show empty state
+      // Refresh the page
       window.location.reload();
     } catch (error) {
-      console.error('Error clearing proposals:', error);
-      alert('Error clearing proposals: ' + error.message);
+      console.error('Error clearing sample data:', error);
+      alert('Error clearing sample data: ' + error.message);
     } finally {
       setIsClearing(false);
-      setShowClearDialog(false);
+      setShowSampleDataDialog(false);
     }
   };
 
@@ -170,19 +173,19 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between dashboard-overview">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
-            </h1>
-            <p className="text-slate-600 mt-1">
-              {organization?.organization_name || 'Your Organization'}
-            </p>
-          </div>
-          <div className="flex gap-2">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between dashboard-overview">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">
+                Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
+              </h1>
+              <p className="text-slate-600 mt-1">
+                {organization?.organization_name || 'Your Organization'}
+              </p>
+            </div>
             <Button
               onClick={handleCreateProposal}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 create-proposal-button"
@@ -190,154 +193,150 @@ export default function Dashboard() {
               <Plus className="w-5 h-5 mr-2" />
               New Proposal
             </Button>
-            {proposals.length > 0 && (
-              <Button
-                onClick={() => setShowClearDialog(true)}
-                variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-5 h-5 mr-2" />
-                Clear All Data
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Total Proposals
-              </CardTitle>
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900">
-                {stats.total_proposals}
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                {stats.active_proposals} active
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Pipeline Value
-              </CardTitle>
-              <TrendingUp className="w-4 h-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900">
-                ${(stats.total_value / 1000000).toFixed(1)}M
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Total contract value
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Win Rate
-              </CardTitle>
-              <TrendingUp className="w-4 h-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900">
-                {stats.win_rate}%
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                On submitted proposals
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                AI Insights
-              </CardTitle>
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900">
-                {Math.round(stats.win_rate * 1.2)}%
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Predicted success rate
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <QuickActionsPanel user={user} organization={organization} />
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <ProposalPipeline proposals={proposals} organization={organization} />
-            <RevenueChart proposals={proposals} />
           </div>
 
-          <div className="space-y-6">
-            <AIInsightsCard proposals={proposals} organization={organization} />
-            <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Total Proposals
+                </CardTitle>
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">
+                  {stats.total_proposals}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {stats.active_proposals} active
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Pipeline Value
+                </CardTitle>
+                <TrendingUp className="w-4 h-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">
+                  ${(stats.total_value / 1000000).toFixed(1)}M
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Total contract value
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Win Rate
+                </CardTitle>
+                <TrendingUp className="w-4 h-4 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">
+                  {stats.win_rate}%
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  On submitted proposals
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  AI Insights
+                </CardTitle>
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">
+                  {Math.round(stats.win_rate * 1.2)}%
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Predicted success rate
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Actions */}
+          <QuickActionsPanel user={user} organization={organization} />
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <ProposalPipeline proposals={proposals} organization={organization} />
+              <RevenueChart proposals={proposals} />
+            </div>
+
+            <div className="space-y-6">
+              <AIInsightsCard proposals={proposals} organization={organization} />
+              <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Clear All Data Confirmation Dialog */}
-      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+      {/* Sample Data Dialog */}
+      <AlertDialog open={showSampleDataDialog} onOpenChange={setShowSampleDataDialog}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl flex items-center gap-2">
-              <Trash2 className="w-6 h-6 text-red-600" />
-              Clear All Proposals from {organization?.organization_name}?
+              <Sparkles className="w-6 h-6 text-amber-600" />
+              Ready to Add Real Data?
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-4 pt-4">
               <p className="text-base text-slate-700 font-medium">
-                This will permanently delete all <span className="text-red-600 font-bold">{proposals.length} proposals</span> and ALL related data from "{organization?.organization_name}".
+                You're currently exploring ProposalIQ with sample data. To create your first real proposal, you'll need to clear the sample data first.
               </p>
               
-              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                <p className="text-red-900 font-bold mb-2">⚠️ This action CANNOT be undone!</p>
-                <p className="text-red-800 text-sm">All proposal sections, tasks, comments, documents, analytics, and history will be permanently destroyed.</p>
+              <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
+                <p className="text-amber-900 font-semibold mb-2">📝 What happens when you clear sample data:</p>
+                <ul className="list-disc pl-5 space-y-1 text-amber-800 text-sm">
+                  <li>All sample proposals, tasks, and related data will be removed</li>
+                  <li>Your organization profile and team members will be preserved</li>
+                  <li>You'll be able to create your first real proposal immediately</li>
+                </ul>
               </div>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-blue-900 font-semibold text-sm">
-                  ✅ Your organization, team members, teaming partners, past performance, and resources will be preserved.
+                  💡 Not ready yet? You can continue exploring with sample data by clicking "Return to Training".
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isClearing}>
+              Return to Training
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleClearAllProposals}
+              onClick={handleClearSampleData}
               disabled={isClearing}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               {isClearing ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Clearing...
+                  Clearing Sample Data...
                 </>
               ) : (
                 <>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Yes, Clear All Proposals
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Clear Sample Data & Create Real Proposal
                 </>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
