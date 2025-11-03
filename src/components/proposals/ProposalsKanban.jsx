@@ -35,13 +35,14 @@ import { createPageUrl } from "@/utils";
 import ApprovalGate from "./ApprovalGate";
 import KanbanSetupWizard from "./KanbanSetupWizard"; // Added import
 import { Card, CardContent } from "@/components/ui/card"; // Added import
+import KanbanOnboardingTour from "./KanbanOnboardingTour";
 
 // New 13-column default configuration
 const DEFAULT_COLUMNS = [
-  { 
-    id: 'new', 
-    label: 'New', 
-    color: 'from-slate-400 to-slate-600', 
+  {
+    id: 'new',
+    label: 'New',
+    color: 'from-slate-400 to-slate-600',
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
@@ -51,10 +52,10 @@ const DEFAULT_COLUMNS = [
       { id: 'name_solicitation', label: 'Name & Solicitation #', type: 'manual_check', required: true, order: 1 }
     ]
   },
-  { 
-    id: 'evaluate', 
-    label: 'Evaluate', 
-    color: 'from-blue-400 to-blue-600', 
+  {
+    id: 'evaluate',
+    label: 'Evaluate',
+    color: 'from-blue-400 to-blue-600',
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
@@ -64,10 +65,10 @@ const DEFAULT_COLUMNS = [
       { id: 'add_partners', label: 'Add Teaming Partners', type: 'manual_check', required: false, order: 1 }
     ]
   },
-  { 
-    id: 'qualify', 
-    label: 'Qualify', 
-    color: 'from-cyan-400 to-cyan-600', 
+  {
+    id: 'qualify',
+    label: 'Qualify',
+    color: 'from-cyan-400 to-cyan-600',
     type: 'locked_phase',
     phase_mapping: 'phase3',
     is_locked: true,
@@ -78,10 +79,10 @@ const DEFAULT_COLUMNS = [
       { id: 'due_date', label: 'Set Due Date', type: 'system_check', required: true, order: 2 }
     ]
   },
-  { 
-    id: 'gather', 
-    label: 'Gather', 
-    color: 'from-teal-400 to-teal-600', 
+  {
+    id: 'gather',
+    label: 'Gather',
+    color: 'from-teal-400 to-teal-600',
     type: 'locked_phase',
     phase_mapping: 'phase2',
     is_locked: true,
@@ -91,10 +92,10 @@ const DEFAULT_COLUMNS = [
       { id: 'reference_docs', label: 'Add Reference Documents', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: false, order: 1 }
     ]
   },
-  { 
-    id: 'analyze', 
-    label: 'Analyze', 
-    color: 'from-green-400 to-green-600', 
+  {
+    id: 'analyze',
+    label: 'Analyze',
+    color: 'from-green-400 to-green-600',
     type: 'locked_phase',
     phase_mapping: 'phase3',
     is_locked: true,
@@ -104,10 +105,10 @@ const DEFAULT_COLUMNS = [
       { id: 'review_requirements', label: 'Review Compliance Requirements', type: 'manual_check', required: true, order: 1 }
     ]
   },
-  { 
-    id: 'strategy', 
-    label: 'Strategy', 
-    color: 'from-lime-400 to-lime-600', 
+  {
+    id: 'strategy',
+    label: 'Strategy',
+    color: 'from-lime-400 to-lime-600',
     type: 'locked_phase',
     phase_mapping: 'phase4',
     is_locked: true,
@@ -118,10 +119,10 @@ const DEFAULT_COLUMNS = [
       { id: 'competitor_analysis', label: 'Complete Competitor Analysis', type: 'modal_trigger', associated_action: 'open_modal_phase4', required: false, order: 2 }
     ]
   },
-  { 
-    id: 'outline', 
-    label: 'Outline', 
-    color: 'from-yellow-400 to-yellow-600', 
+  {
+    id: 'outline',
+    label: 'Outline',
+    color: 'from-yellow-400 to-yellow-600',
     type: 'locked_phase',
     phase_mapping: 'phase5',
     is_locked: true,
@@ -132,10 +133,10 @@ const DEFAULT_COLUMNS = [
       { id: 'set_strategy', label: 'Set Writing Strategy', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 2 }
     ]
   },
-  { 
-    id: 'drafting', 
-    label: 'Drafting', 
-    color: 'from-orange-400 to-orange-600', 
+  {
+    id: 'drafting',
+    label: 'Drafting',
+    color: 'from-orange-400 to-orange-600',
     type: 'locked_phase',
     phase_mapping: 'phase6',
     is_locked: true,
@@ -145,10 +146,10 @@ const DEFAULT_COLUMNS = [
       { id: 'complete_sections', label: 'Complete All Sections', type: 'system_check', required: true, order: 1 }
     ]
   },
-  { 
-    id: 'review', 
-    label: 'Review', 
-    color: 'from-amber-400 to-amber-600', 
+  {
+    id: 'review',
+    label: 'Review',
+    color: 'from-amber-400 to-amber-600',
     type: 'locked_phase',
     phase_mapping: 'phase7',
     is_locked: true,
@@ -158,10 +159,10 @@ const DEFAULT_COLUMNS = [
       { id: 'red_team', label: 'Conduct Red Team Review', type: 'modal_trigger', associated_action: 'open_red_team_review', required: false, order: 1 }
     ]
   },
-  { 
-    id: 'final', 
-    label: 'Final', 
-    color: 'from-rose-400 to-rose-600', 
+  {
+    id: 'final',
+    label: 'Final',
+    color: 'from-rose-400 to-rose-600',
     type: 'locked_phase',
     phase_mapping: 'phase7',
     is_locked: true,
@@ -173,41 +174,41 @@ const DEFAULT_COLUMNS = [
     requires_approval_to_exit: true,
     approver_roles: ['organization_owner', 'proposal_manager']
   },
-  { 
-    id: 'submitted', 
-    label: 'Submitted', 
-    color: 'from-indigo-400 to-indigo-600', 
-    type: 'default_status', 
+  {
+    id: 'submitted',
+    label: 'Submitted',
+    color: 'from-indigo-400 to-indigo-600',
+    type: 'default_status',
     default_status_mapping: 'submitted',
     is_locked: true,
     order: 10,
     checklist_items: []
   },
-  { 
-    id: 'won', 
-    label: 'Won', 
-    color: 'from-green-500 to-emerald-600', 
-    type: 'default_status', 
+  {
+    id: 'won',
+    label: 'Won',
+    color: 'from-green-500 to-emerald-600',
+    type: 'default_status',
     default_status_mapping: 'won',
     is_locked: true,
     order: 11,
     checklist_items: []
   },
-  { 
-    id: 'lost', 
-    label: 'Lost', 
-    color: 'from-red-400 to-red-600', 
-    type: 'default_status', 
+  {
+    id: 'lost',
+    label: 'Lost',
+    color: 'from-red-400 to-red-600',
+    type: 'default_status',
     default_status_mapping: 'lost',
     is_locked: true,
     order: 12,
     checklist_items: []
   },
-  { 
-    id: 'archived', 
-    label: 'Archive', 
-    color: 'from-gray-400 to-gray-600', 
-    type: 'default_status', 
+  {
+    id: 'archived',
+    label: 'Archive',
+    color: 'from-gray-400 to-gray-600',
+    type: 'default_status',
     default_status_mapping: 'archived',
     is_locked: true,
     order: 13,
@@ -219,7 +220,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
-  
+
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
@@ -234,6 +235,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [approvalGateData, setApprovalGateData] = useState(null);
   const [dragInProgress, setDragInProgress] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false); // Added state for setup wizard
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
 
   // Fetch kanban config
   const { data: kanbanConfig, isLoading: isLoadingConfig } = useQuery({ // Added isLoading: isLoadingConfig
@@ -245,7 +247,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         '-created_date',
         1
       );
-      
+
       // If no config exists, create one with default 13-column structure
       if (configs.length === 0) {
         // Only create default if it's the first time and there's no custom config available.
@@ -253,7 +255,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         // so we can return null here to trigger the wizard.
         return null;
       }
-      
+
       return configs[0];
     },
     enabled: !!organization?.id
@@ -269,16 +271,16 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   const toggleColumnCollapse = async (columnId) => {
     if (!kanbanConfig) return;
-    
+
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
     const newCollapsed = currentCollapsed.includes(columnId)
       ? currentCollapsed.filter(id => id !== columnId)
       : [...currentCollapsed, columnId];
-    
+
     await base44.entities.KanbanConfig.update(kanbanConfig.id, {
       collapsed_column_ids: newCollapsed
     });
-    
+
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
@@ -310,6 +312,19 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     };
   }, [handleZoomIn, handleZoomOut]);
 
+  // Check if user has completed the tour
+  useEffect(() => {
+    if (hasKanbanConfig && !isLoadingConfig) {
+      const tourCompleted = localStorage.getItem('kanban_tour_completed');
+      if (!tourCompleted) {
+        // Show tour after a brief delay to let the board render
+        setTimeout(() => {
+          setShowOnboardingTour(true);
+        }, 1000);
+      }
+    }
+  }, [hasKanbanConfig, isLoadingConfig]);
+
   const uniqueAgencies = useMemo(() => {
     const agencies = proposals
       .map(p => p.agency_name)
@@ -326,23 +341,23 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   const filteredProposals = useMemo(() => {
     return proposals.filter(proposal => {
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         proposal.project_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         proposal.solicitation_number?.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesAgency = filterAgency === "all" || proposal.agency_name === filterAgency;
-      
-      const matchesAssignee = filterAssignee === "all" || 
+
+      const matchesAssignee = filterAssignee === "all" ||
         (proposal.assigned_team_members || []).includes(filterAssignee);
-      
+
       return matchesSearch && matchesAgency && matchesAssignee;
     });
   }, [proposals, searchQuery, filterAgency, filterAssignee]);
 
   const getProposalsForColumn = useCallback((column) => {
     let columnProposals = [];
-    
+
     if (column.type === 'default_status') {
       columnProposals = filteredProposals.filter(p => p.status === column.default_status_mapping);
     } else if (column.type === 'custom_stage') {
@@ -356,7 +371,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     if (sort) {
       columnProposals = [...columnProposals].sort((a, b) => {
         if (sort.by === 'name') {
-          return sort.direction === 'asc' 
+          return sort.direction === 'asc'
             ? a.proposal_name?.localeCompare(b.proposal_name || '')
             : b.proposal_name?.localeCompare(a.proposal_name || '');
         } else if (sort.by === 'due_date') {
@@ -554,11 +569,11 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   const onDragEnd = async (result) => {
     setDragOverColumnId(null);
-    
+
     if (!result.destination || dragInProgress) return;
 
     const { source, destination, draggableId } = result;
-    
+
     // If dropped in same position, do nothing
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
@@ -569,7 +584,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     const sourceColumn = columns.find(col => col.id === source.droppableId);
     const destinationColumn = columns.find(col => col.id === destination.droppableId);
-    
+
     if (!sourceColumn || !destinationColumn) return;
 
     // **PHASE 3: RBAC Check - Can user drag FROM this column?**
@@ -620,7 +635,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   // Handle approval gate completion
   const handleApprovalComplete = async (approved) => {
     setShowApprovalGate(false);
-    
+
     if (approved && approvalGateData) {
       // Approval granted, perform the move
       await performProposalMove(
@@ -630,7 +645,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         approvalGateData.destinationIndex
       );
     }
-    
+
     setApprovalGateData(null);
   };
 
@@ -683,14 +698,14 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
 
     const proposalsInColumn = proposals.filter(p => p.custom_workflow_stage_id === columnId);
-    
+
     if (proposalsInColumn.length > 0) {
       alert(`Cannot delete column "${columnToDelete.label}" because it contains ${proposalsInColumn.length} proposals. Please move them to another column first.`);
       return;
     }
 
     const updatedColumns = columns.filter(c => c.id !== columnId);
-    
+
     updatedColumns.forEach((col, idx) => {
       col.order = idx;
     });
@@ -705,7 +720,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const handleRenameColumn = async (columnId, newLabel) => {
     if (!kanbanConfig) return;
 
-    const updatedColumns = columns.map(col => 
+    const updatedColumns = columns.map(col =>
       col.id === columnId ? { ...col, label: newLabel } : col
     );
 
@@ -742,10 +757,10 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
               </div>
               <h2 className="text-3xl font-bold text-slate-900 mb-3">Setup Your Kanban Board</h2>
               <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
-                Get started by choosing a workflow template that matches your proposal process. 
+                Get started by choosing a workflow template that matches your proposal process.
                 You can customize it later to fit your exact needs.
               </p>
-              <Button 
+              <Button
                 onClick={() => setShowSetupWizard(true)}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
               >
@@ -826,7 +841,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                 </span>
               )}
             </Button>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -855,7 +870,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                 </Button>
               )}
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" title="Search" />
@@ -904,14 +919,14 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
       <div className="flex-1 overflow-hidden">
         <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible px-6">
-          <DragDropContext 
+          <DragDropContext
             onDragEnd={onDragEnd}
             onDragStart={handleDragStart}
             onDragUpdate={handleDragUpdate}
           >
-            <div 
+            <div
               className="flex gap-0 pb-4 pt-4 h-full"
-              style={{ 
+              style={{
                 zoom: zoomLevel,
                 minWidth: 'min-content'
               }}
@@ -942,7 +957,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                         onClick={() => toggleColumnCollapse(column.id)}
                         title={`Expand ${column.label} column`}
                       >
-                        <div 
+                        <div
                           className="text-xs font-semibold text-slate-700 whitespace-nowrap"
                           style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                         >
@@ -1044,6 +1059,16 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
           organization={organization}
         />
       )}
+
+      {/* Onboarding Tour */}
+      <KanbanOnboardingTour
+        isOpen={showOnboardingTour}
+        onClose={() => setShowOnboardingTour(false)}
+        onComplete={() => {
+          localStorage.setItem('kanban_tour_completed', 'true');
+          setShowOnboardingTour(false);
+        }}
+      />
     </>
   );
 }
