@@ -607,36 +607,40 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                               <Checkbox
                                 checked={strategy.sections[section.id]?.subsections[sub.id]?.included}
                                 onCheckedChange={(checked) => {
-                                  setStrategy(prev => ({
-                                    ...prev,
-                                    sections: {
-                                      ...prev.sections,
-                                      [section.id]: {
-                                        ...prev.sections[section.id],
-                                        subsections: {
-                                          ...prev.sections[section.id].subsections,
-                                          [sub.id]: { ...prev.sections[section.id].subsections[sub.id], included: checked }
-                                        }
-                                      }
-                                    }));
+                                  setStrategy(prev => {
+                                    const newSections = { ...prev.sections };
+                                    if (!newSections[section.id]) {
+                                      newSections[section.id] = { subsections: {} };
+                                    }
+                                    if (!newSections[section.id].subsections) {
+                                      newSections[section.id].subsections = {};
+                                    }
+                                    newSections[section.id].subsections[sub.id] = {
+                                      ...newSections[section.id].subsections[sub.id],
+                                      included: checked
+                                    };
+                                    return { ...prev, sections: newSections };
+                                  });
                                 }}
                               />
                               <span className="text-sm flex-1">{sub.name}</span>
                               <Select
                                 value={strategy.sections[section.id]?.subsections[sub.id]?.tone || "default"}
                                 onValueChange={(value) => {
-                                  setStrategy(prev => ({
-                                    ...prev,
-                                    sections: {
-                                      ...prev.sections,
-                                      [section.id]: {
-                                        ...prev.sections[section.id],
-                                        subsections: {
-                                          ...prev.sections[section.id].subsections,
-                                          [sub.id]: { ...prev.sections[section.id].subsections[sub.id], tone: value }
-                                        }
-                                      }
-                                    }));
+                                  setStrategy(prev => {
+                                    const newSections = { ...prev.sections };
+                                    if (!newSections[section.id]) {
+                                      newSections[section.id] = { subsections: {} };
+                                    }
+                                    if (!newSections[section.id].subsections) {
+                                      newSections[section.id].subsections = {};
+                                    }
+                                    newSections[section.id].subsections[sub.id] = {
+                                      ...newSections[section.id].subsections[sub.id],
+                                      tone: value
+                                    };
+                                    return { ...prev, sections: newSections };
+                                  });
                                 }}
                               >
                                 <SelectTrigger className="w-28">
@@ -653,18 +657,20 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                                 type="number"
                                 value={strategy.sections[section.id]?.subsections[sub.id]?.wordCount || sub.defaultWordCount}
                                 onChange={(e) => {
-                                  setStrategy(prev => ({
-                                    ...prev,
-                                    sections: {
-                                      ...prev.sections,
-                                      [section.id]: {
-                                        ...prev.sections[section.id],
-                                        subsections: {
-                                          ...prev.sections[section.id].subsections,
-                                          [sub.id]: { ...prev.sections[section.id].subsections[sub.id], wordCount: parseInt(e.target.value) }
-                                        }
-                                      }
-                                    }));
+                                  setStrategy(prev => {
+                                    const newSections = { ...prev.sections };
+                                    if (!newSections[section.id]) {
+                                      newSections[section.id] = { subsections: {} };
+                                    }
+                                    if (!newSections[section.id].subsections) {
+                                      newSections[section.id].subsections = {};
+                                    }
+                                    newSections[section.id].subsections[sub.id] = {
+                                      ...newSections[section.id].subsections[sub.id],
+                                      wordCount: parseInt(e.target.value)
+                                    };
+                                    return { ...prev, sections: newSections };
+                                  });
                                 }}
                                 className="w-20"
                               />
