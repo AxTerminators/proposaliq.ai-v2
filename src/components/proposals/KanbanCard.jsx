@@ -235,7 +235,7 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
         {hasActionRequired && (
           <div className="absolute -top-2 -left-2 z-10">
             <div className="relative">
-              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
+              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping-slow opacity-75" />
               <PlayCircle className="relative w-6 h-6 text-red-600 bg-white rounded-full" title="Action Required" />
             </div>
           </div>
