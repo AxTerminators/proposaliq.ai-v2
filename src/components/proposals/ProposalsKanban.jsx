@@ -31,16 +31,183 @@ import ProposalCardModal from "./ProposalCardModal";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
-// Default columns configuration
+// New 13-column default configuration
 const DEFAULT_COLUMNS = [
-  { id: 'evaluating', label: 'Evaluating', emoji: '🔍', type: 'default_status', default_status_mapping: 'evaluating' },
-  { id: 'watch_list', label: 'Watch List', emoji: '👀', type: 'default_status', default_status_mapping: 'watch_list' },
-  { id: 'draft', label: 'Draft', emoji: '📝', type: 'default_status', default_status_mapping: 'draft' },
-  { id: 'in_progress', label: 'In Progress', emoji: '⚡', type: 'default_status', default_status_mapping: 'in_progress' },
-  { id: 'submitted', label: 'Submitted', emoji: '📤', type: 'default_status', default_status_mapping: 'submitted' },
-  { id: 'won', label: 'Won', emoji: '🏆', type: 'default_status', default_status_mapping: 'won' },
-  { id: 'lost', label: 'Lost', emoji: '❌', type: 'default_status', default_status_mapping: 'lost' },
-  { id: 'archived', label: 'Archived', emoji: '📦', type: 'default_status', default_status_mapping: 'archived' }
+  { 
+    id: 'new', 
+    label: 'New', 
+    color: 'from-slate-400 to-slate-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase1',
+    is_locked: true,
+    order: 0,
+    checklist_items: [
+      { id: 'basic_info', label: 'Add Basic Information', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
+      { id: 'name_solicitation', label: 'Name & Solicitation #', type: 'manual_check', required: true, order: 1 }
+    ]
+  },
+  { 
+    id: 'evaluate', 
+    label: 'Evaluate', 
+    color: 'from-blue-400 to-blue-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase1',
+    is_locked: true,
+    order: 1,
+    checklist_items: [
+      { id: 'identify_prime', label: 'Identify Prime Contractor', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
+      { id: 'add_partners', label: 'Add Teaming Partners', type: 'manual_check', required: false, order: 1 }
+    ]
+  },
+  { 
+    id: 'qualify', 
+    label: 'Qualify', 
+    color: 'from-cyan-400 to-cyan-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase3',
+    is_locked: true,
+    order: 2,
+    checklist_items: [
+      { id: 'solicitation_details', label: 'Enter Solicitation Details', type: 'modal_trigger', associated_action: 'open_modal_phase3', required: true, order: 0 },
+      { id: 'contract_value', label: 'Add Contract Value', type: 'system_check', required: true, order: 1 },
+      { id: 'due_date', label: 'Set Due Date', type: 'system_check', required: true, order: 2 }
+    ]
+  },
+  { 
+    id: 'gather', 
+    label: 'Gather', 
+    color: 'from-teal-400 to-teal-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase2',
+    is_locked: true,
+    order: 3,
+    checklist_items: [
+      { id: 'upload_solicitation', label: 'Upload Solicitation Document', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: true, order: 0 },
+      { id: 'reference_docs', label: 'Add Reference Documents', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: false, order: 1 }
+    ]
+  },
+  { 
+    id: 'analyze', 
+    label: 'Analyze', 
+    color: 'from-green-400 to-green-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase3',
+    is_locked: true,
+    order: 4,
+    checklist_items: [
+      { id: 'run_ai_analysis', label: 'Run AI Compliance Analysis', type: 'ai_trigger', associated_action: 'run_ai_analysis_phase3', required: true, order: 0 },
+      { id: 'review_requirements', label: 'Review Compliance Requirements', type: 'manual_check', required: true, order: 1 }
+    ]
+  },
+  { 
+    id: 'strategy', 
+    label: 'Strategy', 
+    color: 'from-lime-400 to-lime-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase4',
+    is_locked: true,
+    order: 5,
+    checklist_items: [
+      { id: 'run_evaluation', label: 'Run Strategic Evaluation', type: 'ai_trigger', associated_action: 'run_evaluation_phase4', required: true, order: 0 },
+      { id: 'go_no_go', label: 'Make Go/No-Go Decision', type: 'manual_check', required: true, order: 1 },
+      { id: 'competitor_analysis', label: 'Complete Competitor Analysis', type: 'modal_trigger', associated_action: 'open_modal_phase4', required: false, order: 2 }
+    ]
+  },
+  { 
+    id: 'outline', 
+    label: 'Outline', 
+    color: 'from-yellow-400 to-yellow-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase5',
+    is_locked: true,
+    order: 6,
+    checklist_items: [
+      { id: 'select_sections', label: 'Select Proposal Sections', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 0 },
+      { id: 'generate_win_themes', label: 'Generate Win Themes', type: 'ai_trigger', associated_action: 'generate_win_themes_phase5', required: false, order: 1 },
+      { id: 'set_strategy', label: 'Set Writing Strategy', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 2 }
+    ]
+  },
+  { 
+    id: 'drafting', 
+    label: 'Drafting', 
+    color: 'from-orange-400 to-orange-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase6',
+    is_locked: true,
+    order: 7,
+    checklist_items: [
+      { id: 'start_writing', label: 'Start Content Generation', type: 'modal_trigger', associated_action: 'open_modal_phase6', required: true, order: 0 },
+      { id: 'complete_sections', label: 'Complete All Sections', type: 'system_check', required: true, order: 1 }
+    ]
+  },
+  { 
+    id: 'review', 
+    label: 'Review', 
+    color: 'from-amber-400 to-amber-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase7',
+    is_locked: true,
+    order: 8,
+    checklist_items: [
+      { id: 'internal_review', label: 'Complete Internal Review', type: 'manual_check', required: true, order: 0 },
+      { id: 'red_team', label: 'Conduct Red Team Review', type: 'modal_trigger', associated_action: 'open_red_team_review', required: false, order: 1 }
+    ]
+  },
+  { 
+    id: 'final', 
+    label: 'Final', 
+    color: 'from-rose-400 to-rose-600', 
+    type: 'locked_phase',
+    phase_mapping: 'phase7',
+    is_locked: true,
+    order: 9,
+    checklist_items: [
+      { id: 'readiness_check', label: 'Run Submission Readiness Check', type: 'ai_trigger', associated_action: 'run_readiness_check_phase7', required: true, order: 0 },
+      { id: 'final_review', label: 'Final Executive Review', type: 'manual_check', required: true, order: 1 }
+    ],
+    requires_approval_to_exit: true,
+    approver_roles: ['organization_owner', 'proposal_manager']
+  },
+  { 
+    id: 'submitted', 
+    label: 'Submitted', 
+    color: 'from-indigo-400 to-indigo-600', 
+    type: 'default_status', 
+    default_status_mapping: 'submitted',
+    is_locked: true,
+    order: 10,
+    checklist_items: []
+  },
+  { 
+    id: 'won', 
+    label: 'Won', 
+    color: 'from-green-500 to-emerald-600', 
+    type: 'default_status', 
+    default_status_mapping: 'won',
+    is_locked: true,
+    order: 11,
+    checklist_items: []
+  },
+  { 
+    id: 'lost', 
+    label: 'Lost', 
+    color: 'from-red-400 to-red-600', 
+    type: 'default_status', 
+    default_status_mapping: 'lost',
+    is_locked: true,
+    order: 12,
+    checklist_items: []
+  },
+  { 
+    id: 'archived', 
+    label: 'Archive', 
+    color: 'from-gray-400 to-gray-600', 
+    type: 'default_status', 
+    default_status_mapping: 'archived',
+    is_locked: true,
+    order: 13,
+    checklist_items: []
+  }
 ];
 
 export default function ProposalsKanban({ proposals, organization, onRefresh }) {
@@ -69,7 +236,23 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         '-created_date',
         1
       );
-      return configs.length > 0 ? configs[0] : null;
+      
+      // If no config exists, create one with default 13-column structure
+      if (configs.length === 0) {
+        const newConfig = await base44.entities.KanbanConfig.create({
+          organization_id: organization.id,
+          columns: DEFAULT_COLUMNS,
+          collapsed_column_ids: [],
+          view_settings: {
+            default_view: 'kanban',
+            show_card_details: ['assignees', 'due_date', 'progress', 'value', 'tasks', 'discussions', 'files'],
+            compact_mode: false
+          }
+        });
+        return newConfig;
+      }
+      
+      return configs[0];
     },
     enabled: !!organization?.id
   });
@@ -159,6 +342,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       columnProposals = filteredProposals.filter(p => p.status === column.default_status_mapping);
     } else if (column.type === 'custom_stage') {
       columnProposals = filteredProposals.filter(p => p.custom_workflow_stage_id === column.id);
+    } else if (column.type === 'locked_phase') { // New logic for locked phases
+      columnProposals = filteredProposals.filter(p => p.current_phase === column.phase_mapping);
     }
 
     const sort = columnSorts[column.id];
@@ -229,7 +414,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
   };
 
   const handleDragUpdate = (update) => {
-    // Track which column is being dragged over
     if (update.destination) {
       setDragOverColumnId(update.destination.droppableId);
     } else {
@@ -253,11 +437,19 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     
     const updates = {};
     
+    // Update based on destination column type
     if (destColumn.type === 'default_status') {
       updates.status = destColumn.default_status_mapping;
       updates.custom_workflow_stage_id = null;
+      updates.current_phase = null; // Clear phase if moving to default status
     } else if (destColumn.type === 'custom_stage') {
       updates.custom_workflow_stage_id = destColumn.id;
+      updates.status = null; // Clear status if moving to custom stage
+      updates.current_phase = null; // Clear phase if moving to custom stage
+    } else if (destColumn.type === 'locked_phase') { // New logic for locked phases
+      updates.current_phase = destColumn.phase_mapping;
+      updates.status = null; // Clear status if moving to locked phase
+      updates.custom_workflow_stage_id = null; // Clear custom stage if moving to locked phase
     }
 
     const destProposals = getProposalsForColumn(destColumn);
@@ -265,28 +457,20 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     const movedProposal = proposals.find(p => p.id === draggableId);
     
     if (source.droppableId === destination.droppableId) {
-      // Find the index of the moved proposal in the current list
       const originalIndexInColumn = reorderedProposals.findIndex(p => p.id === draggableId);
       if (originalIndexInColumn !== -1) {
         reorderedProposals.splice(originalIndexInColumn, 1);
       }
     }
     
-    // Insert the moved proposal at the destination index
     reorderedProposals.splice(destination.index, 0, movedProposal);
 
-    // Update manual_order for all proposals in the destination column
-    // This part of the logic needs to be careful to avoid unnecessary updates and ensure consistency.
-    // For simplicity, we'll iterate through all affected proposals.
-
-    // First, update the dropped proposal
+    // Update manual_order for all proposals
     await updateProposalMutation.mutateAsync({ 
       proposalId: draggableId, 
       updates: { ...updates, manual_order: destination.index } 
     });
 
-    // Then, update the manual_order for other proposals in the destination column
-    // This is crucial to maintain correct ordering after the drag
     const updatesToBatch = [];
     for (let i = 0; i < reorderedProposals.length; i++) {
       if (reorderedProposals[i].id !== draggableId && reorderedProposals[i].manual_order !== i) {
@@ -297,12 +481,11 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       }
     }
 
-    // Execute batched updates if any
     if (updatesToBatch.length > 0) {
       await Promise.all(updatesToBatch.map(item => updateProposalMutation.mutateAsync(item)));
     }
 
-    queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Invalidate after all updates
+    queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
   const handleCardClick = (proposal) => {
@@ -326,7 +509,8 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       label: `New Stage ${columns.length + 1}`,
       color: 'from-gray-400 to-gray-600',
       type: 'custom_stage',
-      order: insertIndex
+      order: insertIndex,
+      checklist_items: [] // Added for new custom columns
     };
 
     const updatedColumns = [...columns];
@@ -347,7 +531,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     if (!kanbanConfig) return;
 
     const columnToDelete = columns.find(c => c.id === columnId);
-    if (!columnToDelete || columnToDelete.type === 'default_status') {
+    if (!columnToDelete || columnToDelete.is_locked) { // Check for is_locked property
+      if (columnToDelete.is_locked) {
+        alert(`Cannot delete locked column "${columnToDelete.label}".`);
+      }
       return;
     }
 
@@ -627,6 +814,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                               onDeleteColumn={handleDeleteColumn}
                               onRenameColumn={handleRenameColumn}
                               dragOverColumnColor={dragOverColor}
+                              kanbanConfig={kanbanConfig} {/* Pass kanbanConfig down */}
                             />
                           </div>
                         )}
@@ -669,6 +857,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             setSelectedProposal(null);
           }}
           organization={organization}
+          kanbanConfig={kanbanConfig} {/* Pass kanbanConfig down */}
         />
       )}
     </>
