@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import FileUploadDialog from "@/components/ui/FileUploadDialog";
 import { format } from "date-fns";
 
-export default function Phase2({ proposalData, setProposalData, proposalId }) {
+export default function Phase2({ proposalData, setProposalData, proposalId, onSaveAndGoToPipeline }) {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [organization, setOrganization] = useState(null);
@@ -786,6 +786,21 @@ export default function Phase2({ proposalData, setProposalData, proposalId }) {
           uploading={uploading}
         />
       </CardContent>
+
+      {/* Add button at bottom if onSaveAndGoToPipeline is provided */}
+      {onSaveAndGoToPipeline && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

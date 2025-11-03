@@ -161,7 +161,7 @@ const PROPOSAL_SECTIONS = [
   }
 ];
 
-export default function Phase6({ proposalData, setProposalData, proposalId, onNavigateToPhase }) {
+export default function Phase6({ proposalData, setProposalData, proposalId, onNavigateToPhase, onSaveAndGoToPipeline }) {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
   const [strategy, setStrategy] = useState(null);
@@ -1245,6 +1245,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
           </Button>
         </div>
       </CardContent>
+      {onSaveAndGoToPipeline && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

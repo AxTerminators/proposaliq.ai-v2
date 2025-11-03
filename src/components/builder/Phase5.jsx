@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -132,7 +133,7 @@ const PROPOSAL_SECTIONS = [
   }
 ];
 
-export default function Phase5({ proposalData, setProposalData, proposalId }) {
+export default function Phase5({ proposalData, setProposalData, proposalId, onSaveAndGoToPipeline }) {
   const [strategy, setStrategy] = useState({
     tone: "clear",
     readingLevel: "government_plain",
@@ -278,416 +279,425 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="border-none shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Phase 5: Comprehensive Strategy</CardTitle>
-          <CardDescription>
-            Develop your competitive strategy, win themes, and proposal structure
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="config" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="config">
+    <Card className="border-none shadow-xl">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold">Phase 5: Comprehensive Strategy</CardTitle>
+        <CardDescription>
+          Develop your competitive strategy, win themes, and proposal structure
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="config" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="config">
+              <Settings className="w-4 h-4 mr-2" />
+              Configuration
+            </TabsTrigger>
+            <TabsTrigger value="competitors">
+              <Target className="w-4 h-4 mr-2" />
+              Competitors
+            </TabsTrigger>
+            <TabsTrigger value="themes">
+              <Award className="w-4 h-4 mr-2" />
+              Win Themes
+            </TabsTrigger>
+            <TabsTrigger value="sections">
+              <Lightbulb className="w-4 h-4 mr-2" />
+              Sections
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Configuration Tab */}
+          <TabsContent value="config" className="space-y-6">
+            {/* Action Buttons */}
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                onClick={suggestWordCounts}
+                disabled={isLoadingSuggestWordCount}
+                variant="outline"
+              >
+                {isLoadingSuggestWordCount ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                Suggest Word Counts
+              </Button>
+
+              <Button
+                onClick={suggestStrategy}
+                disabled={isLoadingStrategy}
+                variant="outline"
+              >
+                {isLoadingStrategy ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Lightbulb className="w-4 h-4 mr-2" />
+                )}
+                Suggest Strategy
+              </Button>
+
+              <Button
+                onClick={() => setShowAISettings(!showAISettings)}
+                variant="outline"
+              >
                 <Settings className="w-4 h-4 mr-2" />
-                Configuration
-              </TabsTrigger>
-              <TabsTrigger value="competitors">
-                <Target className="w-4 h-4 mr-2" />
-                Competitors
-              </TabsTrigger>
-              <TabsTrigger value="themes">
-                <Award className="w-4 h-4 mr-2" />
-                Win Themes
-              </TabsTrigger>
-              <TabsTrigger value="sections">
-                <Lightbulb className="w-4 h-4 mr-2" />
-                Sections
-              </TabsTrigger>
-            </TabsList>
+                AI Model Settings
+              </Button>
+            </div>
 
-            {/* Configuration Tab */}
-            <TabsContent value="config" className="space-y-6">
-              {/* Action Buttons */}
-              <div className="flex gap-3 flex-wrap">
-                <Button
-                  onClick={suggestWordCounts}
-                  disabled={isLoadingSuggestWordCount}
-                  variant="outline"
-                >
-                  {isLoadingSuggestWordCount ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
-                  )}
-                  Suggest Word Counts
-                </Button>
-
-                <Button
-                  onClick={suggestStrategy}
-                  disabled={isLoadingStrategy}
-                  variant="outline"
-                >
-                  {isLoadingStrategy ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Lightbulb className="w-4 h-4 mr-2" />
-                  )}
-                  Suggest Strategy
-                </Button>
-
-                <Button
-                  onClick={() => setShowAISettings(!showAISettings)}
-                  variant="outline"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  AI Model Settings
-                </Button>
-              </div>
-
-              {/* AI Model Settings Panel */}
-              {showAISettings && (
-                <Card className="bg-slate-50 border-slate-300">
-                  <CardContent className="p-6 space-y-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>AI Model</Label>
-                        <Select
-                          value={strategy.aiModel}
-                          onValueChange={(value) => setStrategy(prev => ({ ...prev, aiModel: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="gemini">Google Gemini (Most cost-effective)</SelectItem>
-                            <SelectItem value="claude">Anthropic Claude (Best for writing)</SelectItem>
-                            <SelectItem value="chatgpt">OpenAI ChatGPT (Balanced performance)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Temperature: {strategy.temperature.toFixed(2)}</Label>
-                          <span className="text-xs text-slate-500">Controls randomness. Lower is more deterministic.</span>
-                        </div>
-                        <Slider
-                          value={[strategy.temperature]}
-                          onValueChange={([value]) => setStrategy(prev => ({ ...prev, temperature: value }))}
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          className="w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Top-P: {strategy.topP.toFixed(2)}</Label>
-                          <span className="text-xs text-slate-500">Nucleus sampling. Considers tokens with top_p probability mass.</span>
-                        </div>
-                        <Slider
-                          value={[strategy.topP]}
-                          onValueChange={([value]) => setStrategy(prev => ({ ...prev, topP: value }))}
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          className="w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Max Output Tokens</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            value={strategy.maxTokens}
-                            onChange={(e) => setStrategy(prev => ({ ...prev, maxTokens: parseInt(e.target.value) }))}
-                            className="w-32"
-                          />
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={() => setStrategy(prev => ({ ...prev, maxTokens: prev.maxTokens + 128 }))}
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={() => setStrategy(prev => ({ ...prev, maxTokens: Math.max(128, prev.maxTokens - 128) }))}
-                          >
-                            <ChevronDown className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+            {/* AI Model Settings Panel */}
+            {showAISettings && (
+              <Card className="bg-slate-50 border-slate-300">
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>AI Model</Label>
+                      <Select
+                        value={strategy.aiModel}
+                        onValueChange={(value) => setStrategy(prev => ({ ...prev, aiModel: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gemini">Google Gemini (Most cost-effective)</SelectItem>
+                          <SelectItem value="claude">Anthropic Claude (Best for writing)</SelectItem>
+                          <SelectItem value="chatgpt">OpenAI ChatGPT (Balanced performance)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
 
-              {/* Win Themes */}
-              {strategy.winThemes && (
-                <Card className="bg-amber-50 border-amber-300">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Suggested Win Themes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {strategy.winThemes.map((theme, idx) => (
-                        <div key={idx} className="p-3 bg-white rounded-lg border">
-                          <h4 className="font-semibold text-amber-900 mb-1">{theme.theme}</h4>
-                          <p className="text-sm text-slate-700 mb-2">{theme.strategy}</p>
-                          <p className="text-xs text-slate-500">Ties to: {theme.evaluation_tie}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Overall Drafting Style */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Overall Drafting Style (default settings)</h3>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tone</Label>
-                    <Select
-                      value={strategy.tone}
-                      onValueChange={(value) => setStrategy(prev => ({ ...prev, tone: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="clear">Clear (default)</SelectItem>
-                        <SelectItem value="formal">Formal</SelectItem>
-                        <SelectItem value="concise">Concise</SelectItem>
-                        <SelectItem value="courteous">Courteous</SelectItem>
-                        <SelectItem value="confident">Confident</SelectItem>
-                        <SelectItem value="persuasive">Persuasive</SelectItem>
-                        <SelectItem value="professional">Professional</SelectItem>
-                        <SelectItem value="humanized">Humanized</SelectItem>
-                        <SelectItem value="conversational">Conversational</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Reading Level</Label>
-                    <Select
-                      value={strategy.readingLevel}
-                      onValueChange={(value) => setStrategy(prev => ({ ...prev, readingLevel: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="government_plain">Government Plain Language</SelectItem>
-                        <SelectItem value="flesch_60">Flesch–Kincaid Grade Level ~10 (Flesch 60+)</SelectItem>
-                        <SelectItem value="flesch_70">Flesch–Kincaid Grade Level ~8 (Flesch 70+)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Citations</Label>
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox
-                        checked={strategy.requestCitations}
-                        onCheckedChange={(checked) => setStrategy(prev => ({ ...prev, requestCitations: checked }))}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Temperature: {strategy.temperature.toFixed(2)}</Label>
+                        <span className="text-xs text-slate-500">Controls randomness. Lower is more deterministic.</span>
+                      </div>
+                      <Slider
+                        value={[strategy.temperature]}
+                        onValueChange={([value]) => setStrategy(prev => ({ ...prev, temperature: value }))}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        className="w-full"
                       />
-                      <label className="text-sm text-slate-700">
-                        Request Citations (Ask model to cite sources if applicable)
-                      </label>
                     </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Top-P: {strategy.topP.toFixed(2)}</Label>
+                        <span className="text-xs text-slate-500">Nucleus sampling. Considers tokens with top_p probability mass.</span>
+                      </div>
+                      <Slider
+                        value={[strategy.topP]}
+                        onValueChange={([value]) => setStrategy(prev => ({ ...prev, topP: value }))}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Max Output Tokens</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={strategy.maxTokens}
+                          onChange={(e) => setStrategy(prev => ({ ...prev, maxTokens: parseInt(e.target.value) }))}
+                          className="w-32"
+                        />
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setStrategy(prev => ({ ...prev, maxTokens: prev.maxTokens + 128 }))}
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setStrategy(prev => ({ ...prev, maxTokens: Math.max(128, prev.maxTokens - 128) }))}
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Win Themes */}
+            {strategy.winThemes && (
+              <Card className="bg-amber-50 border-amber-300">
+                <CardHeader>
+                  <CardTitle className="text-lg">Suggested Win Themes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {strategy.winThemes.map((theme, idx) => (
+                      <div key={idx} className="p-3 bg-white rounded-lg border">
+                        <h4 className="font-semibold text-amber-900 mb-1">{theme.theme}</h4>
+                        <p className="text-sm text-slate-700 mb-2">{theme.strategy}</p>
+                        <p className="text-xs text-slate-500">Ties to: {theme.evaluation_tie}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Overall Drafting Style */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Overall Drafting Style (default settings)</h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Tone</Label>
+                  <Select
+                    value={strategy.tone}
+                    onValueChange={(value) => setStrategy(prev => ({ ...prev, tone: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="clear">Clear (default)</SelectItem>
+                      <SelectItem value="formal">Formal</SelectItem>
+                      <SelectItem value="concise">Concise</SelectItem>
+                      <SelectItem value="courteous">Courteous</SelectItem>
+                      <SelectItem value="confident">Confident</SelectItem>
+                      <SelectItem value="persuasive">Persuasive</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="humanized">Humanized</SelectItem>
+                      <SelectItem value="conversational">Conversational</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Reading Level</Label>
+                  <Select
+                    value={strategy.readingLevel}
+                    onValueChange={(value) => setStrategy(prev => ({ ...prev, readingLevel: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="government_plain">Government Plain Language</SelectItem>
+                      <SelectItem value="flesch_60">Flesch–Kincaid Grade Level ~10 (Flesch 60+)</SelectItem>
+                      <SelectItem value="flesch_70">Flesch–Kincaid Grade Level ~8 (Flesch 70+)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Citations</Label>
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox
+                      checked={strategy.requestCitations}
+                      onCheckedChange={(checked) => setStrategy(prev => ({ ...prev, requestCitations: checked }))}
+                    />
+                    <label className="text-sm text-slate-700">
+                      Request Citations (Ask model to cite sources if applicable)
+                    </label>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <Button onClick={saveStrategy} className="w-full" size="lg">
-                Save Strategy Configuration
-              </Button>
-            </TabsContent>
+            <Button onClick={saveStrategy} className="w-full" size="lg">
+              Save Strategy Configuration
+            </Button>
+          </TabsContent>
 
-            {/* Competitors Tab */}
-            <TabsContent value="competitors">
-              <CompetitorAnalysis
-                proposalId={proposalId}
-                proposalData={proposalData}
-                organizationId={currentOrgId}
-              />
-            </TabsContent>
+          {/* Competitors Tab */}
+          <TabsContent value="competitors">
+            <CompetitorAnalysis
+              proposalId={proposalId}
+              proposalData={proposalData}
+              organizationId={currentOrgId}
+            />
+          </TabsContent>
 
-            {/* Win Themes Tab */}
-            <TabsContent value="themes">
-              <WinThemeGenerator
-                proposalId={proposalId}
-                proposalData={proposalData}
-                organizationId={currentOrgId}
-              />
-            </TabsContent>
+          {/* Win Themes Tab */}
+          <TabsContent value="themes">
+            <WinThemeGenerator
+              proposalId={proposalId}
+              proposalData={proposalData}
+              organizationId={currentOrgId}
+            />
+          </TabsContent>
 
-            {/* Proposal Sections Tab */}
-            <TabsContent value="sections" className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Proposal Sections</h3>
-                <p className="text-sm text-slate-600 mb-4">
-                  Select which sections to include in the next step, Proposal Writer, and optionally override the overall tone for each specific section or subsection.
-                </p>
+          {/* Proposal Sections Tab */}
+          <TabsContent value="sections" className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Proposal Sections</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Select which sections to include in the next step, Proposal Writer, and optionally override the overall tone for each specific section or subsection.
+              </p>
 
-                <div className="space-y-4">
-                  {PROPOSAL_SECTIONS.map((section) => (
-                    <Card key={section.id} className="border-slate-300">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3 mb-3">
-                          <Checkbox
-                            checked={strategy.sections[section.id]?.included}
-                            onCheckedChange={(checked) => {
+              <div className="space-y-4">
+                {PROPOSAL_SECTIONS.map((section) => (
+                  <Card key={section.id} className="border-slate-300">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <Checkbox
+                          checked={strategy.sections[section.id]?.included}
+                          onCheckedChange={(checked) => {
+                            setStrategy(prev => ({
+                              ...prev,
+                              sections: {
+                                ...prev.sections,
+                                [section.id]: { ...prev.sections[section.id], included: checked }
+                              }
+                            }));
+                          }}
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-slate-900">{section.name}</h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={strategy.sections[section.id]?.tone || "default"}
+                            onValueChange={(value) => {
                               setStrategy(prev => ({
                                 ...prev,
                                 sections: {
                                   ...prev.sections,
-                                  [section.id]: { ...prev.sections[section.id], included: checked }
+                                  [section.id]: { ...prev.sections[section.id], tone: value }
                                 }
                               }));
                             }}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="formal">Formal</SelectItem>
+                              <SelectItem value="persuasive">Persuasive</SelectItem>
+                              <SelectItem value="concise">Concise</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            value={strategy.sections[section.id]?.wordCount || section.defaultWordCount}
+                            onChange={(e) => {
+                              setStrategy(prev => ({
+                                ...prev,
+                                sections: {
+                                  ...prev.sections,
+                                  [section.id]: { ...prev.sections[section.id], wordCount: parseInt(e.target.value) }
+                                }
+                              }));
+                            }}
+                            className="w-24"
+                            placeholder="Words"
                           />
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900">{section.name}</h4>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Select
-                              value={strategy.sections[section.id]?.tone || "default"}
-                              onValueChange={(value) => {
-                                setStrategy(prev => ({
-                                  ...prev,
-                                  sections: {
-                                    ...prev.sections,
-                                    [section.id]: { ...prev.sections[section.id], tone: value }
-                                  }
-                                }));
-                              }}
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="default">Default</SelectItem>
-                                <SelectItem value="formal">Formal</SelectItem>
-                                <SelectItem value="persuasive">Persuasive</SelectItem>
-                                <SelectItem value="concise">Concise</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              value={strategy.sections[section.id]?.wordCount || section.defaultWordCount}
-                              onChange={(e) => {
-                                setStrategy(prev => ({
-                                  ...prev,
-                                  sections: {
-                                    ...prev.sections,
-                                    [section.id]: { ...prev.sections[section.id], wordCount: parseInt(e.target.value) }
-                                  }
-                                }));
-                              }}
-                              className="w-24"
-                              placeholder="Words"
-                            />
-                          </div>
                         </div>
+                      </div>
 
-                        {/* Subsections */}
-                        {section.subsections.length > 0 && (
-                          <div className="ml-8 space-y-2 mt-2 pt-2 border-t">
-                            {section.subsections.map((sub) => (
-                              <div key={sub.id} className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={strategy.sections[section.id]?.subsections[sub.id]?.included}
-                                  onCheckedChange={(checked) => {
-                                    setStrategy(prev => ({
-                                      ...prev,
-                                      sections: {
-                                        ...prev.sections,
-                                        [section.id]: {
-                                          ...prev.sections[section.id],
-                                          subsections: {
-                                            ...prev.sections[section.id].subsections,
-                                            [sub.id]: { ...prev.sections[section.id].subsections[sub.id], included: checked }
-                                          }
+                      {/* Subsections */}
+                      {section.subsections.length > 0 && (
+                        <div className="ml-8 space-y-2 mt-2 pt-2 border-t">
+                          {section.subsections.map((sub) => (
+                            <div key={sub.id} className="flex items-center gap-3">
+                              <Checkbox
+                                checked={strategy.sections[section.id]?.subsections[sub.id]?.included}
+                                onCheckedChange={(checked) => {
+                                  setStrategy(prev => ({
+                                    ...prev,
+                                    sections: {
+                                      ...prev.sections,
+                                      [section.id]: {
+                                        ...prev.sections[section.id],
+                                        subsections: {
+                                          ...prev.sections[section.id].subsections,
+                                          [sub.id]: { ...prev.sections[section.id].subsections[sub.id], included: checked }
                                         }
                                       }
                                     }));
-                                  }}
-                                />
-                                <span className="text-sm flex-1">{sub.name}</span>
-                                <Select
-                                  value={strategy.sections[section.id]?.subsections[sub.id]?.tone || "default"}
-                                  onValueChange={(value) => {
-                                    setStrategy(prev => ({
-                                      ...prev,
-                                      sections: {
-                                        ...prev.sections,
-                                        [section.id]: {
-                                          ...prev.sections[section.id],
-                                          subsections: {
-                                            ...prev.sections[section.id].subsections,
-                                            [sub.id]: { ...prev.sections[section.id].subsections[sub.id], tone: value }
-                                          }
+                                }}
+                              />
+                              <span className="text-sm flex-1">{sub.name}</span>
+                              <Select
+                                value={strategy.sections[section.id]?.subsections[sub.id]?.tone || "default"}
+                                onValueChange={(value) => {
+                                  setStrategy(prev => ({
+                                    ...prev,
+                                    sections: {
+                                      ...prev.sections,
+                                      [section.id]: {
+                                        ...prev.sections[section.id],
+                                        subsections: {
+                                          ...prev.sections[section.id].subsections,
+                                          [sub.id]: { ...prev.sections[section.id].subsections[sub.id], tone: value }
                                         }
                                       }
                                     }));
-                                  }}
-                                >
-                                  <SelectTrigger className="w-28">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="default">Default</SelectItem>
-                                    <SelectItem value="formal">Formal</SelectItem>
-                                    <SelectItem value="persuasive">Persuasive</SelectItem>
-                                    <SelectItem value="concise">Concise</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <Input
-                                  type="number"
-                                  value={strategy.sections[section.id]?.subsections[sub.id]?.wordCount || sub.defaultWordCount}
-                                  onChange={(e) => {
-                                    setStrategy(prev => ({
-                                      ...prev,
-                                      sections: {
-                                        ...prev.sections,
-                                        [section.id]: {
-                                          ...prev.sections[section.id],
-                                          subsections: {
-                                            ...prev.sections[section.id].subsections,
-                                            [sub.id]: { ...prev.sections[section.id].subsections[sub.id], wordCount: parseInt(e.target.value) }
-                                          }
+                                }}
+                              >
+                                <SelectTrigger className="w-28">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="default">Default</SelectItem>
+                                  <SelectItem value="formal">Formal</SelectItem>
+                                  <SelectItem value="persuasive">Persuasive</SelectItem>
+                                  <SelectItem value="concise">Concise</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                value={strategy.sections[section.id]?.subsections[sub.id]?.wordCount || sub.defaultWordCount}
+                                onChange={(e) => {
+                                  setStrategy(prev => ({
+                                    ...prev,
+                                    sections: {
+                                      ...prev.sections,
+                                      [section.id]: {
+                                        ...prev.sections[section.id],
+                                        subsections: {
+                                          ...prev.sections[section.id].subsections,
+                                          [sub.id]: { ...prev.sections[section.id].subsections[sub.id], wordCount: parseInt(e.target.value) }
                                         }
                                       }
                                     }));
-                                  }}
-                                  className="w-20"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                                }}
+                                className="w-20"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
+            </div>
 
-              <Button onClick={saveStrategy} className="w-full" size="lg">
-                Save Strategy Configuration
-              </Button>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+            <Button onClick={saveStrategy} className="w-full" size="lg">
+              Save Strategy Configuration
+            </Button>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+
+      {onSaveAndGoToPipeline && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

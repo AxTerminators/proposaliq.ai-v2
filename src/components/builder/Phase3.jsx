@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 
-export default function Phase3({ proposalData, setProposalData, proposalId }) {
+export default function Phase3({ proposalData, setProposalData, proposalId, onSaveAndGoToPipeline }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [uploadedDocs, setUploadedDocs] = useState([]);
@@ -1137,6 +1137,21 @@ Return a JSON array of evaluation factor names.`;
           </div>
         )}
       </CardContent>
+
+      {/* Add button at bottom */}
+      {onSaveAndGoToPipeline && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

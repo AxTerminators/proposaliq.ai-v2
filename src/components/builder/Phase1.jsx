@@ -27,7 +27,7 @@ const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
 ];
 
-export default function Phase1({ proposalData, setProposalData, proposalId, embedded = false }) {
+export default function Phase1({ proposalData, setProposalData, proposalId, embedded = false, onSaveAndGoToPipeline }) {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
   const [partners, setPartners] = useState([]);
@@ -761,6 +761,21 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
           </div>
         </div>
       </CardContent>
+
+      {/* Add button at bottom if onSaveAndGoToPipeline is provided and not embedded */}
+      {onSaveAndGoToPipeline && !embedded && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Add New Company Dialog with Tabs */}
       <Dialog open={showAddPartnerDialog} onOpenChange={setShowAddPartnerDialog}>

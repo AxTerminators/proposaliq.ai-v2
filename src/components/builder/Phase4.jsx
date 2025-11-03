@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import {
 import CompetitorAnalysis from "./CompetitorAnalysis";
 import ComplianceMatrixGenerator from "./ComplianceMatrixGenerator";
 
-export default function Phase4({ proposalData, setProposalData, proposalId }) {
+export default function Phase4({ proposalData, setProposalData, proposalId, onSaveAndGoToPipeline }) {
   const [evaluating, setEvaluating] = useState(false);
   const [evaluationResults, setEvaluationResults] = useState(null);
   const [calculatingScore, setCalculatingScore] = useState(false);
@@ -502,6 +503,21 @@ Return JSON:
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {/* Add button at bottom */}
+      {onSaveAndGoToPipeline && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

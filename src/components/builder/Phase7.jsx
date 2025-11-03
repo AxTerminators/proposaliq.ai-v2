@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,7 +33,7 @@ import RedTeamReview from "./RedTeamReview";
 import ComplianceMatrixGenerator from "./ComplianceMatrixGenerator";
 import WinLossAnalyzer from "../analytics/WinLossAnalyzer";
 
-export default function Phase7({ proposal, user, organization, teamMembers, onMarkAsSubmitted }) {
+export default function Phase7({ proposal, user, organization, teamMembers, onMarkAsSubmitted, onSaveAndGoToPipeline }) {
   const [currentTab, setCurrentTab] = useState("submission");
   const [readinessScore, setReadinessScore] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +99,7 @@ export default function Phase7({ proposal, user, organization, teamMembers, onMa
       setShowSubmitDialog(false);
       alert("Proposal successfully marked as submitted! Status updated on Kanban board.");
     } catch (error) {
-      console.error("Error submitting proposal:", error);
+      console.error("Error marking proposal as submitted:", error);
       alert("Error marking proposal as submitted. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -222,6 +223,21 @@ export default function Phase7({ proposal, user, organization, teamMembers, onMa
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {/* Add button at bottom */}
+      {onSaveAndGoToPipeline && (
+        <div className="px-6 pb-6">
+          <div className="flex justify-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onSaveAndGoToPipeline}
+              className="bg-white hover:bg-slate-50"
+            >
+              Save and Go to Pipeline
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Submit Confirmation Dialog */}
       <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>

@@ -257,6 +257,11 @@ export default function ProposalBuilder() {
     }
   };
 
+  const handleSaveAndGoToPipeline = async () => {
+    await saveProposal();
+    navigate(createPageUrl("Pipeline"));
+  };
+
   const handleDeleteProposal = async () => {
     if (!proposalId) return;
     
@@ -404,19 +409,44 @@ export default function ProposalBuilder() {
             <TabsContent value="builder" className="space-y-6">
               <div className="mb-6">
                 {currentPhase === "phase1" && (
-                  <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase1 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
                 )}
                 {currentPhase === "phase2" && (
-                  <Phase2 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase2 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
                 )}
                 {currentPhase === "phase3" && (
-                  <Phase3 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase3 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
                 )}
                 {currentPhase === "phase4" && (
-                  <Phase4 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase4 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
                 )}
                 {currentPhase === "phase5" && (
-                  <Phase5 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                  <Phase5 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
                 )}
                 {currentPhase === "phase6" && (
                   <Phase6 
@@ -424,6 +454,7 @@ export default function ProposalBuilder() {
                     setProposalData={setProposalData} 
                     proposalId={proposalId}
                     onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
                   />
                 )}
                 {currentPhase === "phase7" && (
@@ -433,6 +464,7 @@ export default function ProposalBuilder() {
                     organization={organization}
                     teamMembers={[]}
                     onMarkAsSubmitted={markAsSubmitted}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
                   />
                 )}
               </div>
@@ -446,6 +478,13 @@ export default function ProposalBuilder() {
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveAndGoToPipeline}
+                    className="bg-white hover:bg-slate-50"
+                  >
+                    Save and Go to Pipeline
                   </Button>
                   <Button
                     onClick={handleNext}
@@ -504,7 +543,12 @@ export default function ProposalBuilder() {
           <>
             <div className="mb-6">
               {currentPhase === "phase1" && (
-                <Phase1 proposalData={proposalData} setProposalData={setProposalData} proposalId={proposalId} />
+                <Phase1 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
               )}
             </div>
 
@@ -517,6 +561,13 @@ export default function ProposalBuilder() {
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSaveAndGoToPipeline}
+                  className="bg-white hover:bg-slate-50"
+                >
+                  Save and Go to Pipeline
                 </Button>
                 <Button
                   onClick={handleNext}
