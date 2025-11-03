@@ -4,12 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone, AlertCircle, RefreshCw, Info, Database, Building2 } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2 } from "lucide-react";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
-import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 import PipelineAnalytics from "@/components/analytics/PipelineAnalytics";
 import SnapshotGenerator from "@/components/analytics/SnapshotGenerator";
 import SmartAutomationEngine from "@/components/automation/SmartAutomationEngine";
@@ -17,16 +15,15 @@ import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useOrganization } from "@/components/layout/OrganizationContext";
 
 export default function Pipeline() {
   const navigate = useNavigate();
-  const { user, organization, isLoading: isLoadingOrg, error: orgError } = useOrganization();
   const [viewMode, setViewMode] = useState("kanban");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [user, setUser] = useState(null);
+  const [organization, setOrganization] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -38,7 +35,45 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch proposals - run immediately when org is available
+  // Load user and organization directly
+  useEffect(() => {
+    const loadUserAndOrg = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
+        let orgId = currentUser.active_client_id;
+        
+        if (!orgId && currentUser.client_accesses?.length > 0) {
+          orgId = currentUser.client_accesses[0].organization_id;
+        }
+        
+        if (!orgId) {
+          const orgs = await base44.entities.Organization.filter(
+            { created_by: currentUser.email },
+            '-created_date',
+            1
+          );
+          if (orgs.length > 0) {
+            orgId = orgs[0].id;
+          }
+        }
+        
+        if (orgId) {
+          const orgs = await base44.entities.Organization.filter({ id: orgId });
+          if (orgs.length > 0) {
+            setOrganization(orgs[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user/org:', error);
+      }
+    };
+    
+    loadUserAndOrg();
+  }, []);
+
+  // Fetch proposals
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
@@ -50,11 +85,9 @@ export default function Pipeline() {
     },
     enabled: !!organization?.id,
     initialData: [],
-    retry: 2,
-    retryDelay: 3000,
   });
 
-  // Fetch kanban config - run in parallel with proposals
+  // Fetch kanban config
   const { data: kanbanConfig, isLoading: isLoadingConfig, refetch: refetchConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -67,11 +100,9 @@ export default function Pipeline() {
       return configs.length > 0 ? configs[0] : null;
     },
     enabled: !!organization?.id,
-    retry: 2,
-    retryDelay: 3000,
   });
 
-  // Fetch automation rules - run in parallel
+  // Fetch automation rules
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
@@ -83,7 +114,6 @@ export default function Pipeline() {
     },
     enabled: !!organization?.id,
     initialData: [],
-    retry: 1,
   });
 
   const handleCreateProposal = () => {
@@ -105,15 +135,11 @@ export default function Pipeline() {
   };
 
   const handleRetry = () => {
-    refetchProposals();
-    refetchConfig();
-    refetchRules();
+    window.location.reload();
   };
 
   // Show error state
-  if (orgError || proposalsError) {
-    const error = orgError || proposalsError;
-    
+  if (proposalsError) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -123,12 +149,12 @@ export default function Pipeline() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
-              {error?.message || "An error occurred while loading your pipeline"}
+              {proposalsError?.message || "An error occurred while loading your pipeline"}
             </p>
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Try Again
+                Reload Page
               </Button>
               <Button variant="outline" onClick={() => navigate(createPageUrl("Dashboard"))}>
                 Go to Dashboard
@@ -140,8 +166,8 @@ export default function Pipeline() {
     );
   }
 
-  // Show loading state only while loading org context
-  if (isLoadingOrg) {
+  // Show loading state while loading user/org
+  if (!user || !organization) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -155,35 +181,7 @@ export default function Pipeline() {
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-              <span>This should only take a few seconds</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Show "no organization" state if user exists but no organization
-  if (user && !organization) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-6">
-        <Card className="max-w-2xl border-none shadow-xl">
-          <CardContent className="p-12 text-center">
-            <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Building2 className="w-10 h-10 text-amber-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">No Organization Found</h2>
-            <p className="text-lg text-slate-600 mb-6">
-              You need to set up your organization before accessing the pipeline.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={() => navigate(createPageUrl("Onboarding"))} className="bg-blue-600 hover:bg-blue-700">
-                <Building2 className="w-4 h-4 mr-2" />
-                Set Up Organization
-              </Button>
-              <Button variant="outline" onClick={() => navigate(createPageUrl("Dashboard"))}>
-                Go to Dashboard
-              </Button>
+              <span>Please wait</span>
             </div>
           </CardContent>
         </Card>
