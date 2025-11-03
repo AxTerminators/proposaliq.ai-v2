@@ -15,42 +15,37 @@ export default function Home() {
 
         // Check if user has completed the onboarding guide
         if (!user.onboarding_guide_completed) {
-          // Check if they already have an organization (sample or real)
-          const orgs = await base44.entities.Organization.filter(
-            { created_by: user.email },
-            '-created_date',
-            1
-          );
-
-          if (orgs.length === 0) {
-            // No organization exists - generate sample data
-            try {
-              await base44.functions.invoke('generateSampleData', {});
-            } catch (error) {
-              console.error("Error generating sample data:", error);
-            }
-          }
-
-          // Redirect to onboarding guide
           navigate(createPageUrl("OnboardingGuide"));
           return;
         }
 
-        // Check if user has cleared sample data but hasn't created real organization
+        // Check if user is using sample data - redirect to Dashboard
+        if (user.using_sample_data) {
+          navigate(createPageUrl("Dashboard"));
+          return;
+        }
+
+        // Check if user cleared sample data but hasn't created real organization
         if (user.sample_data_cleared && !user.has_created_real_organization) {
+          navigate(createPageUrl("Onboarding"));
+          return;
+        }
+
+        // Check if user skipped sample data - redirect to Onboarding to create org
+        if (user.skipped_sample_data && !user.has_created_real_organization) {
           navigate(createPageUrl("Onboarding"));
           return;
         }
 
         // User has completed onboarding - check if they have an organization
         const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
+          { created_by: user.email, is_sample_data: false },
           '-created_date',
           1
         );
 
         if (orgs.length === 0 || !orgs[0].onboarding_completed) {
-          // No organization or incomplete onboarding
+          // No real organization or incomplete onboarding
           navigate(createPageUrl("Onboarding"));
         } else {
           // All set - go to dashboard
@@ -58,8 +53,8 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error checking user status:", error);
-        // If there's an error, redirect to onboarding to be safe
-        navigate(createPageUrl("Onboarding"));
+        // If there's an error, redirect to onboarding guide to be safe
+        navigate(createPageUrl("OnboardingGuide"));
       } finally {
         setIsLoading(false);
       }
