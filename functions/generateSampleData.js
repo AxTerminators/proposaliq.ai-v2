@@ -197,7 +197,8 @@ Deno.serve(async (req) => {
         on_budget_pct: 98,
         customer_satisfaction: 4.8
       },
-      cpars_rating: "Exceptional"
+      cpars_rating: "Exceptional",
+      is_sample_data: true
     });
 
     // Create sample teaming partner
@@ -214,7 +215,8 @@ Deno.serve(async (req) => {
       primary_naics: "541519",
       certifications: ["HUBZone", "WOSB"],
       core_capabilities: ["Cybersecurity", "Cloud Services"],
-      status: "active"
+      status: "active",
+      is_sample_data: true
     });
 
     // Create sample key personnel
@@ -241,7 +243,8 @@ Deno.serve(async (req) => {
       ],
       clearance_level: "top_secret",
       skills: ["Cloud Architecture", "DevOps", "Agile Leadership"],
-      bio_short: "Dr. Chen brings 15+ years of experience in enterprise cloud solutions..."
+      bio_short: "Dr. Chen brings 15+ years of experience in enterprise cloud solutions...",
+      is_sample_data: true
     });
 
     // Create sample resource
@@ -326,8 +329,8 @@ Deno.serve(async (req) => {
       is_sample_data: true
     });
 
-    // Create sample client (if not already exists)
-    const sampleClient = await base44.asServiceRole.entities.Client.create({
+    // Create sample client
+    await base44.asServiceRole.entities.Client.create({
       organization_id: sampleOrg.id,
       client_name: "Defense Logistics Agency (SAMPLE)",
       contact_name: "John Director",

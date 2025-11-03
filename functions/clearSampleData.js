@@ -92,28 +92,30 @@ Deno.serve(async (req) => {
         deletedCount.clients++;
       }
 
-      // Delete past performance (PastPerformance doesn't have is_sample_data field, so skip if org is sample)
-      // Only delete if the organization itself is sample data
+      // Delete past performance (filter by is_sample_data)
       const pastPerf = await base44.asServiceRole.entities.PastPerformance.filter({
-        organization_id: org.id
+        organization_id: org.id,
+        is_sample_data: true
       });
       for (const perf of pastPerf) {
         await base44.asServiceRole.entities.PastPerformance.delete(perf.id);
         deletedCount.pastPerformance++;
       }
 
-      // Delete teaming partners (TeamingPartner doesn't have is_sample_data field)
+      // Delete teaming partners (filter by is_sample_data)
       const partners = await base44.asServiceRole.entities.TeamingPartner.filter({
-        organization_id: org.id
+        organization_id: org.id,
+        is_sample_data: true
       });
       for (const partner of partners) {
         await base44.asServiceRole.entities.TeamingPartner.delete(partner.id);
         deletedCount.teamingPartners++;
       }
 
-      // Delete key personnel (KeyPersonnel doesn't have is_sample_data field)
+      // Delete key personnel (filter by is_sample_data)
       const personnel = await base44.asServiceRole.entities.KeyPersonnel.filter({
-        organization_id: org.id
+        organization_id: org.id,
+        is_sample_data: true
       });
       for (const person of personnel) {
         await base44.asServiceRole.entities.KeyPersonnel.delete(person.id);
@@ -150,7 +152,7 @@ Deno.serve(async (req) => {
         deletedCount.automationRules++;
       }
 
-      // Delete subscriptions (Subscription doesn't have is_sample_data field)
+      // Delete subscriptions (Subscription doesn't have is_sample_data field, but only delete from sample orgs)
       const subscriptions = await base44.asServiceRole.entities.Subscription.filter({
         organization_id: org.id
       });
