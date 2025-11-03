@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const OrganizationContext = createContext(null);
+// Create context with a default value that indicates "loading"
+const OrganizationContext = createContext({
+  user: null,
+  organization: null,
+  subscription: null,
+  isLoading: true,
+  error: null,
+  refetch: () => {}
+});
 
 export function useOrganization() {
-  const context = useContext(OrganizationContext);
-  if (context === null) {
-    throw new Error('useOrganization must be used within OrganizationProvider');
-  }
-  return context;
+  return useContext(OrganizationContext);
 }
 
 export function OrganizationProvider({ children }) {
