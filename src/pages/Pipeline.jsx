@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -18,42 +19,15 @@ import AutomationExecutor from "../components/automation/AutomationExecutor";
 import MobileKanbanView from "../components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-async function getUserActiveOrganization(user) {
-  if (!user) return null;
-  let orgId = null;
-  if (user.active_client_id) {
-    orgId = user.active_client_id;
-  } else if (user.client_accesses && user.client_accesses.length > 0) {
-    orgId = user.client_accesses[0].organization_id;
-  } else {
-    const orgs = await base44.entities.Organization.filter(
-      { created_by: user.email },
-      '-created_date',
-      1
-    );
-    if (orgs.length > 0) {
-      orgId = orgs[0].id;
-    }
-  }
-  if (orgId) {
-    const orgs = await base44.entities.Organization.filter({ id: orgId });
-    if (orgs.length > 0) {
-      return orgs[0];
-    }
-  }
-  return null;
-}
+import { useOrganization } from "../components/layout/OrganizationContext";
 
 export default function Pipeline() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null);
+  const { user, organization, isLoading: isLoadingOrg, error: orgError } = useOrganization();
   const [viewMode, setViewMode] = useState("kanban");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [loadingError, setLoadingError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
@@ -64,28 +38,6 @@ export default function Pipeline() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoadingError(null);
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        const org = await getUserActiveOrganization(currentUser);
-        if (org) {
-          setOrganization(org);
-          console.log('Loaded organization:', { id: org.id, name: org.organization_name, is_sample: org.is_sample_data });
-        } else {
-          setLoadingError("No organization found. Please complete your onboarding.");
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-        setLoadingError(error.message || "Failed to load organization data");
-      }
-    };
-    loadData();
   }, []);
 
   const { data: proposals = [], isLoading, error: proposalsError, refetch } = useQuery({
@@ -114,12 +66,12 @@ export default function Pipeline() {
       
       return fetchedProposals;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg,
     initialData: [],
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 0, // Disable caching for now to debug
-    cacheTime: 0, // Disable caching for now to debug
+    staleTime: 30000,
+    cacheTime: 300000,
   });
 
   // Fetch automation rules for executor
@@ -132,7 +84,7 @@ export default function Pipeline() {
         '-created_date'
       );
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg,
     initialData: [],
     retry: 1,
     retryDelay: 2000,
@@ -150,7 +102,7 @@ export default function Pipeline() {
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg,
     retry: 1,
     retryDelay: 2000,
   });
@@ -160,7 +112,6 @@ export default function Pipeline() {
   };
 
   const handleRetry = () => {
-    setLoadingError(null);
     refetch();
   };
 
@@ -169,8 +120,9 @@ export default function Pipeline() {
   };
 
   // Show loading error with more helpful message for rate limits
-  if (loadingError || proposalsError) {
-    const isRateLimit = (loadingError || proposalsError?.message || '').toLowerCase().includes('rate limit');
+  if (orgError || proposalsError) {
+    const error = orgError || proposalsError;
+    const isRateLimit = (error?.message || '').toLowerCase().includes('rate limit');
     
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -183,7 +135,7 @@ export default function Pipeline() {
             <p className="text-lg text-slate-600 mb-6">
               {isRateLimit 
                 ? "Rate limit exceeded. Please wait a moment before trying again."
-                : loadingError || proposalsError?.message || "An error occurred while loading your pipeline"}
+                : error?.message || "An error occurred while loading your pipeline"}
             </p>
             {isRateLimit && (
               <p className="text-sm text-slate-500 mb-6">
@@ -205,7 +157,7 @@ export default function Pipeline() {
     );
   }
 
-  if (!organization || !user) {
+  if (isLoadingOrg || !organization || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
