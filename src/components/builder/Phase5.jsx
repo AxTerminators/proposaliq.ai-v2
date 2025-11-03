@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -169,7 +168,6 @@ export default function Phase5({ proposalData, setProposalData, proposalId, onSa
     };
     loadOrgId();
 
-    // Initialize sections with defaults
     const initialSections = {};
     PROPOSAL_SECTIONS.forEach(section => {
       initialSections[section.id] = {
@@ -209,7 +207,6 @@ Return JSON with section IDs and recommended word counts.`;
         }
       });
 
-      // Update word counts with AI suggestions
       const updatedSections = { ...strategy.sections };
       Object.keys(result.sections || {}).forEach(sectionId => {
         if (updatedSections[sectionId]) {
@@ -278,6 +275,23 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
     }
   };
 
+  const handleSubsectionUpdate = (sectionId, subId, field, value) => {
+    setStrategy(prev => {
+      const newSections = { ...prev.sections };
+      if (!newSections[sectionId]) {
+        newSections[sectionId] = { subsections: {} };
+      }
+      if (!newSections[sectionId].subsections) {
+        newSections[sectionId].subsections = {};
+      }
+      newSections[sectionId].subsections[subId] = {
+        ...newSections[sectionId].subsections[subId],
+        [field]: value
+      };
+      return { ...prev, sections: newSections };
+    });
+  };
+
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
@@ -307,9 +321,7 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
             </TabsTrigger>
           </TabsList>
 
-          {/* Configuration Tab */}
           <TabsContent value="config" className="space-y-6">
-            {/* Action Buttons */}
             <div className="flex gap-3 flex-wrap">
               <Button
                 onClick={suggestWordCounts}
@@ -346,7 +358,6 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
               </Button>
             </div>
 
-            {/* AI Model Settings Panel */}
             {showAISettings && (
               <Card className="bg-slate-50 border-slate-300">
                 <CardContent className="p-6 space-y-6">
@@ -428,7 +439,6 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
               </Card>
             )}
 
-            {/* Win Themes */}
             {strategy.winThemes && (
               <Card className="bg-amber-50 border-amber-300">
                 <CardHeader>
@@ -448,7 +458,6 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
               </Card>
             )}
 
-            {/* Overall Drafting Style */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Overall Drafting Style (default settings)</h3>
               <div className="grid md:grid-cols-3 gap-4">
@@ -512,7 +521,6 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
             </Button>
           </TabsContent>
 
-          {/* Competitors Tab */}
           <TabsContent value="competitors">
             <CompetitorAnalysis
               proposalId={proposalId}
@@ -521,7 +529,6 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
             />
           </TabsContent>
 
-          {/* Win Themes Tab */}
           <TabsContent value="themes">
             <WinThemeGenerator
               proposalId={proposalId}
@@ -530,7 +537,6 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
             />
           </TabsContent>
 
-          {/* Proposal Sections Tab */}
           <TabsContent value="sections" className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold mb-2">Proposal Sections</h3>
@@ -599,49 +605,18 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                         </div>
                       </div>
 
-                      {/* Subsections */}
                       {section.subsections.length > 0 && (
                         <div className="ml-8 space-y-2 mt-2 pt-2 border-t">
                           {section.subsections.map((sub) => (
                             <div key={sub.id} className="flex items-center gap-3">
                               <Checkbox
-                                checked={strategy.sections[section.id]?.subsections[sub.id]?.included}
-                                onCheckedChange={(checked) => {
-                                  setStrategy(prev => {
-                                    const newSections = { ...prev.sections };
-                                    if (!newSections[section.id]) {
-                                      newSections[section.id] = { subsections: {} };
-                                    }
-                                    if (!newSections[section.id].subsections) {
-                                      newSections[section.id].subsections = {};
-                                    }
-                                    newSections[section.id].subsections[sub.id] = {
-                                      ...newSections[section.id].subsections[sub.id],
-                                      included: checked
-                                    };
-                                    return { ...prev, sections: newSections };
-                                  });
-                                }}
+                                checked={strategy.sections[section.id]?.subsections?.[sub.id]?.included}
+                                onCheckedChange={(checked) => handleSubsectionUpdate(section.id, sub.id, 'included', checked)}
                               />
                               <span className="text-sm flex-1">{sub.name}</span>
                               <Select
-                                value={strategy.sections[section.id]?.subsections[sub.id]?.tone || "default"}
-                                onValueChange={(value) => {
-                                  setStrategy(prev => {
-                                    const newSections = { ...prev.sections };
-                                    if (!newSections[section.id]) {
-                                      newSections[section.id] = { subsections: {} };
-                                    }
-                                    if (!newSections[section.id].subsections) {
-                                      newSections[section.id].subsections = {};
-                                    }
-                                    newSections[section.id].subsections[sub.id] = {
-                                      ...newSections[section.id].subsections[sub.id],
-                                      tone: value
-                                    };
-                                    return { ...prev, sections: newSections };
-                                  });
-                                }}
+                                value={strategy.sections[section.id]?.subsections?.[sub.id]?.tone || "default"}
+                                onValueChange={(value) => handleSubsectionUpdate(section.id, sub.id, 'tone', value)}
                               >
                                 <SelectTrigger className="w-28">
                                   <SelectValue />
@@ -655,23 +630,8 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                               </Select>
                               <Input
                                 type="number"
-                                value={strategy.sections[section.id]?.subsections[sub.id]?.wordCount || sub.defaultWordCount}
-                                onChange={(e) => {
-                                  setStrategy(prev => {
-                                    const newSections = { ...prev.sections };
-                                    if (!newSections[section.id]) {
-                                      newSections[section.id] = { subsections: {} };
-                                    }
-                                    if (!newSections[section.id].subsections) {
-                                      newSections[section.id].subsections = {};
-                                    }
-                                    newSections[section.id].subsections[sub.id] = {
-                                      ...newSections[section.id].subsections[sub.id],
-                                      wordCount: parseInt(e.target.value)
-                                    };
-                                    return { ...prev, sections: newSections };
-                                  });
-                                }}
+                                value={strategy.sections[section.id]?.subsections?.[sub.id]?.wordCount || sub.defaultWordCount}
+                                onChange={(e) => handleSubsectionUpdate(section.id, sub.id, 'wordCount', parseInt(e.target.value))}
                                 className="w-20"
                               />
                             </div>
