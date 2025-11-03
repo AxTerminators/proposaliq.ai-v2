@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-// Create context with a default value that indicates "loading"
 const OrganizationContext = createContext({
   user: null,
   organization: null,
@@ -121,14 +120,14 @@ export function OrganizationProvider({ children }) {
     }
   };
 
-  const value = React.useMemo(() => ({
+  const value = {
     user,
     organization,
     subscription,
     isLoading,
     error,
     refetch
-  }), [user, organization, subscription, isLoading, error]);
+  };
 
   return (
     <OrganizationContext.Provider value={value}>
