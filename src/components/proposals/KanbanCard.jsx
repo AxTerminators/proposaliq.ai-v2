@@ -59,6 +59,7 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false); // New state for quick actions visibility
 
   // Fetch tasks for this proposal
   const { data: tasks = [] } = useQuery({
@@ -191,20 +192,21 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
         {...provided.draggableProps}
         {...provided.dragHandleProps}
         onClick={handleCardClick}
+        onMouseEnter={() => setShowQuickActions(true)}
+        onMouseLeave={() => setShowQuickActions(false)}
         className={cn(
-          "relative bg-white rounded-lg p-4 mb-3 cursor-pointer transition-shadow",
+          "relative bg-white rounded-lg p-4 mb-3 cursor-pointer",
           "border-2",
+          // Remove ALL transforms and transitions during drag
           snapshot.isDragging 
             ? "shadow-2xl border-blue-400" 
             : proposal.action_required
-              ? "border-orange-300 hover:border-orange-400 hover:shadow-lg"
-              : "border-slate-200 hover:border-blue-300 hover:shadow-md",
-          isDragDisabled && "opacity-60 cursor-not-allowed"
+              ? "border-orange-300 hover:border-orange-400 hover:shadow-lg transition-shadow"
+              : "border-slate-200 hover:border-blue-300 hover:shadow-md transition-shadow",
+          isDragDisabled && "opacity-60 cursor-not-allowed",
+          !snapshot.isDragging && "group"
         )}
-        style={{
-          ...provided.draggableProps.style,
-          opacity: isDragDisabled ? 0.6 : 1
-        }}
+        style={provided.draggableProps.style}
       >
         {/* Drag Indicator - Only show when not disabled */}
         {!isDragDisabled && (
