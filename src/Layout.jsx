@@ -84,12 +84,9 @@ const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
   { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all" },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
-  // Workspace is now a main menu with sub-items
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
-  // Tools is now a main menu with sub-items
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
-  { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" }, // CONSULTANT ONLY
-  // Settings is now a main menu with sub-items
+  { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all", hasSubMenu: true, subMenuItems: SETTINGS_ITEMS },
 ];
 
@@ -165,12 +162,10 @@ function LayoutContent({ children }) {
     const isConsultant = organization?.organization_type === 'consultancy';
     
     return ALL_NAVIGATION_ITEMS.filter(item => {
-      // Check super admin only items
       if (item.superAdminOnly && !userIsSuperAdmin) {
         return false;
       }
       
-      // Check organization type restrictions
       if (item.showFor === "consultant" && !isConsultant) {
         return false;
       }
@@ -178,7 +173,6 @@ function LayoutContent({ children }) {
         return false;
       }
       
-      // Item is visible for "all" or passes specific checks
       return true;
     });
   }, [organization, userIsSuperAdmin]);
