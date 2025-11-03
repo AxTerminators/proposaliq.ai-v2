@@ -59,7 +59,6 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showQuickActions, setShowQuickActions] = useState(false);
 
   // Fetch tasks for this proposal
   const { data: tasks = [] } = useQuery({
@@ -169,15 +168,17 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
   };
 
   const handleCardClick = (e) => {
-    // Don't open modal if clicking on interactive elements
-    if (
-      e.target.closest('button') ||
-      e.target.closest('[role="button"]') ||
-      e.target.closest('a')
-    ) {
+    // Only prevent if clicking on interactive elements
+    const target = e.target;
+    const isButton = target.closest('button');
+    const isDropdown = target.closest('[role="menu"]');
+    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+    
+    if (isButton || isDropdown || isInput) {
       return;
     }
     
+    // Call the parent's onCardClick handler
     if (onCardClick) {
       onCardClick(proposal);
     }
@@ -190,13 +191,11 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
         {...provided.draggableProps}
         {...provided.dragHandleProps}
         onClick={handleCardClick}
-        onMouseEnter={() => setShowQuickActions(true)}
-        onMouseLeave={() => setShowQuickActions(false)}
         className={cn(
-          "relative bg-white rounded-lg p-4 mb-3 cursor-pointer transition-all duration-200 group",
+          "relative bg-white rounded-lg p-4 mb-3 cursor-pointer transition-shadow",
           "border-2",
           snapshot.isDragging 
-            ? "shadow-2xl border-blue-400 scale-105" 
+            ? "shadow-2xl border-blue-400" 
             : proposal.action_required
               ? "border-orange-300 hover:border-orange-400 hover:shadow-lg"
               : "border-slate-200 hover:border-blue-300 hover:shadow-md",
@@ -425,24 +424,6 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
             "absolute top-0 right-0 w-3 h-3 rounded-bl-lg",
             urgencyColor
           )} />
-        )}
-
-        {/* Quick Actions on Hover */}
-        {showQuickActions && !isDragDisabled && (
-          <div className="absolute bottom-2 right-2 flex gap-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onCardClick) {
-                  onCardClick(proposal);
-                }
-              }}
-              className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-              title="Open details"
-            >
-              View
-            </button>
-          </div>
         )}
       </div>
 
