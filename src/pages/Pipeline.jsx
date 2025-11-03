@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -96,8 +97,10 @@ export default function Pipeline() {
     },
     enabled: !!organization?.id,
     initialData: [],
-    retry: 3,
-    retryDelay: 1000,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 30000, // Cache for 30 seconds
+    cacheTime: 300000, // Keep in cache for 5 minutes
   });
 
   // Fetch automation rules for executor
@@ -111,7 +114,10 @@ export default function Pipeline() {
       );
     },
     enabled: !!organization?.id,
-    initialData: []
+    initialData: [],
+    retry: 1,
+    retryDelay: 2000,
+    staleTime: 60000, // Cache for 1 minute
   });
 
   // Fetch kanban columns config for mobile view
@@ -126,7 +132,10 @@ export default function Pipeline() {
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id
+    enabled: !!organization?.id,
+    retry: 1,
+    retryDelay: 2000,
+    staleTime: 60000,
   });
 
   const handleCreateProposal = () => {
@@ -135,11 +144,16 @@ export default function Pipeline() {
 
   const handleRetry = () => {
     setLoadingError(null);
-    refetch();
+    // Wait 2 seconds before retrying to avoid rate limit
+    setTimeout(() => {
+      refetch();
+    }, 2000);
   };
 
-  // Show loading error
+  // Show loading error with more helpful message for rate limits
   if (loadingError || proposalsError) {
+    const isRateLimit = (loadingError || proposalsError?.message || '').toLowerCase().includes('rate limit');
+    
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -149,8 +163,15 @@ export default function Pipeline() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
-              {loadingError || proposalsError?.message || "An error occurred while loading your pipeline"}
+              {isRateLimit 
+                ? "Rate limit exceeded. Please wait a moment before trying again."
+                : loadingError || proposalsError?.message || "An error occurred while loading your pipeline"}
             </p>
+            {isRateLimit && (
+              <p className="text-sm text-slate-500 mb-6">
+                Too many requests were made in a short time. This helps keep the system running smoothly for everyone.
+              </p>
+            )}
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
                 <RefreshCw className="w-4 h-4 mr-2" />
