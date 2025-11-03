@@ -23,7 +23,8 @@ import {
   ZoomIn,
   ZoomOut,
   LayoutGrid, // Added import for LayoutGrid
-  Sparkles // Added import for Sparkles
+  Sparkles, // Added import for Sparkles
+  HelpCircle // Added import for HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -36,6 +37,7 @@ import ApprovalGate from "./ApprovalGate";
 import KanbanSetupWizard from "./KanbanSetupWizard"; // Added import
 import { Card, CardContent } from "@/components/ui/card"; // Added import
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
+import KanbanHelpPanel from "./KanbanHelpPanel"; // Added import
 
 // New 13-column default configuration
 const DEFAULT_COLUMNS = [
@@ -236,6 +238,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [dragInProgress, setDragInProgress] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false); // Added state for setup wizard
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+  const [showHelpPanel, setShowHelpPanel] = useState(false); // New state for help panel
 
   // Fetch kanban config
   const { data: kanbanConfig, isLoading: isLoadingConfig } = useQuery({ // Added isLoading: isLoadingConfig
@@ -851,6 +854,16 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
               <Settings className="w-4 h-4 mr-2" title="Settings" />
               Configure Board
             </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHelpPanel(true)}
+              title="Help & shortcuts"
+            >
+              <HelpCircle className="w-4 h-4 mr-2" />
+              Help
+            </Button>
           </div>
         </div>
 
@@ -1068,6 +1081,12 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
           localStorage.setItem('kanban_tour_completed', 'true');
           setShowOnboardingTour(false);
         }}
+      />
+
+      {/* Help Panel */}
+      <KanbanHelpPanel
+        isOpen={showHelpPanel}
+        onClose={() => setShowHelpPanel(false)}
       />
     </>
   );
