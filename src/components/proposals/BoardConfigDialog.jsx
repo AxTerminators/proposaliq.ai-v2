@@ -34,8 +34,187 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus, Lock, Info } from "lucide-react";
+import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus, Lock, Info, Sparkles, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// 14-column template definition
+const TEMPLATE_14_COLUMN_FULL = [
+  {
+    id: 'new',
+    label: 'New',
+    color: 'from-slate-400 to-slate-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase1',
+    is_locked: true,
+    order: 0,
+    checklist_items: [
+      { id: 'basic_info', label: 'Add Basic Information', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
+      { id: 'name_solicitation', label: 'Name & Solicitation #', type: 'system_check', required: true, order: 1 }
+    ]
+  },
+  {
+    id: 'evaluate',
+    label: 'Evaluate',
+    color: 'from-blue-400 to-blue-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase1',
+    is_locked: true,
+    order: 1,
+    checklist_items: [
+      { id: 'identify_prime', label: 'Identify Prime Contractor', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
+      { id: 'add_partners', label: 'Add Teaming Partners', type: 'manual_check', required: false, order: 1 }
+    ]
+  },
+  {
+    id: 'qualify',
+    label: 'Qualify',
+    color: 'from-cyan-400 to-cyan-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase3',
+    is_locked: true,
+    order: 2,
+    checklist_items: [
+      { id: 'solicitation_details', label: 'Enter Solicitation Details', type: 'modal_trigger', associated_action: 'open_modal_phase3', required: true, order: 0 },
+      { id: 'contract_value', label: 'Add Contract Value', type: 'system_check', required: true, order: 1 },
+      { id: 'due_date', label: 'Set Due Date', type: 'system_check', required: true, order: 2 }
+    ]
+  },
+  {
+    id: 'gather',
+    label: 'Gather',
+    color: 'from-teal-400 to-teal-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase2',
+    is_locked: true,
+    order: 3,
+    checklist_items: [
+      { id: 'upload_solicitation', label: 'Upload Solicitation Document', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: true, order: 0 },
+      { id: 'reference_docs', label: 'Add Reference Documents', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: false, order: 1 }
+    ]
+  },
+  {
+    id: 'analyze',
+    label: 'Analyze',
+    color: 'from-green-400 to-green-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase3',
+    is_locked: true,
+    order: 4,
+    checklist_items: [
+      { id: 'run_ai_analysis', label: 'Run AI Compliance Analysis', type: 'ai_trigger', associated_action: 'run_ai_analysis_phase3', required: true, order: 0 },
+      { id: 'review_requirements', label: 'Review Compliance Requirements', type: 'manual_check', required: true, order: 1 }
+    ]
+  },
+  {
+    id: 'strategy',
+    label: 'Strategy',
+    color: 'from-lime-400 to-lime-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase4',
+    is_locked: true,
+    order: 5,
+    checklist_items: [
+      { id: 'run_evaluation', label: 'Run Strategic Evaluation', type: 'ai_trigger', associated_action: 'run_evaluation_phase4', required: true, order: 0 },
+      { id: 'go_no_go', label: 'Make Go/No-Go Decision', type: 'manual_check', required: true, order: 1 },
+      { id: 'competitor_analysis', label: 'Complete Competitor Analysis', type: 'modal_trigger', associated_action: 'open_modal_phase4', required: false, order: 2 }
+    ]
+  },
+  {
+    id: 'outline',
+    label: 'Outline',
+    color: 'from-yellow-400 to-yellow-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase5',
+    is_locked: true,
+    order: 6,
+    checklist_items: [
+      { id: 'select_sections', label: 'Select Proposal Sections', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 0 },
+      { id: 'generate_win_themes', label: 'Generate Win Themes', type: 'ai_trigger', associated_action: 'generate_win_themes_phase5', required: false, order: 1 },
+      { id: 'set_strategy', label: 'Set Writing Strategy', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 2 }
+    ]
+  },
+  {
+    id: 'drafting',
+    label: 'Drafting',
+    color: 'from-orange-400 to-orange-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase6',
+    is_locked: true,
+    order: 7,
+    checklist_items: [
+      { id: 'start_writing', label: 'Start Content Generation', type: 'modal_trigger', associated_action: 'open_modal_phase6', required: true, order: 0 },
+      { id: 'complete_sections', label: 'Complete All Sections', type: 'system_check', required: true, order: 1 }
+    ]
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    color: 'from-amber-400 to-amber-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase7',
+    is_locked: true,
+    order: 8,
+    checklist_items: [
+      { id: 'internal_review', label: 'Complete Internal Review', type: 'manual_check', required: true, order: 0 },
+      { id: 'red_team', label: 'Conduct Red Team Review', type: 'modal_trigger', associated_action: 'open_red_team_review', required: false, order: 1 }
+    ]
+  },
+  {
+    id: 'final',
+    label: 'Final',
+    color: 'from-rose-400 to-rose-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase7',
+    is_locked: true,
+    order: 9,
+    checklist_items: [
+      { id: 'readiness_check', label: 'Run Submission Readiness Check', type: 'ai_trigger', associated_action: 'run_readiness_check_phase7', required: true, order: 0 },
+      { id: 'final_review', label: 'Final Executive Review', type: 'manual_check', required: true, order: 1 }
+    ],
+    requires_approval_to_exit: true,
+    approver_roles: ['organization_owner', 'proposal_manager']
+  },
+  {
+    id: 'submitted',
+    label: 'Submitted',
+    color: 'from-indigo-400 to-indigo-600',
+    type: 'default_status',
+    default_status_mapping: 'submitted',
+    is_locked: true,
+    order: 10,
+    checklist_items: []
+  },
+  {
+    id: 'won',
+    label: 'Won',
+    color: 'from-green-500 to-emerald-600',
+    type: 'default_status',
+    default_status_mapping: 'won',
+    is_locked: true,
+    order: 11,
+    checklist_items: []
+  },
+  {
+    id: 'lost',
+    label: 'Lost',
+    color: 'from-red-400 to-red-600',
+    type: 'default_status',
+    default_status_mapping: 'lost',
+    is_locked: true,
+    order: 12,
+    checklist_items: []
+  },
+  {
+    id: 'archived',
+    label: 'Archive',
+    color: 'from-gray-400 to-gray-600',
+    type: 'default_status',
+    default_status_mapping: 'archived',
+    is_locked: true,
+    order: 13,
+    checklist_items: []
+  }
+];
 
 // Available color options for columns
 const COLOR_OPTIONS = [
@@ -88,6 +267,8 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const [deleteWarning, setDeleteWarning] = useState(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+
 
   useEffect(() => {
     if (currentConfig) {
@@ -139,6 +320,53 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     }
   });
 
+  const applyTemplateMutation = useMutation({
+    mutationFn: async () => {
+      if (!organization?.id) throw new Error("No organization");
+
+      const configs = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+
+      const newConfigData = {
+        organization_id: organization.id,
+        columns: TEMPLATE_14_COLUMN_FULL,
+        swimlane_config: currentConfig?.swimlane_config || { // Preserve existing swimlane settings
+          enabled: false,
+          group_by: 'none',
+          custom_field_name: '',
+          show_empty_swimlanes: false
+        },
+        view_settings: currentConfig?.view_settings || { // Preserve existing view settings
+          default_view: 'kanban',
+          show_card_details: ['assignees', 'due_date', 'progress', 'value'], // Default if no existing
+          compact_mode: false
+        },
+        collapsed_column_ids: currentConfig?.collapsed_column_ids || []
+      };
+
+      if (configs.length > 0) {
+        return base44.entities.KanbanConfig.update(configs[0].id, newConfigData);
+      } else {
+        return base44.entities.KanbanConfig.create(newConfigData);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      setShowTemplateDialog(false);
+      onClose();
+    }
+  });
+
+  const handleDeleteConfig = () => {
+    if (confirm('⚠️ WARNING: This will delete your entire Kanban board configuration and all column settings. Your proposals will NOT be deleted, but their column positions will be reset. \n\nAre you sure you want to continue?')) {
+      deleteConfigMutation.mutate();
+    }
+  };
+
   const deleteConfigMutation = useMutation({
     mutationFn: async () => {
       if (!currentConfig?.id) throw new Error("No config to delete");
@@ -153,12 +381,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const handleSave = () => {
     saveConfigMutation.mutate(config);
-  };
-
-  const handleDeleteConfig = () => {
-    if (confirm('⚠️ WARNING: This will delete your entire Kanban board configuration and all column settings. Your proposals will NOT be deleted, but their column positions will be reset. \n\nAre you sure you want to continue?')) {
-      deleteConfigMutation.mutate();
-    }
   };
 
   const handleColumnLabelChange = (columnId, newLabel) => {
@@ -262,8 +484,12 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   };
 
   const isLockedColumn = (column) => {
-    const lockedStatuses = ['evaluating', 'draft', 'in_progress', 'submitted'];
-    return lockedStatuses.includes(column.default_status_mapping);
+    // New template columns have explicit `is_locked` property
+    if (column.is_locked) return true;
+
+    // Old default status columns that are hardcoded as locked
+    const oldLockedDefaultStatuses = ['evaluating', 'draft', 'in_progress', 'submitted'];
+    return column.type === 'default_status' && oldLockedDefaultStatuses.includes(column.default_status_mapping);
   };
 
   const canDeleteColumn = (column) => {
@@ -337,6 +563,14 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     });
   };
 
+  const handleApplyTemplate = () => {
+    setShowTemplateDialog(true);
+  };
+
+  const confirmApplyTemplate = () => {
+    applyTemplateMutation.mutate();
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -369,6 +603,38 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
             <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '50vh' }}>
               <TabsContent value="columns" className="space-y-4 mt-0">
+                {/* Apply 14-Column Template Section */}
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg mb-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-purple-900 mb-1">
+                          Complete 14-Column Workflow Template
+                        </div>
+                        <div className="text-sm text-purple-800 mb-3">
+                          Switch to our comprehensive workflow aligned with all 7 builder phases: <strong>New → Evaluate → Qualify → Gather → Analyze → Strategy → Outline → Drafting → Review → Final → Submitted → Won → Lost → Archive</strong>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          <Badge className="bg-purple-100 text-purple-700 text-xs">Phase Integration</Badge>
+                          <Badge className="bg-pink-100 text-pink-700 text-xs">Smart Checklists</Badge>
+                          <Badge className="bg-indigo-100 text-indigo-700 text-xs">Approval Gates</Badge>
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">RBAC Ready</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleApplyTemplate}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Apply 14-Column Template
+                  </Button>
+                </div>
+
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Manage Kanban Columns</h3>
                   <div className="flex gap-2">
@@ -695,6 +961,64 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Apply Template Confirmation Dialog */}
+      <AlertDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Apply 14-Column Workflow Template?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This will replace your current column structure with our comprehensive 14-column workflow:
+              </p>
+              <div className="bg-purple-50 p-3 rounded-lg text-sm">
+                <strong className="text-purple-900">New → Evaluate → Qualify → Gather → Analyze → Strategy → Outline → Drafting → Review → Final → Submitted → Won → Lost → Archive</strong>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span><strong>Your proposals will NOT be deleted</strong> - they'll be automatically moved to matching columns</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span>Includes smart checklists for each phase</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-green-600 mt-0.5">✓</span>
+                  <span>Fully integrated with the 7-phase Proposal Builder</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">⚠</span>
+                  <span><strong>Your custom columns will be removed</strong></span>
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applyTemplateMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmApplyTemplate}
+              disabled={applyTemplateMutation.isPending}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              {applyTemplateMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Applying...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Apply Template
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Warning Dialog */}
       <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
