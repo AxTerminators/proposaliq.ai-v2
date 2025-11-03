@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone, AlertCircle, RefreshCw, Info } from "lucide-react";
 import ProposalsKanban from "../components/proposals/ProposalsKanban";
 import ProposalsList from "../components/proposals/ProposalsList";
 import ProposalsTable from "../components/proposals/ProposalsTable";
@@ -18,6 +17,7 @@ import AIWorkflowSuggestions from "../components/automation/AIWorkflowSuggestion
 import AutomationExecutor from "../components/automation/AutomationExecutor";
 import MobileKanbanView from "../components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 async function getUserActiveOrganization(user) {
   if (!user) return null;
@@ -54,6 +54,7 @@ export default function Pipeline() {
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [loadingError, setLoadingError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -75,6 +76,7 @@ export default function Pipeline() {
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
+          console.log('Loaded organization:', { id: org.id, name: org.organization_name, is_sample: org.is_sample_data });
         } else {
           setLoadingError("No organization found. Please complete your onboarding.");
         }
@@ -89,18 +91,35 @@ export default function Pipeline() {
   const { data: proposals = [], isLoading, error: proposalsError, refetch } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
-      return base44.entities.Proposal.filter(
+      if (!organization?.id) {
+        console.log('No organization ID, skipping proposal fetch');
+        return [];
+      }
+      
+      console.log('Fetching proposals for org:', organization.id);
+      const fetchedProposals = await base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
       );
+      
+      console.log('Fetched proposals:', fetchedProposals.length);
+      
+      // Set debug info
+      setDebugInfo({
+        orgId: organization.id,
+        orgName: organization.organization_name,
+        proposalCount: fetchedProposals.length,
+        isSampleOrg: organization.is_sample_data || false
+      });
+      
+      return fetchedProposals;
     },
     enabled: !!organization?.id,
     initialData: [],
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 30000, // Cache for 30 seconds
-    cacheTime: 300000, // Keep in cache for 5 minutes
+    staleTime: 0, // Disable caching for now to debug
+    cacheTime: 0, // Disable caching for now to debug
   });
 
   // Fetch automation rules for executor
@@ -117,7 +136,6 @@ export default function Pipeline() {
     initialData: [],
     retry: 1,
     retryDelay: 2000,
-    staleTime: 60000, // Cache for 1 minute
   });
 
   // Fetch kanban columns config for mobile view
@@ -135,7 +153,6 @@ export default function Pipeline() {
     enabled: !!organization?.id,
     retry: 1,
     retryDelay: 2000,
-    staleTime: 60000,
   });
 
   const handleCreateProposal = () => {
@@ -144,10 +161,11 @@ export default function Pipeline() {
 
   const handleRetry = () => {
     setLoadingError(null);
-    // Wait 2 seconds before retrying to avoid rate limit
-    setTimeout(() => {
-      refetch();
-    }, 2000);
+    refetch();
+  };
+
+  const handleForceRefresh = async () => {
+    window.location.reload();
   };
 
   // Show loading error with more helpful message for rate limits
@@ -216,6 +234,8 @@ export default function Pipeline() {
     { id: 'archived', label: 'Archived', emoji: '📦', type: 'default_status', default_status_mapping: 'archived' }
   ];
 
+  const showDebugInfo = proposals.length === 0 && !isLoading;
+
   return (
     <>
       {/* Background Automation Executor */}
@@ -224,6 +244,44 @@ export default function Pipeline() {
         proposals={proposals} 
         automationRules={automationRules}
       />
+
+      {/* Debug Info Banner - Show when no proposals */}
+      {showDebugInfo && debugInfo && (
+        <div className="bg-blue-50 border-b border-blue-200 p-4">
+          <div className="max-w-7xl mx-auto flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 mb-1">No Proposals Found</h3>
+              <p className="text-sm text-blue-800 mb-2">
+                You don't have any proposals in "{debugInfo.orgName}" yet. Get started by creating your first proposal!
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant="outline" className="bg-white">
+                  Org ID: {debugInfo.orgId}
+                </Badge>
+                <Badge variant="outline" className="bg-white">
+                  Proposals: {debugInfo.proposalCount}
+                </Badge>
+                {debugInfo.isSampleOrg && (
+                  <Badge className="bg-amber-100 text-amber-800">
+                    Sample Data Organization
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={handleCreateProposal} size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Proposal
+                </Button>
+                <Button onClick={handleForceRefresh} size="sm" variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Force Refresh
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header - Fixed */}
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
