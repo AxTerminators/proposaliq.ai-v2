@@ -23,6 +23,13 @@ export function OrganizationProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
+    const timeout = setTimeout(() => {
+      if (mounted && isLoading) {
+        console.error('[OrganizationContext] Loading timeout - forcing completion');
+        setIsLoading(false);
+        setError(new Error('Loading timeout'));
+      }
+    }, 10000); // 10 second timeout
     
     const loadData = async () => {
       try {
@@ -31,11 +38,18 @@ export function OrganizationProvider({ children }) {
         setError(null);
         
         // Load current user
+        console.log('[OrganizationContext] Loading user...');
         const currentUser = await base44.auth.me();
-        if (!mounted) return;
+        if (!mounted) {
+          console.log('[OrganizationContext] Component unmounted, aborting');
+          return;
+        }
         
         console.log('[OrganizationContext] User loaded:', currentUser.email);
         setUser(currentUser);
+
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Determine organization ID
         let orgId = null;
@@ -47,44 +61,71 @@ export function OrganizationProvider({ children }) {
           console.log('[OrganizationContext] Using client_accesses[0]:', orgId);
         } else {
           console.log('[OrganizationContext] Searching for organization by created_by...');
-          const orgs = await base44.entities.Organization.filter(
-            { created_by: currentUser.email },
-            '-created_date',
-            1
-          );
-          if (!mounted) return;
-          
-          if (orgs.length > 0) {
-            orgId = orgs[0].id;
-            console.log('[OrganizationContext] Found organization:', orgId);
-          } else {
-            console.log('[OrganizationContext] No organization found');
+          try {
+            const orgs = await base44.entities.Organization.filter(
+              { created_by: currentUser.email },
+              '-created_date',
+              1
+            );
+            if (!mounted) {
+              console.log('[OrganizationContext] Component unmounted, aborting');
+              return;
+            }
+            
+            if (orgs.length > 0) {
+              orgId = orgs[0].id;
+              console.log('[OrganizationContext] Found organization:', orgId);
+            } else {
+              console.log('[OrganizationContext] No organization found');
+            }
+          } catch (orgError) {
+            console.error('[OrganizationContext] Error loading organizations:', orgError);
+            // Continue anyway, user might not have an organization yet
           }
         }
 
+        // Add small delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Load organization details
         if (orgId) {
-          const orgs = await base44.entities.Organization.filter({ id: orgId });
-          if (!mounted) return;
-          
-          if (orgs.length > 0) {
-            console.log('[OrganizationContext] Organization loaded:', orgs[0].organization_name);
-            setOrganization(orgs[0]);
-
-            // Load subscription
-            try {
-              const subs = await base44.entities.Subscription.filter(
-                { organization_id: orgs[0].id },
-                '-created_date',
-                1
-              );
-              if (mounted && subs.length > 0) {
-                console.log('[OrganizationContext] Subscription loaded');
-                setSubscription(subs[0]);
-              }
-            } catch (subError) {
-              console.warn('[OrganizationContext] Error loading subscription:', subError);
+          try {
+            console.log('[OrganizationContext] Loading organization details...');
+            const orgs = await base44.entities.Organization.filter({ id: orgId });
+            if (!mounted) {
+              console.log('[OrganizationContext] Component unmounted, aborting');
+              return;
             }
+            
+            if (orgs.length > 0) {
+              console.log('[OrganizationContext] Organization loaded:', orgs[0].organization_name);
+              setOrganization(orgs[0]);
+
+              // Add small delay
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              // Load subscription
+              try {
+                console.log('[OrganizationContext] Loading subscription...');
+                const subs = await base44.entities.Subscription.filter(
+                  { organization_id: orgs[0].id },
+                  '-created_date',
+                  1
+                );
+                if (mounted && subs.length > 0) {
+                  console.log('[OrganizationContext] Subscription loaded');
+                  setSubscription(subs[0]);
+                } else {
+                  console.log('[OrganizationContext] No subscription found');
+                }
+              } catch (subError) {
+                console.warn('[OrganizationContext] Error loading subscription:', subError);
+                // Not critical, continue
+              }
+            }
+          } catch (orgDetailError) {
+            console.error('[OrganizationContext] Error loading organization details:', orgDetailError);
+            // Not critical, continue
           }
         }
         
@@ -98,6 +139,7 @@ export function OrganizationProvider({ children }) {
         if (mounted) {
           console.log('[OrganizationContext] Setting isLoading to false');
           setIsLoading(false);
+          clearTimeout(timeout);
         }
       }
     };
@@ -106,6 +148,7 @@ export function OrganizationProvider({ children }) {
     
     return () => {
       mounted = false;
+      clearTimeout(timeout);
     };
   }, []);
 
@@ -116,6 +159,8 @@ export function OrganizationProvider({ children }) {
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       let orgId = currentUser.active_client_id || 
                   (currentUser.client_accesses?.[0]?.organization_id);
@@ -131,10 +176,14 @@ export function OrganizationProvider({ children }) {
         }
       }
       
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       if (orgId) {
         const orgs = await base44.entities.Organization.filter({ id: orgId });
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
+          
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           const subs = await base44.entities.Subscription.filter(
             { organization_id: orgs[0].id },
