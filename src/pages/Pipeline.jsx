@@ -38,7 +38,6 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Debug log when organization changes
   useEffect(() => {
     if (organization) {
       console.log('=== PIPELINE DEBUG ===');
@@ -51,6 +50,7 @@ export default function Pipeline() {
     }
   }, [organization]);
 
+  // Only fetch proposals once organization is fully loaded
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
@@ -60,6 +60,10 @@ export default function Pipeline() {
       }
       
       console.log('🔍 Fetching proposals for org:', organization.id);
+      
+      // Wait 3 seconds to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       const fetchedProposals = await base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
@@ -76,31 +80,44 @@ export default function Pipeline() {
       
       return fetchedProposals;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg,
     initialData: [],
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    retry: 1,
+    retryDelay: 5000,
+    staleTime: 120000, // Cache for 2 minutes
+    cacheTime: 600000, // Keep in cache for 10 minutes
   });
 
-  // Fetch automation rules for executor
+  // Fetch automation rules - only after proposals are loaded
   const { data: automationRules = [] } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
+      
+      // Wait 3 seconds to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       return base44.entities.ProposalAutomationRule.filter(
         { organization_id: organization.id },
         '-created_date'
       );
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg && !isLoadingProposals,
     initialData: [],
+    retry: 1,
+    retryDelay: 5000,
+    staleTime: 300000, // Cache for 5 minutes
   });
 
-  // Fetch kanban columns config
+  // Fetch kanban config - only after proposals are loaded
   const { data: kanbanConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
+      
+      // Wait 3 seconds to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       const configs = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         '-created_date',
@@ -108,7 +125,10 @@ export default function Pipeline() {
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg && !isLoadingProposals,
+    retry: 1,
+    retryDelay: 5000,
+    staleTime: 300000,
   });
 
   const handleCreateProposal = () => {
@@ -147,9 +167,14 @@ export default function Pipeline() {
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
               {isRateLimit 
-                ? "Rate limit exceeded. Please wait a moment before trying again."
+                ? "Rate limit exceeded. Please wait 60 seconds before trying again."
                 : error?.message || "An error occurred while loading your pipeline"}
             </p>
+            {isRateLimit && (
+              <p className="text-sm text-slate-500 mb-6">
+                Too many requests. The system is now loading data more slowly to prevent this. Please wait a full minute before clicking retry.
+              </p>
+            )}
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -174,8 +199,11 @@ export default function Pipeline() {
               <LayoutGrid className="w-10 h-10 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Loading Pipeline</h2>
-            <p className="text-lg text-slate-600">
+            <p className="text-lg text-slate-600 mb-2">
               Please wait while we load your organization data...
+            </p>
+            <p className="text-sm text-slate-500">
+              This may take 10-15 seconds to avoid rate limiting
             </p>
           </CardContent>
         </Card>
