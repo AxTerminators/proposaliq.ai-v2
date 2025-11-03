@@ -213,7 +213,7 @@ export default function Pipeline() {
   });
 
   return (
-    <>
+    <div className="h-screen flex flex-col">
       <AutomationExecutor 
         organization={organization} 
         proposals={proposals} 
@@ -221,7 +221,7 @@ export default function Pipeline() {
       />
 
       {showDebugInfo && debugInfo && (
-        <div className="bg-blue-50 border-b border-blue-200 p-4">
+        <div className="bg-blue-50 border-b border-blue-200 p-4 flex-shrink-0">
           <div className="max-w-7xl mx-auto flex items-start gap-3">
             <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -229,7 +229,7 @@ export default function Pipeline() {
               <p className="text-sm text-blue-800 mb-2">
                 You don't have any proposals in "{debugInfo.orgName}" yet. Get started by creating your first proposal!
               </p>
-              <div className="flex flex-wrap gap-2 text-xs">
+              <div className="flex flex-wrap gap-2 text-xs mb-3">
                 <Badge variant="outline" className="bg-white">
                   Org ID: {debugInfo.orgId}
                 </Badge>
@@ -242,7 +242,7 @@ export default function Pipeline() {
                   </Badge>
                 )}
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="flex gap-2">
                 <Button onClick={handleCreateProposal} size="sm" className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Proposal
@@ -257,111 +257,20 @@ export default function Pipeline() {
         </div>
       )}
 
-      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
-            <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
-          </div>
-          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            {!isMobile && (
-              <>
-                <Button
-                  variant={showAutomation ? "default" : "outline"}
-                  onClick={() => setShowAutomation(!showAutomation)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <Zap className="w-4 h-4 mr-2" />
-                  {showAutomation ? 'Hide' : 'Show'} Automation
-                </Button>
-                <Button
-                  variant={showAnalytics ? "default" : "outline"}
-                  onClick={() => setShowAnalytics(!showAnalytics)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  {showAnalytics ? 'Hide' : 'Show'} Analytics
-                </Button>
-              </>
-            )}
-            
-            <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
-              <Button
-                variant={viewMode === "kanban" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("kanban")}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "table" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("table")}
-              >
-                <Table className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+      {isMobile ? (
+        <div className="flex-1 overflow-auto">
+          <MobileKanbanView proposals={proposals} columns={columns} />
         </div>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        {!isMobile && showAutomation && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
-            <AIWorkflowSuggestions 
-              organization={organization} 
-              proposals={proposals}
-              automationRules={automationRules}
-            />
-            <SmartAutomationEngine organization={organization} />
-          </div>
-        )}
-
-        {!isMobile && showAnalytics && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-full">
-            <SnapshotGenerator organization={organization} proposals={proposals} />
-            <PipelineAnalytics organization={organization} proposals={proposals} />
-          </div>
-        )}
-
-        {!showAutomation && !showAnalytics && (
-          <>
-            {isMobile ? (
-              <div className="p-4">
-                <MobileKanbanView proposals={proposals} columns={columns} />
-              </div>
-            ) : (
-              <>
-                {viewMode === "kanban" && (
-                  <ProposalsKanban proposals={proposals} organization={organization} user={user} />
-                )}
-                {viewMode === "list" && (
-                  <div className="p-6">
-                    <ProposalsList proposals={proposals} organization={organization} />
-                  </div>
-                )}
-                {viewMode === "table" && (
-                  <div className="p-6">
-                    <ProposalsTable proposals={proposals} organization={organization} />
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
-    </>
+      ) : (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ProposalsKanban 
+            proposals={proposals} 
+            organization={organization} 
+            user={user}
+            onRefresh={refetch}
+          />
+        </div>
+      )}
+    </div>
   );
 }
