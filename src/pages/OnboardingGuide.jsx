@@ -89,7 +89,8 @@ export default function OnboardingGuide() {
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
     }
   };
 
@@ -129,7 +130,6 @@ export default function OnboardingGuide() {
   const currentStepData = ONBOARDING_STEPS[currentStep - 1];
   const Icon = currentStepData?.icon || Sparkles;
   const progress = (currentStep / ONBOARDING_STEPS.length) * 100;
-  const isChoiceStep = currentStep === 6 || currentStepData?.isChoice === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6">
@@ -170,7 +170,7 @@ export default function OnboardingGuide() {
               {currentStepData?.description || ""}
             </p>
 
-            {isChoiceStep ? (
+            {currentStep === 6 ? (
               <div className="space-y-4">
                 <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all bg-gradient-to-br from-blue-50 to-indigo-50">
                   <CardContent className="p-6">
