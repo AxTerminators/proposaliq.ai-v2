@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const OrganizationContext = createContext(null);
+const OrganizationContext = createContext(undefined);
 
 export function useOrganization() {
   const context = useContext(OrganizationContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useOrganization must be used within OrganizationProvider');
   }
   return context;
