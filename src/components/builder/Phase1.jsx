@@ -27,7 +27,7 @@ const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
 ];
 
-export default function Phase1({ proposalData, setProposalData, proposalId }) {
+export default function Phase1({ proposalData, setProposalData, proposalId, embedded = false }) {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
   const [partners, setPartners] = useState([]);
@@ -359,20 +359,47 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
     if (partner && !selectedTeamingPartners.find(p => p.id === partnerId)) {
       const updatedPartners = [...selectedTeamingPartners, partner];
       setSelectedTeamingPartners(updatedPartners);
-      setProposalData({
-        ...proposalData,
+      setProposalData(prev => ({
+        ...prev,
         teaming_partner_ids: updatedPartners.map(p => p.id)
-      });
+      }));
     }
   };
 
   const handleRemoveTeamingPartner = (partnerId) => {
     const updatedPartners = selectedTeamingPartners.filter(p => p.id !== partnerId);
     setSelectedTeamingPartners(updatedPartners);
-    setProposalData({
-      ...proposalData,
+    setProposalData(prev => ({
+      ...prev,
       teaming_partner_ids: updatedPartners.map(p => p.id)
-      });
+    }));
+  };
+
+  const handleTeamingPartnerToggle = (partnerId) => {
+    const currentTeamingPartnerIds = proposalData.teaming_partner_ids || [];
+    let updatedTeamingPartnerIds;
+    let updatedSelectedPartnersObjects;
+
+    if (currentTeamingPartnerIds.includes(partnerId)) {
+      // Remove partner
+      updatedTeamingPartnerIds = currentTeamingPartnerIds.filter(id => id !== partnerId);
+      updatedSelectedPartnersObjects = selectedTeamingPartners.filter(p => p.id !== partnerId);
+    } else {
+      // Add partner
+      updatedTeamingPartnerIds = [...currentTeamingPartnerIds, partnerId];
+      const partnerToAdd = partners.find(p => p.id === partnerId);
+      if (partnerToAdd) {
+        updatedSelectedPartnersObjects = [...selectedTeamingPartners, partnerToAdd];
+      } else {
+        updatedSelectedPartnersObjects = selectedTeamingPartners; 
+      }
+    }
+
+    setProposalData(prev => ({
+      ...prev,
+      teaming_partner_ids: updatedTeamingPartnerIds
+    }));
+    setSelectedTeamingPartners(updatedSelectedPartnersObjects); 
   };
 
   const addArrayItem = (field) => {
@@ -421,6 +448,149 @@ export default function Phase1({ proposalData, setProposalData, proposalId }) {
   const availableTeamingPartners = partners.filter(p => 
     !selectedTeamingPartners.find(sp => sp.id === p.id)
   );
+
+  // Simplified layout for embedded mode
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {/* Basic Information Section */}
+        <Card className="border-none shadow-lg">
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+            <CardDescription>Enter the core details about this proposal</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Proposal Name *</label>
+              <Input
+                placeholder="e.g., GSA IT Services Proposal"
+                value={proposalData.proposal_name || ""}
+                onChange={(e) => setProposalData({ ...proposalData, proposal_name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Solicitation Number *</label>
+              <Input
+                placeholder="e.g., 47QSMD24R0001"
+                value={proposalData.solicitation_number || ""}
+                onChange={(e) => setProposalData({ ...proposalData, solicitation_number: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Project Type</label>
+                <Select
+                  value={proposalData.project_type || "RFP"}
+                  onValueChange={(value) => setProposalData({ ...proposalData, project_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RFP">RFP</SelectItem>
+                    <SelectItem value="RFQ">RFQ</SelectItem>
+                    <SelectItem value="RFI">RFI</SelectItem>
+                    <SelectItem value="IFB">IFB</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Agency Name</label>
+                <Input
+                  placeholder="e.g., Department of Defense"
+                  value={proposalData.agency_name || ""}
+                  onChange={(e) => setProposalData({ ...proposalData, agency_name: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Project Title</label>
+              <Input
+                placeholder="e.g., Enterprise IT Modernization Services"
+                value={proposalData.project_title || ""}
+                onChange={(e) => setProposalData({ ...proposalData, project_title: e.target.value })}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Prime Contractor Section */}
+        <Card className="border-none shadow-lg">
+          <CardHeader>
+            <CardTitle>Prime Contractor</CardTitle>
+            <CardDescription>Who is leading this proposal?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Select Prime Contractor</label>
+              <Select
+                value={proposalData.prime_contractor_id || ""}
+                onValueChange={handlePrimeChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select prime contractor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organization && (
+                    <SelectItem value={organization.id}>
+                      {organization.organization_name} (Your Organization)
+                    </SelectItem>
+                  )}
+                  {partners.map((partner) => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      {partner.partner_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {proposalData.prime_contractor_name && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <strong>Prime:</strong> {proposalData.prime_contractor_name}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Teaming Partners Section - Compact */}
+        {partners.length > 0 && (
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle>Teaming Partners</CardTitle>
+              <CardDescription>Select partners for this opportunity</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {partners.map((partner) => (
+                  <div key={partner.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`partner-${partner.id}`}
+                      checked={proposalData.teaming_partner_ids?.includes(partner.id)}
+                      onCheckedChange={() => handleTeamingPartnerToggle(partner.id)}
+                    />
+                    <label
+                      htmlFor={`partner-${partner.id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {partner.partner_name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card className="border-none shadow-xl">
