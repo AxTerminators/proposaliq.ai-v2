@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -6,56 +5,18 @@ import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
 import ProposalPipeline from "../components/dashboard/ProposalPipeline";
 import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
 import MobileDashboard from "../components/mobile/MobileDashboard";
-
-// Helper function to get user's active organization
-async function getUserActiveOrganization(user) {
-  if (!user) return null;
-
-  let orgId = null;
-
-  // Priority 1: Use active_client_id if set
-  if (user.active_client_id) {
-    orgId = user.active_client_id;
-  }
-  // Priority 2: Get first organization from client_accesses
-  else if (user.client_accesses && user.client_accesses.length > 0) {
-    orgId = user.client_accesses[0].organization_id;
-  }
-  // Priority 3: Fallback to organizations they created (backward compatibility)
-  else {
-    const orgs = await base44.entities.Organization.filter(
-      { created_by: user.email },
-      '-created_date',
-      1
-    );
-    if (orgs.length > 0) {
-      orgId = orgs[0].id;
-    }
-  }
-
-  // Load the full organization details
-  if (orgId) {
-    const orgs = await base44.entities.Organization.filter({ id: orgId });
-    if (orgs.length > 0) {
-      return orgs[0];
-    }
-  }
-
-  return null;
-}
+import { useOrganization } from "../components/layout/OrganizationContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null);
-  const [proposals, setProposals] = useState([]);
-  const [activityLog, setActivityLog] = useState([]);
+  const { user, organization, isLoading: isLoadingOrg } = useOrganization();
   const [stats, setStats] = useState({
     total_proposals: 0,
     active_proposals: 0,
@@ -66,87 +27,102 @@ export default function Dashboard() {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // Tailwind's 'lg' breakpoint is 1024px
+      setIsMobile(window.innerWidth < 1024);
     };
 
-    checkMobile(); // Check on initial mount
-    window.addEventListener('resize', checkMobile); // Add event listener for resize
-    return () => window.removeEventListener('resize', checkMobile); // Clean up
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-
-      // Use helper to get active organization
-      const org = await getUserActiveOrganization(currentUser);
-      if (!org) {
-        console.error("No organization found for user");
-        return;
-      }
-      setOrganization(org);
-
-      // CRITICAL: Filter proposals by organization_id
-      const userProposals = await base44.entities.Proposal.filter(
-        { organization_id: org.id },
+  // Load proposals using React Query
+  const { data: proposals = [] } = useQuery({
+    queryKey: ['dashboard-proposals', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      
+      // Add delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      return base44.entities.Proposal.filter(
+        { organization_id: organization.id },
         '-created_date'
       );
-      setProposals(userProposals);
+    },
+    enabled: !!organization?.id && !isLoadingOrg,
+    staleTime: 60000, // Cache for 1 minute
+    cacheTime: 300000, // Keep in cache for 5 minutes
+  });
 
-      // Load activity log - CRITICAL: Filter by organization
-      try {
-        const proposalIds = userProposals.map(p => p.id);
-        if (proposalIds.length > 0) {
-          const activities = await base44.entities.ActivityLog.filter(
-            { proposal_id: { $in: proposalIds } },
-            '-created_date',
-            20
-          );
-          setActivityLog(activities);
-        } else {
-          setActivityLog([]);
-        }
-      } catch (error) {
-        console.error("Error loading activity log:", error);
-        setActivityLog([]);
-      }
-
-      const activeProposals = userProposals.filter(p =>
-        ['evaluating', 'draft', 'in_progress'].includes(p.status)
+  // Load activity log
+  const { data: activityLog = [] } = useQuery({
+    queryKey: ['dashboard-activity', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id || proposals.length === 0) return [];
+      
+      // Add delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const proposalIds = proposals.map(p => p.id);
+      if (proposalIds.length === 0) return [];
+      
+      return base44.entities.ActivityLog.filter(
+        { proposal_id: { $in: proposalIds } },
+        '-created_date',
+        20
       );
+    },
+    enabled: !!organization?.id && proposals.length > 0 && !isLoadingOrg,
+    staleTime: 60000,
+    cacheTime: 300000,
+  });
 
-      const wonProposals = userProposals.filter(p => p.status === 'won');
-      const submittedProposals = userProposals.filter(p =>
-        ['submitted', 'won', 'lost'].includes(p.status)
-      );
+  // Calculate stats when proposals change
+  useEffect(() => {
+    if (!proposals || proposals.length === 0) return;
 
-      const totalValue = userProposals.reduce((sum, p) =>
-        sum + (p.contract_value || 0), 0
-      );
+    const activeProposals = proposals.filter(p =>
+      ['evaluating', 'draft', 'in_progress'].includes(p.status)
+    );
 
-      const winRate = submittedProposals.length > 0
-        ? (wonProposals.length / submittedProposals.length) * 100
-        : 0;
+    const wonProposals = proposals.filter(p => p.status === 'won');
+    const submittedProposals = proposals.filter(p =>
+      ['submitted', 'won', 'lost'].includes(p.status)
+    );
 
-      setStats({
-        total_proposals: userProposals.length,
-        active_proposals: activeProposals.length,
-        total_value: totalValue,
-        win_rate: Math.round(winRate)
-      });
-    } catch (error) {
-      console.error("Error loading dashboard:", error);
-    }
-  };
+    const totalValue = proposals.reduce((sum, p) =>
+      sum + (p.contract_value || 0), 0
+    );
+
+    const winRate = submittedProposals.length > 0
+      ? (wonProposals.length / submittedProposals.length) * 100
+      : 0;
+
+    setStats({
+      total_proposals: proposals.length,
+      active_proposals: activeProposals.length,
+      total_value: totalValue,
+      win_rate: Math.round(winRate)
+    });
+  }, [proposals]);
 
   const handleCreateProposal = () => {
     navigate(createPageUrl("ProposalBuilder"));
   };
+
+  // Show loading state
+  if (isLoadingOrg || !organization || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 flex items-center justify-center">
+        <Card className="border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-600">Loading your dashboard...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
@@ -156,7 +132,7 @@ export default function Dashboard() {
           organization={organization}
           proposals={proposals}
           stats={stats}
-          onCreateProposal={handleCreateProposal} // Pass the handler
+          onCreateProposal={handleCreateProposal}
         />
       </div>
     );
