@@ -13,36 +13,31 @@ export default function Home() {
       try {
         const user = await base44.auth.me();
 
-        // Check if user has completed the onboarding guide
+        // NEW USERS: If user hasn't completed onboarding guide yet
         if (!user.onboarding_guide_completed) {
-          // Check if they already have an organization (sample or real)
-          const orgs = await base44.entities.Organization.filter(
-            { created_by: user.email },
-            '-created_date',
-            1
-          );
-
-          if (orgs.length === 0) {
-            // No organization exists - generate sample data
-            try {
-              await base44.functions.invoke('generateSampleData', {});
-            } catch (error) {
-              console.error("Error generating sample data:", error);
-            }
-          }
-
-          // Redirect to onboarding guide
           navigate(createPageUrl("OnboardingGuide"));
           return;
         }
 
-        // Check if user has cleared sample data but hasn't created real organization
+        // USERS WHO CHOSE SAMPLE DATA: Currently using sample data
+        if (user.using_sample_data) {
+          navigate(createPageUrl("Dashboard"));
+          return;
+        }
+
+        // USERS WHO SKIPPED SAMPLE DATA: Need to create real organization
+        if (user.skipped_sample_data && !user.has_created_real_organization) {
+          navigate(createPageUrl("Onboarding"));
+          return;
+        }
+
+        // USERS WHO CLEARED SAMPLE DATA: Need to create real organization
         if (user.sample_data_cleared && !user.has_created_real_organization) {
           navigate(createPageUrl("Onboarding"));
           return;
         }
 
-        // User has completed onboarding - check if they have an organization
+        // ESTABLISHED USERS: Check if they have an organization
         const orgs = await base44.entities.Organization.filter(
           { created_by: user.email },
           '-created_date',
@@ -58,8 +53,8 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error checking user status:", error);
-        // If there's an error, redirect to onboarding to be safe
-        navigate(createPageUrl("Onboarding"));
+        // If there's an error, redirect to onboarding guide to be safe
+        navigate(createPageUrl("OnboardingGuide"));
       } finally {
         setIsLoading(false);
       }
