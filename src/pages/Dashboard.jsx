@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Sparkles, Trash2 } from "lucide-react";
+import { Plus, TrendingUp, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
 import ProposalPipeline from "../components/dashboard/ProposalPipeline";
@@ -13,16 +13,6 @@ import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
 import MobileDashboard from "../components/mobile/MobileDashboard";
 import { useOrganization } from "../components/layout/OrganizationContext";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -34,8 +24,6 @@ export default function Dashboard() {
     win_rate: 0
   });
   const [isMobile, setIsMobile] = useState(false);
-  const [showClearDialog, setShowClearDialog] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -121,26 +109,6 @@ export default function Dashboard() {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
-  const handleClearAllProposals = async () => {
-    setIsClearing(true);
-    try {
-      const result = await base44.functions.invoke('clearOrganizationProposals', {
-        organization_id: organization.id
-      });
-      
-      alert(`Success! Cleared ${result.data.deletedCount.proposals} proposals and all related data.`);
-      
-      // Refresh the page to show empty state
-      window.location.reload();
-    } catch (error) {
-      console.error('Error clearing proposals:', error);
-      alert('Error clearing proposals: ' + error.message);
-    } finally {
-      setIsClearing(false);
-      setShowClearDialog(false);
-    }
-  };
-
   // Show loading state
   if (isLoadingOrg || !organization || !user) {
     return (
@@ -182,25 +150,13 @@ export default function Dashboard() {
               {organization?.organization_name || 'Your Organization'}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={handleCreateProposal}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 create-proposal-button"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              New Proposal
-            </Button>
-            {proposals.length > 0 && (
-              <Button
-                onClick={() => setShowClearDialog(true)}
-                variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-5 h-5 mr-2" />
-                Clear All Data
-              </Button>
-            )}
-          </div>
+          <Button
+            onClick={handleCreateProposal}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 create-proposal-button"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            New Proposal
+          </Button>
         </div>
 
         {/* Stats Cards */}
@@ -290,54 +246,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Clear All Data Confirmation Dialog */}
-      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
-        <AlertDialogContent className="max-w-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl flex items-center gap-2">
-              <Trash2 className="w-6 h-6 text-red-600" />
-              Clear All Proposals from {organization?.organization_name}?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-4 pt-4">
-              <p className="text-base text-slate-700 font-medium">
-                This will permanently delete all <span className="text-red-600 font-bold">{proposals.length} proposals</span> and ALL related data from "{organization?.organization_name}".
-              </p>
-              
-              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                <p className="text-red-900 font-bold mb-2">⚠️ This action CANNOT be undone!</p>
-                <p className="text-red-800 text-sm">All proposal sections, tasks, comments, documents, analytics, and history will be permanently destroyed.</p>
-              </div>
-
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-900 font-semibold text-sm">
-                  ✅ Your organization, team members, teaming partners, past performance, and resources will be preserved.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleClearAllProposals}
-              disabled={isClearing}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isClearing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Clearing...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Yes, Clear All Proposals
-                </>
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
