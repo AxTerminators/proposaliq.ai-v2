@@ -22,9 +22,9 @@ import {
   ChevronsRight,
   ZoomIn,
   ZoomOut,
-  LayoutGrid, // Added import for LayoutGrid
-  Sparkles, // Added import for Sparkles
-  HelpCircle // Added import for HelpCircle
+  LayoutGrid,
+  Sparkles,
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -34,12 +34,12 @@ import ProposalCardModal from "./ProposalCardModal";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ApprovalGate from "./ApprovalGate";
-import KanbanSetupWizard from "./KanbanSetupWizard"; // Added import
-import { Card, CardContent } from "@/components/ui/card"; // Added import
+import KanbanSetupWizard from "./KanbanSetupWizard";
+import { Card, CardContent } from "@/components/ui/card";
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
-import KanbanHelpPanel from "./KanbanHelpPanel"; // Added import
+import KanbanHelpPanel from "./KanbanHelpPanel";
 
-// New 13-column default configuration
+// New 14-column default configuration
 const DEFAULT_COLUMNS = [
   {
     id: 'new',
@@ -236,12 +236,13 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [showApprovalGate, setShowApprovalGate] = useState(false);
   const [approvalGateData, setApprovalGateData] = useState(null);
   const [dragInProgress, setDragInProgress] = useState(false);
-  const [showSetupWizard, setShowSetupWizard] = useState(false); // Added state for setup wizard
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
-  const [showHelpPanel, setShowHelpPanel] = useState(false); // New state for help panel
+  const [showHelpPanel, setShowHelpPanel] = useState(false);
+  const [isCreatingDefaultConfig, setIsCreatingDefaultConfig] = useState(false); // Added state for default config creation
 
   // Fetch kanban config
-  const { data: kanbanConfig, isLoading: isLoadingConfig } = useQuery({ // Added isLoading: isLoadingConfig
+  const { data: kanbanConfig, isLoading: isLoadingConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
@@ -251,25 +252,52 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         1
       );
 
-      // If no config exists, create one with default 13-column structure
-      if (configs.length === 0) {
-        // Only create default if it's the first time and there's no custom config available.
-        // For now, let the setup wizard handle initial creation if none exists,
-        // so we can return null here to trigger the wizard.
-        return null;
-      }
-
-      return configs[0];
+      return configs.length > 0 ? configs[0] : null;
     },
     enabled: !!organization?.id
   });
+
+  // Auto-create default 14-column config for new users
+  const createDefaultConfigMutation = useMutation({
+    mutationFn: async () => {
+      if (!organization?.id) throw new Error("No organization ID provided to create Kanban config.");
+
+      return base44.entities.KanbanConfig.create({
+        organization_id: organization.id,
+        columns: DEFAULT_COLUMNS,
+        collapsed_column_ids: [],
+        view_settings: {
+          default_view: 'kanban',
+          show_card_details: ['assignees', 'due_date', 'progress', 'tasks'],
+          compact_mode: false
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      setIsCreatingDefaultConfig(false);
+    },
+    onError: (error) => {
+      console.error("Error creating default config:", error);
+      setIsCreatingDefaultConfig(false);
+      // Optionally show an error message to the user
+    }
+  });
+
+  // Auto-create config when user first accesses the board and no config exists
+  useEffect(() => {
+    if (!isLoadingConfig && !kanbanConfig && organization?.id && !isCreatingDefaultConfig && !createDefaultConfigMutation.isPending) {
+      setIsCreatingDefaultConfig(true);
+      createDefaultConfigMutation.mutate();
+    }
+  }, [kanbanConfig, isLoadingConfig, organization?.id, isCreatingDefaultConfig, createDefaultConfigMutation.isPending, createDefaultConfigMutation]);
 
   // Check if Kanban config exists and has columns
   const hasKanbanConfig = useMemo(() => {
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
-  const columns = kanbanConfig?.columns || DEFAULT_COLUMNS; // Still use DEFAULT_COLUMNS as a fallback for internal logic
+  const columns = kanbanConfig?.columns || DEFAULT_COLUMNS;
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
   const toggleColumnCollapse = async (columnId) => {
@@ -317,7 +345,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   // Check if user has completed the tour
   useEffect(() => {
-    if (hasKanbanConfig && !isLoadingConfig) {
+    // Only show tour if config is loaded and successful, and not currently creating
+    if (hasKanbanConfig && !isLoadingConfig && !isCreatingDefaultConfig && !createDefaultConfigMutation.isPending) {
       const tourCompleted = localStorage.getItem('kanban_tour_completed');
       if (!tourCompleted) {
         // Show tour after a brief delay to let the board render
@@ -326,7 +355,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         }, 1000);
       }
     }
-  }, [hasKanbanConfig, isLoadingConfig]);
+  }, [hasKanbanConfig, isLoadingConfig, isCreatingDefaultConfig, createDefaultConfigMutation.isPending]);
 
   const uniqueAgencies = useMemo(() => {
     const agencies = proposals
@@ -748,8 +777,31 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     return count;
   }, [searchQuery, filterAgency, filterAssignee]);
 
-  // If no kanban config, show setup wizard prompt
-  if (!hasKanbanConfig && !isLoadingConfig) {
+  // Show loading state while creating default config
+  if ((isLoadingConfig || isCreatingDefaultConfig || createDefaultConfigMutation.isPending) && !hasKanbanConfig) {
+    return (
+      <div className="flex items-center justify-center min-h-[600px] p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <LayoutGrid className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Setting Up Your Kanban Board</h2>
+            <p className="text-lg text-slate-600 mb-4">
+              Creating your comprehensive 14-column workflow...
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+              <div className="animate-spin">⏳</div>
+              <span>This will only take a moment</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // If no kanban config (and not loading/creating), show setup wizard prompt
+  if (!hasKanbanConfig && !isLoadingConfig && !isCreatingDefaultConfig && !createDefaultConfigMutation.isPending) {
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -960,7 +1012,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                           className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                           title="Add new column before this one"
                         >
-                          <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
+                          <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
                         </button>
                       </div>
                     )}
@@ -980,7 +1032,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                         <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
                           {columnProposals.length}
                         </div>
-                        <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" title="Expand" />
+                        <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
                       </div>
                     ) : (
                       <Droppable droppableId={column.id}>
@@ -1025,7 +1077,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                         className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
                         title="Add new column after this one"
                       >
-                        <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" title="Add column" />
+                        <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
                       </button>
                     </div>
                   </React.Fragment>
