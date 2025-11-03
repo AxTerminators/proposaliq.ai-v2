@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -275,12 +274,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
-  // Zoom controls
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
   const handleZoomReset = () => setZoomLevel(1);
 
-  // Keyboard zoom control
   useEffect(() => {
     const handleWheel = (e) => {
       if (e.ctrlKey || e.metaKey) {
@@ -342,7 +339,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       columnProposals = filteredProposals.filter(p => p.status === column.default_status_mapping);
     } else if (column.type === 'custom_stage') {
       columnProposals = filteredProposals.filter(p => p.custom_workflow_stage_id === column.id);
-    } else if (column.type === 'locked_phase') { // New logic for locked phases
+    } else if (column.type === 'locked_phase') {
       columnProposals = filteredProposals.filter(p => p.current_phase === column.phase_mapping);
     }
 
@@ -441,15 +438,10 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     if (destColumn.type === 'default_status') {
       updates.status = destColumn.default_status_mapping;
       updates.custom_workflow_stage_id = null;
-      updates.current_phase = null; // Clear phase if moving to default status
     } else if (destColumn.type === 'custom_stage') {
       updates.custom_workflow_stage_id = destColumn.id;
-      updates.status = null; // Clear status if moving to custom stage
-      updates.current_phase = null; // Clear phase if moving to custom stage
-    } else if (destColumn.type === 'locked_phase') { // New logic for locked phases
+    } else if (destColumn.type === 'locked_phase') {
       updates.current_phase = destColumn.phase_mapping;
-      updates.status = null; // Clear status if moving to locked phase
-      updates.custom_workflow_stage_id = null; // Clear custom stage if moving to locked phase
     }
 
     const destProposals = getProposalsForColumn(destColumn);
@@ -465,7 +457,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     
     reorderedProposals.splice(destination.index, 0, movedProposal);
 
-    // Update manual_order for all proposals
     await updateProposalMutation.mutateAsync({ 
       proposalId: draggableId, 
       updates: { ...updates, manual_order: destination.index } 
@@ -510,7 +501,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
       color: 'from-gray-400 to-gray-600',
       type: 'custom_stage',
       order: insertIndex,
-      checklist_items: [] // Added for new custom columns
+      checklist_items: []
     };
 
     const updatedColumns = [...columns];
@@ -531,10 +522,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
     if (!kanbanConfig) return;
 
     const columnToDelete = columns.find(c => c.id === columnId);
-    if (!columnToDelete || columnToDelete.is_locked) { // Check for is_locked property
-      if (columnToDelete.is_locked) {
-        alert(`Cannot delete locked column "${columnToDelete.label}".`);
-      }
+    if (!columnToDelete || columnToDelete.is_locked) {
       return;
     }
 
@@ -588,11 +576,9 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
 
   return (
     <>
-      {/* Header Section - Fixed */}
       <div className="flex-shrink-0 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex gap-2 pl-[30px]">
-            {/* Start New Proposal Button */}
             <Button
               onClick={handleCreateProposal}
               className="bg-blue-600 hover:bg-blue-700"
@@ -605,7 +591,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
           </div>
 
           <div className="flex gap-2 items-center">
-            {/* Zoom Controls */}
             <div className="flex items-center gap-0.5 border rounded-lg bg-white">
               <Button
                 variant="ghost"
@@ -663,7 +648,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
           </div>
         </div>
 
-        {/* Filters Panel */}
         {showFilters && (
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between mb-2">
@@ -682,7 +666,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" title="Search" />
                 <Input
@@ -694,7 +677,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 />
               </div>
 
-              {/* Agency Filter */}
               <Select value={filterAgency} onValueChange={setFilterAgency}>
                 <SelectTrigger title="Filter by agency">
                   <SelectValue placeholder="Filter by Agency" />
@@ -707,7 +689,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                 </SelectContent>
               </Select>
 
-              {/* Assignee Filter */}
               <Select value={filterAssignee} onValueChange={setFilterAssignee}>
                 <SelectTrigger title="Filter by team member">
                   <SelectValue placeholder="Filter by Assignee" />
@@ -723,7 +704,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
           </div>
         )}
 
-        {/* Zoom Hint */}
         {zoomLevel !== 1 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700 text-center">
             💡 Tip: Hold Ctrl/Cmd and scroll to zoom, or use the zoom controls above
@@ -731,7 +711,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
         )}
       </div>
 
-      {/* Kanban Board - Scrollable */}
       <div className="flex-1 overflow-hidden">
         <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible px-6">
           <DragDropContext 
@@ -754,7 +733,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
 
                 return (
                   <React.Fragment key={column.id}>
-                    {/* Add Column Button - Before First Column */}
                     {index === 0 && (
                       <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
                         <button
@@ -767,7 +745,6 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                       </div>
                     )}
 
-                    {/* Column */}
                     {isCollapsed ? (
                       <div
                         className="flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow"
@@ -814,14 +791,13 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
                               onDeleteColumn={handleDeleteColumn}
                               onRenameColumn={handleRenameColumn}
                               dragOverColumnColor={dragOverColor}
-                              kanbanConfig={kanbanConfig} {/* Pass kanbanConfig down */}
+                              kanbanConfig={kanbanConfig}
                             />
                           </div>
                         )}
                       </Droppable>
                     )}
 
-                    {/* Add Column Button - Between Columns and After Last Column */}
                     <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
                       <button
                         onClick={() => handleAddColumn(index + 1)}
@@ -857,7 +833,7 @@ export default function ProposalsKanban({ proposals, organization, onRefresh }) 
             setSelectedProposal(null);
           }}
           organization={organization}
-          kanbanConfig={kanbanConfig} {/* Pass kanbanConfig down */}
+          kanbanConfig={kanbanConfig}
         />
       )}
     </>
