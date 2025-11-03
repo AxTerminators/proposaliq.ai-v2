@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Trash2 } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Trash2, Sparkles } from "lucide-react";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
@@ -34,6 +34,7 @@ export default function Pipeline() {
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showSampleDataDialog, setShowSampleDataDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
@@ -144,7 +145,12 @@ export default function Pipeline() {
   });
 
   const handleCreateProposal = () => {
-    navigate(createPageUrl("ProposalBuilder"));
+    // Check if user is using sample data
+    if (user?.using_sample_data) {
+      setShowSampleDataDialog(true);
+    } else {
+      navigate(createPageUrl("ProposalBuilder"));
+    }
   };
 
   const handleGenerateSampleData = async () => {
@@ -178,6 +184,24 @@ export default function Pipeline() {
     } finally {
       setIsClearing(false);
       setShowClearDialog(false);
+    }
+  };
+
+  const handleClearSampleData = async () => {
+    setIsClearing(true);
+    try {
+      await base44.functions.invoke('clearSampleData', {});
+      
+      alert('✅ Sample data cleared! You can now create your first real proposal.');
+      
+      // Refresh the page
+      window.location.reload();
+    } catch (error) {
+      console.error('Error clearing sample data:', error);
+      alert('Error clearing sample data: ' + error.message);
+    } finally {
+      setIsClearing(false);
+      setShowSampleDataDialog(false);
     }
   };
 
@@ -290,10 +314,12 @@ export default function Pipeline() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Proposal
                   </Button>
-                  <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
-                    <Database className="w-4 h-4 mr-2" />
-                    Generate Sample Data
-                  </Button>
+                  {!user?.using_sample_data && (
+                    <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
+                      <Database className="w-4 h-4 mr-2" />
+                      Generate Sample Data
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -476,6 +502,60 @@ export default function Pipeline() {
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
                   Yes, Clear All {proposals.length} Proposals
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sample Data Dialog */}
+      <AlertDialog open={showSampleDataDialog} onOpenChange={setShowSampleDataDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-amber-600" />
+              Ready to Add Real Data?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 pt-4">
+              <p className="text-base text-slate-700 font-medium">
+                You're currently exploring ProposalIQ with sample data. To create your first real proposal, you'll need to clear the sample data first.
+              </p>
+              
+              <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
+                <p className="text-amber-900 font-semibold mb-2">📝 What happens when you clear sample data:</p>
+                <ul className="list-disc pl-5 space-y-1 text-amber-800 text-sm">
+                  <li>All sample proposals, tasks, and related data will be removed</li>
+                  <li>Your organization profile and team members will be preserved</li>
+                  <li>You'll be able to create your first real proposal immediately</li>
+                </ul>
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-900 font-semibold text-sm">
+                  💡 Not ready yet? You can continue exploring with sample data by clicking "Return to Training".
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClearing}>
+              Return to Training
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearSampleData}
+              disabled={isClearing}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isClearing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Clearing Sample Data...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Clear Sample Data & Create Real Proposal
                 </>
               )}
             </AlertDialogAction>
