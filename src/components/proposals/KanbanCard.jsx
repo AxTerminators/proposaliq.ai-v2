@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -47,13 +48,14 @@ import {
   Target,
   PlayCircle,
   CheckCircle2,
-  Circle
+  Circle,
+  Shield // Added Shield icon for disabled indicator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import { motion } from "framer-motion";
 
-// Map gradient colors to solid shadow colors
+// Map gradient colors to solid shadow colors - This map is no longer used for box-shadow based on new classNames, but keeping as it might be used elsewhere or a future ref
 const GRADIENT_TO_SHADOW_COLOR = {
   'from-slate-400 to-slate-600': 'rgba(100, 116, 139, 0.4)',
   'from-gray-400 to-gray-600': 'rgba(107, 114, 128, 0.4)',
@@ -75,10 +77,11 @@ const GRADIENT_TO_SHADOW_COLOR = {
   'from-yellow-400 to-yellow-600': 'rgba(250, 204, 21, 0.4)',
 };
 
-export default function KanbanCard({ proposal, onClick, isDragging, organization, columnColor, dragOverColumnColor, column }) {
+export default function KanbanCard({ proposal, provided, snapshot, onCardClick, isDragDisabled, column }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false); // New state for quick actions
 
   // Fetch tasks for this proposal
   const { data: tasks = [] } = useQuery({
@@ -124,6 +127,8 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
       ? 'bg-amber-500'
       : 'bg-transparent';
 
+  // statusColors were used for border-l-4 which is now replaced by new border styling in className.
+  // Keeping it as it might be relevant for other parts of the UI not visible here.
   const statusColors = {
     'draft': 'border-slate-400',
     'pending_review': 'border-orange-500',
@@ -158,15 +163,7 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
   const totalTasks = tasks.length + subtasks.length;
   const totalCompletedTasks = completedTasks + completedSubtasks;
 
-  // Get shadow color based on column or drag state
-  const getShadowColor = () => {
-    if (isDragging && dragOverColumnColor) {
-      return GRADIENT_TO_SHADOW_COLOR[dragOverColumnColor] || 'rgba(0, 0, 0, 0.1)';
-    }
-    return GRADIENT_TO_SHADOW_COLOR[columnColor] || 'rgba(0, 0, 0, 0.1)';
-  };
-
-  const shadowColor = getShadowColor();
+  // getShadowColor and shadowColor are removed as box-shadow is now handled by class names.
 
   const updateProposalMutation = useMutation({
     mutationFn: async (updates) => {
@@ -212,62 +209,93 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        whileHover={{ scale: 1.02 }}
-        className={cn(
-          "group relative bg-white rounded-lg transition-all duration-200 cursor-pointer",
-          "border-l-4",
-          isDragging ? 'rotate-2 opacity-90' : '',
-          statusColors[proposal.status] || 'border-slate-400'
-        )}
-        style={{
-          boxShadow: isDragging 
-            ? `0 20px 25px -5px ${shadowColor}, 0 10px 10px -5px ${shadowColor}`
-            : `0 4px 6px -1px ${shadowColor}, 0 2px 4px -1px ${shadowColor}`
-        }}
-        onClick={onClick}
+        whileHover={{ scale: 1.02 }} // Kept whileHover on the outer motion.div
       >
-        {/* Action Required Indicator - Top Left */}
-        {hasActionRequired && (
-          <div className="absolute -top-2 -left-2 z-10">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
-              <PlayCircle className="relative w-6 h-6 text-red-600 bg-white rounded-full" title="Action Required" />
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          onClick={() => onCardClick && onCardClick(proposal)}
+          onMouseEnter={() => setShowQuickActions(true)}
+          onMouseLeave={() => setShowQuickActions(false)}
+          className={cn(
+            "relative", // Ensure positioning context for absolute children
+            "bg-white rounded-lg p-4 mb-3 cursor-pointer transition-all duration-200 group", // Base card styles
+            "border-2", // Base border for the card
+            // Conditional border and shadow styles based on drag state, action_required, or default
+            snapshot.isDragging 
+              ? "shadow-2xl border-blue-400 rotate-2 scale-105" 
+              : proposal.action_required
+                ? "border-orange-300 hover:border-orange-400 hover:shadow-lg"
+                : "border-slate-200 hover:border-blue-300 hover:shadow-md", // Default border and hover effects
+            isDragDisabled && "opacity-60 cursor-not-allowed"
+          )}
+          style={{
+            ...provided.draggableProps.style,
+            opacity: isDragDisabled ? 0.6 : 1 // Override opacity if drag is disabled
+          }}
+        >
+          {/* Drag Indicator - Only show when not disabled */}
+          {!isDragDisabled && (
+            <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex flex-col gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-slate-400" />
+                <div className="w-1 h-1 rounded-full bg-slate-400" />
+                <div className="w-1 h-1 rounded-full bg-slate-400" />
+              </div>
             </div>
+          )}
+
+          {/* Disabled Indicator */}
+          {isDragDisabled && (
+            <div className="absolute top-2 right-2">
+              <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center" title="Restricted: Cannot move from this column">
+                <Shield className="w-4 h-4 text-orange-600" />
+              </div>
+            </div>
+          )}
+
+          {/* Action Required Indicator - Top Left */}
+          {hasActionRequired && (
+            <div className="absolute -top-2 -left-2 z-10">
+              <div className="relative">
+                <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
+                <PlayCircle className="relative w-6 h-6 text-red-600 bg-white rounded-full" title="Action Required" />
+              </div>
+            </div>
+          )}
+
+          {/* Three Dots Menu - Top Right */}
+          <div className="absolute top-2 right-2 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreVertical className="w-4 h-4 text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={handleEdit}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Proposal
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleArchive} className="text-slate-600">
+                  <Archive className="w-4 h-4 mr-2" />
+                  Move to Archived
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        )}
 
-        {/* Three Dots Menu - Top Right */}
-        <div className="absolute top-2 right-2 z-10">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <MoreVertical className="w-4 h-4 text-slate-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={handleEdit}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Proposal
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleArchive} className="text-slate-600">
-                <Archive className="w-4 h-4 mr-2" />
-                Move to Archived
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Card Content */}
-        <div className="p-4">
+          {/* Card Content */}
           {/* Header */}
           <div className="flex items-start justify-between mb-3 pr-8">
             <div className="flex-1 min-w-0">
@@ -425,6 +453,22 @@ export default function KanbanCard({ proposal, onClick, isDragging, organization
               "absolute top-0 right-0 w-3 h-3 rounded-bl-lg",
               urgencyColor
             )} />
+          )}
+
+          {/* Quick Actions on Hover */}
+          {showQuickActions && !isDragDisabled && (
+            <div className="absolute bottom-2 right-2 flex gap-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCardClick && onCardClick(proposal);
+                }}
+                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                title="Open details"
+              >
+                View
+              </button>
+            </div>
           )}
         </div>
       </motion.div>
