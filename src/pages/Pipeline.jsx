@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -40,21 +39,36 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const { data: proposals = [], isLoading, error: proposalsError, refetch } = useQuery({
+  // Debug log when organization changes
+  useEffect(() => {
+    if (organization) {
+      console.log('Pipeline - Organization loaded:', {
+        id: organization.id,
+        name: organization.organization_name,
+        isLoadingOrg,
+        orgError
+      });
+    }
+  }, [organization, isLoadingOrg, orgError]);
+
+  const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) {
-        console.log('No organization ID, skipping proposal fetch');
+        console.log('Pipeline - No organization ID, returning empty array');
         return [];
       }
       
-      console.log('Fetching proposals for org:', organization.id);
+      console.log('Pipeline - Fetching proposals for org:', organization.id);
       const fetchedProposals = await base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
       );
       
-      console.log('Fetched proposals:', fetchedProposals.length);
+      console.log('Pipeline - Fetched proposals:', {
+        count: fetchedProposals.length,
+        proposals: fetchedProposals
+      });
       
       // Set debug info
       setDebugInfo({
@@ -66,7 +80,7 @@ export default function Pipeline() {
       
       return fetchedProposals;
     },
-    enabled: !!organization?.id && !isLoadingOrg,
+    enabled: !!organization?.id,
     initialData: [],
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
@@ -84,10 +98,11 @@ export default function Pipeline() {
         '-created_date'
       );
     },
-    enabled: !!organization?.id && !isLoadingOrg,
+    enabled: !!organization?.id,
     initialData: [],
     retry: 1,
     retryDelay: 2000,
+    staleTime: 60000,
   });
 
   // Fetch kanban columns config for mobile view
@@ -102,9 +117,10 @@ export default function Pipeline() {
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id && !isLoadingOrg,
+    enabled: !!organization?.id,
     retry: 1,
     retryDelay: 2000,
+    staleTime: 60000,
   });
 
   const handleCreateProposal = () => {
@@ -119,7 +135,7 @@ export default function Pipeline() {
     window.location.reload();
   };
 
-  // Show loading error with more helpful message for rate limits
+  // Show loading error
   if (orgError || proposalsError) {
     const error = orgError || proposalsError;
     const isRateLimit = (error?.message || '').toLowerCase().includes('rate limit');
@@ -186,18 +202,24 @@ export default function Pipeline() {
     { id: 'archived', label: 'Archived', emoji: '📦', type: 'default_status', default_status_mapping: 'archived' }
   ];
 
-  const showDebugInfo = proposals.length === 0 && !isLoading;
+  const showDebugInfo = proposals.length === 0 && !isLoadingProposals;
+
+  console.log('Pipeline - Render state:', {
+    proposalsCount: proposals.length,
+    isLoadingProposals,
+    showDebugInfo,
+    debugInfo,
+    organization: organization?.id
+  });
 
   return (
     <>
-      {/* Background Automation Executor */}
       <AutomationExecutor 
         organization={organization} 
         proposals={proposals} 
         automationRules={automationRules}
       />
 
-      {/* Debug Info Banner - Show when no proposals */}
       {showDebugInfo && debugInfo && (
         <div className="bg-blue-50 border-b border-blue-200 p-4">
           <div className="max-w-7xl mx-auto flex items-start gap-3">
@@ -235,7 +257,6 @@ export default function Pipeline() {
         </div>
       )}
 
-      {/* Header - Fixed */}
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
@@ -250,9 +271,8 @@ export default function Pipeline() {
                   onClick={() => setShowAutomation(!showAutomation)}
                   size="sm"
                   className="h-9"
-                  title={showAutomation ? "Hide automation panel" : "Show automation panel"}
                 >
-                  <Zap className="w-4 h-4 mr-2" title="Automation" />
+                  <Zap className="w-4 h-4 mr-2" />
                   {showAutomation ? 'Hide' : 'Show'} Automation
                 </Button>
                 <Button
@@ -260,9 +280,8 @@ export default function Pipeline() {
                   onClick={() => setShowAnalytics(!showAnalytics)}
                   size="sm"
                   className="h-9"
-                  title={showAnalytics ? "Hide analytics panel" : "Show analytics panel"}
                 >
-                  <BarChart3 className="w-4 h-4 mr-2" title="Analytics" />
+                  <BarChart3 className="w-4 h-4 mr-2" />
                   {showAnalytics ? 'Hide' : 'Show'} Analytics
                 </Button>
               </>
@@ -274,36 +293,31 @@ export default function Pipeline() {
                 size="sm"
                 className="h-8"
                 onClick={() => setViewMode("kanban")}
-                title="Kanban board view"
               >
-                <LayoutGrid className="w-4 h-4" title="Kanban view" />
+                <LayoutGrid className="w-4 h-4" />
               </Button>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-8"
                 onClick={() => setViewMode("list")}
-                title="List view"
               >
-                <List className="w-4 h-4" title="List view" />
+                <List className="w-4 h-4" />
               </Button>
               <Button
                 variant={viewMode === "table" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-8"
                 onClick={() => setViewMode("table")}
-                title="Table view"
               >
-                <Table className="w-4 h-4" title="Table view" />
+                <Table className="w-4 h-4" />
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content Area - Flexible */}
       <div className="flex-1 overflow-hidden">
-        {/* Desktop: Show Automation/Analytics panels */}
         {!isMobile && showAutomation && (
           <div className="p-6 space-y-6 overflow-y-auto max-h-full">
             <AIWorkflowSuggestions 
@@ -324,13 +338,11 @@ export default function Pipeline() {
 
         {!showAutomation && !showAnalytics && (
           <>
-            {/* Mobile View */}
             {isMobile ? (
               <div className="p-4">
                 <MobileKanbanView proposals={proposals} columns={columns} />
               </div>
             ) : (
-              /* Desktop Views */
               <>
                 {viewMode === "kanban" && (
                   <ProposalsKanban proposals={proposals} organization={organization} user={user} />
