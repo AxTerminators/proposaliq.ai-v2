@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2 } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Trash2 } from "lucide-react";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
@@ -15,6 +16,16 @@ import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -22,6 +33,8 @@ export default function Pipeline() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -145,6 +158,26 @@ export default function Pipeline() {
         console.error('Error generating sample data:', error);
         alert('Error generating sample data: ' + error.message);
       }
+    }
+  };
+
+  const handleClearAllData = async () => {
+    setIsClearing(true);
+    try {
+      const result = await base44.functions.invoke('clearOrganizationProposals', {
+        organization_id: organization.id
+      });
+      
+      alert(`✅ Success! Cleared ${result.data.deletedCount.proposals} proposals and all related data from "${organization.organization_name}".`);
+      
+      // Refresh the page to show empty state
+      window.location.reload();
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      alert('Error clearing data: ' + error.message);
+    } finally {
+      setIsClearing(false);
+      setShowClearDialog(false);
     }
   };
 
@@ -275,6 +308,18 @@ export default function Pipeline() {
             <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
           </div>
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+            {proposals.length > 0 && (
+              <Button
+                onClick={() => setShowClearDialog(true)}
+                variant="outline"
+                size="sm"
+                className="border-red-200 text-red-600 hover:bg-red-50 h-9"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear All Data
+              </Button>
+            )}
+            
             {!isMobile && (
               <>
                 <Button
@@ -389,6 +434,54 @@ export default function Pipeline() {
           </>
         )}
       </div>
+
+      {/* Clear All Data Confirmation Dialog */}
+      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl flex items-center gap-2">
+              <Trash2 className="w-6 h-6 text-red-600" />
+              Clear All Proposals from {organization?.organization_name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 pt-4">
+              <p className="text-base text-slate-700 font-medium">
+                This will permanently delete all <span className="text-red-600 font-bold">{proposals.length} proposals</span> and ALL related data from "{organization?.organization_name}".
+              </p>
+              
+              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p className="text-red-900 font-bold mb-2">⚠️ This action CANNOT be undone!</p>
+                <p className="text-red-800 text-sm">All proposal sections, tasks, comments, documents, analytics, and history will be permanently destroyed.</p>
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-900 font-semibold text-sm">
+                  ✅ Your organization, team members, teaming partners, past performance, and resources will be preserved.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearAllData}
+              disabled={isClearing}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isClearing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Clearing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Yes, Clear All {proposals.length} Proposals
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
