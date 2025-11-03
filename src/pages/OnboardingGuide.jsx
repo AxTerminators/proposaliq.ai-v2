@@ -103,7 +103,6 @@ export default function OnboardingGuide() {
     setIsGeneratingSample(true);
     try {
       await base44.functions.invoke('generateSampleData', {});
-      // Function already updates user with using_sample_data: true and onboarding_guide_completed: true
       navigate(createPageUrl("Dashboard"));
     } catch (error) {
       console.error("Error generating sample data:", error);
@@ -128,13 +127,13 @@ export default function OnboardingGuide() {
   };
 
   const currentStepData = ONBOARDING_STEPS[currentStep - 1];
-  const Icon = currentStepData.icon;
+  const Icon = currentStepData?.icon || Sparkles;
   const progress = (currentStep / ONBOARDING_STEPS.length) * 100;
+  const isChoiceStep = currentStep === 6 || currentStepData?.isChoice === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6">
       <div className="max-w-4xl w-full">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-2xl mb-4">
             <Sparkles className="w-10 h-10 text-white" />
@@ -143,7 +142,6 @@ export default function OnboardingGuide() {
           <p className="text-lg text-slate-600">Let's get you started in just a few steps</p>
         </div>
 
-        {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-slate-700">
@@ -159,25 +157,22 @@ export default function OnboardingGuide() {
           </div>
         </div>
 
-        {/* Main Card */}
         <Card className="border-none shadow-2xl mb-6">
           <CardContent className="p-12">
-            <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mb-6", currentStepData.bgColor)}>
-              <Icon className={cn("w-8 h-8", currentStepData.color)} />
+            <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mb-6", currentStepData?.bgColor || "bg-blue-50")}>
+              <Icon className={cn("w-8 h-8", currentStepData?.color || "text-blue-600")} />
             </div>
 
             <h2 className="text-3xl font-bold text-slate-900 mb-4">
-              {currentStepData.title}
+              {currentStepData?.title || "Loading..."}
             </h2>
             <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-              {currentStepData.description}
+              {currentStepData?.description || ""}
             </p>
 
-            {/* Choice Step (Step 6) */}
-            {currentStepData.isChoice && (
+            {isChoiceStep ? (
               <div className="space-y-4">
-                {/* Option 1: Add Sample Data */}
-                <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-indigo-50">
+                <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all bg-gradient-to-br from-blue-50 to-indigo-50">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -223,8 +218,7 @@ export default function OnboardingGuide() {
                   </CardContent>
                 </Card>
 
-                {/* Option 2: Bypass Sample Data */}
-                <Card className="border-2 border-green-200 hover:border-green-400 transition-all cursor-pointer bg-gradient-to-br from-green-50 to-emerald-50">
+                <Card className="border-2 border-green-200 hover:border-green-400 transition-all bg-gradient-to-br from-green-50 to-emerald-50">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -261,10 +255,7 @@ export default function OnboardingGuide() {
                   </CardContent>
                 </Card>
               </div>
-            )}
-
-            {/* Navigation Buttons (only for non-choice steps) */}
-            {!currentStepData.isChoice && (
+            ) : (
               <div className="flex items-center justify-between pt-6 border-t">
                 <Button
                   variant="outline"
