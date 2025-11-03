@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -34,40 +35,56 @@ import {
   Bell,
   Calendar,
   Tag,
-  MessageSquare
+  MessageSquare,
+  Move, // New import
+  Clock, // New import
+  CheckSquare, // New import
+  Timer, // New import
+  CheckCircle, // New import
+  ListPlus, // New import
+  UserPlus, // New import
+  Edit, // New import
+  Mail, // New import
+  Trash2, // New import
+  Info // New import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card"; // New import
+import { Alert, AlertDescription } from "@/components/ui/alert"; // New import
 
-const TRIGGER_TYPES = [
-  { value: 'on_status_change', label: 'When Status Changes', icon: ArrowRight },
-  { value: 'on_column_move', label: 'When Moved to Different Column', icon: ArrowRight },
-  { value: 'on_due_date_approaching', label: 'When Due Date Approaching', icon: Calendar },
-  { value: 'on_task_completion', label: 'When Task Completed', icon: Sparkles },
-  { value: 'on_all_subtasks_complete', label: 'When All Subtasks Complete', icon: Sparkles },
-  { value: 'on_field_change', label: 'When Field Changes', icon: Tag },
-  { value: 'on_time_in_stage', label: 'When Time in Stage Exceeds', icon: Calendar },
-  { value: 'on_creation', label: 'When Proposal Created', icon: Plus },
-];
-
-const ACTION_TYPES = [
-  { value: 'move_to_column', label: 'Move to Column', icon: ArrowRight },
-  { value: 'change_status', label: 'Change Status', icon: ArrowRight },
-  { value: 'send_notification', label: 'Send Notification', icon: Bell },
-  { value: 'assign_user', label: 'Assign User', icon: Users },
-  { value: 'set_field_value', label: 'Set Field Value', icon: Tag },
-  { value: 'create_calendar_event', label: 'Create Calendar Event', icon: Calendar },
-  { value: 'add_comment', label: 'Add Comment', icon: MessageSquare },
-];
-
-export default function AutomationRuleBuilder({ organization, rule, onClose }) {
+export default function AutomationRuleBuilder({ organization, onClose, existingRule }) {
   const queryClient = useQueryClient();
-  const [ruleName, setRuleName] = useState(rule?.rule_name || "");
-  const [description, setDescription] = useState(rule?.description || "");
-  const [triggerType, setTriggerType] = useState(rule?.trigger?.trigger_type || "on_status_change");
-  const [triggerConditions, setTriggerConditions] = useState(rule?.trigger?.trigger_conditions || {});
-  const [actions, setActions] = useState(rule?.actions || []);
-  const [appliesTo, setAppliesTo] = useState(rule?.applies_to || { scope: 'all_proposals' });
-  const [isActive, setIsActive] = useState(rule?.is_active ?? true);
+  const [ruleName, setRuleName] = useState(existingRule?.rule_name || "");
+  const [description, setDescription] = useState(existingRule?.description || "");
+  const [triggerType, setTriggerType] = useState(existingRule?.trigger?.trigger_type || "on_status_change");
+  const [triggerConditions, setTriggerConditions] = useState(existingRule?.trigger?.trigger_conditions || {});
+  const [actions, setActions] = useState(existingRule?.actions || []);
+  const [appliesTo, setAppliesTo] = useState(existingRule?.applies_to || { scope: 'all_proposals' });
+  const [isActive, setIsActive] = useState(existingRule?.is_active ?? true);
+
+  // Add new trigger types for Phase 3
+  const triggerTypes = [
+    { value: 'on_status_change', label: 'When status changes', icon: ArrowRight },
+    { value: 'on_column_move', label: 'When moved to column', icon: Move },
+    { value: 'on_due_date_approaching', label: 'When due date approaching', icon: Clock },
+    { value: 'on_all_subtasks_complete', label: 'When all subtasks complete', icon: CheckSquare },
+    { value: 'on_time_in_stage', label: 'When time in stage exceeds', icon: Timer },
+    { value: 'on_checklist_complete', label: 'When all required checklist items complete', icon: CheckCircle }, // NEW
+    { value: 'on_creation', label: 'When proposal created', icon: Plus },
+  ];
+
+  // Add new action types for Phase 3
+  const actionTypes = [
+    { value: 'move_to_column', label: 'Move to column', icon: Move },
+    { value: 'change_status', label: 'Change status', icon: Sparkles }, // Changed icon from RefreshCw
+    { value: 'send_notification', label: 'Send notification', icon: Bell },
+    { value: 'create_subtask', label: 'Create subtask', icon: ListPlus },
+    { value: 'assign_user', label: 'Assign to user', icon: UserPlus },
+    { value: 'set_field_value', label: 'Set field value', icon: Edit },
+    { value: 'add_comment', label: 'Add comment', icon: MessageSquare },
+    { value: 'send_email', label: 'Send email', icon: Mail }, // NEW
+    { value: 'create_calendar_event', label: 'Create calendar event', icon: Calendar }, // NEW
+  ];
 
   // Fetch kanban columns for dropdown
   const { data: kanbanConfig } = useQuery({
@@ -90,7 +107,7 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
     queryFn: async () => {
       if (!organization?.id) return [];
       const users = await base44.entities.User.list();
-      return users.filter(u => 
+      return users.filter(u =>
         u.client_accesses?.some(access => access.organization_id === organization.id)
       );
     },
@@ -99,8 +116,8 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
 
   const saveRuleMutation = useMutation({
     mutationFn: async (ruleData) => {
-      if (rule?.id) {
-        return base44.entities.ProposalAutomationRule.update(rule.id, ruleData);
+      if (existingRule?.id) {
+        return base44.entities.ProposalAutomationRule.update(existingRule.id, ruleData);
       } else {
         return base44.entities.ProposalAutomationRule.create({
           ...ruleData,
@@ -135,6 +152,18 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
         }
       };
     }
+    setActions(newActions);
+  };
+
+  const handleActionConfigChange = (index, key, value) => {
+    const newActions = [...actions];
+    newActions[index] = {
+      ...newActions[index],
+      action_config: {
+        ...newActions[index].action_config,
+        [key]: value,
+      },
+    };
     setActions(newActions);
   };
 
@@ -173,7 +202,7 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-purple-600" />
-            {rule ? 'Edit Automation Rule' : 'Create Automation Rule'}
+            {existingRule ? 'Edit Automation Rule' : 'Create Automation Rule'}
           </DialogTitle>
           <DialogDescription>
             Define triggers and actions to automate your workflow
@@ -225,9 +254,12 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TRIGGER_TYPES.map((t) => (
+                  {triggerTypes.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
-                      {t.label}
+                      <div className="flex items-center gap-2">
+                        <t.icon className="w-4 h-4" />
+                        {t.label}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -241,7 +273,7 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                   <Label>From Status (optional)</Label>
                   <Select
                     value={triggerConditions.from_status || ''}
-                    onValueChange={(value) => setTriggerConditions({...triggerConditions, from_status: value})}
+                    onValueChange={(value) => setTriggerConditions({ ...triggerConditions, from_status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Any status" />
@@ -259,7 +291,7 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                   <Label>To Status</Label>
                   <Select
                     value={triggerConditions.to_status || ''}
-                    onValueChange={(value) => setTriggerConditions({...triggerConditions, to_status: value})}
+                    onValueChange={(value) => setTriggerConditions({ ...triggerConditions, to_status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
@@ -283,7 +315,7 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                 <Input
                   type="number"
                   value={triggerConditions.days_before || 3}
-                  onChange={(e) => setTriggerConditions({...triggerConditions, days_before: parseInt(e.target.value)})}
+                  onChange={(e) => setTriggerConditions({ ...triggerConditions, days_before: parseInt(e.target.value) })}
                   placeholder="3"
                 />
               </div>
@@ -295,7 +327,7 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                 <Input
                   type="number"
                   value={triggerConditions.days_in_stage || 7}
-                  onChange={(e) => setTriggerConditions({...triggerConditions, days_in_stage: parseInt(e.target.value)})}
+                  onChange={(e) => setTriggerConditions({ ...triggerConditions, days_in_stage: parseInt(e.target.value) })}
                   placeholder="7"
                 />
               </div>
@@ -306,147 +338,195 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                 <Label>Field Name</Label>
                 <Input
                   value={triggerConditions.field || ''}
-                  onChange={(e) => setTriggerConditions({...triggerConditions, field: e.target.value})}
+                  onChange={(e) => setTriggerConditions({ ...triggerConditions, field: e.target.value })}
                   placeholder="e.g., contract_value, agency_name"
                 />
               </div>
+            )}
+
+            {triggerType === 'on_checklist_complete' && (
+              <Card>
+                <CardContent className="pt-6">
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      This rule will trigger when all required checklist items in the current stage are marked as complete.
+                      Perfect for auto-advancing proposals through your workflow.
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
             )}
           </div>
 
           {/* Actions Configuration */}
           <div className="space-y-4 border-t pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-purple-600" />
                 Do These Things (Actions)
               </h3>
-              <Button size="sm" variant="outline" onClick={handleAddAction}>
-                <Plus className="w-4 h-4 mr-2" />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddAction}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
                 Add Action
               </Button>
             </div>
 
-            {actions.length === 0 && (
-              <div className="p-8 text-center border-2 border-dashed rounded-lg bg-slate-50">
-                <Zap className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-600">No actions yet. Click "Add Action" to get started.</p>
-              </div>
-            )}
+            {actions.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500 text-center">
+                    No actions configured. Add actions to define what happens when this rule triggers.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {actions.map((action, idx) => {
+                  const Icon = actionTypes.find(t => t.value === action.action_type)?.icon || Zap;
 
-            <div className="space-y-3">
-              {actions.map((action, idx) => {
-                const Icon = ACTION_TYPES.find(t => t.value === action.action_type)?.icon || Zap;
-                
-                return (
-                  <div key={idx} className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-purple-600 rounded-lg flex-shrink-0">
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-semibold">Action {idx + 1}</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleRemoveAction(idx)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="w-4 h-4 text-red-600" />
-                          </Button>
-                        </div>
+                  return (
+                    <Card key={idx} className="border-blue-200">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-purple-600 rounded-lg flex-shrink-0">
+                            <Icon className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm font-semibold">Action {idx + 1}</Label>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleRemoveAction(idx)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </Button>
+                            </div>
 
-                        <Select
-                          value={action.action_type}
-                          onValueChange={(value) => handleActionChange(idx, 'action_type', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ACTION_TYPES.map((t) => (
-                              <SelectItem key={t.value} value={t.value}>
-                                {t.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                        {/* Action-specific configuration */}
-                        {action.action_type === 'move_to_column' && (
-                          <div className="space-y-2">
-                            <Label>Target Column</Label>
                             <Select
-                              value={action.action_config.column_id || ''}
-                              onValueChange={(value) => handleActionChange(idx, 'column_id', value)}
+                              value={action.action_type}
+                              onValueChange={(value) => handleActionChange(idx, 'action_type', value)}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="Select column" />
+                                <SelectValue placeholder="Select action type" />
                               </SelectTrigger>
                               <SelectContent>
-                                {columns.map((col) => (
-                                  <SelectItem key={col.id} value={col.id}>
-                                    {col.label}
+                                {actionTypes.map((type) => (
+                                  <SelectItem key={type.value} value={type.value}>
+                                    <div className="flex items-center gap-2">
+                                      <type.icon className="w-4 h-4" />
+                                      {type.label}
+                                    </div>
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          </div>
-                        )}
 
-                        {action.action_type === 'change_status' && (
-                          <div className="space-y-2">
-                            <Label>New Status</Label>
-                            <Select
-                              value={action.action_config.status || ''}
-                              onValueChange={(value) => handleActionChange(idx, 'status', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="evaluating">Evaluating</SelectItem>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="in_progress">In Progress</SelectItem>
-                                <SelectItem value="submitted">Submitted</SelectItem>
-                                <SelectItem value="won">Won</SelectItem>
-                                <SelectItem value="lost">Lost</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+                            {/* Action-specific configuration */}
+                            {action.action_type === 'move_to_column' && (
+                              <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                                <Label>Target Column</Label>
+                                <Select
+                                  value={action.action_config.column_id || ''}
+                                  onValueChange={(value) => handleActionChange(idx, 'column_id', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select column" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {columns.map((col) => (
+                                      <SelectItem key={col.id} value={col.id}>
+                                        {col.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
 
-                        {action.action_type === 'send_notification' && (
-                          <div className="space-y-3">
-                            <div className="space-y-2">
-                              <Label>Notification Message</Label>
-                              <Textarea
-                                value={action.action_config.message || ''}
-                                onChange={(e) => handleActionChange(idx, 'message', e.target.value)}
-                                placeholder="Enter notification message"
-                                rows={2}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Send To</Label>
-                              <Select
-                                value={action.action_config.recipient_type || 'assigned_users'}
-                                onValueChange={(value) => handleActionChange(idx, 'recipient_type', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="assigned_users">Assigned Team Members</SelectItem>
-                                  <SelectItem value="lead_writer">Lead Writer</SelectItem>
-                                  <SelectItem value="all_team">All Team Members</SelectItem>
-                                  <SelectItem value="specific_user">Specific User</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {action.action_config.recipient_type === 'specific_user' && (
-                              <div className="space-y-2">
-                                <Label>Select User</Label>
+                            {action.action_type === 'change_status' && (
+                              <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                                <Label>New Status</Label>
+                                <Select
+                                  value={action.action_config.status || ''}
+                                  onValueChange={(value) => handleActionChange(idx, 'status', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="evaluating">Evaluating</SelectItem>
+                                    <SelectItem value="draft">Draft</SelectItem>
+                                    <SelectItem value="in_progress">In Progress</SelectItem>
+                                    <SelectItem value="submitted">Submitted</SelectItem>
+                                    <SelectItem value="won">Won</SelectItem>
+                                    <SelectItem value="lost">Lost</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {action.action_type === 'send_notification' && (
+                              <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                                <div className="space-y-2">
+                                  <Label>Notification Message</Label>
+                                  <Textarea
+                                    value={action.action_config.message || ''}
+                                    onChange={(e) => handleActionChange(idx, 'message', e.target.value)}
+                                    placeholder="Enter notification message"
+                                    rows={2}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Send To</Label>
+                                  <Select
+                                    value={action.action_config.recipient_type || 'assigned_users'}
+                                    onValueChange={(value) => handleActionChange(idx, 'recipient_type', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="assigned_users">Assigned Team Members</SelectItem>
+                                      <SelectItem value="lead_writer">Lead Writer</SelectItem>
+                                      <SelectItem value="all_team">All Team Members</SelectItem>
+                                      <SelectItem value="specific_user">Specific User</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {action.action_config.recipient_type === 'specific_user' && (
+                                  <div className="space-y-2">
+                                    <Label>Select User</Label>
+                                    <Select
+                                      value={action.action_config.user_email || ''}
+                                      onValueChange={(value) => handleActionChange(idx, 'user_email', value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select user" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {teamMembers.map((member) => (
+                                          <SelectItem key={member.email} value={member.email}>
+                                            {member.full_name} ({member.email})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {action.action_type === 'assign_user' && (
+                              <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                                <Label>Assign To</Label>
                                 <Select
                                   value={action.action_config.user_email || ''}
                                   onValueChange={(value) => handleActionChange(idx, 'user_email', value)}
@@ -464,90 +544,156 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                                 </Select>
                               </div>
                             )}
-                          </div>
-                        )}
 
-                        {action.action_type === 'assign_user' && (
-                          <div className="space-y-2">
-                            <Label>Assign To</Label>
-                            <Select
-                              value={action.action_config.user_email || ''}
-                              onValueChange={(value) => handleActionChange(idx, 'user_email', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select user" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {teamMembers.map((member) => (
-                                  <SelectItem key={member.email} value={member.email}>
-                                    {member.full_name} ({member.email})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+                            {action.action_type === 'set_field_value' && (
+                              <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                                <div className="space-y-2">
+                                  <Label>Field Name</Label>
+                                  <Input
+                                    value={action.action_config.field_name || ''}
+                                    onChange={(e) => handleActionChange(idx, 'field_name', e.target.value)}
+                                    placeholder="e.g., priority, custom_fields.Status"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>New Value</Label>
+                                  <Input
+                                    value={action.action_config.field_value || ''}
+                                    onChange={(e) => handleActionChange(idx, 'field_value', e.target.value)}
+                                    placeholder="Enter value"
+                                  />
+                                </div>
+                              </div>
+                            )}
 
-                        {action.action_type === 'set_field_value' && (
-                          <div className="space-y-3">
-                            <div className="space-y-2">
-                              <Label>Field Name</Label>
-                              <Input
-                                value={action.action_config.field_name || ''}
-                                onChange={(e) => handleActionChange(idx, 'field_name', e.target.value)}
-                                placeholder="e.g., priority, custom_fields.Status"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>New Value</Label>
-                              <Input
-                                value={action.action_config.field_value || ''}
-                                onChange={(e) => handleActionChange(idx, 'field_value', e.target.value)}
-                                placeholder="Enter value"
-                              />
-                            </div>
-                          </div>
-                        )}
+                            {action.action_type === 'add_comment' && (
+                              <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                                <Label>Comment Text</Label>
+                                <Textarea
+                                  value={action.action_config.comment_text || ''}
+                                  onChange={(e) => handleActionChange(idx, 'comment_text', e.target.value)}
+                                  placeholder="Enter comment text (supports variables like {proposal_name}, {due_date})"
+                                  rows={3}
+                                />
+                              </div>
+                            )}
 
-                        {action.action_type === 'add_comment' && (
-                          <div className="space-y-2">
-                            <Label>Comment Text</Label>
-                            <Textarea
-                              value={action.action_config.comment_text || ''}
-                              onChange={(e) => handleActionChange(idx, 'comment_text', e.target.value)}
-                              placeholder="Enter comment text (supports variables like {proposal_name}, {due_date})"
-                              rows={3}
-                            />
-                          </div>
-                        )}
+                            {action.action_type === 'create_subtask' && (
+                              <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                                <Label>Subtask Title</Label>
+                                <Input
+                                  value={action.action_config.title || ''}
+                                  onChange={(e) => handleActionChange(idx, 'title', e.target.value)}
+                                  placeholder="e.g., Follow up with {agency_name}"
+                                />
+                                <Label>Assign To (Optional)</Label>
+                                <Select
+                                  value={action.action_config.assigned_to_email || ''}
+                                  onValueChange={(value) => handleActionChange(idx, 'assigned_to_email', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select user" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value={null}>No one</SelectItem>
+                                    {teamMembers.map((member) => (
+                                      <SelectItem key={member.email} value={member.email}>
+                                        {member.full_name} ({member.email})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
 
-                        {action.action_type === 'create_calendar_event' && (
-                          <div className="space-y-3">
-                            <div className="space-y-2">
-                              <Label>Event Title</Label>
-                              <Input
-                                value={action.action_config.event_title || ''}
-                                onChange={(e) => handleActionChange(idx, 'event_title', e.target.value)}
-                                placeholder="e.g., Review {proposal_name}"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Days Until Event</Label>
-                              <Input
-                                type="number"
-                                value={action.action_config.days_offset || 0}
-                                onChange={(e) => handleActionChange(idx, 'days_offset', parseInt(e.target.value))}
-                                placeholder="0"
-                              />
-                            </div>
+                            {action.action_type === 'send_email' && (
+                              <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                                <div>
+                                  <Label>Recipients (comma-separated emails)</Label>
+                                  <Input
+                                    value={action.action_config?.recipients?.join(', ') || ''}
+                                    onChange={(e) => {
+                                      const emails = e.target.value.split(',').map(email => email.trim()).filter(email => email !== '');
+                                      handleActionConfigChange(idx, 'recipients', emails);
+                                    }}
+                                    placeholder="user@example.com, another@example.com"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Email Subject</Label>
+                                  <Input
+                                    value={action.action_config?.subject || ''}
+                                    onChange={(e) => handleActionConfigChange(idx, 'subject', e.target.value)}
+                                    placeholder="Proposal Update: {{proposal_name}}"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Email Message</Label>
+                                  <Textarea
+                                    value={action.action_config?.message || ''}
+                                    onChange={(e) => handleActionConfigChange(idx, 'message', e.target.value)}
+                                    placeholder="Use {{proposal_name}}, {{status}}, etc."
+                                    rows={4}
+                                  />
+                                </div>
+                                <Alert>
+                                  <Info className="h-4 w-4" />
+                                  <AlertDescription className="text-xs">
+                                    Available variables: {`{{proposal_name}}, {{status}}, {{due_date}}, {{agency_name}}`}
+                                  </AlertDescription>
+                                </Alert>
+                              </div>
+                            )}
+
+                            {action.action_type === 'create_calendar_event' && (
+                              <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                                <div>
+                                  <Label>Event Title</Label>
+                                  <Input
+                                    value={action.action_config?.title || ''}
+                                    onChange={(e) => handleActionConfigChange(idx, 'title', e.target.value)}
+                                    placeholder="Review: {{proposal_name}}"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Event Type</Label>
+                                  <Select
+                                    value={action.action_config?.event_type || 'milestone'}
+                                    onValueChange={(value) => handleActionConfigChange(idx, 'event_type', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="milestone">Milestone</SelectItem>
+                                      <SelectItem value="review_session">Review Session</SelectItem>
+                                      <SelectItem value="reminder">Reminder</SelectItem>
+                                      <SelectItem value="meeting">Meeting</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label>Days from trigger date</Label>
+                                  <Input
+                                    type="number"
+                                    value={action.action_config?.days_offset || 0}
+                                    onChange={(e) => handleActionConfigChange(idx, 'days_offset', parseInt(e.target.value))}
+                                    placeholder="0"
+                                  />
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    Positive = future, Negative = past (e.g., -7 = 7 days ago)
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Applies To */}
@@ -566,6 +712,30 @@ export default function AutomationRuleBuilder({ organization, rule, onClose }) {
                 <SelectItem value="specific_proposal_types">Specific Project Types</SelectItem>
               </SelectContent>
             </Select>
+
+            {appliesTo.scope === 'specific_columns' && (
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <Label className="mb-2 block">Kanban Columns</Label>
+                <div className="flex flex-wrap gap-2">
+                  {columns.map(col => (
+                    <Badge
+                      key={col.id}
+                      variant={appliesTo.column_ids?.includes(col.id) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        const current = appliesTo.column_ids || [];
+                        const updated = current.includes(col.id)
+                          ? current.filter(id => id !== col.id)
+                          : [...current, col.id];
+                        setAppliesTo({ ...appliesTo, column_ids: updated });
+                      }}
+                    >
+                      {col.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {appliesTo.scope === 'specific_proposal_types' && (
               <div className="p-4 bg-slate-50 rounded-lg">
