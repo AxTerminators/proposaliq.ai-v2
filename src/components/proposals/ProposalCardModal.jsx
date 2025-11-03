@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom"; // Added useNavigate
 import {
   Dialog,
   DialogContent,
@@ -13,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card"; // Added Card, CardContent
 import {
   X,
   CheckSquare,
@@ -36,26 +34,14 @@ import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
 import PhaseModal from "./PhaseModal";
 import AIActionModal from "./AIActionModal";
-// Removed ChecklistSystemValidator as its logic is now integrated
-
-// Helper function to create page URL (assuming it's available globally or imported)
-// If not, you might need to define it or replace it with direct paths.
-const createPageUrl = (pageName) => {
-  // This is a placeholder. In a real app, this would map page names to routes.
-  // Example: if (pageName === "ProposalBuilder") return "/proposal-builder";
-  // For now, returning a generic path.
-  if (pageName === "ProposalBuilder") return "/proposal-builder";
-  return `/${pageName.toLowerCase()}`;
-};
-
+import ChecklistSystemValidator from "./ChecklistSystemValidator";
 
 export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig }) {
-  const navigate = useNavigate(); // Initialized useNavigate
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("checklist"); // Changed from currentTab to activeTab
+  const [currentTab, setCurrentTab] = useState("checklist");
   const [user, setUser] = useState(null);
   const [showPhaseModal, setShowPhaseModal] = useState(false);
-  const [selectedPhaseAction, setSelectedPhaseAction] = useState(null); // Changed from selectedPhase to selectedPhaseAction
+  const [selectedPhase, setSelectedPhase] = useState(null);
   const [showAIModal, setShowAIModal] = useState(false);
   const [selectedAIAction, setSelectedAIAction] = useState(null);
 
@@ -86,109 +72,75 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const checklistItems = currentColumn?.checklist_items || [];
   const checklistStatus = proposal.current_stage_checklist_status?.[currentColumn?.id] || {};
 
-  const updateProposalMutation = useMutation({
-    mutationFn: async (updates) => {
-      return base44.entities.Proposal.update(proposal.id, updates);
+  // Calculate checklist completion
+  const completedChecklistItems = checklistItems.filter(item => 
+    checklistStatus[item.id]?.completed
+  ).length;
+  const totalChecklistItems = checklistItems.length;
+
+  const updateChecklistMutation = useMutation({
+    mutationFn: async ({ itemId, completed }) => {
+      const updatedStatus = {
+        ...proposal.current_stage_checklist_status,
+        [currentColumn.id]: {
+          ...(proposal.current_stage_checklist_status?.[currentColumn.id] || {}),
+          [itemId]: {
+            completed,
+            completed_by: user.email,
+            completed_date: new Date().toISOString()
+          }
+        }
+      };
+
+      // Check if there are any required incomplete items
+      const hasActionRequired = checklistItems.some(item => 
+        item.required && !updatedStatus[currentColumn.id]?.[item.id]?.completed
+      );
+
+      return base44.entities.Proposal.update(proposal.id, {
+        current_stage_checklist_status: updatedStatus,
+        action_required: hasActionRequired,
+        action_required_description: hasActionRequired 
+          ? `Complete required items in ${currentColumn.label}` 
+          : null
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     }
   });
 
-  // Handler for checking/unchecking checklist items
-  const handleChecklistItemToggle = async (item) => {
-    const currentStatus = proposal.current_stage_checklist_status || {};
-    const columnStatus = currentStatus[currentColumn?.id] || {};
-    const itemStatus = columnStatus[item.id] || {};
-    
-    const isCurrentlyCompleted = itemStatus.completed || false;
-    
-    // Update the checklist status
-    const updatedColumnStatus = {
-      ...columnStatus,
-      [item.id]: {
-        completed: !isCurrentlyCompleted,
-        completed_by: !isCurrentlyCompleted ? (user?.email || "system") : null, // Use user.email or a default
-        completed_date: !isCurrentlyCompleted ? new Date().toISOString() : null
-      }
-    };
-    
-    const updatedChecklistStatus = {
-      ...currentStatus,
-      [currentColumn?.id]: updatedColumnStatus
-    };
-    
-    // Check if all required items are now complete
-    const allRequiredComplete = currentColumn?.checklist_items
-      ?.filter(ci => ci.required && ci.type !== 'system_check') // Only consider manual/trigger required items
-      .every(ci => {
-        if (ci.id === item.id) {
-          return !isCurrentlyCompleted; // Use the new status for this item
-        }
-        return updatedColumnStatus[ci.id]?.completed || false;
-      });
-
-    await updateProposalMutation.mutateAsync({
-      current_stage_checklist_status: updatedChecklistStatus,
-      action_required: !allRequiredComplete
+  const handleChecklistToggle = (itemId, currentStatus) => {
+    updateChecklistMutation.mutate({
+      itemId,
+      completed: !currentStatus
     });
   };
 
-  // Handler for modal trigger items
-  const handleModalTriggerClick = (item) => {
-    const actionMap = {
-      'open_modal_phase1': 'phase1',
-      'open_modal_phase2': 'phase2',
-      'open_modal_phase3': 'phase3',
-      'open_modal_phase4': 'phase4',
-      'open_modal_phase5': 'phase5',
-      'open_modal_phase6': 'phase6',
-      'open_modal_phase7': 'phase7'
-    };
-    
-    const phase = actionMap[item.associated_action];
-    if (phase) {
-      setSelectedPhaseAction({ phase, itemId: item.id });
+  const handleChecklistAction = (action, item) => {
+    // Handle different action types
+    if (action.startsWith('open_modal_')) {
+      // Extract phase from action (e.g., 'open_modal_phase1' -> 'phase1')
+      const phase = action.replace('open_modal_', '');
+      setSelectedPhase(phase);
       setShowPhaseModal(true);
+    } else if (action.startsWith('run_ai_') || action.startsWith('run_') || action.startsWith('generate_')) {
+      // Trigger AI action
+      setSelectedAIAction(action);
+      setShowAIModal(true);
+    } else if (action === 'open_red_team_review') {
+      // Navigate to proposal builder Phase 7
+      window.location.href = `/proposal-builder?id=${proposal.id}&phase=phase7`;
     }
   };
 
-  // Handler when phase modal closes successfully
-  const handlePhaseModalComplete = async () => {
-    if (selectedPhaseAction) {
-      // Mark the checklist item as complete
-      const currentStatus = proposal.current_stage_checklist_status || {};
-      const columnStatus = currentStatus[currentColumn?.id] || {};
-      
-      const updatedColumnStatus = {
-        ...columnStatus,
-        [selectedPhaseAction.itemId]: {
-          completed: true,
-          completed_by: (user?.email || "system"), // Use user.email or a default
-          completed_date: new Date().toISOString()
-        }
-      };
-      
-      const updatedChecklistStatus = {
-        ...currentStatus,
-        [currentColumn?.id]: updatedColumnStatus
-      };
-      
-      // Check if all required items are now complete
-      const allRequiredComplete = currentColumn?.checklist_items
-        ?.filter(ci => ci.required && ci.type !== 'system_check') // Only consider manual/trigger required items
-        .every(ci => updatedColumnStatus[ci.id]?.completed || false);
-      
-      await updateProposalMutation.mutateAsync({
-        current_stage_checklist_status: updatedChecklistStatus,
-        action_required: !allRequiredComplete
-      });
-    }
-    
+  const handlePhaseModalSave = () => {
     setShowPhaseModal(false);
-    setSelectedPhaseAction(null);
+    setSelectedPhase(null);
+    // Refresh proposal data
+    queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
-  
+
   const handleAIActionComplete = (result) => {
     // AI action completed successfully
     console.log("AI Action Result:", result);
@@ -197,38 +149,20 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     
     // Optionally mark the checklist item as complete
     // This would require knowing which item triggered it
-    queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
-
-  // System check validation
-  const systemCheckStatus = (item) => {
-    switch (item.id) {
-      case 'contract_value_present': // Renamed from 'contract_value' to avoid conflict if `proposal.contract_value` is used elsewhere directly for display
-        return proposal.contract_value ? true : false;
-      case 'due_date_present': // Renamed from 'due_date'
-        return proposal.due_date ? true : false;
-      case 'complete_sections':
-        // This assumes 'sections' would be passed as a prop or fetched,
-        // For now, let's make it always false or add a placeholder.
-        // If sections are not provided, this check cannot be reliably performed.
-        // Assuming 'sections' might be an array of objects on the proposal itself.
-        const sections = proposal.sections || []; // Placeholder: assuming sections might be on proposal
-        const totalSections = sections?.length || 0;
-        const completedSections = sections?.filter(s => s.status === 'approved').length || 0;
-        return totalSections > 0 && completedSections === totalSections;
-      default:
-        return false;
-    }
-  };
-
 
   return (
     <>
-      {/* ChecklistSystemValidator component removed as its logic is now inline with systemCheckStatus function */}
+      {/* System validator to automatically check system_check items */}
+      <ChecklistSystemValidator 
+        proposal={proposal}
+        kanbanConfig={kanbanConfig}
+        user={user}
+      />
 
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="border-b p-6 pb-4">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="border-b pb-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <DialogTitle className="text-2xl mb-2">{proposal.proposal_name}</DialogTitle>
@@ -274,243 +208,158 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
             </div>
           </DialogHeader>
 
-          {/* Main Content */}
-          <div className="flex-1 overflow-y-auto">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent sticky top-0 z-10 bg-white">
-                <TabsTrigger 
-                  value="checklist" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
-                >
-                  <CheckSquare className="w-4 h-4" />
-                  Stage Checklist
-                  {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length > 0 && (
-                    <Badge className="ml-2 bg-red-500">
-                      {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="tasks" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
-                >
-                  <CheckSquare className="w-4 h-4" />
-                  Tasks
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="discussions" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Discussions
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="files" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
-                >
-                  <Paperclip className="w-4 h-4" />
-                  Files
-                </TabsTrigger>
-              </TabsList>
+          <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 overflow-hidden flex flex-col">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="checklist" className="gap-2">
+                <CheckSquare className="w-4 h-4" />
+                Checklist
+                {totalChecklistItems > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {completedChecklistItems}/{totalChecklistItems}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="gap-2">
+                <CheckSquare className="w-4 h-4" />
+                Tasks
+              </TabsTrigger>
+              <TabsTrigger value="discussions" className="gap-2">
+                <MessageCircle className="w-4 h-4" />
+                Discussions
+              </TabsTrigger>
+              <TabsTrigger value="files" className="gap-2">
+                <Paperclip className="w-4 h-4" />
+                Files
+              </TabsTrigger>
+            </TabsList>
 
-              {/* Checklist Tab */}
-              <TabsContent value="checklist" className="p-6 space-y-4">
-                {currentColumn && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center",
-                        currentColumn.color
-                      )}>
-                        <span className="text-white font-bold text-sm">
-                          {currentColumn.label.charAt(0)}
+            <div className="flex-1 overflow-y-auto mt-4">
+              <TabsContent value="checklist" className="mt-0 space-y-6">
+                {totalChecklistItems === 0 ? (
+                  <div className="text-center py-12">
+                    <CheckCircle2 className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                    <p className="text-slate-600">No checklist items for this stage</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Progress Summary */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-slate-900">
+                          {currentColumn?.label} Stage Progress
+                        </h3>
+                        <span className="text-2xl font-bold text-blue-600">
+                          {totalChecklistItems > 0 ? Math.round((completedChecklistItems / totalChecklistItems) * 100) : 0}%
                         </span>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{currentColumn.label} Stage</h3>
-                        <p className="text-sm text-slate-500">
-                          Complete these items to progress to the next stage
-                        </p>
+                      <div className="w-full bg-slate-200 rounded-full h-3">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
+                          style={{ 
+                            width: `${totalChecklistItems > 0 ? (completedChecklistItems / totalChecklistItems) * 100 : 0}%` 
+                          }}
+                        />
                       </div>
+                      <p className="text-sm text-slate-600 mt-2">
+                        {completedChecklistItems} of {totalChecklistItems} items completed
+                      </p>
                     </div>
 
-                    {checklistItems.length === 0 ? (
-                      <div className="text-center py-8 text-slate-500">
-                        <CheckSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p>No checklist items for this stage</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {checklistItems
-                          .sort((a, b) => (a.order || 0) - (b.order || 0))
-                          .map((item) => {
-                            const itemStatus = checklistStatus[item.id] || {};
-                            const isCompleted = item.type === 'system_check' 
-                              ? systemCheckStatus(item)
-                              : itemStatus.completed || false;
+                    {/* Checklist Items */}
+                    <div className="space-y-3">
+                      {checklistItems
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map((item) => {
+                          const isCompleted = checklistStatus[item.id]?.completed;
+                          const canCheck = item.type === 'manual_check' || item.type === 'system_check';
+                          const hasAction = item.type === 'modal_trigger' || item.type === 'ai_trigger';
 
-                            return (
-                              <Card 
-                                key={item.id}
-                                className={cn(
-                                  "border-2 transition-all",
-                                  isCompleted ? "border-green-200 bg-green-50" : "border-slate-200",
-                                  item.required && !isCompleted && "border-orange-200 bg-orange-50"
-                                )}
-                              >
-                                <CardContent className="p-4">
-                                  <div className="flex items-start gap-3">
-                                    {/* Checkbox for manual items */}
-                                    {item.type === 'manual_check' && (
-                                      <button
-                                        onClick={() => handleChecklistItemToggle(item)}
-                                        className="mt-1 flex-shrink-0"
-                                      >
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <Circle className="w-6 h-6 text-slate-400 hover:text-slate-600" />
-                                        )}
-                                      </button>
+                          return (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "p-4 rounded-lg border-2 transition-all",
+                                isCompleted 
+                                  ? "bg-green-50 border-green-200" 
+                                  : item.required 
+                                    ? "bg-white border-red-200" 
+                                    : "bg-white border-slate-200"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                {canCheck ? (
+                                  <Checkbox
+                                    checked={isCompleted}
+                                    onCheckedChange={() => handleChecklistToggle(item.id, isCompleted)}
+                                    className="mt-1"
+                                    disabled={item.type === 'system_check'} // Disable checkbox for system_check
+                                  />
+                                ) : (
+                                  <div className="mt-1">
+                                    {isCompleted ? (
+                                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    ) : item.required ? (
+                                      <AlertCircle className="w-5 h-5 text-red-500" />
+                                    ) : (
+                                      <Circle className="w-5 h-5 text-slate-300" />
                                     )}
-
-                                    {/* System check indicator */}
-                                    {item.type === 'system_check' && (
-                                      <div className="mt-1 flex-shrink-0">
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <AlertCircle className="w-6 h-6 text-orange-500" />
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* AI trigger indicator */}
-                                    {item.type === 'ai_trigger' && (
-                                      <div className="mt-1 flex-shrink-0">
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <Sparkles className="w-6 h-6 text-blue-500" />
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* Modal trigger indicator */}
-                                    {item.type === 'modal_trigger' && (
-                                      <div className="mt-1 flex-shrink-0">
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <PlayCircle className="w-6 h-6 text-indigo-500" />
-                                        )}
-                                      </div>
-                                    )}
-
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex-1">
-                                          <p className={cn(
-                                            "font-medium",
-                                            isCompleted ? "text-green-900" : "text-slate-900"
-                                          )}>
-                                            {item.label}
-                                            {item.required && !isCompleted && (
-                                              <Badge className="ml-2 bg-red-500 text-xs">Required</Badge>
-                                            )}
-                                          </p>
-                                          
-                                          {item.type === 'system_check' && !isCompleted && (
-                                            <p className="text-xs text-slate-600 mt-1">
-                                              This will be automatically checked when data is provided
-                                            </p>
-                                          )}
-
-                                          {isCompleted && itemStatus.completed_date && (
-                                            <p className="text-xs text-green-700 mt-1">
-                                              ✓ Completed {moment(itemStatus.completed_date).fromNow()}
-                                              {itemStatus.completed_by && ` by ${itemStatus.completed_by}`}
-                                            </p>
-                                          )}
-                                        </div>
-
-                                        {/* Action button for modal_trigger and ai_trigger items */}
-                                        {!isCompleted && (item.type === 'modal_trigger' || item.type === 'ai_trigger') && (
-                                          <Button
-                                            onClick={() => {
-                                              if (item.type === 'modal_trigger') {
-                                                handleModalTriggerClick(item);
-                                              } else if (item.type === 'ai_trigger') {
-                                                // Handle AI trigger
-                                                const phase = proposal.current_phase || 'phase1';
-                                                navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`);
-                                                onClose();
-                                              }
-                                            }}
-                                            size="sm"
-                                            className={cn(
-                                              item.type === 'modal_trigger' ? "bg-indigo-600 hover:bg-indigo-700" : "bg-blue-600 hover:bg-blue-700"
-                                            )}
-                                          >
-                                            {item.type === 'modal_trigger' ? (
-                                              <>
-                                                <PlayCircle className="w-4 h-4 mr-1" />
-                                                Start
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Sparkles className="w-4 h-4 mr-1" />
-                                                Run AI
-                                              </>
-                                            )}
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </div>
                                   </div>
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
-                      </div>
-                    )}
+                                )}
 
-                    {/* Summary */}
-                    <Card className="mt-6 bg-slate-50">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-700">Checklist Progress</p>
-                            <p className="text-xs text-slate-500">
-                              {checklistItems.filter(item => {
-                                if (item.type === 'system_check') {
-                                  return systemCheckStatus(item);
-                                }
-                                return checklistStatus[item.id]?.completed || false;
-                              }).length} of {checklistItems.length} items complete
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length === 0 ? (
-                              <Badge className="bg-green-500">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Ready to Progress
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-orange-500">
-                                <AlertCircle className="w-3 h-3 mr-1" />
-                                {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length} Required Items
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={cn(
+                                      "font-medium",
+                                      isCompleted ? "text-slate-500 line-through" : "text-slate-900"
+                                    )}>
+                                      {item.label}
+                                    </span>
+                                    {item.required && !isCompleted && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        Required
+                                      </Badge>
+                                    )}
+                                    {item.type === 'ai_trigger' && (
+                                      <Badge className="text-xs bg-purple-100 text-purple-700">
+                                        <Sparkles className="w-3 h-3 mr-1" />
+                                        AI
+                                      </Badge>
+                                    )}
+                                    {item.type === 'system_check' && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        System Check
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {checklistStatus[item.id]?.completed_by && (
+                                    <p className="text-xs text-slate-500">
+                                      Completed by {checklistStatus[item.id].completed_by} on{' '}
+                                      {moment(checklistStatus[item.id].completed_date).format('MMM D, YYYY h:mm A')}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {hasAction && !isCompleted && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleChecklistAction(item.associated_action, item)}
+                                    className="flex-shrink-0"
+                                  >
+                                    <PlayCircle className="w-4 h-4 mr-2" />
+                                    {item.type === 'modal_trigger' ? 'Open' : 'Run'}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </>
                 )}
               </TabsContent>
 
-              <TabsContent value="tasks" className="mt-0 p-6">
+              <TabsContent value="tasks" className="mt-0">
                 {user && organization && (
                   <TaskManager 
                     user={user} 
@@ -521,7 +370,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 )}
               </TabsContent>
 
-              <TabsContent value="discussions" className="mt-0 p-6">
+              <TabsContent value="discussions" className="mt-0">
                 {user && organization && (
                   <ProposalDiscussion
                     proposal={proposal}
@@ -531,7 +380,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 )}
               </TabsContent>
 
-              <TabsContent value="files" className="mt-0 p-6">
+              <TabsContent value="files" className="mt-0">
                 {organization && (
                   <ProposalFiles
                     proposal={proposal}
@@ -539,23 +388,22 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   />
                 )}
               </TabsContent>
-            </Tabs>
-          </div>
+            </div>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
-      {/* Phase Modal for modal_trigger items */}
-      {showPhaseModal && selectedPhaseAction && (
+      {/* Phase Modal */}
+      {showPhaseModal && selectedPhase && (
         <PhaseModal
           isOpen={showPhaseModal}
           onClose={() => {
             setShowPhaseModal(false);
-            setSelectedPhaseAction(null);
+            setSelectedPhase(null);
           }}
           proposal={proposal}
-          phaseId={selectedPhaseAction.phase} // Use phaseId as prop name matches PhaseModal component
-          onComplete={handlePhaseModalComplete} // Changed from onSave to onComplete
-          embedded={true}
+          phaseId={selectedPhase}
+          onSave={handlePhaseModalSave}
         />
       )}
 

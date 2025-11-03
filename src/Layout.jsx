@@ -47,7 +47,6 @@ import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import MobileNavigation from "./components/mobile/MobileNavigation";
 import { cn } from "@/lib/utils";
-import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
@@ -84,9 +83,12 @@ const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
   { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all" },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
+  // Workspace is now a main menu with sub-items
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
+  // Tools is now a main menu with sub-items
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
-  { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" },
+  { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" }, // CONSULTANT ONLY
+  // Settings is now a main menu with sub-items
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all", hasSubMenu: true, subMenuItems: SETTINGS_ITEMS },
 ];
 
@@ -94,14 +96,46 @@ const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
 ];
 
-function LayoutContent({ children }) {
+export default function Layout({ children }) {
   const location = useLocation();
-  const { user, organization, subscription } = useOrganization();
+  const [user, setUser] = React.useState(null);
+  const [organization, setOrganization] = React.useState(null);
+  const [subscription, setSubscription] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [toolsOpen, setToolsOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: currentUser.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          setOrganization(orgs[0]);
+          
+          // Load subscription
+          const subs = await base44.entities.Subscription.filter(
+            { organization_id: orgs[0].id },
+            '-created_date',
+            1
+          );
+          if (subs.length > 0) {
+            setSubscription(subs[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
+    };
+    loadData();
+  }, []);
 
   // Close mobile menu on route change
   React.useEffect(() => {
@@ -162,10 +196,12 @@ function LayoutContent({ children }) {
     const isConsultant = organization?.organization_type === 'consultancy';
     
     return ALL_NAVIGATION_ITEMS.filter(item => {
+      // Check super admin only items
       if (item.superAdminOnly && !userIsSuperAdmin) {
         return false;
       }
       
+      // Check organization type restrictions
       if (item.showFor === "consultant" && !isConsultant) {
         return false;
       }
@@ -173,6 +209,7 @@ function LayoutContent({ children }) {
         return false;
       }
       
+      // Item is visible for "all" or passes specific checks
       return true;
     });
   }, [organization, userIsSuperAdmin]);
@@ -693,13 +730,5 @@ function LayoutContent({ children }) {
       {/* Mobile Bottom Navigation */}
       <MobileNavigation user={user} organization={organization} />
     </div>
-  );
-}
-
-export default function Layout({ children }) {
-  return (
-    <OrganizationProvider>
-      <LayoutContent>{children}</LayoutContent>
-    </OrganizationProvider>
   );
 }
