@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const OrganizationContext = createContext(undefined);
+const OrganizationContext = createContext(null);
 
 export function useOrganization() {
   const context = useContext(OrganizationContext);
-  if (context === undefined) {
+  if (context === null) {
     throw new Error('useOrganization must be used within OrganizationProvider');
   }
   return context;
@@ -24,11 +24,9 @@ export function OrganizationProvider({ children }) {
         setIsLoading(true);
         setError(null);
         
-        // Load current user
         const currentUser = await base44.auth.me();
         setUser(currentUser);
 
-        // Determine organization ID
         let orgId = null;
         if (currentUser.active_client_id) {
           orgId = currentUser.active_client_id;
@@ -45,13 +43,11 @@ export function OrganizationProvider({ children }) {
           }
         }
 
-        // Load organization details
         if (orgId) {
           const orgs = await base44.entities.Organization.filter({ id: orgId });
           if (orgs.length > 0) {
             setOrganization(orgs[0]);
 
-            // Load subscription
             try {
               const subs = await base44.entities.Subscription.filter(
                 { organization_id: orgs[0].id },
@@ -121,14 +117,14 @@ export function OrganizationProvider({ children }) {
     }
   };
 
-  const value = {
+  const value = React.useMemo(() => ({
     user,
     organization,
     subscription,
     isLoading,
     error,
     refetch
-  };
+  }), [user, organization, subscription, isLoading, error]);
 
   return (
     <OrganizationContext.Provider value={value}>
