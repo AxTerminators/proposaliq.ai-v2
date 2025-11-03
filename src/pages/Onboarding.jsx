@@ -96,7 +96,7 @@ export default function Onboarding() {
       const createdOrg = await base44.entities.Organization.create({
         ...orgData,
         onboarding_completed: true,
-        is_sample_data: false // Added this line
+        is_sample_data: false
       });
 
       const subscriptionData = {
@@ -121,7 +121,7 @@ export default function Onboarding() {
         await base44.entities.TeamingPartner.create({
           ...partner,
           organization_id: createdOrg.id,
-          is_sample_data: false // Added this line
+          is_sample_data: false
         });
       }
 
