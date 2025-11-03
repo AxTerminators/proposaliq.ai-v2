@@ -940,7 +940,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             <div
               className="flex gap-0 pb-4 pt-4 h-full"
               style={{
-                zoom: zoomLevel,
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: 'top left',
                 minWidth: 'min-content'
               }}
             >
