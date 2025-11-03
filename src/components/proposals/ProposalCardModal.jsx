@@ -34,6 +34,7 @@ import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
 import PhaseModal from "./PhaseModal";
 import AIActionModal from "./AIActionModal";
+import ChecklistSystemValidator from "./ChecklistSystemValidator";
 
 export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig }) {
   const queryClient = useQueryClient();
@@ -152,6 +153,13 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
   return (
     <>
+      {/* System validator to automatically check system_check items */}
+      <ChecklistSystemValidator 
+        proposal={proposal}
+        kanbanConfig={kanbanConfig}
+        user={user}
+      />
+
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="border-b pb-4">
@@ -284,6 +292,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                     checked={isCompleted}
                                     onCheckedChange={() => handleChecklistToggle(item.id, isCompleted)}
                                     className="mt-1"
+                                    disabled={item.type === 'system_check'} // Disable checkbox for system_check
                                   />
                                 ) : (
                                   <div className="mt-1">
@@ -314,6 +323,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                       <Badge className="text-xs bg-purple-100 text-purple-700">
                                         <Sparkles className="w-3 h-3 mr-1" />
                                         AI
+                                      </Badge>
+                                    )}
+                                    {item.type === 'system_check' && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        System Check
                                       </Badge>
                                     )}
                                   </div>
