@@ -275,14 +275,17 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
     }
   };
 
-  const handleSubsectionUpdate = (sectionId, subId, field, value) => {
+  const updateSubsection = (sectionId, subId, field, value) => {
     setStrategy(prev => {
       const newSections = { ...prev.sections };
       if (!newSections[sectionId]) {
-        newSections[sectionId] = { subsections: {} };
+        newSections[sectionId] = { included: true, tone: "default", wordCount: 0, subsections: {} };
       }
       if (!newSections[sectionId].subsections) {
         newSections[sectionId].subsections = {};
+      }
+      if (!newSections[sectionId].subsections[subId]) {
+        newSections[sectionId].subsections[subId] = { included: true, tone: "default", wordCount: 0 };
       }
       newSections[sectionId].subsections[subId] = {
         ...newSections[sectionId].subsections[subId],
@@ -550,13 +553,16 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3 mb-3">
                         <Checkbox
-                          checked={strategy.sections[section.id]?.included}
+                          checked={strategy.sections[section.id]?.included || false}
                           onCheckedChange={(checked) => {
                             setStrategy(prev => ({
                               ...prev,
                               sections: {
                                 ...prev.sections,
-                                [section.id]: { ...prev.sections[section.id], included: checked }
+                                [section.id]: { 
+                                  ...prev.sections[section.id], 
+                                  included: checked 
+                                }
                               }
                             }));
                           }}
@@ -572,7 +578,10 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                                 ...prev,
                                 sections: {
                                   ...prev.sections,
-                                  [section.id]: { ...prev.sections[section.id], tone: value }
+                                  [section.id]: { 
+                                    ...prev.sections[section.id], 
+                                    tone: value 
+                                  }
                                 }
                               }));
                             }}
@@ -595,7 +604,10 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                                 ...prev,
                                 sections: {
                                   ...prev.sections,
-                                  [section.id]: { ...prev.sections[section.id], wordCount: parseInt(e.target.value) }
+                                  [section.id]: { 
+                                    ...prev.sections[section.id], 
+                                    wordCount: parseInt(e.target.value) || 0
+                                  }
                                 }
                               }));
                             }}
@@ -605,18 +617,18 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                         </div>
                       </div>
 
-                      {section.subsections.length > 0 && (
+                      {section.subsections && section.subsections.length > 0 && (
                         <div className="ml-8 space-y-2 mt-2 pt-2 border-t">
                           {section.subsections.map((sub) => (
                             <div key={sub.id} className="flex items-center gap-3">
                               <Checkbox
-                                checked={strategy.sections[section.id]?.subsections?.[sub.id]?.included}
-                                onCheckedChange={(checked) => handleSubsectionUpdate(section.id, sub.id, 'included', checked)}
+                                checked={strategy.sections[section.id]?.subsections?.[sub.id]?.included || false}
+                                onCheckedChange={(checked) => updateSubsection(section.id, sub.id, 'included', checked)}
                               />
                               <span className="text-sm flex-1">{sub.name}</span>
                               <Select
                                 value={strategy.sections[section.id]?.subsections?.[sub.id]?.tone || "default"}
-                                onValueChange={(value) => handleSubsectionUpdate(section.id, sub.id, 'tone', value)}
+                                onValueChange={(value) => updateSubsection(section.id, sub.id, 'tone', value)}
                               >
                                 <SelectTrigger className="w-28">
                                   <SelectValue />
@@ -631,7 +643,7 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                               <Input
                                 type="number"
                                 value={strategy.sections[section.id]?.subsections?.[sub.id]?.wordCount || sub.defaultWordCount}
-                                onChange={(e) => handleSubsectionUpdate(section.id, sub.id, 'wordCount', parseInt(e.target.value))}
+                                onChange={(e) => updateSubsection(section.id, sub.id, 'wordCount', parseInt(e.target.value) || 0)}
                                 className="w-20"
                               />
                             </div>
