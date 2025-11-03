@@ -15,15 +15,15 @@ import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
+import { useOrganization } from "@/components/layout/OrganizationContext";
 
 export default function Pipeline() {
   const navigate = useNavigate();
+  const { user, organization, isLoading: isLoadingOrg } = useOrganization();
   const [viewMode, setViewMode] = useState("kanban");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -35,45 +35,7 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load user and organization directly
-  useEffect(() => {
-    const loadUserAndOrg = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        let orgId = currentUser.active_client_id;
-        
-        if (!orgId && currentUser.client_accesses?.length > 0) {
-          orgId = currentUser.client_accesses[0].organization_id;
-        }
-        
-        if (!orgId) {
-          const orgs = await base44.entities.Organization.filter(
-            { created_by: currentUser.email },
-            '-created_date',
-            1
-          );
-          if (orgs.length > 0) {
-            orgId = orgs[0].id;
-          }
-        }
-        
-        if (orgId) {
-          const orgs = await base44.entities.Organization.filter({ id: orgId });
-          if (orgs.length > 0) {
-            setOrganization(orgs[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading user/org:', error);
-      }
-    };
-    
-    loadUserAndOrg();
-  }, []);
-
-  // Fetch proposals
+  // Fetch proposals with proper caching and rate limiting prevention
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
@@ -83,15 +45,20 @@ export default function Pipeline() {
         '-created_date'
       );
     },
-    enabled: !!organization?.id,
-    initialData: [],
+    enabled: !!organization?.id && !isLoadingOrg,
+    staleTime: 30000, // 30 seconds
+    cacheTime: 300000, // 5 minutes
+    retry: 1,
+    retryDelay: 2000,
   });
 
-  // Fetch kanban config
+  // Fetch kanban config with delay to prevent rate limiting
   const { data: kanbanConfig, isLoading: isLoadingConfig, refetch: refetchConfig } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
       const configs = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         '-created_date',
@@ -99,21 +66,30 @@ export default function Pipeline() {
       );
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !isLoadingOrg,
+    staleTime: 60000, // 1 minute
+    cacheTime: 300000,
+    retry: 1,
+    retryDelay: 2000,
   });
 
-  // Fetch automation rules
+  // Fetch automation rules with delay
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
       return base44.entities.ProposalAutomationRule.filter(
         { organization_id: organization.id },
         '-created_date'
       );
     },
-    enabled: !!organization?.id,
-    initialData: [],
+    enabled: !!organization?.id && !isLoadingOrg,
+    staleTime: 60000,
+    cacheTime: 300000,
+    retry: 1,
+    retryDelay: 2000,
   });
 
   const handleCreateProposal = () => {
@@ -149,12 +125,12 @@ export default function Pipeline() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
-              {proposalsError?.message || "An error occurred while loading your pipeline"}
+              {proposalsError?.message || "Rate limit exceeded. Please try again in a moment."}
             </p>
             <div className="flex gap-3 justify-center">
               <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Reload Page
+                Try Again
               </Button>
               <Button variant="outline" onClick={() => navigate(createPageUrl("Dashboard"))}>
                 Go to Dashboard
@@ -166,8 +142,8 @@ export default function Pipeline() {
     );
   }
 
-  // Show loading state while loading user/org
-  if (!user || !organization) {
+  // Show loading state while loading org
+  if (isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -182,6 +158,34 @@ export default function Pipeline() {
             <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
               <span>Please wait</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show "no organization" state
+  if (!organization) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Building2 className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">No Organization Found</h2>
+            <p className="text-lg text-slate-600 mb-6">
+              You need to set up your organization before accessing the pipeline.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => navigate(createPageUrl("Onboarding"))} className="bg-blue-600 hover:bg-blue-700">
+                <Building2 className="w-4 h-4 mr-2" />
+                Set Up Organization
+              </Button>
+              <Button variant="outline" onClick={() => navigate(createPageUrl("Dashboard"))}>
+                Go to Dashboard
+              </Button>
             </div>
           </CardContent>
         </Card>
