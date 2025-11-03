@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, Smartphone, AlertCircle, RefreshCw } from "lucide-react";
 import ProposalsKanban from "../components/proposals/ProposalsKanban";
 import ProposalsList from "../components/proposals/ProposalsList";
 import ProposalsTable from "../components/proposals/ProposalsTable";
@@ -17,6 +16,7 @@ import SmartAutomationEngine from "../components/automation/SmartAutomationEngin
 import AIWorkflowSuggestions from "../components/automation/AIWorkflowSuggestions";
 import AutomationExecutor from "../components/automation/AutomationExecutor";
 import MobileKanbanView from "../components/mobile/MobileKanbanView";
+import { Card, CardContent } from "@/components/ui/card";
 
 async function getUserActiveOrganization(user) {
   if (!user) return null;
@@ -52,6 +52,7 @@ export default function Pipeline() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [loadingError, setLoadingError] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -66,21 +67,25 @@ export default function Pipeline() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        setLoadingError(null);
         const currentUser = await base44.auth.me();
         setUser(currentUser);
         
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
+        } else {
+          setLoadingError("No organization found. Please complete your onboarding.");
         }
       } catch (error) {
         console.error("Error loading data:", error);
+        setLoadingError(error.message || "Failed to load organization data");
       }
     };
     loadData();
   }, []);
 
-  const { data: proposals = [], isLoading } = useQuery({
+  const { data: proposals = [], isLoading, error: proposalsError, refetch } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -90,7 +95,9 @@ export default function Pipeline() {
       );
     },
     enabled: !!organization?.id,
-    initialData: []
+    initialData: [],
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch automation rules for executor
@@ -126,10 +133,53 @@ export default function Pipeline() {
     navigate(createPageUrl("ProposalBuilder"));
   };
 
-  if (!organization) {
+  const handleRetry = () => {
+    setLoadingError(null);
+    refetch();
+  };
+
+  // Show loading error
+  if (loadingError || proposalsError) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Skeleton className="h-32 w-32 rounded-xl" />
+      <div className="flex items-center justify-center min-h-screen p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
+            <p className="text-lg text-slate-600 mb-6">
+              {loadingError || proposalsError?.message || "An error occurred while loading your pipeline"}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+              <Button variant="outline" onClick={() => navigate(createPageUrl("Dashboard"))}>
+                Go to Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!organization || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <LayoutGrid className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Loading Pipeline</h2>
+            <p className="text-lg text-slate-600">
+              Please wait while we load your organization data...
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -241,11 +291,7 @@ export default function Pipeline() {
           </div>
         )}
 
-        {isLoading ? (
-          <div className="text-center py-12">
-            <Skeleton className="h-64 w-full" />
-          </div>
-        ) : (
+        {!showAutomation && !showAnalytics && (
           <>
             {/* Mobile View */}
             {isMobile ? (
