@@ -11,7 +11,7 @@ export const useOrganization = () => {
   return context;
 };
 
-// Add delay helper
+// Longer delay helper for rate limiting
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function getUserActiveOrganization(user) {
@@ -23,8 +23,8 @@ async function getUserActiveOrganization(user) {
   } else if (user.client_accesses && user.client_accesses.length > 0) {
     orgId = user.client_accesses[0].organization_id;
   } else {
-    // Add delay before making API call
-    await delay(500);
+    // Wait 2 seconds before first API call
+    await delay(2000);
     const orgs = await base44.entities.Organization.filter(
       { created_by: user.email },
       '-created_date',
@@ -36,8 +36,8 @@ async function getUserActiveOrganization(user) {
   }
   
   if (orgId) {
-    // Add delay before making API call
-    await delay(500);
+    // Wait 2 seconds before next API call
+    await delay(2000);
     const orgs = await base44.entities.Organization.filter({ id: orgId });
     if (orgs.length > 0) {
       return orgs[0];
@@ -63,24 +63,30 @@ export const OrganizationProvider = ({ children }) => {
         setIsLoading(true);
         setError(null);
         
+        console.log('🔄 Loading user data...');
         const currentUser = await base44.auth.me();
         if (!mounted) return;
         
+        console.log('✅ User loaded:', currentUser.email);
         setUser(currentUser);
         
-        // Add delay before loading organization
-        await delay(1000);
+        // Wait 3 seconds before loading organization
+        console.log('⏳ Waiting 3s before loading organization...');
+        await delay(3000);
         
+        console.log('🔄 Loading organization...');
         const org = await getUserActiveOrganization(currentUser);
         if (!mounted) return;
         
         if (org) {
+          console.log('✅ Organization loaded:', org.organization_name);
           setOrganization(org);
           
-          // Add delay before loading subscription
-          await delay(1000);
+          // Wait 3 seconds before loading subscription
+          console.log('⏳ Waiting 3s before loading subscription...');
+          await delay(3000);
           
-          // Load subscription
+          console.log('🔄 Loading subscription...');
           const subs = await base44.entities.Subscription.filter(
             { organization_id: org.id },
             '-created_date',
@@ -89,18 +95,21 @@ export const OrganizationProvider = ({ children }) => {
           if (!mounted) return;
           
           if (subs.length > 0) {
+            console.log('✅ Subscription loaded');
             setSubscription(subs[0]);
           }
         }
+        
+        console.log('✅ All data loaded successfully');
       } catch (err) {
-        console.error("Error loading organization data:", err);
+        console.error("❌ Error loading organization data:", err);
         if (mounted) {
           const isRateLimit = err.message?.toLowerCase().includes('rate limit');
           
           if (isRateLimit && retryCount < 3) {
-            // Exponential backoff: wait longer each retry
-            const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000);
-            console.log(`Rate limit hit, retrying in ${waitTime}ms (attempt ${retryCount + 1}/3)`);
+            // Much longer exponential backoff
+            const waitTime = Math.min(5000 * Math.pow(2, retryCount), 30000);
+            console.log(`⏳ Rate limit hit, retrying in ${waitTime/1000}s (attempt ${retryCount + 1}/3)`);
             
             setTimeout(() => {
               if (mounted) {
@@ -123,7 +132,7 @@ export const OrganizationProvider = ({ children }) => {
     return () => {
       mounted = false;
     };
-  }, [retryCount]); // Re-run when retryCount changes
+  }, [retryCount]);
 
   const value = {
     user,
@@ -133,7 +142,7 @@ export const OrganizationProvider = ({ children }) => {
     error,
     refreshOrganization: async () => {
       if (organization?.id) {
-        await delay(1000);
+        await delay(3000);
         const orgs = await base44.entities.Organization.filter({ id: organization.id });
         if (orgs.length > 0) {
           setOrganization(orgs[0]);
