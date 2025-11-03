@@ -24,177 +24,135 @@ export function OrganizationProvider({ children }) {
   useEffect(() => {
     let mounted = true;
     
+    // Force loading to complete after 3 seconds no matter what
+    const forceTimeout = setTimeout(() => {
+      if (mounted) {
+        console.error('[OrganizationContext] Forced timeout - setting isLoading to false');
+        setIsLoading(false);
+      }
+    }, 3000);
+    
     const loadData = async () => {
       try {
-        console.log('[OrganizationContext] Starting to load...');
+        console.log('[OrganizationContext] Starting...');
         
-        // Load current user
-        const currentUser = await Promise.race([
-          base44.auth.me(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('User load timeout')), 5000)
-          )
-        ]);
-        
+        // Load user
+        const currentUser = await base44.auth.me();
         if (!mounted) return;
-        console.log('[OrganizationContext] User loaded:', currentUser?.email);
+        console.log('[OrganizationContext] User loaded');
         setUser(currentUser);
 
-        // Determine organization ID
-        const orgId = currentUser.active_client_id || 
-                      currentUser.client_accesses?.[0]?.organization_id;
-
-        console.log('[OrganizationContext] OrgId:', orgId);
-
-        if (orgId) {
-          // Load organization
-          const orgs = await Promise.race([
-            base44.entities.Organization.filter({ id: orgId }),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Org load timeout')), 5000)
-            )
-          ]);
+        // Try to get organization
+        try {
+          let orgId = currentUser.active_client_id;
           
-          if (!mounted) return;
-          
-          if (orgs.length > 0) {
-            console.log('[OrganizationContext] Organization loaded:', orgs[0].organization_name);
-            setOrganization(orgs[0]);
-
-            // Load subscription (non-blocking)
-            try {
-              const subs = await Promise.race([
-                base44.entities.Subscription.filter({ organization_id: orgs[0].id }, '-created_date', 1),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error('Subscription load timeout')), 5000)
-                )
-              ]);
-              
-              if (mounted && subs.length > 0) {
-                console.log('[OrganizationContext] Subscription loaded');
-                setSubscription(subs[0]);
-              }
-            } catch (subError) {
-              console.warn('[OrganizationContext] Subscription load failed:', subError);
-            }
+          if (!orgId && currentUser.client_accesses?.length > 0) {
+            orgId = currentUser.client_accesses[0].organization_id;
           }
-        } else {
-          // Try to find organization by created_by
-          console.log('[OrganizationContext] No orgId, searching by created_by...');
-          try {
-            const orgs = await Promise.race([
-              base44.entities.Organization.filter(
-                { created_by: currentUser.email },
-                '-created_date',
-                1
-              ),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Org search timeout')), 5000)
-              )
-            ]);
-            
-            if (!mounted) return;
-            
+          
+          if (!orgId) {
+            const orgs = await base44.entities.Organization.filter(
+              { created_by: currentUser.email },
+              '-created_date',
+              1
+            );
             if (orgs.length > 0) {
-              console.log('[OrganizationContext] Found organization:', orgs[0].organization_name);
-              setOrganization(orgs[0]);
-            } else {
-              console.log('[OrganizationContext] No organization found');
+              orgId = orgs[0].id;
             }
-          } catch (orgError) {
-            console.error('[OrganizationContext] Organization search failed:', orgError);
           }
+
+          if (orgId && mounted) {
+            const orgs = await base44.entities.Organization.filter({ id: orgId });
+            if (orgs.length > 0 && mounted) {
+              console.log('[OrganizationContext] Organization loaded');
+              setOrganization(orgs[0]);
+
+              // Try to get subscription
+              try {
+                const subs = await base44.entities.Subscription.filter(
+                  { organization_id: orgs[0].id },
+                  '-created_date',
+                  1
+                );
+                if (mounted && subs.length > 0) {
+                  setSubscription(subs[0]);
+                }
+              } catch (e) {
+                console.warn('[OrganizationContext] Subscription load failed:', e);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[OrganizationContext] Organization load failed:', e);
         }
         
-        console.log('[OrganizationContext] Loading complete');
+        console.log('[OrganizationContext] Complete');
       } catch (err) {
-        console.error('[OrganizationContext] Error loading:', err);
+        console.error('[OrganizationContext] Fatal error:', err);
         if (mounted) {
           setError(err);
         }
       } finally {
         if (mounted) {
-          console.log('[OrganizationContext] Setting isLoading to false');
+          clearTimeout(forceTimeout);
           setIsLoading(false);
+          console.log('[OrganizationContext] isLoading set to false');
         }
       }
     };
 
-    // Start loading with a safety timeout
     loadData();
-    
-    // Safety fallback - force loading to complete after 10 seconds
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && isLoading) {
-        console.error('[OrganizationContext] Safety timeout triggered - forcing load complete');
-        setIsLoading(false);
-        setError(new Error('Loading timeout - please refresh'));
-      }
-    }, 10000);
     
     return () => {
       mounted = false;
-      clearTimeout(safetyTimeout);
+      clearTimeout(forceTimeout);
     };
   }, []);
 
   const refetch = async () => {
-    console.log('[OrganizationContext] Refetch requested');
     setIsLoading(true);
-    setError(null);
-    
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       
-      const orgId = currentUser.active_client_id || 
-                    currentUser.client_accesses?.[0]?.organization_id;
+      let orgId = currentUser.active_client_id || currentUser.client_accesses?.[0]?.organization_id;
       
-      let loadedOrg = null;
-      
-      if (orgId) {
-        const orgs = await base44.entities.Organization.filter({ id: orgId });
-        loadedOrg = orgs.length > 0 ? orgs[0] : null;
-      } else {
+      if (!orgId) {
         const orgs = await base44.entities.Organization.filter(
           { created_by: currentUser.email },
           '-created_date',
           1
         );
-        loadedOrg = orgs.length > 0 ? orgs[0] : null;
+        if (orgs.length > 0) {
+          orgId = orgs[0].id;
+        }
       }
       
-      setOrganization(loadedOrg);
-      
-      if (loadedOrg) {
-        const subs = await base44.entities.Subscription.filter(
-          { organization_id: loadedOrg.id },
-          '-created_date',
-          1
-        );
-        if (subs.length > 0) {
-          setSubscription(subs[0]);
+      if (orgId) {
+        const orgs = await base44.entities.Organization.filter({ id: orgId });
+        if (orgs.length > 0) {
+          setOrganization(orgs[0]);
+          
+          const subs = await base44.entities.Subscription.filter(
+            { organization_id: orgs[0].id },
+            '-created_date',
+            1
+          );
+          if (subs.length > 0) {
+            setSubscription(subs[0]);
+          }
         }
       }
     } catch (err) {
-      console.error('[OrganizationContext] Error refetching:', err);
+      console.error('[OrganizationContext] Refetch error:', err);
       setError(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const value = {
-    user,
-    organization,
-    subscription,
-    isLoading,
-    error,
-    refetch
-  };
-
   return (
-    <OrganizationContext.Provider value={value}>
+    <OrganizationContext.Provider value={{ user, organization, subscription, isLoading, error, refetch }}>
       {children}
     </OrganizationContext.Provider>
   );
