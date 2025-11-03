@@ -37,27 +37,25 @@ Deno.serve(async (req) => {
 
     // Delete all sample data for each sample organization
     for (const org of sampleOrgs) {
-      // Delete proposals and related data (ONLY sample data)
+      // Delete proposals and related data
       const proposals = await base44.asServiceRole.entities.Proposal.filter({
         organization_id: org.id,
         is_sample_data: true
       });
 
       for (const proposal of proposals) {
-        // Delete proposal sections (ONLY sample data)
+        // Delete proposal sections
         const sections = await base44.asServiceRole.entities.ProposalSection.filter({
-          proposal_id: proposal.id,
-          is_sample_data: true
+          proposal_id: proposal.id
         });
         for (const section of sections) {
           await base44.asServiceRole.entities.ProposalSection.delete(section.id);
           deletedCount.sections++;
         }
 
-        // Delete proposal tasks (ONLY sample data)
+        // Delete proposal tasks
         const tasks = await base44.asServiceRole.entities.ProposalTask.filter({
-          proposal_id: proposal.id,
-          is_sample_data: true
+          proposal_id: proposal.id
         });
         for (const task of tasks) {
           await base44.asServiceRole.entities.ProposalTask.delete(task.id);
@@ -69,7 +67,7 @@ Deno.serve(async (req) => {
         deletedCount.proposals++;
       }
 
-      // Delete clients (ONLY sample data)
+      // Delete clients
       const clients = await base44.asServiceRole.entities.Client.filter({
         organization_id: org.id,
         is_sample_data: true
@@ -79,7 +77,7 @@ Deno.serve(async (req) => {
         deletedCount.clients++;
       }
 
-      // Delete past performance (ONLY sample data)
+      // Delete past performance
       const pastPerf = await base44.asServiceRole.entities.PastPerformance.filter({
         organization_id: org.id,
         is_sample_data: true
@@ -89,7 +87,7 @@ Deno.serve(async (req) => {
         deletedCount.pastPerformance++;
       }
 
-      // Delete teaming partners (ONLY sample data)
+      // Delete teaming partners
       const partners = await base44.asServiceRole.entities.TeamingPartner.filter({
         organization_id: org.id,
         is_sample_data: true
@@ -99,7 +97,7 @@ Deno.serve(async (req) => {
         deletedCount.teamingPartners++;
       }
 
-      // Delete key personnel (ONLY sample data)
+      // Delete key personnel
       const personnel = await base44.asServiceRole.entities.KeyPersonnel.filter({
         organization_id: org.id,
         is_sample_data: true
@@ -109,7 +107,7 @@ Deno.serve(async (req) => {
         deletedCount.keyPersonnel++;
       }
 
-      // Delete resources (ONLY sample data)
+      // Delete resources
       const resources = await base44.asServiceRole.entities.ProposalResource.filter({
         organization_id: org.id,
         is_sample_data: true
@@ -119,7 +117,7 @@ Deno.serve(async (req) => {
         deletedCount.resources++;
       }
 
-      // Delete subscriptions (for sample org)
+      // Delete subscriptions
       const subscriptions = await base44.asServiceRole.entities.Subscription.filter({
         organization_id: org.id
       });
@@ -128,16 +126,10 @@ Deno.serve(async (req) => {
         deletedCount.subscriptions++;
       }
 
-      // Finally, delete the sample organization itself
+      // Finally, delete the organization itself
       await base44.asServiceRole.entities.Organization.delete(org.id);
       deletedCount.organizations++;
     }
-
-    // Update user flags to indicate sample data has been cleared
-    await base44.asServiceRole.auth.updateUser(user.email, {
-      using_sample_data: false,
-      sample_data_cleared: true
-    });
 
     return Response.json({ 
       success: true,

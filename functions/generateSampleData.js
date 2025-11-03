@@ -115,8 +115,7 @@ Deno.serve(async (req) => {
       content: "<p>Acme Solutions Inc. is pleased to submit this proposal for the DoD Cloud Migration Initiative...</p>",
       order: 1,
       word_count: 250,
-      status: "reviewed",
-      is_sample_data: true
+      status: "reviewed"
     });
 
     await base44.asServiceRole.entities.ProposalSection.create({
@@ -126,8 +125,7 @@ Deno.serve(async (req) => {
       content: "<p>Our technical approach leverages industry-leading cloud technologies and proven methodologies...</p>",
       order: 2,
       word_count: 1200,
-      status: "draft",
-      is_sample_data: true
+      status: "draft"
     });
 
     // Create sample tasks
@@ -141,8 +139,7 @@ Deno.serve(async (req) => {
       assigned_by_name: user.full_name || "Sample User",
       status: "in_progress",
       priority: "high",
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      is_sample_data: true
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     });
 
     await base44.asServiceRole.entities.ProposalTask.create({
@@ -155,8 +152,7 @@ Deno.serve(async (req) => {
       assigned_by_name: user.full_name || "Sample User",
       status: "todo",
       priority: "medium",
-      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      is_sample_data: true
+      due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     });
 
     // Create sample past performance
@@ -244,11 +240,6 @@ Deno.serve(async (req) => {
       usage_count: 3,
       is_favorite: true,
       is_sample_data: true
-    });
-
-    // Update user to mark that they're using sample data
-    await base44.asServiceRole.auth.updateUser(user.email, {
-      using_sample_data: true
     });
 
     return Response.json({ 
