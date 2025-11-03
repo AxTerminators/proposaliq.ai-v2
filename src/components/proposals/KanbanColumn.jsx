@@ -16,12 +16,12 @@ import {
   Lock,
   AlertCircle,
   Sparkles,
-  ChevronRight, // New
-  ChevronDown, // New
-  Settings, // New
-  Shield, // New
-  CheckCircle, // New (replaces CheckCircle2 in new context for "Approval Gate")
-  FileText // New
+  ChevronRight,
+  ChevronDown,
+  Settings,
+  Shield,
+  CheckCircle,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -42,12 +42,21 @@ export default function KanbanColumn({
   proposals,
   provided,
   snapshot,
-  onConfigureColumn, // New prop
-  user, // New prop
+  onCardClick,
+  onToggleCollapse,
+  isCollapsed, // Now a prop
+  organization,
+  columnSort,
+  onSortChange,
+  onClearSort,
+  onDeleteColumn,
+  onRenameColumn,
+  dragOverColumnColor,
+  kanbanConfig,
+  onConfigureColumn, // Kept to support existing DropdownMenuItem
+  user, // Kept for getUserRole
 }) {
-  // State for internal collapse, replacing prop
-  const [isCollapsed, setIsCollapsed] = useState(false); 
-  // Renaming functionality removed from column header, so these states are removed.
+  // Renaming functionality and internal collapse state removed as per outline/changes.
   // const [isEditingName, setIsEditingName] = useState(false);
   // const [editedName, setEditedName] = useState(column.label);
   // const inputRef = useRef(null);
@@ -117,7 +126,7 @@ export default function KanbanColumn({
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-xl">
         <div className="flex items-center gap-3 flex-1">
           <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() => onToggleCollapse(column.id)} // Use onToggleCollapse prop
             className="hover:bg-white/50 p-1 rounded transition-colors"
             title={isCollapsed ? "Expand column" : "Collapse column"}
           >
@@ -243,6 +252,8 @@ export default function KanbanColumn({
                     provided={provided}
                     snapshot={snapshot}
                     isDragDisabled={!canDragFromHere}
+                    column={column} // Added prop
+                    onCardClick={onCardClick} // Added prop
                   />
                 )}
               </Draggable>
