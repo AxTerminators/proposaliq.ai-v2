@@ -139,8 +139,26 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     }
   });
 
+  const deleteConfigMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentConfig?.id) throw new Error("No config to delete");
+      return base44.entities.KanbanConfig.delete(currentConfig.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      onClose();
+    }
+  });
+
   const handleSave = () => {
     saveConfigMutation.mutate(config);
+  };
+
+  const handleDeleteConfig = () => {
+    if (confirm('⚠️ WARNING: This will delete your entire Kanban board configuration and all column settings. Your proposals will NOT be deleted, but their column positions will be reset. \n\nAre you sure you want to continue?')) {
+      deleteConfigMutation.mutate();
+    }
   };
 
   const handleColumnLabelChange = (columnId, newLabel) => {
@@ -636,23 +654,44 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
             </div>
           </Tabs>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saveConfigMutation.isPending}>
-              {saveConfigMutation.isPending ? (
+          <DialogFooter className="flex items-center justify-between">
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteConfig}
+              disabled={deleteConfigMutation.isPending}
+              className="mr-auto"
+            >
+              {deleteConfigMutation.isPending ? (
                 <>
-                  <Save className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
+                  <div className="animate-spin mr-2">⏳</div>
+                  Deleting...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Configuration
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Configuration
                 </>
               )}
             </Button>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saveConfigMutation.isPending}>
+                {saveConfigMutation.isPending ? (
+                  <>
+                    <Save className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Configuration
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
