@@ -90,6 +90,7 @@ export default function OnboardingGuide() {
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length) {
       const nextStep = currentStep + 1;
+      console.log('[OnboardingGuide] Moving to step:', nextStep);
       setCurrentStep(nextStep);
     }
   };
@@ -130,6 +131,10 @@ export default function OnboardingGuide() {
   const currentStepData = ONBOARDING_STEPS[currentStep - 1];
   const Icon = currentStepData?.icon || Sparkles;
   const progress = (currentStep / ONBOARDING_STEPS.length) * 100;
+  const isChoiceStep = currentStep === 6;
+
+  // Debug log
+  console.log('[OnboardingGuide] Current step:', currentStep, 'Is choice step:', isChoiceStep);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6">
@@ -170,7 +175,8 @@ export default function OnboardingGuide() {
               {currentStepData?.description || ""}
             </p>
 
-            {currentStep === 6 ? (
+            {/* CHOICE STEP - EXPLICITLY CHECK FOR STEP 6 */}
+            {isChoiceStep && (
               <div className="space-y-4">
                 <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all bg-gradient-to-br from-blue-50 to-indigo-50">
                   <CardContent className="p-6">
@@ -255,7 +261,10 @@ export default function OnboardingGuide() {
                   </CardContent>
                 </Card>
               </div>
-            ) : (
+            )}
+
+            {/* REGULAR NAVIGATION FOR STEPS 1-5 */}
+            {!isChoiceStep && (
               <div className="flex items-center justify-between pt-6 border-t">
                 <Button
                   variant="outline"
@@ -280,6 +289,7 @@ export default function OnboardingGuide() {
 
                 <Button
                   onClick={handleNext}
+                  disabled={currentStep >= ONBOARDING_STEPS.length}
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                   size="lg"
                 >
