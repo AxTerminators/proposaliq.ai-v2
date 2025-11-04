@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +18,7 @@ import {
   Shield,
   CheckCircle,
   FileText,
-  Check,
-  X,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -49,6 +47,22 @@ export default function KanbanColumn({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(column.label);
   const inputRef = useRef(null);
+
+  // Calculate total dollar value in this column
+  const totalValue = useMemo(() => {
+    return proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+  }, [proposals]);
+
+  // Format dollar value for display
+  const formattedValue = useMemo(() => {
+    if (totalValue === 0) return null;
+    if (totalValue >= 1000000) {
+      return `$${(totalValue / 1000000).toFixed(1)}M`;
+    } else if (totalValue >= 1000) {
+      return `$${(totalValue / 1000).toFixed(0)}K`;
+    }
+    return `$${totalValue.toLocaleString()}`;
+  }, [totalValue]);
 
   useEffect(() => {
     if (isEditingName && inputRef.current) {
@@ -110,20 +124,21 @@ export default function KanbanColumn({
           !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
       >
-        <div className="p-4">
-          <div className="flex items-center gap-3 mb-3">
-            {/* Collapse Button */}
+        <div className="p-3">
+          {/* Single Row Layout */}
+          <div className="flex items-center gap-2">
+            {/* Collapse Button - Far Left */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onToggleCollapse(column.id)}
-              className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
+              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
               title="Collapse column"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </Button>
 
-            {/* Column Title */}
+            {/* Column Name - Flex-1 with truncation */}
             <div className="flex-1 min-w-0">
               {isEditingName ? (
                 <Input
@@ -132,65 +147,85 @@ export default function KanbanColumn({
                   onChange={(e) => setEditedName(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onBlur={handleNameSave}
-                  className="h-9 bg-white text-slate-900 font-semibold border-2 border-white/30"
+                  className="h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2"
                   placeholder="Column name..."
                 />
               ) : (
                 <button
                   onClick={handleNameClick}
                   className={cn(
-                    "text-left w-full group",
-                    !column.is_locked && "cursor-pointer"
+                    "text-left w-full",
+                    !column.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
                   )}
                   disabled={column.is_locked}
+                  title={column.label}
                 >
-                  <h3 className={cn(
-                    "font-bold text-white text-lg truncate",
-                    !column.is_locked && "group-hover:opacity-90 transition-opacity"
-                  )}>
+                  <h3 className="font-bold text-white text-base truncate">
                     {column.label}
                   </h3>
-                  <p className="text-white/80 text-sm mt-0.5">
-                    {proposalCount} {proposalCount === 1 ? 'proposal' : 'proposals'}
-                  </p>
                 </button>
               )}
             </div>
 
-            {/* Lock Icon */}
-            {column.is_locked && (
-              <div 
-                className="flex-shrink-0 p-2 hover:bg-white/10 rounded-lg transition-colors"
-                title="This column is locked"
+            {/* Proposal Count Badge */}
+            {!isEditingName && (
+              <Badge 
+                variant="secondary" 
+                className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-semibold flex-shrink-0 h-6 px-2"
+                title={`${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`}
               >
-                <Lock className="w-5 h-5 text-white" />
+                {proposalCount}
+              </Badge>
+            )}
+
+            {/* Dollar Value Badge */}
+            {!isEditingName && formattedValue && (
+              <Badge 
+                variant="secondary" 
+                className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-semibold flex-shrink-0 h-6 px-2 flex items-center gap-1"
+                title={`Total value: ${formattedValue}`}
+              >
+                <DollarSign className="w-3 h-3" />
+                {formattedValue.replace('$', '')}
+              </Badge>
+            )}
+
+            {/* Lock Icon */}
+            {!isEditingName && column.is_locked && (
+              <div 
+                className="flex-shrink-0"
+                title="System column (locked)"
+              >
+                <Lock className="w-4 h-4 text-white/80" />
               </div>
             )}
 
-            {/* Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
-                  title="Column options"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={onConfigureColumn}>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Configure Column
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Menu - Far Right */}
+            {!isEditingName && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
+                    title="Column options"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={onConfigureColumn}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Configure Column
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
-          {/* Status Badges */}
+          {/* Status Badges Row - Only show if there are important warnings */}
           {(wipLimit > 0 || !canDragFromHere || column.requires_approval_to_exit) && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap mt-2">
               {wipLimit > 0 && (
                 <Badge
                   variant="secondary"
@@ -200,6 +235,7 @@ export default function KanbanColumn({
                     isNearWipLimit ? "bg-yellow-500/90 text-white hover:bg-yellow-500" :
                     "bg-white/20 text-white hover:bg-white/30 border-white/30"
                   )}
+                  title={`Work in progress limit: ${proposalCount} of ${wipLimit}`}
                 >
                   {column.wip_limit_type === 'hard' && (
                     <AlertCircle className="w-3 h-3 mr-1" />
@@ -209,14 +245,22 @@ export default function KanbanColumn({
               )}
 
               {!canDragFromHere && (
-                <Badge variant="secondary" className="bg-orange-500/90 text-white hover:bg-orange-500 text-xs font-medium">
+                <Badge 
+                  variant="secondary" 
+                  className="bg-orange-500/90 text-white hover:bg-orange-500 text-xs font-medium"
+                  title="Protected column - restricted who can move proposals out"
+                >
                   <Shield className="w-3 h-3 mr-1" />
                   Protected
                 </Badge>
               )}
 
               {column.requires_approval_to_exit && (
-                <Badge variant="secondary" className="bg-amber-500/90 text-white hover:bg-amber-500 text-xs font-medium">
+                <Badge 
+                  variant="secondary" 
+                  className="bg-amber-500/90 text-white hover:bg-amber-500 text-xs font-medium"
+                  title="Requires approval to move proposals out of this column"
+                >
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Approval
                 </Badge>
