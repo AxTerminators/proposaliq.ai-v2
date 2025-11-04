@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -13,19 +14,10 @@ import {
   Briefcase,
   Database,
   Rocket,
-  AlertCircle,
-  XCircle
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import UniversalAlert from "../components/ui/UniversalAlert"; // Added UniversalAlert import
 
 export default function OnboardingGuide() {
   const navigate = useNavigate();
@@ -35,6 +27,7 @@ export default function OnboardingGuide() {
   const [isSkippingSample, setIsSkippingSample] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [errorType, setErrorType] = useState("error"); // "error" or "info"
 
   useEffect(() => {
     const loadUser = async () => {
@@ -69,6 +62,15 @@ export default function OnboardingGuide() {
       
       console.log('[OnboardingGuide] Sample data generation response:', response);
       
+      // Check if user already has real organization
+      if (response.data?.skipSampleData === true) {
+        setErrorType("info");
+        setErrorMessage("You already have a real organization set up! Sample data is meant for training purposes only. Since you've already created your organization, you can start adding real proposals directly.");
+        setShowErrorDialog(true);
+        setIsGeneratingSample(false);
+        return;
+      }
+      
       // Check if the response indicates success
       if (response.data?.success) {
         console.log('[OnboardingGuide] Sample data generated successfully, navigating to Dashboard');
@@ -94,9 +96,10 @@ export default function OnboardingGuide() {
       } else if (error.response?.status === 500) {
         userMessage = "A server error occurred. Our team has been notified. Please try again in a moment.";
       } else if (error.message) {
-        userMessage = `Error: ${error.message}`;
+        userMessage = error.message; // Use the raw error message
       }
       
+      setErrorType("error"); // Ensure type is set to error
       setErrorMessage(userMessage);
       setShowErrorDialog(true);
       setIsGeneratingSample(false);
@@ -114,6 +117,7 @@ export default function OnboardingGuide() {
     } catch (error) {
       console.error("Error updating user:", error);
       setErrorMessage("Unable to save your preference. Please try again.");
+      setErrorType("error"); // Ensure type is set to error
       setShowErrorDialog(true);
       setIsSkippingSample(false);
     }
@@ -391,39 +395,37 @@ export default function OnboardingGuide() {
           </div>
         )}
 
-        {/* Error Dialog */}
-        <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
-          <AlertDialogContent className="max-w-md">
-            <AlertDialogHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                  <XCircle className="w-6 h-6 text-red-600" />
-                </div>
-                <AlertDialogTitle className="text-xl">Unable to Generate Sample Data</AlertDialogTitle>
-              </div>
-              <AlertDialogDescription className="text-base text-slate-600 pt-2">
-                {errorMessage}
-              </AlertDialogDescription>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-                <p className="text-sm text-blue-900">
-                  <strong>What you can do:</strong>
-                </p>
-                <ul className="text-sm text-blue-800 mt-2 space-y-1 ml-4 list-disc">
-                  <li>Try clicking "Add Sample Data" again</li>
-                  <li>Or click "Start Fresh" to skip sample data and begin with your real projects</li>
-                </ul>
-              </div>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction 
-                onClick={() => setShowErrorDialog(false)}
-                className="bg-blue-600 hover:bg-blue-700 w-full"
-              >
-                Got it
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Universal Alert for all messages */}
+        <UniversalAlert
+          isOpen={showErrorDialog}
+          onClose={() => setShowErrorDialog(false)}
+          type={errorType}
+          title={errorType === "error" ? "Unable to Generate Sample Data" : "Already Set Up!"}
+          description={errorMessage}
+          confirmText="Got it"
+        >
+          {errorType === "error" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <p className="text-sm text-blue-900">
+                <strong>What you can do:</strong>
+              </p>
+              <ul className="text-sm text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                <li>Try clicking "Add Sample Data" again</li>
+                <li>Or click "Start Fresh" to skip sample data and begin with your real projects</li>
+              </ul>
+            </div>
+          )}
+          {errorType === "info" && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+              <p className="text-sm text-green-900">
+                <strong>Ready to get started?</strong>
+              </p>
+              <p className="text-sm text-green-800 mt-2">
+                You can now create real proposals and start managing your projects. Click "Start Fresh" below to proceed to your dashboard.
+              </p>
+            </div>
+          )}
+        </UniversalAlert>
       </div>
     </div>
   );
