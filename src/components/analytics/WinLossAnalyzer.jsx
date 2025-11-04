@@ -1,297 +1,375 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp,
   TrendingDown,
   Target,
-  Lightbulb,
-  AlertTriangle,
-  CheckCircle2,
-  Sparkles,
   Loader2,
-  Award,
-  XCircle,
-  Save
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  BarChart3,
+  Brain,
+  Eye,
+  Award
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function WinLossAnalyzer({ proposal, organization }) {
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState(null);
-  const [savingNotes, setSavingNotes] = useState(false);
-  const [additionalNotes, setAdditionalNotes] = useState("");
+  const [patternAnalysis, setPatternAnalysis] = useState(null);
+  const [error, setError] = useState(null);
 
-  const runAnalysis = async () => {
-    if (!proposal?.id || !organization?.id) return;
+  // Fetch all win/loss records for pattern analysis
+  const { data: allWinLossRecords = [] } = useQuery({
+    queryKey: ['all-winloss', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.WinLossAnalysis.filter({
+        organization_id: organization.id
+      }, '-decision_date', 50); // Last 50 for pattern analysis
+    },
+    enabled: !!organization?.id
+  });
+
+  const { data: allProposals = [] } = useQuery({
+    queryKey: ['all-proposals-for-patterns', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Proposal.filter({
+        organization_id: organization.id
+      }, '-created_date', 100);
+    },
+    enabled: !!organization?.id
+  });
+
+  const runPatternRecognition = async () => {
+    if (allWinLossRecords.length < 3) {
+      alert("Need at least 3 win/loss records to identify meaningful patterns. Continue using ProposalIQ and capturing outcomes!");
+      return;
+    }
 
     setAnalyzing(true);
+    setError(null);
+
     try {
-      // Load all related data
-      const [sections, requirements, winThemes, competitorIntel, resources] = await Promise.all([
-        base44.entities.ProposalSection.filter({ proposal_id: proposal.id }),
-        base44.entities.ComplianceRequirement.filter({ proposal_id: proposal.id, organization_id: organization.id }),
-        base44.entities.WinTheme.filter({ proposal_id: proposal.id, organization_id: organization.id }),
-        base44.entities.CompetitorIntel.filter({ organization_id: organization.id }),
-        base44.entities.ProposalResource.filter({ organization_id: organization.id })
-      ]);
+      // Prepare comprehensive data for AI analysis
+      const wonProposals = allWinLossRecords.filter(r => r.outcome === 'won');
+      const lostProposals = allWinLossRecords.filter(r => r.outcome === 'lost');
 
-      // Build context for AI
-      const proposalContext = {
-        proposal_name: proposal.proposal_name,
-        agency: proposal.agency_name,
-        project_type: proposal.project_type,
-        outcome: proposal.status,
-        contract_value: proposal.contract_value,
-        due_date: proposal.due_date,
-        sections_count: sections.length,
-        sections_completed: sections.filter(s => s.status === 'approved').length,
-        compliance_total: requirements.length,
-        compliance_met: requirements.filter(r => r.compliance_status === 'compliant').length,
-        win_themes_count: winThemes.length,
-        match_score: proposal.match_score,
-        evaluation_results: proposal.evaluation_results
-      };
+      // Get detailed proposal data
+      const proposalDetails = await Promise.all(
+        allWinLossRecords.map(async (record) => {
+          const props = await base44.entities.Proposal.filter({ id: record.proposal_id });
+          return props.length > 0 ? props[0] : null;
+        })
+      );
 
-      const isWin = proposal.status === 'won';
-      const isLoss = proposal.status === 'lost';
+      const enrichedRecords = allWinLossRecords.map((record, idx) => ({
+        ...record,
+        proposal_details: proposalDetails[idx]
+      })).filter(r => r.proposal_details);
 
-      if (!isWin && !isLoss) {
-        alert("This analysis only works for proposals marked as 'won' or 'lost'");
-        setAnalyzing(false);
-        return;
-      }
+      // Build AI prompt for pattern recognition
+      const prompt = `You are an expert data scientist specializing in government proposal win/loss analysis. Analyze this historical data to identify patterns, correlations, and predictive factors.
 
-      const prompt = `You are a government proposal win/loss analysis expert. Conduct a comprehensive ${isWin ? 'WIN' : 'LOSS'} analysis.
+**DATASET OVERVIEW:**
+- Total Win/Loss Records: ${allWinLossRecords.length}
+- Won: ${wonProposals.length} (${((wonProposals.length / allWinLossRecords.length) * 100).toFixed(1)}%)
+- Lost: ${lostProposals.length} (${((lostProposals.length / allWinLossRecords.length) * 100).toFixed(1)}%)
 
-**PROPOSAL INFORMATION:**
-${JSON.stringify(proposalContext, null, 2)}
+**DETAILED RECORDS:**
+${enrichedRecords.map(r => `
+**${r.outcome.toUpperCase()}** - ${r.proposal_details?.proposal_name}
+- Agency: ${r.proposal_details?.agency_name}
+- Type: ${r.proposal_details?.project_type}
+- Value: ${r.proposal_details?.contract_value ? '$' + r.proposal_details.contract_value.toLocaleString() : 'Unknown'}
+- Win Factors: ${r.primary_win_factors?.join(', ') || 'None'}
+- Loss Factors: ${r.primary_loss_factors?.join(', ') || 'None'}
+- Technical Score: ${r.scoring_breakdown?.technical_score || 'N/A'}
+- Price Analysis: Our Price: ${r.price_analysis?.our_price || 'N/A'}, Winning Price: ${r.price_analysis?.winning_price || 'N/A'}
+- Competitor: ${r.competitor_won || 'Unknown'}
+`).join('\n')}
 
-**ANALYSIS TYPE:** ${isWin ? 'WIN ANALYSIS' : 'LOSS ANALYSIS'}
+**YOUR TASK - COMPREHENSIVE PATTERN RECOGNITION:**
 
-${isWin ? `
-**YOUR TASK FOR WIN ANALYSIS:**
-Analyze what went right and extract replicable success factors.
+1. **Win Patterns**: What characteristics, strategies, or factors consistently appear in won proposals?
+2. **Loss Patterns**: What characteristics, strategies, or factors consistently appear in lost proposals?
+3. **Agency-Specific Patterns**: Are there patterns specific to certain agencies?
+4. **Pricing Patterns**: What pricing strategies or price points lead to wins vs losses?
+5. **Technical Score Correlation**: How do technical scores correlate with outcomes?
+6. **Competitor Patterns**: Which competitors are hardest to beat? Why?
+7. **Project Type Patterns**: Which types of projects have the highest win rates?
+8. **Value Range Patterns**: What contract value ranges have the best win rates?
+9. **Predictive Factors**: What are the strongest predictors of winning?
+10. **Actionable Insights**: What specific actions would improve future win rates?
 
-Provide a JSON response with:
-{
-  "win_factors": [
-    {
-      "factor": "string (what contributed to winning)",
-      "impact": "high|medium|low",
-      "evidence": "string (specific evidence)",
-      "replicable": boolean (can this be repeated?)"
-    }
-  ],
-  "competitive_advantages": [
-    "string (what gave us the edge over competitors)"
-  ],
-  "effective_strategies": [
-    "string (strategies that worked well)"
-  ],
-  "team_strengths": [
-    "string (team/process strengths demonstrated)"
-  ],
-  "lessons_learned": [
-    {
-      "lesson": "string",
-      "application": "string (how to apply to future proposals)",
-      "priority": "high|medium|low"
-    }
-  ],
-  "reusable_content": [
-    "string (content/approaches worth reusing)"
-  ],
-  "recommended_best_practices": [
-    "string (best practices to adopt going forward)"
-  ],
-  "win_probability_factors": [
-    "string (factors that increased win probability)"
-  ],
-  "overall_assessment": "string (comprehensive summary of why we won)"
-}
-` : `
-**YOUR TASK FOR LOSS ANALYSIS:**
-Analyze what went wrong and provide actionable improvements.
-
-Provide a JSON response with:
-{
-  "loss_factors": [
-    {
-      "factor": "string (what contributed to losing)",
-      "severity": "critical|high|medium|low",
-      "evidence": "string (specific evidence)",
-      "preventable": boolean (could this have been avoided?)"
-    }
-  ],
-  "competitive_disadvantages": [
-    "string (where competitors had the edge)"
-  ],
-  "missed_opportunities": [
-    "string (opportunities we didn't capitalize on)"
-  ],
-  "process_gaps": [
-    "string (gaps in our process or approach)"
-  ],
-  "lessons_learned": [
-    {
-      "lesson": "string",
-      "corrective_action": "string (how to prevent in future)",
-      "priority": "critical|high|medium|low"
-    }
-  ],
-  "improvement_areas": [
-    {
-      "area": "string (what needs improvement)",
-      "recommendation": "string (specific recommendation)",
-      "impact": "high|medium|low"
-    }
-  ],
-  "pricing_analysis": "string (if pricing was a factor, analyze)",
-  "compliance_analysis": "string (if compliance issues, analyze)",
-  "overall_assessment": "string (comprehensive summary of why we lost)"
-}
-`}
-
-Be specific, honest, and actionable. Focus on insights that can improve future proposals.`;
+Return comprehensive JSON analysis.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: prompt,
+        prompt,
         response_json_schema: {
           type: "object",
-          properties: isWin ? {
-            win_factors: { type: "array" },
-            competitive_advantages: { type: "array", items: { type: "string" } },
-            effective_strategies: { type: "array", items: { type: "string" } },
-            team_strengths: { type: "array", items: { type: "string" } },
-            lessons_learned: { type: "array" },
-            reusable_content: { type: "array", items: { type: "string" } },
-            recommended_best_practices: { type: "array", items: { type: "string" } },
-            win_probability_factors: { type: "array", items: { type: "string" } },
-            overall_assessment: { type: "string" }
-          } : {
-            loss_factors: { type: "array" },
-            competitive_disadvantages: { type: "array", items: { type: "string" } },
-            missed_opportunities: { type: "array", items: { type: "string" } },
-            process_gaps: { type: "array", items: { type: "string" } },
-            lessons_learned: { type: "array" },
-            improvement_areas: { type: "array" },
-            pricing_analysis: { type: "string" },
-            compliance_analysis: { type: "string" },
-            overall_assessment: { type: "string" }
-          }
+          properties: {
+            overall_win_rate: { type: "number", minimum: 0, maximum: 100 },
+            pattern_confidence: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence in identified patterns based on sample size"
+            },
+            win_patterns: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  pattern_name: { type: "string" },
+                  description: { type: "string" },
+                  frequency_in_wins: { type: "number", description: "% of wins with this pattern" },
+                  frequency_in_losses: { type: "number", description: "% of losses with this pattern" },
+                  correlation_strength: { type: "string", enum: ["strong", "moderate", "weak"] },
+                  examples: { type: "array", items: { type: "string" } }
+                }
+              }
+            },
+            loss_patterns: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  pattern_name: { type: "string" },
+                  description: { type: "string" },
+                  frequency_in_losses: { type: "number" },
+                  frequency_in_wins: { type: "number" },
+                  correlation_strength: { type: "string", enum: ["strong", "moderate", "weak"] },
+                  examples: { type: "array", items: { type: "string" } }
+                }
+              }
+            },
+            agency_insights: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  agency_name: { type: "string" },
+                  win_rate: { type: "number" },
+                  total_bids: { type: "number" },
+                  avg_contract_value: { type: "number" },
+                  key_success_factors: { type: "array", items: { type: "string" } },
+                  challenges: { type: "array", items: { type: "string" } }
+                }
+              }
+            },
+            pricing_insights: {
+              type: "object",
+              properties: {
+                optimal_price_range: {
+                  type: "object",
+                  properties: {
+                    min: { type: "number" },
+                    max: { type: "number" },
+                    win_rate_in_range: { type: "number" }
+                  }
+                },
+                price_sensitivity: { 
+                  type: "string",
+                  enum: ["very_high", "high", "moderate", "low"]
+                },
+                pricing_strategy_performance: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      strategy: { type: "string" },
+                      win_rate: { type: "number" },
+                      sample_size: { type: "number" }
+                    }
+                  }
+                },
+                avg_price_differential_on_wins: { 
+                  type: "number",
+                  description: "Avg % difference from winning price when we win"
+                },
+                avg_price_differential_on_losses: { 
+                  type: "number",
+                  description: "Avg % difference from winning price when we lose"
+                }
+              }
+            },
+            competitor_insights: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  competitor_name: { type: "string" },
+                  times_competed: { type: "number" },
+                  their_win_rate: { type: "number" },
+                  our_win_rate_against_them: { type: "number" },
+                  their_typical_advantages: { type: "array", items: { type: "string" } },
+                  how_to_beat_them: { type: "array", items: { type: "string" } }
+                }
+              }
+            },
+            predictive_factors: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  factor_name: { type: "string" },
+                  predictive_power: { 
+                    type: "string",
+                    enum: ["very_strong", "strong", "moderate", "weak"]
+                  },
+                  description: { type: "string" },
+                  actionable: { type: "boolean" },
+                  recommendation: { type: "string" }
+                }
+              },
+              description: "Top 10 predictive factors ranked by strength"
+            },
+            project_type_performance: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  project_type: { type: "string" },
+                  win_rate: { type: "number" },
+                  total_bids: { type: "number" },
+                  avg_value: { type: "number" },
+                  success_factors: { type: "array", items: { type: "string" } }
+                }
+              }
+            },
+            value_range_performance: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  range_label: { type: "string" },
+                  min_value: { type: "number" },
+                  max_value: { type: "number" },
+                  win_rate: { type: "number" },
+                  total_bids: { type: "number" }
+                }
+              }
+            },
+            strategic_recommendations: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  priority: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                  category: { type: "string" },
+                  recommendation: { type: "string" },
+                  expected_impact: { type: "string" },
+                  implementation_difficulty: { type: "string", enum: ["easy", "moderate", "difficult"] },
+                  estimated_win_rate_improvement: { type: "number" }
+                }
+              },
+              description: "Top 10 strategic recommendations"
+            },
+            red_flags: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  red_flag: { type: "string" },
+                  frequency_in_losses: { type: "number" },
+                  description: { type: "string" },
+                  how_to_avoid: { type: "string" }
+                }
+              }
+            },
+            green_flags: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  green_flag: { type: "string" },
+                  frequency_in_wins: { type: "number" },
+                  description: { type: "string" },
+                  how_to_replicate: { type: "string" }
+                }
+              }
+            }
+          },
+          required: [
+            "overall_win_rate",
+            "pattern_confidence",
+            "win_patterns",
+            "loss_patterns",
+            "predictive_factors",
+            "strategic_recommendations"
+          ]
         }
       });
 
-      setAnalysis({
-        ...result,
-        analyzed_date: new Date().toISOString(),
-        outcome: proposal.status
-      });
+      setPatternAnalysis(result);
+      alert("✓ Pattern analysis complete! Discovered " + result.predictive_factors.length + " predictive factors.");
 
-      // Save analysis to proposal
-      await base44.entities.Proposal.update(proposal.id, {
-        evaluation_results: JSON.stringify({
-          ...JSON.parse(proposal.evaluation_results || '{}'),
-          win_loss_analysis: result,
-          win_loss_analysis_date: new Date().toISOString()
-        })
-      });
-
-      alert("✓ Win/Loss analysis complete!");
-
-    } catch (error) {
-      console.error("Error running analysis:", error);
-      alert("Error running analysis: " + error.message);
+    } catch (err) {
+      console.error("Error analyzing patterns:", err);
+      setError(err);
     } finally {
       setAnalyzing(false);
     }
   };
 
-  const saveAdditionalNotes = async () => {
-    if (!additionalNotes.trim()) return;
-
-    setSavingNotes(true);
-    try {
-      const currentEvalResults = JSON.parse(proposal.evaluation_results || '{}');
-      await base44.entities.Proposal.update(proposal.id, {
-        evaluation_results: JSON.stringify({
-          ...currentEvalResults,
-          win_loss_notes: additionalNotes,
-          win_loss_notes_date: new Date().toISOString()
-        })
-      });
-      alert("✓ Notes saved successfully!");
-    } catch (error) {
-      console.error("Error saving notes:", error);
-      alert("Error saving notes");
-    } finally {
-      setSavingNotes(false);
-    }
+  const getCorrelationColor = (strength) => {
+    const colors = {
+      strong: "text-green-600 bg-green-100",
+      moderate: "text-yellow-600 bg-yellow-100",
+      weak: "text-orange-600 bg-orange-100"
+    };
+    return colors[strength] || colors.weak;
   };
 
-  const isWin = proposal?.status === 'won';
-  const isLoss = proposal?.status === 'lost';
-
-  if (!isWin && !isLoss) {
-    return (
-      <Card className="border-2 border-dashed">
-        <CardContent className="p-12 text-center">
-          <AlertTriangle className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">
-            Not Available Yet
-          </h3>
-          <p className="text-slate-600">
-            Win/Loss analysis is only available after marking the proposal as "Won" or "Lost"
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const getPredictivePowerColor = (power) => {
+    const colors = {
+      very_strong: "bg-green-600 text-white",
+      strong: "bg-blue-600 text-white",
+      moderate: "bg-yellow-600 text-white",
+      weak: "bg-orange-600 text-white"
+    };
+    return colors[power] || colors.weak;
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className={cn(
-        "border-none shadow-xl",
-        isWin ? "bg-gradient-to-br from-green-50 to-white" : "bg-gradient-to-br from-red-50 to-white"
-      )}>
+      <Card className="border-none shadow-xl bg-gradient-to-br from-indigo-50 to-purple-50">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                {isWin ? (
-                  <>
-                    <Award className="w-6 h-6 text-green-600" />
-                    Win Analysis
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-6 h-6 text-red-600" />
-                    Loss Analysis
-                  </>
-                )}
-              </CardTitle>
-              <CardDescription>
-                {isWin 
-                  ? "Extract lessons and best practices from this win"
-                  : "Identify improvement opportunities from this loss"}
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <Brain className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Win/Loss Pattern Recognition</CardTitle>
+                <CardDescription>
+                  ML-powered analysis to identify success patterns and predictive factors
+                </CardDescription>
+              </div>
             </div>
-            <Button onClick={runAnalysis} disabled={analyzing}>
+            <Button
+              onClick={runPatternRecognition}
+              disabled={analyzing || allWinLossRecords.length < 3}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+            >
               {analyzing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analyzing...
+                  Analyzing Patterns...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  {analysis ? 'Refresh Analysis' : 'Run Analysis'}
+                  Analyze Patterns
                 </>
               )}
             </Button>
@@ -299,343 +377,574 @@ Be specific, honest, and actionable. Focus on insights that can improve future p
         </CardHeader>
       </Card>
 
-      {!analysis ? (
-        <Card className="border-2 border-dashed">
+      {/* Data Status */}
+      {allWinLossRecords.length < 3 && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertCircle className="w-4 h-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            Need at least 3 win/loss records to identify patterns. Current: {allWinLossRecords.length}. 
+            Complete more proposals and capture outcomes to unlock pattern recognition.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="w-4 h-4" />
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Pattern Analysis Results */}
+      {patternAnalysis && (
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="win-patterns">Win Patterns</TabsTrigger>
+            <TabsTrigger value="loss-patterns">Loss Patterns</TabsTrigger>
+            <TabsTrigger value="predictive">Predictive Factors</TabsTrigger>
+            <TabsTrigger value="insights">Strategic Insights</TabsTrigger>
+            <TabsTrigger value="competitors">Competitors</TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* Win Rate Stats */}
+            <Card className="border-none shadow-xl">
+              <CardContent className="p-8">
+                <div className="text-center mb-6">
+                  <div className="inline-block p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl mb-4">
+                    <p className="text-7xl font-bold text-indigo-600 mb-2">
+                      {patternAnalysis.overall_win_rate}%
+                    </p>
+                    <p className="text-sm text-slate-600 uppercase tracking-wider">Overall Win Rate</p>
+                  </div>
+                  <Badge className={
+                    patternAnalysis.pattern_confidence === 'high' ? 'bg-green-600' :
+                    patternAnalysis.pattern_confidence === 'medium' ? 'bg-yellow-600' :
+                    'bg-orange-600'
+                  } className="text-white text-base px-4 py-2">
+                    {patternAnalysis.pattern_confidence.toUpperCase()} CONFIDENCE
+                  </Badge>
+                </div>
+
+                {/* Performance by Category */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Project Type Performance */}
+                  {patternAnalysis.project_type_performance && (
+                    <div>
+                      <h4 className="font-semibold text-slate-900 mb-3">Performance by Project Type</h4>
+                      <div className="space-y-2">
+                        {patternAnalysis.project_type_performance.map((type, idx) => (
+                          <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-slate-900">{type.project_type}</span>
+                              <Badge className={
+                                type.win_rate >= 70 ? 'bg-green-100 text-green-800' :
+                                type.win_rate >= 40 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }>
+                                {type.win_rate}% Win Rate
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-600">{type.total_bids} bids • Avg: ${(type.avg_value / 1000).toFixed(0)}K</p>
+                            <Progress value={type.win_rate} className="h-1 mt-2" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Value Range Performance */}
+                  {patternAnalysis.value_range_performance && (
+                    <div>
+                      <h4 className="font-semibold text-slate-900 mb-3">Performance by Contract Value</h4>
+                      <div className="space-y-2">
+                        {patternAnalysis.value_range_performance.map((range, idx) => (
+                          <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-slate-900">{range.range_label}</span>
+                              <Badge className={
+                                range.win_rate >= 70 ? 'bg-green-100 text-green-800' :
+                                range.win_rate >= 40 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }>
+                                {range.win_rate}% Win Rate
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-600">{range.total_bids} bids</p>
+                            <Progress value={range.win_rate} className="h-1 mt-2" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Red Flags & Green Flags */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="text-lg text-red-900 flex items-center gap-2">
+                    <TrendingDown className="w-5 h-5" />
+                    Red Flags (Avoid These)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {patternAnalysis.red_flags?.map((flag, idx) => (
+                      <div key={idx} className="p-3 bg-white rounded-lg border-2 border-red-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-semibold text-red-900">{flag.red_flag}</h5>
+                          <Badge className="bg-red-600 text-white">
+                            {flag.frequency_in_losses}% of losses
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-700 mb-2">{flag.description}</p>
+                        <p className="text-sm text-green-800">
+                          <strong>How to avoid:</strong> {flag.how_to_avoid}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-green-200 bg-green-50">
+                <CardHeader>
+                  <CardTitle className="text-lg text-green-900 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Green Flags (Replicate These)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {patternAnalysis.green_flags?.map((flag, idx) => (
+                      <div key={idx} className="p-3 bg-white rounded-lg border-2 border-green-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-semibold text-green-900">{flag.green_flag}</h5>
+                          <Badge className="bg-green-600 text-white">
+                            {flag.frequency_in_wins}% of wins
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-700 mb-2">{flag.description}</p>
+                        <p className="text-sm text-blue-800">
+                          <strong>How to replicate:</strong> {flag.how_to_replicate}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Win Patterns Tab */}
+          <TabsContent value="win-patterns" className="space-y-4">
+            {patternAnalysis.win_patterns?.map((pattern, idx) => (
+              <Card key={idx} className="border-green-200 bg-green-50">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <h3 className="font-semibold text-green-900 text-lg">{pattern.pattern_name}</h3>
+                        <Badge className={getCorrelationColor(pattern.correlation_strength)}>
+                          {pattern.correlation_strength} correlation
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-700 mb-3">{pattern.description}</p>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div className="p-3 bg-white rounded-lg">
+                          <p className="text-xs text-slate-600 mb-1">Frequency in Wins</p>
+                          <p className="text-2xl font-bold text-green-600">{pattern.frequency_in_wins}%</p>
+                        </div>
+                        <div className="p-3 bg-white rounded-lg">
+                          <p className="text-xs text-slate-600 mb-1">Frequency in Losses</p>
+                          <p className="text-2xl font-bold text-red-600">{pattern.frequency_in_losses}%</p>
+                        </div>
+                      </div>
+
+                      {pattern.examples && pattern.examples.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700 mb-1">Examples:</p>
+                          <ul className="text-xs text-slate-600 space-y-1">
+                            {pattern.examples.map((example, i) => (
+                              <li key={i}>• {example}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+
+          {/* Loss Patterns Tab */}
+          <TabsContent value="loss-patterns" className="space-y-4">
+            {patternAnalysis.loss_patterns?.map((pattern, idx) => (
+              <Card key={idx} className="border-red-200 bg-red-50">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        <h3 className="font-semibold text-red-900 text-lg">{pattern.pattern_name}</h3>
+                        <Badge className={getCorrelationColor(pattern.correlation_strength)}>
+                          {pattern.correlation_strength} correlation
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-700 mb-3">{pattern.description}</p>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div className="p-3 bg-white rounded-lg">
+                          <p className="text-xs text-slate-600 mb-1">Frequency in Losses</p>
+                          <p className="text-2xl font-bold text-red-600">{pattern.frequency_in_losses}%</p>
+                        </div>
+                        <div className="p-3 bg-white rounded-lg">
+                          <p className="text-xs text-slate-600 mb-1">Frequency in Wins</p>
+                          <p className="text-2xl font-bold text-green-600">{pattern.frequency_in_wins}%</p>
+                        </div>
+                      </div>
+
+                      {pattern.examples && pattern.examples.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700 mb-1">Examples:</p>
+                          <ul className="text-xs text-slate-600 space-y-1">
+                            {pattern.examples.map((example, i) => (
+                              <li key={i}>• {example}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+
+          {/* Predictive Factors Tab */}
+          <TabsContent value="predictive" className="space-y-4">
+            <Card className="border-none shadow-xl">
+              <CardHeader>
+                <CardTitle>Top Predictive Factors</CardTitle>
+                <CardDescription>
+                  Factors with the strongest correlation to winning (ranked by predictive power)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {patternAnalysis.predictive_factors?.map((factor, idx) => (
+                    <div key={idx} className="p-4 border-2 rounded-lg hover:shadow-md transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 font-bold">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-slate-900">{factor.factor_name}</h4>
+                            <Badge className={getPredictivePowerColor(factor.predictive_power)}>
+                              {factor.predictive_power.replace(/_/g, ' ').toUpperCase()}
+                            </Badge>
+                            {factor.actionable && (
+                              <Badge className="bg-blue-100 text-blue-800">
+                                <Target className="w-3 h-3 mr-1" />
+                                Actionable
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600 mb-2">{factor.description}</p>
+                          {factor.recommendation && (
+                            <p className="text-sm text-indigo-700">
+                              <strong>→ Action:</strong> {factor.recommendation}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pricing Insights */}
+            {patternAnalysis.pricing_insights && (
+              <Card className="border-none shadow-xl bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-green-600" />
+                    Pricing Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {patternAnalysis.pricing_insights.optimal_price_range && (
+                    <div className="p-4 bg-white rounded-lg">
+                      <h5 className="font-semibold text-slate-900 mb-2">Optimal Price Range</h5>
+                      <p className="text-3xl font-bold text-green-600 mb-1">
+                        ${(patternAnalysis.pricing_insights.optimal_price_range.min / 1000).toFixed(0)}K - 
+                        ${(patternAnalysis.pricing_insights.optimal_price_range.max / 1000).toFixed(0)}K
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        {patternAnalysis.pricing_insights.optimal_price_range.win_rate}% win rate in this range
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-white rounded-lg">
+                      <h5 className="font-semibold text-slate-900 mb-2">Price Sensitivity</h5>
+                      <Badge className="text-base px-3 py-1 capitalize">
+                        {patternAnalysis.pricing_insights.price_sensitivity?.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+
+                    {patternAnalysis.pricing_insights.avg_price_differential_on_wins !== undefined && (
+                      <div className="p-4 bg-white rounded-lg">
+                        <h5 className="font-semibold text-slate-900 mb-2">Winning Price Differential</h5>
+                        <p className="text-2xl font-bold text-green-600">
+                          {patternAnalysis.pricing_insights.avg_price_differential_on_wins > 0 ? '+' : ''}
+                          {patternAnalysis.pricing_insights.avg_price_differential_on_wins.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-slate-600">vs competitors when we win</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {patternAnalysis.pricing_insights.pricing_strategy_performance && (
+                    <div>
+                      <h5 className="font-semibold text-slate-900 mb-2">Strategy Performance</h5>
+                      <div className="space-y-2">
+                        {patternAnalysis.pricing_insights.pricing_strategy_performance.map((strat, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-white rounded">
+                            <span className="text-sm text-slate-700">{strat.strategy}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-500">({strat.sample_size} bids)</span>
+                              <Badge className={
+                                strat.win_rate >= 60 ? 'bg-green-100 text-green-800' :
+                                strat.win_rate >= 40 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }>
+                                {strat.win_rate}%
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Strategic Insights Tab */}
+          <TabsContent value="insights" className="space-y-4">
+            <Card className="border-none shadow-xl">
+              <CardHeader>
+                <CardTitle>Strategic Recommendations</CardTitle>
+                <CardDescription>
+                  Data-driven recommendations to improve your win rate
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {patternAnalysis.strategic_recommendations?.map((rec, idx) => (
+                    <div key={idx} className="p-4 border-2 rounded-lg hover:shadow-md transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge className={
+                              rec.priority === 'critical' ? 'bg-red-600' :
+                              rec.priority === 'high' ? 'bg-orange-600' :
+                              rec.priority === 'medium' ? 'bg-yellow-600' :
+                              'bg-green-600'
+                            } className="text-white">
+                              {rec.priority.toUpperCase()} PRIORITY
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {rec.category}
+                            </Badge>
+                            <Badge className={
+                              rec.implementation_difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                              rec.implementation_difficulty === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }>
+                              {rec.implementation_difficulty} to implement
+                            </Badge>
+                          </div>
+                          
+                          <p className="font-semibold text-slate-900 mb-2">{rec.recommendation}</p>
+                          <p className="text-sm text-slate-600 mb-2">{rec.expected_impact}</p>
+                          
+                          {rec.estimated_win_rate_improvement && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <TrendingUp className="w-4 h-4 text-green-600" />
+                              <span className="text-sm font-semibold text-green-700">
+                                +{rec.estimated_win_rate_improvement}% projected win rate improvement
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Agency Insights */}
+            {patternAnalysis.agency_insights && patternAnalysis.agency_insights.length > 0 && (
+              <Card className="border-none shadow-xl">
+                <CardHeader>
+                  <CardTitle>Agency-Specific Insights</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {patternAnalysis.agency_insights.map((agency, idx) => (
+                      <div key={idx} className="p-4 border-2 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-slate-900">{agency.agency_name}</h4>
+                          <div className="flex items-center gap-2">
+                            <Badge className={
+                              agency.win_rate >= 60 ? 'bg-green-100 text-green-800' :
+                              agency.win_rate >= 40 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }>
+                              {agency.win_rate}% Win Rate
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {agency.total_bids} bids
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs font-semibold text-green-900 mb-1">Success Factors:</p>
+                            <ul className="text-xs text-slate-700 space-y-1">
+                              {agency.key_success_factors?.map((factor, i) => (
+                                <li key={i} className="flex items-start gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                                  {factor}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-red-900 mb-1">Challenges:</p>
+                            <ul className="text-xs text-slate-700 space-y-1">
+                              {agency.challenges?.map((challenge, i) => (
+                                <li key={i} className="flex items-start gap-1">
+                                  <AlertCircle className="w-3 h-3 text-red-600 mt-0.5 flex-shrink-0" />
+                                  {challenge}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Competitors Tab */}
+          <TabsContent value="competitors" className="space-y-4">
+            {patternAnalysis.competitor_insights && patternAnalysis.competitor_insights.length > 0 ? (
+              patternAnalysis.competitor_insights.map((comp, idx) => (
+                <Card key={idx} className="border-2 hover:shadow-lg transition-all">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <h3 className="font-semibold text-slate-900 text-lg">{comp.competitor_name}</h3>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={
+                          comp.our_win_rate_against_them >= 60 ? 'bg-green-600 text-white' :
+                          comp.our_win_rate_against_them >= 40 ? 'bg-yellow-600 text-white' :
+                          'bg-red-600 text-white'
+                        }>
+                          {comp.our_win_rate_against_them}% Our Win Rate
+                        </Badge>
+                        <span className="text-xs text-slate-500">{comp.times_competed} competitions</span>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-sm text-slate-600 mb-1">Their Win Rate Against Us:</p>
+                      <div className="flex items-center gap-3">
+                        <Progress value={comp.their_win_rate} className="h-2 flex-1" />
+                        <span className="text-lg font-bold text-slate-900">{comp.their_win_rate}%</span>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="p-3 bg-red-50 rounded-lg">
+                        <h5 className="font-semibold text-red-900 mb-2 text-sm">Their Advantages:</h5>
+                        <ul className="text-xs text-slate-700 space-y-1">
+                          {comp.their_typical_advantages?.map((adv, i) => (
+                            <li key={i}>• {adv}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <h5 className="font-semibold text-green-900 mb-2 text-sm">How to Beat Them:</h5>
+                        <ul className="text-xs text-slate-700 space-y-1">
+                          {comp.how_to_beat_them?.map((strategy, i) => (
+                            <li key={i} className="flex items-start gap-1">
+                              <Target className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                              {strategy}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Eye className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600">
+                    No competitor data available. Track competitors in your win/loss records to see insights.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Empty State */}
+      {!analyzing && !patternAnalysis && allWinLossRecords.length >= 3 && (
+        <Card className="border-none shadow-xl">
           <CardContent className="p-12 text-center">
-            <Target className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+            <Brain className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              Ready to Analyze
+              Ready for Pattern Analysis
             </h3>
             <p className="text-slate-600 mb-6">
-              Run AI-powered {isWin ? 'win' : 'loss'} analysis to extract actionable insights 
-              and improve future proposals.
+              You have {allWinLossRecords.length} win/loss records. Click "Analyze Patterns" to discover what drives your success.
             </p>
-            <Button onClick={runAnalysis} disabled={analyzing} size="lg">
-              {analyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Run {isWin ? 'Win' : 'Loss'} Analysis
-                </>
-              )}
+            <Button
+              onClick={runPatternRecognition}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Start Analysis
             </Button>
           </CardContent>
         </Card>
-      ) : (
-        <>
-          {/* Overall Assessment */}
-          <Card className="border-none shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Overall Assessment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {analysis.overall_assessment}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Tabs defaultValue={isWin ? "factors" : "factors"} className="space-y-6">
-            <TabsList className={cn(
-              "grid w-full",
-              isWin ? "grid-cols-4" : "grid-cols-4"
-            )}>
-              <TabsTrigger value="factors">
-                {isWin ? 'Win Factors' : 'Loss Factors'}
-              </TabsTrigger>
-              <TabsTrigger value="lessons">Lessons Learned</TabsTrigger>
-              <TabsTrigger value="competitive">Competitive Analysis</TabsTrigger>
-              <TabsTrigger value="actions">Recommended Actions</TabsTrigger>
-            </TabsList>
-
-            {/* Win/Loss Factors */}
-            <TabsContent value="factors">
-              <div className="space-y-4">
-                {isWin ? (
-                  analysis.win_factors?.map((factor, idx) => (
-                    <Card key={idx} className="border-green-200 bg-green-50">
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-3">
-                          <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-green-900">{factor.factor}</h3>
-                              <Badge className={cn(
-                                factor.impact === 'high' ? 'bg-green-600 text-white' :
-                                factor.impact === 'medium' ? 'bg-green-100 text-green-700' :
-                                'bg-green-50 text-green-600'
-                              )}>
-                                {factor.impact} impact
-                              </Badge>
-                              {factor.replicable && (
-                                <Badge variant="outline" className="text-green-700">
-                                  ✓ Replicable
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-green-800">{factor.evidence}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  analysis.loss_factors?.map((factor, idx) => (
-                    <Card key={idx} className="border-red-200 bg-red-50">
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-red-900">{factor.factor}</h3>
-                              <Badge className={cn(
-                                factor.severity === 'critical' ? 'bg-red-600 text-white' :
-                                factor.severity === 'high' ? 'bg-red-500 text-white' :
-                                factor.severity === 'medium' ? 'bg-red-100 text-red-700' :
-                                'bg-red-50 text-red-600'
-                              )}>
-                                {factor.severity} severity
-                              </Badge>
-                              {factor.preventable && (
-                                <Badge variant="outline" className="text-red-700">
-                                  Preventable
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-red-800">{factor.evidence}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Lessons Learned */}
-            <TabsContent value="lessons">
-              <div className="space-y-4">
-                {analysis.lessons_learned?.map((lesson, idx) => (
-                  <Card key={idx} className="border-blue-200 bg-blue-50">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-3">
-                        <Lightbulb className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-blue-900">{lesson.lesson}</h3>
-                            <Badge className={cn(
-                              (lesson.priority === 'critical' || lesson.priority === 'high') ? 'bg-blue-600 text-white' :
-                              lesson.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
-                              'bg-blue-50 text-blue-600'
-                            )}>
-                              {lesson.priority} priority
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-blue-800">
-                            {isWin ? lesson.application : lesson.corrective_action}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            {/* Competitive Analysis */}
-            <TabsContent value="competitive">
-              <div className="space-y-4">
-                {isWin ? (
-                  <>
-                    <Card className="border-purple-200 bg-purple-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-purple-900">Competitive Advantages</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {analysis.competitive_advantages?.map((adv, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <TrendingUp className="w-4 h-4 text-purple-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-purple-900">{adv}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-indigo-200 bg-indigo-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-indigo-900">Team Strengths</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {analysis.team_strengths?.map((strength, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-indigo-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-indigo-900">{strength}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  </>
-                ) : (
-                  <>
-                    <Card className="border-orange-200 bg-orange-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-orange-900">Competitive Disadvantages</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {analysis.competitive_disadvantages?.map((disadv, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <TrendingDown className="w-4 h-4 text-orange-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-orange-900">{disadv}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-yellow-200 bg-yellow-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-yellow-900">Missed Opportunities</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {analysis.missed_opportunities?.map((opp, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-yellow-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-yellow-900">{opp}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Recommended Actions */}
-            <TabsContent value="actions">
-              <div className="space-y-4">
-                {isWin ? (
-                  <>
-                    <Card className="border-teal-200 bg-teal-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-teal-900">Best Practices to Adopt</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {analysis.recommended_best_practices?.map((practice, idx) => (
-                            <div key={idx} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-teal-200">
-                              <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold">
-                                {idx + 1}
-                              </div>
-                              <p className="text-sm text-teal-900">{practice}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-cyan-200 bg-cyan-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-cyan-900">Reusable Content & Approaches</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {analysis.reusable_content?.map((content, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-cyan-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-cyan-900">{content}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  </>
-                ) : (
-                  <>
-                    <Card className="border-indigo-200 bg-indigo-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-indigo-900">Improvement Areas</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {analysis.improvement_areas?.map((area, idx) => (
-                            <div key={idx} className="p-4 bg-white rounded-lg border border-indigo-200">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-semibold text-indigo-900">{area.area}</h4>
-                                <Badge className={cn(
-                                  area.impact === 'high' ? 'bg-indigo-600 text-white' :
-                                  area.impact === 'medium' ? 'bg-indigo-100 text-indigo-700' :
-                                  'bg-indigo-50 text-indigo-600'
-                                )}>
-                                  {area.impact} impact
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-indigo-800">
-                                <strong>Recommendation:</strong> {area.recommendation}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {analysis.pricing_analysis && (
-                      <Card className="border-purple-200 bg-purple-50">
-                        <CardHeader>
-                          <CardTitle className="text-base text-purple-900">Pricing Analysis</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-purple-900">{analysis.pricing_analysis}</p>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          {/* Additional Notes */}
-          <Card className="border-none shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Additional Notes & Observations</CardTitle>
-              <CardDescription>
-                Add your own notes and observations from team debriefs
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                rows={6}
-                placeholder="What else did the team observe? Any feedback from the client? Additional context?"
-              />
-              <Button onClick={saveAdditionalNotes} disabled={savingNotes || !additionalNotes.trim()}>
-                {savingNotes ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Notes
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </>
       )}
     </div>
   );
