@@ -244,6 +244,8 @@ export default function Pipeline() {
   }
 
   const showDataRecovery = proposals.length === 0 && !isLoadingProposals;
+  // Only show "Generate Sample Data" if organization is sample data
+  const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
     <>
@@ -269,10 +271,12 @@ export default function Pipeline() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Proposal
                   </Button>
-                  <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
-                    <Database className="w-4 h-4 mr-2" />
-                    Generate Sample Data
-                  </Button>
+                  {canGenerateSampleData && (
+                    <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
+                      <Database className="w-4 h-4 mr-2" />
+                      Generate Sample Data
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
