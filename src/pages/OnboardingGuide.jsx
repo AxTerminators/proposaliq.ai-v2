@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -14,9 +13,19 @@ import {
   Briefcase,
   Database,
   Rocket,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function OnboardingGuide() {
   const navigate = useNavigate();
@@ -24,6 +33,8 @@ export default function OnboardingGuide() {
   const [user, setUser] = useState(null);
   const [isGeneratingSample, setIsGeneratingSample] = useState(false);
   const [isSkippingSample, setIsSkippingSample] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -48,6 +59,8 @@ export default function OnboardingGuide() {
 
   const handleAddSampleData = async () => {
     setIsGeneratingSample(true);
+    setShowErrorDialog(false);
+    
     try {
       console.log('[OnboardingGuide] Starting sample data generation...');
       
@@ -71,14 +84,21 @@ export default function OnboardingGuide() {
     } catch (error) {
       console.error("[OnboardingGuide] Error generating sample data:", error);
       
-      // Show user-friendly error message
-      alert(
-        "There was an error generating sample data. This might be due to:\n\n" +
-        "• A temporary network issue\n" +
-        "• The function taking longer than expected\n\n" +
-        "Please try again. If the problem persists, you can skip sample data and start fresh."
-      );
+      // Set user-friendly error message based on error type
+      let userMessage = "We encountered an issue while creating your sample data.";
       
+      if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+        userMessage = "Sample data generation is taking longer than expected. Please try again.";
+      } else if (error.message?.includes('network') || error.code === 'ECONNABORTED') {
+        userMessage = "Unable to connect to the server. Please check your internet connection and try again.";
+      } else if (error.response?.status === 500) {
+        userMessage = "A server error occurred. Our team has been notified. Please try again in a moment.";
+      } else if (error.message) {
+        userMessage = `Error: ${error.message}`;
+      }
+      
+      setErrorMessage(userMessage);
+      setShowErrorDialog(true);
       setIsGeneratingSample(false);
     }
   };
@@ -93,7 +113,8 @@ export default function OnboardingGuide() {
       navigate(createPageUrl("Onboarding"));
     } catch (error) {
       console.error("Error updating user:", error);
-      alert("There was an error. Please try again.");
+      setErrorMessage("Unable to save your preference. Please try again.");
+      setShowErrorDialog(true);
       setIsSkippingSample(false);
     }
   };
@@ -369,6 +390,40 @@ export default function OnboardingGuide() {
             </Card>
           </div>
         )}
+
+        {/* Error Dialog */}
+        <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <AlertDialogTitle className="text-xl">Unable to Generate Sample Data</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="text-base text-slate-600 pt-2">
+                {errorMessage}
+              </AlertDialogDescription>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                <p className="text-sm text-blue-900">
+                  <strong>What you can do:</strong>
+                </p>
+                <ul className="text-sm text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                  <li>Try clicking "Add Sample Data" again</li>
+                  <li>Or click "Start Fresh" to skip sample data and begin with your real projects</li>
+                </ul>
+              </div>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction 
+                onClick={() => setShowErrorDialog(false)}
+                className="bg-blue-600 hover:bg-blue-700 w-full"
+              >
+                Got it
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
