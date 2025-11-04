@@ -147,43 +147,43 @@ const ROADMAP_PHASES = [
     id: "phase4",
     name: "Phase 4: Enhanced User Experience",
     duration: "Weeks 13-16",
-    status: "completed",
+    status: "pending",
     priority: "P3",
     features: [
       {
         name: "Smart Automation Suggestions",
-        status: "completed",
+        status: "pending",
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Behavioral analysis to identify automation opportunities with time savings estimates",
-        implementation: "AIWorkflowSuggestions Enhancement - ✅ LIVE",
+        description: "Behavioral analysis to suggest workflows",
+        implementation: "SmartAutomationEngine Enhancement",
         estimatedTokens: "30K/month"
       },
       {
         name: "SAM.gov Opportunity Matching",
-        status: "completed",
+        status: "pending",
         impact: "MEDIUM",
         effort: "MEDIUM",
-        description: "Semantic similarity between org capabilities and opportunity requirements with bid/no-bid recommendations",
-        implementation: "OpportunityFinder Enhancement - ✅ LIVE",
+        description: "Semantic similarity between capabilities and requirements",
+        implementation: "OpportunityFinder Enhancement",
         estimatedTokens: "80K/month"
       },
       {
         name: "AI Insights Enhancement",
-        status: "completed",
+        status: "pending",
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Anomaly detection, predictive insights, and performance benchmarking in dashboard",
-        implementation: "AIInsightsCard Enhancement - ✅ LIVE",
+        description: "Anomaly detection and predictive insights",
+        implementation: "AIInsightsCard Enhancement",
         estimatedTokens: "30K/month"
       },
       {
         name: "Proposal Comparison AI",
-        status: "completed",
+        status: "pending",
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Automated comparison analysis with SWOT, winner prediction, and decision recommendations",
-        implementation: "ProposalComparisonTool Enhancement - ✅ LIVE",
+        description: "Automated comparison analysis with winner prediction",
+        implementation: "ProposalComparisonTool Enhancement",
         estimatedTokens: "40K/month"
       }
     ]

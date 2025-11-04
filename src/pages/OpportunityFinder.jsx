@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,11 +35,9 @@ import {
   Plus,
   ExternalLink,
   Filter,
-  RefreshCw,
-  Loader2 // NEW IMPORT
+  RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils"; // Assuming this utility function is available
 
 export default function OpportunityFinder() {
   const navigate = useNavigate();
@@ -57,7 +54,6 @@ export default function OpportunityFinder() {
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [runningAIMatch, setRunningAIMatch] = useState(false); // NEW STATE
 
   useEffect(() => {
     const loadData = async () => {
@@ -129,166 +125,6 @@ export default function OpportunityFinder() {
     }
   });
 
-  const runSemanticMatching = async () => {
-    if (!organization || opportunities.length === 0) {
-      alert("No opportunities to analyze. Search SAM.gov first!");
-      return;
-    }
-
-    setRunningAIMatch(true);
-
-    try {
-      // Build organization capability profile
-      const orgProfile = {
-        name: organization.organization_name,
-        primary_naics: organization.primary_naics,
-        secondary_naics: organization.secondary_naics || [],
-        certifications: organization.certifications || [],
-        capabilities: organization.core_capabilities || [], 
-        differentiators: organization.differentiators || []
-      };
-
-      // Analyze each opportunity with semantic matching
-      // Limiting to first 20 for demonstration, can be adjusted for production
-      for (const opp of opportunities.slice(0, 20)) {
-        const matchingPrompt = `You are an expert in government contracting and opportunity analysis. Use semantic similarity and pattern matching to analyze if this opportunity is a good fit.
-
-**YOUR ORGANIZATION PROFILE:**
-- Name: ${orgProfile.name}
-- Primary NAICS: ${orgProfile.primary_naics}
-- Secondary NAICS: ${orgProfile.secondary_naics.join(', ') || 'None'}
-- Certifications: ${orgProfile.certifications.join(', ') || 'None'}
-- Core Capabilities: ${orgProfile.capabilities.join(', ') || 'Not specified'}
-- Differentiators: ${orgProfile.differentiators.join(', ') || 'Not specified'}
-
-**OPPORTUNITY TO ANALYZE:**
-- Title: ${opp.title}
-- Agency: ${opp.department} - ${opp.sub_agency || ''}
-- NAICS: ${opp.naics_code} - ${opp.naics_description}
-- Set-Aside: ${opp.set_aside || 'None'}
-- Contract Type: ${opp.contract_type}
-- Estimated Value: ${opp.estimated_value ? `$${(opp.estimated_value.min / 1000000).toFixed(1)}M - $${(opp.estimated_value.max / 1000000).toFixed(1)}M` : 'Not specified'}
-- Description: ${opp.description || 'No description'}
-- Keywords: ${opp.keywords?.join(', ') || 'None'}
-
-**SEMANTIC MATCHING ANALYSIS:**
-
-1. **Match Score (0-100)**: Calculate comprehensive fit score considering:
-   - NAICS code alignment
-   - Capability semantic similarity
-   - Certification requirements match
-   - Contract type experience
-   - Value range appropriateness
-   - Agency relationship history
-
-2. **Match Reasons**: Specific reasons why this is/isn't a good fit
-
-3. **Competitive Positioning**: Your likely competitive position
-
-4. **Win Probability**: Estimated probability of winning if you bid
-
-5. **Strategic Fit**: Strategic value beyond just winning
-
-6. **Concerns**: Potential challenges or concerns
-
-7. **Bid/No-Bid Recommendation**: Should you pursue this?
-
-Provide data-driven, actionable intelligence.`;
-
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt: matchingPrompt,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              match_score: { type: "number", minimum: 0, maximum: 100 },
-              match_reasons: {
-                type: "array",
-                items: { type: "string" }
-              },
-              competitive_positioning: {
-                type: "string",
-                enum: ["strong_contender", "viable_competitor", "underdog", "long_shot"]
-              },
-              win_probability: {
-                type: "number",
-                minimum: 0,
-                maximum: 100
-              },
-              strategic_fit: {
-                type: "object",
-                properties: {
-                  fit_level: { type: "string", enum: ["excellent", "good", "fair", "poor"] },
-                  strategic_value: { type: "string" },
-                  capability_development_opportunity: { type: "boolean" }
-                }
-              },
-              concerns: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    concern_type: { type: "string", enum: ["capability_gap", "certification", "size_mismatch", "pricing", "competition", "requirements"] },
-                    description: { type: "string" },
-                    severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
-                    mitigation: { type: "string" }
-                  }
-                }
-              },
-              bid_recommendation: {
-                type: "object",
-                properties: {
-                  recommendation: { type: "string", enum: ["strong_bid", "bid", "watch", "no_bid"] },
-                  reasoning: { type: "string" },
-                  conditions: { type: "array", items: { type: "string" } }
-                }
-              },
-              required_capabilities: {
-                type: "array",
-                items: { type: "string" }
-              },
-              teaming_recommendations: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    gap: { type: "string" },
-                    recommended_partner_type: { type: "string" }
-                  }
-                }
-              }
-            },
-            required: ["match_score", "match_reasons", "win_probability", "bid_recommendation"]
-          }
-        });
-
-        // Update opportunity with AI analysis
-        await base44.entities.SAMOpportunity.update(opp.id, {
-          match_score: result.match_score,
-          match_reasons: result.match_reasons || [],
-          ai_analysis: {
-            competitive_positioning: result.competitive_positioning,
-            win_probability: result.win_probability,
-            strategic_fit: result.strategic_fit,
-            concerns: result.concerns || [],
-            bid_recommendation: result.bid_recommendation,
-            required_capabilities: result.required_capabilities || [],
-            teaming_recommendations: result.teaming_recommendations || [],
-            analyzed_date: new Date().toISOString()
-          }
-        });
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['sam-opportunities'] });
-      alert("✓ AI semantic matching complete! Opportunities ranked by fit.");
-
-    } catch (error) {
-      console.error("Error running AI matching:", error);
-      alert("Error running AI matching: " + error.message);
-    } finally {
-      setRunningAIMatch(false);
-    }
-  };
-
   const simulateSAMSearch = async () => {
     setIsSearching(true);
     try {
@@ -354,7 +190,7 @@ Provide data-driven, actionable intelligence.`;
         }
       ];
 
-      // Calculate match scores based on org NAICS (This is the original basic match logic)
+      // Calculate match scores based on org NAICS
       const oppsWithScores = sampleOpps.map(opp => {
         let matchScore = 50; // Base score
         const matchReasons = [];
@@ -437,46 +273,27 @@ Provide data-driven, actionable intelligence.`;
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-2">
             <Globe className="w-8 h-8 text-blue-600" />
-            AI Opportunity Finder
+            Opportunity Finder
           </h1>
-          <p className="text-slate-600">Find and match opportunities using semantic AI analysis</p>
+          <p className="text-slate-600">Find and track opportunities from SAM.gov</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            onClick={simulateSAMSearch}
-            disabled={isSearching}
-            variant="outline"
-          >
-            {isSearching ? (
-              <>
-                <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Search className="w-5 h-5 mr-2" />
-                Search SAM.gov
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={runSemanticMatching}
-            disabled={runningAIMatch || opportunities.length === 0}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-          >
-            {runningAIMatch ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                AI Matching...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5 mr-2" />
-                Run AI Semantic Match
-              </>
-            )}
-          </Button>
-        </div>
+        <Button 
+          onClick={simulateSAMSearch}
+          disabled={isSearching}
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+        >
+          {isSearching ? (
+            <>
+              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+              Searching SAM.gov...
+            </>
+          ) : (
+            <>
+              <Search className="w-5 h-5 mr-2" />
+              Search SAM.gov
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Search and Filters */}
@@ -655,29 +472,10 @@ function OpportunityGrid({ opportunities, onImport, onSave }) {
     );
   }
 
-  // Sort by AI analysis win probability (highest first), then by basic match score
-  const sortedOpps = [...opportunities].sort((a, b) => {
-    const aiWinProbA = a.ai_analysis?.win_probability || 0;
-    const aiWinProbB = b.ai_analysis?.win_probability || 0;
-    const scoreA = a.match_score || 0;
-    const scoreB = b.match_score || 0;
-
-    // Primary sort by AI analysis win probability if available
-    if (aiWinProbA !== aiWinProbB) {
-        return aiWinProbB - aiWinProbA;
-    }
-    // Secondary sort by basic match score
-    return scoreB - scoreA;
-  });
-
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      {sortedOpps.map((opp) => (
-        <Card key={opp.id} className={cn(
-          "border-none shadow-lg hover:shadow-xl transition-all",
-          opp.ai_analysis?.bid_recommendation?.recommendation === 'strong_bid' && "ring-2 ring-green-500",
-          opp.ai_analysis?.bid_recommendation?.recommendation === 'no_bid' && "opacity-75"
-        )}>
+      {opportunities.map((opp) => (
+        <Card key={opp.id} className="border-none shadow-lg hover:shadow-xl transition-all">
           <CardHeader className="border-b">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -692,27 +490,6 @@ function OpportunityGrid({ opportunities, onImport, onSave }) {
                     <Badge className="bg-green-100 text-green-700">
                       <TrendingUp className="w-3 h-3 mr-1" />
                       {opp.match_score}% Match
-                    </Badge>
-                  )}
-                  {opp.ai_analysis?.win_probability !== undefined && (
-                    <Badge className={cn(
-                      opp.ai_analysis.win_probability >= 60 ? 'bg-green-600' :
-                      opp.ai_analysis.win_probability >= 40 ? 'bg-yellow-600' :
-                      'bg-red-600',
-                      "text-white"
-                    )}>
-                      {opp.ai_analysis.win_probability}% Win Prob.
-                    </Badge>
-                  )}
-                  {opp.ai_analysis?.bid_recommendation?.recommendation && (
-                    <Badge className={cn(
-                      opp.ai_analysis.bid_recommendation.recommendation === 'strong_bid' ? 'bg-green-600' :
-                      opp.ai_analysis.bid_recommendation.recommendation === 'bid' ? 'bg-blue-600' :
-                      opp.ai_analysis.bid_recommendation.recommendation === 'watch' ? 'bg-yellow-600' :
-                      'bg-red-600',
-                      "text-white capitalize"
-                    )}>
-                      {opp.ai_analysis.bid_recommendation.recommendation.replace(/_/g, ' ')}
                     </Badge>
                   )}
                 </div>
@@ -749,55 +526,7 @@ function OpportunityGrid({ opportunities, onImport, onSave }) {
               )}
             </div>
 
-            {/* AI Analysis Results */}
-            {opp.ai_analysis && (
-              <div className="space-y-3">
-                {opp.ai_analysis.strategic_fit && (
-                  <div className={cn(
-                    "p-3 rounded-lg border-2",
-                    opp.ai_analysis.strategic_fit.fit_level === 'excellent' ? 'bg-green-50 border-green-200' :
-                    opp.ai_analysis.strategic_fit.fit_level === 'good' ? 'bg-blue-50 border-blue-200' :
-                    opp.ai_analysis.strategic_fit.fit_level === 'fair' ? 'bg-yellow-50 border-yellow-200' :
-                    'bg-red-50 border-red-200'
-                  )}>
-                    <div className="text-xs font-semibold uppercase mb-1">Strategic Fit: {opp.ai_analysis.strategic_fit.fit_level}</div>
-                    <p className="text-sm">{opp.ai_analysis.strategic_fit.strategic_value}</p>
-                  </div>
-                )}
-
-                {opp.ai_analysis.concerns?.length > 0 && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="text-xs font-semibold text-amber-900 uppercase mb-2">Concerns:</div>
-                    <ul className="space-y-1">
-                      {opp.ai_analysis.concerns.slice(0, 3).map((concern, i) => (
-                        <li key={i} className="text-xs text-amber-800 flex items-start gap-2">
-                          <Badge className={cn(
-                            concern.severity === 'critical' ? 'bg-red-600' :
-                            concern.severity === 'high' ? 'bg-orange-600' :
-                            concern.severity === 'medium' ? 'bg-yellow-600' :
-                            'bg-blue-600',
-                            "text-white text-xs"
-                          )}>
-                            {concern.severity}
-                          </Badge>
-                          <span>{concern.description}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {opp.ai_analysis.bid_recommendation && (
-                  <div className="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-lg">
-                    <div className="text-xs font-semibold text-indigo-900 uppercase mb-1">AI Recommendation</div>
-                    <p className="text-sm text-indigo-800">{opp.ai_analysis.bid_recommendation.reasoning}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Original match reasons, shown only if no AI analysis is present */}
-            {opp.match_reasons && opp.match_reasons.length > 0 && !opp.ai_analysis && (
+            {opp.match_reasons && opp.match_reasons.length > 0 && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-xs font-semibold text-green-900 mb-1">Why this matches:</p>
                 <ul className="text-xs text-green-800 space-y-1">
