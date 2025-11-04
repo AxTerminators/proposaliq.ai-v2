@@ -179,8 +179,41 @@ function LayoutContent({ children }) {
 
   return (
     <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Custom Animation Styles */}
+      {/* Enhanced Tooltip Styles */}
       <style>{`
+        /* Instant tooltips - aggressive approach for immediate display */
+        [title] {
+          position: relative;
+          cursor: help;
+        }
+        
+        /* Attempt to force instant tooltip display across browsers */
+        * {
+          tooltip-delay: 0ms !important;
+          -webkit-tooltip-delay: 0ms !important;
+          -moz-tooltip-delay: 0ms !important;
+        }
+        
+        /* Additional attempts for different browsers */
+        *[title]:hover::before,
+        *[title]:hover::after {
+          transition-delay: 0s !important;
+          animation-delay: 0s !important;
+        }
+        
+        /* Button and interactive element specific */
+        button[title],
+        a[title],
+        [role="button"][title],
+        [tabindex][title] {
+          cursor: pointer;
+        }
+        
+        /* Remove any transition delays on hover states */
+        *:hover {
+          transition-delay: 0s !important;
+        }
+
         @keyframes ping-slow {
           0% {
             transform: scale(1);
@@ -197,16 +230,6 @@ function LayoutContent({ children }) {
         }
         .animate-ping-slow {
           animation: ping-slow 10s cubic-bezier(0, 0, 0.2, 1) infinite;
-        }
-
-        /* Instant tooltips - remove delay */
-        [title] {
-          position: relative;
-        }
-        
-        /* Force instant tooltip display - browser-level optimization */
-        * {
-          tooltip-delay: 0ms !important;
         }
       `}</style>
 
