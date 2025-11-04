@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge"; // Added Badge import
 import {
   Plus,
   Settings,
@@ -44,7 +45,7 @@ const DEFAULT_COLUMNS = [
   {
     id: 'new',
     label: 'New',
-    color: 'from-blue-700 to-blue-900', // Modified color here
+    color: 'from-blue-900 to-indigo-950', // Modified color here
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
@@ -838,153 +839,145 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   return (
     <>
-      <div className="flex-shrink-0 p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2 pl-[30px]">
+      {/* Top Controls Bar */}
+      <div className="flex-shrink-0 bg-white border-b border-slate-200">
+        <div className="p-4 space-y-4">
+          {/* Main Action Bar */}
+          <div className="flex items-center justify-between gap-4">
             <Button
               onClick={handleCreateProposal}
               className="bg-blue-600 hover:bg-blue-700"
               size="sm"
-              title="Create a new proposal"
             >
-              <Plus className="w-4 h-4 mr-2" title="New proposal" />
-              Start New Proposal
-            </Button>
-          </div>
-
-          <div className="flex gap-2 items-center">
-            <div className="flex items-center gap-0.5 border rounded-lg bg-white">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleZoomOut}
-                disabled={zoomLevel <= 0.5}
-                className="h-8 w-8 p-0"
-                title="Zoom out"
-              >
-                <ZoomOut className="w-4 h-4" title="Zoom out" />
-              </Button>
-              <button
-                onClick={handleZoomReset}
-                className="px-2 h-8 text-xs font-medium text-slate-600 hover:text-slate-900 min-w-[3rem] flex items-center justify-center"
-                title="Reset zoom to 100%"
-              >
-                {Math.round(zoomLevel * 100)}%
-              </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleZoomIn}
-                disabled={zoomLevel >= 2}
-                className="h-8 w-8 p-0"
-                title="Zoom in"
-              >
-                <ZoomIn className="w-4 h-4" title="Zoom in" />
-              </Button>
-            </div>
-
-            <Button
-              variant={showFilters ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              title={showFilters ? "Hide filters" : "Show filters"}
-            >
-              <Filter className="w-4 h-4 mr-2" title="Filter" />
-              Filters
-              {activeFiltersCount > 0 && (
-                <span className="ml-2 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {activeFiltersCount}
-                </span>
-              )}
+              <Plus className="w-4 h-4 mr-2" />
+              New Proposal
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBoardConfig(true)}
-              title="Configure board columns and settings"
-            >
-              <Settings className="w-4 h-4 mr-2" title="Settings" />
-              Configure Board
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowHelpPanel(true)}
-              title="Help & shortcuts"
-            >
-              <HelpCircle className="w-4 h-4 mr-2" />
-              Help
-            </Button>
-          </div>
-        </div>
-
-        {showFilters && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-slate-900">Filter Proposals</h3>
-              {activeFiltersCount > 0 && (
+            <div className="flex items-center gap-2">
+              {/* Zoom Controls */}
+              <div className="flex items-center border rounded-lg bg-white">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearFilters}
-                  title="Clear all active filters"
+                  onClick={handleZoomOut}
+                  disabled={zoomLevel <= 0.5}
+                  className="h-8 w-8 p-0 hover:bg-slate-100"
+                  title="Zoom out"
                 >
-                  <X className="w-4 h-4 mr-1" title="Clear" />
-                  Clear All
+                  <ZoomOut className="w-4 h-4" />
                 </Button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" title="Search" />
-                <Input
-                  placeholder="Search proposals..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                  title="Search by name, title, or solicitation number"
-                />
+                <button
+                  onClick={handleZoomReset}
+                  className="px-3 h-8 text-xs font-medium text-slate-700 hover:text-slate-900 min-w-[3rem]"
+                  title="Reset zoom"
+                >
+                  {Math.round(zoomLevel * 100)}%
+                </button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleZoomIn}
+                  disabled={zoomLevel >= 2}
+                  className="h-8 w-8 p-0 hover:bg-slate-100"
+                  title="Zoom in"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </Button>
               </div>
 
-              <Select value={filterAgency} onValueChange={setFilterAgency}>
-                <SelectTrigger title="Filter by agency">
-                  <SelectValue placeholder="Filter by Agency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Agencies</SelectItem>
-                  {uniqueAgencies.map(agency => (
-                    <SelectItem key={agency} value={agency}>{agency}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Filters Button */}
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Filters
+                {activeFiltersCount > 0 && (
+                  <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center bg-white text-blue-600 hover:bg-white">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
 
-              <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                <SelectTrigger title="Filter by team member">
-                  <SelectValue placeholder="Filter by Assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Team Members</SelectItem>
-                  {uniqueAssignees.map(email => (
-                    <SelectItem key={email} value={email}>{email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Configure Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBoardConfig(true)}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Configure
+              </Button>
+
+              {/* Help Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHelpPanel(true)}
+              >
+                <HelpCircle className="w-4 h-4 mr-2" />
+                Help
+              </Button>
             </div>
           </div>
-        )}
 
-        {zoomLevel !== 1 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700 text-center">
-            💡 Tip: Hold Ctrl/Cmd and scroll to zoom, or use the zoom controls above
-          </div>
-        )}
+          {/* Filters Panel */}
+          {showFilters && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-slate-900 text-sm">Filter Proposals</h3>
+                {activeFiltersCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8">
+                    <X className="w-4 h-4 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search proposals..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+
+                <Select value={filterAgency} onValueChange={setFilterAgency}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Agencies" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Agencies</SelectItem>
+                    {uniqueAgencies.map(agency => (
+                      <SelectItem key={agency} value={agency}>{agency}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Team Members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Team Members</SelectItem>
+                    {uniqueAssignees.map(email => (
+                      <SelectItem key={email} value={email}>{email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible px-6">
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-hidden bg-slate-100">
+        <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible p-4">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragStart={handleDragStart}
@@ -995,7 +988,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-0 pb-4 pt-4 h-full"
+                  className="flex gap-4 h-full"
                   style={{
                     transform: `scale(${zoomLevel})`,
                     transformOrigin: 'top left',
@@ -1005,8 +998,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                   {columns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
                     const columnProposals = getProposalsForColumn(column);
-                    const columnSort = columnSorts[column.id];
-                    const dragOverColor = dragOverColumnId === column.id ? column.color : null;
 
                     return (
                       <Draggable
@@ -1020,92 +1011,50 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                           <div 
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
-                            className="flex items-start"
-                          >
-                            {index === 0 && (
-                              <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
-                                <button
-                                  onClick={() => handleAddColumn(0)}
-                                  className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                                  title="Add new column before this one"
-                                >
-                                  <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
-                                </button>
-                              </div>
+                            className={cn(
+                              "transition-opacity",
+                              snapshotDraggable.isDragging && "opacity-70"
                             )}
-
+                          >
                             {isCollapsed ? (
                               <div
-                                className={cn(
-                                  "flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow",
-                                  snapshotDraggable.isDragging && 'opacity-50 rotate-2'
-                                )}
+                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                                 onClick={() => toggleColumnCollapse(column.id)}
-                                title={`Expand ${column.label} column`}
                                 {...providedDraggable.dragHandleProps}
                               >
-                                <div
-                                  className="text-xs font-semibold text-slate-700 whitespace-nowrap"
-                                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                                >
-                                  {column.label}
+                                <div className="p-3 flex flex-col items-center gap-3 h-full">
+                                  <div
+                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                  >
+                                    {column.label}
+                                  </div>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {columnProposals.length}
+                                  </Badge>
+                                  <ChevronsRight className="w-4 h-4 text-slate-400 mt-auto" />
                                 </div>
-                                <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
-                                  {columnProposals.length}
-                                </div>
-                                <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
                               </div>
                             ) : (
                               <Droppable droppableId={column.id} type="card">
                                 {(providedDroppable, snapshotDroppable) => (
-                                  <div
-                                    ref={providedDroppable.innerRef}
-                                    {...providedDroppable.droppableProps}
-                                    className={cn(
-                                      "w-80 h-full bg-white rounded-lg shadow-md border-2 transition-all flex-shrink-0",
-                                      snapshotDroppable.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200',
-                                      snapshotDraggable.isDragging && 'opacity-50 rotate-2'
-                                    )}
-                                  >
-                                    <KanbanColumn
-                                      column={column}
-                                      proposals={columnProposals.map(proposal => ({
-                                        ...proposal,
-                                        __dragOverColumnColor: dragOverColor
-                                      }))}
-                                      provided={providedDroppable}
-                                      snapshot={snapshotDroppable}
-                                      onCardClick={handleCardClick}
-                                      onToggleCollapse={toggleColumnCollapse}
-                                      isCollapsed={isCollapsed}
-                                      organization={organization}
-                                      columnSort={columnSort}
-                                      onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
-                                      onClearSort={() => handleClearColumnSort(column.id)}
-                                      onDeleteColumn={handleDeleteColumn}
-                                      onRenameColumn={handleRenameColumn}
-                                      dragOverColumnColor={dragOverColor}
-                                      kanbanConfig={kanbanConfig}
-                                      onConfigureColumn={handleConfigureColumn}
-                                      user={user}
-                                      dragHandleProps={providedDraggable.dragHandleProps}
-                                      isDragging={snapshotDraggable.isDragging}
-                                      onCreateProposal={handleCreateProposalInColumn}
-                                    />
-                                  </div>
+                                  <KanbanColumn
+                                    column={column}
+                                    proposals={columnProposals}
+                                    provided={providedDroppable}
+                                    snapshot={snapshotDroppable}
+                                    onCardClick={handleCardClick}
+                                    onToggleCollapse={toggleColumnCollapse}
+                                    organization={organization}
+                                    onRenameColumn={handleRenameColumn}
+                                    onConfigureColumn={handleConfigureColumn}
+                                    user={user}
+                                    dragHandleProps={providedDraggable.dragHandleProps}
+                                    onCreateProposal={handleCreateProposalInColumn}
+                                  />
                                 )}
                               </Droppable>
                             )}
-
-                            <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
-                              <button
-                                onClick={() => handleAddColumn(index + 1)}
-                                className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                                title="Add new column after this one"
-                              >
-                                <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
-                              </button>
-                            </div>
                           </div>
                         )}
                       </Draggable>

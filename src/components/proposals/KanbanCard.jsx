@@ -1,17 +1,10 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,35 +26,37 @@ import {
 import {
   Calendar,
   DollarSign,
-  Users,
+  Building2,
   AlertCircle,
-  Clock,
   MoreVertical,
   Edit,
   Archive,
   Trash2,
-  Building2,
   CheckSquare,
   MessageCircle,
   Paperclip,
   Sparkles,
-  Target,
   PlayCircle,
   CheckCircle2,
   Circle,
-  Shield
+  Shield,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-import { motion } from "framer-motion";
 
-export default function KanbanCard({ proposal, provided, snapshot, onCardClick, isDragDisabled, column }) {
+export default function KanbanCard({ 
+  proposal, 
+  provided, 
+  snapshot, 
+  onCardClick, 
+  isDragDisabled, 
+  column 
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showQuickActions, setShowQuickActions] = useState(false); // New state for quick actions visibility
 
-  // Fetch tasks for this proposal
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks-count', proposal.id],
     queryFn: () => base44.entities.ProposalTask.filter({ proposal_id: proposal.id }),
@@ -69,7 +64,6 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
     initialData: []
   });
 
-  // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks-count', proposal.id],
     queryFn: () => base44.entities.ProposalSubtask.filter({ proposal_id: proposal.id }),
@@ -77,7 +71,6 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
     initialData: []
   });
 
-  // Fetch comments for this proposal
   const { data: comments = [] } = useQuery({
     queryKey: ['proposal-comments-count', proposal.id],
     queryFn: () => base44.entities.ProposalComment.filter({ proposal_id: proposal.id }),
@@ -85,7 +78,6 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
     initialData: []
   });
 
-  // Fetch files for this proposal
   const { data: files = [] } = useQuery({
     queryKey: ['proposal-files-count', proposal.id],
     queryFn: () => base44.entities.SolicitationDocument.filter({ proposal_id: proposal.id }),
@@ -93,58 +85,31 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
     initialData: []
   });
 
-  const progressPercentage = proposal.progress_summary?.completion_percentage || 0;
+  const checklistItems = column?.checklist_items || [];
+  const checklistStatus = proposal.current_stage_checklist_status?.[column?.id] || {};
+  const completedChecklistItems = checklistItems.filter(item => 
+    checklistStatus[item.id]?.completed
+  ).length;
+  const hasActionRequired = checklistItems.some(item => 
+    item.required && !checklistStatus[item.id]?.completed
+  );
+
+  const completedTasks = tasks.filter(t => t.status === 'completed').length + 
+                         subtasks.filter(s => s.status === 'completed').length;
+  const totalTasks = tasks.length + subtasks.length;
 
   const daysUntilDue = proposal.due_date ? moment(proposal.due_date).diff(moment(), 'days') : null;
   const isOverdue = proposal.due_date && moment(proposal.due_date).isBefore(moment(), 'day');
   const isDueSoon = !isOverdue && daysUntilDue !== null && daysUntilDue <= 7 && daysUntilDue >= 0;
 
-  const urgencyColor = isOverdue
-    ? 'bg-red-500'
-    : isDueSoon
-      ? 'bg-amber-500'
-      : 'bg-transparent';
-
-  // Get checklist items from column configuration
-  const checklistItems = column?.checklist_items || [];
-  const checklistStatus = proposal.current_stage_checklist_status?.[column?.id] || {};
-  
-  // Calculate checklist completion
-  const completedChecklistItems = checklistItems.filter(item => 
-    checklistStatus[item.id]?.completed
-  ).length;
-  const totalChecklistItems = checklistItems.length;
-  const checklistPercentage = totalChecklistItems > 0 
-    ? Math.round((completedChecklistItems / totalChecklistItems) * 100) 
-    : 0;
-
-  // Check if there are required incomplete items
-  const hasActionRequired = checklistItems.some(item => 
-    item.required && !checklistStatus[item.id]?.completed
-  );
-
-  // Calculate task counts
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const completedSubtasks = subtasks.filter(s => s.status === 'completed').length;
-  const totalTasks = tasks.length + subtasks.length;
-  const totalCompletedTasks = completedTasks + completedSubtasks;
-
   const updateProposalMutation = useMutation({
-    mutationFn: async (updates) => {
-      return base44.entities.Proposal.update(proposal.id, updates);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-    }
+    mutationFn: (updates) => base44.entities.Proposal.update(proposal.id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proposals'] })
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      return base44.entities.Proposal.delete(proposal.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-    }
+    mutationFn: () => base44.entities.Proposal.delete(proposal.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proposals'] })
   });
 
   const handleArchive = (e) => {
@@ -158,319 +123,276 @@ export default function KanbanCard({ proposal, provided, snapshot, onCardClick, 
     navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`);
   };
 
-  const handleDeleteClick = (e) => {
-    e.stopPropagation();
-    setShowDeleteDialog(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    deleteMutation.mutate();
-    setShowDeleteDialog(false);
-  };
-
   const handleCardClick = (e) => {
-    // Only prevent if clicking on interactive elements
-    const target = e.target;
-    const isButton = target.closest('button');
-    const isDropdown = target.closest('[role="menu"]');
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-    
-    if (isButton || isDropdown || isInput) {
-      return;
-    }
-    
-    // Call the parent's onCardClick handler
-    if (onCardClick) {
-      onCardClick(proposal);
-    }
+    if (e.target.closest('button') || e.target.closest('[role="menu"]')) return;
+    onCardClick?.(proposal);
   };
 
   return (
     <>
-      <div
+      <Card
         ref={provided.innerRef}
         {...provided.draggableProps}
         {...provided.dragHandleProps}
         onClick={handleCardClick}
-        onMouseEnter={() => setShowQuickActions(true)}
-        onMouseLeave={() => setShowQuickActions(false)}
-        style={{
-          ...provided.draggableProps.style,
-          // Important: Don't add any transform or transition styles here
-          // as they conflict with react-beautiful-dnd
-        }}
         className={cn(
-          "relative bg-white rounded-lg p-4 mb-3 cursor-pointer",
-          "border-2",
+          "relative cursor-pointer group transition-all",
           snapshot.isDragging 
-            ? "shadow-2xl border-blue-400" 
-            : proposal.action_required
-              ? "border-orange-300 hover:border-orange-400 hover:shadow-lg transition-shadow"
-              : "border-slate-200 hover:border-blue-300 hover:shadow-md transition-shadow",
-          isDragDisabled && "opacity-60 cursor-not-allowed",
-          !snapshot.isDragging && "group"
+            ? "shadow-2xl ring-2 ring-blue-400 rotate-2" 
+            : "shadow-sm hover:shadow-md",
+          hasActionRequired && "ring-2 ring-orange-400",
+          isDragDisabled && "opacity-60 cursor-not-allowed"
         )}
       >
-        {/* Drag Indicator - Only show when not disabled */}
-        {!isDragDisabled && (
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="flex flex-col gap-0.5">
-              <div className="w-1 h-1 rounded-full bg-slate-400" />
-              <div className="w-1 h-1 rounded-full bg-slate-400" />
-              <div className="w-1 h-1 rounded-full bg-slate-400" />
+        <CardContent className="p-4">
+          {/* Drag Indicator */}
+          {!isDragDisabled && (
+            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical className="w-4 h-4 text-slate-400" />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Disabled Indicator */}
-        {isDragDisabled && (
-          <div className="absolute top-2 right-2">
-            <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center" title="Restricted: Cannot move from this column">
-              <Shield className="w-4 h-4 text-orange-600" />
+          {/* Action Required Pulse */}
+          {hasActionRequired && (
+            <div className="absolute -top-2 -left-2 z-10">
+              <div className="relative">
+                <div className="absolute inset-0 bg-orange-500 rounded-full animate-ping opacity-75" />
+                <div className="relative w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                  <PlayCircle className="w-4 h-4 text-white" />
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Action Required Indicator - Top Left */}
-        {hasActionRequired && (
-          <div className="absolute -top-2 -left-2 z-10">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping-slow opacity-75" />
-              <PlayCircle className="relative w-6 h-6 text-red-600 bg-white rounded-full" title="Action Required" />
+          {/* Disabled Indicator */}
+          {isDragDisabled && (
+            <div className="absolute top-2 right-2">
+              <Shield className="w-5 h-5 text-orange-500" title="Cannot move from this column" />
             </div>
+          )}
+
+          {/* Three Dots Menu */}
+          <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={handleEdit}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Proposal
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleArchive}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archive
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(true); }} className="text-red-600">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        )}
 
-        {/* Three Dots Menu - Top Right */}
-        <div className="absolute top-2 right-2 z-10">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <MoreVertical className="w-4 h-4 text-slate-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={handleEdit}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Proposal
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleArchive} className="text-slate-600">
-                <Archive className="w-4 h-4 mr-2" />
-                Move to Archived
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          {/* Card Content */}
+          <div className="space-y-3 pr-6">
+            {/* Title */}
+            <div>
+              <h4 className="font-semibold text-slate-900 text-sm line-clamp-2 mb-1">
+                {proposal.proposal_name}
+              </h4>
+              {proposal.solicitation_number && (
+                <p className="text-xs text-slate-500 font-mono">
+                  {proposal.solicitation_number}
+                </p>
+              )}
+            </div>
 
-        {/* Card Content */}
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3 pr-8">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-normal text-slate-900 text-sm mb-1 truncate">
-              {proposal.proposal_name}
-            </h3>
-            {proposal.solicitation_number && (
-              <p className="text-xs text-slate-500 font-mono">
-                {proposal.solicitation_number}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Agency & Project Title */}
-        {(proposal.agency_name || proposal.project_title) && (
-          <div className="mb-3 space-y-1">
-            {proposal.agency_name && (
-              <div className="flex items-center gap-1 text-xs text-slate-600">
-                <Building2 className="w-3 h-3" />
-                <span className="truncate">{proposal.agency_name}</span>
+            {/* Agency & Project */}
+            {(proposal.agency_name || proposal.project_title) && (
+              <div className="space-y-1">
+                {proposal.agency_name && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{proposal.agency_name}</span>
+                  </div>
+                )}
+                {proposal.project_title && (
+                  <p className="text-xs text-slate-600 line-clamp-2 pl-5">
+                    {proposal.project_title}
+                  </p>
+                )}
               </div>
             )}
-            {proposal.project_title && (
-              <p className="text-xs text-slate-600 line-clamp-2">
-                {proposal.project_title}
-              </p>
-            )}
-          </div>
-        )}
 
-        {/* Checklist Display (if any items exist) */}
-        {totalChecklistItems > 0 && (
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-700">Stage Checklist</span>
-              <span className="text-xs text-slate-600">{completedChecklistItems}/{totalChecklistItems}</span>
-            </div>
-            <div className="space-y-1">
-              {checklistItems.slice(0, 3).map((item) => {
-                const isCompleted = checklistStatus[item.id]?.completed;
-                return (
-                  <div key={item.id} className="flex items-center gap-2 text-xs">
-                    {isCompleted ? (
-                      <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />
-                    ) : item.required ? (
-                      <Circle className="w-3 h-3 text-red-500 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-3 h-3 text-slate-300 flex-shrink-0" />
+            {/* Checklist */}
+            {checklistItems.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-700">Checklist</span>
+                  <span className="text-xs text-slate-600">{completedChecklistItems}/{checklistItems.length}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {checklistItems.slice(0, 3).map((item) => {
+                    const isCompleted = checklistStatus[item.id]?.completed;
+                    return (
+                      <div key={item.id} className="flex items-start gap-2">
+                        {isCompleted ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" />
+                        ) : item.required ? (
+                          <Circle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <Circle className="w-3.5 h-3.5 text-slate-300 flex-shrink-0 mt-0.5" />
+                        )}
+                        <span className={cn(
+                          "text-xs leading-tight",
+                          isCompleted ? "text-slate-400 line-through" : "text-slate-700"
+                        )}>
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {checklistItems.length > 3 && (
+                    <p className="text-xs text-slate-500 pl-5.5">+{checklistItems.length - 3} more</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Progress Bar */}
+            {proposal.progress_summary?.completion_percentage >= 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600">Progress</span>
+                  <span className="text-xs font-semibold text-slate-900">
+                    {proposal.progress_summary.completion_percentage}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div
+                    className={cn(
+                      "h-2 rounded-full transition-all",
+                      proposal.progress_summary.completion_percentage === 100 ? 'bg-green-500' :
+                      proposal.progress_summary.completion_percentage >= 75 ? 'bg-blue-500' :
+                      proposal.progress_summary.completion_percentage >= 50 ? 'bg-yellow-500' :
+                      'bg-orange-500'
                     )}
-                    <span className={cn(
-                      "truncate",
-                      isCompleted ? "text-slate-400 line-through" : "text-slate-700"
-                    )}>
-                      {item.label}
-                    </span>
-                  </div>
-                );
-              })}
-              {checklistItems.length > 3 && (
-                <p className="text-xs text-slate-500 pl-5">+{checklistItems.length - 3} more</p>
+                    style={{ width: `${proposal.progress_summary.completion_percentage}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Metadata Icons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {totalTasks > 0 && (
+                <Badge variant="secondary" className="text-xs font-medium">
+                  <CheckSquare className="w-3 h-3 mr-1" />
+                  {completedTasks}/{totalTasks}
+                </Badge>
+              )}
+
+              {comments.length > 0 && (
+                <Badge variant="secondary" className="text-xs font-medium">
+                  <MessageCircle className="w-3 h-3 mr-1" />
+                  {comments.length}
+                </Badge>
+              )}
+
+              {files.length > 0 && (
+                <Badge variant="secondary" className="text-xs font-medium">
+                  <Paperclip className="w-3 h-3 mr-1" />
+                  {files.length}
+                </Badge>
+              )}
+
+              {(proposal.evaluation_results || proposal.ai_confidence_score) && (
+                <Badge variant="secondary" className="text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  AI
+                </Badge>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+              {proposal.due_date && (
+                <div className={cn(
+                  "flex items-center gap-1.5 text-xs",
+                  isOverdue ? 'text-red-600 font-semibold' :
+                  isDueSoon ? 'text-orange-600 font-semibold' :
+                  'text-slate-600'
+                )}>
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>
+                    {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` :
+                     isDueSoon ? `${daysUntilDue}d left` :
+                     moment(proposal.due_date).format('MMM D')}
+                  </span>
+                </div>
+              )}
+
+              {proposal.contract_value && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 ml-auto">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span className="font-medium">
+                    ${(proposal.contract_value / 1000000).toFixed(1)}M
+                  </span>
+                </div>
               )}
             </div>
           </div>
-        )}
 
-        {/* Progress Bar */}
-        {progressPercentage >= 0 && (
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-slate-600">Overall Progress</span>
-              <span className="text-xs font-semibold text-slate-700">{progressPercentage}%</span>
-            </div>
-            <div className="w-full bg-slate-200 rounded-full h-1.5">
-              <div
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  progressPercentage === 100 ? 'bg-green-500' :
-                  progressPercentage >= 75 ? 'bg-blue-500' :
-                  progressPercentage >= 50 ? 'bg-yellow-500' :
-                  'bg-orange-500'
-                )}
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Quick Access Icons */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          {/* Tasks */}
-          {totalTasks > 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded text-xs">
-              <CheckSquare className="w-3 h-3 text-blue-600" />
-              <span className="text-blue-700 font-medium">{totalCompletedTasks}/{totalTasks}</span>
-            </div>
-          )}
-
-          {/* Comments/Discussions */}
-          {comments.length > 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 rounded text-xs">
-              <MessageCircle className="w-3 h-3 text-purple-600" />
-              <span className="text-purple-700 font-medium">{comments.length}</span>
-            </div>
-          )}
-
-          {/* Files */}
-          {files.length > 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded text-xs">
-              <Paperclip className="w-3 h-3 text-green-600" />
-              <span className="text-green-700 font-medium">{files.length}</span>
-            </div>
-          )}
-
-          {/* AI Insights (if evaluation or confidence score exists) */}
-          {(proposal.evaluation_results || proposal.ai_confidence_score) && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 rounded text-xs">
-              <Sparkles className="w-3 h-3 text-indigo-600" />
-              <span className="text-indigo-700 font-medium">AI</span>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs">
-          {/* Due Date */}
-          {proposal.due_date && (
+          {/* Urgency Corner Indicator */}
+          {(isOverdue || isDueSoon) && (
             <div className={cn(
-              "flex items-center gap-1",
-              isOverdue ? 'text-red-600 font-semibold' :
-              isDueSoon ? 'text-amber-600 font-semibold' :
-              'text-slate-600'
-            )}>
-              <Calendar className="w-3 h-3" />
-              <span>
-                {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` :
-                 isDueSoon ? `${daysUntilDue}d left` :
-                 moment(proposal.due_date).format('MMM D')}
-              </span>
-            </div>
+              "absolute top-0 right-0 w-0 h-0 border-t-[24px] border-r-[24px] rounded-tr-lg",
+              isOverdue ? "border-t-red-500 border-r-red-500" : "border-t-orange-400 border-r-orange-400"
+            )} />
           )}
+        </CardContent>
+      </Card>
 
-          {/* Contract Value */}
-          {proposal.contract_value && (
-            <div className="flex items-center gap-1 text-slate-600">
-              <DollarSign className="w-3 h-3" />
-              <span>${(proposal.contract_value / 1000000).toFixed(1)}M</span>
-            </div>
-          )}
-        </div>
-
-        {/* Urgency Indicator */}
-        {(isOverdue || isDueSoon) && (
-          <div className={cn(
-            "absolute top-0 right-0 w-3 h-3 rounded-bl-lg",
-            urgencyColor
-          )} />
-        )}
-      </div>
-
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="w-5 h-5" />
-              Delete Proposal Permanently?
+              Delete Proposal?
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p className="font-semibold text-slate-900">
-                You are about to permanently delete:
-              </p>
-              <p className="text-base font-bold text-red-600">
                 "{proposal.proposal_name}"
               </p>
-              <div className="p-3 bg-red-50 border-l-4 border-red-600 rounded">
-                <p className="text-red-900 font-semibold">
-                  ⚠️ WARNING: This action cannot be undone!
+              <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded">
+                <p className="text-red-900 font-semibold text-sm">
+                  ⚠️ This cannot be undone!
                 </p>
                 <p className="text-red-800 text-sm mt-2">
-                  All proposal data including sections, comments, tasks, files, and history will be permanently deleted and is NOT retrievable.
+                  All data will be permanently deleted.
                 </p>
               </div>
-              <p className="text-slate-700">
-                Are you absolutely sure you want to proceed?
-              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteConfirm();
+                deleteMutation.mutate();
+                setShowDeleteDialog(false);
               }}
               className="bg-red-600 hover:bg-red-700"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Yes, Delete Permanently
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -8,26 +8,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   MoreVertical,
   Lock,
   AlertCircle,
-  Sparkles,
   ChevronLeft,
-  ChevronDown,
   Settings,
   Shield,
   CheckCircle,
   FileText,
   Check,
-  X
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
 
-// Helper function
 function getUserRole(user) {
   if (!user) return 'viewer';
   if (user.role === 'admin') return 'organization_owner';
@@ -41,19 +37,11 @@ export default function KanbanColumn({
   snapshot,
   onCardClick,
   onToggleCollapse,
-  isCollapsed,
   organization,
-  columnSort,
-  onSortChange,
-  onClearSort,
-  onDeleteColumn,
   onRenameColumn,
-  dragOverColumnColor,
-  kanbanConfig,
   onConfigureColumn,
   user,
   dragHandleProps,
-  isDragging,
   onCreateProposal,
 }) {
   const proposalCount = proposals.length;
@@ -61,7 +49,6 @@ export default function KanbanColumn({
   const [editedName, setEditedName] = useState(column.label);
   const inputRef = useRef(null);
 
-  // Focus input when editing starts
   useEffect(() => {
     if (isEditingName && inputRef.current) {
       inputRef.current.focus();
@@ -69,19 +56,18 @@ export default function KanbanColumn({
     }
   }, [isEditingName]);
 
-  // Check user permissions for this column
   const currentUserRole = getUserRole(user);
-  const canDragToHere = !column.can_drag_to_here_roles || column.can_drag_to_here_roles.length === 0 ||
+  const canDragToHere = !column.can_drag_to_here_roles?.length || 
                         column.can_drag_to_here_roles.includes(currentUserRole);
-  const canDragFromHere = !column.can_drag_from_here_roles || column.can_drag_from_here_roles.length === 0 ||
+  const canDragFromHere = !column.can_drag_from_here_roles?.length || 
                           column.can_drag_from_here_roles.includes(currentUserRole);
 
-  // Check WIP limit status
   const wipLimit = column.wip_limit || 0;
   const isAtWipLimit = wipLimit > 0 && proposalCount >= wipLimit;
   const isNearWipLimit = wipLimit > 0 && proposalCount >= wipLimit * 0.8 && proposalCount < wipLimit;
 
-  const handleNameClick = () => {
+  const handleNameClick = (e) => {
+    e.stopPropagation();
     if (!column.is_locked) {
       setIsEditingName(true);
       setEditedName(column.label);
@@ -108,182 +94,177 @@ export default function KanbanColumn({
     }
   };
 
-  const handleCreateProposalInColumn = () => {
-    if (onCreateProposal) {
-      onCreateProposal(column);
-    }
-  };
-
   return (
     <div
       ref={provided.innerRef}
       {...provided.droppableProps}
-      className={cn(
-        "flex flex-col rounded-xl border-2 transition-all duration-200 overflow-hidden",
-        snapshot.isDraggingOver
-          ? "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
-          : "border-slate-200 bg-white shadow-md"
-      )}
-      style={{ minWidth: "320px", maxWidth: "320px" }}
+      className="flex flex-col h-full w-80 flex-shrink-0"
     >
-      {/* Column Header with Gradient Banner */}
+      {/* Column Header */}
       <div 
         {...(dragHandleProps || {})}
         className={cn(
-          "relative p-4 bg-gradient-to-r",
+          "relative bg-gradient-to-r rounded-t-xl",
           column.color || "from-slate-400 to-slate-600",
           !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
-        title={!column.is_locked ? "Drag to reorder column" : undefined}
       >
-        <div className="flex items-center gap-3">
-          {/* Collapse/Expand Button */}
-          <button
-            onClick={() => onToggleCollapse(column.id)}
-            className="hover:bg-white/20 p-1.5 rounded-lg transition-colors flex-shrink-0"
-            title={isCollapsed ? "Expand column" : "Collapse column"}
-          >
-            <ChevronLeft className={cn(
-              "w-5 h-5 text-white transition-transform",
-              isCollapsed && "rotate-180"
-            )} />
-          </button>
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            {/* Collapse Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onToggleCollapse(column.id)}
+              className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
+              title={isEditingName ? "Collapse column" : "Expand column"}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
 
-          {/* Column Name & Count */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            {/* Column Title */}
+            <div className="flex-1 min-w-0">
               {isEditingName ? (
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2">
                   <Input
                     ref={inputRef}
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
                     onKeyDown={handleKeyDown}
                     onBlur={handleNameSave}
-                    className="h-8 text-lg font-bold bg-white/90 border-white"
+                    className="h-9 bg-white text-slate-900 font-semibold border-2 border-white/30"
                   />
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={handleNameSave}
-                    className="p-1 hover:bg-white/30 rounded"
+                    className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
                     title="Save"
                   >
-                    <Check className="w-4 h-4 text-white" />
-                  </button>
-                  <button
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={handleNameCancel}
-                    className="p-1 hover:bg-white/30 rounded"
+                    className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
                     title="Cancel"
                   >
-                    <X className="w-4 h-4 text-white" />
-                  </button>
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
               ) : (
-                <h3 
-                  className={cn(
-                    "font-bold text-white text-lg truncate flex items-center gap-2",
-                    !column.is_locked && "cursor-pointer hover:opacity-80"
-                  )}
+                <button
                   onClick={handleNameClick}
-                  title={!column.is_locked ? "Click to rename column" : undefined}
+                  className={cn(
+                    "text-left w-full group",
+                    !column.is_locked && "cursor-pointer"
+                  )}
+                  disabled={column.is_locked}
                 >
-                  {column.label}
-                  <span className="text-sm font-normal opacity-90">
-                    {proposalCount}
-                  </span>
-                </h3>
+                  <h3 className={cn(
+                    "font-bold text-white text-lg truncate",
+                    !column.is_locked && "group-hover:opacity-90 transition-opacity"
+                  )}>
+                    {column.label}
+                  </h3>
+                  <p className="text-white/80 text-sm mt-0.5">
+                    {proposalCount} {proposalCount === 1 ? 'proposal' : 'proposals'}
+                  </p>
+                </button>
               )}
             </div>
 
-            {/* Status Badges - Only show non-lock badges */}
-            {(wipLimit > 0 || !canDragFromHere || column.requires_approval_to_exit) && (
-              <div className="flex items-center gap-2 flex-wrap mt-2">
-                {/* WIP Limit Indicator */}
-                {wipLimit > 0 && (
-                  <Badge
-                    className={cn(
-                      "text-xs backdrop-blur-sm",
-                      isAtWipLimit ? "bg-red-100/90 text-red-700 border-red-300" :
-                      isNearWipLimit ? "bg-yellow-100/90 text-yellow-700 border-yellow-300" :
-                      "bg-white/20 text-white border-white/30"
-                    )}
-                  >
-                    WIP: {proposalCount}/{wipLimit}
-                    {column.wip_limit_type === 'hard' && (
-                      <AlertCircle className="w-3 h-3 ml-1 inline" />
-                    )}
-                  </Badge>
-                )}
-
-                {/* RBAC Indicators */}
-                {!canDragFromHere && (
-                  <Badge className="bg-orange-100/90 text-orange-700 border-orange-300 text-xs backdrop-blur-sm">
-                    <Shield className="w-3 h-3 mr-1" />
-                    Protected Exit
-                  </Badge>
-                )}
-
-                {column.requires_approval_to_exit && (
-                  <Badge className="bg-amber-100/90 text-amber-700 border-amber-300 text-xs backdrop-blur-sm">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Approval Gate
-                  </Badge>
-                )}
+            {/* Lock Icon */}
+            {column.is_locked && (
+              <div 
+                className="flex-shrink-0 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                title="This column is locked"
+              >
+                <Lock className="w-5 h-5 text-white" />
               </div>
             )}
+
+            {/* Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
+                  title="Column options"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={onConfigureColumn}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Configure Column
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* Lock Icon (if locked) */}
-          {column.is_locked && (
-            <div 
-              className="flex-shrink-0 hover:bg-white/20 p-1.5 rounded-lg transition-colors"
-              title="This column is locked"
-            >
-              <Lock className="w-5 h-5 text-white" />
+          {/* Status Badges */}
+          {(wipLimit > 0 || !canDragFromHere || column.requires_approval_to_exit) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {wipLimit > 0 && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-xs font-medium",
+                    isAtWipLimit ? "bg-red-500/90 text-white hover:bg-red-500" :
+                    isNearWipLimit ? "bg-yellow-500/90 text-white hover:bg-yellow-500" :
+                    "bg-white/20 text-white hover:bg-white/30 border-white/30"
+                  )}
+                >
+                  {column.wip_limit_type === 'hard' && (
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                  )}
+                  WIP: {proposalCount}/{wipLimit}
+                </Badge>
+              )}
+
+              {!canDragFromHere && (
+                <Badge variant="secondary" className="bg-orange-500/90 text-white hover:bg-orange-500 text-xs font-medium">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Protected
+                </Badge>
+              )}
+
+              {column.requires_approval_to_exit && (
+                <Badge variant="secondary" className="bg-amber-500/90 text-white hover:bg-amber-500 text-xs font-medium">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Approval
+                </Badge>
+              )}
             </div>
           )}
-
-          {/* Column Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 hover:bg-white/20 text-white">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onConfigureColumn}>
-                <Settings className="w-4 h-4 mr-2" />
-                Configure Column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
-      {/* Column Content */}
-      {!isCollapsed && (
-        <div
-          className="flex-1 p-3 space-y-3 overflow-y-auto bg-slate-50"
-          style={{ maxHeight: "calc(100vh - 280px)" }}
-        >
-          {/* RBAC Warning */}
+      {/* Column Body */}
+      <div className="flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden">
+        <div className="h-full overflow-y-auto p-3 space-y-3">
+          {/* Warnings */}
           {!canDragToHere && proposalCount > 0 && (
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg mb-3">
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
               <div className="flex items-start gap-2">
                 <Shield className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-orange-800">
-                  <strong>Restricted Access:</strong> Only {column.can_drag_to_here_roles?.join(', ')} can move proposals here.
+                <p className="text-xs text-orange-900">
+                  <strong>Restricted:</strong> Only {column.can_drag_to_here_roles?.join(', ')} can move proposals here.
                 </p>
               </div>
             </div>
           )}
 
-          {/* WIP Limit Warning */}
           {isAtWipLimit && column.wip_limit_type === 'hard' && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-800">
-                  <strong>WIP Limit Reached:</strong> Cannot add more proposals until others are moved out.
+                <p className="text-xs text-red-900">
+                  <strong>WIP Limit:</strong> Cannot add more until others are moved out.
                 </p>
               </div>
             </div>
@@ -292,13 +273,17 @@ export default function KanbanColumn({
           {/* Empty State */}
           {proposalCount === 0 ? (
             <button 
-              onClick={handleCreateProposalInColumn}
-              className="text-center py-12 px-4 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer w-full group"
+              onClick={() => onCreateProposal && onCreateProposal(column)}
+              className="w-full p-8 hover:bg-slate-100 rounded-lg transition-all group border-2 border-dashed border-slate-300 hover:border-blue-400"
               title="Click to create a new proposal"
             >
               <FileText className="w-12 h-12 text-slate-300 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
-              <p className="text-sm text-slate-500 group-hover:text-blue-600 transition-colors">No proposals yet</p>
-              <p className="text-xs text-slate-400 mt-1 group-hover:text-blue-500">Click to add a proposal</p>
+              <p className="text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">
+                No proposals yet
+              </p>
+              <p className="text-xs text-slate-400 mt-1 group-hover:text-blue-500 transition-colors">
+                Click to add one
+              </p>
             </button>
           ) : (
             proposals.map((proposal, index) => (
@@ -309,11 +294,11 @@ export default function KanbanColumn({
                 type="card"
                 isDragDisabled={!canDragFromHere}
               >
-                {(provided, snapshot) => (
+                {(cardProvided, cardSnapshot) => (
                   <KanbanCard
                     proposal={proposal}
-                    provided={provided}
-                    snapshot={snapshot}
+                    provided={cardProvided}
+                    snapshot={cardSnapshot}
                     isDragDisabled={!canDragFromHere}
                     column={column}
                     onCardClick={onCardClick}
@@ -324,14 +309,7 @@ export default function KanbanColumn({
           )}
           {provided.placeholder}
         </div>
-      )}
-
-      {/* Collapsed State */}
-      {isCollapsed && (
-        <div className="p-4 text-center bg-slate-50">
-          <p className="text-sm text-slate-500">{proposalCount} proposals</p>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
