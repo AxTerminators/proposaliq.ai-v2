@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -48,11 +49,36 @@ export default function OnboardingGuide() {
   const handleAddSampleData = async () => {
     setIsGeneratingSample(true);
     try {
-      await base44.functions.invoke('generateSampleData', {});
-      navigate(createPageUrl("Dashboard"));
+      console.log('[OnboardingGuide] Starting sample data generation...');
+      
+      // Call the function to generate sample data
+      const response = await base44.functions.invoke('generateSampleData', {});
+      
+      console.log('[OnboardingGuide] Sample data generation response:', response);
+      
+      // Check if the response indicates success
+      if (response.data?.success) {
+        console.log('[OnboardingGuide] Sample data generated successfully, navigating to Dashboard');
+        
+        // Add a small delay to ensure data propagation
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Navigate to Dashboard
+        navigate(createPageUrl("Dashboard"));
+      } else {
+        throw new Error(response.data?.message || 'Failed to generate sample data');
+      }
     } catch (error) {
-      console.error("Error generating sample data:", error);
-      alert("There was an error generating sample data. Please try again.");
+      console.error("[OnboardingGuide] Error generating sample data:", error);
+      
+      // Show user-friendly error message
+      alert(
+        "There was an error generating sample data. This might be due to:\n\n" +
+        "• A temporary network issue\n" +
+        "• The function taking longer than expected\n\n" +
+        "Please try again. If the problem persists, you can skip sample data and start fresh."
+      );
+      
       setIsGeneratingSample(false);
     }
   };
@@ -314,6 +340,35 @@ export default function OnboardingGuide() {
         <div className="text-center text-xs text-slate-400 mt-4">
           Debug: Current Step = {currentStep}, Total Steps = {totalSteps}
         </div>
+
+        {/* Loading Overlay */}
+        {isGeneratingSample && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+            <Card className="max-w-md border-none shadow-2xl">
+              <CardContent className="p-12 text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 relative">
+                  <Database className="w-10 h-10 text-white animate-pulse" />
+                  <div className="absolute inset-0 bg-blue-600 rounded-2xl animate-ping opacity-20" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                  Creating Your Sample Data
+                </h3>
+                <p className="text-slate-600 mb-6">
+                  We're setting up sample proposals, tasks, resources, and more for you to explore. 
+                  This will take about 10-15 seconds...
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <p className="text-xs text-slate-500 mt-6">
+                  Please don't close this window
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
