@@ -60,15 +60,6 @@ const ONBOARDING_STEPS = [
     icon: Briefcase,
     color: "text-indigo-600",
     bgColor: "bg-indigo-50"
-  },
-  {
-    id: 6,
-    title: "Ready to Get Started?",
-    description: "Choose how you'd like to begin your ProposalIQ journey.",
-    icon: Rocket,
-    color: "text-rose-600",
-    bgColor: "bg-rose-50",
-    isChoice: true
   }
 ];
 
@@ -88,10 +79,14 @@ export default function OnboardingGuide() {
   }, []);
 
   const handleNext = () => {
-    if (currentStep < ONBOARDING_STEPS.length) {
+    if (currentStep < 5) {
       const nextStep = currentStep + 1;
       console.log('[OnboardingGuide] Moving to step:', nextStep);
       setCurrentStep(nextStep);
+    } else if (currentStep === 5) {
+      // Transition to choice step
+      console.log('[OnboardingGuide] Moving to choice step (6)');
+      setCurrentStep(6);
     }
   };
 
@@ -128,13 +123,12 @@ export default function OnboardingGuide() {
     }
   };
 
-  const currentStepData = ONBOARDING_STEPS[currentStep - 1];
-  const Icon = currentStepData?.icon || Sparkles;
-  const progress = (currentStep / ONBOARDING_STEPS.length) * 100;
-  const isChoiceStep = currentStep === 6;
+  const currentStepData = currentStep <= 5 ? ONBOARDING_STEPS[currentStep - 1] : null;
+  const Icon = currentStepData?.icon || Rocket;
+  const totalSteps = 6;
+  const progress = (currentStep / totalSteps) * 100;
 
-  // Debug log
-  console.log('[OnboardingGuide] Current step:', currentStep, 'Is choice step:', isChoiceStep);
+  console.log('[OnboardingGuide] Rendering - currentStep:', currentStep, 'totalSteps:', totalSteps);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6">
@@ -150,7 +144,7 @@ export default function OnboardingGuide() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-slate-700">
-              Step {currentStep} of {ONBOARDING_STEPS.length}
+              Step {currentStep} of {totalSteps}
             </span>
             <span className="text-sm text-slate-600">{Math.round(progress)}% Complete</span>
           </div>
@@ -164,139 +158,149 @@ export default function OnboardingGuide() {
 
         <Card className="border-none shadow-2xl mb-6">
           <CardContent className="p-12">
-            <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mb-6", currentStepData?.bgColor || "bg-blue-50")}>
-              <Icon className={cn("w-8 h-8", currentStepData?.color || "text-blue-600")} />
-            </div>
-
-            <h2 className="text-3xl font-bold text-slate-900 mb-4">
-              {currentStepData?.title || "Loading..."}
-            </h2>
-            <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-              {currentStepData?.description || ""}
-            </p>
-
-            {/* CHOICE STEP - EXPLICITLY CHECK FOR STEP 6 */}
-            {isChoiceStep && (
-              <div className="space-y-4">
-                <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all bg-gradient-to-br from-blue-50 to-indigo-50">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Database className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">
-                          Add Sample Data to Learn ProposalIQ
-                        </h3>
-                        <p className="text-slate-600 mb-4">
-                          We'll populate your account with sample proposals, tasks, and resources so you can explore 
-                          all features hands-on. Perfect if you want to learn by doing.
-                        </p>
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                          <p className="text-sm text-amber-800 flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <span>
-                              <strong>Note:</strong> You won't be able to add real data until sample data is cleared. 
-                              All sample data is clearly marked with (SAMPLE) badges.
-                            </span>
-                          </p>
-                        </div>
-                        <Button
-                          onClick={handleAddSampleData}
-                          disabled={isGeneratingSample || isSkippingSample}
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                          size="lg"
-                        >
-                          {isGeneratingSample ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                              Generating Sample Data...
-                            </>
-                          ) : (
-                            <>
-                              <Database className="w-5 h-5 mr-2" />
-                              Add Sample Data & Explore
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-2 border-green-200 hover:border-green-400 transition-all bg-gradient-to-br from-green-50 to-emerald-50">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Rocket className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">
-                          Bypass Sample Data - I'm Ready to Go
-                        </h3>
-                        <p className="text-slate-600 mb-4">
-                          Skip the sample data and jump straight into setting up your organization and creating 
-                          your first real proposal. Perfect if you're already familiar with similar tools.
-                        </p>
-                        <Button
-                          onClick={handleBypassSampleData}
-                          disabled={isGeneratingSample || isSkippingSample}
-                          className="w-full bg-green-600 hover:bg-green-700"
-                          size="lg"
-                        >
-                          {isSkippingSample ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                              Setting Up...
-                            </>
-                          ) : (
-                            <>
-                              <Rocket className="w-5 h-5 mr-2" />
-                              Start Fresh - No Sample Data
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* REGULAR NAVIGATION FOR STEPS 1-5 */}
-            {!isChoiceStep && (
-              <div className="flex items-center justify-between pt-6 border-t">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentStep === 1}
-                  size="lg"
-                >
-                  Previous
-                </Button>
-
-                <div className="flex gap-2">
-                  {ONBOARDING_STEPS.map((step) => (
-                    <div
-                      key={step.id}
-                      className={cn(
-                        "w-2 h-2 rounded-full transition-all",
-                        step.id === currentStep ? "bg-blue-600 w-8" : "bg-slate-300"
-                      )}
-                    />
-                  ))}
+            {currentStep <= 5 ? (
+              <>
+                <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mb-6", currentStepData?.bgColor || "bg-blue-50")}>
+                  <Icon className={cn("w-8 h-8", currentStepData?.color || "text-blue-600")} />
                 </div>
 
-                <Button
-                  onClick={handleNext}
-                  disabled={currentStep >= ONBOARDING_STEPS.length}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  size="lg"
-                >
-                  Next
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </div>
+                <h2 className="text-3xl font-bold text-slate-900 mb-4">
+                  {currentStepData?.title || "Loading..."}
+                </h2>
+                <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+                  {currentStepData?.description || ""}
+                </p>
+
+                <div className="flex items-center justify-between pt-6 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentStep === 1}
+                    size="lg"
+                  >
+                    Previous
+                  </Button>
+
+                  <div className="flex gap-2">
+                    {Array.from({ length: totalSteps }).map((_, index) => (
+                      <div
+                        key={index + 1}
+                        className={cn(
+                          "w-2 h-2 rounded-full transition-all",
+                          (index + 1) === currentStep ? "bg-blue-600 w-8" : "bg-slate-300"
+                        )}
+                      />
+                    ))}
+                  </div>
+
+                  <Button
+                    onClick={handleNext}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    size="lg"
+                  >
+                    Next
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mb-6">
+                  <Rocket className="w-8 h-8 text-rose-600" />
+                </div>
+
+                <h2 className="text-3xl font-bold text-slate-900 mb-4">
+                  Ready to Get Started?
+                </h2>
+                <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+                  Choose how you'd like to begin your ProposalIQ journey.
+                </p>
+
+                <div className="space-y-4">
+                  <Card className="border-2 border-blue-200 hover:border-blue-400 transition-all bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Database className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-slate-900 mb-2">
+                            Add Sample Data to Learn ProposalIQ
+                          </h3>
+                          <p className="text-slate-600 mb-4">
+                            We'll populate your account with sample proposals, tasks, and resources so you can explore 
+                            all features hands-on. Perfect if you want to learn by doing.
+                          </p>
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-amber-800 flex items-start gap-2">
+                              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                              <span>
+                                <strong>Note:</strong> You won't be able to add real data until sample data is cleared. 
+                                All sample data is clearly marked with (SAMPLE) badges.
+                              </span>
+                            </p>
+                          </div>
+                          <Button
+                            onClick={handleAddSampleData}
+                            disabled={isGeneratingSample || isSkippingSample}
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                            size="lg"
+                          >
+                            {isGeneratingSample ? (
+                              <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                Generating Sample Data...
+                              </>
+                            ) : (
+                              <>
+                                <Database className="w-5 h-5 mr-2" />
+                                Add Sample Data & Explore
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-green-200 hover:border-green-400 transition-all bg-gradient-to-br from-green-50 to-emerald-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Rocket className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-slate-900 mb-2">
+                            Bypass Sample Data - I'm Ready to Go
+                          </h3>
+                          <p className="text-slate-600 mb-4">
+                            Skip the sample data and jump straight into setting up your organization and creating 
+                            your first real proposal. Perfect if you're already familiar with similar tools.
+                          </p>
+                          <Button
+                            onClick={handleBypassSampleData}
+                            disabled={isGeneratingSample || isSkippingSample}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                            size="lg"
+                          >
+                            {isSkippingSample ? (
+                              <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                Setting Up...
+                              </>
+                            ) : (
+                              <>
+                                <Rocket className="w-5 h-5 mr-2" />
+                                Start Fresh - No Sample Data
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
