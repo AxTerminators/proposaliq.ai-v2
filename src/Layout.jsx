@@ -198,6 +198,16 @@ function LayoutContent({ children }) {
         .animate-ping-slow {
           animation: ping-slow 10s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
+
+        /* Instant tooltips - remove delay */
+        [title] {
+          position: relative;
+        }
+        
+        /* Force instant tooltip display - browser-level optimization */
+        * {
+          tooltip-delay: 0ms !important;
+        }
       `}</style>
 
       {/* Desktop Sidebar */}
@@ -411,7 +421,6 @@ function LayoutContent({ children }) {
                       style={{ width: `${tokenPercentage}%` }}
                     />
                   </div>
-                </div>
                 <Link to={createPageUrl("Settings")}>
                   <Button variant="outline" size="sm" className="w-full">
                     <CreditCard className="w-4 h-4 mr-2" title="Manage plan" />
@@ -419,6 +428,7 @@ function LayoutContent({ children }) {
                   </Button>
                 </Link>
               </div>
+            </div>
             </div>
           )}
         </div>
