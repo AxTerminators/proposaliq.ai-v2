@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,7 @@ export default function KanbanColumn({
 
           {/* Column Name & Count */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2">
               <h3 className="font-bold text-white text-lg truncate flex items-center gap-2">
                 {column.label}
                 <span className="text-sm font-normal opacity-90">
@@ -106,47 +107,50 @@ export default function KanbanColumn({
               </h3>
             </div>
 
-            {/* Status Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {column.is_locked && (
-                <Badge className="bg-white/20 text-white border-white/30 text-xs backdrop-blur-sm">
-                  <Lock className="w-3 h-3" />
-                </Badge>
-              )}
+            {/* Status Badges - Only show non-lock badges */}
+            {(wipLimit > 0 || !canDragFromHere || column.requires_approval_to_exit) && (
+              <div className="flex items-center gap-2 flex-wrap mt-2">
+                {/* WIP Limit Indicator */}
+                {wipLimit > 0 && (
+                  <Badge
+                    className={cn(
+                      "text-xs backdrop-blur-sm",
+                      isAtWipLimit ? "bg-red-100/90 text-red-700 border-red-300" :
+                      isNearWipLimit ? "bg-yellow-100/90 text-yellow-700 border-yellow-300" :
+                      "bg-white/20 text-white border-white/30"
+                    )}
+                  >
+                    WIP: {proposalCount}/{wipLimit}
+                    {column.wip_limit_type === 'hard' && (
+                      <AlertCircle className="w-3 h-3 ml-1 inline" />
+                    )}
+                  </Badge>
+                )}
 
-              {/* WIP Limit Indicator */}
-              {wipLimit > 0 && (
-                <Badge
-                  className={cn(
-                    "text-xs backdrop-blur-sm",
-                    isAtWipLimit ? "bg-red-100/90 text-red-700 border-red-300" :
-                    isNearWipLimit ? "bg-yellow-100/90 text-yellow-700 border-yellow-300" :
-                    "bg-white/20 text-white border-white/30"
-                  )}
-                >
-                  WIP: {proposalCount}/{wipLimit}
-                  {column.wip_limit_type === 'hard' && (
-                    <AlertCircle className="w-3 h-3 ml-1 inline" />
-                  )}
-                </Badge>
-              )}
+                {/* RBAC Indicators */}
+                {!canDragFromHere && (
+                  <Badge className="bg-orange-100/90 text-orange-700 border-orange-300 text-xs backdrop-blur-sm">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Protected Exit
+                  </Badge>
+                )}
 
-              {/* RBAC Indicators */}
-              {!canDragFromHere && (
-                <Badge className="bg-orange-100/90 text-orange-700 border-orange-300 text-xs backdrop-blur-sm">
-                  <Shield className="w-3 h-3 mr-1" />
-                  Protected Exit
-                </Badge>
-              )}
-
-              {column.requires_approval_to_exit && (
-                <Badge className="bg-amber-100/90 text-amber-700 border-amber-300 text-xs backdrop-blur-sm">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Approval Gate
-                </Badge>
-              )}
-            </div>
+                {column.requires_approval_to_exit && (
+                  <Badge className="bg-amber-100/90 text-amber-700 border-amber-300 text-xs backdrop-blur-sm">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Approval Gate
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Lock Icon (if locked) */}
+          {column.is_locked && (
+            <div className="flex-shrink-0 hover:bg-white/20 p-1.5 rounded-lg transition-colors">
+              <Lock className="w-5 h-5 text-white" title="Locked column" />
+            </div>
+          )}
 
           {/* Column Menu */}
           <DropdownMenu>
