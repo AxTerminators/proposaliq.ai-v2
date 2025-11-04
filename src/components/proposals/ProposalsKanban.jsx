@@ -556,7 +556,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   };
 
   const handleDragUpdate = (update) => {
-    if (update.destination) {
+    if (update.destination && update.type === "card") {
       setDragOverColumnId(update.destination.droppableId);
     } else {
       setDragOverColumnId(null);
@@ -568,9 +568,40 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     if (!result.destination || dragInProgress) return;
 
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
 
-    // If dropped in same position, do nothing
+    // Handle column reordering
+    if (type === "column") {
+      // Don't allow reordering if source and destination are the same
+      if (source.index === destination.index) return;
+
+      const reorderedColumns = Array.from(columns);
+      const [movedColumn] = reorderedColumns.splice(source.index, 1);
+      
+      // Don't allow moving locked columns
+      if (movedColumn.is_locked) {
+        alert("Cannot reorder locked system columns.");
+        queryClient.invalidateQueries({ queryKey: ['kanban-config'] }); // Ensure UI reflects original order
+        return;
+      }
+
+      reorderedColumns.splice(destination.index, 0, movedColumn);
+
+      // Update order property
+      reorderedColumns.forEach((col, idx) => {
+        col.order = idx;
+      });
+
+      // Save to database
+      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        columns: reorderedColumns
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      return;
+    }
+
+    // Handle card moves (existing logic)
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
@@ -953,102 +984,130 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             onDragStart={handleDragStart}
             onDragUpdate={handleDragUpdate}
           >
-            <div
-              className="flex gap-0 pb-4 pt-4 h-full"
-              style={{
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'top left',
-                minWidth: 'min-content'
-              }}
-            >
-              {columns.map((column, index) => {
-                const isCollapsed = effectiveCollapsedColumns.includes(column.id);
-                const columnProposals = getProposalsForColumn(column);
-                const columnSort = columnSorts[column.id];
-                const dragOverColor = dragOverColumnId === column.id ? column.color : null;
+            <Droppable droppableId="all-columns" direction="horizontal" type="column">
+              {(providedOuter) => (
+                <div
+                  ref={providedOuter.innerRef}
+                  {...providedOuter.droppableProps}
+                  className="flex gap-0 pb-4 pt-4 h-full"
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: 'top left',
+                    minWidth: 'min-content'
+                  }}
+                >
+                  {columns.map((column, index) => {
+                    const isCollapsed = effectiveCollapsedColumns.includes(column.id);
+                    const columnProposals = getProposalsForColumn(column);
+                    const columnSort = columnSorts[column.id];
+                    const dragOverColor = dragOverColumnId === column.id ? column.color : null;
 
-                return (
-                  <div key={column.id} className="flex items-start">
-                    {index === 0 && (
-                      <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
-                        <button
-                          onClick={() => handleAddColumn(0)}
-                          className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                          title="Add new column before this one"
-                        >
-                          <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
-                        </button>
-                      </div>
-                    )}
-
-                    {isCollapsed ? (
-                      <div
-                        className="flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow"
-                        onClick={() => toggleColumnCollapse(column.id)}
-                        title={`Expand ${column.label} column`}
+                    return (
+                      <Draggable
+                        key={column.id}
+                        draggableId={column.id}
+                        index={index}
+                        type="column"
+                        isDragDisabled={column.is_locked}
                       >
-                        <div
-                          className="text-xs font-semibold text-slate-700 whitespace-nowrap"
-                          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                        >
-                          {column.label}
-                        </div>
-                        <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
-                          {columnProposals.length}
-                        </div>
-                        <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
-                      </div>
-                    ) : (
-                      <Droppable droppableId={column.id}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={cn(
-                              "w-80 h-full bg-white rounded-lg shadow-md border-2 transition-all flex-shrink-0",
-                              snapshot.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
-                            )}
+                        {(providedDraggable, snapshotDraggable) => (
+                          <div 
+                            ref={providedDraggable.innerRef}
+                            {...providedDraggable.draggableProps}
+                            className="flex items-start"
                           >
-                            <KanbanColumn
-                              column={column}
-                              proposals={columnProposals.map(proposal => ({
-                                ...proposal,
-                                __dragOverColumnColor: dragOverColor
-                              }))}
-                              provided={provided}
-                              snapshot={snapshot}
-                              onCardClick={handleCardClick}
-                              onToggleCollapse={toggleColumnCollapse}
-                              isCollapsed={isCollapsed}
-                              organization={organization}
-                              columnSort={columnSort}
-                              onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
-                              onClearSort={() => handleClearColumnSort(column.id)}
-                              onDeleteColumn={handleDeleteColumn}
-                              onRenameColumn={handleRenameColumn}
-                              dragOverColumnColor={dragOverColor}
-                              kanbanConfig={kanbanConfig}
-                              onConfigureColumn={handleConfigureColumn}
-                              user={user}
-                            />
+                            {index === 0 && (
+                              <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
+                                <button
+                                  onClick={() => handleAddColumn(0)}
+                                  className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
+                                  title="Add new column before this one"
+                                >
+                                  <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                                </button>
+                              </div>
+                            )}
+
+                            {isCollapsed ? (
+                              <div
+                                className={cn(
+                                  "flex-shrink-0 w-10 bg-gradient-to-b from-slate-100 to-slate-200 rounded-lg shadow-md flex flex-col items-center justify-between py-3 px-1 cursor-pointer hover:shadow-lg transition-shadow",
+                                  snapshotDraggable.isDragging && 'opacity-50 rotate-2'
+                                )}
+                                onClick={() => toggleColumnCollapse(column.id)}
+                                title={`Expand ${column.label} column`}
+                                {...providedDraggable.dragHandleProps} // Apply drag handle to collapsed column header as well
+                              >
+                                <div
+                                  className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                >
+                                  {column.label}
+                                </div>
+                                <div className="mt-2 px-1.5 py-0.5 bg-white rounded-full text-xs font-bold text-slate-600">
+                                  {columnProposals.length}
+                                </div>
+                                <ChevronsRight className="w-3 h-3 text-slate-500 mt-2" />
+                              </div>
+                            ) : (
+                              <Droppable droppableId={column.id} type="card">
+                                {(providedDroppable, snapshotDroppable) => (
+                                  <div
+                                    ref={providedDroppable.innerRef}
+                                    {...providedDroppable.droppableProps}
+                                    className={cn(
+                                      "w-80 h-full bg-white rounded-lg shadow-md border-2 transition-all flex-shrink-0",
+                                      snapshotDroppable.isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-slate-200',
+                                      snapshotDraggable.isDragging && 'opacity-50 rotate-2'
+                                    )}
+                                  >
+                                    <KanbanColumn
+                                      column={column}
+                                      proposals={columnProposals.map(proposal => ({
+                                        ...proposal,
+                                        __dragOverColumnColor: dragOverColor
+                                      }))}
+                                      provided={providedDroppable}
+                                      snapshot={snapshotDroppable}
+                                      onCardClick={handleCardClick}
+                                      onToggleCollapse={toggleColumnCollapse}
+                                      isCollapsed={isCollapsed}
+                                      organization={organization}
+                                      columnSort={columnSort}
+                                      onSortChange={(sortBy) => handleColumnSortChange(column.id, sortBy)}
+                                      onClearSort={() => handleClearColumnSort(column.id)}
+                                      onDeleteColumn={handleDeleteColumn}
+                                      onRenameColumn={handleRenameColumn}
+                                      dragOverColumnColor={dragOverColor}
+                                      kanbanConfig={kanbanConfig}
+                                      onConfigureColumn={handleConfigureColumn}
+                                      user={user}
+                                      dragHandleProps={providedDraggable.dragHandleProps}
+                                      isDragging={snapshotDraggable.isDragging}
+                                    />
+                                  </div>
+                                )}
+                              </Droppable>
+                            )}
+
+                            <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
+                              <button
+                                onClick={() => handleAddColumn(index + 1)}
+                                className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
+                                title="Add new column after this one"
+                              >
+                                <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
+                              </button>
+                            </div>
                           </div>
                         )}
-                      </Droppable>
-                    )}
-
-                    <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
-                      <button
-                        onClick={() => handleAddColumn(index + 1)}
-                        className="w-6 h-6 rounded-full bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-125 active:scale-95 shadow-sm hover:shadow-lg group"
-                        title="Add new column after this one"
-                      >
-                        <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </Draggable>
+                    );
+                  })}
+                  {providedOuter.placeholder}
+                </div>
+              )}
+            </Droppable>
           </DragDropContext>
         </div>
       </div>

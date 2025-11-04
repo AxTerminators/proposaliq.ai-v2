@@ -51,6 +51,8 @@ export default function KanbanColumn({
   kanbanConfig,
   onConfigureColumn,
   user,
+  dragHandleProps,
+  isDragging,
 }) {
   const proposalCount = proposals.length;
 
@@ -79,10 +81,15 @@ export default function KanbanColumn({
       style={{ minWidth: "320px", maxWidth: "320px" }}
     >
       {/* Column Header with Gradient Banner */}
-      <div className={cn(
-        "relative p-4 bg-gradient-to-r",
-        column.color || "from-slate-400 to-slate-600"
-      )}>
+      <div 
+        {...(dragHandleProps || {})}
+        className={cn(
+          "relative p-4 bg-gradient-to-r",
+          column.color || "from-slate-400 to-slate-600",
+          !column.is_locked && "cursor-grab active:cursor-grabbing"
+        )}
+        title={!column.is_locked ? "Drag to reorder column" : undefined}
+      >
         <div className="flex items-center gap-3">
           {/* Collapse/Expand Button */}
           <button
@@ -214,6 +221,7 @@ export default function KanbanColumn({
                 key={proposal.id}
                 draggableId={proposal.id}
                 index={index}
+                type="card"
                 isDragDisabled={!canDragFromHere}
               >
                 {(provided, snapshot) => (
