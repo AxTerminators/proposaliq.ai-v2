@@ -57,11 +57,11 @@ export default function KanbanColumn({
   const formattedValue = useMemo(() => {
     if (totalValue === 0) return null;
     if (totalValue >= 1000000) {
-      return `$${(totalValue / 1000000).toFixed(1)}M`;
+      return `${(totalValue / 1000000).toFixed(1)}M`;
     } else if (totalValue >= 1000) {
-      return `$${(totalValue / 1000).toFixed(0)}K`;
+      return `${(totalValue / 1000).toFixed(0)}K`;
     }
-    return `$${totalValue.toLocaleString()}`;
+    return `${totalValue.toLocaleString()}`;
   }, [totalValue]);
 
   useEffect(() => {
@@ -115,31 +115,33 @@ export default function KanbanColumn({
       {...provided.droppableProps}
       className="flex flex-col h-full w-80 flex-shrink-0"
     >
-      {/* Column Header */}
+      {/* Column Header - Single Row Layout */}
       <div 
         {...(dragHandleProps || {})}
         className={cn(
-          "relative bg-gradient-to-r rounded-t-xl",
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0",
           column.color || "from-slate-400 to-slate-600",
           !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
       >
         <div className="p-3">
-          {/* Single Row Layout */}
           <div className="flex items-center gap-2">
             {/* Collapse Button - Far Left */}
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onToggleCollapse(column.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCollapse(column.id);
+              }}
               className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
               title="Collapse column"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
 
-            {/* Column Name - Flex-1 with truncation */}
-            <div className="flex-1 min-w-0">
+            {/* Column Name - Truncated with tooltip */}
+            <div className="flex-1 min-w-0 mr-1">
               {isEditingName ? (
                 <Input
                   ref={inputRef}
@@ -160,43 +162,85 @@ export default function KanbanColumn({
                   disabled={column.is_locked}
                   title={column.label}
                 >
-                  <h3 className="font-bold text-white text-base truncate">
+                  <h3 className="font-bold text-white text-base truncate leading-tight">
                     {column.label}
                   </h3>
                 </button>
               )}
             </div>
 
-            {/* Proposal Count Badge */}
+            {/* Compact Metadata Section */}
             {!isEditingName && (
-              <Badge 
-                variant="secondary" 
-                className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-semibold flex-shrink-0 h-6 px-2"
-                title={`${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`}
-              >
-                {proposalCount}
-              </Badge>
-            )}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {/* Proposal Count */}
+                <Badge 
+                  variant="secondary" 
+                  className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
+                  title={`${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`}
+                >
+                  {proposalCount}
+                </Badge>
 
-            {/* Dollar Value Badge */}
-            {!isEditingName && formattedValue && (
-              <Badge 
-                variant="secondary" 
-                className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-semibold flex-shrink-0 h-6 px-2 flex items-center gap-1"
-                title={`Total value: ${formattedValue}`}
-              >
-                <DollarSign className="w-3 h-3" />
-                {formattedValue.replace('$', '')}
-              </Badge>
-            )}
+                {/* Dollar Value */}
+                {formattedValue && (
+                  <Badge 
+                    variant="secondary" 
+                    className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 px-2 flex items-center gap-0.5"
+                    title={`Total value: $${formattedValue}`}
+                  >
+                    <DollarSign className="w-3 h-3" />
+                    {formattedValue}
+                  </Badge>
+                )}
 
-            {/* Lock Icon */}
-            {!isEditingName && column.is_locked && (
-              <div 
-                className="flex-shrink-0"
-                title="System column (locked)"
-              >
-                <Lock className="w-4 h-4 text-white/80" />
+                {/* WIP Limit Badge */}
+                {wipLimit > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-xs font-bold h-6 px-1.5",
+                      isAtWipLimit ? "bg-red-500 text-white hover:bg-red-600" :
+                      isNearWipLimit ? "bg-yellow-500 text-white hover:bg-yellow-600" :
+                      "bg-white/20 text-white hover:bg-white/30 border-white/30"
+                    )}
+                    title={`Work in progress limit: ${proposalCount}/${wipLimit} ${column.wip_limit_type === 'hard' ? '(Hard Limit)' : '(Soft Limit)'}`}
+                  >
+                    {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" />}
+                    {proposalCount}/{wipLimit}
+                  </Badge>
+                )}
+
+                {/* Protected Badge */}
+                {!canDragFromHere && (
+                  <Badge 
+                    variant="secondary" 
+                    className="bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
+                    title="Protected column - only specific roles can move proposals out"
+                  >
+                    <Shield className="w-3 h-3" />
+                  </Badge>
+                )}
+
+                {/* Approval Required Badge */}
+                {column.requires_approval_to_exit && (
+                  <Badge 
+                    variant="secondary" 
+                    className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
+                    title="Requires approval to move proposals out of this column"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                  </Badge>
+                )}
+
+                {/* Lock Icon */}
+                {column.is_locked && (
+                  <div 
+                    className="flex-shrink-0 pl-0.5"
+                    title="System column (locked)"
+                  >
+                    <Lock className="w-4 h-4 text-white/90" />
+                  </div>
+                )}
               </div>
             )}
 
@@ -207,7 +251,7 @@ export default function KanbanColumn({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
+                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
                     title="Column options"
                   >
                     <MoreVertical className="w-4 h-4" />
@@ -222,58 +266,13 @@ export default function KanbanColumn({
               </DropdownMenu>
             )}
           </div>
-
-          {/* Status Badges Row - Only show if there are important warnings */}
-          {(wipLimit > 0 || !canDragFromHere || column.requires_approval_to_exit) && (
-            <div className="flex items-center gap-2 flex-wrap mt-2">
-              {wipLimit > 0 && (
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "text-xs font-medium",
-                    isAtWipLimit ? "bg-red-500/90 text-white hover:bg-red-500" :
-                    isNearWipLimit ? "bg-yellow-500/90 text-white hover:bg-yellow-500" :
-                    "bg-white/20 text-white hover:bg-white/30 border-white/30"
-                  )}
-                  title={`Work in progress limit: ${proposalCount} of ${wipLimit}`}
-                >
-                  {column.wip_limit_type === 'hard' && (
-                    <AlertCircle className="w-3 h-3 mr-1" />
-                  )}
-                  WIP: {proposalCount}/{wipLimit}
-                </Badge>
-              )}
-
-              {!canDragFromHere && (
-                <Badge 
-                  variant="secondary" 
-                  className="bg-orange-500/90 text-white hover:bg-orange-500 text-xs font-medium"
-                  title="Protected column - restricted who can move proposals out"
-                >
-                  <Shield className="w-3 h-3 mr-1" />
-                  Protected
-                </Badge>
-              )}
-
-              {column.requires_approval_to_exit && (
-                <Badge 
-                  variant="secondary" 
-                  className="bg-amber-500/90 text-white hover:bg-amber-500 text-xs font-medium"
-                  title="Requires approval to move proposals out of this column"
-                >
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Approval
-                </Badge>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
       {/* Column Body */}
       <div className="flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden">
         <div className="h-full overflow-y-auto p-3 space-y-3">
-          {/* Warnings */}
+          {/* Warning Messages */}
           {!canDragToHere && proposalCount > 0 && (
             <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
               <div className="flex items-start gap-2">
@@ -290,7 +289,7 @@ export default function KanbanColumn({
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-red-900">
-                  <strong>WIP Limit:</strong> Cannot add more until others are moved out.
+                  <strong>WIP Limit Reached:</strong> Cannot add more proposals until others are moved out.
                 </p>
               </div>
             </div>
