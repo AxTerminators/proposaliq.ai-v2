@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,9 @@ import {
   Settings,
   Shield,
   CheckCircle,
-  FileText
+  FileText,
+  Check,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -53,8 +54,20 @@ export default function KanbanColumn({
   user,
   dragHandleProps,
   isDragging,
+  onCreateProposal,
 }) {
   const proposalCount = proposals.length;
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(column.label);
+  const inputRef = useRef(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingName && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditingName]);
 
   // Check user permissions for this column
   const currentUserRole = getUserRole(user);
@@ -67,6 +80,39 @@ export default function KanbanColumn({
   const wipLimit = column.wip_limit || 0;
   const isAtWipLimit = wipLimit > 0 && proposalCount >= wipLimit;
   const isNearWipLimit = wipLimit > 0 && proposalCount >= wipLimit * 0.8 && proposalCount < wipLimit;
+
+  const handleNameClick = () => {
+    if (!column.is_locked) {
+      setIsEditingName(true);
+      setEditedName(column.label);
+    }
+  };
+
+  const handleNameSave = () => {
+    if (editedName.trim() && editedName !== column.label) {
+      onRenameColumn(column.id, editedName.trim());
+    }
+    setIsEditingName(false);
+  };
+
+  const handleNameCancel = () => {
+    setEditedName(column.label);
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      handleNameCancel();
+    }
+  };
+
+  const handleCreateProposalInColumn = () => {
+    if (onCreateProposal) {
+      onCreateProposal(column);
+    }
+  };
 
   return (
     <div
@@ -106,12 +152,46 @@ export default function KanbanColumn({
           {/* Column Name & Count */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-white text-lg truncate flex items-center gap-2">
-                {column.label}
-                <span className="text-sm font-normal opacity-90">
-                  {proposalCount}
-                </span>
-              </h3>
+              {isEditingName ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <Input
+                    ref={inputRef}
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleNameSave}
+                    className="h-8 text-lg font-bold bg-white/90 border-white"
+                  />
+                  <button
+                    onClick={handleNameSave}
+                    className="p-1 hover:bg-white/30 rounded"
+                    title="Save"
+                  >
+                    <Check className="w-4 h-4 text-white" />
+                  </button>
+                  <button
+                    onClick={handleNameCancel}
+                    className="p-1 hover:bg-white/30 rounded"
+                    title="Cancel"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              ) : (
+                <h3 
+                  className={cn(
+                    "font-bold text-white text-lg truncate flex items-center gap-2",
+                    !column.is_locked && "cursor-pointer hover:opacity-80"
+                  )}
+                  onClick={handleNameClick}
+                  title={!column.is_locked ? "Click to rename column" : undefined}
+                >
+                  {column.label}
+                  <span className="text-sm font-normal opacity-90">
+                    {proposalCount}
+                  </span>
+                </h3>
+              )}
             </div>
 
             {/* Status Badges - Only show non-lock badges */}
@@ -211,10 +291,15 @@ export default function KanbanColumn({
 
           {/* Empty State */}
           {proposalCount === 0 ? (
-            <div className="text-center py-12 px-4">
-              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm text-slate-500">No proposals yet</p>
-            </div>
+            <button 
+              onClick={handleCreateProposalInColumn}
+              className="text-center py-12 px-4 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer w-full group"
+              title="Click to create a new proposal"
+            >
+              <FileText className="w-12 h-12 text-slate-300 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
+              <p className="text-sm text-slate-500 group-hover:text-blue-600 transition-colors">No proposals yet</p>
+              <p className="text-xs text-slate-400 mt-1 group-hover:text-blue-500">Click to add a proposal</p>
+            </button>
           ) : (
             proposals.map((proposal, index) => (
               <Draggable

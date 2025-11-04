@@ -762,6 +762,12 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     setShowBoardConfig(true);
   };
 
+  const handleCreateProposalInColumn = (column) => {
+    // Navigate to proposal builder
+    // Could potentially set initial phase based on column in the future
+    navigate(createPageUrl("ProposalBuilder"));
+  };
+
   const clearFilters = () => {
     setSearchQuery("");
     setFilterAgency("all");
@@ -1036,7 +1042,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                                 )}
                                 onClick={() => toggleColumnCollapse(column.id)}
                                 title={`Expand ${column.label} column`}
-                                {...providedDraggable.dragHandleProps} // Apply drag handle to collapsed column header as well
+                                {...providedDraggable.dragHandleProps}
                               >
                                 <div
                                   className="text-xs font-semibold text-slate-700 whitespace-nowrap"
@@ -1084,6 +1090,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                                       user={user}
                                       dragHandleProps={providedDraggable.dragHandleProps}
                                       isDragging={snapshotDraggable.isDragging}
+                                      onCreateProposal={handleCreateProposalInColumn}
                                     />
                                   </div>
                                 )}
