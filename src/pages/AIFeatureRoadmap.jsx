@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,43 +12,43 @@ const ROADMAP_PHASES = [
     id: "phase1",
     name: "Phase 1: Critical Missing Features",
     duration: "Weeks 1-4",
-    status: "in_progress",
+    status: "completed",
     priority: "P0",
     features: [
       {
         name: "AI Confidence Scoring System",
-        status: "in_progress",
+        status: "completed",
         impact: "HIGH",
         effort: "MEDIUM",
         description: "Calculate comprehensive win probability based on proposal completeness, quality, compliance, and strategy",
-        implementation: "Phase 4 Enhancement",
+        implementation: "Phase 4 Enhancement - ✅ LIVE",
         estimatedTokens: "50K/month"
       },
       {
         name: "Content Reuse Intelligence AI Engine",
-        status: "pending",
+        status: "completed",
         impact: "HIGH",
         effort: "MEDIUM",
         description: "Semantic similarity scoring to suggest relevant historical content",
-        implementation: "ProposalReuseIntelligence + Phase 6",
+        implementation: "ProposalReuseIntelligence + Phase 6 - ✅ LIVE",
         estimatedTokens: "100K/month"
       },
       {
         name: "Red Team Review AI",
-        status: "pending",
+        status: "completed",
         impact: "HIGH",
         effort: "MEDIUM",
         description: "AI-powered quality assurance and review recommendations",
-        implementation: "Phase 7 Enhancement",
+        implementation: "Phase 7 Enhancement - ✅ LIVE",
         estimatedTokens: "75K/month"
       },
       {
         name: "Compliance AI Enhancement",
-        status: "pending",
+        status: "completed",
         impact: "HIGH",
         effort: "HIGH",
-        description: "Auto-extract requirements from RFPs using AI",
-        implementation: "Phase 2 + ComplianceMatrixGenerator",
+        description: "Auto-extract requirements from RFPs using AI with structured data extraction",
+        implementation: "Phase 2 + ComplianceMatrixGenerator - ✅ LIVE",
         estimatedTokens: "150K/month"
       }
     ]
