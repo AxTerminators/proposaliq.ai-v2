@@ -102,43 +102,43 @@ const ROADMAP_PHASES = [
     id: "phase3",
     name: "Phase 3: Calendar & Scheduling Intelligence",
     duration: "Weeks 9-12",
-    status: "completed", // Changed from "pending" to "completed"
+    status: "completed", 
     priority: "P2",
     features: [
       {
         name: "Predictive Risk Alerts Engine",
-        status: "completed", // Changed from "pending" to "completed"
+        status: "completed", 
         impact: "MEDIUM",
         effort: "HIGH",
-        description: "ML-powered delay prediction from task history with team capacity analysis", // Updated description
-        implementation: "PredictiveRiskAlerts Enhancement - ✅ LIVE", // Updated implementation
+        description: "ML-powered delay prediction from task history with team capacity analysis", 
+        implementation: "PredictiveRiskAlerts Enhancement - ✅ LIVE", 
         estimatedTokens: "40K/month"
       },
       {
         name: "Schedule Optimization Algorithm",
-        status: "completed", // Changed from "pending" to "completed"
+        status: "completed", 
         impact: "MEDIUM",
         effort: "HIGH",
         description: "Constraint satisfaction solver with AI recommendations",
-        implementation: "ScheduleOptimizer Enhancement - ✅ LIVE", // Updated implementation
+        implementation: "ScheduleOptimizer Enhancement - ✅ LIVE", 
         estimatedTokens: "40K/month"
       },
       {
         name: "Adaptive Learning Patterns",
-        status: "completed", // Changed from "pending" to "completed"
+        status: "completed", 
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Behavioral analysis and personalized scheduling rules from user patterns", // Updated description
-        implementation: "AdaptiveLearningPanel Enhancement - ✅ LIVE", // Updated implementation
+        description: "Behavioral analysis and personalized scheduling rules from user patterns", 
+        implementation: "AdaptiveLearningPanel Enhancement - ✅ LIVE", 
         estimatedTokens: "30K/month"
       },
       {
         name: "Time Debt AI Analysis",
-        status: "completed", // Changed from "pending" to "completed"
+        status: "completed", 
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Productivity analysis with personalized recommendations and energy curve detection", // Updated description
-        implementation: "TimeDebtTracker Enhancement - ✅ LIVE", // Updated implementation
+        description: "Productivity analysis with personalized recommendations and energy curve detection", 
+        implementation: "TimeDebtTracker Enhancement - ✅ LIVE", 
         estimatedTokens: "20K/month"
       }
     ]
@@ -147,43 +147,43 @@ const ROADMAP_PHASES = [
     id: "phase4",
     name: "Phase 4: Enhanced User Experience",
     duration: "Weeks 13-16",
-    status: "pending",
+    status: "completed",
     priority: "P3",
     features: [
       {
         name: "Smart Automation Suggestions",
-        status: "pending",
+        status: "completed",
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Behavioral analysis to suggest workflows",
-        implementation: "SmartAutomationEngine Enhancement",
+        description: "Behavioral analysis to suggest workflows with time savings analysis",
+        implementation: "SmartAutomationEngine Enhancement - ✅ LIVE",
         estimatedTokens: "30K/month"
       },
       {
         name: "SAM.gov Opportunity Matching",
-        status: "pending",
+        status: "completed",
         impact: "MEDIUM",
         effort: "MEDIUM",
-        description: "Semantic similarity between capabilities and requirements",
-        implementation: "OpportunityFinder Enhancement",
+        description: "Semantic similarity between capabilities and requirements with strategic recommendations",
+        implementation: "OpportunityFinder Enhancement - ✅ LIVE",
         estimatedTokens: "80K/month"
       },
       {
         name: "AI Insights Enhancement",
-        status: "pending",
+        status: "completed",
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Anomaly detection and predictive insights",
-        implementation: "AIInsightsCard Enhancement",
+        description: "Anomaly detection and predictive insights with pipeline forecasting",
+        implementation: "AIInsightsCard Enhancement - ✅ LIVE",
         estimatedTokens: "30K/month"
       },
       {
         name: "Proposal Comparison AI",
-        status: "pending",
+        status: "completed",
         impact: "LOW",
         effort: "MEDIUM",
-        description: "Automated comparison analysis with winner prediction",
-        implementation: "ProposalComparisonTool Enhancement",
+        description: "Automated comparison analysis with winner prediction and negotiation intelligence",
+        implementation: "ProposalComparisonTool Enhancement - ✅ LIVE",
         estimatedTokens: "40K/month"
       }
     ]
