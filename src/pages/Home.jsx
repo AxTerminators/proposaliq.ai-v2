@@ -12,32 +12,38 @@ export default function Home() {
     const checkUserAndRedirect = async () => {
       try {
         const user = await base44.auth.me();
+        
+        console.log('[Home] User data:', {
+          onboarding_guide_completed: user.onboarding_guide_completed,
+          using_sample_data: user.using_sample_data,
+          skipped_sample_data: user.skipped_sample_data,
+          has_created_real_organization: user.has_created_real_organization,
+          sample_data_cleared: user.sample_data_cleared
+        });
 
-        // NEW USERS: If user hasn't completed onboarding guide yet
-        if (!user.onboarding_guide_completed) {
+        // CRITICAL: If onboarding guide is NOT completed, always go there first
+        if (user.onboarding_guide_completed !== true) {
+          console.log('[Home] Redirecting to OnboardingGuide - guide not completed');
           navigate(createPageUrl("OnboardingGuide"));
           return;
         }
 
-        // USERS WHO CHOSE SAMPLE DATA: Currently using sample data
-        if (user.using_sample_data) {
+        // If they completed the guide and chose sample data
+        if (user.using_sample_data === true) {
+          console.log('[Home] Redirecting to Dashboard - using sample data');
           navigate(createPageUrl("Dashboard"));
           return;
         }
 
-        // USERS WHO SKIPPED SAMPLE DATA: Need to create real organization
-        if (user.skipped_sample_data && !user.has_created_real_organization) {
+        // If they skipped sample data or cleared it, need real organization
+        if ((user.skipped_sample_data === true || user.sample_data_cleared === true) && 
+            user.has_created_real_organization !== true) {
+          console.log('[Home] Redirecting to Onboarding - needs real organization');
           navigate(createPageUrl("Onboarding"));
           return;
         }
 
-        // USERS WHO CLEARED SAMPLE DATA: Need to create real organization
-        if (user.sample_data_cleared && !user.has_created_real_organization) {
-          navigate(createPageUrl("Onboarding"));
-          return;
-        }
-
-        // ESTABLISHED USERS: Check if they have an organization
+        // Check if they have an organization
         const orgs = await base44.entities.Organization.filter(
           { created_by: user.email },
           '-created_date',
@@ -45,15 +51,14 @@ export default function Home() {
         );
 
         if (orgs.length === 0 || !orgs[0].onboarding_completed) {
-          // No organization or incomplete onboarding
+          console.log('[Home] Redirecting to Onboarding - no complete org');
           navigate(createPageUrl("Onboarding"));
         } else {
-          // All set - go to dashboard
+          console.log('[Home] Redirecting to Dashboard - all setup complete');
           navigate(createPageUrl("Dashboard"));
         }
       } catch (error) {
-        console.error("Error checking user status:", error);
-        // If there's an error, redirect to onboarding guide to be safe
+        console.error("[Home] Error checking user status:", error);
         navigate(createPageUrl("OnboardingGuide"));
       } finally {
         setIsLoading(false);
