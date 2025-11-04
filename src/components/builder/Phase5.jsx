@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -172,14 +173,14 @@ export default function Phase5({ proposalData, setProposalData, proposalId, onSa
     PROPOSAL_SECTIONS.forEach(section => {
       initialSections[section.id] = {
         included: true,
-        tone: "default",
+        tone: "clear", // Changed from "default" to "clear"
         wordCount: section.defaultWordCount,
         subsections: {}
       };
       section.subsections.forEach(sub => {
         initialSections[section.id].subsections[sub.id] = {
           included: true,
-          tone: "default",
+          tone: "clear", // Changed from "default" to "clear"
           wordCount: sub.defaultWordCount
         };
       });
@@ -279,13 +280,13 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
     setStrategy(prev => {
       const newSections = { ...prev.sections };
       if (!newSections[sectionId]) {
-        newSections[sectionId] = { included: true, tone: "default", wordCount: 0, subsections: {} };
+        newSections[sectionId] = { included: true, tone: "clear", wordCount: 0, subsections: {} };
       }
       if (!newSections[sectionId].subsections) {
         newSections[sectionId].subsections = {};
       }
       if (!newSections[sectionId].subsections[subId]) {
-        newSections[sectionId].subsections[subId] = { included: true, tone: "default", wordCount: 0 };
+        newSections[sectionId].subsections[subId] = { included: true, tone: "clear", wordCount: 0 };
       }
       newSections[sectionId].subsections[subId] = {
         ...newSections[sectionId].subsections[subId],
@@ -572,7 +573,7 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                         </div>
                         <div className="flex items-center gap-2">
                           <Select
-                            value={strategy.sections[section.id]?.tone || "default"}
+                            value={strategy.sections[section.id]?.tone || "clear"}
                             onValueChange={(value) => {
                               setStrategy(prev => ({
                                 ...prev,
@@ -586,14 +587,19 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                               }));
                             }}
                           >
-                            <SelectTrigger className="w-32">
+                            <SelectTrigger className="w-40"> {/* Changed w-32 to w-40 */}
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="clear">Clear (default)</SelectItem>
                               <SelectItem value="formal">Formal</SelectItem>
-                              <SelectItem value="persuasive">Persuasive</SelectItem>
                               <SelectItem value="concise">Concise</SelectItem>
+                              <SelectItem value="courteous">Courteous</SelectItem>
+                              <SelectItem value="confident">Confident</SelectItem>
+                              <SelectItem value="persuasive">Persuasive</SelectItem>
+                              <SelectItem value="professional">Professional</SelectItem>
+                              <SelectItem value="humanized">Humanized</SelectItem>
+                              <SelectItem value="conversational">Conversational</SelectItem>
                             </SelectContent>
                           </Select>
                           <Input
@@ -627,17 +633,22 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
                               />
                               <span className="text-sm flex-1">{sub.name}</span>
                               <Select
-                                value={strategy.sections[section.id]?.subsections?.[sub.id]?.tone || "default"}
+                                value={strategy.sections[section.id]?.subsections?.[sub.id]?.tone || "clear"}
                                 onValueChange={(value) => updateSubsection(section.id, sub.id, 'tone', value)}
                               >
-                                <SelectTrigger className="w-28">
+                                <SelectTrigger className="w-40"> {/* Changed w-28 to w-40 */}
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="default">Default</SelectItem>
+                                  <SelectItem value="clear">Clear (default)</SelectItem>
                                   <SelectItem value="formal">Formal</SelectItem>
-                                  <SelectItem value="persuasive">Persuasive</SelectItem>
                                   <SelectItem value="concise">Concise</SelectItem>
+                                  <SelectItem value="courteous">Courteous</SelectItem>
+                                  <SelectItem value="confident">Confident</SelectItem>
+                                  <SelectItem value="persuasive">Persuasive</SelectItem>
+                                  <SelectItem value="professional">Professional</SelectItem>
+                                  <SelectItem value="humanized">Humanized</SelectItem>
+                                  <SelectItem value="conversational">Conversational</SelectItem>
                                 </SelectContent>
                               </Select>
                               <Input
