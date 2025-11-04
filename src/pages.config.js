@@ -38,6 +38,7 @@ import WinLossCapture from './pages/WinLossCapture';
 import WinLossInsights from './pages/WinLossInsights';
 import BestPractices from './pages/BestPractices';
 import OnboardingGuide from './pages/OnboardingGuide';
+import AIFeatureRoadmap from './pages/AIFeatureRoadmap';
 import Layout from './Layout.jsx';
 
 
@@ -82,6 +83,7 @@ export const PAGES = {
     "WinLossInsights": WinLossInsights,
     "BestPractices": BestPractices,
     "OnboardingGuide": OnboardingGuide,
+    "AIFeatureRoadmap": AIFeatureRoadmap,
 }
 
 export const pagesConfig = {
