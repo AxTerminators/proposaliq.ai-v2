@@ -147,8 +147,11 @@ export default function KanbanColumn({
 
           {/* Lock Icon (if locked) */}
           {column.is_locked && (
-            <div className="flex-shrink-0 hover:bg-white/20 p-1.5 rounded-lg transition-colors">
-              <Lock className="w-5 h-5 text-white" title="Locked column" />
+            <div 
+              className="flex-shrink-0 hover:bg-white/20 p-1.5 rounded-lg transition-colors"
+              title="This column is locked"
+            >
+              <Lock className="w-5 h-5 text-white" />
             </div>
           )}
 

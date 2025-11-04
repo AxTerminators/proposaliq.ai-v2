@@ -727,6 +727,10 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
+  const handleConfigureColumn = () => {
+    setShowBoardConfig(true);
+  };
+
   const clearFilters = () => {
     setSearchQuery("");
     setFilterAgency("all");
@@ -1024,6 +1028,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                               onRenameColumn={handleRenameColumn}
                               dragOverColumnColor={dragOverColor}
                               kanbanConfig={kanbanConfig}
+                              onConfigureColumn={handleConfigureColumn}
                               user={user}
                             />
                           </div>
