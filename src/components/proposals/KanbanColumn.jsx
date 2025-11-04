@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export default function KanbanColumn({
               size="icon"
               onClick={() => onToggleCollapse(column.id)}
               className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
-              title={isEditingName ? "Collapse column" : "Expand column"}
+              title="Collapse column"
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
@@ -125,34 +126,15 @@ export default function KanbanColumn({
             {/* Column Title */}
             <div className="flex-1 min-w-0">
               {isEditingName ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    ref={inputRef}
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleNameSave}
-                    className="h-9 bg-white text-slate-900 font-semibold border-2 border-white/30"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleNameSave}
-                    className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
-                    title="Save"
-                  >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleNameCancel}
-                    className="h-8 w-8 hover:bg-white/20 text-white flex-shrink-0"
-                    title="Cancel"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Input
+                  ref={inputRef}
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleNameSave}
+                  className="h-9 bg-white text-slate-900 font-semibold border-2 border-white/30"
+                  placeholder="Column name..."
+                />
               ) : (
                 <button
                   onClick={handleNameClick}
