@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,10 +27,13 @@ import {
   Building2,
   ExternalLink,
   TrendingUp,
-  Clock
+  Clock,
+  GitCompare
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
+import ProposalComparisonTool from "../components/proposals/ProposalComparisonTool";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -66,6 +70,7 @@ export default function Clients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null);
   
   const [clientData, setClientData] = useState({
     client_name: "",
@@ -191,7 +196,6 @@ export default function Clients() {
     );
   }
 
-  // Check if this is a consultancy
   const isConsultancy = organization.organization_type === 'consultancy';
 
   if (!isConsultancy) {
@@ -206,6 +210,46 @@ export default function Clients() {
             </p>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // If a specific client is selected, show detailed view
+  if (selectedClient) {
+    return (
+      <div className="p-6 lg:p-8 space-y-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="ghost" onClick={() => setSelectedClient(null)}>
+            ← Back to All Clients
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">{selectedClient.client_name}</h1>
+            <p className="text-slate-600">{selectedClient.contact_name}</p>
+          </div>
+        </div>
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="proposals">Proposals</TabsTrigger>
+            <TabsTrigger value="comparison">
+              <GitCompare className="w-4 h-4 mr-2" />
+              AI Comparison
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <ClientOverview client={selectedClient} onEdit={handleEdit} />
+          </TabsContent>
+
+          <TabsContent value="proposals">
+            <ClientProposals client={selectedClient} organization={organization} />
+          </TabsContent>
+
+          <TabsContent value="comparison">
+            <ProposalComparisonTool client={selectedClient} organization={organization} />
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
@@ -256,7 +300,11 @@ export default function Clients() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClients.map((client) => (
-            <Card key={client.id} className="border-none shadow-lg hover:shadow-xl transition-all">
+            <Card 
+              key={client.id} 
+              className="border-none shadow-lg hover:shadow-xl transition-all cursor-pointer"
+              onClick={() => setSelectedClient(client)}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -266,13 +314,18 @@ export default function Clients() {
                     </Badge>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={(e) => { e.stopPropagation(); handleEdit(client); }}
+                    >
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (confirm('Delete this client?')) {
                           deleteClientMutation.mutate(client.id);
                         }
@@ -293,7 +346,7 @@ export default function Clients() {
                 {client.contact_email && (
                   <div className="flex items-center gap-2 text-sm">
                     <Mail className="w-4 h-4 text-slate-400" />
-                    <a href={`mailto:${client.contact_email}`} className="text-blue-600 hover:underline truncate">
+                    <a href={`mailto:${client.contact_email}`} className="text-blue-600 hover:underline truncate" onClick={(e) => e.stopPropagation()}>
                       {client.contact_email}
                     </a>
                   </div>
@@ -333,7 +386,10 @@ export default function Clients() {
                       size="sm" 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => navigate(createPageUrl(`ClientPortal?clientId=${client.id}`))}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl(`ClientPortal?clientId=${client.id}`));
+                      }}
                     >
                       <ExternalLink className="w-3 h-3 mr-2" />
                       View Portal
@@ -440,5 +496,104 @@ export default function Clients() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ClientOverview({ client, onEdit }) {
+  return (
+    <Card className="border-none shadow-lg">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Client Information</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => onEdit(client)}>
+            <Edit className="w-4 h-4 mr-2" />
+            Edit
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          {client.contact_name && (
+            <div>
+              <label className="text-sm text-slate-500">Contact Name</label>
+              <p className="font-medium">{client.contact_name}</p>
+            </div>
+          )}
+          {client.contact_email && (
+            <div>
+              <label className="text-sm text-slate-500">Email</label>
+              <p className="font-medium">{client.contact_email}</p>
+            </div>
+          )}
+          {client.contact_phone && (
+            <div>
+              <label className="text-sm text-slate-500">Phone</label>
+              <p className="font-medium">{client.contact_phone}</p>
+            </div>
+          )}
+          {client.industry && (
+            <div>
+              <label className="text-sm text-slate-500">Industry</label>
+              <p className="font-medium">{client.industry}</p>
+            </div>
+          )}
+        </div>
+        {client.notes && (
+          <div>
+            <label className="text-sm text-slate-500">Notes</label>
+            <p className="text-sm text-slate-700 mt-1">{client.notes}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClientProposals({ client, organization }) {
+  const { data: proposals = [] } = useQuery({
+    queryKey: ['client-proposals', client.id],
+    queryFn: async () => {
+      // Assuming a method to get proposals related to a client, e.g., by client_id in the proposal entity
+      // Or by filtering all proposals if shared_with_client_ids is a list of client IDs
+      const allProposals = await base44.entities.Proposal.list(); // Or base44.entities.Proposal.filter({ client_id: client.id }) if such a field exists
+      
+      // Filter proposals that are explicitly shared with this client ID
+      // This assumes 'shared_with_client_ids' is an array field on the Proposal entity
+      return allProposals.filter(p => 
+        p.shared_with_client_ids && p.shared_with_client_ids.includes(client.id)
+      );
+    },
+    initialData: []
+  });
+
+  return (
+    <Card className="border-none shadow-lg">
+      <CardHeader>
+        <CardTitle>Shared Proposals</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {proposals.length === 0 ? (
+          <div className="text-center py-8 text-slate-500">
+            <p>No proposals shared with this client yet</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {proposals.map(proposal => (
+              <div key={proposal.id} className="p-4 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors">
+                <h4 className="font-semibold text-slate-900">{proposal.proposal_name}</h4>
+                <div className="flex items-center gap-3 mt-2 text-sm">
+                  <Badge className="capitalize">{proposal.status}</Badge>
+                  {proposal.contract_value && (
+                    <span className="text-slate-600">
+                      ${(proposal.contract_value / 1000).toFixed(0)}K
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -8,10 +9,12 @@ import {
   Zap, 
   CheckCircle2, 
   Bell,
-  Activity
+  Activity,
+  Brain
 } from "lucide-react";
 import WorkflowManager from "./WorkflowManager";
 import ApprovalManager from "./ApprovalManager";
+import SmartAutomationEngine from "../automation/SmartAutomationEngine";
 
 export default function AutomationHub({ proposal, organization, user }) {
   const [remindersSent, setRemindersSent] = useState([]);
@@ -251,13 +254,17 @@ function AutomationHubContent({ proposal, organization, user, remindersSent, set
             Automation Hub
           </CardTitle>
           <p className="text-sm text-slate-600">
-            Automated workflows, approvals, and reminders for this proposal
+            Automated workflows, AI suggestions, approvals, and reminders for this proposal
           </p>
         </CardHeader>
       </Card>
 
-      <Tabs defaultValue="workflows" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="ai-suggestions" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="ai-suggestions">
+            <Brain className="w-4 h-4 mr-2" />
+            AI Suggestions
+          </TabsTrigger>
           <TabsTrigger value="workflows">
             <Zap className="w-4 h-4 mr-2" />
             Workflow Rules
@@ -271,6 +278,14 @@ function AutomationHubContent({ proposal, organization, user, remindersSent, set
             Activity Log
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ai-suggestions">
+          <SmartAutomationEngine
+            proposal={proposal}
+            organization={organization}
+            user={user}
+          />
+        </TabsContent>
 
         <TabsContent value="workflows">
           <WorkflowManager organization={organization} user={user} />
