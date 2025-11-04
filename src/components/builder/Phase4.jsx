@@ -1,4 +1,5 @@
 
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,12 +19,12 @@ import {
 } from "lucide-react";
 import CompetitorAnalysis from "./CompetitorAnalysis";
 import ComplianceMatrixGenerator from "./ComplianceMatrixGenerator";
+import AIConfidenceScoring from "./AIConfidenceScoring";
 
 export default function Phase4({ proposalData, setProposalData, proposalId, onSaveAndGoToPipeline }) {
   const [evaluating, setEvaluating] = useState(false);
   const [evaluationResults, setEvaluationResults] = useState(null);
-  const [calculatingScore, setCalculatingScore] = useState(false);
-  const [confidenceScore, setConfidenceScore] = useState(null);
+  const [confidenceScore, setConfidenceScore] = useState(null); // Keep this state for parent to track
   const [currentOrgId, setCurrentOrgId] = React.useState(null);
 
   React.useEffect(() => {
@@ -145,86 +146,6 @@ Return JSON:
     }
   };
 
-  const calculateConfidence = async () => {
-    if (!proposalData || !proposalId) return;
-
-    setCalculatingScore(true);
-    try {
-      const [sections, requirements, resources] = await Promise.all([
-        base44.entities.ProposalSection.filter({ proposal_id: proposalId }),
-        base44.entities.ComplianceRequirement.filter({ proposal_id: proposalId }),
-        base44.entities.ProposalResource.filter({ organization_id: currentOrgId })
-      ]);
-
-      const prompt = `You are an AI proposal analyst. Calculate a comprehensive confidence score for winning this proposal.
-
-**PROPOSAL DATA:**
-${JSON.stringify({
-  name: proposalData.proposal_name,
-  agency: proposalData.agency_name,
-  sections_total: sections.length,
-  sections_complete: sections.filter(s => s.status === 'approved').length,
-  compliance_requirements: requirements.length,
-  compliance_met: requirements.filter(r => r.compliance_status === 'compliant').length,
-  resources_available: resources.length,
-  match_score: proposalData.match_score
-}, null, 2)}
-
-**TASK:**
-Calculate confidence score (0-100) based on:
-1. Completeness
-2. Compliance
-3. Resource availability
-4. Strategic fit
-5. Competitive position
-
-Return JSON:
-{
-  "overall_score": number,
-  "completeness_score": number,
-  "compliance_score": number,
-  "quality_score": number,
-  "competitive_score": number,
-  "confidence_level": "high|medium|low",
-  "strengths": [string],
-  "concerns": [string],
-  "recommendations": [string]
-}`;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            overall_score: { type: "number" },
-            completeness_score: { type: "number" },
-            compliance_score: { type: "number" },
-            quality_score: { type: "number" },
-            competitive_score: { type: "number" },
-            confidence_level: { type: "string" },
-            strengths: { type: "array", items: { type: "string" } },
-            concerns: { type: "array", items: { type: "string" } },
-            recommendations: { type: "array", items: { type: "string" } }
-          }
-        }
-      });
-
-      setConfidenceScore(result);
-
-      await base44.entities.Proposal.update(proposalId, {
-        ai_confidence_score: JSON.stringify(result),
-        ai_score_date: new Date().toISOString()
-      });
-
-      alert("✓ Confidence score calculated!");
-    } catch (error) {
-      console.error("Error calculating score:", error);
-      alert("Error calculating confidence score: " + error.message);
-    } finally {
-      setCalculatingScore(false);
-    }
-  };
-
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
@@ -240,9 +161,12 @@ Return JSON:
         <Tabs defaultValue="evaluation" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="evaluation">Strategic Evaluation</TabsTrigger>
+            <TabsTrigger value="confidence">
+              <Trophy className="w-4 h-4 mr-2" />
+              Confidence Score
+            </TabsTrigger>
             <TabsTrigger value="compliance">Compliance Matrix</TabsTrigger>
             <TabsTrigger value="competitor">Competitor Analysis</TabsTrigger>
-            <TabsTrigger value="confidence">Confidence Score</TabsTrigger>
           </TabsList>
 
           {/* Strategic Evaluation */}
@@ -366,6 +290,22 @@ Return JSON:
             </Card>
           </TabsContent>
 
+          {/* AI Confidence Score - NEW ENHANCED TAB */}
+          <TabsContent value="confidence" className="space-y-6">
+            <AIConfidenceScoring 
+              proposal={{ id: proposalId, ...proposalData }}
+              organization={currentOrgId ? { id: currentOrgId } : null}
+              initialConfidenceScore={confidenceScore} // Pass initial score to child
+              onScoreCalculated={(score) => {
+                setConfidenceScore(score);
+                setProposalData(prevData => ({
+                  ...prevData,
+                  ai_confidence_score: JSON.stringify(score)
+                }));
+              }}
+            />
+          </TabsContent>
+
           {/* Compliance Matrix */}
           <TabsContent value="compliance">
             <ComplianceMatrixGenerator 
@@ -380,126 +320,6 @@ Return JSON:
               proposal={{ id: proposalId, ...proposalData }} 
               organization={currentOrgId ? { id: currentOrgId } : null} 
             />
-          </TabsContent>
-
-          {/* Confidence Score */}
-          <TabsContent value="confidence" className="space-y-6">
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">AI Confidence Score</CardTitle>
-                    <CardDescription>Comprehensive win probability analysis</CardDescription>
-                  </div>
-                  <Button onClick={calculateConfidence} disabled={calculatingScore}>
-                    {calculatingScore ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Calculating...
-                      </>
-                    ) : (
-                      <>
-                        <Trophy className="w-4 h-4 mr-2" />
-                        {confidenceScore ? 'Recalculate' : 'Calculate Score'}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              {confidenceScore && (
-                <CardContent className="space-y-6">
-                  <div className="text-center p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
-                    <p className="text-6xl font-bold text-blue-600 mb-2">{confidenceScore.overall_score}</p>
-                    <Badge className={
-                      confidenceScore.confidence_level === 'high' ? 'bg-green-600 text-white' :
-                      confidenceScore.confidence_level === 'medium' ? 'bg-yellow-600 text-white' :
-                      'bg-red-600 text-white'
-                    }>
-                      {confidenceScore.confidence_level} confidence
-                    </Badge>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-sm text-slate-600 mb-1">Completeness</p>
-                        <p className="text-2xl font-bold">{confidenceScore.completeness_score}</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-sm text-slate-600 mb-1">Compliance</p>
-                        <p className="text-2xl font-bold">{confidenceScore.compliance_score}</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-sm text-slate-600 mb-1">Quality</p>
-                        <p className="text-2xl font-bold">{confidenceScore.quality_score}</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <p className="text-sm text-slate-600 mb-1">Competitive Position</p>
-                        <p className="text-2xl font-bold">{confidenceScore.competitive_score}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <Card className="border-green-200 bg-green-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-green-900">Strengths</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {confidenceScore.strengths?.map((strength, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-green-900">{strength}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-amber-200 bg-amber-50">
-                      <CardHeader>
-                        <CardTitle className="text-base text-amber-900">Concerns</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {confidenceScore.concerns?.map((concern, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-amber-600 mt-1 flex-shrink-0" />
-                              <span className="text-sm text-amber-900">{concern}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Card className="border-none shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-base">Recommendations</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {confidenceScore.recommendations?.map((rec, idx) => (
-                          <li key={idx} className="flex items-start gap-3">
-                            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold">
-                              {idx + 1}
-                            </div>
-                            <span className="text-sm text-slate-700">{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </CardContent>
-              )}
-            </Card>
           </TabsContent>
         </Tabs>
       </CardContent>
