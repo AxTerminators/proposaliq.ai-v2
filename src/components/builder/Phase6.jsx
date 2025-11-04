@@ -40,6 +40,7 @@ import SectionVersionHistory from "./SectionVersionHistory";
 import AICollaborationAssistant from "../collaboration/AICollaborationAssistant";
 import ErrorAlert from "../ui/ErrorAlert";
 import { AILoadingState, DataFetchingState } from "../ui/LoadingState";
+import ProposalReuseIntelligence from "../content/ProposalReuseIntelligence";
 
 const PROPOSAL_SECTIONS = [
   {
@@ -177,6 +178,8 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const [versionHistorySection, setVersionHistorySection] = useState(null);
   const [generationError, setGenerationError] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [showReuseIntelligence, setShowReuseIntelligence] = useState(false);
+  const [currentSectionForReuse, setCurrentSectionForReuse] = useState(null);
   
   // Ref to store scroll position
   const scrollPositionRef = useRef(0);
@@ -779,6 +782,26 @@ The content should be ready to insert into the proposal document. Use HTML forma
     setCurrentSectionForBoilerplate(null);
   };
 
+  const handleInsertReuseContent = (content) => {
+    if (!currentSectionForReuse) return;
+    
+    const sectionKey = currentSectionForReuse;
+    const existingContent = sectionContent[sectionKey] || "";
+    
+    // Insert at cursor or append
+    const newContent = existingContent 
+      ? `${existingContent}\n\n${content}`
+      : content;
+    
+    setSectionContent(prev => ({
+      ...prev,
+      [sectionKey]: newContent
+    }));
+    
+    setShowReuseIntelligence(false);
+    setCurrentSectionForReuse(null);
+  };
+
   const handleViewHistory = (sectionKey) => {
     const section = sections.find(s => s.section_type === sectionKey);
     if (section) {
@@ -982,6 +1005,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               size="sm"
                               variant="outline"
                               onClick={() => {
+                                setCurrentSectionForReuse(section.id);
+                                setShowReuseIntelligence(true);
+                              }}
+                              className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+                            >
+                              <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+                              Reuse Content
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
                                 setCurrentSectionForBoilerplate(section.id);
                                 setShowBoilerplateDialog(true);
                               }}
@@ -1101,6 +1137,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
+                                      setCurrentSectionForReuse(subsectionKey);
+                                      setShowReuseIntelligence(true);
+                                    }}
+                                    className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+                                  >
+                                    <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+                                    Reuse
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
                                       setCurrentSectionForBoilerplate(subsectionKey);
                                       setShowBoilerplateDialog(true);
                                     }}
@@ -1215,6 +1264,31 @@ The content should be ready to insert into the proposal document. Use HTML forma
                 Cancel
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Content Reuse Intelligence Dialog */}
+        <Dialog open={showReuseIntelligence} onOpenChange={setShowReuseIntelligence}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Content Reuse Intelligence</DialogTitle>
+              <DialogDescription>
+                AI-powered suggestions from your historical proposals
+              </DialogDescription>
+            </DialogHeader>
+            
+            {currentSectionForReuse && (
+              <ProposalReuseIntelligence
+                currentProposal={{ id: proposalId, ...proposalData }}
+                currentSection={{
+                  id: currentSectionForReuse,
+                  section_type: currentSectionForReuse,
+                  section_name: currentSectionForReuse // This might need mapping to a human-readable name if desired
+                }}
+                onContentInsert={handleInsertReuseContent}
+                organization={organization}
+              />
+            )}
           </DialogContent>
         </Dialog>
 
