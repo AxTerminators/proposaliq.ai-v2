@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { AlertCircle } from "lucide-react"; // New import
 import {
   Sparkles,
   TrendingUp,
@@ -20,1031 +22,709 @@ import {
   Users,
   Award
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Removed: import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Tabs component is no longer used
 
-export default function PricingAnalyzer({ 
-  proposalId, 
-  organizationId, 
-  proposalData, 
-  clins,
-  pricingStrategy,
-  totalCost,
-  totalPrice
-}) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState(null);
-  const [competitorAnalysis, setCompetitorAnalysis] = useState(null);
-  const [isLoadingCompetitors, setIsLoadingCompetitors] = useState(false);
+// New imports for recharts
+import {
+  ResponsiveContainer,
+  LineChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Line
+} from 'recharts';
+
+export default function PricingAnalyzer({ proposal, organization }) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const [priceToWinAnalysis, setPriceToWinAnalysis] = useState(null);
+  const [error, setError] = useState(null);
+
+  // State for fetched data
+  const [laborAllocations, setLaborAllocations] = useState([]);
+  const [odcItems, setOdcItems] = useState([]);
+  const [pricingStrategies, setPricingStrategies] = useState([]);
+  const [competitors, setCompetitors] = useState([]);
+  const [winLossRecords, setWinLossRecords] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    // Load existing analysis if available
-    const loadExistingAnalysis = async () => {
-      if (pricingStrategy?.price_to_win_analysis) {
-        setAnalysisResults({
-          pricing_model_recommendation: {
-            recommended_model: pricingStrategy.pricing_approach,
-            confidence: 85,
-            rationale: pricingStrategy.price_to_win_analysis.rationale || ""
-          },
-          price_to_win: pricingStrategy.price_to_win_analysis
-        });
+    const fetchData = async () => {
+      if (!proposal?.id || !organization?.id) {
+        setIsLoadingData(false);
+        return;
+      }
+      setIsLoadingData(true);
+      setError(null);
+
+      try {
+        const [
+          fetchedLaborAllocations,
+          fetchedOdcItems,
+          fetchedPricingStrategies,
+          fetchedCompetitors,
+          pastProposalsFromDb
+        ] = await Promise.all([
+          base44.entities.LaborAllocation.filter({ proposal_id: proposal.id, organization_id: organization.id }),
+          base44.entities.OdcItem.filter({ proposal_id: proposal.id, organization_id: organization.id }),
+          base44.entities.PricingStrategy.filter({ proposal_id: proposal.id, organization_id: organization.id }),
+          base44.entities.CompetitorIntel.filter({ organization_id: organization.id }),
+          base44.entities.Proposal.filter({
+            organization_id: organization.id,
+            status: { $in: ['won', 'lost'] }
+          })
+        ]);
+
+        // Transform pastProposalsFromDb into the winLossRecords format expected by the AI prompt
+        const transformedWinLossRecords = pastProposalsFromDb.map(p => ({
+          outcome: p.status === 'won' ? 'won' : 'lost',
+          proposal_details: p,
+          // Placeholder for price_analysis. In a real app, this would come from a dedicated entity
+          // or be part of the Proposal entity itself for past wins/losses.
+          // For now, making some assumptions for demonstration.
+          price_analysis: {
+            // Assume 'our_price' was slightly less than 'contract_value' for won, or more for lost
+            our_price: p.status === 'won' ? (p.contract_value * 0.95) : (p.contract_value * 1.05),
+            winning_price: p.contract_value,
+            // Price differential in percentage
+            price_differential: p.contract_value ? ((p.contract_value - (p.status === 'won' ? (p.contract_value * 0.95) : (p.contract_value * 1.05))) / p.contract_value) * 100 : 0
+          }
+        }));
+
+        setLaborAllocations(fetchedLaborAllocations);
+        setOdcItems(fetchedOdcItems);
+        setPricingStrategies(fetchedPricingStrategies);
+        setCompetitors(fetchedCompetitors);
+        setWinLossRecords(transformedWinLossRecords);
+
+        // Load existing analysis from the first pricing strategy if available
+        if (fetchedPricingStrategies.length > 0 && fetchedPricingStrategies[0].price_to_win_analysis) {
+          try {
+            // price_to_win_analysis is stored as a stringified JSON
+            const parsedAnalysis = JSON.parse(fetchedPricingStrategies[0].price_to_win_analysis);
+            setPriceToWinAnalysis(parsedAnalysis);
+          } catch (parseError) {
+            console.error("Error parsing existing price_to_win_analysis:", parseError);
+            setPriceToWinAnalysis(null); // Clear invalid data
+          }
+        } else {
+          setPriceToWinAnalysis(null);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch initial data:", err);
+        setError(new Error("Failed to load necessary data. Please check console for details."));
+      } finally {
+        setIsLoadingData(false);
       }
     };
-    loadExistingAnalysis();
-  }, [pricingStrategy]);
 
-  const runAIPricingAnalysis = async () => {
-    if (!proposalId || !organizationId) {
-      alert("Please save the proposal first");
+    fetchData();
+  }, [proposal?.id, organization?.id]); // Re-run when proposal or organization IDs change
+
+  const runPriceToWinAnalysis = async () => {
+    if (!proposal?.id || !organization?.id) {
+      alert("Proposal and Organization data required to run analysis.");
       return;
     }
 
-    setIsAnalyzing(true);
+    setAnalyzing(true);
+    setError(null);
 
     try {
-      // Gather comprehensive context
-      const [solicitationDocs, pastProposals, teamingPartners, complianceReqs, laborCategories] = await Promise.all([
-        base44.entities.SolicitationDocument.filter({
-          proposal_id: proposalId,
-          organization_id: organizationId
-        }),
-        base44.entities.Proposal.filter({
-          organization_id: organizationId,
-          status: { $in: ['won', 'lost'] }
-        }).then(props => props.slice(0, 10)),
-        base44.entities.TeamingPartner.filter({
-          organization_id: organizationId
-        }).then(partners => {
-          const partnerIds = proposalData.teaming_partner_ids || [];
-          return partners.filter(p => partnerIds.includes(p.id));
-        }),
-        base44.entities.ComplianceRequirement.filter({
-          proposal_id: proposalId,
-          organization_id: organizationId
-        }),
-        base44.entities.LaborCategory.filter({
-          organization_id: organizationId
-        })
-      ]);
+      // Calculate current pricing
+      const totalLaborCost = laborAllocations.reduce((sum, la) => sum + (la.total_cost || 0), 0);
+      const totalODC = odcItems.reduce((sum, odc) => sum + (odc.total_cost || 0), 0);
+      const totalCost = totalLaborCost + totalODC;
 
-      // Build context
-      const fileUrls = solicitationDocs
-        .filter(doc => doc.file_url)
-        .map(doc => doc.file_url)
-        .slice(0, 5);
+      const currentStrategy = pricingStrategies[0];
+      // Use existing blended fee percentage or default to 10%
+      const feePercentage = currentStrategy?.blended_fee_percentage || 10;
+      const totalPrice = totalCost * (1 + feePercentage / 100);
 
-      const historicalContext = pastProposals.map(p => ({
-        name: p.proposal_name,
-        agency: p.agency_name,
-        contract_value: p.contract_value,
-        status: p.status,
-        project_type: p.project_type
-      }));
+      // Analyze historical pricing data
+      const wonProposals = winLossRecords.filter(r => r.outcome === 'won');
+      const lostProposals = winLossRecords.filter(r => r.outcome === 'lost');
 
-      const teamContext = teamingPartners.map(p => ({
-        name: p.partner_name,
-        type: p.partner_type,
-        capabilities: p.core_capabilities?.slice(0, 3)
-      }));
+      const similarProposals = winLossRecords.filter(r => {
+        const p = r.proposal_details;
+        if (!p) return false;
 
-      const prompt = `You are an expert government contract pricing strategist. Analyze this proposal and provide comprehensive pricing recommendations.
+        const similarAgency = p.agency_name === proposal.agency_name;
+        const similarType = p.project_type === proposal.project_type;
+        // Check if contract value is within 30% range of current total price or proposal's target value
+        const targetValueForComparison = proposal.contract_value || totalPrice;
+        const similarValue = Math.abs((p.contract_value || 0) - targetValueForComparison) < (targetValueForComparison * 0.3);
 
-**PROPOSAL DETAILS:**
-- Proposal: ${proposalData.proposal_name}
-- Agency: ${proposalData.agency_name}
-- Project: ${proposalData.project_title}
-- Type: ${proposalData.project_type}
-- Estimated Contract Value: ${proposalData.contract_value ? '$' + proposalData.contract_value.toLocaleString() : 'Unknown'}
-- Prime Contractor: ${proposalData.prime_contractor_name}
+        return similarAgency || similarType || similarValue;
+      });
 
-**CURRENT PRICING:**
-- Total Cost: $${totalCost.toLocaleString()}
-- Total Price: $${totalPrice.toLocaleString()}
-- Current Fee: ${totalPrice > 0 ? (((totalPrice - totalCost) / totalCost) * 100).toFixed(2) : 0}%
-- Number of CLINs: ${clins.length}
+      // Build comprehensive AI prompt
+      const prompt = `You are an expert pricing strategist for government proposals. Analyze historical data and competitive intelligence to recommend an optimal "Price to Win" strategy.
 
-**TEAMING PARTNERS:**
-${teamContext.length > 0 ? teamContext.map(t => `- ${t.name} (${t.type}): ${t.capabilities?.join(', ')}`).join('\n') : 'N/A'}
+**CURRENT PROPOSAL:**
+- Name: ${proposal.proposal_name}
+- Agency: ${proposal.agency_name}
+- Type: ${proposal.project_type}
+- Our Calculated Cost: $${totalCost.toLocaleString()}
+- Our Current Price: $${totalPrice.toLocaleString()}
+- Fee: ${feePercentage}%
+- Target Value: ${proposal.contract_value ? '$' + proposal.contract_value.toLocaleString() : 'Unknown'}
 
 **HISTORICAL WIN/LOSS DATA:**
-${historicalContext.length > 0 ? historicalContext.map(h => `- ${h.name} (${h.agency}): ${h.status} - $${h.contract_value?.toLocaleString() || 'N/A'}`).join('\n') : 'N/A'}
+- Total Historical Bids: ${winLossRecords.length}
+- Overall Win Rate: ${winLossRecords.length > 0 ? ((wonProposals.length / winLossRecords.length) * 100).toFixed(1) : 0}%
+- Similar Proposals: ${similarProposals.length} found
+- Won Similar: ${similarProposals.filter(r => r.outcome === 'won').length}
+- Lost Similar: ${similarProposals.filter(r => r.outcome === 'lost').length}
 
-**COMPLIANCE REQUIREMENTS:**
-${complianceReqs.slice(0, 5).map(req => `- ${req.requirement_title}`).join('\n')}
-
-**YOUR TASK:**
-Provide a comprehensive pricing analysis with the following:
-
-1. **Pricing Model Recommendation**: Analyze the solicitation and recommend the optimal pricing model (FFP, T&M, CPFF, CPAF, Hybrid). Consider risk, agency preference, and project characteristics.
-
-2. **Price-to-Win Analysis**: 
-   - Recommend a competitive price
-   - Provide target fee percentage
-   - Assess win probability at different price points
-   - Consider agency's budget constraints
-
-3. **Competitive Positioning**: 
-   - Estimate likely competitor price ranges (low, mid, high)
-   - Recommend positioning strategy (aggressive, competitive, premium)
-   - Identify pricing risks
-
-4. **Fee Structure Recommendations**:
-   - Recommend fee percentages for different cost elements
-   - Suggest volume discounts or incentives
-   - Identify opportunities to reduce cost
-
-5. **Risk Assessment**:
-   - Identify pricing risks (too high, too low, compliance issues)
-   - Recommend risk mitigation strategies
-
-6. **Actionable Recommendations**:
-   - Specific steps to optimize pricing
-   - Areas to justify higher costs
-   - Cost reduction opportunities
-
-Return structured JSON:
-{
-  "pricing_model_recommendation": {
-    "recommended_model": "FFP|T&M|CPFF|CPAF|Hybrid",
-    "confidence": number (0-100),
-    "rationale": "string",
-    "alternative_models": [{"model": "string", "pros": ["string"], "cons": ["string"]}]
-  },
-  "price_to_win": {
-    "recommended_price": number,
-    "target_fee_percentage": number,
-    "price_floor": number,
-    "price_ceiling": number,
-    "win_probability_curve": [
-      {"price": number, "win_probability": number}
-    ],
-    "confidence_level": "high|medium|low",
-    "rationale": "string"
-  },
-  "competitive_positioning": {
-    "estimated_competitor_range": {
-      "low": number,
-      "mid": number,
-      "high": number
-    },
-    "recommended_positioning": "aggressive|competitive|premium",
-    "positioning_rationale": "string",
-    "likely_competitors": ["string"],
-    "competitive_advantages": ["string"]
-  },
-  "fee_recommendations": {
-    "labor_fee": number,
-    "odc_fee": number,
-    "subcontractor_fee": number,
-    "overall_blended_fee": number,
-    "volume_discount_opportunities": ["string"],
-    "incentive_recommendations": ["string"]
-  },
-  "risk_assessment": {
-    "pricing_risks": [
-      {
-        "risk": "string",
-        "severity": "high|medium|low",
-        "impact": "string",
-        "mitigation": "string"
-      }
-    ],
-    "compliance_risks": ["string"],
-    "overall_risk_level": "high|medium|low"
-  },
-  "optimization_recommendations": [
-    {
-      "category": "cost_reduction|value_add|justification|strategy",
-      "recommendation": "string",
-      "potential_impact": "string",
-      "priority": "high|medium|low"
-    }
-  ],
-  "cost_breakdown_suggestions": {
-    "labor_allocation": "string (% guidance)",
-    "odc_allocation": "string",
-    "subcontractor_allocation": "string",
-    "contingency": number
-  },
-  "executive_summary": "string (2-3 sentences)"
-}`;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            pricing_model_recommendation: { type: "object" },
-            price_to_win: { type: "object" },
-            competitive_positioning: { type: "object" },
-            fee_recommendations: { type: "object" },
-            risk_assessment: { type: "object" },
-            optimization_recommendations: { type: "array" },
-            cost_breakdown_suggestions: { type: "object" },
-            executive_summary: { type: "string" }
-          }
-        }
-      });
-
-      setAnalysisResults(result);
-
-      // Save to PricingStrategy entity
-      const strategies = await base44.entities.PricingStrategy.filter({
-        proposal_id: proposalId
-      });
-
-      if (strategies.length > 0) {
-        await base44.entities.PricingStrategy.update(strategies[0].id, {
-          pricing_approach: result.pricing_model_recommendation.recommended_model,
-          price_to_win_analysis: result.price_to_win,
-          estimated_competitor_pricing: result.competitive_positioning.estimated_competitor_range,
-          ai_recommendations: result.optimization_recommendations.map(r => r.recommendation),
-          competitive_positioning: result.competitive_positioning.recommended_positioning
-        });
-      } else {
-        await base44.entities.PricingStrategy.create({
-          proposal_id: proposalId,
-          organization_id: organizationId,
-          pricing_approach: result.pricing_model_recommendation.recommended_model,
-          price_to_win_analysis: result.price_to_win,
-          estimated_competitor_pricing: result.competitive_positioning.estimated_competitor_range,
-          ai_recommendations: result.optimization_recommendations.map(r => r.recommendation),
-          competitive_positioning: result.competitive_positioning.recommended_positioning,
-          calculated_total_cost: totalCost,
-          calculated_total_price: totalPrice
-        });
-      }
-
-      alert("✓ AI Pricing Analysis Complete!");
-
-    } catch (error) {
-      console.error("Error running pricing analysis:", error);
-      alert("Error analyzing pricing. Please try again.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const analyzeCompetitors = async () => {
-    if (!organizationId) return;
-
-    setIsLoadingCompetitors(true);
-
-    try {
-      const competitors = await base44.entities.CompetitorIntel.filter({
-        organization_id: organizationId
-      });
-
-      if (competitors.length === 0) {
-        alert("No competitor data available. Add competitors in Settings to enable competitive analysis.");
-        setIsLoadingCompetitors(false);
-        return;
-      }
-
-      const prompt = `You are a competitive intelligence analyst. Analyze these competitors and provide pricing insights for this proposal.
-
-**PROPOSAL:**
-- Agency: ${proposalData.agency_name}
-- Project: ${proposalData.project_title}
-- Type: ${proposalData.project_type}
-- Our Estimated Price: $${totalPrice.toLocaleString()}
-
-**COMPETITOR DATA:**
-${competitors.map(c => `
-**${c.competitor_name}**
-- Type: ${c.competitor_type}
-- Typical Pricing: ${c.typical_pricing_strategy}
-- Win Rate: ${c.win_rate}%
-- Average Contract Value: $${c.average_contract_value?.toLocaleString() || 'Unknown'}
-- Strengths: ${c.strengths?.join(', ') || 'N/A'}
-- Weaknesses: ${c.weaknesses?.join(', ') || 'N/A'}
-- Past Wins: ${c.past_wins?.map(w => `${w.project_name} ($${w.contract_value?.toLocaleString()})`).join(', ') || 'N/A'}
+**SIMILAR PROPOSALS PRICING:**
+${similarProposals.slice(0, 5).map(r => `
+- ${r.outcome.toUpperCase()}: ${r.proposal_details?.proposal_name}
+  Our Price: ${r.price_analysis?.our_price ? '$' + r.price_analysis.our_price.toLocaleString() : 'N/A'}
+  Winning Price: ${r.price_analysis?.winning_price ? '$' + r.price_analysis.winning_price.toLocaleString() : 'N/A'}
+  Differential: ${r.price_analysis?.price_differential ? r.price_analysis.price_differential.toFixed(1) + '%' : 'N/A'}
 `).join('\n')}
 
-**YOUR TASK:**
-Analyze competitor pricing patterns and provide strategic recommendations:
+**COMPETITOR INTELLIGENCE:**
+${competitors.slice(0, 3).map(c => `
+- ${c.competitor_name}
+  Typical Strategy: ${c.typical_pricing_strategy}
+  Win Rate: ${c.win_rate || 'Unknown'}%
+  Avg Contract: ${c.average_contract_value ? '$' + c.average_contract_value.toLocaleString() : 'Unknown'}
+`).join('\n')}
 
-{
-  "likely_bidders": [
-    {
-      "competitor_name": "string",
-      "bid_probability": number (0-100),
-      "estimated_price_range": {"low": number, "high": number},
-      "pricing_strategy": "string",
-      "competitive_threat": "high|medium|low",
-      "how_to_beat_them": "string"
-    }
-  ],
-  "market_intelligence": {
-    "average_winning_price": number,
-    "typical_win_margin": number,
-    "pricing_trends": "string",
-    "agency_preferences": ["string"]
-  },
-  "strategic_recommendations": [
-    {
-      "strategy": "string",
-      "rationale": "string",
-      "risk_level": "high|medium|low"
-    }
-  ],
-  "ghosting_opportunities": [
-    {
-      "competitor": "string",
-      "weakness_to_exploit": "string",
-      "how_to_ghost": "string"
-    }
-  ],
-  "pricing_positioning": {
-    "recommended_stance": "aggressive|competitive|premium",
-    "rationale": "string",
-    "key_differentiators_to_emphasize": ["string"]
-  }
-}`;
+**YOUR TASK - PRICE TO WIN ANALYSIS:**
+
+Analyze all data and provide:
+
+1. **Recommended Price to Win**: Specific dollar amount and fee percentage
+2. **Win Probability at Different Price Points**: Model win probability at various prices
+3. **Competitive Price Range**: Where competitors likely to bid
+4. **Price Elasticity**: How sensitive win probability is to price changes
+5. **Risk Analysis**: Risks of pricing too high vs too low
+6. **Strategy Recommendation**: Best pricing approach for this opportunity
+7. **Confidence Level**: How confident in these recommendations
+8. **Alternative Scenarios**: Best case / worst case pricing scenarios
+
+Return comprehensive JSON with specific, actionable pricing intelligence.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
           properties: {
-            likely_bidders: { type: "array" },
-            market_intelligence: { type: "object" },
-            strategic_recommendations: { type: "array" },
-            ghosting_opportunities: { type: "array" },
-            pricing_positioning: { type: "object" }
-          }
+            recommended_price: {
+              type: "number",
+              description: "Recommended total price to maximize win probability"
+            },
+            recommended_fee_percentage: {
+              type: "number",
+              description: "Recommended fee percentage"
+            },
+            win_probability_at_recommended_price: {
+              type: "number",
+              minimum: 0,
+              maximum: 100,
+              description: "Expected win probability at recommended price"
+            },
+            confidence_level: {
+              type: "string",
+              enum: ["high", "medium", "low"],
+              description: "Confidence in this recommendation"
+            },
+            pricing_strategy: {
+              type: "string",
+              enum: ["aggressive_to_win", "competitive", "value_based", "premium", "low_price_technically_acceptable"],
+              description: "Recommended pricing strategy"
+            },
+            win_probability_curve: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  price: { type: "number" },
+                  win_probability: { type: "number", minimum: 0, maximum: 100 },
+                  risk_level: { type: "string", enum: ["low", "medium", "high"] }
+                }
+              },
+              description: "Win probability at different price points"
+            },
+            competitive_price_range: {
+              type: "object",
+              properties: {
+                low_estimate: { type: "number" },
+                mid_estimate: { type: "number" },
+                high_estimate: { type: "number" },
+                our_position: { type: "string", enum: ["below_range", "in_range", "above_range"] }
+              }
+            },
+            price_positioning_analysis: {
+              type: "object",
+              properties: {
+                vs_low_bidder_estimate: { type: "string" },
+                vs_average_bidder: { type: "string" },
+                vs_high_bidder: { type: "string" },
+                sweet_spot_reasoning: { type: "string" }
+              }
+            },
+            risk_analysis: {
+              type: "object",
+              properties: {
+                pricing_too_high_risks: { type: "array", items: { type: "string" } },
+                pricing_too_low_risks: { type: "array", items: { type: "string" } },
+                optimal_risk_balance: { type: "string" }
+              }
+            },
+            scenario_analysis: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  scenario_name: { type: "string" },
+                  price: { type: "number" },
+                  fee_percentage: { type: "number" },
+                  win_probability: { type: "number" },
+                  expected_value: { type: "number" },
+                  pros: { type: "array", items: { type: "string" } },
+                  cons: { type: "array", items: { type: "string" } }
+                }
+              },
+              description: "3 scenarios: Aggressive, Moderate, Conservative"
+            },
+            competitive_intelligence: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  competitor: { type: "string" },
+                  likely_price_range: { type: "string" },
+                  their_strategy: { type: "string" },
+                  how_to_position_against: { type: "string" }
+                }
+              }
+            },
+            key_insights: {
+              type: "array",
+              items: { type: "string" },
+              description: "Top 5-7 key insights from the analysis"
+            },
+            final_recommendation: {
+              type: "string",
+              description: "Clear, specific final recommendation"
+            }
+          },
+          required: [
+            "recommended_price",
+            "recommended_fee_percentage",
+            "win_probability_at_recommended_price",
+            "confidence_level",
+            "pricing_strategy",
+            "competitive_price_range",
+            "risk_analysis",
+            "scenario_analysis",
+            "key_insights",
+            "final_recommendation"
+          ]
         }
       });
 
-      setCompetitorAnalysis(result);
+      setPriceToWinAnalysis(result);
 
-    } catch (error) {
-      console.error("Error analyzing competitors:", error);
-      alert("Error analyzing competitors. Please try again.");
+      // Update pricing strategy with AI recommendations
+      if (currentStrategy) {
+        await base44.entities.PricingStrategy.update(currentStrategy.id, {
+          price_to_win_analysis: JSON.stringify(result), // Store as stringified JSON
+          ai_recommendations: result.key_insights
+        });
+      } else {
+        // If no pricing strategy exists, create one with the analysis results
+        await base44.entities.PricingStrategy.create({
+          proposal_id: proposal.id,
+          organization_id: organization.id,
+          pricing_approach: result.pricing_strategy,
+          blended_fee_percentage: result.recommended_fee_percentage,
+          price_to_win_analysis: JSON.stringify(result),
+          ai_recommendations: result.key_insights,
+          calculated_total_cost: totalCost,
+          calculated_total_price: totalPrice,
+          estimated_competitor_pricing: result.competitive_price_range,
+          competitive_positioning: result.price_positioning_analysis?.our_position || 'in_range'
+        });
+      }
+
+
+      alert("✓ Price-to-Win analysis complete!");
+
+    } catch (err) {
+      console.error("Error running price analysis:", err);
+      setError(new Error(`Failed to perform AI analysis: ${err.message || "Unknown error"}`));
     } finally {
-      setIsLoadingCompetitors(false);
+      setAnalyzing(false);
     }
   };
 
-  if (!proposalId) {
+  if (!proposal?.id || !organization?.id) {
     return (
-      <Alert>
-        <AlertTriangle className="w-4 h-4" />
+      <Alert variant="destructive">
+        <AlertCircle className="w-4 h-4" />
         <AlertDescription>
-          Please save the proposal and add CLINs before running pricing analysis.
+          Please ensure the proposal and organization data are loaded and valid before running pricing analysis.
         </AlertDescription>
       </Alert>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <Card className="border-none shadow-xl bg-gradient-to-br from-purple-50 to-indigo-50">
+  if (isLoadingData) {
+    return (
+      <Card className="border-none shadow-xl">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Brain className="w-6 h-6 text-purple-600" />
-                AI-Powered Pricing Intelligence
-              </CardTitle>
-              <CardDescription>
-                Get strategic pricing recommendations based on solicitation analysis, historical data, and competitive intelligence
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={analyzeCompetitors}
-                disabled={isLoadingCompetitors}
-                variant="outline"
-                className="border-purple-300"
-              >
-                {isLoadingCompetitors ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Users className="w-4 h-4 mr-2" />
-                    Competitor Analysis
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={runAIPricingAnalysis}
-                disabled={isAnalyzing}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Run AI Analysis
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-green-600" />
+            Pricing Analysis & Optimization
+          </CardTitle>
+          <CardDescription>Loading data for analysis...</CardDescription>
         </CardHeader>
-        {!analysisResults && (
-          <CardContent>
-            <Alert className="bg-white">
-              <Lightbulb className="w-4 h-4 text-purple-600" />
-              <AlertDescription>
-                <p className="font-semibold text-purple-900 mb-2">AI will analyze:</p>
-                <ul className="text-sm text-purple-800 space-y-1">
-                  <li>✓ Solicitation pricing requirements and structure</li>
-                  <li>✓ Your historical win/loss data and pricing patterns</li>
-                  <li>✓ Current cost structure and profit margins</li>
-                  <li>✓ Competitive landscape and market positioning</li>
-                  <li>✓ Risk factors and optimization opportunities</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        )}
+        <CardContent>
+          <div className="flex items-center space-x-2">
+            <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+            <span>Fetching historical data, pricing strategies, and competitor intel...</span>
+          </div>
+        </CardContent>
       </Card>
+    );
+  }
 
-      {isAnalyzing && (
-        <Alert className="bg-blue-50 border-blue-200">
-          <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-          <AlertDescription>
-            <p className="font-semibold text-blue-900">AI is analyzing your pricing strategy...</p>
-            <p className="text-sm text-blue-700 mt-1">
-              Reading solicitation, analyzing historical data, calculating competitive positioning...
-            </p>
-          </AlertDescription>
+
+  return (
+    <Card className="border-none shadow-xl">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              Pricing Analysis & Optimization
+            </CardTitle>
+            <CardDescription>Analyze competitive pricing and optimize for win probability</CardDescription>
+          </div>
+          <Button
+            onClick={runPriceToWinAnalysis}
+            disabled={analyzing}
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+          >
+            {analyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Price-to-Win Analysis
+              </>
+            )}
+          </Button>
+        </div>
+      </CardHeader>
+
+      {error && (
+        <Alert variant="destructive" className="mx-6 mb-4">
+          <AlertCircle className="w-4 h-4" />
+          <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
 
-      {analysisResults && (
-        <Tabs defaultValue="summary" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="model">Pricing Model</TabsTrigger>
-            <TabsTrigger value="price-to-win">Price-to-Win</TabsTrigger>
-            <TabsTrigger value="competitive">Competitive</TabsTrigger>
-            <TabsTrigger value="risks">Risks</TabsTrigger>
-            <TabsTrigger value="recommendations">Actions</TabsTrigger>
-          </TabsList>
-
-          {/* Summary Tab */}
-          <TabsContent value="summary" className="space-y-4">
-            <Card className="border-green-200 bg-green-50">
+      <CardContent className="space-y-6">
+        {/* AI Price-to-Win Results */}
+        {priceToWinAnalysis && (
+          <div className="space-y-6">
+            {/* Recommended Price */}
+            <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
               <CardHeader>
-                <CardTitle className="text-lg">Executive Summary</CardTitle>
+                <CardTitle className="text-xl">AI-Recommended Price to Win</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-800">{analysisResults.executive_summary}</p>
-              </CardContent>
-            </Card>
-
-            <div className="grid md:grid-cols-3 gap-4">
-              <Card className="border-none shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <Target className="w-8 h-8 text-purple-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-purple-600">
-                    ${analysisResults.price_to_win.recommended_price?.toLocaleString() || 'N/A'}
+                <div className="text-center mb-6">
+                  <p className="text-5xl font-bold text-green-600 mb-2">
+                    ${priceToWinAnalysis.recommended_price.toLocaleString()}
                   </p>
-                  <p className="text-sm text-slate-600 mt-1">Recommended Price</p>
-                  <Badge className="mt-2">{analysisResults.price_to_win.confidence_level} confidence</Badge>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <TrendingUp className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-blue-600">
-                    {analysisResults.fee_recommendations.overall_blended_fee?.toFixed(1) || 'N/A'}%
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">Target Fee %</p>
-                  <Badge className="mt-2" variant="outline">
-                    {analysisResults.pricing_model_recommendation.recommended_model}
-                  </Badge>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <Shield className="w-8 h-8 text-amber-600" />
-                  </div>
-                  <p className="text-3xl font-bold text-amber-600 capitalize">
-                    {analysisResults.risk_assessment.overall_risk_level}
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">Risk Level</p>
-                  <Badge className="mt-2" variant="secondary">
-                    {analysisResults.risk_assessment.pricing_risks?.length || 0} risks identified
-                  </Badge>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Pricing Model Tab */}
-          <TabsContent value="model" className="space-y-4">
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-indigo-600" />
-                  Recommended Pricing Model
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                  <div>
-                    <p className="text-sm text-slate-600 mb-1">Recommended Model</p>
-                    <p className="text-2xl font-bold text-indigo-700">
-                      {analysisResults.pricing_model_recommendation.recommended_model}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-slate-600 mb-1">Confidence</p>
-                    <div className="flex items-center gap-2">
-                      <Progress 
-                        value={analysisResults.pricing_model_recommendation.confidence} 
-                        className="w-24 h-2"
-                      />
-                      <span className="font-semibold">{analysisResults.pricing_model_recommendation.confidence}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <p className="text-sm font-semibold text-slate-700 mb-2">Rationale:</p>
-                  <p className="text-sm text-slate-600">
-                    {analysisResults.pricing_model_recommendation.rationale}
-                  </p>
-                </div>
-
-                {analysisResults.pricing_model_recommendation.alternative_models?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3">Alternative Models</h4>
-                    <div className="space-y-3">
-                      {analysisResults.pricing_model_recommendation.alternative_models.map((alt, idx) => (
-                        <Card key={idx} className="border-slate-200">
-                          <CardContent className="p-4">
-                            <p className="font-semibold text-slate-900 mb-2">{alt.model}</p>
-                            <div className="grid md:grid-cols-2 gap-3">
-                              <div>
-                                <p className="text-xs font-semibold text-green-700 mb-1">Pros:</p>
-                                <ul className="text-xs text-slate-600 space-y-1">
-                                  {alt.pros?.map((pro, i) => (
-                                    <li key={i}>+ {pro}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                              <div>
-                                <p className="text-xs font-semibold text-red-700 mb-1">Cons:</p>
-                                <ul className="text-xs text-slate-600 space-y-1">
-                                  {alt.cons?.map((con, i) => (
-                                    <li key={i}>- {con}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Price-to-Win Tab */}
-          <TabsContent value="price-to-win" className="space-y-4">
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-purple-600" />
-                  Price-to-Win Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
-                    <p className="text-sm text-slate-600 mb-1">Price Floor</p>
-                    <p className="text-2xl font-bold text-red-700">
-                      ${analysisResults.price_to_win.price_floor?.toLocaleString() || 'N/A'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">Minimum viable price</p>
-                  </div>
-
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                    <p className="text-sm text-slate-600 mb-1">Recommended Price</p>
-                    <p className="text-2xl font-bold text-green-700">
-                      ${analysisResults.price_to_win.recommended_price?.toLocaleString() || 'N/A'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">Optimal win probability</p>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                    <p className="text-sm text-slate-600 mb-1">Price Ceiling</p>
-                    <p className="text-2xl font-bold text-blue-700">
-                      ${analysisResults.price_to_win.price_ceiling?.toLocaleString() || 'N/A'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">Maximum justifiable price</p>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-sm font-semibold text-purple-900 mb-2">Strategic Rationale:</p>
-                  <p className="text-sm text-purple-800">
-                    {analysisResults.price_to_win.rationale}
-                  </p>
-                </div>
-
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <p className="text-sm font-semibold text-slate-700 mb-2">Target Fee Structure:</p>
-                  <div className="grid md:grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-600">Labor Fee</p>
-                      <p className="text-lg font-bold text-slate-900">
-                        {analysisResults.fee_recommendations.labor_fee?.toFixed(1) || 'N/A'}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-600">ODC Fee</p>
-                      <p className="text-lg font-bold text-slate-900">
-                        {analysisResults.fee_recommendations.odc_fee?.toFixed(1) || 'N/A'}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-600">Subcontractor Fee</p>
-                      <p className="text-lg font-bold text-slate-900">
-                        {analysisResults.fee_recommendations.subcontractor_fee?.toFixed(1) || 'N/A'}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {analysisResults.price_to_win.win_probability_curve?.length > 0 && (
-                  <div className="p-4 bg-white border rounded-lg">
-                    <p className="text-sm font-semibold text-slate-700 mb-3">Win Probability by Price</p>
-                    <div className="space-y-2">
-                      {analysisResults.price_to_win.win_probability_curve.map((point, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          <span className="text-sm font-mono text-slate-600 w-32">
-                            ${point.price?.toLocaleString()}
-                          </span>
-                          <Progress value={point.win_probability} className="flex-1 h-2" />
-                          <span className="text-sm font-semibold w-16 text-right">
-                            {point.win_probability}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Competitive Tab */}
-          <TabsContent value="competitive" className="space-y-4">
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  Competitive Positioning
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="font-semibold text-blue-900">Recommended Positioning</p>
-                    <Badge className="bg-blue-600 text-white capitalize">
-                      {analysisResults.competitive_positioning.recommended_positioning}
+                  <div className="flex items-center justify-center gap-3">
+                    <Badge className="bg-green-600 text-white text-base px-4 py-2">
+                      {priceToWinAnalysis.recommended_fee_percentage}% Fee
                     </Badge>
-                  </div>
-                  <p className="text-sm text-blue-800">
-                    {analysisResults.competitive_positioning.positioning_rationale}
-                  </p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-3">Estimated Competitor Price Range</h4>
-                  <div className="grid md:grid-cols-3 gap-3">
-                    <div className="p-3 bg-slate-50 border rounded-lg text-center">
-                      <p className="text-xs text-slate-600 mb-1">Low Bid</p>
-                      <p className="text-xl font-bold text-slate-900">
-                        ${analysisResults.competitive_positioning.estimated_competitor_range?.low?.toLocaleString() || 'N/A'}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-slate-50 border rounded-lg text-center">
-                      <p className="text-xs text-slate-600 mb-1">Mid Range</p>
-                      <p className="text-xl font-bold text-slate-900">
-                        ${analysisResults.competitive_positioning.estimated_competitor_range?.mid?.toLocaleString() || 'N/A'}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-slate-50 border rounded-lg text-center">
-                      <p className="text-xs text-slate-600 mb-1">High Bid</p>
-                      <p className="text-xl font-bold text-slate-900">
-                        ${analysisResults.competitive_positioning.estimated_competitor_range?.high?.toLocaleString() || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {analysisResults.competitive_positioning.likely_competitors?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3">Likely Competitors</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisResults.competitive_positioning.likely_competitors.map((comp, idx) => (
-                        <Badge key={idx} variant="secondary">
-                          {comp}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {analysisResults.competitive_positioning.competitive_advantages?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <Award className="w-4 h-4 text-green-600" />
-                      Your Competitive Advantages
-                    </h4>
-                    <ul className="space-y-2">
-                      {analysisResults.competitive_positioning.competitive_advantages.map((adv, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                          <span>{adv}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Risks Tab */}
-          <TabsContent value="risks" className="space-y-4">
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-amber-600" />
-                  Risk Assessment
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-amber-900">Overall Risk Level</p>
+                    <Badge className="bg-blue-600 text-white text-base px-4 py-2">
+                      {priceToWinAnalysis.win_probability_at_recommended_price}% Win Probability
+                    </Badge>
                     <Badge className={
-                      analysisResults.risk_assessment.overall_risk_level === 'high' ? 'bg-red-100 text-red-700' :
-                      analysisResults.risk_assessment.overall_risk_level === 'medium' ? 'bg-amber-100 text-amber-700' :
-                      'bg-green-100 text-green-700'
+                      priceToWinAnalysis.confidence_level === 'high' ? 'bg-green-100 text-green-800' :
+                      priceToWinAnalysis.confidence_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-orange-100 text-orange-800'
                     }>
-                      {analysisResults.risk_assessment.overall_risk_level?.toUpperCase()}
+                      {priceToWinAnalysis.confidence_level} confidence
                     </Badge>
                   </div>
                 </div>
 
-                {analysisResults.risk_assessment.pricing_risks?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3">Pricing Risks</h4>
-                    <div className="space-y-3">
-                      {analysisResults.risk_assessment.pricing_risks.map((risk, idx) => (
-                        <Card key={idx} className={`border-2 ${
-                          risk.severity === 'high' ? 'border-red-300 bg-red-50' :
-                          risk.severity === 'medium' ? 'border-amber-300 bg-amber-50' :
-                          'border-slate-300 bg-slate-50'
-                        }`}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <p className="font-semibold text-slate-900">{risk.risk}</p>
-                              <Badge variant={
-                                risk.severity === 'high' ? 'destructive' :
-                                risk.severity === 'medium' ? 'secondary' :
-                                'outline'
-                              }>
-                                {risk.severity}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-slate-600 mb-2">
-                              <strong>Impact:</strong> {risk.impact}
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              <strong>Mitigation:</strong> {risk.mitigation}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {analysisResults.risk_assessment.compliance_risks?.length > 0 && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="w-4 h-4" />
-                    <AlertDescription>
-                      <p className="font-semibold mb-1">Compliance Risks:</p>
-                      <ul className="text-sm space-y-1">
-                        {analysisResults.risk_assessment.compliance_risks.map((risk, idx) => (
-                          <li key={idx}>• {risk}</li>
-                        ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
+                <div className="p-4 bg-white rounded-lg border-2 border-green-200">
+                  <p className="font-semibold text-slate-900 mb-2">Strategy:</p>
+                  <Badge className="text-sm px-3 py-1 capitalize">
+                    {priceToWinAnalysis.pricing_strategy.replace(/_/g, ' ')}
+                  </Badge>
+                  <p className="text-sm text-slate-700 mt-3">{priceToWinAnalysis.final_recommendation}</p>
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* Recommendations Tab */}
-          <TabsContent value="recommendations" className="space-y-4">
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-yellow-600" />
-                  Optimization Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {analysisResults.optimization_recommendations?.length > 0 ? (
-                  <div className="space-y-3">
-                    {analysisResults.optimization_recommendations.map((rec, idx) => (
-                      <Card key={idx} className="border-slate-200">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="capitalize">
-                                {rec.category?.replace('_', ' ')}
-                              </Badge>
-                              <Badge className={
-                                rec.priority === 'high' ? 'bg-red-100 text-red-700' :
-                                rec.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
-                                'bg-blue-100 text-blue-700'
-                              }>
-                                {rec.priority} priority
-                              </Badge>
+            {/* Win Probability Curve */}
+            {priceToWinAnalysis.win_probability_curve && (
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <CardTitle>Win Probability vs Price</CardTitle>
+                  <CardDescription>How pricing affects your win probability</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={priceToWinAnalysis.win_probability_curve}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="price"
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+                      />
+                      <YAxis
+                        label={{ value: 'Win Probability %', angle: -90, position: 'insideLeft' }}
+                        domain={[0, 100]}
+                      />
+                      <Tooltip
+                        formatter={(value, name) => {
+                          if (name === 'price') return [`$${value.toLocaleString()}`, 'Price'];
+                          return [value + '%', 'Win Probability'];
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="win_probability"
+                        stroke="#10b981"
+                        strokeWidth={3}
+                        dot={{ fill: '#10b981', r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Competitive Price Range */}
+            {priceToWinAnalysis.competitive_price_range && (
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <CardTitle>Competitive Price Range</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span>Low Estimate</span>
+                      <span className="font-bold text-green-600">
+                        ${priceToWinAnalysis.competitive_price_range.low_estimate.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span>Mid Estimate</span>
+                      <span className="font-bold text-blue-600">
+                        ${priceToWinAnalysis.competitive_price_range.mid_estimate.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span>High Estimate</span>
+                      <span className="font-bold text-orange-600">
+                        ${priceToWinAnalysis.competitive_price_range.high_estimate.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {priceToWinAnalysis.competitive_price_range.our_position && (
+                    <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                      <p className="text-sm font-semibold text-indigo-900 mb-1">Your Position:</p>
+                      <Badge className={
+                        priceToWinAnalysis.competitive_price_range.our_position === 'below_range' ? 'bg-green-600' :
+                        priceToWinAnalysis.competitive_price_range.our_position === 'in_range' ? 'bg-blue-600' :
+                        'bg-red-600'
+                      } variant="default"> {/* Ensure variant is set */}
+                        {priceToWinAnalysis.competitive_price_range.our_position.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Scenario Analysis */}
+            {priceToWinAnalysis.scenario_analysis && (
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <CardTitle>Pricing Scenarios</CardTitle>
+                  <CardDescription>Compare different pricing approaches</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {priceToWinAnalysis.scenario_analysis.map((scenario, idx) => (
+                      <Card key={idx} className="border-2">
+                        <CardHeader>
+                          <CardTitle className="text-base">{scenario.scenario_name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="text-center p-4 bg-slate-50 rounded-lg">
+                              <p className="text-2xl font-bold text-indigo-600">
+                                ${scenario.price.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-slate-600">({scenario.fee_percentage}% fee)</p>
                             </div>
+
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600">Win Probability:</span>
+                                <span className="font-bold text-green-600">{scenario.win_probability}%</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600">Expected Value:</span>
+                                <span className="font-bold text-blue-600">
+                                  ${scenario.expected_value.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            {scenario.pros && scenario.pros.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-green-900 mb-1">Pros:</p>
+                                <ul className="text-xs text-slate-700 space-y-1">
+                                  {scenario.pros?.map((pro, i) => (
+                                    <li key={i} className="flex items-start gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                                      {pro}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {scenario.cons && scenario.cons.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-red-900 mb-1">Cons:</p>
+                                <ul className="text-xs text-slate-700 space-y-1">
+                                  {scenario.cons?.map((con, i) => (
+                                    <li key={i} className="flex items-start gap-1">
+                                      <AlertTriangle className="w-3 h-3 text-red-600 mt-0.5 flex-shrink-0" />
+                                      {con}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-sm font-semibold text-slate-900 mb-1">
-                            {rec.recommendation}
-                          </p>
-                          <p className="text-sm text-slate-600">
-                            <strong>Potential Impact:</strong> {rec.potential_impact}
-                          </p>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-500 text-center py-8">
-                    No specific recommendations at this time
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {analysisResults.cost_breakdown_suggestions && (
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader>
-                  <CardTitle className="text-base">Cost Allocation Guidance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="font-semibold text-slate-700 mb-1">Labor Allocation:</p>
-                      <p className="text-slate-600">{analysisResults.cost_breakdown_suggestions.labor_allocation}</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-700 mb-1">ODC Allocation:</p>
-                      <p className="text-slate-600">{analysisResults.cost_breakdown_suggestions.odc_allocation}</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-700 mb-1">Subcontractor Allocation:</p>
-                      <p className="text-slate-600">{analysisResults.cost_breakdown_suggestions.subcontractor_allocation}</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-700 mb-1">Recommended Contingency:</p>
-                      <p className="text-slate-600">{analysisResults.cost_breakdown_suggestions.contingency}%</p>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
-        </Tabs>
-      )}
 
-      {/* Competitor Analysis Results */}
-      {competitorAnalysis && (
-        <Card className="border-indigo-300 bg-gradient-to-br from-indigo-50 to-purple-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-indigo-600" />
-              Competitive Intelligence Analysis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {competitorAnalysis.likely_bidders?.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-3">Likely Bidders</h4>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {competitorAnalysis.likely_bidders.map((bidder, idx) => (
-                    <Card key={idx} className="border-indigo-200">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-slate-900">{bidder.competitor_name}</p>
-                          <Badge className={
-                            bidder.competitive_threat === 'high' ? 'bg-red-100 text-red-700' :
-                            bidder.competitive_threat === 'medium' ? 'bg-amber-100 text-amber-700' :
-                            'bg-green-100 text-green-700'
-                          }>
-                            {bidder.competitive_threat} threat
-                          </Badge>
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <p className="text-xs text-slate-600">Bid Probability</p>
-                            <Progress value={bidder.bid_probability} className="h-2 mt-1" />
-                            <p className="text-xs text-right mt-1">{bidder.bid_probability}%</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-600">Estimated Price</p>
-                            <p className="font-semibold">
-                              ${bidder.estimated_price_range?.low?.toLocaleString()} - ${bidder.estimated_price_range?.high?.toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="pt-2 border-t">
-                            <p className="text-xs font-semibold text-indigo-700 mb-1">How to beat them:</p>
-                            <p className="text-xs text-slate-600">{bidder.how_to_beat_them}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+            {/* Risk Analysis */}
+            {priceToWinAnalysis.risk_analysis && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="border-red-200 bg-red-50">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-red-900">Risks of Pricing Too High</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {priceToWinAnalysis.risk_analysis.pricing_too_high_risks?.map((risk, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm">
+                          <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                          <span className="text-red-900">{risk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-orange-900">Risks of Pricing Too Low</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {priceToWinAnalysis.risk_analysis.pricing_too_low_risks?.map((risk, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm">
+                          <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                          <span className="text-orange-900">{risk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
-            {competitorAnalysis.ghosting_opportunities?.length > 0 && (
-              <Card className="border-purple-200 bg-purple-50">
+            {/* Key Insights */}
+            {priceToWinAnalysis.key_insights && (
+              <Card className="border-none shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50">
                 <CardHeader>
-                  <CardTitle className="text-base">Ghosting Opportunities</CardTitle>
-                  <CardDescription>Strategic ways to differentiate against specific competitors</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-indigo-600" />
+                    Key Insights
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {priceToWinAnalysis.key_insights.map((insight, idx) => (
+                      <li key={idx} className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                        <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                          {idx + 1}
+                        </div>
+                        <span className="text-sm text-slate-700">{insight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Competitive Intelligence */}
+            {priceToWinAnalysis.competitive_intelligence && priceToWinAnalysis.competitive_intelligence.length > 0 && (
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <CardTitle>Competitive Intelligence</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {competitorAnalysis.ghosting_opportunities.map((ghost, idx) => (
-                      <div key={idx} className="p-3 bg-white border border-purple-200 rounded-lg">
-                        <p className="font-semibold text-purple-900 mb-1">{ghost.competitor}</p>
-                        <p className="text-sm text-slate-600 mb-2">
-                          <strong>Weakness:</strong> {ghost.weakness_to_exploit}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          <strong>Strategy:</strong> {ghost.how_to_ghost}
-                        </p>
+                    {priceToWinAnalysis.competitive_intelligence.map((intel, idx) => (
+                      <div key={idx} className="p-4 border-2 rounded-lg">
+                        <h4 className="font-semibold text-slate-900 mb-3">{intel.competitor}</h4>
+                        <div className="grid md:grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-slate-600 font-medium">Likely Price Range:</p>
+                            <p className="text-slate-900">{intel.likely_price_range}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-600 font-medium">Their Strategy:</p>
+                            <p className="text-slate-900">{intel.their_strategy}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-blue-900">
+                            <strong>How to position:</strong> {intel.how_to_position_against}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             )}
-
-            {competitorAnalysis.pricing_positioning && (
-              <Alert className="bg-indigo-100 border-indigo-300">
-                <Target className="w-4 h-4 text-indigo-600" />
-                <AlertDescription>
-                  <p className="font-semibold text-indigo-900 mb-1">
-                    Recommended Positioning: {competitorAnalysis.pricing_positioning.recommended_stance?.toUpperCase()}
-                  </p>
-                  <p className="text-sm text-indigo-800 mb-2">
-                    {competitorAnalysis.pricing_positioning.rationale}
-                  </p>
-                  {competitorAnalysis.pricing_positioning.key_differentiators_to_emphasize?.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-semibold text-indigo-900 mb-1">Emphasize these differentiators:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {competitorAnalysis.pricing_positioning.key_differentiators_to_emphasize.map((diff, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs bg-indigo-200 text-indigo-900">
-                            {diff}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
