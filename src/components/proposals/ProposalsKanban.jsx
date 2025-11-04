@@ -44,7 +44,7 @@ const DEFAULT_COLUMNS = [
   {
     id: 'new',
     label: 'New',
-    color: 'from-slate-400 to-slate-600',
+    color: 'from-blue-700 to-blue-900', // Modified color here
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
