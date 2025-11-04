@@ -964,7 +964,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                 const dragOverColor = dragOverColumnId === column.id ? column.color : null;
 
                 return (
-                  <React.Fragment key={column.id}>
+                  <div key={column.id} className="flex items-start">
                     {index === 0 && (
                       <div className="flex-shrink-0 flex items-start justify-center w-3 relative z-50" style={{ top: '-12px' }}>
                         <button
@@ -1040,7 +1040,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                         <Plus className="w-3 h-3 text-slate-500 group-hover:text-blue-600 transition-colors font-bold" />
                       </button>
                     </div>
-                  </React.Fragment>
+                  </div>
                 );
               })}
             </div>
