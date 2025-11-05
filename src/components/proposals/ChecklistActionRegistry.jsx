@@ -54,10 +54,9 @@ export const CHECKLIST_ACTIONS = {
   // PHASE 4: EVALUATE COLUMN ACTIONS
   // ============================================
   "open_evaluation_modal": {
-    type: "navigate",
-    path: "/ProposalBuilder",
-    params: ["proposalId"],
-    query: { phase: "phase4" },
+    type: "modal",
+    component: "EvaluationModal",
+    title: "Strategic Evaluation",
     description: "Run AI strategic evaluation and Go/No-Go analysis"
   },
 
@@ -87,10 +86,9 @@ export const CHECKLIST_ACTIONS = {
   // PHASE 5: STRATEGY COLUMN ACTIONS
   // ============================================
   "open_win_strategy_modal": {
-    type: "navigate",
-    path: "/ProposalBuilder",
-    params: ["proposalId"],
-    query: { phase: "phase5" },
+    type: "modal",
+    component: "WinStrategyModal",
+    title: "Win Strategy",
     description: "Generate win themes and competitive strategy"
   },
 
@@ -104,28 +102,33 @@ export const CHECKLIST_ACTIONS = {
   // PHASE 5: PLAN COLUMN ACTIONS
   // ============================================
   "open_section_planning_modal": {
-    type: "navigate",
-    path: "/ProposalBuilder",
-    params: ["proposalId"],
-    query: { phase: "phase5", tab: "sections" },
+    type: "modal",
+    component: "ContentPlanningModal",
+    title: "Content Planning",
     description: "Select proposal sections and configure writing style"
   },
 
   // ============================================
   // PHASE 6: DRAFT COLUMN ACTIONS
   // ============================================
-  "navigate_to_phase6_page": {
+  "navigate_to_content_development": {
     type: "navigate",
-    path: "/ProposalBuilder",
+    path: "/ContentDevelopment",
     params: ["proposalId"],
-    query: { phase: "phase6" },
-    description: "Generate and edit proposal content"
+    description: "Open content development workspace"
+  },
+
+  "start_ai_writing": {
+    type: "navigate",
+    path: "/ContentDevelopment",
+    params: ["proposalId"],
+    description: "Start AI-powered content generation"
   },
 
   // ============================================
   // PHASE 7: PRICE COLUMN ACTIONS
   // ============================================
-  "navigate_to_phase7_pricing_page": {
+  "navigate_to_pricing": {
     type: "navigate",
     path: "/ProposalBuilder",
     params: ["proposalId"],
@@ -139,14 +142,28 @@ export const CHECKLIST_ACTIONS = {
     description: "AI analyzes pricing competitiveness"
   },
 
+  "open_pricing_review_modal": {
+    type: "modal",
+    component: "PricingReviewModal",
+    title: "Pricing Review",
+    description: "Review pricing strategy and competitiveness"
+  },
+
   // ============================================
   // PHASE 8: REVIEW COLUMN ACTIONS
   // ============================================
-  "open_red_team_modal": {
+  "navigate_to_final_review": {
     type: "navigate",
-    path: "/ProposalBuilder",
+    path: "/FinalReview",
     params: ["proposalId"],
-    query: { phase: "phase8", tab: "review" },
+    description: "Open final review and submission workspace"
+  },
+
+  "conduct_red_team": {
+    type: "navigate",
+    path: "/FinalReview",
+    params: ["proposalId"],
+    query: { tab: "review" },
     description: "Conduct Red Team review"
   },
 
@@ -154,16 +171,18 @@ export const CHECKLIST_ACTIONS = {
   // PHASE 8: FINALIZE COLUMN ACTIONS
   // ============================================
   "run_readiness_check_phase8": {
-    type: "ai_action",
-    function: "checkSubmissionReadiness",
-    description: "AI checks proposal submission readiness"
+    type: "navigate",
+    path: "/FinalReview",
+    params: ["proposalId"],
+    query: { tab: "submission" },
+    description: "Check submission readiness"
   },
 
   "open_export_modal": {
     type: "navigate",
-    path: "/ProposalBuilder",
+    path: "/FinalReview",
     params: ["proposalId"],
-    query: { phase: "phase8", tab: "export" },
+    query: { tab: "export" },
     description: "Export final proposal"
   },
 };
