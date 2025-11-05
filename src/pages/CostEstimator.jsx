@@ -26,6 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import PricingIntelligencePanel from "../components/pricing/PricingIntelligencePanel";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -85,6 +86,9 @@ export default function CostEstimator() {
   const [aiRecommendations, setAiRecommendations] = useState(null);
   const [competitorEstimate, setCompetitorEstimate] = useState({ low: 0, mid: 0, high: 0 });
   
+  // Industry benchmarks state
+  const [industryBenchmarks, setIndustryBenchmarks] = useState(null);
+
   // Save/Load dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
@@ -118,6 +122,20 @@ export default function CostEstimator() {
         { organization_id: organization.id },
         '-created_date',
         20
+      );
+    },
+    enabled: !!organization?.id
+  });
+
+  // Query for pricing benchmarks
+  const { data: benchmarks = [] } = useQuery({
+    queryKey: ['pricing-benchmarks', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.PricingBenchmark.filter(
+        { organization_id: organization.id },
+        '-last_updated',
+        10
       );
     },
     enabled: !!organization?.id
@@ -326,6 +344,18 @@ Return as JSON with all fields.`;
 
       setAiRecommendations(result);
       setCompetitorEstimate(result.competitor_range);
+      
+      // Set industry benchmarks for intelligence panel
+      setIndustryBenchmarks({
+        average: result.should_cost_estimate || grandTotal,
+        sampleSize: historicalContext ? savedEstimates.filter(e => e.outcome).length : 0,
+        feeRange: {
+          min: Math.max(0, result.optimal_fee_percentage - 3),
+          average: result.optimal_fee_percentage,
+          max: result.optimal_fee_percentage + 3
+        }
+      });
+      
       setShowAIInsights(true);
       
       // Run sensitivity analysis
@@ -450,10 +480,24 @@ Return as JSON with all fields.`;
       setAiRecommendations(estimate.ai_analysis);
       setCompetitorEstimate(estimate.competitor_range || { low: 0, mid: 0, high: 0 });
       setShowAIInsights(true);
+
+      // Restore industry benchmarks if available in saved AI analysis
+      if (estimate.ai_analysis.should_cost_estimate) {
+        setIndustryBenchmarks({
+          average: estimate.ai_analysis.should_cost_estimate,
+          sampleSize: savedEstimates.filter(e => e.outcome).length, // Re-calculate sample size based on current loaded savedEstimates
+          feeRange: {
+            min: Math.max(0, estimate.ai_analysis.optimal_fee_percentage - 3),
+            average: estimate.ai_analysis.optimal_fee_percentage,
+            max: estimate.ai_analysis.optimal_fee_percentage + 3
+          }
+        });
+      }
     } else {
       setShowAIInsights(false);
       setAiRecommendations(null);
       setCompetitorEstimate({ low: 0, mid: 0, high: 0 });
+      setIndustryBenchmarks(null);
     }
     
     if (estimate.sensitivity_analysis) {
@@ -907,6 +951,22 @@ Return as JSON with all fields.`;
 
         {showAIInsights && aiRecommendations && (
           <TabsContent value="insights" className="space-y-6">
+            {/* Pricing Intelligence Panel */}
+            <PricingIntelligencePanel
+              yourPrice={grandTotal}
+              estimatedCompetitorPricing={competitorEstimate}
+              industryBenchmarks={industryBenchmarks}
+              aiRecommendations={aiRecommendations.recommendations?.map(rec => ({
+                recommendation: rec,
+                expectedImpact: "Potential to improve win probability"
+              }))}
+              riskFactors={aiRecommendations.risk_factors?.map(risk => ({
+                factor: risk,
+                description: risk,
+                mitigation: "Address this concern in your proposal narrative"
+              }))}
+            />
+
             {/* Win Probability Card */}
             <Card className="border-none shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
               <CardHeader>
@@ -946,82 +1006,6 @@ Return as JSON with all fields.`;
                 </div>
               </CardContent>
             </Card>
-
-            {/* Competitor Range */}
-            <Card className="border-none shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  Estimated Competitor Pricing
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-sm text-green-700 mb-1">Low Bidder</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      ${competitorEstimate.low.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      {((grandTotal / competitorEstimate.low - 1) * 100).toFixed(1)}% above
-                    </p>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-700 mb-1">Mid-Range</p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      ${competitorEstimate.mid.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      {((grandTotal / competitorEstimate.mid - 1) * 100).toFixed(1)}% differential
-                    </p>
-                  </div>
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <p className="text-sm text-amber-700 mb-1">High Bidder</p>
-                    <p className="text-2xl font-bold text-amber-600">
-                      ${competitorEstimate.high.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </p>
-                    <p className="text-xs text-amber-600 mt-1">
-                      {((grandTotal / competitorEstimate.high - 1) * 100).toFixed(1)}% below
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recommendations */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-none shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-base text-green-700">✓ Recommendations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {aiRecommendations.recommendations.map((rec, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm">
-                        <Sparkles className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-700">{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-base text-red-700">⚠ Risk Factors</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {aiRecommendations.risk_factors.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm">
-                        <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-700">{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
 
             {/* Evaluator Concerns */}
             {aiRecommendations.evaluator_concerns && aiRecommendations.evaluator_concerns.length > 0 && (
