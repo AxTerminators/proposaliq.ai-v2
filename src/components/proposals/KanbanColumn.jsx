@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -115,17 +116,17 @@ export default function KanbanColumn({
       {...provided.droppableProps}
       className="flex flex-col h-full w-80 flex-shrink-0"
     >
-      {/* Column Header - Single Row Layout */}
+      {/* Column Header - Single Row Layout with Consistent Height */}
       <div 
         {...(dragHandleProps || {})}
         className={cn(
-          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0",
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px]",
           column.color || "from-slate-400 to-slate-600",
           !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
       >
-        <div className="p-3">
-          <div className="flex items-center gap-2">
+        <div className="p-3 h-full flex items-center">
+          <div className="flex items-center gap-2 w-full">
             {/* Collapse Button - Far Left */}
             <Button
               variant="ghost"
@@ -137,7 +138,7 @@ export default function KanbanColumn({
               className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
               title="Collapse column"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" title="Collapse" />
             </Button>
 
             {/* Column Name - Truncated with tooltip */}
@@ -169,9 +170,9 @@ export default function KanbanColumn({
               )}
             </div>
 
-            {/* Compact Metadata Section */}
+            {/* Compact Metadata Section - All badges same height for consistency */}
             {!isEditingName && (
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
                 {/* Proposal Count */}
                 <Badge 
                   variant="secondary" 
@@ -188,7 +189,7 @@ export default function KanbanColumn({
                     className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 px-2 flex items-center gap-0.5"
                     title={`Total value: $${formattedValue}`}
                   >
-                    <DollarSign className="w-3 h-3" />
+                    <DollarSign className="w-3 h-3" title="Total value" />
                     {formattedValue}
                   </Badge>
                 )}
@@ -198,14 +199,14 @@ export default function KanbanColumn({
                   <Badge
                     variant="secondary"
                     className={cn(
-                      "text-xs font-bold h-6 px-1.5",
+                      "text-xs font-bold h-6 px-1.5 flex items-center",
                       isAtWipLimit ? "bg-red-500 text-white hover:bg-red-600" :
                       isNearWipLimit ? "bg-yellow-500 text-white hover:bg-yellow-600" :
                       "bg-white/20 text-white hover:bg-white/30 border-white/30"
                     )}
                     title={`Work in progress limit: ${proposalCount}/${wipLimit} ${column.wip_limit_type === 'hard' ? '(Hard Limit)' : '(Soft Limit)'}`}
                   >
-                    {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" />}
+                    {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" title="Hard limit" />}
                     {proposalCount}/{wipLimit}
                   </Badge>
                 )}
@@ -217,7 +218,7 @@ export default function KanbanColumn({
                     className="bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
                     title="Protected column - only specific roles can move proposals out"
                   >
-                    <Shield className="w-3 h-3" />
+                    <Shield className="w-3 h-3" title="Protected" />
                   </Badge>
                 )}
 
@@ -228,17 +229,17 @@ export default function KanbanColumn({
                     className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
                     title="Requires approval to move proposals out of this column"
                   >
-                    <CheckCircle className="w-3 h-3" />
+                    <CheckCircle className="w-3 h-3" title="Approval required" />
                   </Badge>
                 )}
 
                 {/* Lock Icon */}
                 {column.is_locked && (
                   <div 
-                    className="flex-shrink-0 pl-0.5"
+                    className="flex-shrink-0 pl-0.5 h-6 flex items-center"
                     title="System column (locked)"
                   >
-                    <Lock className="w-4 h-4 text-white/90" />
+                    <Lock className="w-4 h-4 text-white/90" title="Locked" />
                   </div>
                 )}
               </div>
@@ -254,7 +255,7 @@ export default function KanbanColumn({
                     className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
                     title="Column options"
                   >
-                    <MoreVertical className="w-4 h-4" />
+                    <MoreVertical className="w-4 h-4" title="Options" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
