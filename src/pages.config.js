@@ -43,6 +43,7 @@ import ClientPortalRoadmap from './pages/ClientPortalRoadmap';
 import SystemVerification from './pages/SystemVerification';
 import SystemDocumentation from './pages/SystemDocumentation';
 import ContentDevelopment from './pages/ContentDevelopment';
+import FinalReview from './pages/FinalReview';
 import Layout from './Layout.jsx';
 
 
@@ -92,6 +93,7 @@ export const PAGES = {
     "SystemVerification": SystemVerification,
     "SystemDocumentation": SystemDocumentation,
     "ContentDevelopment": ContentDevelopment,
+    "FinalReview": FinalReview,
 }
 
 export const pagesConfig = {
