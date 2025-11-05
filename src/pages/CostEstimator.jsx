@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DollarSign, Plus, Trash2, Calculator, Sparkles, TrendingUp, AlertTriangle, Target, ArrowRight, Save, FolderOpen, TrendingDown, BarChart2, Lightbulb } from "lucide-react";
+import { Plus, Trash2, Calculator, Sparkles, TrendingUp, AlertTriangle, Target, Save, FolderOpen, BarChart2, Lightbulb, Package, Users, History, FileSpreadsheet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -27,7 +27,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import PricingIntelligencePanel from "../components/pricing/PricingIntelligencePanel";
-import { useNavigate } from "react-router-dom";
+import CLINBuilder from "../components/pricing/CLINBuilder";
+import SubcontractorManager from "../components/pricing/SubcontractorManager";
+import BenchmarkManager from "../components/pricing/BenchmarkManager";
+import HistoricalPricingDashboard from "../components/pricing/HistoricalPricingDashboard";
+import ExcelExporter from "../components/pricing/ExcelExporter";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -56,21 +60,13 @@ async function getUserActiveOrganization(user) {
   return null;
 }
 
-// Temporary helper function for URL creation as it's used in the outline but not defined in the original file.
-// In a real project, this would likely be imported from a central routing utility or global context.
-const createPageUrl = (pageName) => {
-  // Assuming a simple convention where page names map directly to lowercase paths.
-  // For "Pricing", this would return "/pricing".
-  return `/${pageName.toLowerCase()}`;
-};
-
 export default function CostEstimator() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [currentEstimateId, setCurrentEstimateId] = useState(null);
   const [estimateName, setEstimateName] = useState("");
+  const [activeTab, setActiveTab] = useState("calculator");
   
   const [laborCategories, setLaborCategories] = useState([
     { name: "", hours: 0, rate: 0, base_rate: 0, fringe_rate: 0, overhead_rate: 0, ga_rate: 0 }
@@ -191,11 +187,6 @@ export default function CostEstimator() {
     const updated = [...laborCategories];
     updated[index][field] = value;
     
-    // Auto-calculate loaded rate if burden rates are provided
-    // Note: The UI for base_rate, fringe_rate etc. is not in the 'calculator' tab
-    // This logic would be triggered if a loaded estimate had these values
-    // or if the UI was expanded to include inputs for them.
-    // For now, the `rate` input directly sets `cat.rate`.
     if (['base_rate', 'fringe_rate', 'overhead_rate', 'ga_rate'].includes(field)) {
       const base = parseFloat(updated[index].base_rate) || 0;
       const fringe = parseFloat(updated[index].fringe_rate) || 0;
@@ -266,7 +257,6 @@ export default function CostEstimator() {
       const totalOdc = calculateTotalOdc();
       const grandTotal = calculateGrandTotal();
       
-      // Build historical context from saved estimates
       const historicalContext = savedEstimates
         .filter(e => e.outcome && e.outcome !== 'pending')
         .map(e => `
@@ -348,14 +338,13 @@ Return as JSON with all fields.`;
               }
             }
           },
-          required: ["competitive_position", "competitor_range", "win_probability", "risk_factors", "recommendations", "optimal_fee_percentage", "evaluator_concerns", "price_analysis", "summary", "price_to_win_recommendation", "should_cost_estimate"] // Ensure required fields
+          required: ["competitive_position", "competitor_range", "win_probability", "risk_factors", "recommendations", "optimal_fee_percentage", "evaluator_concerns", "price_analysis", "summary", "price_to_win_recommendation", "should_cost_estimate"]
         }
       });
 
       setAiRecommendations(result);
       setCompetitorEstimate(result.competitor_range);
       
-      // Set industry benchmarks for intelligence panel
       setIndustryBenchmarks({
         average: result.should_cost_estimate || grandTotal,
         sampleSize: historicalContext ? savedEstimates.filter(e => e.outcome).length : 0,
@@ -367,8 +356,6 @@ Return as JSON with all fields.`;
       });
       
       setShowAIInsights(true);
-      
-      // Run sensitivity analysis
       runSensitivityAnalysis();
       
     } catch (error) {
@@ -439,6 +426,9 @@ Return as JSON with all fields.`;
       return;
     }
     
+    const multiYearProjection = enableMultiYear ? calculateMultiYearProjection() : [];
+    const multiYearTotal = multiYearProjection.reduce((a, b) => a + b, 0);
+
     const estimateData = {
       organization_id: organization.id,
       estimate_name: estimateName,
@@ -476,7 +466,7 @@ Return as JSON with all fields.`;
     setEstimateName(estimate.estimate_name);
     setLaborCategories(estimate.labor_categories || [{ name: "", hours: 0, rate: 0, base_rate: 0, fringe_rate: 0, overhead_rate: 0, ga_rate: 0 }]);
     setOdcItems(estimate.odc_items || [{ name: "", quantity: 0, cost: 0, category: "other" }]);
-    setFeePercentage(estimate.fee_percentage || 0); // Allow 0 fee
+    setFeePercentage(estimate.fee_percentage || 0);
     
     if (estimate.multi_year_projection) {
       setEnableMultiYear(true);
@@ -484,6 +474,8 @@ Return as JSON with all fields.`;
       setNumberOfOptionYears(estimate.multi_year_projection.number_of_option_years || 0);
     } else {
       setEnableMultiYear(false);
+      setEscalationRate(3.0); // Reset to default
+      setNumberOfOptionYears(4); // Reset to default
     }
 
     if (estimate.ai_analysis) {
@@ -491,11 +483,10 @@ Return as JSON with all fields.`;
       setCompetitorEstimate(estimate.competitor_range || { low: 0, mid: 0, high: 0 });
       setShowAIInsights(true);
 
-      // Restore industry benchmarks if available in saved AI analysis
       if (estimate.ai_analysis.should_cost_estimate) {
         setIndustryBenchmarks({
           average: estimate.ai_analysis.should_cost_estimate,
-          sampleSize: savedEstimates.filter(e => e.outcome).length, // Re-calculate sample size based on current loaded savedEstimates
+          sampleSize: savedEstimates.filter(e => e.outcome).length,
           feeRange: {
             min: Math.max(0, estimate.ai_analysis.optimal_fee_percentage - 3),
             average: estimate.ai_analysis.optimal_fee_percentage,
@@ -517,6 +508,7 @@ Return as JSON with all fields.`;
     }
     
     setShowLoadDialog(false);
+    setActiveTab("calculator"); // Reset to calculator tab after loading
   };
 
   if (!organization || !user) {
@@ -537,7 +529,7 @@ Return as JSON with all fields.`;
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Advanced Cost Estimator</h1>
-          <p className="text-slate-600">Quick cost estimation with AI-powered competitive intelligence</p>
+          <p className="text-slate-600">Comprehensive pricing and cost estimation with AI-powered competitive intelligence</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -554,7 +546,7 @@ Return as JSON with all fields.`;
           <Button
             variant="outline"
             onClick={() => {
-              setEstimateName(currentEstimateId ? estimateName : ""); // Pre-fill name if existing estimate, else clear
+              setEstimateName(currentEstimateId ? estimateName : "");
               setShowSaveDialog(true);
             }}
           >
@@ -581,29 +573,45 @@ Return as JSON with all fields.`;
         </div>
       </div>
 
-      <Tabs defaultValue="calculator" className="space-y-6">
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-8 lg:w-auto">
           <TabsTrigger value="calculator">
             <Calculator className="w-4 h-4 mr-2" />
-            Calculator
+            <span className="hidden sm:inline">Calculator</span>
           </TabsTrigger>
           <TabsTrigger value="advanced">
             <TrendingUp className="w-4 h-4 mr-2" />
-            Advanced
+            <span className="hidden sm:inline">Advanced</span>
           </TabsTrigger>
           {showAIInsights && (
             <TabsTrigger value="insights">
               <Target className="w-4 h-4 mr-2" />
-              AI Insights
-              <Badge className="ml-2 bg-purple-600">New</Badge>
+              <span className="hidden sm:inline">AI Insights</span>
+              <Badge className="ml-2 bg-purple-600 hidden lg:inline-flex">New</Badge>
             </TabsTrigger>
           )}
           {sensitivityResults && (
             <TabsTrigger value="sensitivity">
               <BarChart2 className="w-4 h-4 mr-2" />
-              Sensitivity
+              <span className="hidden sm:inline">Sensitivity</span>
             </TabsTrigger>
           )}
+          <TabsTrigger value="clins">
+            <Package className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">CLINs</span>
+          </TabsTrigger>
+          <TabsTrigger value="subcontractors">
+            <Users className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Subs</span>
+          </TabsTrigger>
+          <TabsTrigger value="benchmarks">
+            <History className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Benchmarks</span>
+          </TabsTrigger>
+          <TabsTrigger value="export">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Export</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="calculator" className="space-y-6">
@@ -1090,25 +1098,111 @@ Return as JSON with all fields.`;
             </Card>
           </TabsContent>
         )}
+
+        {/* NEW TABS FOR COMPREHENSIVE PRICING */}
+        <TabsContent value="clins" className="space-y-6">
+          <CLINBuilder 
+            proposalId={null} // This component is part of an estimator, not a specific proposal yet
+            organization={organization}
+            estimateData={{
+              labor_categories: laborCategories,
+              odc_items: odcItems,
+              fee_percentage: feePercentage,
+              grand_total: grandTotal,
+              multi_year_projection: enableMultiYear ? calculateMultiYearProjection() : null,
+              escalation_rate: escalationRate
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="subcontractors" className="space-y-6">
+          <SubcontractorManager 
+            proposalId={null} // This component is part of an estimator, not a specific proposal yet
+            organization={organization}
+          />
+        </TabsContent>
+
+        <TabsContent value="benchmarks" className="space-y-6">
+          <div className="space-y-6">
+            <BenchmarkManager organization={organization} />
+            
+            {savedEstimates.length > 0 && (
+              <HistoricalPricingDashboard 
+                organization={organization}
+                estimates={savedEstimates}
+              />
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="export" className="space-y-6">
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                Export Pricing Data
+              </CardTitle>
+              <CardDescription>
+                Export your cost estimate to Excel, PDF, or other formats for submission or analysis
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ExcelExporter 
+                proposalId={currentEstimateId} // If an estimate is loaded, use its ID
+                estimateData={{
+                  estimate_name: estimateName || "Cost Estimate",
+                  labor_categories: laborCategories,
+                  odc_items: odcItems,
+                  total_labor: calculateTotalLabor(),
+                  total_odc: calculateTotalOdc(),
+                  subtotal: calculateSubtotal(),
+                  fee_percentage: feePercentage,
+                  fee_amount: calculateFee(),
+                  grand_total: grandTotal,
+                  multi_year_projection: enableMultiYear ? multiYearProjection : null,
+                  ai_analysis: aiRecommendations,
+                  sensitivity_analysis: sensitivityResults
+                }}
+                organization={organization}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
-      {/* Link to Full Pricing Module */}
+      {/* Quick Access Footer */}
       <Card className="border-2 border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
         <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-1">Need More Advanced Pricing Features?</h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">All Pricing Features Integrated</h3>
               <p className="text-sm text-slate-600">
-                Use the full Pricing Module in Phase 6 for: Multi-year CLINs, Subcontractor management, Export to Excel, and more
+                Navigate between tabs above to access: Quick Calculator, Multi-year Projections, AI Insights, CLIN Management, Subcontractor Pricing, Benchmarks, and Export options
               </p>
             </div>
-            <Button 
-              onClick={() => navigate(createPageUrl("Pricing"))}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              Open Pricing Module
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => setActiveTab("clins")}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                CLINs
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setActiveTab("benchmarks")}
+              >
+                <History className="w-4 h-4 mr-2" />
+                Benchmarks
+              </Button>
+              <Button 
+                onClick={() => setActiveTab("export")}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
