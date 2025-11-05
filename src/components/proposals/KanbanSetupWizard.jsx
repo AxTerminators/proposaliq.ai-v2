@@ -269,16 +269,6 @@ const TEMPLATE_SIMPLE = [
 
 const TEMPLATES = [
   {
-    id: 'simple',
-    name: 'Simple Workflow',
-    description: 'Basic 4-stage workflow for straightforward proposal tracking',
-    icon: Rocket,
-    color: 'from-blue-500 to-indigo-600',
-    columns: TEMPLATE_SIMPLE,
-    features: ['Quick setup', 'Easy to understand', 'Perfect for small teams'],
-    recommendedFor: 'Teams new to Kanban or with simple processes'
-  },
-  {
     id: '8phase',
     name: '8-Phase Complete Workflow',
     description: '15-column workflow fully integrated with 8-phase proposal builder',
@@ -287,6 +277,16 @@ const TEMPLATES = [
     columns: TEMPLATE_8_PHASE_WORKFLOW,
     features: ['All 8 phases as columns', 'Smart checklists', 'AI-powered actions', 'Approval gates'],
     recommendedFor: 'Teams wanting complete proposal workflow integration'
+  },
+  {
+    id: 'simple',
+    name: 'Simple Workflow',
+    description: 'Basic 4-stage workflow for straightforward proposal tracking',
+    icon: Rocket,
+    color: 'from-blue-500 to-indigo-600',
+    columns: TEMPLATE_SIMPLE,
+    features: ['Quick setup', 'Easy to understand', 'Perfect for small teams'],
+    recommendedFor: 'Teams new to Kanban or with simple processes'
   }
 ];
 
