@@ -224,8 +224,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
   return (
     <>
-      {/* ChecklistSystemValidator component removed as its logic is now inline with systemCheckStatus function */}
-
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="border-b p-6 pb-4">
