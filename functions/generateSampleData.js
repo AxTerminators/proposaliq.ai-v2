@@ -1,3 +1,4 @@
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
 
 Deno.serve(async (req) => {
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       contract_value: 5000000,
       contract_value_type: "ceiling",
-      current_phase: "phase3",
+      current_phase: "phase7",
       status: "in_progress",
       match_score: 85,
       is_sample_data: true
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
       due_date: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       contract_value: 2500000,
       contract_value_type: "estimated",
-      current_phase: "phase2",
+      current_phase: "phase6",
       status: "draft",
       match_score: 78,
       is_sample_data: true
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
       due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       contract_value: 1200000,
       contract_value_type: "target",
-      current_phase: "phase1",
+      current_phase: "phase3",
       status: "evaluating",
       match_score: 92,
       is_sample_data: true
