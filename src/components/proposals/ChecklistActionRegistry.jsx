@@ -1,243 +1,171 @@
-/**
- * Checklist Action Registry
- * 
- * Central registry that maps checklist item actions to their handlers.
- * This enables the new Kanban board to trigger modals, pages, or AI actions
- * based on checklist item clicks.
- * 
- * Action Types:
- * - modal: Opens a modal dialog with form/content from Phase components
- * - page: Navigates to a dedicated page (e.g., Writer, Pricing)
- * - ai_action: Triggers an AI integration or analysis
- * - manual_check: User manually checks off (no automated action)
- */
+import { createPageUrl } from "@/utils";
 
-export const CHECKLIST_ACTION_REGISTRY = {
-  // ===========================
-  // PHASE 1: INITIATE & TEAM
-  // ===========================
-  
-  "open_phase1_basic_info": {
-    type: "modal",
-    component: "Phase1BasicInfoModal",
-    title: "Proposal Basic Information",
-    description: "Enter proposal name, solicitation number, and project details",
-    width: "max-w-2xl"
-  },
-  
-  "open_phase1_team": {
-    type: "modal",
-    component: "Phase1TeamModal",
-    title: "Team Formation",
-    description: "Select prime contractor and teaming partners",
-    width: "max-w-3xl"
-  },
-  
-  // ===========================
-  // PHASE 2: RESOURCES
-  // ===========================
-  
-  "open_phase2_resources": {
-    type: "modal",
-    component: "Phase2ResourcesModal",
-    title: "Reference Documents & Resources",
-    description: "Link boilerplate, past proposals, templates, and past performance",
-    width: "max-w-4xl"
-  },
-  
-  // ===========================
-  // PHASE 3: SOLICITATION
-  // ===========================
-  
-  "open_phase3_solicitation": {
-    type: "modal",
-    component: "Phase3SolicitationModal",
-    title: "Solicitation Details",
-    description: "Upload RFP/RFQ documents and enter key details",
-    width: "max-w-3xl"
-  },
-  
-  "run_ai_requirement_extraction": {
-    type: "ai_action",
-    handler: "extractRequirementsWithAI",
-    title: "AI Requirement Extraction",
-    description: "Extract requirements, due dates, and key details from solicitation",
-    estimatedDuration: "2-3 minutes"
-  },
-  
-  // ===========================
-  // PHASE 4: EVALUATE
-  // ===========================
-  
-  "run_ai_evaluation": {
-    type: "ai_action",
-    handler: "runStrategicEvaluation",
-    title: "AI Strategic Evaluation",
-    description: "Comprehensive AI analysis of opportunity fit and win potential",
-    estimatedDuration: "3-5 minutes"
-  },
-  
-  "run_ai_confidence_scoring": {
-    type: "ai_action",
-    handler: "calculateConfidenceScore",
-    title: "AI Confidence Scoring",
-    description: "Calculate detailed confidence score across multiple dimensions",
-    estimatedDuration: "2-3 minutes"
-  },
-  
-  "open_phase4_compliance": {
-    type: "modal",
-    component: "Phase4ComplianceModal",
-    title: "Compliance Matrix",
-    description: "Review and manage compliance requirements",
-    width: "max-w-5xl"
-  },
-  
-  "open_phase4_competitor": {
-    type: "modal",
-    component: "Phase4CompetitorModal",
-    title: "Competitor Analysis",
-    description: "Analyze competitors and develop competitive strategy",
-    width: "max-w-4xl"
-  },
-  
-  // ===========================
-  // PHASE 5: STRATEGY & PLAN
-  // ===========================
-  
-  "run_ai_win_themes": {
-    type: "ai_action",
-    handler: "generateWinThemes",
-    title: "Generate Win Themes",
-    description: "AI-generated win themes and discriminators",
-    estimatedDuration: "2-4 minutes"
-  },
-  
-  "open_phase5_strategy": {
-    type: "modal",
-    component: "Phase5StrategyModal",
-    title: "Win Strategy & Writing Style",
-    description: "Define win themes, tone, and competitive strategy",
-    width: "max-w-4xl"
-  },
-  
-  "open_phase5_sections": {
-    type: "modal",
-    component: "Phase5SectionsModal",
-    title: "Section Selection",
-    description: "Select and configure proposal sections",
-    width: "max-w-3xl"
-  },
-  
-  // ===========================
-  // PHASE 6: DRAFT
-  // ===========================
-  
-  "open_phase6_writer": {
-    type: "page",
-    pageName: "ProposalWriter",
-    title: "Proposal Writer",
-    description: "AI-powered content generation and editing",
-    includeProposalId: true
-  },
-  
-  // ===========================
-  // PHASE 7: PRICE
-  // ===========================
-  
-  "open_phase7_pricing": {
-    type: "page",
-    pageName: "ProposalPricing",
-    title: "Pricing & Cost Build",
-    description: "Labor categories, CLINs, ODCs, and pricing analysis",
-    includeProposalId: true
-  },
-  
-  "run_ai_pricing_analysis": {
-    type: "ai_action",
-    handler: "analyzePricing",
-    title: "AI Pricing Analysis",
-    description: "Price-to-win analysis and competitive pricing recommendations",
-    estimatedDuration: "2-3 minutes"
-  },
-  
-  // ===========================
-  // PHASE 8: REVIEW & FINALIZE
-  // ===========================
-  
-  "open_phase8_review": {
-    type: "modal",
-    component: "Phase8ReviewModal",
-    title: "Internal Review",
-    description: "Conduct internal review and address comments",
-    width: "max-w-4xl"
-  },
-  
-  "open_phase8_redteam": {
-    type: "modal",
-    component: "Phase8RedTeamModal",
-    title: "Red Team Review",
-    description: "Comprehensive red team evaluation",
-    width: "max-w-5xl"
-  },
-  
-  "run_submission_readiness": {
-    type: "ai_action",
-    handler: "checkSubmissionReadiness",
-    title: "Submission Readiness Check",
-    description: "AI validation of completeness and compliance",
-    estimatedDuration: "1-2 minutes"
-  },
-  
-  "open_phase8_export": {
-    type: "modal",
-    component: "Phase8ExportModal",
-    title: "Export & Submission",
-    description: "Export proposal and prepare for submission",
-    width: "max-w-3xl"
-  }
+// 8-Phase Single-Word Template Definition
+export const TEMPLATE_8_PHASE_SINGLE_WORD = {
+  id: "8_phase_single_word",
+  name: "8-Phase Single-Word Workflow",
+  description: "Comprehensive 8-phase proposal workflow with detailed checklists",
+  columns: [
+    {
+      id: "phase1_basics",
+      label: "Basics",
+      order: 1,
+      color: "border-t-slate-500",
+      default_status_mapping: "evaluating",
+      checklist_items: [
+        { id: "basic_info", label: "Enter Basic Information", type: "modal_trigger", associated_action: "open_phase1_basic", required: true },
+        { id: "team_setup", label: "Set Up Proposal Team", type: "modal_trigger", associated_action: "open_phase1_team", required: true },
+        { id: "kickoff_meeting", label: "Schedule Kickoff Meeting", type: "manual_check", required: false }
+      ]
+    },
+    {
+      id: "phase2_gather",
+      label: "Gather",
+      order: 2,
+      color: "border-t-blue-500",
+      default_status_mapping: "researching",
+      checklist_items: [
+        { id: "upload_resources", label: "Upload Resources & Documents", type: "modal_trigger", associated_action: "open_phase2_resources", required: true },
+        { id: "review_pastperf", label: "Review Past Performance", type: "manual_check", required: false },
+        { id: "identify_teaming", label: "Identify Teaming Partners", type: "manual_check", required: false }
+      ]
+    },
+    {
+      id: "phase3_analyze",
+      label: "Analyze",
+      order: 3,
+      color: "border-t-indigo-500",
+      default_status_mapping: "analyzing",
+      checklist_items: [
+        { id: "upload_solicitation", label: "Upload Solicitation Documents", type: "modal_trigger", associated_action: "open_phase3_solicitation", required: true },
+        { id: "extract_requirements", label: "Extract Requirements (AI)", type: "manual_check", required: true },
+        { id: "assess_feasibility", label: "Assess Feasibility", type: "manual_check", required: false }
+      ]
+    },
+    {
+      id: "phase4_bidnobid",
+      label: "Bid/No-Bid",
+      order: 4,
+      color: "border-t-purple-500",
+      default_status_mapping: "evaluating",
+      checklist_items: [
+        { id: "compliance_matrix", label: "Build Compliance Matrix", type: "modal_trigger", associated_action: "open_phase4_compliance", required: true },
+        { id: "competitor_analysis", label: "Analyze Competitors", type: "modal_trigger", associated_action: "open_phase4_competitor", required: false },
+        { id: "bidnobid_decision", label: "Bid/No-Bid Decision", type: "manual_check", required: true }
+      ]
+    },
+    {
+      id: "phase5_strategize",
+      label: "Strategize",
+      order: 5,
+      color: "border-t-pink-500",
+      default_status_mapping: "planning",
+      checklist_items: [
+        { id: "win_strategy", label: "Define Win Strategy & Themes", type: "modal_trigger", associated_action: "open_phase5_strategy", required: true },
+        { id: "section_selection", label: "Select Proposal Sections", type: "modal_trigger", associated_action: "open_phase5_sections", required: true },
+        { id: "outline_approval", label: "Approve Outline", type: "manual_check", required: false }
+      ]
+    },
+    {
+      id: "phase6_draft",
+      label: "Draft",
+      order: 6,
+      color: "border-t-orange-500",
+      default_status_mapping: "writing",
+      checklist_items: [
+        { id: "draft_sections", label: "Draft Proposal Sections", type: "page_trigger", associated_action: "open_proposal_writer", required: true },
+        { id: "integrate_graphics", label: "Integrate Graphics & Tables", type: "manual_check", required: false },
+        { id: "internal_review", label: "Conduct Internal Review", type: "manual_check", required: false }
+      ]
+    },
+    {
+      id: "phase7_price",
+      label: "Price",
+      order: 7,
+      color: "border-t-amber-500",
+      default_status_mapping: "pricing",
+      checklist_items: [
+        { id: "build_pricing", label: "Build Pricing Model & CLINs", type: "page_trigger", associated_action: "open_proposal_pricing", required: true },
+        { id: "review_rates", label: "Review Labor Rates", type: "manual_check", required: true },
+        { id: "finalize_budget", label: "Finalize Budget", type: "manual_check", required: true }
+      ]
+    },
+    {
+      id: "phase8_finalize",
+      label: "Finalize",
+      order: 8,
+      color: "border-t-green-500",
+      default_status_mapping: "finalizing",
+      checklist_items: [
+        { id: "red_team_review", label: "Final Red Team Review", type: "modal_trigger", associated_action: "open_phase8_review", required: false },
+        { id: "export_proposal", label: "Export Proposal Package", type: "modal_trigger", associated_action: "open_phase8_export", required: true },
+        { id: "quality_check", label: "Final Quality Check", type: "manual_check", required: true },
+        { id: "submit", label: "Submit Proposal", type: "manual_check", required: true },
+        { id: "winloss_analysis", label: "Win/Loss Analysis", type: "modal_trigger", associated_action: "open_phase8_winloss", required: false }
+      ]
+    }
+  ]
 };
 
-/**
- * Get action configuration by action ID
- */
-export function getActionConfig(actionId) {
-  return CHECKLIST_ACTION_REGISTRY[actionId] || null;
-}
+// Action handler function
+export const handleChecklistAction = (actionId, proposal, organization, navigate, openModal) => {
+  switch (actionId) {
+    // Phase 1 actions
+    case "open_phase1_basic":
+      openModal("phase1_basic");
+      break;
+    case "open_phase1_team":
+      openModal("phase1_team");
+      break;
 
-/**
- * Check if action is valid
- */
-export function isValidAction(actionId) {
-  return actionId in CHECKLIST_ACTION_REGISTRY;
-}
+    // Phase 2 actions
+    case "open_phase2_resources":
+      openModal("phase2_resources");
+      break;
 
-/**
- * Get all actions of a specific type
- */
-export function getActionsByType(type) {
-  return Object.entries(CHECKLIST_ACTION_REGISTRY)
-    .filter(([_, config]) => config.type === type)
-    .map(([id, config]) => ({ id, ...config }));
-}
+    // Phase 3 actions
+    case "open_phase3_solicitation":
+      openModal("phase3_solicitation");
+      break;
 
-/**
- * Get modal actions
- */
-export function getModalActions() {
-  return getActionsByType('modal');
-}
+    // Phase 4 actions
+    case "open_phase4_compliance":
+      openModal("phase4_compliance");
+      break;
+    case "open_phase4_competitor":
+      openModal("phase4_competitor");
+      break;
 
-/**
- * Get page actions
- */
-export function getPageActions() {
-  return getActionsByType('page');
-}
+    // Phase 5 actions
+    case "open_phase5_strategy":
+      openModal("phase5_strategy");
+      break;
+    case "open_phase5_sections":
+      openModal("phase5_sections");
+      break;
 
-/**
- * Get AI actions
- */
-export function getAIActions() {
-  return getActionsByType('ai_action');
-}
+    // Phase 6 actions
+    case "open_proposal_writer":
+      navigate(createPageUrl("ProposalWriter") + `?proposalId=${proposal.id}`);
+      break;
+
+    // Phase 7 actions
+    case "open_proposal_pricing":
+      navigate(createPageUrl("ProposalPricing") + `?proposalId=${proposal.id}`);
+      break;
+
+    // Phase 8 actions
+    case "open_phase8_review":
+      openModal("phase8_review");
+      break;
+    case "open_phase8_export":
+      openModal("phase8_export");
+      break;
+    case "open_phase8_winloss":
+      openModal("phase8_winloss");
+      break;
+
+    default:
+      console.warn(`Unknown action: ${actionId}`);
+  }
+};
