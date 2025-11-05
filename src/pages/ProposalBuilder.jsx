@@ -159,6 +159,24 @@ export default function ProposalBuilder() {
     return () => clearInterval(autoSaveInterval);
   }, [proposalId, proposalData, organization?.id]);
 
+  // Force save when navigating to a phase if proposal hasn't been created yet
+  useEffect(() => {
+    const ensureProposalSaved = async () => {
+      // If we have proposal data but no proposalId, save it
+      if (!proposalId && proposalData.proposal_name && organization?.id) {
+        console.log("Auto-saving proposal on phase navigation...");
+        const savedId = await saveProposal();
+        if (savedId) {
+          console.log("Proposal auto-saved with ID:", savedId);
+        }
+      }
+    };
+
+    if (organization?.id) {
+      ensureProposalSaved();
+    }
+  }, [currentPhase, organization?.id]);
+
   const proceedWithNewProposal = () => {
     // User cleared sample data, they can now create proposals
     setShowSampleDataGuard(false);
