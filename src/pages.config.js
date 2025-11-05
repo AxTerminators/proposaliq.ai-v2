@@ -43,6 +43,7 @@ import ClientPortalRoadmap from './pages/ClientPortalRoadmap';
 import SystemVerification from './pages/SystemVerification';
 import SystemDocumentation from './pages/SystemDocumentation';
 import ProposalWriter from './pages/ProposalWriter';
+import ProposalPricing from './pages/ProposalPricing';
 import Layout from './Layout.jsx';
 
 
@@ -92,6 +93,7 @@ export const PAGES = {
     "SystemVerification": SystemVerification,
     "SystemDocumentation": SystemDocumentation,
     "ProposalWriter": ProposalWriter,
+    "ProposalPricing": ProposalPricing,
 }
 
 export const pagesConfig = {
