@@ -41,6 +41,7 @@ import OnboardingGuide from './pages/OnboardingGuide';
 import AIFeatureRoadmap from './pages/AIFeatureRoadmap';
 import ClientPortalRoadmap from './pages/ClientPortalRoadmap';
 import SystemVerification from './pages/SystemVerification';
+import SystemDocumentation from './pages/SystemDocumentation';
 import Layout from './Layout.jsx';
 
 
@@ -88,6 +89,7 @@ export const PAGES = {
     "AIFeatureRoadmap": AIFeatureRoadmap,
     "ClientPortalRoadmap": ClientPortalRoadmap,
     "SystemVerification": SystemVerification,
+    "SystemDocumentation": SystemDocumentation,
 }
 
 export const pagesConfig = {
