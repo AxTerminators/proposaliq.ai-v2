@@ -37,16 +37,14 @@ import {
   Paperclip,
   Sparkles,
   PlayCircle,
-  CheckCircle2,
-  Circle,
   Shield,
   GripVertical,
   Loader2,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import { getActionConfig, isModalAction, isNavigateAction } from "./ChecklistActionRegistry";
+import ChecklistItemRenderer from "./ChecklistItemRenderer";
 import BasicInfoModal from "./modals/BasicInfoModal";
 import TeamFormationModal from "./modals/TeamFormationModal";
 import ResourceGatheringModal from "./modals/ResourceGatheringModal";
@@ -304,7 +302,7 @@ export default function KanbanCard({
               </div>
             )}
 
-            {/* Checklist - NOW CLICKABLE */}
+            {/* Checklist - NOW USING ChecklistItemRenderer */}
             {checklistItems.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -312,39 +310,14 @@ export default function KanbanCard({
                   <span className="text-xs text-slate-600">{completedChecklistItems}/{checklistItems.length}</span>
                 </div>
                 <div className="space-y-1.5">
-                  {checklistItems.slice(0, 3).map((item) => {
-                    const isCompleted = checklistStatus[item.id]?.completed;
-                    const actionConfig = getActionConfig(item.associated_action);
-                    const isNavigate = isNavigateAction(item.associated_action);
-                    
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={(e) => handleChecklistItemClick(e, item)}
-                        className={cn(
-                          "w-full flex items-start gap-2 text-left hover:bg-slate-50 rounded p-1 -ml-1 transition-colors group/item",
-                          isCompleted && "opacity-75"
-                        )}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" />
-                        ) : item.required ? (
-                          <Circle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0 mt-0.5" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5 text-slate-300 flex-shrink-0 mt-0.5" />
-                        )}
-                        <span className={cn(
-                          "text-xs leading-tight flex-1",
-                          isCompleted ? "text-slate-400 line-through" : "text-slate-700 group-hover/item:text-blue-600"
-                        )}>
-                          {item.label}
-                        </span>
-                        {isNavigate && !isCompleted && (
-                          <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover/item:opacity-100 flex-shrink-0 mt-0.5" />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {checklistItems.slice(0, 3).map((item) => (
+                    <ChecklistItemRenderer
+                      key={item.id}
+                      item={item}
+                      isCompleted={checklistStatus[item.id]?.completed}
+                      onItemClick={handleChecklistItemClick}
+                    />
+                  ))}
                   {checklistItems.length > 3 && (
                     <p className="text-xs text-slate-500 pl-5.5">+{checklistItems.length - 3} more</p>
                   )}
