@@ -42,7 +42,8 @@ const PHASES = [
   { id: "phase4", label: "Evaluator" },
   { id: "phase5", label: "Strategy" },
   { id: "phase6", label: "Proposal Writer" },
-  { id: "phase7", label: "Finalize" }
+  { id: "phase7", label: "Pricing & Cost Build" },
+  { id: "phase8", label: "Finalize" }
 ];
 
 // Helper function to map builder phases to Kanban statuses
@@ -57,7 +58,9 @@ const getKanbanStatusFromPhase = (phaseId) => {
     case "phase6":
       return "draft";
     case "phase7":
-      return "in_progress"; // Maps to "Review" column
+      return "in_progress"; // Pricing phase
+    case "phase8":
+      return "in_progress"; // Finalize phase - Maps to "Review" column
     default:
       return "evaluating";
   }
@@ -467,9 +470,19 @@ export default function ProposalBuilder() {
                     onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
                   />
                 )}
+                {currentPhase === "phase8" && ( // Assuming Phase7 component (the old "Finalize") is now intended for "Finalize" (Phase8)
+                  <Phase7 // The content of the Phase7 component would likely be generic enough or be updated externally for this to work.
+                    proposal={{ id: proposalId, ...proposalData }}
+                    user={user}
+                    organization={organization}
+                    teamMembers={[]}
+                    onMarkAsSubmitted={markAsSubmitted}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
               </div>
 
-              {currentPhase !== "phase7" && (
+              {currentPhaseIndex !== PHASES.length - 1 && ( // Condition updated to use PHASES.length - 1
                 <div className="flex justify-between max-w-4xl">
                   <Button
                     variant="outline"
@@ -493,6 +506,27 @@ export default function ProposalBuilder() {
                   >
                     Next
                     <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Special handling for the last phase (Finalize) if needed, e.g., only "Save and Go to Pipeline" */}
+              {currentPhaseIndex === PHASES.length - 1 && (
+                <div className="flex justify-end max-w-4xl">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentPhaseIndex === 0}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveAndGoToPipeline}
+                    className="ml-auto bg-white hover:bg-slate-50"
+                  >
+                    Save and Go to Pipeline
                   </Button>
                 </div>
               )}
@@ -552,7 +586,7 @@ export default function ProposalBuilder() {
               )}
             </div>
 
-            {currentPhase !== "phase7" && (
+            {currentPhaseIndex !== PHASES.length - 1 && ( // Condition updated to use PHASES.length - 1
               <div className="flex justify-between max-w-4xl">
                 <Button
                   variant="outline"
@@ -576,6 +610,26 @@ export default function ProposalBuilder() {
                 >
                   Next
                   <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
+            {currentPhaseIndex === PHASES.length - 1 && ( // Condition updated to use PHASES.length - 1
+              <div className="flex justify-end max-w-4xl">
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentPhaseIndex === 0}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSaveAndGoToPipeline}
+                  className="ml-auto bg-white hover:bg-slate-50"
+                >
+                  Save and Go to Pipeline
                 </Button>
               </div>
             )}
