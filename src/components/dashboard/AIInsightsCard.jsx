@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -680,11 +679,11 @@ Return 5-8 high-value, actionable insights with confidence scores.`;
                 <li key={idx} className="text-sm">
                   <div className="flex items-start gap-2">
                     <Badge className={cn(
-                      "text-xs text-white capitalize flex-shrink-0",
+                      "text-xs",
                       rec.implementation_effort === 'low' ? 'bg-green-600' :
                       rec.implementation_effort === 'medium' ? 'bg-yellow-600' :
                       'bg-red-600'
-                    )}>
+                    )} className="text-white capitalize flex-shrink-0">
                       {rec.implementation_effort}
                     </Badge>
                     <div className="flex-1">
