@@ -41,9 +41,16 @@ import {
   Circle,
   Shield,
   GripVertical,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
+import { getActionConfig, isModalAction, isNavigateAction } from "./ChecklistActionRegistry";
+import BasicInfoModal from "./modals/BasicInfoModal";
+import TeamFormationModal from "./modals/TeamFormationModal";
+import ResourceGatheringModal from "./modals/ResourceGatheringModal";
+import SolicitationUploadModal from "./modals/SolicitationUploadModal";
 
 export default function KanbanCard({ 
   proposal, 
@@ -56,6 +63,9 @@ export default function KanbanCard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Modal states
+  const [activeModal, setActiveModal] = useState(null);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks-count', proposal.id],
@@ -126,6 +136,72 @@ export default function KanbanCard({
   const handleCardClick = (e) => {
     if (e.target.closest('button') || e.target.closest('[role="menu"]')) return;
     onCardClick?.(proposal);
+  };
+
+  // Handle checklist item click
+  const handleChecklistItemClick = async (e, item) => {
+    e.stopPropagation();
+    
+    const actionConfig = getActionConfig(item.associated_action);
+    
+    if (!actionConfig) {
+      console.warn(`No action config found for: ${item.associated_action}`);
+      return;
+    }
+
+    // Handle modal actions
+    if (isModalAction(item.associated_action)) {
+      setActiveModal(actionConfig.component);
+      return;
+    }
+
+    // Handle navigation actions
+    if (isNavigateAction(item.associated_action)) {
+      let url = actionConfig.path;
+      
+      // Replace params in URL
+      if (actionConfig.params?.includes('proposalId')) {
+        url += `?id=${proposal.id}`;
+      }
+      
+      // Add query params
+      if (actionConfig.query) {
+        const queryString = Object.entries(actionConfig.query)
+          .map(([key, value]) => `${key}=${value}`)
+          .join('&');
+        url += url.includes('?') ? `&${queryString}` : `?${queryString}`;
+      }
+      
+      navigate(url);
+      return;
+    }
+
+    // Handle system_check or manual_check - just toggle completion
+    if (item.type === 'system_check' || item.type === 'manual_check') {
+      const currentStatus = checklistStatus[item.id]?.completed || false;
+      const newChecklistStatus = {
+        ...proposal.current_stage_checklist_status,
+        [column.id]: {
+          ...(proposal.current_stage_checklist_status?.[column.id] || {}),
+          [item.id]: {
+            completed: !currentStatus,
+            completed_by: 'current_user', // TODO: Get actual user email
+            completed_date: new Date().toISOString()
+          }
+        }
+      };
+      
+      await updateProposalMutation.mutateAsync({
+        current_stage_checklist_status: newChecklistStatus
+      });
+    }
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setActiveModal(null);
+    // Refresh proposal data
+    queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
   return (
@@ -228,7 +304,7 @@ export default function KanbanCard({
               </div>
             )}
 
-            {/* Checklist */}
+            {/* Checklist - NOW CLICKABLE */}
             {checklistItems.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -238,8 +314,18 @@ export default function KanbanCard({
                 <div className="space-y-1.5">
                   {checklistItems.slice(0, 3).map((item) => {
                     const isCompleted = checklistStatus[item.id]?.completed;
+                    const actionConfig = getActionConfig(item.associated_action);
+                    const isNavigate = isNavigateAction(item.associated_action);
+                    
                     return (
-                      <div key={item.id} className="flex items-start gap-2">
+                      <button
+                        key={item.id}
+                        onClick={(e) => handleChecklistItemClick(e, item)}
+                        className={cn(
+                          "w-full flex items-start gap-2 text-left hover:bg-slate-50 rounded p-1 -ml-1 transition-colors group/item",
+                          isCompleted && "opacity-75"
+                        )}
+                      >
                         {isCompleted ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" />
                         ) : item.required ? (
@@ -248,12 +334,15 @@ export default function KanbanCard({
                           <Circle className="w-3.5 h-3.5 text-slate-300 flex-shrink-0 mt-0.5" />
                         )}
                         <span className={cn(
-                          "text-xs leading-tight",
-                          isCompleted ? "text-slate-400 line-through" : "text-slate-700"
+                          "text-xs leading-tight flex-1",
+                          isCompleted ? "text-slate-400 line-through" : "text-slate-700 group-hover/item:text-blue-600"
                         )}>
                           {item.label}
                         </span>
-                      </div>
+                        {isNavigate && !isCompleted && (
+                          <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover/item:opacity-100 flex-shrink-0 mt-0.5" />
+                        )}
+                      </button>
                     );
                   })}
                   {checklistItems.length > 3 && (
@@ -397,6 +486,39 @@ export default function KanbanCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modals */}
+      {activeModal === 'BasicInfoModal' && (
+        <BasicInfoModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'TeamFormationModal' && (
+        <TeamFormationModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'ResourceGatheringModal' && (
+        <ResourceGatheringModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'SolicitationUploadModal' && (
+        <SolicitationUploadModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
     </>
   );
 }
