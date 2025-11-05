@@ -27,6 +27,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import PricingIntelligencePanel from "../components/pricing/PricingIntelligencePanel";
+import { useNavigate } from "react-router-dom";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -55,7 +56,16 @@ async function getUserActiveOrganization(user) {
   return null;
 }
 
+// Temporary helper function for URL creation as it's used in the outline but not defined in the original file.
+// In a real project, this would likely be imported from a central routing utility or global context.
+const createPageUrl = (pageName) => {
+  // Assuming a simple convention where page names map directly to lowercase paths.
+  // For "Pricing", this would return "/pricing".
+  return `/${pageName.toLowerCase()}`;
+};
+
 export default function CostEstimator() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
@@ -1092,7 +1102,10 @@ Return as JSON with all fields.`;
                 Use the full Pricing Module in Phase 6 for: Multi-year CLINs, Subcontractor management, Export to Excel, and more
               </p>
             </div>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
+            <Button 
+              onClick={() => navigate(createPageUrl("Pricing"))}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
               Open Pricing Module
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
