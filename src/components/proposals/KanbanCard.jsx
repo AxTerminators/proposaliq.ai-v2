@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -43,12 +44,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-import { getActionConfig, isModalAction, isNavigateAction } from "./ChecklistActionRegistry";
+import { getActionConfig, isModalAction, isNavigateAction, isAIAction } from "./ChecklistActionRegistry";
 import ChecklistItemRenderer from "./ChecklistItemRenderer";
 import BasicInfoModal from "./modals/BasicInfoModal";
 import TeamFormationModal from "./modals/TeamFormationModal";
 import ResourceGatheringModal from "./modals/ResourceGatheringModal";
 import SolicitationUploadModal from "./modals/SolicitationUploadModal";
+import EvaluationModal from "./modals/EvaluationModal";
+import WinStrategyModal from "./modals/WinStrategyModal";
 
 export default function KanbanCard({ 
   proposal, 
@@ -151,6 +154,24 @@ export default function KanbanCard({
     if (isModalAction(item.associated_action)) {
       setActiveModal(actionConfig.component);
       return;
+    }
+
+    // Handle AI actions
+    if (isAIAction(item.associated_action)) {
+      // For AI actions, open the appropriate modal that contains the AI functionality
+      // Map AI actions to their corresponding modals
+      const aiActionModalMap = {
+        'run_ai_analysis_phase3': 'SolicitationUploadModal',
+        'run_evaluation_phase4': 'EvaluationModal',
+        'generate_win_themes_phase5': 'WinStrategyModal',
+        'run_readiness_check_phase7': null // This navigates to ProposalBuilder
+      };
+      
+      const modalComponent = aiActionModalMap[item.associated_action];
+      if (modalComponent) {
+        setActiveModal(modalComponent);
+        return;
+      }
     }
 
     // Handle navigation actions
@@ -487,6 +508,22 @@ export default function KanbanCard({
 
       {activeModal === 'SolicitationUploadModal' && (
         <SolicitationUploadModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'EvaluationModal' && (
+        <EvaluationModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'WinStrategyModal' && (
+        <WinStrategyModal
           isOpen={true}
           onClose={handleModalClose}
           proposalId={proposal.id}
