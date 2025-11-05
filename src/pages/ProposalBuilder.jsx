@@ -79,6 +79,8 @@ export default function ProposalBuilder() {
   const [showAssistant, setShowAssistant] = useState(false);
   const [assistantMinimized, setAssistantMinimized] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
     prime_contractor_id: "",
@@ -144,6 +146,19 @@ export default function ProposalBuilder() {
     }
   }, [user, proposalId]);
 
+  // Auto-save effect - saves proposal data every 30 seconds if there are changes
+  useEffect(() => {
+    if (!proposalId || !organization?.id) return;
+    
+    const autoSaveInterval = setInterval(async () => {
+      if (proposalData.proposal_name) {
+        await saveProposal();
+      }
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [proposalId, proposalData, organization?.id]);
+
   const proceedWithNewProposal = () => {
     // User cleared sample data, they can now create proposals
     setShowSampleDataGuard(false);
@@ -181,44 +196,39 @@ export default function ProposalBuilder() {
 
   const saveProposal = async () => {
     if (!organization?.id) {
-      alert("No organization found. Please complete onboarding first.");
-      return;
+      console.error("No organization found");
+      return null;
     }
 
+    // Don't save if there's no proposal name
+    if (!proposalData.proposal_name?.trim()) {
+      return null;
+    }
+
+    setIsSaving(true);
     try {
       if (proposalId) {
-        // Fetch the latest proposal data from database to check current status
+        // Update existing proposal
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
           organization_id: organization.id
         });
         
         if (existing.length === 0) {
-          alert("You don't have permission to edit this proposal.");
-          return;
+          console.error("Proposal not found or no access");
+          setIsSaving(false);
+          return null;
         }
 
         const currentProposal = existing[0];
-        
-        // Calculate what status the current phase would derive
         const derivedPhaseStatus = getKanbanStatusFromPhase(currentPhase);
         
-        // Determine the status to save based on hierarchy
         let statusToSave;
-        
-        // Level 2: If explicitly marked as submitted, preserve it
-        // (This will be set by explicit action in Phase7, now Phase8)
         if (currentProposal.status === "submitted") {
           statusToSave = "submitted";
-        }
-        // Level 3: Manual Kanban Drag Override (Highest Precedence)
-        // If current DB status differs from what the phase would derive,
-        // it means user manually moved it on Kanban - preserve their choice
-        else if (currentProposal.status !== derivedPhaseStatus && currentProposal.status !== "") {
+        } else if (currentProposal.status !== derivedPhaseStatus && currentProposal.status !== "") {
           statusToSave = currentProposal.status;
-        }
-        // Level 1: Apply automated phase-based status
-        else {
+        } else {
           statusToSave = derivedPhaseStatus;
         }
 
@@ -227,8 +237,12 @@ export default function ProposalBuilder() {
           current_phase: currentPhase,
           status: statusToSave
         });
+        
+        setLastSaved(new Date());
+        setIsSaving(false);
+        return proposalId;
       } else {
-        // New proposal - apply Level 1 phase-based status
+        // Create new proposal
         const initialStatus = getKanbanStatusFromPhase(currentPhase);
         const created = await base44.entities.Proposal.create({
           ...proposalData,
@@ -237,11 +251,19 @@ export default function ProposalBuilder() {
           status: initialStatus
         });
         setProposalId(created.id);
+        setLastSaved(new Date());
+        setIsSaving(false);
+        
+        // Update URL with new proposal ID
+        window.history.replaceState(null, '', `${createPageUrl("ProposalBuilder")}?id=${created.id}&phase=${currentPhase}`);
+        
         return created.id;
       }
-      return proposalId;
     } catch (error) {
       console.error("Error saving proposal:", error);
+      alert("Error saving proposal. Please try again or contact support.");
+      setIsSaving(false);
+      return null;
     }
   };
 
@@ -346,7 +368,20 @@ export default function ProposalBuilder() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             {proposalData.proposal_name || "New Proposal"}
           </h1>
-          <p className="text-slate-600">Follow the steps to build your proposal</p>
+          <div className="flex items-center gap-3">
+            <p className="text-slate-600">Follow the steps to build your proposal</p>
+            {isSaving && (
+              <span className="text-sm text-blue-600 flex items-center gap-2">
+                <span className="animate-spin">⏳</span>
+                Saving...
+              </span>
+            )}
+            {!isSaving && lastSaved && (
+              <span className="text-sm text-green-600">
+                ✓ Last saved {new Date(lastSaved).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
         </div>
 
         <Card className="border-none shadow-xl mb-6">
