@@ -52,6 +52,8 @@ import ResourceGatheringModal from "./modals/ResourceGatheringModal";
 import SolicitationUploadModal from "./modals/SolicitationUploadModal";
 import EvaluationModal from "./modals/EvaluationModal";
 import WinStrategyModal from "./modals/WinStrategyModal";
+import ContentPlanningModal from "./modals/ContentPlanningModal";
+import PricingReviewModal from "./modals/PricingReviewModal";
 
 export default function KanbanCard({ 
   proposal, 
@@ -524,6 +526,22 @@ export default function KanbanCard({
 
       {activeModal === 'WinStrategyModal' && (
         <WinStrategyModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'ContentPlanningModal' && (
+        <ContentPlanningModal
+          isOpen={true}
+          onClose={handleModalClose}
+          proposalId={proposal.id}
+        />
+      )}
+
+      {activeModal === 'PricingReviewModal' && (
+        <PricingReviewModal
           isOpen={true}
           onClose={handleModalClose}
           proposalId={proposal.id}
