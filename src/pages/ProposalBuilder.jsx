@@ -321,10 +321,26 @@ export default function ProposalBuilder() {
   };
 
   const handleNext = async () => {
+    // Ensure we have minimum required data
+    if (!proposalData.proposal_name?.trim()) {
+      alert("Please enter a Proposal Name before continuing.");
+      return;
+    }
+
+    // Save the proposal
     const savedId = await saveProposal();
+    
+    if (!savedId && !proposalId) { // Check if it's a new proposal and save failed
+      alert("Unable to save proposal. Please try again.");
+      return;
+    }
+    
+    // Update proposalId if this is a new proposal and it was successfully saved
     if (!proposalId && savedId) {
       setProposalId(savedId);
     }
+    
+    // Move to next phase
     const currentIndex = PHASES.findIndex(p => p.id === currentPhase);
     if (currentIndex < PHASES.length - 1) {
       setCurrentPhase(PHASES[currentIndex + 1].id);
