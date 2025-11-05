@@ -25,7 +25,8 @@ import Phase3 from "../components/builder/Phase3";
 import Phase4 from "../components/builder/Phase4";
 import Phase5 from "../components/builder/Phase5";
 import Phase6 from "../components/builder/Phase6";
-import Phase7 from "../components/builder/Phase7";
+import Phase7 from "../components/builder/Phase7"; // This component is now effectively for Phase 8 (Finalize)
+import Phase7Pricing from "../components/builder/Phase7Pricing"; // New component for Phase 7 (Pricing & Cost Build)
 import TaskManager from "../components/tasks/TaskManager";
 import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
 import ProposalFiles from "../components/collaboration/ProposalFiles";
@@ -33,7 +34,7 @@ import AutomationHub from "../components/workflows/AutomationHub";
 import FloatingChatButton from "../components/collaboration/FloatingChatButton";
 import ClientSharingPanel from "../components/builder/ClientSharingPanel";
 import ProposalAssistant from "../components/assistant/ProposalAssistant";
-import SampleDataGuard from "../components/ui/SampleDataGuard"; // New import
+import SampleDataGuard from "../components/ui/SampleDataGuard";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -77,7 +78,7 @@ export default function ProposalBuilder() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [assistantMinimized, setAssistantMinimized] = useState(false);
-  const [showSampleDataGuard, setShowSampleDataGuard] = useState(false); // New state
+  const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
     prime_contractor_id: "",
@@ -206,7 +207,7 @@ export default function ProposalBuilder() {
         let statusToSave;
         
         // Level 2: If explicitly marked as submitted, preserve it
-        // (This will be set by explicit action in Phase7)
+        // (This will be set by explicit action in Phase7, now Phase8)
         if (currentProposal.status === "submitted") {
           statusToSave = "submitted";
         }
@@ -244,7 +245,7 @@ export default function ProposalBuilder() {
     }
   };
 
-  // Function to explicitly mark proposal as submitted (called from Phase7)
+  // Function to explicitly mark proposal as submitted (called from Phase8, which uses Phase7 component)
   const markAsSubmitted = async () => {
     if (!proposalId || !organization?.id) return;
     
@@ -461,17 +462,15 @@ export default function ProposalBuilder() {
                   />
                 )}
                 {currentPhase === "phase7" && (
-                  <Phase7 
-                    proposal={{ id: proposalId, ...proposalData }}
-                    user={user}
-                    organization={organization}
-                    teamMembers={[]}
-                    onMarkAsSubmitted={markAsSubmitted}
+                  <Phase7Pricing 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
                     onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
                   />
                 )}
-                {currentPhase === "phase8" && ( // Assuming Phase7 component (the old "Finalize") is now intended for "Finalize" (Phase8)
-                  <Phase7 // The content of the Phase7 component would likely be generic enough or be updated externally for this to work.
+                {currentPhase === "phase8" && (
+                  <Phase7 // The original Phase7 component is now used for "Finalize" (Phase8)
                     proposal={{ id: proposalId, ...proposalData }}
                     user={user}
                     organization={organization}
@@ -482,7 +481,7 @@ export default function ProposalBuilder() {
                 )}
               </div>
 
-              {currentPhaseIndex !== PHASES.length - 1 && ( // Condition updated to use PHASES.length - 1
+              {currentPhaseIndex !== PHASES.length - 1 && (
                 <div className="flex justify-between max-w-4xl">
                   <Button
                     variant="outline"
@@ -586,7 +585,7 @@ export default function ProposalBuilder() {
               )}
             </div>
 
-            {currentPhaseIndex !== PHASES.length - 1 && ( // Condition updated to use PHASES.length - 1
+            {currentPhaseIndex !== PHASES.length - 1 && (
               <div className="flex justify-between max-w-4xl">
                 <Button
                   variant="outline"
@@ -614,7 +613,7 @@ export default function ProposalBuilder() {
               </div>
             )}
 
-            {currentPhaseIndex === PHASES.length - 1 && ( // Condition updated to use PHASES.length - 1
+            {currentPhaseIndex === PHASES.length - 1 && (
               <div className="flex justify-end max-w-4xl">
                 <Button
                   variant="outline"
