@@ -14,25 +14,19 @@ import { Label } from "@/components/ui/label";
 import { Download, FileSpreadsheet, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function ExcelExporter({ 
-  proposalData, 
-  clins, 
-  laborAllocations, 
-  laborCategories,
-  odcItems, 
-  pricingStrategy,
-  totalCost,
-  totalPrice 
+  proposalId,
+  estimateData,
+  organization
 }) {
   const [showDialog, setShowDialog] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [includeOptions, setIncludeOptions] = useState({
     summary: true,
     laborRates: true,
-    clinDetails: true,
-    laborAllocations: true,
     odcBreakdown: true,
-    pricingStrategy: true,
-    charts: false
+    multiYear: true,
+    aiAnalysis: true,
+    sensitivity: true
   });
 
   const exportToCSV = () => {
@@ -42,76 +36,97 @@ export default function ExcelExporter({
       let csvContent = "";
       
       // Header
-      csvContent += "Pricing Data Export - " + proposalData.proposal_name + "\n";
+      csvContent += "Pricing Data Export\n";
       csvContent += "Generated: " + new Date().toLocaleString() + "\n";
-      csvContent += "Agency: " + proposalData.agency_name + "\n";
-      csvContent += "Solicitation: " + proposalData.solicitation_number + "\n\n";
+      if (estimateData?.estimate_name) {
+        csvContent += "Estimate: " + estimateData.estimate_name + "\n";
+      }
+      if (organization?.organization_name) {
+        csvContent += "Organization: " + organization.organization_name + "\n";
+      }
+      csvContent += "\n";
 
       // Summary
-      if (includeOptions.summary) {
+      if (includeOptions.summary && estimateData) {
         csvContent += "PRICING SUMMARY\n";
         csvContent += "Metric,Value\n";
-        csvContent += "Total Price,$" + totalPrice.toLocaleString() + "\n";
-        csvContent += "Total Cost,$" + totalCost.toLocaleString() + "\n";
-        csvContent += "Fee/Profit,$" + (totalPrice - totalCost).toLocaleString() + "\n";
-        csvContent += "Fee Percentage," + (totalCost > 0 ? ((totalPrice - totalCost) / totalCost * 100).toFixed(2) : 0) + "%\n";
-        csvContent += "Number of CLINs," + clins.length + "\n\n";
+        if (estimateData.grand_total) {
+          csvContent += "Total Price,$" + estimateData.grand_total.toLocaleString() + "\n";
+        }
+        if (estimateData.total_labor) {
+          csvContent += "Total Labor,$" + estimateData.total_labor.toLocaleString() + "\n";
+        }
+        if (estimateData.total_odc) {
+          csvContent += "Total ODC,$" + estimateData.total_odc.toLocaleString() + "\n";
+        }
+        if (estimateData.fee_percentage) {
+          csvContent += "Fee Percentage," + estimateData.fee_percentage + "%\n";
+        }
+        if (estimateData.fee_amount) {
+          csvContent += "Fee Amount,$" + estimateData.fee_amount.toLocaleString() + "\n";
+        }
+        csvContent += "\n";
       }
 
       // Labor Rates
-      if (includeOptions.laborRates && laborCategories.length > 0) {
-        csvContent += "LABOR RATES\n";
-        csvContent += "Category,Level,Base Rate,Fringe %,OH %,G&A %,Loaded Rate,Annual Salary\n";
-        laborCategories.forEach(cat => {
-          csvContent += '"' + cat.category_name + '",' + cat.labor_level + ',$' + cat.base_hourly_rate + ',' + cat.fringe_rate + '%,' + cat.overhead_rate + '%,' + cat.ga_rate + '%,$' + cat.loaded_hourly_rate + ',$' + cat.annual_salary_equivalent + '\n';
-        });
-        csvContent += "\n";
-      }
-
-      // CLIN Details
-      if (includeOptions.clinDetails && clins.length > 0) {
-        csvContent += "CLIN BREAKDOWN\n";
-        csvContent += "CLIN #,Title,Period,Labor Cost,ODC Cost,Total Cost,Fee %,Fee Amount,Total Price\n";
-        clins.forEach(clin => {
-          csvContent += '"' + clin.clin_number + '","' + clin.clin_title + '","' + clin.period_of_performance + '",$' + (clin.labor_cost || 0) + ',$' + (clin.odc_cost || 0) + ',$' + (clin.total_cost || 0) + ',' + clin.fee_percentage + '%,$' + (clin.fee_amount || 0) + ',$' + (clin.total_price || 0) + '\n';
-        });
-        csvContent += "\n";
-      }
-
-      // Labor Allocations
-      if (includeOptions.laborAllocations && laborAllocations.length > 0) {
-        csvContent += "LABOR ALLOCATIONS\n";
-        csvContent += "CLIN,Labor Category,Hours,Rate,Total Cost,FTE\n";
-        laborAllocations.forEach(alloc => {
-          const clin = clins.find(c => c.id === alloc.clin_id);
-          const clinNumber = clin ? clin.clin_number : "N/A";
-          csvContent += '"' + clinNumber + '","' + alloc.labor_category_name + '",' + alloc.hours + ',$' + alloc.hourly_rate + ',$' + alloc.total_cost + ',' + (alloc.fte ? alloc.fte.toFixed(2) : 0) + '\n';
+      if (includeOptions.laborRates && estimateData?.labor_categories && estimateData.labor_categories.length > 0) {
+        csvContent += "LABOR CATEGORIES\n";
+        csvContent += "Category,Hours,Rate,Total\n";
+        estimateData.labor_categories.forEach(cat => {
+          const total = (cat.hours || 0) * (cat.rate || 0);
+          csvContent += '"' + (cat.name || 'N/A') + '",' + (cat.hours || 0) + ',$' + (cat.rate || 0) + ',$' + total.toLocaleString() + '\n';
         });
         csvContent += "\n";
       }
 
       // ODC Breakdown
-      if (includeOptions.odcBreakdown && odcItems.length > 0) {
+      if (includeOptions.odcBreakdown && estimateData?.odc_items && estimateData.odc_items.length > 0) {
         csvContent += "OTHER DIRECT COSTS (ODC)\n";
-        csvContent += "CLIN,Category,Item,Quantity,Unit Cost,Total Cost\n";
-        odcItems.forEach(odc => {
-          const clin = clins.find(c => c.id === odc.clin_id);
-          const clinNumber = clin ? clin.clin_number : "N/A";
-          csvContent += '"' + clinNumber + '","' + odc.odc_category + '","' + odc.item_name + '",' + odc.quantity + ',$' + odc.unit_cost + ',$' + odc.total_cost + '\n';
+        csvContent += "Item,Quantity,Unit Cost,Total\n";
+        estimateData.odc_items.forEach(item => {
+          const total = (item.quantity || 0) * (item.cost || 0);
+          csvContent += '"' + (item.name || 'N/A') + '",' + (item.quantity || 0) + ',$' + (item.cost || 0) + ',$' + total.toLocaleString() + '\n';
         });
         csvContent += "\n";
       }
 
-      // Pricing Strategy
-      if (includeOptions.pricingStrategy && pricingStrategy) {
-        csvContent += "PRICING STRATEGY\n";
-        csvContent += "Attribute,Value\n";
-        csvContent += 'Approach,"' + (pricingStrategy.pricing_approach ? pricingStrategy.pricing_approach.replace(/_/g, ' ') : '') + '"\n';
-        csvContent += 'Competitive Positioning,"' + (pricingStrategy.competitive_positioning || '') + '"\n';
-        if (pricingStrategy.price_to_win_analysis && pricingStrategy.price_to_win_analysis.recommended_price) {
-          csvContent += "Recommended Price,$" + pricingStrategy.price_to_win_analysis.recommended_price.toLocaleString() + "\n";
-          csvContent += "Win Probability," + (pricingStrategy.win_probability_at_price || 0) + "%\n";
+      // Multi-Year Projection
+      if (includeOptions.multiYear && estimateData?.multi_year_projection) {
+        csvContent += "MULTI-YEAR PROJECTION\n";
+        csvContent += "Year,Value\n";
+        const proj = estimateData.multi_year_projection;
+        if (Array.isArray(proj)) {
+          proj.forEach((value, idx) => {
+            const yearLabel = idx === 0 ? "Base Year" : `Option Year ${idx}`;
+            csvContent += yearLabel + ',$' + (value || 0).toLocaleString() + '\n';
+          });
         }
+        csvContent += "\n";
+      }
+
+      // AI Analysis
+      if (includeOptions.aiAnalysis && estimateData?.ai_analysis) {
+        csvContent += "AI ANALYSIS\n";
+        const ai = estimateData.ai_analysis;
+        if (ai.win_probability) {
+          csvContent += "Win Probability," + ai.win_probability + "%\n";
+        }
+        if (ai.competitive_position) {
+          csvContent += "Competitive Position," + ai.competitive_position + "\n";
+        }
+        if (ai.optimal_fee_percentage) {
+          csvContent += "Optimal Fee," + ai.optimal_fee_percentage + "%\n";
+        }
+        csvContent += "\n";
+      }
+
+      // Sensitivity Analysis
+      if (includeOptions.sensitivity && estimateData?.sensitivity_analysis) {
+        csvContent += "SENSITIVITY ANALYSIS\n";
+        csvContent += "Scenario,New Total,Change,Percent Change\n";
+        estimateData.sensitivity_analysis.forEach(result => {
+          csvContent += '"' + result.name + '",$' + (result.total || 0).toLocaleString() + ',$' + (result.delta || 0).toLocaleString() + ',' + (result.percentChange || 0).toFixed(2) + '%\n';
+        });
         csvContent += "\n";
       }
 
@@ -120,7 +135,8 @@ export default function ExcelExporter({
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.setAttribute("href", url);
-      link.setAttribute("download", proposalData.proposal_name.replace(/[^a-z0-9]/gi, '_') + '_pricing_' + new Date().toISOString().split('T')[0] + '.csv');
+      const filename = (estimateData?.estimate_name || 'cost_estimate').replace(/[^a-z0-9]/gi, '_') + '_' + new Date().toISOString().split('T')[0] + '.csv';
+      link.setAttribute("download", filename);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -133,10 +149,6 @@ export default function ExcelExporter({
     }
     
     setExporting(false);
-  };
-
-  const exportToExcel = () => {
-    exportToCSV();
   };
 
   return (
@@ -178,29 +190,7 @@ export default function ExcelExporter({
                   onCheckedChange={(checked) => setIncludeOptions({...includeOptions, laborRates: checked})}
                 />
                 <Label htmlFor="laborRates" className="cursor-pointer">
-                  Labor Rate Table
-                </Label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  id="clinDetails"
-                  checked={includeOptions.clinDetails}
-                  onCheckedChange={(checked) => setIncludeOptions({...includeOptions, clinDetails: checked})}
-                />
-                <Label htmlFor="clinDetails" className="cursor-pointer">
-                  CLIN Breakdown
-                </Label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  id="laborAllocations"
-                  checked={includeOptions.laborAllocations}
-                  onCheckedChange={(checked) => setIncludeOptions({...includeOptions, laborAllocations: checked})}
-                />
-                <Label htmlFor="laborAllocations" className="cursor-pointer">
-                  Labor Allocations
+                  Labor Categories
                 </Label>
               </div>
 
@@ -211,18 +201,40 @@ export default function ExcelExporter({
                   onCheckedChange={(checked) => setIncludeOptions({...includeOptions, odcBreakdown: checked})}
                 />
                 <Label htmlFor="odcBreakdown" className="cursor-pointer">
-                  ODC Details
+                  ODC Items
                 </Label>
               </div>
 
               <div className="flex items-center gap-2">
                 <Checkbox 
-                  id="pricingStrategy"
-                  checked={includeOptions.pricingStrategy}
-                  onCheckedChange={(checked) => setIncludeOptions({...includeOptions, pricingStrategy: checked})}
+                  id="multiYear"
+                  checked={includeOptions.multiYear}
+                  onCheckedChange={(checked) => setIncludeOptions({...includeOptions, multiYear: checked})}
                 />
-                <Label htmlFor="pricingStrategy" className="cursor-pointer">
-                  Pricing Strategy
+                <Label htmlFor="multiYear" className="cursor-pointer">
+                  Multi-Year Projection
+                </Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="aiAnalysis"
+                  checked={includeOptions.aiAnalysis}
+                  onCheckedChange={(checked) => setIncludeOptions({...includeOptions, aiAnalysis: checked})}
+                />
+                <Label htmlFor="aiAnalysis" className="cursor-pointer">
+                  AI Analysis Results
+                </Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="sensitivity"
+                  checked={includeOptions.sensitivity}
+                  onCheckedChange={(checked) => setIncludeOptions({...includeOptions, sensitivity: checked})}
+                />
+                <Label htmlFor="sensitivity" className="cursor-pointer">
+                  Sensitivity Analysis
                 </Label>
               </div>
             </div>
@@ -239,7 +251,7 @@ export default function ExcelExporter({
             <Button variant="outline" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={exportToExcel} disabled={exporting}>
+            <Button onClick={exportToCSV} disabled={exporting}>
               {exporting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
