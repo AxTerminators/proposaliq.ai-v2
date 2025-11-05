@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -12,64 +11,158 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Rocket, Zap, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Rocket, Zap, CheckCircle2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
-// 15-column structure matching the 8 phases + outcomes
-const TEMPLATE_15_COLUMN_FULL = [
+// NEW 8-PHASE WORKFLOW - 15 columns with single-word names
+const TEMPLATE_8_PHASE_WORKFLOW = [
+  // ========== PHASE 1: INITIATE ==========
   {
-    id: 'new',
-    label: 'New',
-    color: 'from-slate-400 to-slate-600',
+    id: 'initiate',
+    label: 'Initiate',
+    color: 'from-blue-900 to-indigo-950',
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
     order: 0,
     checklist_items: [
-      { id: 'basic_info', label: 'Add Basic Information', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
-      { id: 'name_solicitation', label: 'Name & Solicitation #', type: 'system_check', required: true, order: 1 }
+      { 
+        id: 'enter_proposal_name', 
+        label: 'Enter Proposal Name', 
+        type: 'modal_trigger', 
+        associated_action: 'open_basic_info_modal', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'set_project_type', 
+        label: 'Set Project Type (RFP/RFQ/RFI)', 
+        type: 'modal_trigger', 
+        associated_action: 'open_basic_info_modal', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'add_solicitation_number', 
+        label: 'Add Solicitation Number', 
+        type: 'modal_trigger', 
+        associated_action: 'open_basic_info_modal', 
+        required: false, 
+        order: 2 
+      }
     ]
   },
+  
+  // ========== PHASE 1: TEAM ==========
   {
-    id: 'prime_selection',
-    label: 'Prime Selection',
+    id: 'team',
+    label: 'Team',
     color: 'from-blue-400 to-blue-600',
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
     order: 1,
     checklist_items: [
-      { id: 'identify_prime', label: 'Identify Prime Contractor', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
-      { id: 'add_partners', label: 'Add Teaming Partners', type: 'manual_check', required: false, order: 1 }
+      { 
+        id: 'select_prime_contractor', 
+        label: 'Select Prime Contractor', 
+        type: 'modal_trigger', 
+        associated_action: 'open_team_formation_modal', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'add_teaming_partners', 
+        label: 'Add Teaming Partners', 
+        type: 'modal_trigger', 
+        associated_action: 'open_team_formation_modal', 
+        required: false, 
+        order: 1 
+      }
     ]
   },
+  
+  // ========== PHASE 2: RESOURCES ==========
   {
-    id: 'gather_docs',
-    label: 'Gather Docs',
-    color: 'from-cyan-400 to-cyan-600',
+    id: 'resources',
+    label: 'Resources',
+    color: 'from-teal-400 to-teal-600',
     type: 'locked_phase',
     phase_mapping: 'phase2',
     is_locked: true,
     order: 2,
     checklist_items: [
-      { id: 'upload_references', label: 'Upload Reference Documents', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: true, order: 0 },
-      { id: 'link_resources', label: 'Link Boilerplate & Past Performance', type: 'manual_check', required: false, order: 1 }
+      { 
+        id: 'link_boilerplate', 
+        label: 'Link Boilerplate Content', 
+        type: 'modal_trigger', 
+        associated_action: 'open_resource_gathering_modal', 
+        required: false, 
+        order: 0 
+      },
+      { 
+        id: 'link_templates', 
+        label: 'Link Templates', 
+        type: 'modal_trigger', 
+        associated_action: 'open_resource_gathering_modal', 
+        required: false, 
+        order: 1 
+      },
+      { 
+        id: 'link_past_performance', 
+        label: 'Link Past Performance', 
+        type: 'modal_trigger', 
+        associated_action: 'open_resource_gathering_modal', 
+        required: false, 
+        order: 2 
+      }
     ]
   },
+  
+  // ========== PHASE 3: SOLICIT ==========
   {
-    id: 'solicitation',
-    label: 'Solicitation',
-    color: 'from-teal-400 to-teal-600',
+    id: 'solicit',
+    label: 'Solicit',
+    color: 'from-cyan-400 to-cyan-600',
     type: 'locked_phase',
     phase_mapping: 'phase3',
     is_locked: true,
     order: 3,
     checklist_items: [
-      { id: 'upload_solicitation', label: 'Upload Solicitation Documents', type: 'modal_trigger', associated_action: 'open_modal_phase3', required: true, order: 0 },
-      { id: 'extract_requirements', label: 'Extract Requirements with AI', type: 'ai_trigger', associated_action: 'extract_requirements_phase3', required: true, order: 1 },
-      { id: 'set_due_date', label: 'Set Due Date & Contract Value', type: 'system_check', required: true, order: 2 }
+      { 
+        id: 'upload_solicitation', 
+        label: 'Upload Solicitation Document', 
+        type: 'modal_trigger', 
+        associated_action: 'open_solicitation_upload_modal', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'extract_key_details', 
+        label: 'Extract Key Details (AI)', 
+        type: 'ai_trigger', 
+        associated_action: 'run_ai_extraction_phase3', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'set_due_date', 
+        label: 'Set Due Date', 
+        type: 'system_check', 
+        required: true, 
+        order: 2 
+      },
+      { 
+        id: 'set_contract_value', 
+        label: 'Set Contract Value', 
+        type: 'system_check', 
+        required: false, 
+        order: 3 
+      }
     ]
   },
+  
+  // ========== PHASE 4: EVALUATE ==========
   {
     id: 'evaluate',
     label: 'Evaluate',
@@ -79,11 +172,41 @@ const TEMPLATE_15_COLUMN_FULL = [
     is_locked: true,
     order: 4,
     checklist_items: [
-      { id: 'run_evaluation', label: 'Run AI Strategic Evaluation', type: 'ai_trigger', associated_action: 'run_evaluation_phase4', required: true, order: 0 },
-      { id: 'competitor_analysis', label: 'Complete Competitor Analysis', type: 'modal_trigger', associated_action: 'open_modal_phase4', required: false, order: 1 },
-      { id: 'go_no_go', label: 'Make Go/No-Go Decision', type: 'manual_check', required: true, order: 2 }
+      { 
+        id: 'run_ai_evaluation', 
+        label: 'Run AI Strategic Evaluation', 
+        type: 'ai_trigger', 
+        associated_action: 'run_evaluation_phase4', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'review_match_score', 
+        label: 'Review Match Score & Recommendations', 
+        type: 'modal_trigger', 
+        associated_action: 'open_evaluation_modal', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'make_go_no_go', 
+        label: 'Make Go/No-Go Decision', 
+        type: 'manual_check', 
+        required: true, 
+        order: 2 
+      },
+      { 
+        id: 'generate_compliance_matrix', 
+        label: 'Generate Compliance Matrix', 
+        type: 'modal_trigger', 
+        associated_action: 'open_compliance_modal', 
+        required: false, 
+        order: 3 
+      }
     ]
   },
+  
+  // ========== PHASE 5: STRATEGY ==========
   {
     id: 'strategy',
     label: 'Strategy',
@@ -93,70 +216,225 @@ const TEMPLATE_15_COLUMN_FULL = [
     is_locked: true,
     order: 5,
     checklist_items: [
-      { id: 'select_sections', label: 'Select Proposal Sections', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 0 },
-      { id: 'generate_win_themes', label: 'Generate Win Themes', type: 'ai_trigger', associated_action: 'generate_win_themes_phase5', required: false, order: 1 },
-      { id: 'set_writing_strategy', label: 'Configure Writing Strategy', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 2 }
+      { 
+        id: 'generate_win_themes', 
+        label: 'Generate Win Themes', 
+        type: 'ai_trigger', 
+        associated_action: 'generate_win_themes_phase5', 
+        required: false, 
+        order: 0 
+      },
+      { 
+        id: 'analyze_competitors', 
+        label: 'Analyze Competitors', 
+        type: 'modal_trigger', 
+        associated_action: 'open_competitor_analysis_modal', 
+        required: false, 
+        order: 1 
+      },
+      { 
+        id: 'define_strategy', 
+        label: 'Define Competitive Strategy', 
+        type: 'modal_trigger', 
+        associated_action: 'open_win_strategy_modal', 
+        required: true, 
+        order: 2 
+      }
     ]
   },
+  
+  // ========== PHASE 5: PLAN ==========
   {
-    id: 'drafting',
-    label: 'Drafting',
+    id: 'plan',
+    label: 'Plan',
     color: 'from-yellow-400 to-yellow-600',
     type: 'locked_phase',
-    phase_mapping: 'phase6',
+    phase_mapping: 'phase5',
     is_locked: true,
     order: 6,
     checklist_items: [
-      { id: 'generate_content', label: 'Generate Proposal Content', type: 'modal_trigger', associated_action: 'open_modal_phase6', required: true, order: 0 },
-      { id: 'complete_all_sections', label: 'Complete All Required Sections', type: 'system_check', required: true, order: 1 },
-      { id: 'collaborative_review', label: 'Team Review & Edits', type: 'manual_check', required: false, order: 2 }
+      { 
+        id: 'select_sections', 
+        label: 'Select Proposal Sections', 
+        type: 'modal_trigger', 
+        associated_action: 'open_section_planning_modal', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'configure_writing_style', 
+        label: 'Configure Writing Style', 
+        type: 'modal_trigger', 
+        associated_action: 'open_section_planning_modal', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'set_tone', 
+        label: 'Set Tone & Reading Level', 
+        type: 'modal_trigger', 
+        associated_action: 'open_section_planning_modal', 
+        required: false, 
+        order: 2 
+      }
     ]
   },
+  
+  // ========== PHASE 6: DRAFT ==========
   {
-    id: 'pricing',
-    label: 'Pricing',
+    id: 'draft',
+    label: 'Draft',
+    color: 'from-amber-400 to-amber-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase6',
+    is_locked: true,
+    order: 7,
+    checklist_items: [
+      { 
+        id: 'generate_content', 
+        label: 'Generate AI Content', 
+        type: 'modal_trigger', 
+        associated_action: 'navigate_to_phase6_page', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'edit_sections', 
+        label: 'Edit & Refine Sections', 
+        type: 'modal_trigger', 
+        associated_action: 'navigate_to_phase6_page', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'review_quality', 
+        label: 'Review Content Quality', 
+        type: 'manual_check', 
+        required: false, 
+        order: 2 
+      }
+    ]
+  },
+  
+  // ========== PHASE 7: PRICE ==========
+  {
+    id: 'price',
+    label: 'Price',
     color: 'from-orange-400 to-orange-600',
     type: 'locked_phase',
     phase_mapping: 'phase7',
     is_locked: true,
-    order: 7,
+    order: 8,
     checklist_items: [
-      { id: 'build_pricing', label: 'Build Pricing & Cost Structure', type: 'modal_trigger', associated_action: 'open_modal_phase7', required: true, order: 0 },
-      { id: 'add_labor_rates', label: 'Add Labor Categories & Rates', type: 'manual_check', required: true, order: 1 },
-      { id: 'create_clins', label: 'Create CLINs', type: 'manual_check', required: true, order: 2 },
-      { id: 'pricing_analysis', label: 'Run Pricing Analysis', type: 'ai_trigger', associated_action: 'run_pricing_analysis_phase7', required: false, order: 3 }
+      { 
+        id: 'build_labor_rates', 
+        label: 'Build Labor Rates', 
+        type: 'modal_trigger', 
+        associated_action: 'navigate_to_phase7_pricing_page', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'create_clins', 
+        label: 'Create CLINs', 
+        type: 'modal_trigger', 
+        associated_action: 'navigate_to_phase7_pricing_page', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'add_odcs', 
+        label: 'Add ODCs', 
+        type: 'modal_trigger', 
+        associated_action: 'navigate_to_phase7_pricing_page', 
+        required: false, 
+        order: 2 
+      },
+      { 
+        id: 'run_ai_analysis', 
+        label: 'Run AI Pricing Analysis', 
+        type: 'ai_trigger', 
+        associated_action: 'run_pricing_analysis_phase7', 
+        required: false, 
+        order: 3 
+      }
     ]
   },
+  
+  // ========== PHASE 8: REVIEW ==========
   {
     id: 'review',
     label: 'Review',
-    color: 'from-amber-400 to-amber-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase8',
-    is_locked: true,
-    order: 8,
-    checklist_items: [
-      { id: 'internal_review', label: 'Complete Internal Review', type: 'manual_check', required: true, order: 0 },
-      { id: 'red_team', label: 'Conduct Red Team Review', type: 'modal_trigger', associated_action: 'open_red_team_review', required: false, order: 1 },
-      { id: 'address_comments', label: 'Address All Review Comments', type: 'system_check', required: true, order: 2 }
-    ]
-  },
-  {
-    id: 'finalize',
-    label: 'Finalize',
-    color: 'from-rose-400 to-rose-600',
+    color: 'from-red-400 to-red-600',
     type: 'locked_phase',
     phase_mapping: 'phase8',
     is_locked: true,
     order: 9,
     checklist_items: [
-      { id: 'readiness_check', label: 'Run Submission Readiness Check', type: 'ai_trigger', associated_action: 'run_readiness_check_phase8', required: true, order: 0 },
-      { id: 'final_review', label: 'Final Executive Review', type: 'manual_check', required: true, order: 1 },
-      { id: 'prepare_submission', label: 'Prepare Submission Package', type: 'manual_check', required: true, order: 2 }
+      { 
+        id: 'conduct_red_team_review', 
+        label: 'Conduct Red Team Review', 
+        type: 'modal_trigger', 
+        associated_action: 'open_red_team_modal', 
+        required: false, 
+        order: 0 
+      },
+      { 
+        id: 'address_comments', 
+        label: 'Address Review Comments', 
+        type: 'manual_check', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'resolve_issues', 
+        label: 'Resolve All Critical Issues', 
+        type: 'system_check', 
+        required: true, 
+        order: 2 
+      }
+    ]
+  },
+  
+  // ========== PHASE 8: FINALIZE ==========
+  {
+    id: 'finalize',
+    label: 'Finalize',
+    color: 'from-pink-400 to-pink-600',
+    type: 'locked_phase',
+    phase_mapping: 'phase8',
+    is_locked: true,
+    order: 10,
+    checklist_items: [
+      { 
+        id: 'run_submission_check', 
+        label: 'Run Submission Readiness Check', 
+        type: 'ai_trigger', 
+        associated_action: 'run_readiness_check_phase8', 
+        required: true, 
+        order: 0 
+      },
+      { 
+        id: 'export_documents', 
+        label: 'Export Final Documents', 
+        type: 'modal_trigger', 
+        associated_action: 'open_export_modal', 
+        required: true, 
+        order: 1 
+      },
+      { 
+        id: 'final_review', 
+        label: 'Complete Final Review', 
+        type: 'manual_check', 
+        required: true, 
+        order: 2 
+      }
     ],
     requires_approval_to_exit: true,
     approver_roles: ['organization_owner', 'proposal_manager']
   },
+  
+  // ========== OUTCOME STATUSES ==========
   {
     id: 'submitted',
     label: 'Submitted',
@@ -164,7 +442,7 @@ const TEMPLATE_15_COLUMN_FULL = [
     type: 'default_status',
     default_status_mapping: 'submitted',
     is_locked: true,
-    order: 10,
+    order: 11,
     checklist_items: []
   },
   {
@@ -174,27 +452,27 @@ const TEMPLATE_15_COLUMN_FULL = [
     type: 'default_status',
     default_status_mapping: 'won',
     is_locked: true,
-    order: 11,
+    order: 12,
     checklist_items: []
   },
   {
     id: 'lost',
     label: 'Lost',
-    color: 'from-red-400 to-red-600',
+    color: 'from-red-500 to-red-700',
     type: 'default_status',
     default_status_mapping: 'lost',
     is_locked: true,
-    order: 12,
+    order: 13,
     checklist_items: []
   },
   {
-    id: 'archived',
+    id: 'archive',
     label: 'Archive',
     color: 'from-gray-400 to-gray-600',
     type: 'default_status',
     default_status_mapping: 'archived',
     is_locked: true,
-    order: 13,
+    order: 14,
     checklist_items: []
   }
 ];
@@ -251,14 +529,14 @@ const TEMPLATES = [
     recommendedFor: 'Teams new to Kanban or with simple processes'
   },
   {
-    id: 'full',
-    name: 'Complete Workflow',
-    description: '14-stage comprehensive workflow aligned with all 8 builder phases',
+    id: '8phase',
+    name: '8-Phase Complete Workflow',
+    description: '15-column workflow fully integrated with 8-phase proposal builder',
     icon: Sparkles,
     color: 'from-purple-500 to-pink-600',
-    columns: TEMPLATE_15_COLUMN_FULL,
-    features: ['Full 8-phase integration', 'Smart checklists', 'Approval gates', 'Pricing phase included'],
-    recommendedFor: 'Teams wanting complete control and visibility across all proposal stages'
+    columns: TEMPLATE_8_PHASE_WORKFLOW,
+    features: ['All 8 phases as columns', 'Smart checklists', 'AI-powered actions', 'Approval gates'],
+    recommendedFor: 'Teams wanting complete proposal workflow integration'
   }
 ];
 
