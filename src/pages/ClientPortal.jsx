@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,9 @@ import MeetingScheduler from "../components/client/MeetingScheduler";
 import FloatingFeedbackButton from "../components/client/FloatingFeedbackButton";
 import ClientFeedbackDashboard from "../components/client/ClientFeedbackDashboard";
 import { useQuery } from '@tanstack/react-query';
+import DocumentLibrary from "../components/client/DocumentLibrary";
+import ClientReportingDashboard from "../components/client/ClientReportingDashboard";
+import ClientNotificationPreferences from "../components/client/ClientNotificationPreferences";
 
 export default function ClientPortal() {
   const [client, setClient] = useState(null);
@@ -281,9 +285,21 @@ export default function ClientPortal() {
                 Team
               </TabsTrigger>
             )}
+            <TabsTrigger value="documents">
+              <FileText className="w-4 h-4 mr-2" />
+              Documents
+            </TabsTrigger>
             <TabsTrigger value="meetings">
               <Calendar className="w-4 h-4 mr-2" />
               Meetings
+            </TabsTrigger>
+            <TabsTrigger value="reports">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              My Reports
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Settings
             </TabsTrigger>
             <TabsTrigger value="feedback">
               <MessageSquare className="w-4 h-4 mr-2" />
@@ -308,6 +324,11 @@ export default function ClientPortal() {
             </TabsContent>
           )}
 
+          {/* Documents Tab */}
+          <TabsContent value="documents">
+            <DocumentLibrary client={client} organization={organization} />
+          </TabsContent>
+
           {/* Meetings Tab */}
           <TabsContent value="meetings">
             <MeetingScheduler
@@ -316,6 +337,16 @@ export default function ClientPortal() {
               organization={organization}
               currentMember={currentMember}
             />
+          </TabsContent>
+
+          {/* Reports Tab */}
+          <TabsContent value="reports">
+            <ClientReportingDashboard client={client} currentMember={currentMember} />
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings">
+            <ClientNotificationPreferences client={client} />
           </TabsContent>
 
           {/* Feedback Tab */}

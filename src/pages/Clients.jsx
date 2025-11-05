@@ -16,9 +16,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { 
-  Users, 
-  Plus, 
+import {
+  Users,
+  Plus,
   Search,
   Trash2,
   Edit,
@@ -28,12 +28,21 @@ import {
   ExternalLink,
   TrendingUp,
   Clock,
-  GitCompare
+  GitCompare,
+  BarChart3 // Added for Reports tab
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 import ProposalComparisonTool from "../components/proposals/ProposalComparisonTool";
+
+// New imports for client detail sub-components
+import ClientPermissionsManager from "../components/client/ClientPermissionsManager";
+import DocumentVersionControl from "../components/client/DocumentVersionControl";
+import ClientNotificationPreferences from "../components/client/ClientNotificationPreferences";
+import ReviewWorkflowBuilder from "../components/client/ReviewWorkflowBuilder";
+import ClientReportingDashboard from "../components/client/ClientReportingDashboard";
+import EnhancedClientHealthMonitor from "../components/client/EnhancedClientHealthMonitor";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -71,7 +80,7 @@ export default function Clients() {
   const [showDialog, setShowDialog] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
-  
+
   const [clientData, setClientData] = useState({
     client_name: "",
     contact_name: "",
@@ -91,7 +100,7 @@ export default function Clients() {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        
+
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
@@ -172,7 +181,7 @@ export default function Clients() {
     }
   };
 
-  const filteredClients = clients.filter(c => 
+  const filteredClients = clients.filter(c =>
     c.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.contact_email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -231,7 +240,19 @@ export default function Clients() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="health">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Health Score
+            </TabsTrigger>
+            <TabsTrigger value="reports">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Reports
+            </TabsTrigger>
             <TabsTrigger value="proposals">Proposals</TabsTrigger>
+            <TabsTrigger value="team">Team & Permissions</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="workflows">Workflows</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="comparison">
               <GitCompare className="w-4 h-4 mr-2" />
               AI Comparison
@@ -242,8 +263,32 @@ export default function Clients() {
             <ClientOverview client={selectedClient} onEdit={handleEdit} />
           </TabsContent>
 
+          <TabsContent value="health">
+            <EnhancedClientHealthMonitor client={selectedClient} organization={organization} />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ClientReportingDashboard client={selectedClient} currentMember={user} />
+          </TabsContent>
+
           <TabsContent value="proposals">
             <ClientProposals client={selectedClient} organization={organization} />
+          </TabsContent>
+
+          <TabsContent value="team">
+            <ClientTeamPermissions client={selectedClient} />
+          </TabsContent>
+
+          <TabsContent value="documents">
+            <DocumentVersionControl proposal={null} client={selectedClient} organization={organization} />
+          </TabsContent>
+
+          <TabsContent value="workflows">
+            <ClientWorkflows client={selectedClient} />
+          </TabsContent>
+
+          <TabsContent value="notifications">
+            <ClientNotificationPreferences client={selectedClient} />
           </TabsContent>
 
           <TabsContent value="comparison">
@@ -279,7 +324,7 @@ export default function Clients() {
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <Skeleton key={i} className="h-64 w-full" />
           ))}
         </div>
@@ -300,8 +345,8 @@ export default function Clients() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClients.map((client) => (
-            <Card 
-              key={client.id} 
+            <Card
+              key={client.id}
               className="border-none shadow-lg hover:shadow-xl transition-all cursor-pointer"
               onClick={() => setSelectedClient(client)}
             >
@@ -314,15 +359,15 @@ export default function Clients() {
                     </Badge>
                   </div>
                   <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={(e) => { e.stopPropagation(); handleEdit(client); }}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -357,7 +402,7 @@ export default function Clients() {
                     <span>{client.contact_phone}</span>
                   </div>
                 )}
-                
+
                 {client.engagement_score && (
                   <div className="pt-3 border-t">
                     <div className="flex items-center justify-between text-xs mb-2">
@@ -365,7 +410,7 @@ export default function Clients() {
                       <span className="font-medium text-slate-900">{client.engagement_score}/100</span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-blue-500 h-2 rounded-full transition-all"
                         style={{ width: `${client.engagement_score}%` }}
                       />
@@ -382,9 +427,9 @@ export default function Clients() {
 
                 {client.portal_access_enabled && (
                   <div className="pt-3 border-t">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="w-full"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -402,12 +447,12 @@ export default function Clients() {
         </div>
       )}
 
-      <Dialog open={showDialog} onOpenChange={(open) => { 
-        setShowDialog(open); 
-        if (!open) { 
-          setEditingClient(null); 
-          resetForm(); 
-        } 
+      <Dialog open={showDialog} onOpenChange={(open) => {
+        setShowDialog(open);
+        if (!open) {
+          setEditingClient(null);
+          resetForm();
+        }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -485,8 +530,8 @@ export default function Clients() {
               <Button variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSave} 
+              <Button
+                onClick={handleSave}
                 disabled={!clientData.client_name.trim() || !clientData.contact_email.trim() || createClientMutation.isPending}
               >
                 {createClientMutation.isPending ? 'Saving...' : (editingClient ? 'Update Client' : 'Add Client')}
@@ -556,10 +601,10 @@ function ClientProposals({ client, organization }) {
       // Assuming a method to get proposals related to a client, e.g., by client_id in the proposal entity
       // Or by filtering all proposals if shared_with_client_ids is a list of client IDs
       const allProposals = await base44.entities.Proposal.list(); // Or base44.entities.Proposal.filter({ client_id: client.id }) if such a field exists
-      
+
       // Filter proposals that are explicitly shared with this client ID
       // This assumes 'shared_with_client_ids' is an array field on the Proposal entity
-      return allProposals.filter(p => 
+      return allProposals.filter(p =>
         p.shared_with_client_ids && p.shared_with_client_ids.includes(client.id)
       );
     },
@@ -595,5 +640,97 @@ function ClientProposals({ client, organization }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ClientTeamPermissions({ client }) {
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['client-team-members', client.id],
+    queryFn: () => base44.entities.ClientTeamMember.filter({ client_id: client.id }),
+    initialData: []
+  });
+
+  return (
+    <div className="space-y-6">
+      <ClientPermissionsManager client={client} teamMembers={teamMembers} proposal={null} />
+    </div>
+  );
+}
+
+function ClientWorkflows({ client }) {
+  const { data: proposals = [] } = useQuery({
+    queryKey: ['client-workflow-proposals', client.id],
+    queryFn: async () => {
+      const allProposals = await base44.entities.Proposal.list();
+      return allProposals.filter(p =>
+        p.shared_with_client_ids?.includes(client.id)
+      );
+    },
+    initialData: []
+  });
+
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['client-workflow-team', client.id],
+    queryFn: () => base44.entities.ClientTeamMember.filter({ client_id: client.id }),
+    initialData: []
+  });
+
+  const [selectedProposal, setSelectedProposal] = useState(null);
+
+  if (proposals.length === 0) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <p className="text-slate-600">Share a proposal with this client first to create approval workflows</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {!selectedProposal ? (
+        <Card className="border-none shadow-lg">
+          <CardHeader>
+            <CardTitle>Select a Proposal</CardTitle>
+            <DialogDescription>
+              Choose a proposal to create approval workflows
+            </DialogDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {proposals.map(proposal => (
+                <button
+                  key={proposal.id}
+                  onClick={() => setSelectedProposal(proposal)}
+                  className="w-full p-4 bg-slate-50 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+                >
+                  <h4 className="font-semibold text-slate-900">{proposal.proposal_name}</h4>
+                  <div className="flex items-center gap-3 mt-2 text-sm">
+                    <Badge className="capitalize">{proposal.status}</Badge>
+                    {proposal.contract_value && (
+                      <span className="text-slate-600">
+                        ${(proposal.contract_value / 1000).toFixed(0)}K
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          <Button variant="outline" onClick={() => setSelectedProposal(null)}>
+            ← Back to Proposals
+          </Button>
+          <ReviewWorkflowBuilder
+            proposal={selectedProposal}
+            client={client}
+            teamMembers={teamMembers}
+          />
+        </div>
+      )}
+    </div>
   );
 }
