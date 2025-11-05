@@ -1,12 +1,13 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2 } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
+import ProposalsKanbanEnhanced from "@/components/proposals/ProposalsKanbanEnhanced";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
 import PipelineAnalytics from "@/components/analytics/PipelineAnalytics";
@@ -17,6 +18,7 @@ import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -25,6 +27,12 @@ export default function Pipeline() {
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
+  
+  // New state for Kanban version toggle
+  const [useEnhancedKanban, setUseEnhancedKanban] = useState(() => {
+    const saved = localStorage.getItem('use_enhanced_kanban');
+    return saved === 'true';
+  });
 
   useEffect(() => {
     const checkMobile = () => {
@@ -35,6 +43,11 @@ export default function Pipeline() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Save enhanced kanban preference
+  useEffect(() => {
+    localStorage.setItem('use_enhanced_kanban', useEnhancedKanban.toString());
+  }, [useEnhancedKanban]);
 
   // Load user directly
   const { data: user, isLoading: isLoadingUser } = useQuery({
@@ -164,6 +177,10 @@ export default function Pipeline() {
     window.location.reload();
   };
 
+  const handleToggleKanbanVersion = () => {
+    setUseEnhancedKanban(!useEnhancedKanban);
+  };
+
   // Show error state
   if (proposalsError) {
     return (
@@ -284,13 +301,68 @@ export default function Pipeline() {
         </div>
       )}
 
+      {/* Enhanced Kanban Announcement Banner - Only show if NOT using enhanced yet */}
+      {!useEnhancedKanban && viewMode === "kanban" && (
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-200 p-4">
+          <div className="max-w-7xl mx-auto">
+            <Alert className="bg-white/80 border-indigo-300">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+              <AlertDescription>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-indigo-900 mb-1">
+                      🎉 New: 8-Phase Guided Workflow Available!
+                    </p>
+                    <p className="text-sm text-indigo-800">
+                      Try our new enhanced Kanban board with built-in checklists, phase-by-phase guidance, and AI-powered recommendations.
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={handleToggleKanbanVersion}
+                    className="bg-indigo-600 hover:bg-indigo-700 flex-shrink-0"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Try It Now
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
+      )}
+
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
-            <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Proposal Pipeline</h1>
+              {useEnhancedKanban && viewMode === "kanban" && (
+                <Badge className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Enhanced
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm lg:text-base text-slate-600">
+              {useEnhancedKanban && viewMode === "kanban" 
+                ? "8-phase guided workflow with built-in checklists"
+                : "Track all your proposals across stages"}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+            {/* Kanban Version Toggle - Only show in kanban view mode */}
+            {viewMode === "kanban" && !isMobile && (
+              <Button
+                variant={useEnhancedKanban ? "default" : "outline"}
+                onClick={handleToggleKanbanVersion}
+                size="sm"
+                className={useEnhancedKanban ? "bg-indigo-600 hover:bg-indigo-700" : ""}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {useEnhancedKanban ? "Using Enhanced" : "Use Enhanced"}
+              </Button>
+            )}
+
             {!isMobile && (
               <>
                 <Button
@@ -386,7 +458,13 @@ export default function Pipeline() {
                 ) : (
                   <>
                     {viewMode === "kanban" && (
-                      <ProposalsKanban proposals={proposals} organization={organization} user={user} />
+                      <>
+                        {useEnhancedKanban ? (
+                          <ProposalsKanbanEnhanced organization={organization} />
+                        ) : (
+                          <ProposalsKanban proposals={proposals} organization={organization} user={user} />
+                        )}
+                      </>
                     )}
                     {viewMode === "list" && (
                       <div className="p-6">
