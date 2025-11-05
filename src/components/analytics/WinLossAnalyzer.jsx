@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ import {
   Award
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils"; // Assuming cn utility is available here
 
 export default function WinLossAnalyzer({ proposal, organization }) {
   const [analyzing, setAnalyzing] = useState(false);
@@ -419,11 +421,12 @@ Return comprehensive JSON analysis.`;
                     </p>
                     <p className="text-sm text-slate-600 uppercase tracking-wider">Overall Win Rate</p>
                   </div>
-                  <Badge className={
+                  <Badge className={cn(
+                    "text-white text-base px-4 py-2",
                     patternAnalysis.pattern_confidence === 'high' ? 'bg-green-600' :
                     patternAnalysis.pattern_confidence === 'medium' ? 'bg-yellow-600' :
                     'bg-orange-600'
-                  } className="text-white text-base px-4 py-2">
+                  )}>
                     {patternAnalysis.pattern_confidence.toUpperCase()} CONFIDENCE
                   </Badge>
                 </div>
@@ -762,12 +765,12 @@ Return comprehensive JSON analysis.`;
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <Badge className={
-                              rec.priority === 'critical' ? 'bg-red-600' :
-                              rec.priority === 'high' ? 'bg-orange-600' :
+                            <Badge className={cn(
+                              "text-white",
+                              rec.priority === 'high' ? 'bg-red-600' :
                               rec.priority === 'medium' ? 'bg-yellow-600' :
                               'bg-green-600'
-                            } className="text-white">
+                            )}>
                               {rec.priority.toUpperCase()} PRIORITY
                             </Badge>
                             <Badge variant="outline" className="text-xs">
