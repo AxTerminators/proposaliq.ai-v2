@@ -77,6 +77,8 @@ const SETTINGS_ITEMS = [
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
   { title: "Team", url: createPageUrl("Team"), icon: Users },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
+  { title: "System Verification", url: createPageUrl("SystemVerification"), icon: CheckSquare },
+  { title: "System Docs", url: createPageUrl("SystemDocumentation"), icon: BookOpen },
 ];
 
 // All possible navigation items with their visibility rules
