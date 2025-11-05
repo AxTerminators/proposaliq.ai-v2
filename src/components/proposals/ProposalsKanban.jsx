@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge"; // Added Badge import
+import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Settings,
@@ -25,7 +25,8 @@ import {
   ZoomOut,
   LayoutGrid,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  CheckCircle2 // Added CheckCircle2 import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -40,181 +41,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
 import KanbanHelpPanel from "./KanbanHelpPanel";
 
-// New 14-column default configuration
-const DEFAULT_COLUMNS = [
+// DEPRECATED: Old default columns - kept for reference only
+// New boards should use TEMPLATE_8_PHASE_WORKFLOW from KanbanSetupWizard
+const LEGACY_DEFAULT_COLUMNS = [
   {
     id: 'new',
     label: 'New',
-    color: 'from-blue-900 to-indigo-950', // Modified color here
+    color: 'from-blue-900 to-indigo-950',
     type: 'locked_phase',
     phase_mapping: 'phase1',
     is_locked: true,
     order: 0,
-    checklist_items: [
-      { id: 'basic_info', label: 'Add Basic Information', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
-      { id: 'name_solicitation', label: 'Name & Solicitation #', type: 'manual_check', required: true, order: 1 }
-    ]
-  },
-  {
-    id: 'evaluate',
-    label: 'Evaluate',
-    color: 'from-blue-400 to-blue-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase1',
-    is_locked: true,
-    order: 1,
-    checklist_items: [
-      { id: 'identify_prime', label: 'Identify Prime Contractor', type: 'modal_trigger', associated_action: 'open_modal_phase1', required: true, order: 0 },
-      { id: 'add_partners', label: 'Add Teaming Partners', type: 'manual_check', required: false, order: 1 }
-    ]
-  },
-  {
-    id: 'qualify',
-    label: 'Qualify',
-    color: 'from-cyan-400 to-cyan-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase3',
-    is_locked: true,
-    order: 2,
-    checklist_items: [
-      { id: 'solicitation_details', label: 'Enter Solicitation Details', type: 'modal_trigger', associated_action: 'open_modal_phase3', required: true, order: 0 },
-      { id: 'contract_value', label: 'Add Contract Value', type: 'system_check', required: true, order: 1 },
-      { id: 'due_date', label: 'Set Due Date', type: 'system_check', required: true, order: 2 }
-    ]
-  },
-  {
-    id: 'gather',
-    label: 'Gather',
-    color: 'from-teal-400 to-teal-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase2',
-    is_locked: true,
-    order: 3,
-    checklist_items: [
-      { id: 'upload_solicitation', label: 'Upload Solicitation Document', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: true, order: 0 },
-      { id: 'reference_docs', label: 'Add Reference Documents', type: 'modal_trigger', associated_action: 'open_modal_phase2', required: false, order: 1 }
-    ]
-  },
-  {
-    id: 'analyze',
-    label: 'Analyze',
-    color: 'from-green-400 to-green-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase3',
-    is_locked: true,
-    order: 4,
-    checklist_items: [
-      { id: 'run_ai_analysis', label: 'Run AI Compliance Analysis', type: 'ai_trigger', associated_action: 'run_ai_analysis_phase3', required: true, order: 0 },
-      { id: 'review_requirements', label: 'Review Compliance Requirements', type: 'manual_check', required: true, order: 1 }
-    ]
-  },
-  {
-    id: 'strategy',
-    label: 'Strategy',
-    color: 'from-lime-400 to-lime-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase4',
-    is_locked: true,
-    order: 5,
-    checklist_items: [
-      { id: 'run_evaluation', label: 'Run Strategic Evaluation', type: 'ai_trigger', associated_action: 'run_evaluation_phase4', required: true, order: 0 },
-      { id: 'go_no_go', label: 'Make Go/No-Go Decision', type: 'manual_check', required: true, order: 1 },
-      { id: 'competitor_analysis', label: 'Complete Competitor Analysis', type: 'modal_trigger', associated_action: 'open_modal_phase4', required: false, order: 2 }
-    ]
-  },
-  {
-    id: 'outline',
-    label: 'Outline',
-    color: 'from-yellow-400 to-yellow-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase5',
-    is_locked: true,
-    order: 6,
-    checklist_items: [
-      { id: 'select_sections', label: 'Select Proposal Sections', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 0 },
-      { id: 'generate_win_themes', label: 'Generate Win Themes', type: 'ai_trigger', associated_action: 'generate_win_themes_phase5', required: false, order: 1 },
-      { id: 'set_strategy', label: 'Set Writing Strategy', type: 'modal_trigger', associated_action: 'open_modal_phase5', required: true, order: 2 }
-    ]
-  },
-  {
-    id: 'drafting',
-    label: 'Drafting',
-    color: 'from-orange-400 to-orange-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase6',
-    is_locked: true,
-    order: 7,
-    checklist_items: [
-      { id: 'start_writing', label: 'Start Content Generation', type: 'modal_trigger', associated_action: 'open_modal_phase6', required: true, order: 0 },
-      { id: 'complete_sections', label: 'Complete All Sections', type: 'system_check', required: true, order: 1 }
-    ]
-  },
-  {
-    id: 'review',
-    label: 'Review',
-    color: 'from-amber-400 to-amber-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase7',
-    is_locked: true,
-    order: 8,
-    checklist_items: [
-      { id: 'internal_review', label: 'Complete Internal Review', type: 'manual_check', required: true, order: 0 },
-      { id: 'red_team', label: 'Conduct Red Team Review', type: 'modal_trigger', associated_action: 'open_red_team_review', required: false, order: 1 }
-    ]
-  },
-  {
-    id: 'final',
-    label: 'Final',
-    color: 'from-rose-400 to-rose-600',
-    type: 'locked_phase',
-    phase_mapping: 'phase7',
-    is_locked: true,
-    order: 9,
-    checklist_items: [
-      { id: 'readiness_check', label: 'Run Submission Readiness Check', type: 'ai_trigger', associated_action: 'run_readiness_check_phase7', required: true, order: 0 },
-      { id: 'final_review', label: 'Final Executive Review', type: 'manual_check', required: true, order: 1 }
-    ],
-    requires_approval_to_exit: true,
-    approver_roles: ['organization_owner', 'proposal_manager']
-  },
-  {
-    id: 'submitted',
-    label: 'Submitted',
-    color: 'from-indigo-400 to-indigo-600',
-    type: 'default_status',
-    default_status_mapping: 'submitted',
-    is_locked: true,
-    order: 10,
-    checklist_items: []
-  },
-  {
-    id: 'won',
-    label: 'Won',
-    color: 'from-green-500 to-emerald-600',
-    type: 'default_status',
-    default_status_mapping: 'won',
-    is_locked: true,
-    order: 11,
-    checklist_items: []
-  },
-  {
-    id: 'lost',
-    label: 'Lost',
-    color: 'from-red-400 to-red-600',
-    type: 'default_status',
-    default_status_mapping: 'lost',
-    is_locked: true,
-    order: 12,
-    checklist_items: []
-  },
-  {
-    id: 'archived',
-    label: 'Archive',
-    color: 'from-gray-400 to-gray-600',
-    type: 'default_status',
-    default_status_mapping: 'archived',
-    is_locked: true,
-    order: 13,
     checklist_items: []
   }
 ];
@@ -257,12 +94,33 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     enabled: !!organization?.id
   });
 
-  // Check if Kanban config exists and has columns
+  // Check if config exists and has columns
   const hasKanbanConfig = useMemo(() => {
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
-  const columns = kanbanConfig?.columns || DEFAULT_COLUMNS;
+  // Check if this is a legacy/old configuration that needs migration
+  const isLegacyConfig = useMemo(() => {
+    if (!kanbanConfig?.columns) return false;
+    
+    // Check if it has the old column structure (14 columns with specific IDs)
+    const hasOldColumns = kanbanConfig.columns.some(col => 
+      ['new', 'evaluate', 'qualify', 'gather', 'analyze', 'strategy', 'outline', 'drafting', 'review', 'final', 'submitted', 'won', 'lost', 'archived'].includes(col.id)
+    );
+    
+    // Check if it's missing the new workflow structure (e.g., 'initiate', 'team', 'resources', 'solicit' are key new template columns)
+    const hasNewColumns = kanbanConfig.columns.some(col => 
+      ['initiate', 'team', 'resources', 'solicit'].includes(col.id)
+    );
+    
+    // A legacy config would have the old columns and not the new ones, and might have a specific count (like the old 14)
+    // The previous 14-column default didn't have custom stages beyond the locked ones, so checking for its length is also a good indicator.
+    // The new 8-phase workflow (15 columns) has different IDs.
+    return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
+  }, [kanbanConfig]);
+
+
+  const columns = kanbanConfig?.columns || []; // Use empty array if no config, setup wizard will create
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
   const toggleColumnCollapse = async (columnId) => {
@@ -799,6 +657,74 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  // Show legacy config migration prompt
+  if (isLegacyConfig && !isLoadingConfig) {
+    return (
+      <>
+        <div className="flex items-center justify-center min-h-[600px] p-6">
+          <Card className="max-w-2xl border-none shadow-xl">
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-3">Upgrade to New Workflow</h2>
+              <p className="text-lg text-slate-600 mb-6 max-w-lg mx-auto">
+                We've detected you're using an older Kanban board configuration. 
+                Upgrade to our new 8-phase workflow system for better proposal management with:
+              </p>
+              <div className="text-left mb-8 max-w-lg mx-auto bg-slate-50 rounded-lg p-6">
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-slate-700">Interactive checklists for each proposal stage</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-slate-700">AI-powered actions and modals</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-slate-700">15 optimized workflow stages</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-slate-700">Approval gates and automation rules</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-amber-900">
+                  <strong>Note:</strong> Your existing proposals will be preserved and mapped to the new workflow stages.
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowSetupWizard(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                Upgrade to New Workflow
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <KanbanSetupWizard
+          isOpen={showSetupWizard}
+          onClose={() => setShowSetupWizard(false)}
+          organization={organization}
+        />
+      </>
     );
   }
 
