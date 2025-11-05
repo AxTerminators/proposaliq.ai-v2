@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import UniversalAlert from "../components/ui/UniversalAlert";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -71,6 +73,14 @@ export default function Resources() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  
+  // Universal Alert states
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "info",
+    title: "",
+    description: ""
+  });
   
   const [newResource, setNewResource] = useState({
     resource_type: "boilerplate_text",
@@ -151,7 +161,21 @@ export default function Resources() {
         boilerplate_content: "",
         tags: []
       });
+      setAlertConfig({
+        type: "success",
+        title: "Resource Added",
+        description: "Your resource has been successfully uploaded."
+      });
+      setShowAlert(true);
     },
+    onError: () => {
+      setAlertConfig({
+        type: "error",
+        title: "Upload Failed",
+        description: "Unable to upload resource. Please try again."
+      });
+      setShowAlert(true);
+    }
   });
 
   const toggleFavoriteMutation = useMutation({
@@ -169,7 +193,21 @@ export default function Resources() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resources'] });
+      setAlertConfig({
+        type: "success",
+        title: "Resource Deleted",
+        description: "The resource has been successfully removed."
+      });
+      setShowAlert(true);
     },
+    onError: () => {
+      setAlertConfig({
+        type: "error",
+        title: "Deletion Failed",
+        description: "Unable to delete resource. Please try again."
+      });
+      setShowAlert(true);
+    }
   });
 
   const handleFileSelect = async (e) => {
@@ -193,7 +231,12 @@ export default function Resources() {
 
   const handleUpload = async () => {
     if (!selectedFile && !newResource.boilerplate_content) {
-      alert("Please select a file or enter boilerplate content");
+      setAlertConfig({
+        type: "warning",
+        title: "File or Content Required",
+        description: "Please select a file or enter boilerplate content."
+      });
+      setShowAlert(true);
       return;
     }
 
@@ -221,7 +264,12 @@ export default function Resources() {
       });
     } catch (error) {
       console.error("Error uploading:", error);
-      alert("Error uploading resource. Please try again.");
+      setAlertConfig({
+        type: "error",
+        title: "Upload Failed",
+        description: "Unable to upload resource. Please try again."
+      });
+      setShowAlert(true);
     } finally {
       setUploading(false);
     }
@@ -492,6 +540,14 @@ export default function Resources() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UniversalAlert
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        description={alertConfig.description}
+      />
     </div>
   );
 }

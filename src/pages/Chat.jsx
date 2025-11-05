@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Send, Upload, Trash2, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
+import UniversalAlert from "../components/ui/UniversalAlert";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -44,6 +46,14 @@ export default function Chat() {
   const [message, setMessage] = useState("");
   const [contextFiles, setContextFiles] = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
+  
+  // Universal Alert states
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "info",
+    title: "",
+    description: ""
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -101,6 +111,15 @@ export default function Chat() {
       setMessage("");
       setContextFiles([]);
     },
+    onError: (error) => {
+      console.error("Error sending message:", error);
+      setAlertConfig({
+        type: "error",
+        title: "Message Failed",
+        description: "Unable to send message. Please try again."
+      });
+      setShowAlert(true);
+    }
   });
 
   const handleFileUpload = async (e) => {
@@ -113,7 +132,12 @@ export default function Chat() {
       setContextFiles([...contextFiles, { name: file.name, url: file_url }]);
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Error uploading file");
+      setAlertConfig({
+        type: "error",
+        title: "Upload Failed",
+        description: "Unable to upload file. Please try again."
+      });
+      setShowAlert(true);
     } finally {
       setUploadingFile(false);
     }
@@ -262,6 +286,14 @@ export default function Chat() {
           </CardContent>
         </Card>
       </div>
+
+      <UniversalAlert
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        description={alertConfig.description}
+      />
     </div>
   );
 }

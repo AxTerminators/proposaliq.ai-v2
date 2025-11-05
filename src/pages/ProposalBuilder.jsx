@@ -35,6 +35,7 @@ import FloatingChatButton from "../components/collaboration/FloatingChatButton";
 import ClientSharingPanel from "../components/builder/ClientSharingPanel";
 import ProposalAssistant from "../components/assistant/ProposalAssistant";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
+import UniversalAlert from "../components/ui/UniversalAlert";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -81,6 +82,15 @@ export default function ProposalBuilder() {
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  
+  // Universal Alert states
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "info",
+    title: "",
+    description: ""
+  });
+  
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
     prime_contractor_id: "",
@@ -203,7 +213,12 @@ export default function ProposalBuilder() {
           setCurrentPhase("phase1");
         }
       } else {
-        alert("Proposal not found or you don't have access to it.");
+        setAlertConfig({
+          type: "error",
+          title: "Proposal Not Found",
+          description: "Proposal not found or you don't have access to it."
+        });
+        setShowAlert(true);
         navigate(createPageUrl("Pipeline"));
       }
     } catch (error) {
@@ -279,7 +294,12 @@ export default function ProposalBuilder() {
       }
     } catch (error) {
       console.error("Error saving proposal:", error);
-      alert("Error saving proposal. Please try again or contact support.");
+      setAlertConfig({
+        type: "error",
+        title: "Save Failed",
+        description: "Unable to save proposal. Please try again or contact support."
+      });
+      setShowAlert(true);
       setIsSaving(false);
       return null;
     }
@@ -315,7 +335,12 @@ export default function ProposalBuilder() {
       navigate(createPageUrl("Pipeline"));
     } catch (error) {
       console.error("Error deleting proposal:", error);
-      alert("Error deleting proposal. Please try again.");
+      setAlertConfig({
+        type: "error",
+        title: "Delete Failed",
+        description: "Unable to delete proposal. Please try again."
+      });
+      setShowAlert(true);
       setIsDeleting(false);
     }
   };
@@ -323,7 +348,12 @@ export default function ProposalBuilder() {
   const handleNext = async () => {
     // Ensure we have minimum required data
     if (!proposalData.proposal_name?.trim()) {
-      alert("Please enter a Proposal Name before continuing.");
+      setAlertConfig({
+        type: "warning",
+        title: "Proposal Name Required",
+        description: "Please enter a Proposal Name before continuing."
+      });
+      setShowAlert(true);
       return;
     }
 
@@ -331,7 +361,12 @@ export default function ProposalBuilder() {
     const savedId = await saveProposal();
     
     if (!savedId && !proposalId) { // Check if it's a new proposal and save failed
-      alert("Unable to save proposal. Please try again.");
+      setAlertConfig({
+        type: "error",
+        title: "Save Failed",
+        description: "Unable to save proposal. Please try again."
+      });
+      setShowAlert(true);
       return;
     }
     
@@ -788,11 +823,18 @@ export default function ProposalBuilder() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <UniversalAlert
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        description={alertConfig.description}
+      />
+
       <SampleDataGuard
         isOpen={showSampleDataGuard}
         onClose={() => {
           setShowSampleDataGuard(false);
-          // If they close without clearing, go back to pipeline
           if (user?.using_sample_data === true && !proposalId) {
             navigate(createPageUrl("Pipeline"));
           }

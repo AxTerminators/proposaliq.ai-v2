@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import moment from "moment";
+import UniversalAlert from "../components/ui/UniversalAlert";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -57,6 +59,14 @@ export default function Feedback() {
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDialog, setShowDialog] = useState(false);
+  
+  // Universal Alert states
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "info",
+    title: "",
+    description: ""
+  });
   
   const [feedbackData, setFeedbackData] = useState({
     issue_type: "bug",
@@ -113,7 +123,12 @@ export default function Feedback() {
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
       setShowDialog(false);
       resetForm();
-      alert("Feedback submitted successfully!");
+      setAlertConfig({
+        type: "success",
+        title: "Feedback Submitted",
+        description: "Thank you! Your feedback has been submitted successfully."
+      });
+      setShowAlert(true);
     },
   });
 
@@ -361,6 +376,14 @@ export default function Feedback() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UniversalAlert
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        description={alertConfig.description}
+      />
     </div>
   );
 }

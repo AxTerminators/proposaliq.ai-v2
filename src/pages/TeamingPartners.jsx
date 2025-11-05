@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +29,7 @@ import {
   StarOff
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import UniversalAlert from "@/components/ui/UniversalAlert";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -63,6 +65,14 @@ export default function TeamingPartners() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [editingPartner, setEditingPartner] = useState(null);
+  
+  // Universal Alert states
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "info",
+    title: "",
+    description: ""
+  });
   
   const [partnerData, setPartnerData] = useState({
     partner_name: "",
@@ -127,7 +137,22 @@ export default function TeamingPartners() {
       setShowDialog(false);
       setEditingPartner(null);
       resetForm();
+      setAlertConfig({
+        type: "success",
+        title: "Success",
+        description: `Partner ${editingPartner ? "updated" : "added"} successfully.`
+      });
+      setShowAlert(true);
     },
+    onError: (error) => {
+      console.error("Error saving partner:", error);
+      setAlertConfig({
+        type: "error",
+        title: "Error",
+        description: `Failed to save partner: ${error.message}`
+      });
+      setShowAlert(true);
+    }
   });
 
   const deletePartnerMutation = useMutation({
@@ -136,7 +161,22 @@ export default function TeamingPartners() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
+      setAlertConfig({
+        type: "success",
+        title: "Success",
+        description: "Partner deleted successfully."
+      });
+      setShowAlert(true);
     },
+    onError: (error) => {
+      console.error("Error deleting partner:", error);
+      setAlertConfig({
+        type: "error",
+        title: "Error",
+        description: `Failed to delete partner: ${error.message}`
+      });
+      setShowAlert(true);
+    }
   });
 
   const resetForm = () => {
@@ -165,9 +205,16 @@ export default function TeamingPartners() {
   };
 
   const handleSave = () => {
-    if (partnerData.partner_name.trim()) {
-      createPartnerMutation.mutate(partnerData);
+    if (!partnerData.partner_name.trim()) {
+      setAlertConfig({
+        type: "warning",
+        title: "Partner Name Required",
+        description: "Please enter a partner name before saving."
+      });
+      setShowAlert(true);
+      return;
     }
+    createPartnerMutation.mutate(partnerData);
   };
 
   const filteredPartners = partners.filter(p => 
@@ -258,7 +305,7 @@ export default function TeamingPartners() {
                       variant="ghost" 
                       size="icon"
                       onClick={() => {
-                        if (confirm('Delete this partner?')) {
+                        if (confirm('Are you sure you want to delete this partner? This action cannot be undone.')) {
                           deletePartnerMutation.mutate(partner.id);
                         }
                       }}
@@ -454,13 +501,21 @@ export default function TeamingPartners() {
               <Button variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={!partnerData.partner_name.trim() || createPartnerMutation.isPending}>
+              <Button onClick={handleSave} disabled={createPartnerMutation.isPending}>
                 {createPartnerMutation.isPending ? 'Saving...' : (editingPartner ? 'Update Partner' : 'Add Partner')}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      <UniversalAlert
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        description={alertConfig.description}
+      />
     </div>
   );
 }
