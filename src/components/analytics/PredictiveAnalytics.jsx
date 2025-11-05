@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -5,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  TrendingUp, 
-  DollarSign, 
-  Loader2, 
-  Sparkles, 
+import {
+  TrendingUp,
+  DollarSign,
+  Loader2,
+  Sparkles,
   AlertCircle,
   Calendar,
   Target,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { cn } from "@/lib/utils";
 
 export default function PredictiveAnalytics({ organization }) {
   const [analyzing, setAnalyzing] = useState(false);
@@ -64,7 +66,7 @@ export default function PredictiveAnalytics({ organization }) {
       proposals.forEach(p => {
         const date = new Date(p.created_date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
+
         if (!monthlyData[monthKey]) {
           monthlyData[monthKey] = {
             month: monthKey,
@@ -76,10 +78,10 @@ export default function PredictiveAnalytics({ organization }) {
             in_progress: 0
           };
         }
-        
+
         monthlyData[monthKey].proposals_created++;
         monthlyData[monthKey].total_value += p.contract_value || 0;
-        
+
         if (p.status === 'won') {
           monthlyData[monthKey].won_count++;
           monthlyData[monthKey].won_value += p.contract_value || 0;
@@ -90,17 +92,17 @@ export default function PredictiveAnalytics({ organization }) {
         }
       });
 
-      const timeSeriesData = Object.values(monthlyData).sort((a, b) => 
+      const timeSeriesData = Object.values(monthlyData).sort((a, b) =>
         a.month.localeCompare(b.month)
       );
 
       // Current pipeline analysis
-      const activePipeline = proposals.filter(p => 
+      const activePipeline = proposals.filter(p =>
         !['won', 'lost', 'archived'].includes(p.status)
       );
 
       const pipelineValue = activePipeline.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-      
+
       // Calculate average win rate
       const totalDecided = proposals.filter(p => ['won', 'lost'].includes(p.status)).length;
       const totalWon = proposals.filter(p => p.status === 'won').length;
@@ -212,9 +214,9 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
             trend_analysis: {
               type: "object",
               properties: {
-                revenue_trend: { 
-                  type: "string", 
-                  enum: ["strong_growth", "moderate_growth", "stable", "declining", "volatile"] 
+                revenue_trend: {
+                  type: "string",
+                  enum: ["strong_growth", "moderate_growth", "stable", "declining", "volatile"]
                 },
                 win_rate_trend: {
                   type: "string",
@@ -403,12 +405,13 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
               <Card className="border-purple-200 bg-purple-50">
                 <CardContent className="p-6 text-center">
                   <BarChart3 className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <Badge className={
-                    predictions.summary.pipeline_health === 'excellent' ? 'bg-green-600' :
-                    predictions.summary.pipeline_health === 'good' ? 'bg-blue-600' :
-                    predictions.summary.pipeline_health === 'fair' ? 'bg-yellow-600' :
-                    'bg-red-600'
-                  } className="text-white text-base px-4 py-2 capitalize">
+                  <Badge className={cn(
+                    "text-white text-base px-4 py-2 capitalize",
+                    predictions.summary.pipeline_health === 'excellent' && 'bg-green-600',
+                    predictions.summary.pipeline_health === 'good' && 'bg-blue-600',
+                    predictions.summary.pipeline_health === 'fair' && 'bg-yellow-600',
+                    predictions.summary.pipeline_health === 'poor' && 'bg-red-600'
+                  )}>
                     {predictions.summary.pipeline_health}
                   </Badge>
                   <p className="text-sm text-purple-900 mt-2">Pipeline Health</p>
@@ -443,11 +446,11 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <BarChart3 className="w-5 h-5 text-blue-600" />
                       )}
                     </div>
-                    <Badge className={
+                    <Badge className={cn(
                       predictions.trend_analysis.revenue_trend.includes('growth') ? 'bg-green-100 text-green-800' :
                       predictions.trend_analysis.revenue_trend === 'stable' ? 'bg-blue-100 text-blue-800' :
                       'bg-red-100 text-red-800'
-                    }>
+                    )}>
                       {predictions.trend_analysis.revenue_trend.replace(/_/g, ' ').toUpperCase()}
                     </Badge>
                   </div>
@@ -463,11 +466,11 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <BarChart3 className="w-5 h-5 text-blue-600" />
                       )}
                     </div>
-                    <Badge className={
+                    <Badge className={cn(
                       predictions.trend_analysis.win_rate_trend === 'improving' ? 'bg-green-100 text-green-800' :
                       predictions.trend_analysis.win_rate_trend === 'stable' ? 'bg-blue-100 text-blue-800' :
                       'bg-red-100 text-red-800'
-                    }>
+                    )}>
                       {predictions.trend_analysis.win_rate_trend.toUpperCase()}
                     </Badge>
                   </div>
@@ -483,11 +486,11 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <BarChart3 className="w-5 h-5 text-blue-600" />
                       )}
                     </div>
-                    <Badge className={
+                    <Badge className={cn(
                       predictions.trend_analysis.pipeline_value_trend === 'growing' ? 'bg-green-100 text-green-800' :
                       predictions.trend_analysis.pipeline_value_trend === 'stable' ? 'bg-blue-100 text-blue-800' :
                       'bg-red-100 text-red-800'
-                    }>
+                    )}>
                       {predictions.trend_analysis.pipeline_value_trend.toUpperCase()}
                     </Badge>
                   </div>
@@ -503,11 +506,11 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <BarChart3 className="w-5 h-5 text-blue-600" />
                       )}
                     </div>
-                    <Badge className={
+                    <Badge className={cn(
                       predictions.trend_analysis.proposal_volume_trend === 'increasing' ? 'bg-green-100 text-green-800' :
                       predictions.trend_analysis.proposal_volume_trend === 'stable' ? 'bg-blue-100 text-blue-800' :
                       'bg-red-100 text-red-800'
-                    }>
+                    )}>
                       {predictions.trend_analysis.proposal_volume_trend.toUpperCase()}
                     </Badge>
                   </div>
@@ -634,19 +637,19 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-semibold text-slate-900">{pred.proposal_name}</h4>
                           <div className="flex items-center gap-2">
-                            <Badge className={
-                              pred.win_probability >= 70 ? 'bg-green-600' :
-                              pred.win_probability >= 50 ? 'bg-blue-600' :
-                              pred.win_probability >= 30 ? 'bg-yellow-600' :
-                              'bg-red-600'
-                            } className="text-white">
+                            <Badge className={cn(
+                              "text-white",
+                              pred.win_probability >= 70 && 'bg-green-600',
+                              pred.win_probability >= 30 && 'bg-yellow-600',
+                              pred.win_probability < 30 && 'bg-red-600'
+                            )}>
                               {pred.win_probability}% Win Probability
                             </Badge>
-                            <Badge className={
+                            <Badge className={cn(
                               pred.confidence_level === 'high' ? 'bg-green-100 text-green-800' :
                               pred.confidence_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-orange-100 text-orange-800'
-                            }>
+                            )}>
                               {pred.confidence_level} confidence
                             </Badge>
                           </div>
@@ -690,21 +693,23 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
           {/* Leading Indicators Tab */}
           <TabsContent value="indicators" className="space-y-4">
             {predictions.leading_indicators?.map((indicator, idx) => (
-              <Card key={idx} className={`border-2 ${
+              <Card key={idx} className={cn(
+                "border-2",
                 indicator.status === 'healthy' ? 'border-green-200 bg-green-50' :
                 indicator.status === 'warning' ? 'border-yellow-200 bg-yellow-50' :
                 'border-red-200 bg-red-50'
-              }`}>
+              )}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-semibold text-slate-900">{indicator.indicator_name}</h4>
-                        <Badge className={
-                          indicator.status === 'healthy' ? 'bg-green-600' :
-                          indicator.status === 'warning' ? 'bg-yellow-600' :
-                          'bg-red-600'
-                        } className="text-white">
+                        <Badge className={cn(
+                          "text-white",
+                          indicator.status === 'good' && 'bg-green-600',
+                          indicator.status === 'warning' && 'bg-yellow-600',
+                          indicator.status === 'critical' && 'bg-red-600'
+                        )}>
                           {indicator.status.toUpperCase()}
                         </Badge>
                       </div>
@@ -752,12 +757,12 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Badge className={
-                              rec.priority === 'critical' ? 'bg-red-600' :
-                              rec.priority === 'high' ? 'bg-orange-600' :
-                              rec.priority === 'medium' ? 'bg-yellow-600' :
-                              'bg-green-600'
-                            } className="text-white">
+                            <Badge className={cn(
+                              "text-white",
+                              rec.priority === 'high' && 'bg-red-600',
+                              rec.priority === 'medium' && 'bg-yellow-600',
+                              (rec.priority === 'critical' || rec.priority === 'low') && 'bg-green-600'
+                            )}>
                               {rec.priority.toUpperCase()}
                             </Badge>
                             {rec.forecast_improvement && (
@@ -767,7 +772,7 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                               </Badge>
                             )}
                           </div>
-                          
+
                           <p className="font-semibold text-slate-900 mb-2">{rec.recommendation}</p>
                           <p className="text-sm text-slate-600 mb-2">{rec.expected_impact}</p>
                           <p className="text-xs text-slate-500">Timeline: {rec.timeline}</p>
@@ -792,12 +797,12 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <div className="flex items-center justify-between mb-2">
                           <h5 className="font-semibold text-slate-900">{risk.risk_type}</h5>
                           <div className="flex items-center gap-2">
-                            <Badge className={
-                              risk.severity === 'critical' ? 'bg-red-600' :
-                              risk.severity === 'high' ? 'bg-orange-600' :
-                              risk.severity === 'medium' ? 'bg-yellow-600' :
-                              'bg-green-600'
-                            } className="text-white">
+                            <Badge className={cn(
+                              "text-white",
+                              risk.severity === 'high' && 'bg-red-600',
+                              risk.severity === 'medium' && 'bg-yellow-600',
+                              (risk.severity === 'critical' || risk.severity === 'low') && 'bg-green-600'
+                            )}>
                               {risk.severity}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
