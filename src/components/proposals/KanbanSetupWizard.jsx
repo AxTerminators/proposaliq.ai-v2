@@ -439,6 +439,3 @@ export default function KanbanSetupWizard({ isOpen, onClose, organization }) {
     </Dialog>
   );
 }
-
-// Export the 8-phase template for use in migration script
-export { TEMPLATE_8_PHASE_WORKFLOW };
