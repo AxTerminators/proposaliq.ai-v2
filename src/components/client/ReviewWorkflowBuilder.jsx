@@ -171,14 +171,10 @@ export default function ReviewWorkflowBuilder({ proposal, client, teamMembers = 
                 Create structured review cycles with formal approval gates
               </CardDescription>
             </div>
-            <Button onClick={() => setShowWorkflowDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Workflow
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
               <div>
@@ -192,6 +188,13 @@ export default function ReviewWorkflowBuilder({ proposal, client, teamMembers = 
                 </ul>
               </div>
             </div>
+          </div>
+          
+          <div className="flex justify-center">
+            <Button onClick={() => setShowWorkflowDialog(true)}>
+              <Plus className="w-5 h-5 mr-2" />
+              Create Workflow
+            </Button>
           </div>
         </CardContent>
       </Card>
