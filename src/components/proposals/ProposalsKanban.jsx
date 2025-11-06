@@ -77,6 +77,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   // Fetch kanban config
   const { data: kanbanConfig, isLoading: isLoadingConfig } = useQuery({
@@ -641,6 +642,42 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     return count;
   }, [searchQuery, filterAgency, filterAssignee]);
 
+  const handleRunMigration = async () => {
+    if (!window.confirm('⚠️ IMPORTANT: This will migrate your Kanban board to the new 8-phase workflow.\n\nYour existing proposals will be preserved and mapped to new columns.\n\nThis action cannot be undone.\n\nContinue?')) {
+      return;
+    }
+
+    setIsMigrating(true);
+    
+    try {
+      const response = await base44.functions.invoke('migrateToNewKanbanWorkflow', {
+        organization_id: organization.id
+      });
+
+      if (response.data.success) {
+        alert(`✅ Migration Completed Successfully!\n\n` +
+              `• ${response.data.migration_log.proposals_migrated} proposals migrated\n` +
+              `• ${response.data.migration_log.new_columns_count} new columns created\n\n` +
+              `Your board will now reload with the new workflow.`);
+        
+        // Refresh the config and proposals
+        queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+        queryClient.invalidateQueries({ queryKey: ['proposals'] });
+        
+        if (onRefresh) {
+          onRefresh();
+        }
+      } else {
+        throw new Error(response.data.message || 'Migration failed');
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+      alert(`❌ Migration Failed\n\n${error.message || 'Unknown error occurred'}\n\nPlease contact support if this issue persists.`);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   // Show loading state while fetching config
   if (isLoadingConfig) {
     return (
@@ -705,16 +742,45 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-amber-900">
-                  <strong>Note:</strong> Your existing proposals will be preserved and mapped to the new workflow stages.
+                  <strong>Note:</strong> Your existing proposals will be preserved and mapped to the new workflow stages. This process takes just a few seconds.
                 </p>
               </div>
-              <Button
-                onClick={() => setShowSetupWizard(true)}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Upgrade to New Workflow
-              </Button>
+              
+              {user?.role === 'admin' ? (
+                <div className="flex gap-3 justify-center">
+                  <Button
+                    onClick={handleRunMigration}
+                    disabled={isMigrating}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+                  >
+                    {isMigrating ? (
+                      <>
+                        <div className="animate-spin mr-2">⏳</div>
+                        Migrating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Run Automatic Migration
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSetupWizard(true)}
+                    disabled={isMigrating}
+                    className="text-lg px-8 py-6"
+                  >
+                    Manual Setup
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900">
+                    <strong>Admin Access Required:</strong> Only organization administrators can perform this migration. Please contact your admin to upgrade your workflow.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
