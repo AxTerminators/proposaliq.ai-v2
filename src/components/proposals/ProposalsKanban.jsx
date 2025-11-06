@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +20,7 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
-  LayoutGrid, // Kept as it's used in loading/setup wizard states
+  LayoutGrid,
   Sparkles,
   HelpCircle,
   CheckCircle2,
@@ -41,8 +40,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
 import KanbanHelpPanel from "./KanbanHelpPanel";
 
-// DEPRECATED: Old default columns - kept for reference only
-// New boards should use TEMPLATE_8_PHASE_WORKFLOW from KanbanSetupWizard
 const LEGACY_DEFAULT_COLUMNS = [
   {
     id: 'new',
@@ -69,7 +66,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [showProposalModal, setShowProposalModal] = useState(false);
-  // Removed zoom functionality - zoomLevel state is no longer needed.
   const [dragOverColumnId, setDragOverColumnId] = useState(null);
   const [showApprovalGate, setShowApprovalGate] = useState(false);
   const [approvalGateData, setApprovalGateData] = useState(null);
@@ -79,7 +75,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
 
-  // Fetch kanban config with better error handling and retry
   const { data: kanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -99,7 +94,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     staleTime: 30000,
   });
 
-  // Log when data changes to debug loading issues
   useEffect(() => {
     console.log('[Kanban] Data update:', {
       proposalsCount: proposals.length,
@@ -109,33 +103,25 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     });
   }, [proposals.length, kanbanConfig, isLoadingConfig]);
 
-  // Check if config exists and has columns
   const hasKanbanConfig = useMemo(() => {
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
-  // Check if this is a legacy/old configuration that needs migration
   const isLegacyConfig = useMemo(() => {
     if (!kanbanConfig?.columns) return false;
     
-    // Check if it has the old column structure (14 columns with specific IDs)
     const hasOldColumns = kanbanConfig.columns.some(col => 
       ['new', 'evaluate', 'qualify', 'gather', 'analyze', 'strategy', 'outline', 'drafting', 'review', 'final', 'submitted', 'won', 'lost', 'archived'].includes(col.id)
     );
     
-    // Check if it's missing the new workflow structure (e.g., 'initiate', 'team', 'resources', 'solicit' are key new template columns)
     const hasNewColumns = kanbanConfig.columns.some(col => 
       ['initiate', 'team', 'resources', 'solicit'].includes(col.id)
     );
     
-    // A legacy config would have the old columns and not the new ones, and might have a specific count (like the old 14)
-    // The previous 14-column default didn't have custom stages beyond the locked ones, so checking for its length is also a good indicator.
-    // The new 8-phase workflow (15 columns) has different IDs.
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
   }, [kanbanConfig]);
 
-
-  const columns = kanbanConfig?.columns || []; // Use empty array if no config, setup wizard will create
+  const columns = kanbanConfig?.columns || [];
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
   const toggleColumnCollapse = async (columnId) => {
@@ -153,16 +139,10 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
-  // Removed zoom functionality (handleZoomIn, handleZoomOut, handleZoomReset functions and related useEffect)
-  // These functions and the useEffect are no longer present.
-
-  // Check if user has completed the tour
   useEffect(() => {
-    // Only show tour if config is loaded and successful
     if (hasKanbanConfig && !isLoadingConfig) {
       const tourCompleted = localStorage.getItem('kanban_tour_completed');
       if (!tourCompleted) {
-        // Show tour after a brief delay to let the board render
         setTimeout(() => {
           setShowOnboardingTour(true);
         }, 1000);
@@ -200,23 +180,18 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     });
   }, [proposals, searchQuery, filterAgency, filterAssignee]);
 
-  // Track which proposals have been assigned to which column (to prevent duplicates)
   const proposalColumnAssignments = useMemo(() => {
     const assignments = {};
     
-    // First pass: assign proposals to columns based on their state
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
-      // PRIORITY ORDER: custom_stage > locked_phase > default_status
       if (proposal.custom_workflow_stage_id) {
-        // This proposal belongs to a custom stage column
         assignments[proposal.id] = {
           columnId: proposal.custom_workflow_stage_id,
           columnType: 'custom_stage'
         };
       } else {
-        // Find if it matches a locked phase column
         const matchingLockedPhaseColumn = columns.find(
           col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
         );
@@ -226,7 +201,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             columnType: 'locked_phase'
           };
         } else {
-          // If not a custom stage and not a locked phase, check default status
           const matchingDefaultStatusColumn = columns.find(
             col => col.type === 'default_status' && col.default_status_mapping === proposal.status
           );
@@ -240,7 +214,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       }
     });
     
-    // Log any proposals without assignment
     const unassigned = filteredProposals.filter(p => p && !assignments[p.id]);
     if (unassigned.length > 0) {
       console.warn('[Kanban] Unassigned proposals:', unassigned.map(p => ({
@@ -255,24 +228,20 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     return assignments;
   }, [filteredProposals, columns]);
 
-  // Enhanced getProposalsForColumn using the assignment map
   const getProposalsForColumn = useCallback((column) => {
     if (!column || !proposals) {
       return [];
     }
 
-    // Get proposals assigned to this specific column
     let columnProposals = filteredProposals.filter(proposal => {
       if (!proposal) return false;
       
       const assignment = proposalColumnAssignments[proposal.id];
       if (!assignment) return false;
       
-      // Check if this proposal is assigned to THIS column
       return assignment.columnId === column.id;
     });
 
-    // Sort proposals for display
     const sort = columnSorts[column.id];
     if (sort) {
       columnProposals = [...columnProposals].sort((a, b) => {
@@ -301,7 +270,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     return columnProposals;
   }, [filteredProposals, proposalColumnAssignments, columnSorts, proposals]);
-
 
   const handleColumnSortChange = (columnId, sortBy) => {
     setColumnSorts(prev => {
@@ -333,25 +301,20 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       return base44.entities.Proposal.update(proposalId, updates);
     },
     onSuccess: () => {
-      // Invalidate queries will be handled at the end of performProposalMove
-      // queryClient.invalidateQueries({ queryKey: ['proposals'] });
     },
   });
 
-  // Helper function to get user's role for the CURRENT organization
   const getUserRole = () => {
     if (!user || !organization) {
       console.log('[RBAC] No user or organization, defaulting to viewer');
       return 'viewer';
     }
     
-    // Check if user is platform admin (has full access)
     if (user.role === 'admin') {
       console.log('[RBAC] User is platform admin, granting organization_owner role');
       return 'organization_owner';
     }
 
-    // Find the user's role for THIS specific organization from client_accesses
     const orgAccess = user.client_accesses?.find(
       access => access.organization_id === organization.id
     );
@@ -369,7 +332,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     return role;
   };
 
-  // Helper function to get status from phase
   const getStatusFromPhase = (phase_mapping) => {
     switch (phase_mapping) {
       case 'phase1':
@@ -387,74 +349,63 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
   };
 
-  // Helper function to perform the actual proposal move
   const performProposalMove = async (proposal, sourceColumn, destinationColumn, destinationIndex) => {
     try {
       setDragInProgress(true);
 
       const updatesForMovedProposal = {};
 
-      // 1. Update status/phase/custom_workflow_stage_id based on destination column
-      // CRITICAL: Always explicitly set ALL three fields to ensure mutual exclusivity
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        updatesForMovedProposal.custom_workflow_stage_id = null; // Explicitly null
+        updatesForMovedProposal.custom_workflow_stage_id = null;
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
-        updatesForMovedProposal.current_phase = null; // Explicitly null
-        updatesForMovedProposal.status = 'in_progress'; // Set a default status
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.status = 'in_progress';
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
-        updatesForMovedProposal.current_phase = null; // Explicitly null
-        updatesForMovedProposal.custom_workflow_stage_id = null; // Explicitly null
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null;
       }
 
-      // 2. Reset checklist status for new stage (if column changed)
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
-        updatedChecklistStatus[destinationColumn.id] = {}; // Reset checklist items for the new column
+        updatedChecklistStatus[destinationColumn.id] = {};
         updatesForMovedProposal.current_stage_checklist_status = updatedChecklistStatus;
       }
 
-      // 3. Set action_required based on required checklist items in new column
       const hasRequiredItems = destinationColumn.checklist_items?.some(item => item.required);
       updatesForMovedProposal.action_required = hasRequiredItems;
       updatesForMovedProposal.action_required_description = hasRequiredItems ? `Complete required items in ${destinationColumn.label}` : null;
 
-      // 4. Handle reordering within the column and update manual_order
-      // Create a *temporary* representation of the columns with the moved proposal
       const newColumnProposalsMap = {};
       columns.forEach(col => {
-          newColumnProposalsMap[col.id] = getProposalsForColumn(col); // This is still based on `proposals` from query
+          newColumnProposalsMap[col.id] = getProposalsForColumn(col);
       });
 
-      // Remove the dragged proposal from its original column's temporary list
       newColumnProposalsMap[sourceColumn.id] = newColumnProposalsMap[sourceColumn.id].filter(
           p => p.id !== proposal.id
       );
 
-      // Add the dragged proposal to the destination column's temporary list at the correct index
       const destColumnProposals = Array.from(newColumnProposalsMap[destinationColumn.id]);
       const existingIndexInDest = destColumnProposals.findIndex(p => p.id === proposal.id);
       if (existingIndexInDest !== -1) {
-          destColumnProposals.splice(existingIndexInDest, 1); // Ensure it's not duplicated if it was already there
+          destColumnProposals.splice(existingIndexInDest, 1);
       }
       destColumnProposals.splice(destinationIndex, 0, proposal);
       newColumnProposalsMap[destinationColumn.id] = destColumnProposals;
 
-      // Prepare batch updates for manual_order for all proposals in the destination column
       const batchOrderUpdates = newColumnProposalsMap[destinationColumn.id].map((item, idx) => ({
         proposalId: item.id,
         updates: { manual_order: idx }
       }));
 
-      // Find the main update for the dragged proposal from batchOrderUpdates
       const draggedProposalOrderUpdate = batchOrderUpdates.find(u => u.proposalId === proposal.id);
       if (draggedProposalOrderUpdate) {
         updatesForMovedProposal.manual_order = draggedProposalOrderUpdate.updates.manual_order;
       } else {
-        updatesForMovedProposal.manual_order = destinationIndex; // Fallback
+        updatesForMovedProposal.manual_order = destinationIndex;
       }
 
       console.log('[Kanban] Moving proposal:', {
@@ -465,19 +416,16 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         updates: updatesForMovedProposal
       });
 
-      // Execute the main update for the dragged proposal
       await updateProposalMutation.mutateAsync({
         proposalId: proposal.id,
         updates: updatesForMovedProposal
       });
 
-      // Execute batch updates for other proposals in the destination column (if any changes)
       const otherUpdatesInDestColumn = batchOrderUpdates.filter(u => u.proposalId !== proposal.id);
       if (otherUpdatesInDestColumn.length > 0) {
         await Promise.all(otherUpdatesInDestColumn.map(item => updateProposalMutation.mutateAsync(item)));
       }
 
-      // 5. Show WIP limit warning (soft enforcement)
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
           if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
               alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
@@ -486,10 +434,10 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     } catch (error) {
       console.error("Error moving proposal:", error);
       alert("Failed to move proposal. Please try again.");
-      queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Force refresh on error
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
     } finally {
       setDragInProgress(false);
-      queryClient.invalidateQueries({ queryKey: ['proposals'] }); // Invalidate queries to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
     }
   };
 
@@ -502,7 +450,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   };
 
   const onDragEnd = async (result) => {
-    // Reset drag state immediately
     setDragOverColumnId(null);
     setDragInProgress(false);
 
@@ -510,29 +457,24 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     const { source, destination, draggableId, type } = result;
 
-    // Handle column reordering
     if (type === "column") {
-      // Don't allow reordering if source and destination are the same
       if (source.index === destination.index) return;
 
       const reorderedColumns = Array.from(columns);
       const [movedColumn] = reorderedColumns.splice(source.index, 1);
       
-      // Don't allow moving locked columns
       if (movedColumn.is_locked) {
         alert("Cannot reorder locked system columns.");
-        queryClient.invalidateQueries({ queryKey: ['kanban-config'] }); // Ensure UI reflects original order
+        queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
         return;
       }
 
       reorderedColumns.splice(destination.index, 0, movedColumn);
 
-      // Update order property
       reorderedColumns.forEach((col, idx) => {
         col.order = idx;
       });
 
-      // Save to database
       await base44.entities.KanbanConfig.update(kanbanConfig.id, {
         columns: reorderedColumns
       });
@@ -541,7 +483,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       return;
     }
 
-    // Handle card moves (existing logic)
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
     }
@@ -565,7 +506,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     console.log('[RBAC] Your Role:', userRole);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // **PHASE 3: RBAC Check - Can user drag FROM this column?**
     console.log('[RBAC] 🔍 Checking SOURCE column permissions...');
     console.log('[RBAC] Source column "can_drag_from_here_roles":', sourceColumn.can_drag_from_here_roles);
     
@@ -593,7 +533,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       console.log('[RBAC] ✅ No restrictions on dragging from source column');
     }
 
-    // **PHASE 3: RBAC Check - Can user drag TO this column?**
     console.log('[RBAC] 🔍 Checking DESTINATION column permissions...');
     console.log('[RBAC] Destination column "can_drag_to_here_roles":', destinationColumn.can_drag_to_here_roles);
     
@@ -625,19 +564,15 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     console.log('[RBAC] ✅ ALL PERMISSION CHECKS PASSED - Proceeding with move');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // **PHASE 3: WIP Limit Check (HARD enforcement)**
     const currentDestProposals = getProposalsForColumn(destinationColumn);
     if (destinationColumn?.wip_limit > 0 && destinationColumn?.wip_limit_type === 'hard') {
-      // If the item is *not* moving within the same column and limit is reached
       if (source.droppableId !== destination.droppableId && currentDestProposals.length >= destinationColumn.wip_limit) {
         alert(`Cannot move to "${destinationColumn.label}". WIP limit of ${destinationColumn.wip_limit} has been reached. Please move other proposals out first.`);
         return;
       }
     }
 
-    // **PHASE 3: Approval Gate Check**
     if (sourceColumn?.requires_approval_to_exit) {
-      // Open approval gate modal
       setApprovalGateData({
         proposal,
         sourceColumn,
@@ -645,11 +580,25 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         destinationIndex: destination.index
       });
       setShowApprovalGate(true);
-      return; // Don't proceed with move until approved
+      return;
     }
 
-    // If all checks pass, proceed with the move
     await performProposalMove(proposal, sourceColumn, destinationColumn, destination.index);
+  };
+
+  const handleApprovalComplete = async (approved) => {
+    setShowApprovalGate(false);
+
+    if (approved && approvalGateData) {
+      await performProposalMove(
+        approvalGateData.proposal,
+        approvalGateData.sourceColumn,
+        approvalGateData.destinationColumn,
+        approvalGateData.destinationIndex
+      );
+    }
+
+    setApprovalGateData(null);
   };
 
   const handleCardClick = (proposal) => {
@@ -739,8 +688,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   };
 
   const handleCreateProposalInColumn = (column) => {
-    // Navigate to proposal builder
-    // Could potentially set initial phase based on column in the future
     navigate(createPageUrl("ProposalBuilder"));
   };
 
@@ -776,7 +723,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
               `• ${response.data.migration_log.new_columns_count} new columns created\n\n` +
               `Your board will now reload with the new workflow.`);
         
-        // Refresh the config and proposals
         queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
         queryClient.invalidateQueries({ queryKey: ['proposals'] });
         
@@ -794,7 +740,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
   };
 
-  // Show loading state while fetching config
   if (isLoadingConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -813,7 +758,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  // Show config error if any
   if (configError) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -836,7 +780,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  // Show legacy config migration prompt
   if (isLegacyConfig && !isLoadingConfig) {
     return (
       <>
@@ -933,7 +876,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  // If no kanban config (and not loading), show setup wizard prompt
   if (!hasKanbanConfig && !isLoadingConfig) {
     return (
       <>
@@ -968,7 +910,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  // Add a check to ensure columns is an array before rendering
   const validColumns = Array.isArray(columns) ? columns : [];
 
   if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
@@ -995,10 +936,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   return (
     <>
-      {/* Top Controls Bar */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
-          {/* Main Action Bar */}
           <div className="flex items-center justify-between gap-4">
             <Button
               onClick={handleCreateProposal}
@@ -1010,7 +949,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             </Button>
 
             <div className="flex items-center gap-2">
-              {/* Filters Button */}
               <Button
                 variant={showFilters ? "default" : "outline"}
                 size="sm"
@@ -1025,7 +963,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                 )}
               </Button>
 
-              {/* Configure Button */}
               <Button
                 variant="outline"
                 size="sm"
@@ -1035,7 +972,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                 Configure
               </Button>
 
-              {/* Help Button */}
               <Button
                 variant="outline"
                 size="sm"
@@ -1047,7 +983,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             </div>
           </div>
 
-          {/* Filters Panel */}
           {showFilters && (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1100,7 +1035,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         </div>
       </div>
 
-      {/* Kanban Board */}
       <div className="flex-1 overflow-hidden bg-slate-100">
         <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible p-4">
           <DragDropContext
@@ -1215,7 +1149,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         />
       )}
 
-      {/* Approval Gate Modal */}
       {showApprovalGate && approvalGateData && (
         <ApprovalGate
           isOpen={showApprovalGate}
@@ -1232,7 +1165,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         />
       )}
 
-      {/* Onboarding Tour */}
       <KanbanOnboardingTour
         isOpen={showOnboardingTour}
         onClose={() => setShowOnboardingTour(false)}
@@ -1242,7 +1174,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         }}
       />
 
-      {/* Help Panel */}
       <KanbanHelpPanel
         isOpen={showHelpPanel}
         onClose={() => setShowHelpPanel(false)}
