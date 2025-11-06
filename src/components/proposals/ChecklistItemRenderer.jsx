@@ -9,7 +9,9 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
   const navigate = useNavigate();
   const actionConfig = getActionConfig(item.associated_action);
   
-  const handleClick = () => {
+  const handleClick = (e) => {
+    if (e) e.stopPropagation();
+    
     if (!item.associated_action) {
       // Manual checkbox - just toggle
       onItemClick(item);
@@ -28,14 +30,13 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     // Handle different action types
     if (isNavigateAction(item.associated_action)) {
       // Navigate to the specified page with proposal ID
-      const pageName = action.page;
+      // Extract page name from path (remove leading slash)
+      const pageName = action.path.replace(/^\//, '');
       const url = `${createPageUrl(pageName)}?id=${proposal?.id || ''}`;
+      console.log('[ChecklistItemRenderer] Navigating to:', url);
       navigate(url);
-    } else if (isModalAction(item.associated_action)) {
-      // Trigger modal (handled by parent component)
-      onItemClick(item);
-    } else if (isAIAction(item.associated_action)) {
-      // Trigger AI action (handled by parent component)
+    } else if (isModalAction(item.associated_action) || isAIAction(item.associated_action)) {
+      // Trigger modal/AI action (handled by parent component)
       onItemClick(item);
     } else {
       // Default: manual check
@@ -76,7 +77,7 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       onClick={isClickable ? handleClick : undefined}
       className={cn(
         "flex items-center gap-2 py-1.5 px-2 rounded transition-colors",
-        isClickable && "cursor-pointer hover:bg-slate-50",
+        isClickable && "cursor-pointer hover:bg-slate-50 active:bg-slate-100",
         isCompleted && "opacity-60",
         !isClickable && "cursor-default"
       )}
