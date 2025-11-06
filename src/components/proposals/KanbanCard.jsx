@@ -326,7 +326,7 @@ export default function KanbanCard({
                         key={item.id}
                         item={item}
                         isCompleted={checklistStatus[item.id]?.completed}
-                        onItemClick={(clickedItem) => handleChecklistItemClick(clickedItem)}
+                        onItemClick={handleChecklistItemClick}
                         proposal={proposal}
                       />
                     ))}
