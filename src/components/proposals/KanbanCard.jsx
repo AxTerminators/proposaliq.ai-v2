@@ -55,19 +55,19 @@ import WinStrategyModal from "./modals/WinStrategyModal";
 import ContentPlanningModal from "./modals/ContentPlanningModal";
 import PricingReviewModal from "./modals/PricingReviewModal";
 
-export default function KanbanCard({ 
-  proposal, 
-  provided, 
-  snapshot, 
-  onCardClick, 
-  isDragDisabled, 
-  column 
+export default function KanbanCard({
+  proposal,
+  provided,
+  snapshot,
+  onCardClick,
+  isDragDisabled,
+  column
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Modal states
   const [activeModal, setActiveModal] = useState(null);
 
@@ -106,14 +106,14 @@ export default function KanbanCard({
 
   const checklistItems = column?.checklist_items || [];
   const checklistStatus = proposal.current_stage_checklist_status?.[column?.id] || {};
-  const completedChecklistItems = checklistItems.filter(item => 
+  const completedChecklistItems = checklistItems.filter(item =>
     checklistStatus[item.id]?.completed
   ).length;
-  const hasActionRequired = checklistItems.some(item => 
+  const hasActionRequired = checklistItems.some(item =>
     item.required && !checklistStatus[item.id]?.completed
   );
 
-  const completedTasks = tasks.filter(t => t.status === 'completed').length + 
+  const completedTasks = tasks.filter(t => t.status === 'completed').length +
                          subtasks.filter(s => s.status === 'completed').length;
   const totalTasks = tasks.length + subtasks.length;
 
@@ -145,16 +145,16 @@ export default function KanbanCard({
   const handleCardClick = (e) => {
     // Don't trigger click if we're dragging or if clicking interactive elements
     if (isDragging) return;
-    if (e.target.closest('button') || e.target.closest('[role="menu"]')) return;
+    if (e.target.closest('button') || e.target.closest('[role="menu"]') || e.target.closest('input')) return;
     onCardClick?.(proposal);
   };
 
   // Handle checklist item click
   const handleChecklistItemClick = async (e, item) => {
     e.stopPropagation();
-    
+
     const actionConfig = getActionConfig(item.associated_action);
-    
+
     if (!actionConfig) {
       console.warn(`No action config found for: ${item.associated_action}`);
       return;
@@ -176,7 +176,7 @@ export default function KanbanCard({
         'generate_win_themes_phase5': 'WinStrategyModal',
         'run_readiness_check_phase7': null // This navigates to ProposalBuilder
       };
-      
+
       const modalComponent = aiActionModalMap[item.associated_action];
       if (modalComponent) {
         setActiveModal(modalComponent);
@@ -187,12 +187,12 @@ export default function KanbanCard({
     // Handle navigation actions
     if (isNavigateAction(item.associated_action)) {
       let url = actionConfig.path;
-      
+
       // Replace params in URL
       if (actionConfig.params?.includes('proposalId')) {
         url += `?id=${proposal.id}`;
       }
-      
+
       // Add query params
       if (actionConfig.query) {
         const queryString = Object.entries(actionConfig.query)
@@ -200,7 +200,7 @@ export default function KanbanCard({
           .join('&');
         url += url.includes('?') ? `&${queryString}` : `?${queryString}`;
       }
-      
+
       navigate(url);
       return;
     }
@@ -219,7 +219,7 @@ export default function KanbanCard({
           }
         }
       };
-      
+
       await updateProposalMutation.mutateAsync({
         current_stage_checklist_status: newChecklistStatus
       });
@@ -238,11 +238,12 @@ export default function KanbanCard({
       <div
         ref={provided.innerRef}
         {...provided.draggableProps}
+        {...provided.dragHandleProps}
         onClick={handleCardClick}
         className={cn(
           "relative cursor-pointer group transition-all",
-          snapshot.isDragging 
-            ? "shadow-2xl ring-2 ring-blue-400 rotate-1 scale-105 z-50" 
+          snapshot.isDragging
+            ? "shadow-2xl ring-2 ring-blue-400 rotate-2 scale-105 z-50"
             : "shadow-sm hover:shadow-md",
           hasActionRequired && "ring-2 ring-orange-400",
           isDragDisabled && "opacity-60 cursor-not-allowed"
@@ -250,14 +251,10 @@ export default function KanbanCard({
       >
         <Card className="relative bg-white">
           <CardContent className="p-4">
-            {/* Drag Handle - Separate from card content */}
+            {/* Drag Indicator - Visual only, whole card is draggable */}
             {!isDragDisabled && (
-              <div 
-                {...provided.dragHandleProps}
-                className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <GripVertical className="w-4 h-4 text-slate-400" />
+              <div className="absolute left-1 top-2 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none">
+                <GripVertical className="w-4 h-4 text-slate-600" />
               </div>
             )}
 
