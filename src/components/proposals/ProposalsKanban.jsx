@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -937,7 +936,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   return (
     <>
-      {/* Header with Time Range Selector */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between gap-4">
@@ -1037,9 +1035,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         </div>
       </div>
 
-      {/* Board Container */}
-      <div className="flex-1 overflow-hidden relative bg-slate-100">
-        <div ref={boardRef} className="h-full overflow-x-auto overflow-y-hidden p-4">
+      <div className="flex-1 overflow-hidden bg-slate-100">
+        <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible p-4">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
