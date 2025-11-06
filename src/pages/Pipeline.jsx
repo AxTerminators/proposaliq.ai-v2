@@ -26,14 +26,6 @@ export default function Pipeline() {
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
 
-  // Reset views when navigating to Pipeline
-  useEffect(() => {
-    console.log('[Pipeline] Component mounted - resetting views');
-    setShowAnalytics(false);
-    setShowAutomation(false);
-    setViewMode("kanban");
-  }, []);
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -155,7 +147,7 @@ export default function Pipeline() {
       refetchProposals();
       refetchConfig();
     }
-  }, [organization?.id, refetchProposals, refetchConfig]);
+  }, [organization?.id, refetchProposals, refetchConfig]); // Added refetch functions to dependencies for useEffect best practices
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
@@ -187,20 +179,6 @@ export default function Pipeline() {
   const handleRetry = () => {
     window.location.reload();
   };
-
-  // Debug logging
-  useEffect(() => {
-    console.log('[Pipeline] Render state:', {
-      viewMode,
-      showAnalytics,
-      showAutomation,
-      isMobile,
-      proposalsCount: proposals.length,
-      hasKanbanConfig: !!kanbanConfig,
-      isLoadingProposals,
-      isLoadingConfig
-    });
-  }, [viewMode, showAnalytics, showAutomation, isMobile, proposals, kanbanConfig, isLoadingProposals, isLoadingConfig]);
 
   // Show error state
   if (proposalsError) {
