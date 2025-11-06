@@ -290,8 +290,11 @@ const TEMPLATES = [
   }
 ];
 
+// Set 8-Phase as the default template
+const DEFAULT_TEMPLATE = TEMPLATES[0]; // 8-Phase Complete Workflow
+
 export default function KanbanSetupWizard({ isOpen, onClose, organization }) {
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(DEFAULT_TEMPLATE);
   const queryClient = useQueryClient();
 
   const createConfigMutation = useMutation({
@@ -436,3 +439,6 @@ export default function KanbanSetupWizard({ isOpen, onClose, organization }) {
     </Dialog>
   );
 }
+
+// Export the 8-phase template for use in migration script
+export { TEMPLATE_8_PHASE_WORKFLOW };
