@@ -209,12 +209,28 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     let columnProposals = [];
 
-    if (column.type === 'default_status') {
-      columnProposals = filteredProposals.filter(p => p && p.status === column.default_status_mapping);
-    } else if (column.type === 'custom_stage') {
-      columnProposals = filteredProposals.filter(p => p && p.custom_workflow_stage_id === column.id);
+    // FIXED: Enforce mutually exclusive filtering to prevent proposals from appearing in multiple columns
+    // Priority: custom_workflow_stage_id > current_phase > status
+    if (column.type === 'custom_stage') {
+      // Only show proposals that have this specific custom stage AND no other stage conflicts
+      columnProposals = filteredProposals.filter(p => 
+        p && p.custom_workflow_stage_id === column.id
+      );
     } else if (column.type === 'locked_phase') {
-      columnProposals = filteredProposals.filter(p => p && p.current_phase === column.phase_mapping);
+      // Only show proposals that match this phase AND don't have a custom stage set
+      columnProposals = filteredProposals.filter(p => 
+        p && 
+        p.current_phase === column.phase_mapping && 
+        !p.custom_workflow_stage_id  // Exclude if custom stage is set
+      );
+    } else if (column.type === 'default_status') {
+      // Only show proposals that match this status AND don't have phase or custom stage set
+      columnProposals = filteredProposals.filter(p => 
+        p && 
+        p.status === column.default_status_mapping &&
+        !p.current_phase &&  // Exclude if phase is set
+        !p.custom_workflow_stage_id  // Exclude if custom stage is set
+      );
     }
 
     // Debug logging for empty columns
@@ -224,7 +240,12 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         columnLabel: column.label,
         phaseMapping: column.phase_mapping,
         totalProposals: proposals.length,
-        sampleProposalPhases: proposals.slice(0, 3).map(p => ({ id: p.id, phase: p.current_phase, status: p.status }))
+        sampleProposalPhases: proposals.slice(0, 3).map(p => ({ 
+          id: p.id, 
+          phase: p.current_phase, 
+          status: p.status,
+          custom_stage: p.custom_workflow_stage_id 
+        }))
       });
     }
 
