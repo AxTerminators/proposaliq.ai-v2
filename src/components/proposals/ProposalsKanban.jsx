@@ -221,31 +221,29 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       columnProposals = filteredProposals.filter(p => 
         p && 
         p.current_phase === column.phase_mapping && 
-        !p.custom_workflow_stage_id  // Exclude if custom stage is set
+        (!p.custom_workflow_stage_id || p.custom_workflow_stage_id === null || p.custom_workflow_stage_id === '')  // More strict null checking
       );
     } else if (column.type === 'default_status') {
       // Only show proposals that match this status AND don't have phase or custom stage set
       columnProposals = filteredProposals.filter(p => 
         p && 
         p.status === column.default_status_mapping &&
-        !p.current_phase &&  // Exclude if phase is set
-        !p.custom_workflow_stage_id  // Exclude if custom stage is set
+        (!p.current_phase || p.current_phase === null || p.current_phase === '') &&  // More strict null checking
+        (!p.custom_workflow_stage_id || p.custom_workflow_stage_id === null || p.custom_workflow_stage_id === '')  // More strict null checking
       );
     }
 
-    // Debug logging for empty columns
-    if (columnProposals.length === 0 && proposals.length > 0 && column.type === 'locked_phase') {
-      console.log('[Kanban] Empty column debug:', {
-        columnId: column.id,
-        columnLabel: column.label,
-        phaseMapping: column.phase_mapping,
-        totalProposals: proposals.length,
-        sampleProposalPhases: proposals.slice(0, 3).map(p => ({ 
-          id: p.id, 
-          phase: p.current_phase, 
-          status: p.status,
-          custom_stage: p.custom_workflow_stage_id 
-        }))
+    // DEBUGGING: Log all proposals and their column assignments
+    if (proposals.some(p => p.proposal_name === 'Netvision Test Project')) {
+      const netVisionProposal = proposals.find(p => p.proposal_name === 'Netvision Test Project');
+      console.log('[DEBUG] Netvision Test Project data:', {
+        id: netVisionProposal?.id,
+        current_phase: netVisionProposal?.current_phase,
+        custom_workflow_stage_id: netVisionProposal?.custom_workflow_stage_id,
+        status: netVisionProposal?.status,
+        columnChecking: column.label,
+        columnType: column.type,
+        matchesThisColumn: columnProposals.some(p => p.id === netVisionProposal?.id)
       });
     }
 
@@ -348,19 +346,20 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       const updatesForMovedProposal = {};
 
       // 1. Update status/phase/custom_workflow_stage_id based on destination column
+      // IMPORTANT: Explicitly set fields to null to ensure cleanup
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null;  // Explicitly null
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
-        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.current_phase = null;  // Explicitly null
         // Status for custom stages might need to be set based on overall phase they belong to
         // For now, it will retain its previous 'status' if not explicitly set.
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
-        updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        updatesForMovedProposal.current_phase = null;  // Explicitly null
+        updatesForMovedProposal.custom_workflow_stage_id = null;  // Explicitly null
       }
 
       // 2. Reset checklist status for new stage (if column changed)
@@ -477,7 +476,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         col.order = idx;
       });
 
-      // Save to database
       await base44.entities.KanbanConfig.update(kanbanConfig.id, {
         columns: reorderedColumns
       });
