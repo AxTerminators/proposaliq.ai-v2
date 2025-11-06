@@ -349,8 +349,56 @@ export const ACTION_REGISTRY = {
   },
 
   // ============================================
-  // LEGACY/FALLBACK ACTIONS
+  // LEGACY/FALLBACK ACTIONS - For backward compatibility
   // ============================================
+  'open_basic_info_modal': {
+    type: 'modal',
+    component: BasicInfoModal,
+    label: 'Enter Basic Information',
+    status: '✅'
+  },
+  'open_team_formation_modal': {
+    type: 'modal',
+    component: TeamFormationModal,
+    label: 'Form Team',
+    status: '✅'
+  },
+  'open_resource_gathering_modal': {
+    type: 'modal',
+    component: ResourceGatheringModal,
+    label: 'Gather Resources',
+    status: '✅'
+  },
+  'open_solicitation_upload_modal': {
+    type: 'modal',
+    component: SolicitationUploadModal,
+    label: 'Upload Solicitation',
+    status: '✅'
+  },
+  'open_evaluation_modal': {
+    type: 'modal',
+    component: EvaluationModal,
+    label: 'Run Evaluation',
+    status: '✅'
+  },
+  'open_win_strategy_modal': {
+    type: 'modal',
+    component: WinStrategyModal,
+    label: 'Develop Win Strategy',
+    status: '✅'
+  },
+  'open_content_planning_modal': {
+    type: 'modal',
+    component: ContentPlanningModal,
+    label: 'Plan Content',
+    status: '✅'
+  },
+  'open_pricing_review_modal': {
+    type: 'modal',
+    component: PricingReviewModal,
+    label: 'Review Pricing',
+    status: '✅'
+  },
   'open_modal_phase1': {
     type: 'modal',
     component: BasicInfoModal,
