@@ -239,18 +239,15 @@ export default function KanbanCard({
         ref={provided.innerRef}
         {...provided.draggableProps}
         {...provided.dragHandleProps}
-        style={{
-          ...provided.draggableProps.style,
-          // cursor: isDragDisabled ? 'not-allowed' : 'grab', // Removed, handled by className
-        }}
+        style={provided.draggableProps.style}
         onClick={handleCardClick}
         className={cn(
-          "relative transition-shadow group", // Added 'group'
+          "relative transition-shadow group",
           snapshot.isDragging
-            ? "shadow-2xl opacity-90 rotate-2" // Added 'rotate-2'
+            ? "shadow-2xl opacity-90"
             : "shadow-sm hover:shadow-md",
           hasActionRequired && "ring-2 ring-orange-400",
-          isDragDisabled && "opacity-60 cursor-not-allowed" // Added 'cursor-not-allowed'
+          isDragDisabled && "opacity-60 cursor-not-allowed"
         )}
       >
         <Card className="relative bg-white">
