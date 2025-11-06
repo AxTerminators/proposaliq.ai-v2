@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Database, Rocket, CheckCircle2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-export default function SampleDataGuard({ isOpen, onClose, onProceed }) {
+export default function SampleDataGuard(props = {}) {
+  const { isOpen = false, onClose = () => {}, onProceed } = props;
   const [isClearing, setIsClearing] = useState(false);
 
   const handleClearSampleData = async () => {
