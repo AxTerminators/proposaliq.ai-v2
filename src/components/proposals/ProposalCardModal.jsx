@@ -408,15 +408,16 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="flex-1">
-                                          <p className={cn(
-                                            "font-medium",
-                                            isCompleted ? "text-green-900" : "text-slate-900"
-                                          )}>
-                                            {item.label}
+                                          <div className="font-medium flex items-center gap-2 flex-wrap">
+                                            <span className={cn(
+                                              isCompleted ? "text-green-900" : "text-slate-900"
+                                            )}>
+                                              {item.label}
+                                            </span>
                                             {item.required && !isCompleted && (
-                                              <Badge className="ml-2 bg-red-500 text-xs">Required</Badge>
+                                              <Badge className="bg-red-500 text-xs">Required</Badge>
                                             )}
-                                          </p>
+                                          </div>
                                           
                                           {item.type === 'system_check' && !isCompleted && (
                                             <p className="text-xs text-slate-600 mt-1">
