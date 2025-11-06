@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom"; // Added useNavigate
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card"; // Added Card, CardContent
+import { Card, CardContent } from "@/components/ui/card";
 import {
   X,
   CheckSquare,
@@ -22,42 +21,105 @@ import {
   Calendar,
   DollarSign,
   Building2,
-  Users,
   Sparkles,
   PlayCircle,
   CheckCircle2,
   Circle,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  FileEdit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import TaskManager from "../tasks/TaskManager";
 import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
-import PhaseModal from "./PhaseModal";
-import AIActionModal from "./AIActionModal";
-// Removed ChecklistSystemValidator as its logic is now integrated
+import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
 
-// Helper function to create page URL (assuming it's available globally or imported)
-// If not, you might need to define it or replace it with direct paths.
-const createPageUrl = (pageName) => {
-  // This is a placeholder. In a real app, this would map page names to routes.
-  // Example: if (pageName === "ProposalBuilder") return "/proposal-builder";
-  // For now, returning a generic path.
-  if (pageName === "ProposalBuilder") return "/proposal-builder";
-  return `/${pageName.toLowerCase()}`;
-};
-
+// Import modal components
+import BasicInfoModal from "./modals/BasicInfoModal";
+import TeamFormationModal from "./modals/TeamFormationModal";
+import ResourceGatheringModal from "./modals/ResourceGatheringModal";
+import SolicitationUploadModal from "./modals/SolicitationUploadModal";
+import EvaluationModal from "./modals/EvaluationModal";
+import WinStrategyModal from "./modals/WinStrategyModal";
+import ContentPlanningModal from "./modals/ContentPlanningModal";
+import PricingReviewModal from "./modals/PricingReviewModal";
 
 export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig }) {
-  const navigate = useNavigate(); // Initialized useNavigate
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("checklist"); // Changed from currentTab to activeTab
+  const [activeTab, setActiveTab] = useState("checklist");
   const [user, setUser] = useState(null);
-  const [showPhaseModal, setShowPhaseModal] = useState(false);
-  const [selectedPhaseAction, setSelectedPhaseAction] = useState(null); // Changed from selectedPhase to selectedPhaseAction
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [selectedAIAction, setSelectedAIAction] = useState(null);
+  const [activeModalName, setActiveModalName] = useState(null);
+
+  // Map modal component names to actual components
+  const MODAL_COMPONENTS = {
+    'BasicInfoModal': BasicInfoModal,
+    'TeamFormationModal': TeamFormationModal,
+    'ResourceGatheringModal': ResourceGatheringModal,
+    'SolicitationUploadModal': SolicitationUploadModal,
+    'EvaluationModal': EvaluationModal,
+    'WinStrategyModal': WinStrategyModal,
+    'ContentPlanningModal': ContentPlanningModal,
+    'PricingReviewModal': PricingReviewModal,
+  };
+
+  // Map action IDs directly to modal names
+  const ACTION_TO_MODAL_MAP = {
+    // Phase 1 - Basic Info
+    'enter_basic_info': 'BasicInfoModal',
+    'select_prime_contractor': 'BasicInfoModal',
+    'add_solicitation_number': 'BasicInfoModal',
+    'open_basic_info_modal': 'BasicInfoModal',
+    'open_modal_phase1': 'BasicInfoModal',
+    
+    // Phase 2 - Team
+    'form_team': 'TeamFormationModal',
+    'add_teaming_partners': 'TeamFormationModal',
+    'define_roles': 'TeamFormationModal',
+    'open_team_formation_modal': 'TeamFormationModal',
+    'open_modal_phase2': 'TeamFormationModal',
+    
+    // Phase 2 - Resources
+    'gather_resources': 'ResourceGatheringModal',
+    'link_boilerplate': 'ResourceGatheringModal',
+    'link_past_performance': 'ResourceGatheringModal',
+    'open_resource_gathering_modal': 'ResourceGatheringModal',
+    
+    // Phase 3 - Solicitation
+    'upload_solicitation': 'SolicitationUploadModal',
+    'extract_requirements': 'SolicitationUploadModal',
+    'set_contract_value': 'SolicitationUploadModal',
+    'open_solicitation_upload_modal': 'SolicitationUploadModal',
+    'open_modal_phase3': 'SolicitationUploadModal',
+    'run_ai_analysis_phase3': 'SolicitationUploadModal',
+    
+    // Phase 4 - Evaluation
+    'run_evaluation': 'EvaluationModal',
+    'calculate_confidence_score': 'EvaluationModal',
+    'open_evaluation_modal': 'EvaluationModal',
+    'open_modal_phase4': 'EvaluationModal',
+    'run_evaluation_phase4': 'EvaluationModal',
+    
+    // Phase 5 - Win Strategy
+    'develop_win_strategy': 'WinStrategyModal',
+    'generate_win_themes': 'WinStrategyModal',
+    'refine_themes': 'WinStrategyModal',
+    'open_win_strategy_modal': 'WinStrategyModal',
+    'open_modal_phase5': 'WinStrategyModal',
+    'generate_win_themes_phase5': 'WinStrategyModal',
+    
+    // Phase 5 - Content Planning
+    'plan_content': 'ContentPlanningModal',
+    'select_sections': 'ContentPlanningModal',
+    'set_writing_strategy': 'ContentPlanningModal',
+    'open_content_planning_modal': 'ContentPlanningModal',
+    
+    // Phase 7 - Pricing
+    'review_pricing': 'PricingReviewModal',
+    'open_pricing_review_modal': 'PricingReviewModal',
+  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -95,6 +157,51 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   });
 
+  // Handle checklist item click
+  const handleChecklistItemClick = async (item) => {
+    console.log('[ProposalCardModal] ✨ Checklist item clicked:', item.label, 'Action:', item.associated_action);
+
+    // If no associated action, treat as manual checkbox
+    if (!item.associated_action) {
+      await handleChecklistItemToggle(item);
+      return;
+    }
+
+    const actionConfig = getActionConfig(item.associated_action);
+
+    if (!actionConfig) {
+      console.warn(`[ProposalCardModal] ⚠️ No action config found for: ${item.associated_action}`);
+      await handleChecklistItemToggle(item);
+      return;
+    }
+
+    console.log('[ProposalCardModal] ✅ Action config found:', actionConfig);
+
+    // Check if this action maps to a modal
+    const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
+    
+    if (modalName && MODAL_COMPONENTS[modalName]) {
+      console.log('[ProposalCardModal] 🎯 Opening modal:', modalName);
+      setActiveModalName(modalName);
+      return;
+    }
+
+    // Handle navigation actions
+    if (isNavigateAction(item.associated_action)) {
+      console.log('[ProposalCardModal] 🔗 Navigating to:', actionConfig.path);
+      const pageName = actionConfig.path.replace(/^\//, '');
+      const url = `${createPageUrl(pageName)}?id=${proposal.id}`;
+      navigate(url);
+      onClose(); // Close modal when navigating
+      return;
+    }
+
+    // Handle system_check or manual_check - toggle completion
+    if (item.type === 'system_check' || item.type === 'manual_check') {
+      await handleChecklistItemToggle(item);
+    }
+  };
+
   // Handler for checking/unchecking checklist items
   const handleChecklistItemToggle = async (item) => {
     const currentStatus = proposal.current_stage_checklist_status || {};
@@ -103,12 +210,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     
     const isCurrentlyCompleted = itemStatus.completed || false;
     
-    // Update the checklist status
     const updatedColumnStatus = {
       ...columnStatus,
       [item.id]: {
         completed: !isCurrentlyCompleted,
-        completed_by: !isCurrentlyCompleted ? (user?.email || "system") : null, // Use user.email or a default
+        completed_by: !isCurrentlyCompleted ? (user?.email || "system") : null,
         completed_date: !isCurrentlyCompleted ? new Date().toISOString() : null
       }
     };
@@ -118,12 +224,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       [currentColumn?.id]: updatedColumnStatus
     };
     
-    // Check if all required items are now complete
     const allRequiredComplete = currentColumn?.checklist_items
-      ?.filter(ci => ci.required && ci.type !== 'system_check') // Only consider manual/trigger required items
+      ?.filter(ci => ci.required && ci.type !== 'system_check')
       .every(ci => {
         if (ci.id === item.id) {
-          return !isCurrentlyCompleted; // Use the new status for this item
+          return !isCurrentlyCompleted;
         }
         return updatedColumnStatus[ci.id]?.completed || false;
       });
@@ -134,85 +239,42 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     });
   };
 
-  // Handler for modal trigger items
-  const handleModalTriggerClick = (item) => {
-    const actionMap = {
-      'open_modal_phase1': 'phase1',
-      'open_modal_phase2': 'phase2',
-      'open_modal_phase3': 'phase3',
-      'open_modal_phase4': 'phase4',
-      'open_modal_phase5': 'phase5',
-      'open_modal_phase6': 'phase6',
-      'open_modal_phase7': 'phase7'
-    };
-    
-    const phase = actionMap[item.associated_action];
-    if (phase) {
-      setSelectedPhaseAction({ phase, itemId: item.id });
-      setShowPhaseModal(true);
-    }
+  // Handle modal close
+  const handleModalClose = () => {
+    console.log('[ProposalCardModal] 🚪 Closing modal');
+    setActiveModalName(null);
+    queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
-  // Handler when phase modal closes successfully
-  const handlePhaseModalComplete = async () => {
-    if (selectedPhaseAction) {
-      // Mark the checklist item as complete
-      const currentStatus = proposal.current_stage_checklist_status || {};
-      const columnStatus = currentStatus[currentColumn?.id] || {};
-      
-      const updatedColumnStatus = {
-        ...columnStatus,
-        [selectedPhaseAction.itemId]: {
-          completed: true,
-          completed_by: (user?.email || "system"), // Use user.email or a default
-          completed_date: new Date().toISOString()
-        }
-      };
-      
-      const updatedChecklistStatus = {
-        ...currentStatus,
-        [currentColumn?.id]: updatedColumnStatus
-      };
-      
-      // Check if all required items are now complete
-      const allRequiredComplete = currentColumn?.checklist_items
-        ?.filter(ci => ci.required && ci.type !== 'system_check') // Only consider manual/trigger required items
-        .every(ci => updatedColumnStatus[ci.id]?.completed || false);
-      
-      await updateProposalMutation.mutateAsync({
-        current_stage_checklist_status: updatedChecklistStatus,
-        action_required: !allRequiredComplete
-      });
+  // Render active modal dynamically
+  const renderActiveModal = () => {
+    if (!activeModalName) return null;
+    
+    const ModalComponent = MODAL_COMPONENTS[activeModalName];
+    if (!ModalComponent) {
+      console.error('[ProposalCardModal] ❌ Modal component not found:', activeModalName);
+      return null;
     }
-    
-    setShowPhaseModal(false);
-    setSelectedPhaseAction(null);
-  };
-  
-  const handleAIActionComplete = (result) => {
-    // AI action completed successfully
-    console.log("AI Action Result:", result);
-    setShowAIModal(false);
-    setSelectedAIAction(null);
-    
-    // Optionally mark the checklist item as complete
-    // This would require knowing which item triggered it
-    queryClient.invalidateQueries({ queryKey: ['proposals'] });
+
+    console.log('[ProposalCardModal] 🎭 Rendering modal:', activeModalName);
+    return (
+      <ModalComponent
+        isOpen={true}
+        onClose={handleModalClose}
+        proposalId={proposal.id}
+      />
+    );
   };
 
   // System check validation
   const systemCheckStatus = (item) => {
     switch (item.id) {
-      case 'contract_value_present': // Renamed from 'contract_value' to avoid conflict if `proposal.contract_value` is used elsewhere directly for display
+      case 'contract_value_present':
         return proposal.contract_value ? true : false;
-      case 'due_date_present': // Renamed from 'due_date'
+      case 'due_date_present':
         return proposal.due_date ? true : false;
       case 'complete_sections':
-        // This assumes 'sections' would be passed as a prop or fetched,
-        // For now, let's make it always false or add a placeholder.
-        // If sections are not provided, this check cannot be reliably performed.
-        // Assuming 'sections' might be an array of objects on the proposal itself.
-        const sections = proposal.sections || []; // Placeholder: assuming sections might be on proposal
+        const sections = proposal.sections || [];
         const totalSections = sections?.length || 0;
         const completedSections = sections?.filter(s => s.status === 'approved').length || 0;
         return totalSections > 0 && completedSections === totalSections;
@@ -221,6 +283,34 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   };
 
+  // Determine icon based on action type
+  const getItemIcon = (item, isCompleted) => {
+    if (isCompleted) {
+      return <CheckCircle2 className="w-6 h-6 text-green-600" />;
+    }
+
+    if (!item.associated_action || item.type === 'manual_check') {
+      return <Circle className="w-6 h-6 text-slate-400 hover:text-slate-600" />;
+    }
+
+    if (isNavigateAction(item.associated_action)) {
+      return <ExternalLink className="w-6 h-6 text-blue-500" />;
+    }
+
+    if (isAIAction(item.associated_action)) {
+      return <Sparkles className="w-6 h-6 text-purple-500" />;
+    }
+
+    if (isModalAction(item.associated_action)) {
+      return <FileEdit className="w-6 h-6 text-indigo-500" />;
+    }
+
+    if (item.type === 'system_check') {
+      return <AlertCircle className="w-6 h-6 text-orange-500" />;
+    }
+
+    return <Circle className="w-6 h-6 text-slate-400" />;
+  };
 
   return (
     <>
@@ -346,6 +436,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                             const isCompleted = item.type === 'system_check' 
                               ? systemCheckStatus(item)
                               : itemStatus.completed || false;
+                            
+                            const isClickable = !isCompleted && (item.associated_action || item.type === 'manual_check');
 
                             return (
                               <Card 
@@ -353,57 +445,17 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                 className={cn(
                                   "border-2 transition-all",
                                   isCompleted ? "border-green-200 bg-green-50" : "border-slate-200",
-                                  item.required && !isCompleted && "border-orange-200 bg-orange-50"
+                                  item.required && !isCompleted && "border-orange-200 bg-orange-50",
+                                  isClickable && "cursor-pointer hover:border-blue-300 hover:shadow-md"
                                 )}
+                                onClick={() => isClickable && handleChecklistItemClick(item)}
                               >
                                 <CardContent className="p-4">
                                   <div className="flex items-start gap-3">
-                                    {/* Checkbox for manual items */}
-                                    {item.type === 'manual_check' && (
-                                      <button
-                                        onClick={() => handleChecklistItemToggle(item)}
-                                        className="mt-1 flex-shrink-0"
-                                      >
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <Circle className="w-6 h-6 text-slate-400 hover:text-slate-600" />
-                                        )}
-                                      </button>
-                                    )}
-
-                                    {/* System check indicator */}
-                                    {item.type === 'system_check' && (
-                                      <div className="mt-1 flex-shrink-0">
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <AlertCircle className="w-6 h-6 text-orange-500" />
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* AI trigger indicator */}
-                                    {item.type === 'ai_trigger' && (
-                                      <div className="mt-1 flex-shrink-0">
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <Sparkles className="w-6 h-6 text-blue-500" />
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* Modal trigger indicator */}
-                                    {item.type === 'modal_trigger' && (
-                                      <div className="mt-1 flex-shrink-0">
-                                        {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                        ) : (
-                                          <PlayCircle className="w-6 h-6 text-indigo-500" />
-                                        )}
-                                      </div>
-                                    )}
+                                    {/* Icon */}
+                                    <div className="mt-1 flex-shrink-0">
+                                      {getItemIcon(item, isCompleted)}
+                                    </div>
 
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-start justify-between gap-2">
@@ -432,38 +484,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                             </p>
                                           )}
                                         </div>
-
-                                        {/* Action button for modal_trigger and ai_trigger items */}
-                                        {!isCompleted && (item.type === 'modal_trigger' || item.type === 'ai_trigger') && (
-                                          <Button
-                                            onClick={() => {
-                                              if (item.type === 'modal_trigger') {
-                                                handleModalTriggerClick(item);
-                                              } else if (item.type === 'ai_trigger') {
-                                                // Handle AI trigger
-                                                const phase = proposal.current_phase || 'phase1';
-                                                navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`);
-                                                onClose();
-                                              }
-                                            }}
-                                            size="sm"
-                                            className={cn(
-                                              item.type === 'modal_trigger' ? "bg-indigo-600 hover:bg-indigo-700" : "bg-blue-600 hover:bg-blue-700"
-                                            )}
-                                          >
-                                            {item.type === 'modal_trigger' ? (
-                                              <>
-                                                <PlayCircle className="w-4 h-4 mr-1" />
-                                                Start
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Sparkles className="w-4 h-4 mr-1" />
-                                                Run AI
-                                              </>
-                                            )}
-                                          </Button>
-                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -543,34 +563,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         </DialogContent>
       </Dialog>
 
-      {/* Phase Modal for modal_trigger items */}
-      {showPhaseModal && selectedPhaseAction && (
-        <PhaseModal
-          isOpen={showPhaseModal}
-          onClose={() => {
-            setShowPhaseModal(false);
-            setSelectedPhaseAction(null);
-          }}
-          proposal={proposal}
-          phaseId={selectedPhaseAction.phase} // Use phaseId as prop name matches PhaseModal component
-          onComplete={handlePhaseModalComplete} // Changed from onSave to onComplete
-          embedded={true}
-        />
-      )}
-
-      {/* AI Action Modal */}
-      {showAIModal && selectedAIAction && (
-        <AIActionModal
-          isOpen={showAIModal}
-          onClose={() => {
-            setShowAIModal(false);
-            setSelectedAIAction(null);
-          }}
-          actionType={selectedAIAction}
-          proposal={proposal}
-          onComplete={handleAIActionComplete}
-        />
-      )}
+      {/* Render Modal Dynamically */}
+      {renderActiveModal()}
     </>
   );
 }
