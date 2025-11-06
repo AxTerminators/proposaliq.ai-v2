@@ -556,52 +556,74 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     const userRole = getUserRole();
 
-    console.log('[RBAC] Drag attempt:', {
-      proposalName: proposal.proposal_name,
-      from: sourceColumn.label,
-      to: destinationColumn.label,
-      userRole: userRole,
-      destinationColumn_can_drag_to_here_roles: destinationColumn.can_drag_to_here_roles,
-      destinationColumn_full: destinationColumn
-    });
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[RBAC] 🎯 DRAG ATTEMPT ANALYSIS');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[RBAC] Proposal:', proposal.proposal_name);
+    console.log('[RBAC] From Column:', sourceColumn.label, `(type: ${sourceColumn.type})`);
+    console.log('[RBAC] To Column:', destinationColumn.label, `(type: ${destinationColumn.type})`);
+    console.log('[RBAC] Your Role:', userRole);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // **PHASE 3: RBAC Check - Can user drag FROM this column?**
+    console.log('[RBAC] 🔍 Checking SOURCE column permissions...');
+    console.log('[RBAC] Source column "can_drag_from_here_roles":', sourceColumn.can_drag_from_here_roles);
+    
     if (sourceColumn?.can_drag_from_here_roles?.length > 0) {
-      if (!sourceColumn.can_drag_from_here_roles.includes(userRole)) {
-        console.warn('[RBAC] DRAG BLOCKED FROM:', {
-          column: sourceColumn.label,
-          requiredRoles: sourceColumn.can_drag_from_here_roles,
-          userRole: userRole
-        });
-        alert(`🔒 You don't have permission to move proposals out of "${sourceColumn.label}".\n\nRequired role: ${sourceColumn.can_drag_from_here_roles.join(', ')}\nYour role: ${userRole}`);
+      const hasPermissionToDragFrom = sourceColumn.can_drag_from_here_roles.includes(userRole);
+      console.log('[RBAC] Permission to drag FROM source?', hasPermissionToDragFrom ? '✅ YES' : '❌ NO');
+      
+      if (!hasPermissionToDragFrom) {
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.error('[RBAC] ❌ DRAG BLOCKED!');
+        console.error('[RBAC] Reason: Cannot drag FROM source column');
+        console.error('[RBAC] Column:', sourceColumn.label);
+        console.error('[RBAC] Required roles:', sourceColumn.can_drag_from_here_roles);
+        console.error('[RBAC] Your role:', userRole);
+        console.error('[RBAC] FIX: Go to Configure → Edit "' + sourceColumn.label + '" column → Add "' + userRole + '" to "Can Drag From Here Roles"');
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        alert(`🔒 Cannot drag from "${sourceColumn.label}"\n\n` +
+              `Required roles: ${sourceColumn.can_drag_from_here_roles.join(', ')}\n` +
+              `Your role: ${userRole}\n\n` +
+              `FIX: Go to Configure → Edit "${sourceColumn.label}" → Update "Can Drag From Here Roles"`);
         return;
       }
+    } else {
+      console.log('[RBAC] ✅ No restrictions on dragging from source column');
     }
 
     // **PHASE 3: RBAC Check - Can user drag TO this column?**
+    console.log('[RBAC] 🔍 Checking DESTINATION column permissions...');
+    console.log('[RBAC] Destination column "can_drag_to_here_roles":', destinationColumn.can_drag_to_here_roles);
+    
     if (destinationColumn?.can_drag_to_here_roles?.length > 0) {
-      console.log('[RBAC] Checking permissions for destination column:', {
-        column: destinationColumn.label,
-        requiredRoles: destinationColumn.can_drag_to_here_roles,
-        userRole: userRole,
-        hasPermission: destinationColumn.can_drag_to_here_roles.includes(userRole)
-      });
+      const hasPermissionToDragTo = destinationColumn.can_drag_to_here_roles.includes(userRole);
+      console.log('[RBAC] Permission to drag TO destination?', hasPermissionToDragTo ? '✅ YES' : '❌ NO');
       
-      if (!destinationColumn.can_drag_to_here_roles.includes(userRole)) {
-        console.warn('[RBAC] ❌ DRAG BLOCKED TO:', {
-          column: destinationColumn.label,
-          requiredRoles: destinationColumn.can_drag_to_here_roles,
-          userRole: userRole
-        });
-        alert(`🔒 You don't have permission to move proposals into "${destinationColumn.label}".\n\n` +
+      if (!hasPermissionToDragTo) {
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.error('[RBAC] ❌ DRAG BLOCKED!');
+        console.error('[RBAC] Reason: Cannot drag TO destination column');
+        console.error('[RBAC] Column:', destinationColumn.label);
+        console.error('[RBAC] Required roles:', destinationColumn.can_drag_to_here_roles);
+        console.error('[RBAC] Your role:', userRole);
+        console.error('[RBAC] FIX: Go to Configure → Edit "' + destinationColumn.label + '" column → Add "' + userRole + '" to "Can Drag To Here Roles"');
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        alert(`🔒 Cannot drag to "${destinationColumn.label}"\n\n` +
               `Required roles: ${destinationColumn.can_drag_to_here_roles.join(', ')}\n` +
               `Your role: ${userRole}\n\n` +
-              `Please go to Configure → Edit the "${destinationColumn.label}" column → Update "Can Drag To Here Roles" to include "organization_owner"`);
+              `FIX: Go to Configure → Edit "${destinationColumn.label}" → Update "Can Drag To Here Roles"`);
         return;
-      } else {
-        console.log('[RBAC] ✅ Permission granted to drag to:', destinationColumn.label);
       }
+    } else {
+      console.log('[RBAC] ✅ No restrictions on dragging to destination column');
     }
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[RBAC] ✅ ALL PERMISSION CHECKS PASSED - Proceeding with move');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // **PHASE 3: WIP Limit Check (HARD enforcement)**
     const currentDestProposals = getProposalsForColumn(destinationColumn);
@@ -628,23 +650,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     // If all checks pass, proceed with the move
     await performProposalMove(proposal, sourceColumn, destinationColumn, destination.index);
-  };
-
-  // Handle approval gate completion
-  const handleApprovalComplete = async (approved) => {
-    setShowApprovalGate(false);
-
-    if (approved && approvalGateData) {
-      // Approval granted, perform the move
-      await performProposalMove(
-        approvalGateData.proposal,
-        approvalGateData.sourceColumn,
-        approvalGateData.destinationColumn,
-        approvalGateData.destinationIndex
-      );
-    }
-
-    setApprovalGateData(null);
   };
 
   const handleCardClick = (proposal) => {
