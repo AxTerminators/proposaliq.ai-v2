@@ -21,14 +21,14 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
-  ZoomIn,
-  ZoomOut,
+  ZoomIn, // Not used after removal, but keeping for now if other places might still use it or if it's a shared icon lib
+  ZoomOut, // Not used after removal, but keeping for now if other places might still use it or if it's a shared icon lib
   LayoutGrid,
   Sparkles,
   HelpCircle,
   CheckCircle2,
-  AlertCircle, // Added AlertCircle import
-  RefreshCw // Added RefreshCw import
+  AlertCircle,
+  RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -71,7 +71,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [showProposalModal, setShowProposalModal] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
+  // const [zoomLevel, setZoomLevel] = useState(1); // Removed zoom functionality
   const [dragOverColumnId, setDragOverColumnId] = useState(null);
   const [showApprovalGate, setShowApprovalGate] = useState(false);
   const [approvalGateData, setApprovalGateData] = useState(null);
@@ -155,33 +155,35 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
-  const handleZoomReset = () => setZoomLevel(1);
+  // Removed zoom functionality
+  // const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
+  // const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+  // const handleZoomReset = () => setZoomLevel(1);
 
-  useEffect(() => {
-    const handleWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) {
-          handleZoomIn();
-        } else {
-          handleZoomOut();
-        }
-      }
-    };
+  // Removed useEffect for wheel event
+  // useEffect(() => {
+  //   const handleWheel = (e) => {
+  //     if (e.ctrlKey || e.metaKey) {
+  //       e.preventDefault();
+  //       if (e.deltaY < 0) {
+  //         handleZoomIn();
+  //       } else {
+  //         handleZoomOut();
+  //       }
+  //     }
+  //   };
 
-    const board = boardRef.current;
-    if (board) {
-      board.addEventListener('wheel', handleWheel, { passive: false });
-    }
+  //   const board = boardRef.current;
+  //   if (board) {
+  //     board.addEventListener('wheel', handleWheel, { passive: false });
+  //   }
 
-    return () => {
-      if (board) {
-        board.removeEventListener('wheel', handleWheel);
-      }
-    };
-  }, [handleZoomIn, handleZoomOut]);
+  //   return () => {
+  //     if (board) {
+  //       board.removeEventListener('wheel', handleWheel);
+  //     }
+  //   };
+  // }, [handleZoomIn, handleZoomOut]);
 
   // Check if user has completed the tour
   useEffect(() => {
@@ -925,37 +927,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             </Button>
 
             <div className="flex items-center gap-2">
-              {/* Zoom Controls */}
-              <div className="flex items-center border rounded-lg bg-white">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleZoomOut}
-                  disabled={zoomLevel <= 0.5}
-                  className="h-8 w-8 p-0 hover:bg-slate-100"
-                  title="Zoom out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </Button>
-                <button
-                  onClick={handleZoomReset}
-                  className="px-3 h-8 text-xs font-medium text-slate-700 hover:text-slate-900 min-w-[3rem]"
-                  title="Reset zoom"
-                >
-                  {Math.round(zoomLevel * 100)}%
-                </button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleZoomIn}
-                  disabled={zoomLevel >= 2}
-                  className="h-8 w-8 p-0 hover:bg-slate-100"
-                  title="Zoom in"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </Button>
-              </div>
-
+              {/* Zoom Controls - REMOVED (causes drag issues) */}
+              
               {/* Filters Button */}
               <Button
                 variant={showFilters ? "default" : "outline"}
@@ -1051,7 +1024,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible p-4">
           <DragDropContext
             onDragEnd={onDragEnd}
-            // Removed handleDragStart and replaced with onBeforeDragStart for consistency
             onDragUpdate={handleDragUpdate}
             onBeforeDragStart={() => {
               setDragInProgress(true);
@@ -1064,8 +1036,9 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                   {...providedOuter.droppableProps}
                   className="flex gap-4 h-full"
                   style={{
-                    transform: `scale(${zoomLevel})`,
-                    transformOrigin: 'top left',
+                    // REMOVED zoom transform that was causing drag issues
+                    // transform: `scale(${zoomLevel})`,
+                    // transformOrigin: 'top left',
                     minWidth: 'min-content'
                   }}
                 >
