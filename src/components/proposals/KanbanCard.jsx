@@ -41,10 +41,14 @@ import {
   Shield,
   GripVertical,
   Loader2,
+  CheckCircle2, // Added
+  Circle, // Added
+  ExternalLink, // Added
+  FileEdit, // Added
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-import ChecklistItemRenderer from "./ChecklistItemRenderer";
+// import ChecklistItemRenderer from "./ChecklistItemRenderer"; // Removed
 import BasicInfoModal from "./modals/BasicInfoModal";
 import TeamFormationModal from "./modals/TeamFormationModal";
 import ResourceGatheringModal from "./modals/ResourceGatheringModal";
@@ -65,8 +69,8 @@ export default function KanbanCard({
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Modal state - SIMPLY store which modal is open
-  const [activeModal, setActiveModal] = useState(null);
+  // Simple modal state - just track which modal is open
+  const [openModal, setOpenModal] = useState(null); // Changed activeModal to openModal
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks-count', proposal.id],
@@ -135,69 +139,90 @@ export default function KanbanCard({
   };
 
   const handleCardClick = (e) => {
-    // Don't trigger click if we're dragging or if clicking interactive elements
-    if (isDragging) return; // Changed from snapshot.isDragging
+    if (isDragging) return;
     if (e.target.closest('button') || e.target.closest('[role="menu"]') || e.target.closest('input')) return;
     onCardClick?.(proposal);
   };
 
-  // Handle checklist item click - SIMPLIFIED LOGIC
-  const handleChecklistItemClick = async (item) => {
-    console.log('[KanbanCard] 🎯 CHECKLIST CLICKED:', {
-      label: item.label,
-      action: item.associated_action,
-      type: item.type
-    });
+  // Simple function to render checklist items with direct actions
+  const renderChecklistItem = (item) => {
+    const isCompleted = checklistStatus[item.id]?.completed;
 
-    // If no associated action, treat as manual checkbox toggle
-    if (!item.associated_action) {
-      console.log('[KanbanCard] No action, toggling checkbox');
-      await toggleChecklistItem(item);
-      return;
-    }
+    // Helper to get icon
+    const getIcon = () => {
+      if (isCompleted) {
+        return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+      }
+      return <Circle className="w-4 h-4 text-slate-400" />;
+    };
 
-    // Determine which modal to open based on action
-    let modalToOpen = null;
+    // Direct action handlers based on action name
+    const handleClick = (e) => {
+      e.stopPropagation();
+      
+      const action = item.associated_action;
+      
+      if (!action) {
+        // Simple checkbox toggle
+        toggleCheckbox(item);
+        return;
+      }
 
-    // Direct mapping of ALL possible action names to modals
-    if (item.associated_action.includes('basic_info') || 
-        item.associated_action.includes('phase1')) {
-      modalToOpen = 'BasicInfoModal';
-    } else if (item.associated_action.includes('team') || 
-               item.associated_action.includes('phase2')) {
-      modalToOpen = 'TeamFormationModal';
-    } else if (item.associated_action.includes('resource')) {
-      modalToOpen = 'ResourceGatheringModal';
-    } else if (item.associated_action.includes('solicitation') || 
-               item.associated_action.includes('upload') ||
-               item.associated_action.includes('phase3')) {
-      modalToOpen = 'SolicitationUploadModal';
-    } else if (item.associated_action.includes('evaluation') || 
-               item.associated_action.includes('phase4')) {
-      modalToOpen = 'EvaluationModal';
-    } else if (item.associated_action.includes('win') || 
-               item.associated_action.includes('strategy') ||
-               item.associated_action.includes('phase5')) {
-      modalToOpen = 'WinStrategyModal';
-    } else if (item.associated_action.includes('content') || 
-               item.associated_action.includes('plan')) {
-      modalToOpen = 'ContentPlanningModal';
-    } else if (item.associated_action.includes('pricing')) {
-      modalToOpen = 'PricingReviewModal';
-    }
+      // Open appropriate modal based on action
+      if (action.includes('basic_info') || action.includes('phase1')) {
+        setOpenModal('basic');
+      } else if (action.includes('team') || action.includes('phase2')) {
+        setOpenModal('team');
+      } else if (action.includes('resource')) {
+        setOpenModal('resource');
+      } else if (action.includes('solicitation') || action.includes('upload') || action.includes('phase3')) {
+        setOpenModal('solicitation');
+      } else if (action.includes('evaluation') || action.includes('phase4')) {
+        setOpenModal('evaluation');
+      } else if (action.includes('win') || action.includes('strategy') || action.includes('phase5')) {
+        setOpenModal('strategy');
+      } else if (action.includes('content') || action.includes('plan')) {
+        setOpenModal('content');
+      } else if (action.includes('pricing')) {
+        setOpenModal('pricing');
+      } else if (action.includes('writing')) {
+        navigate(createPageUrl("ContentDevelopment") + `?id=${proposal.id}`);
+      } else if (action.includes('review')) {
+        navigate(createPageUrl("FinalReview") + `?id=${proposal.id}`);
+      } else {
+        // Default: toggle checkbox
+        toggleCheckbox(item);
+      }
+    };
 
-    if (modalToOpen) {
-      console.log('[KanbanCard] ✅ Opening modal:', modalToOpen);
-      setActiveModal(modalToOpen);
-    } else {
-      console.log('[KanbanCard] ⚠️ No modal mapping for:', item.associated_action);
-      // Fallback to checkbox toggle if no modal was opened
-      await toggleChecklistItem(item);
-    }
+    return (
+      <button
+        key={item.id}
+        onClick={isCompleted ? undefined : handleClick}
+        disabled={isCompleted}
+        type="button"
+        className={cn(
+          "flex items-center gap-2 py-1.5 px-2 rounded transition-colors w-full text-left",
+          !isCompleted && "cursor-pointer hover:bg-blue-50 active:bg-blue-100",
+          isCompleted && "opacity-60 cursor-default"
+        )}
+      >
+        {getIcon()}
+        <span className={cn(
+          "text-sm flex-1",
+          isCompleted && "line-through text-slate-500",
+          !isCompleted && "text-slate-700"
+        )}>
+          {item.label}
+        </span>
+        {item.required && !isCompleted && (
+          <span className="text-xs text-red-500 font-medium">Required</span>
+        )}
+      </button>
+    );
   };
 
-  // Toggle checkbox item
-  const toggleChecklistItem = async (item) => {
+  const toggleCheckbox = async (item) => {
     const currentStatus = checklistStatus[item.id]?.completed || false;
     const newChecklistStatus = {
       ...proposal.current_stage_checklist_status,
@@ -216,69 +241,21 @@ export default function KanbanCard({
     });
   };
 
-  // Handle modal close
-  const handleModalClose = () => {
-    console.log('[KanbanCard] 🚪 Closing modal');
-    setActiveModal(null);
-    queryClient.invalidateQueries({ queryKey: ['proposals'] });
-  };
-
-  // Render active modal - DIRECT COMPONENT RENDERING
-  const renderActiveModal = () => {
-    if (!activeModal) return null;
-    
-    console.log('[KanbanCard] 🎭 Rendering modal:', activeModal);
-
-    const modalProps = {
-      isOpen: true,
-      onClose: handleModalClose,
-      proposalId: proposal.id
-    };
-
-    // Render the correct modal component
-    switch (activeModal) {
-      case 'BasicInfoModal':
-        return <BasicInfoModal {...modalProps} />;
-      case 'TeamFormationModal':
-        return <TeamFormationModal {...modalProps} />;
-      case 'ResourceGatheringModal':
-        return <ResourceGatheringModal {...modalProps} />;
-      case 'SolicitationUploadModal':
-        return <SolicitationUploadModal {...modalProps} />;
-      case 'EvaluationModal':
-        return <EvaluationModal {...modalProps} />;
-      case 'WinStrategyModal':
-        return <WinStrategyModal {...modalProps} />;
-      case 'ContentPlanningModal':
-        return <ContentPlanningModal {...modalProps} />;
-      case 'PricingReviewModal':
-        return <PricingReviewModal {...modalProps} />;
-      default:
-        console.error('[KanbanCard] ❌ Unknown modal:', activeModal);
-        return null;
-    }
-  };
-
   return (
     <>
-      {/* The outer div consuming react-beautiful-dnd props (`provided.innerRef`, etc.)
-          is now expected to be in the parent component.
-          This div is the direct draggable element that receives styling. */}
       <div
         onClick={handleCardClick}
         className={cn(
           "relative group",
-          isDragging // Changed from snapshot.isDragging
-            ? "shadow-2xl opacity-90"
-            : "shadow-sm hover:shadow-md transition-shadow",
+          isDragging ? "shadow-2xl opacity-90" : "shadow-sm hover:shadow-md transition-shadow",
           hasActionRequired && "ring-2 ring-orange-400",
           isDragDisabled && "opacity-60 cursor-not-allowed"
         )}
       >
         <Card className="relative bg-white">
           <CardContent className="p-4">
-            {/* Drag Indicator - Visual only */}
-            {!isDragDisabled && !isDragging && ( // Changed from snapshot.isDragging
+            {/* Drag Indicator */}
+            {!isDragDisabled && !isDragging && (
               <div className="absolute left-1 top-2 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none">
                 <GripVertical className="w-4 h-4 text-slate-600" />
               </div>
@@ -360,7 +337,7 @@ export default function KanbanCard({
                 </div>
               )}
 
-              {/* Checklist - NOW USING ChecklistItemRenderer */}
+              {/* Checklist - SIMPLIFIED */}
               {checklistItems.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -368,15 +345,7 @@ export default function KanbanCard({
                     <span className="text-xs text-slate-600">{completedChecklistItems}/{checklistItems.length}</span>
                   </div>
                   <div className="space-y-1.5">
-                    {checklistItems.slice(0, 3).map((item) => (
-                      <ChecklistItemRenderer
-                        key={item.id}
-                        item={item}
-                        isCompleted={checklistStatus[item.id]?.completed}
-                        onItemClick={handleChecklistItemClick}
-                        proposal={proposal}
-                      />
-                    ))}
+                    {checklistItems.slice(0, 3).map((item) => renderChecklistItem(item))}
                     {checklistItems.length > 3 && (
                       <p className="text-xs text-slate-500 pl-5.5">+{checklistItems.length - 3} more</p>
                     )}
@@ -520,8 +489,63 @@ export default function KanbanCard({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Render Modal Dynamically */}
-      {renderActiveModal()}
+      {/* Modals - Direct rendering */}
+      {openModal === 'basic' && (
+        <BasicInfoModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'team' && (
+        <TeamFormationModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'resource' && (
+        <ResourceGatheringModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'solicitation' && (
+        <SolicitationUploadModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'evaluation' && (
+        <EvaluationModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'strategy' && (
+        <WinStrategyModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'content' && (
+        <ContentPlanningModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
+      {openModal === 'pricing' && (
+        <PricingReviewModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          proposalId={proposal.id}
+        />
+      )}
     </>
   );
 }
