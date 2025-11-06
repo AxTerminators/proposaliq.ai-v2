@@ -242,10 +242,10 @@ export default function KanbanCard({
         style={provided.draggableProps.style}
         onClick={handleCardClick}
         className={cn(
-          "relative transition-shadow group",
+          "relative group",
           snapshot.isDragging
             ? "shadow-2xl opacity-90"
-            : "shadow-sm hover:shadow-md",
+            : "shadow-sm hover:shadow-md transition-shadow",
           hasActionRequired && "ring-2 ring-orange-400",
           isDragDisabled && "opacity-60 cursor-not-allowed"
         )}
