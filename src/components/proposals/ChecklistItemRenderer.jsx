@@ -10,10 +10,15 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
   const actionConfig = getActionConfig(item.associated_action);
   
   const handleClick = (e) => {
-    if (e) e.stopPropagation();
+    // CRITICAL: Stop event propagation to prevent card click
+    e.stopPropagation();
+    e.preventDefault();
+    
+    console.log('[ChecklistItem] Clicked:', item.label, 'Action:', item.associated_action);
     
     if (!item.associated_action) {
       // Manual checkbox - just toggle
+      console.log('[ChecklistItem] Manual checkbox - calling onItemClick');
       onItemClick(item);
       return;
     }
@@ -22,24 +27,27 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     const action = getActionConfig(item.associated_action);
     
     if (!action) {
-      console.error(`Action not found: ${item.associated_action}`);
+      console.error(`[ChecklistItem] Action not found: ${item.associated_action}`);
       onItemClick(item);
       return;
     }
 
+    console.log('[ChecklistItem] Action config:', action);
+
     // Handle different action types
     if (isNavigateAction(item.associated_action)) {
       // Navigate to the specified page with proposal ID
-      // Extract page name from path (remove leading slash)
       const pageName = action.path.replace(/^\//, '');
       const url = `${createPageUrl(pageName)}?id=${proposal?.id || ''}`;
-      console.log('[ChecklistItemRenderer] Navigating to:', url);
+      console.log('[ChecklistItem] Navigating to:', url);
       navigate(url);
     } else if (isModalAction(item.associated_action) || isAIAction(item.associated_action)) {
       // Trigger modal/AI action (handled by parent component)
+      console.log('[ChecklistItem] Modal/AI action - calling onItemClick');
       onItemClick(item);
     } else {
       // Default: manual check
+      console.log('[ChecklistItem] Default - calling onItemClick');
       onItemClick(item);
     }
   };
@@ -73,11 +81,12 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
   const isClickable = !isCompleted && (item.associated_action || item.type === 'manual_check');
 
   return (
-    <div
+    <button
       onClick={isClickable ? handleClick : undefined}
+      disabled={!isClickable}
       className={cn(
-        "flex items-center gap-2 py-1.5 px-2 rounded transition-colors",
-        isClickable && "cursor-pointer hover:bg-slate-50 active:bg-slate-100",
+        "flex items-center gap-2 py-1.5 px-2 rounded transition-colors w-full text-left",
+        isClickable && "cursor-pointer hover:bg-blue-50 active:bg-blue-100",
         isCompleted && "opacity-60",
         !isClickable && "cursor-default"
       )}
@@ -96,6 +105,6 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       {actionConfig && actionConfig.status && (
         <span className="text-xs text-slate-400">{actionConfig.status}</span>
       )}
-    </div>
+    </button>
   );
 }
