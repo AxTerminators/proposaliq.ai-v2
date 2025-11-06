@@ -209,12 +209,34 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     let columnProposals = [];
 
-    if (column.type === 'default_status') {
-      columnProposals = filteredProposals.filter(p => p && p.status === column.default_status_mapping);
-    } else if (column.type === 'custom_stage') {
-      columnProposals = filteredProposals.filter(p => p && p.custom_workflow_stage_id === column.id);
+    // PRIORITY ORDER: custom_stage > locked_phase > default_status
+    // This ensures a proposal only appears in ONE column
+    if (column.type === 'custom_stage') {
+      // For custom stages, ONLY match if custom_workflow_stage_id is set AND matches this column
+      columnProposals = filteredProposals.filter(p => 
+        p && 
+        p.custom_workflow_stage_id === column.id
+      );
     } else if (column.type === 'locked_phase') {
-      columnProposals = filteredProposals.filter(p => p && p.current_phase === column.phase_mapping);
+      // For locked phases, ONLY match if:
+      // 1. custom_workflow_stage_id is NOT set (null or undefined)
+      // 2. current_phase matches this column
+      columnProposals = filteredProposals.filter(p => 
+        p && 
+        !p.custom_workflow_stage_id && 
+        p.current_phase === column.phase_mapping
+      );
+    } else if (column.type === 'default_status') {
+      // For default status columns, ONLY match if:
+      // 1. custom_workflow_stage_id is NOT set
+      // 2. current_phase is NOT set
+      // 3. status matches
+      columnProposals = filteredProposals.filter(p => 
+        p && 
+        !p.custom_workflow_stage_id && 
+        !p.current_phase && 
+        p.status === column.default_status_mapping
+      );
     }
 
     // Debug logging for empty columns
@@ -327,19 +349,19 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       const updatesForMovedProposal = {};
 
       // 1. Update status/phase/custom_workflow_stage_id based on destination column
+      // CRITICAL: Always explicitly set ALL three fields to ensure mutual exclusivity
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null; // Explicitly null
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
-        updatesForMovedProposal.current_phase = null;
-        // Status for custom stages might need to be set based on overall phase they belong to
-        // For now, it will retain its previous 'status' if not explicitly set.
+        updatesForMovedProposal.current_phase = null; // Explicitly null
+        updatesForMovedProposal.status = 'in_progress'; // Set a default status
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
-        updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        updatesForMovedProposal.current_phase = null; // Explicitly null
+        updatesForMovedProposal.custom_workflow_stage_id = null; // Explicitly null
       }
 
       // 2. Reset checklist status for new stage (if column changed)
@@ -388,6 +410,14 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       } else {
         updatesForMovedProposal.manual_order = destinationIndex; // Fallback
       }
+
+      console.log('[Kanban] Moving proposal:', {
+        proposalId: proposal.id,
+        proposalName: proposal.proposal_name,
+        from: sourceColumn.label,
+        to: destinationColumn.label,
+        updates: updatesForMovedProposal
+      });
 
       // Execute the main update for the dragged proposal
       await updateProposalMutation.mutateAsync({
