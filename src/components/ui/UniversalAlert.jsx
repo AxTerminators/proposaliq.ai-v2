@@ -31,19 +31,21 @@ import { cn } from "@/lib/utils";
  *   confirmText="Got it"
  * />
  */
-export default function UniversalAlert({
-  isOpen,
-  onClose,
-  type = "info",
-  title,
-  description,
-  confirmText = "OK",
-  cancelText,
-  onConfirm,
-  onCancel,
-  children,
-  showIcon = true,
-}) {
+export default function UniversalAlert(props = {}) {
+  const {
+    isOpen = false,
+    onClose = () => {},
+    type = "info",
+    title = "",
+    description = "",
+    confirmText = "OK",
+    cancelText,
+    onConfirm,
+    onCancel,
+    children,
+    showIcon = true,
+  } = props;
+
   const themes = {
     success: {
       icon: CheckCircle2,
@@ -115,9 +117,11 @@ export default function UniversalAlert({
               {cancelText}
             </AlertDialogCancel>
           )}
-          <AlertDialogAction onClick={handleConfirm} className={cn("w-full", theme.buttonClass)}>
-            {confirmText}
-          </AlertDialogAction>
+          {confirmText && (
+            <AlertDialogAction onClick={handleConfirm} className={cn("w-full", theme.buttonClass)}>
+              {confirmText}
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
