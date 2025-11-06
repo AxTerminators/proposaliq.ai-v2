@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -496,6 +497,31 @@ export default function ChecklistActionRegistry({
  */
 export function getActionDetails(actionKey) {
   return ACTION_REGISTRY[actionKey] || null;
+}
+
+/**
+ * Helper function for backwards compatibility
+ */
+export function getActionConfig(actionKey) {
+  return getActionDetails(actionKey);
+}
+
+/**
+ * Helper function to check action type
+ */
+export function isNavigateAction(actionKey) {
+  const action = ACTION_REGISTRY[actionKey];
+  return action?.type === 'navigate';
+}
+
+export function isModalAction(actionKey) {
+  const action = ACTION_REGISTRY[actionKey];
+  return action?.type === 'modal';
+}
+
+export function isAIAction(actionKey) {
+  const action = ACTION_REGISTRY[actionKey];
+  return action?.type === 'ai';
 }
 
 /**
