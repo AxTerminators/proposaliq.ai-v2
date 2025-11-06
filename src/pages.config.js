@@ -46,6 +46,7 @@ import ContentDevelopment from './pages/ContentDevelopment';
 import FinalReview from './pages/FinalReview';
 import KanbanTestingGuide from './pages/KanbanTestingGuide';
 import KanbanRoadmapStatus from './pages/KanbanRoadmapStatus';
+import PricingBuilder from './pages/PricingBuilder';
 import Layout from './Layout.jsx';
 
 
@@ -98,6 +99,7 @@ export const PAGES = {
     "FinalReview": FinalReview,
     "KanbanTestingGuide": KanbanTestingGuide,
     "KanbanRoadmapStatus": KanbanRoadmapStatus,
+    "PricingBuilder": PricingBuilder,
 }
 
 export const pagesConfig = {
