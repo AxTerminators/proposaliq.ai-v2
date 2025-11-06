@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -358,7 +359,9 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        // IMPORTANT: Store the specific column ID so we know which locked_phase column
+        // This is critical when multiple columns share the same phase_mapping
+        updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
         updatesForMovedProposal.current_phase = null;
