@@ -556,6 +556,15 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     const userRole = getUserRole();
 
+    console.log('[RBAC] Drag attempt:', {
+      proposalName: proposal.proposal_name,
+      from: sourceColumn.label,
+      to: destinationColumn.label,
+      userRole: userRole,
+      destinationColumn_can_drag_to_here_roles: destinationColumn.can_drag_to_here_roles,
+      destinationColumn_full: destinationColumn
+    });
+
     // **PHASE 3: RBAC Check - Can user drag FROM this column?**
     if (sourceColumn?.can_drag_from_here_roles?.length > 0) {
       if (!sourceColumn.can_drag_from_here_roles.includes(userRole)) {
@@ -571,14 +580,26 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     // **PHASE 3: RBAC Check - Can user drag TO this column?**
     if (destinationColumn?.can_drag_to_here_roles?.length > 0) {
+      console.log('[RBAC] Checking permissions for destination column:', {
+        column: destinationColumn.label,
+        requiredRoles: destinationColumn.can_drag_to_here_roles,
+        userRole: userRole,
+        hasPermission: destinationColumn.can_drag_to_here_roles.includes(userRole)
+      });
+      
       if (!destinationColumn.can_drag_to_here_roles.includes(userRole)) {
-        console.warn('[RBAC] DRAG BLOCKED TO:', {
+        console.warn('[RBAC] ❌ DRAG BLOCKED TO:', {
           column: destinationColumn.label,
           requiredRoles: destinationColumn.can_drag_to_here_roles,
           userRole: userRole
         });
-        alert(`🔒 You don't have permission to move proposals into "${destinationColumn.label}".\n\nRequired role: ${destinationColumn.can_drag_to_here_roles.join(', ')}\nYour role: ${userRole}\n\nPlease contact your organization owner to update your permissions.`);
+        alert(`🔒 You don't have permission to move proposals into "${destinationColumn.label}".\n\n` +
+              `Required roles: ${destinationColumn.can_drag_to_here_roles.join(', ')}\n` +
+              `Your role: ${userRole}\n\n` +
+              `Please go to Configure → Edit the "${destinationColumn.label}" column → Update "Can Drag To Here Roles" to include "organization_owner"`);
         return;
+      } else {
+        console.log('[RBAC] ✅ Permission granted to drag to:', destinationColumn.label);
       }
     }
 
