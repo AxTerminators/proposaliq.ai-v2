@@ -523,7 +523,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         console.error('[RBAC] Column:', sourceColumn.label);
         console.error('[RBAC] Required roles:', sourceColumn.can_drag_from_here_roles);
         console.error('[RBAC] Your role:', userRole);
-        console.error('[RBAC] FIX: Go to Configure → Edit "' + sourceColumn.label + '" column → Add "' + userRole + '" to "Can Drag From Here Roles"');
+        console.error('[RBAC] FIX: Go to Configure → Edit \'' + sourceColumn.label + '\' column → Add \'' + userRole + '\' to "Can Drag From Here Roles"');
         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         alert(`🔒 Cannot drag from "${sourceColumn.label}"\n\n` +
@@ -550,7 +550,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         console.error('[RBAC] Column:', destinationColumn.label);
         console.error('[RBAC] Required roles:', destinationColumn.can_drag_to_here_roles);
         console.error('[RBAC] Your role:', userRole);
-        console.error('[RBAC] FIX: Go to Configure → Edit "' + destinationColumn.label + '" column → Add "' + userRole + '" to "Can Drag To Here Roles"');
+        console.error('[RBAC] FIX: Go to Configure → Edit \'' + destinationColumn.label + '\' column → Add \'' + userRole + '\' to "Can Drag To Here Roles"');
         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         alert(`🔒 Cannot drag to "${destinationColumn.label}"\n\n` +
@@ -575,15 +575,30 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       }
     }
 
+    // Check if approval is required when exiting source column
+    // Only require approval when moving to terminal/end-state columns
     if (sourceColumn?.requires_approval_to_exit) {
-      setApprovalGateData({
-        proposal,
-        sourceColumn,
-        destinationColumn,
-        destinationIndex: destination.index
-      });
-      setShowApprovalGate(true);
-      return;
+      const terminalColumns = ['submitted', 'won', 'lost', 'archived'];
+      const isMovingToTerminalState = terminalColumns.includes(destinationColumn.id);
+      
+      console.log('[RBAC] 🔐 Checking approval requirements...');
+      console.log('[RBAC] Source requires approval to exit:', sourceColumn.requires_approval_to_exit);
+      console.log('[RBAC] Destination column ID:', destinationColumn.id);
+      console.log('[RBAC] Is moving to terminal state?', isMovingToTerminalState);
+      
+      if (isMovingToTerminalState) {
+        console.log('[RBAC] ⚠️ Approval required - showing approval gate');
+        setApprovalGateData({
+          proposal,
+          sourceColumn,
+          destinationColumn,
+          destinationIndex: destination.index
+        });
+        setShowApprovalGate(true);
+        return;
+      } else {
+        console.log('[RBAC] ✅ No approval required - destination is not a terminal state');
+      }
     }
 
     await performProposalMove(proposal, sourceColumn, destinationColumn, destination.index);
