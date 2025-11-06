@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -66,9 +66,15 @@ export default function KanbanCard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Modal states
   const [activeModal, setActiveModal] = useState(null);
+
+  // Track when drag starts to prevent click events
+  useEffect(() => {
+    setIsDragging(snapshot.isDragging);
+  }, [snapshot.isDragging]);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks-count', proposal.id],
@@ -137,6 +143,8 @@ export default function KanbanCard({
   };
 
   const handleCardClick = (e) => {
+    // Don't trigger click if we're dragging or if clicking interactive elements
+    if (isDragging) return;
     if (e.target.closest('button') || e.target.closest('[role="menu"]')) return;
     onCardClick?.(proposal);
   };
@@ -227,220 +235,225 @@ export default function KanbanCard({
 
   return (
     <>
-      <Card
+      <div
         ref={provided.innerRef}
         {...provided.draggableProps}
-        {...provided.dragHandleProps}
         onClick={handleCardClick}
         className={cn(
           "relative cursor-pointer group transition-all",
           snapshot.isDragging 
-            ? "shadow-2xl ring-2 ring-blue-400 rotate-2" 
+            ? "shadow-2xl ring-2 ring-blue-400 rotate-1 scale-105 z-50" 
             : "shadow-sm hover:shadow-md",
           hasActionRequired && "ring-2 ring-orange-400",
           isDragDisabled && "opacity-60 cursor-not-allowed"
         )}
       >
-        <CardContent className="p-4">
-          {/* Drag Indicator */}
-          {!isDragDisabled && (
-            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <GripVertical className="w-4 h-4 text-slate-400" />
-            </div>
-          )}
+        <Card className="relative bg-white">
+          <CardContent className="p-4">
+            {/* Drag Handle - Separate from card content */}
+            {!isDragDisabled && (
+              <div 
+                {...provided.dragHandleProps}
+                className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="w-4 h-4 text-slate-400" />
+              </div>
+            )}
 
-          {/* Action Required Pulse */}
-          {hasActionRequired && (
-            <div className="absolute -top-2 -left-2 z-10">
-              <div className="relative">
-                <div className="absolute inset-0 bg-orange-500 rounded-full animate-ping opacity-75" />
-                <div className="relative w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
-                  <PlayCircle className="w-4 h-4 text-white" />
+            {/* Action Required Pulse */}
+            {hasActionRequired && (
+              <div className="absolute -top-2 -left-2 z-10">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-orange-500 rounded-full animate-ping opacity-75" />
+                  <div className="relative w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                    <PlayCircle className="w-4 h-4 text-white" />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Disabled Indicator */}
-          {isDragDisabled && (
-            <div className="absolute top-2 right-2">
-              <Shield className="w-5 h-5 text-orange-500" title="Cannot move from this column" />
-            </div>
-          )}
+            {/* Disabled Indicator */}
+            {isDragDisabled && (
+              <div className="absolute top-2 right-2">
+                <Shield className="w-5 h-5 text-orange-500" title="Cannot move from this column" />
+              </div>
+            )}
 
-          {/* Three Dots Menu */}
-          <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100">
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onClick={handleEdit}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Proposal
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleArchive}>
-                  <Archive className="w-4 h-4 mr-2" />
-                  Archive
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(true); }} className="text-red-600">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Card Content */}
-          <div className="space-y-3 pr-6">
-            {/* Title */}
-            <div>
-              <h4 className="font-semibold text-slate-900 text-sm line-clamp-2 mb-1">
-                {proposal.proposal_name}
-              </h4>
-              {proposal.solicitation_number && (
-                <p className="text-xs text-slate-500 font-mono">
-                  {proposal.solicitation_number}
-                </p>
-              )}
+            {/* Three Dots Menu */}
+            <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={handleEdit}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Proposal
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleArchive}>
+                    <Archive className="w-4 h-4 mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowDeleteDialog(true); }} className="text-red-600">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {/* Agency & Project */}
-            {(proposal.agency_name || proposal.project_title) && (
-              <div className="space-y-1">
-                {proposal.agency_name && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                    <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate">{proposal.agency_name}</span>
-                  </div>
-                )}
-                {proposal.project_title && (
-                  <p className="text-xs text-slate-600 line-clamp-2 pl-5">
-                    {proposal.project_title}
+            {/* Card Content */}
+            <div className="space-y-3 pr-6">
+              {/* Title */}
+              <div>
+                <h4 className="font-semibold text-slate-900 text-sm line-clamp-2 mb-1">
+                  {proposal.proposal_name}
+                </h4>
+                {proposal.solicitation_number && (
+                  <p className="text-xs text-slate-500 font-mono">
+                    {proposal.solicitation_number}
                   </p>
                 )}
               </div>
-            )}
 
-            {/* Checklist - NOW USING ChecklistItemRenderer */}
-            {checklistItems.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">Checklist</span>
-                  <span className="text-xs text-slate-600">{completedChecklistItems}/{checklistItems.length}</span>
-                </div>
-                <div className="space-y-1.5">
-                  {checklistItems.slice(0, 3).map((item) => (
-                    <ChecklistItemRenderer
-                      key={item.id}
-                      item={item}
-                      isCompleted={checklistStatus[item.id]?.completed}
-                      onItemClick={handleChecklistItemClick}
-                    />
-                  ))}
-                  {checklistItems.length > 3 && (
-                    <p className="text-xs text-slate-500 pl-5.5">+{checklistItems.length - 3} more</p>
+              {/* Agency & Project */}
+              {(proposal.agency_name || proposal.project_title) && (
+                <div className="space-y-1">
+                  {proposal.agency_name && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{proposal.agency_name}</span>
+                    </div>
+                  )}
+                  {proposal.project_title && (
+                    <p className="text-xs text-slate-600 line-clamp-2 pl-5">
+                      {proposal.project_title}
+                    </p>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Progress Bar */}
-            {proposal.progress_summary?.completion_percentage >= 0 && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-600">Progress</span>
-                  <span className="text-xs font-semibold text-slate-900">
-                    {proposal.progress_summary.completion_percentage}%
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2">
-                  <div
-                    className={cn(
-                      "h-2 rounded-full transition-all",
-                      proposal.progress_summary.completion_percentage === 100 ? 'bg-green-500' :
-                      proposal.progress_summary.completion_percentage >= 75 ? 'bg-blue-500' :
-                      proposal.progress_summary.completion_percentage >= 50 ? 'bg-yellow-500' :
-                      'bg-orange-500'
+              {/* Checklist - NOW USING ChecklistItemRenderer */}
+              {checklistItems.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">Checklist</span>
+                    <span className="text-xs text-slate-600">{completedChecklistItems}/{checklistItems.length}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {checklistItems.slice(0, 3).map((item) => (
+                      <ChecklistItemRenderer
+                        key={item.id}
+                        item={item}
+                        isCompleted={checklistStatus[item.id]?.completed}
+                        onItemClick={handleChecklistItemClick}
+                      />
+                    ))}
+                    {checklistItems.length > 3 && (
+                      <p className="text-xs text-slate-500 pl-5.5">+{checklistItems.length - 3} more</p>
                     )}
-                    style={{ width: `${proposal.progress_summary.completion_percentage}%` }}
-                  />
+                  </div>
                 </div>
+              )}
+
+              {/* Progress Bar */}
+              {proposal.progress_summary?.completion_percentage >= 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-600">Progress</span>
+                    <span className="text-xs font-semibold text-slate-900">
+                      {proposal.progress_summary.completion_percentage}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div
+                      className={cn(
+                        "h-2 rounded-full transition-all",
+                        proposal.progress_summary.completion_percentage === 100 ? 'bg-green-500' :
+                        proposal.progress_summary.completion_percentage >= 75 ? 'bg-blue-500' :
+                        proposal.progress_summary.completion_percentage >= 50 ? 'bg-yellow-500' :
+                        'bg-orange-500'
+                      )}
+                      style={{ width: `${proposal.progress_summary.completion_percentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata Icons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {totalTasks > 0 && (
+                  <Badge variant="secondary" className="text-xs font-medium">
+                    <CheckSquare className="w-3 h-3 mr-1" />
+                    {completedTasks}/{totalTasks}
+                  </Badge>
+                )}
+
+                {comments.length > 0 && (
+                  <Badge variant="secondary" className="text-xs font-medium">
+                    <MessageCircle className="w-3 h-3 mr-1" />
+                    {comments.length}
+                  </Badge>
+                )}
+
+                {files.length > 0 && (
+                  <Badge variant="secondary" className="text-xs font-medium">
+                    <Paperclip className="w-3 h-3 mr-1" />
+                    {files.length}
+                  </Badge>
+                )}
+
+                {(proposal.evaluation_results || proposal.ai_confidence_score) && (
+                  <Badge variant="secondary" className="text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    AI
+                  </Badge>
+                )}
               </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                {proposal.due_date && (
+                  <div className={cn(
+                    "flex items-center gap-1.5 text-xs",
+                    isOverdue ? 'text-red-600 font-semibold' :
+                    isDueSoon ? 'text-orange-600 font-semibold' :
+                    'text-slate-600'
+                  )}>
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>
+                      {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` :
+                      isDueSoon ? `${daysUntilDue}d left` :
+                      moment(proposal.due_date).format('MMM D')}
+                    </span>
+                  </div>
+                )}
+
+                {proposal.contract_value && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 ml-auto">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span className="font-medium">
+                      ${(proposal.contract_value / 1000000).toFixed(1)}M
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Urgency Corner Indicator */}
+            {(isOverdue || isDueSoon) && (
+              <div className={cn(
+                "absolute top-0 right-0 w-0 h-0 border-t-[24px] border-r-[24px] rounded-tr-lg",
+                isOverdue ? "border-t-red-500 border-r-red-500" : "border-t-orange-400 border-r-orange-400"
+              )} />
             )}
-
-            {/* Metadata Icons */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {totalTasks > 0 && (
-                <Badge variant="secondary" className="text-xs font-medium">
-                  <CheckSquare className="w-3 h-3 mr-1" />
-                  {completedTasks}/{totalTasks}
-                </Badge>
-              )}
-
-              {comments.length > 0 && (
-                <Badge variant="secondary" className="text-xs font-medium">
-                  <MessageCircle className="w-3 h-3 mr-1" />
-                  {comments.length}
-                </Badge>
-              )}
-
-              {files.length > 0 && (
-                <Badge variant="secondary" className="text-xs font-medium">
-                  <Paperclip className="w-3 h-3 mr-1" />
-                  {files.length}
-                </Badge>
-              )}
-
-              {(proposal.evaluation_results || proposal.ai_confidence_score) && (
-                <Badge variant="secondary" className="text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  AI
-                </Badge>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-              {proposal.due_date && (
-                <div className={cn(
-                  "flex items-center gap-1.5 text-xs",
-                  isOverdue ? 'text-red-600 font-semibold' :
-                  isDueSoon ? 'text-orange-600 font-semibold' :
-                  'text-slate-600'
-                )}>
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` :
-                     isDueSoon ? `${daysUntilDue}d left` :
-                     moment(proposal.due_date).format('MMM D')}
-                  </span>
-                </div>
-              )}
-
-              {proposal.contract_value && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 ml-auto">
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span className="font-medium">
-                    ${(proposal.contract_value / 1000000).toFixed(1)}M
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Urgency Corner Indicator */}
-          {(isOverdue || isDueSoon) && (
-            <div className={cn(
-              "absolute top-0 right-0 w-0 h-0 border-t-[24px] border-r-[24px] rounded-tr-lg",
-              isOverdue ? "border-t-red-500 border-r-red-500" : "border-t-orange-400 border-r-orange-400"
-            )} />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Delete Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
