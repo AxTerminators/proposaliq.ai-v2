@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -446,9 +447,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                   "border-2 transition-all",
                                   isCompleted ? "border-green-200 bg-green-50" : "border-slate-200",
                                   item.required && !isCompleted && "border-orange-200 bg-orange-50",
-                                  isClickable && "cursor-pointer hover:border-blue-300 hover:shadow-md"
+                                  isClickable && "hover:border-blue-300 hover:shadow-md"
                                 )}
-                                onClick={() => isClickable && handleChecklistItemClick(item)}
                               >
                                 <CardContent className="p-4">
                                   <div className="flex items-start gap-3">
@@ -484,6 +484,34 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                             </p>
                                           )}
                                         </div>
+
+                                        {/* Click to Start Button for clickable items */}
+                                        {isClickable && (
+                                          <Button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleChecklistItemClick(item);
+                                            }}
+                                            size="sm"
+                                            className={cn(
+                                              "flex-shrink-0",
+                                              isModalAction(item.associated_action) ? "bg-indigo-600 hover:bg-indigo-700" :
+                                              isNavigateAction(item.associated_action) ? "bg-blue-600 hover:bg-blue-700" :
+                                              "bg-slate-600 hover:bg-slate-700"
+                                            )}
+                                          >
+                                            {isModalAction(item.associated_action) && (
+                                              <FileEdit className="w-4 h-4 mr-1.5" />
+                                            )}
+                                            {isNavigateAction(item.associated_action) && (
+                                              <ExternalLink className="w-4 h-4 mr-1.5" />
+                                            )}
+                                            {item.type === 'manual_check' && !item.associated_action && (
+                                              <Circle className="w-4 h-4 mr-1.5" />
+                                            )}
+                                            Click to Start
+                                          </Button>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
