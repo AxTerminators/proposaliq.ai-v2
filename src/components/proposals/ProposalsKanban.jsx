@@ -412,7 +412,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   };
 
   const handleDragStart = (start) => {
-    // Track when drag starts
+    setDragInProgress(true);
   };
 
   const handleDragUpdate = (update) => {
@@ -425,6 +425,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   const onDragEnd = async (result) => {
     setDragOverColumnId(null);
+    setDragInProgress(false);
 
     if (!result.destination || dragInProgress) return;
 
