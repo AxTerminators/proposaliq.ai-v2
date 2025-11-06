@@ -21,9 +21,7 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
-  ZoomIn, // Not used after removal, but keeping for now if other places might still use it or if it's a shared icon lib
-  ZoomOut, // Not used after removal, but keeping for now if other places might still use it or if it's a shared icon lib
-  LayoutGrid,
+  LayoutGrid, // Kept as it's used in loading/setup wizard states
   Sparkles,
   HelpCircle,
   CheckCircle2,
@@ -71,7 +69,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [showProposalModal, setShowProposalModal] = useState(false);
-  // const [zoomLevel, setZoomLevel] = useState(1); // Removed zoom functionality
+  // Removed zoom functionality - zoomLevel state is no longer needed.
   const [dragOverColumnId, setDragOverColumnId] = useState(null);
   const [showApprovalGate, setShowApprovalGate] = useState(false);
   const [approvalGateData, setApprovalGateData] = useState(null);
@@ -155,35 +153,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
-  // Removed zoom functionality
-  // const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
-  // const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
-  // const handleZoomReset = () => setZoomLevel(1);
-
-  // Removed useEffect for wheel event
-  // useEffect(() => {
-  //   const handleWheel = (e) => {
-  //     if (e.ctrlKey || e.metaKey) {
-  //       e.preventDefault();
-  //       if (e.deltaY < 0) {
-  //         handleZoomIn();
-  //       } else {
-  //         handleZoomOut();
-  //       }
-  //     }
-  //   };
-
-  //   const board = boardRef.current;
-  //   if (board) {
-  //     board.addEventListener('wheel', handleWheel, { passive: false });
-  //   }
-
-  //   return () => {
-  //     if (board) {
-  //       board.removeEventListener('wheel', handleWheel);
-  //     }
-  //   };
-  // }, [handleZoomIn, handleZoomOut]);
+  // Removed zoom functionality (handleZoomIn, handleZoomOut, handleZoomReset functions and related useEffect)
+  // These functions and the useEffect are no longer present.
 
   // Check if user has completed the tour
   useEffect(() => {
@@ -927,8 +898,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             </Button>
 
             <div className="flex items-center gap-2">
-              {/* Zoom Controls - REMOVED (causes drag issues) */}
-              
               {/* Filters Button */}
               <Button
                 variant={showFilters ? "default" : "outline"}
@@ -1036,9 +1005,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                   {...providedOuter.droppableProps}
                   className="flex gap-4 h-full"
                   style={{
-                    // REMOVED zoom transform that was causing drag issues
-                    // transform: `scale(${zoomLevel})`,
-                    // transformOrigin: 'top left',
                     minWidth: 'min-content'
                   }}
                 >
