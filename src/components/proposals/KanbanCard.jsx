@@ -139,8 +139,20 @@ export default function KanbanCard({
   };
 
   const handleCardClick = (e) => {
+    // Don't trigger card click if dragging
     if (isDragging) return;
-    if (e.target.closest('button') || e.target.closest('[role="menu"]') || e.target.closest('input')) return;
+    
+    // Don't trigger card click if clicking on interactive elements
+    if (
+      e.target.closest('button') || 
+      e.target.closest('[role="menu"]') || 
+      e.target.closest('input') ||
+      e.target.closest('a') || // Added this
+      e.target.closest('[data-checklist-item]') // Added this to catch checklist items
+    ) {
+      return;
+    }
+    
     onCardClick?.(proposal);
   };
 
@@ -158,7 +170,9 @@ export default function KanbanCard({
 
     // Direct action handlers based on action name
     const handleClick = (e) => {
+      // CRITICAL: Stop all propagation
       e.stopPropagation();
+      e.preventDefault(); // Prevents default button behavior like form submission, though not strictly needed for toggle.
       
       const action = item.associated_action;
       
@@ -199,8 +213,15 @@ export default function KanbanCard({
       <button
         key={item.id}
         onClick={isCompleted ? undefined : handleClick}
+        onMouseDown={(e) => {
+          // Also stop mousedown to prevent any interference
+          if (!isCompleted) {
+            e.stopPropagation();
+          }
+        }}
         disabled={isCompleted}
         type="button"
+        data-checklist-item="true" // Added this
         className={cn(
           "flex items-center gap-2 py-1.5 px-2 rounded transition-colors w-full text-left",
           !isCompleted && "cursor-pointer hover:bg-blue-50 active:bg-blue-100",
