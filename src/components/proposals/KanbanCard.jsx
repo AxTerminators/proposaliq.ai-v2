@@ -144,7 +144,7 @@ export default function KanbanCard({
 
   // Handle checklist item click
   const handleChecklistItemClick = async (e, item) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation(); // Only stop propagation if an event object is provided
 
     const actionConfig = getActionConfig(item.associated_action);
 
@@ -340,7 +340,8 @@ export default function KanbanCard({
                         key={item.id}
                         item={item}
                         isCompleted={checklistStatus[item.id]?.completed}
-                        onItemClick={handleChecklistItemClick}
+                        onItemClick={(clickedItem) => handleChecklistItemClick(null, clickedItem)}
+                        proposal={proposal}
                       />
                     ))}
                     {checklistItems.length > 3 && (
