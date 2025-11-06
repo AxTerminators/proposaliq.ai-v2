@@ -17,7 +17,7 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     console.log('[ChecklistItem] Clicked:', item.label, 'Action:', item.associated_action);
     
     if (!item.associated_action) {
-      // Manual checkbox - just toggle
+      // Manual checkbox - call parent handler
       console.log('[ChecklistItem] Manual checkbox - calling onItemClick');
       onItemClick(item);
       return;
@@ -42,11 +42,11 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       console.log('[ChecklistItem] Navigating to:', url);
       navigate(url);
     } else if (isModalAction(item.associated_action) || isAIAction(item.associated_action)) {
-      // Trigger modal/AI action (handled by parent component)
+      // Trigger modal/AI action - call parent handler
       console.log('[ChecklistItem] Modal/AI action - calling onItemClick');
       onItemClick(item);
     } else {
-      // Default: manual check
+      // Default: manual check - call parent handler
       console.log('[ChecklistItem] Default - calling onItemClick');
       onItemClick(item);
     }
@@ -84,11 +84,12 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     <button
       onClick={isClickable ? handleClick : undefined}
       disabled={!isClickable}
+      type="button"
       className={cn(
         "flex items-center gap-2 py-1.5 px-2 rounded transition-colors w-full text-left",
         isClickable && "cursor-pointer hover:bg-blue-50 active:bg-blue-100",
         isCompleted && "opacity-60",
-        !isClickable && "cursor-default"
+        !isClickable && "cursor-default opacity-50"
       )}
     >
       {getIcon()}
