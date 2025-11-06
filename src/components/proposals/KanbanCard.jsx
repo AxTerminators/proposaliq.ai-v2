@@ -66,15 +66,15 @@ export default function KanbanCard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  // const [isDragging, setIsDragging] = useState(false); // Removed, using snapshot.isDragging directly
 
   // Modal states
   const [activeModal, setActiveModal] = useState(null);
 
   // Track when drag starts to prevent click events
-  useEffect(() => {
-    setIsDragging(snapshot.isDragging);
-  }, [snapshot.isDragging]);
+  // useEffect(() => { // Removed, using snapshot.isDragging directly
+  //   setIsDragging(snapshot.isDragging);
+  // }, [snapshot.isDragging]);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks-count', proposal.id],
@@ -144,7 +144,7 @@ export default function KanbanCard({
 
   const handleCardClick = (e) => {
     // Don't trigger click if we're dragging or if clicking interactive elements
-    if (isDragging) return;
+    if (snapshot.isDragging) return; // Changed to snapshot.isDragging
     if (e.target.closest('button') || e.target.closest('[role="menu"]') || e.target.closest('input')) return;
     onCardClick?.(proposal);
   };
@@ -241,16 +241,16 @@ export default function KanbanCard({
         {...provided.dragHandleProps}
         style={{
           ...provided.draggableProps.style,
-          cursor: isDragDisabled ? 'not-allowed' : 'grab',
+          // cursor: isDragDisabled ? 'not-allowed' : 'grab', // Removed, handled by className
         }}
         onClick={handleCardClick}
         className={cn(
-          "relative transition-shadow",
+          "relative transition-shadow group", // Added 'group'
           snapshot.isDragging
-            ? "shadow-2xl opacity-90"
+            ? "shadow-2xl opacity-90 rotate-2" // Added 'rotate-2'
             : "shadow-sm hover:shadow-md",
           hasActionRequired && "ring-2 ring-orange-400",
-          isDragDisabled && "opacity-60"
+          isDragDisabled && "opacity-60 cursor-not-allowed" // Added 'cursor-not-allowed'
         )}
       >
         <Card className="relative bg-white">
@@ -308,7 +308,7 @@ export default function KanbanCard({
             </div>
 
             {/* Card Content */}
-            <div className="space-y-3 pr-6 pointer-events-none">
+            <div className="space-y-3 pr-6"> {/* Removed pointer-events-none */}
               {/* Title */}
               <div>
                 <h4 className="font-semibold text-slate-900 text-sm line-clamp-2 mb-1">

@@ -444,10 +444,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
   };
 
-  const handleDragStart = (start) => {
-    setDragInProgress(true);
-  };
-
   const handleDragUpdate = (update) => {
     if (update.destination && update.type === "card") {
       setDragOverColumnId(update.destination.droppableId);
@@ -457,10 +453,11 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   };
 
   const onDragEnd = async (result) => {
+    // Reset drag state immediately
     setDragOverColumnId(null);
     setDragInProgress(false);
 
-    if (!result.destination || dragInProgress) return;
+    if (!result.destination) return;
 
     const { source, destination, draggableId, type } = result;
 
@@ -1054,8 +1051,11 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible p-4">
           <DragDropContext
             onDragEnd={onDragEnd}
-            onDragStart={handleDragStart}
+            // Removed handleDragStart and replaced with onBeforeDragStart for consistency
             onDragUpdate={handleDragUpdate}
+            onBeforeDragStart={() => {
+              setDragInProgress(true);
+            }}
           >
             <Droppable droppableId="all-columns" direction="horizontal" type="column">
               {(providedOuter) => (
