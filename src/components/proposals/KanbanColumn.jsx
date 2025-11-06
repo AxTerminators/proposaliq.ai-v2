@@ -271,10 +271,13 @@ export default function KanbanColumn({
       </div>
 
       {/* Column Body */}
-      <div className="flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden">
+      <div className={cn(
+        "flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden",
+        snapshot.isDraggingOver && "bg-blue-50 border-blue-300"
+      )}>
         <div 
           className="h-full overflow-y-auto p-3 space-y-3"
-          style={{ minHeight: '200px' }} // Ensure droppable area has minimum height
+          style={{ minHeight: '300px' }}
         >
           {/* Warning Messages */}
           {!canDragToHere && proposalCount > 0 && (
@@ -327,14 +330,21 @@ export default function KanbanColumn({
                   isDragDisabled={!canDragFromHere}
                 >
                   {(cardProvided, cardSnapshot) => (
-                    <KanbanCard
-                      proposal={proposal}
-                      provided={cardProvided}
-                      snapshot={cardSnapshot}
-                      isDragDisabled={!canDragFromHere}
-                      column={column}
-                      onCardClick={onCardClick}
-                    />
+                    <div
+                      ref={cardProvided.innerRef}
+                      {...cardProvided.draggableProps}
+                      {...cardProvided.dragHandleProps}
+                      style={cardProvided.draggableProps.style}
+                    >
+                      <KanbanCard
+                        proposal={proposal}
+                        provided={cardProvided}
+                        snapshot={cardSnapshot}
+                        isDragDisabled={!canDragFromHere}
+                        column={column}
+                        onCardClick={onCardClick}
+                      />
+                    </div>
                   )}
                 </Draggable>
               ))}

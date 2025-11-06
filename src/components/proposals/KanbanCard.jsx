@@ -239,20 +239,24 @@ export default function KanbanCard({
         ref={provided.innerRef}
         {...provided.draggableProps}
         {...provided.dragHandleProps}
+        style={{
+          ...provided.draggableProps.style,
+          cursor: isDragDisabled ? 'not-allowed' : 'grab',
+        }}
         onClick={handleCardClick}
         className={cn(
-          "relative cursor-pointer group transition-all",
+          "relative transition-shadow",
           snapshot.isDragging
-            ? "shadow-2xl ring-2 ring-blue-400 rotate-2 scale-105 z-50"
+            ? "shadow-2xl opacity-90"
             : "shadow-sm hover:shadow-md",
           hasActionRequired && "ring-2 ring-orange-400",
-          isDragDisabled && "opacity-60 cursor-not-allowed"
+          isDragDisabled && "opacity-60"
         )}
       >
         <Card className="relative bg-white">
           <CardContent className="p-4">
-            {/* Drag Indicator - Visual only, whole card is draggable */}
-            {!isDragDisabled && (
+            {/* Drag Indicator - Visual only */}
+            {!isDragDisabled && !snapshot.isDragging && (
               <div className="absolute left-1 top-2 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none">
                 <GripVertical className="w-4 h-4 text-slate-600" />
               </div>
@@ -304,7 +308,7 @@ export default function KanbanCard({
             </div>
 
             {/* Card Content */}
-            <div className="space-y-3 pr-6">
+            <div className="space-y-3 pr-6 pointer-events-none">
               {/* Title */}
               <div>
                 <h4 className="font-semibold text-slate-900 text-sm line-clamp-2 mb-1">
