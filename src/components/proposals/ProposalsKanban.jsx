@@ -26,7 +26,9 @@ import {
   LayoutGrid,
   Sparkles,
   HelpCircle,
-  CheckCircle2 // Added CheckCircle2 import
+  CheckCircle2,
+  AlertCircle, // Added AlertCircle import
+  RefreshCw // Added RefreshCw import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -79,21 +81,35 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
 
-  // Fetch kanban config
-  const { data: kanbanConfig, isLoading: isLoadingConfig } = useQuery({
+  // Fetch kanban config with better error handling and retry
+  const { data: kanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
+      console.log('[Kanban] Fetching config for org:', organization.id);
       const configs = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         '-created_date',
         1
       );
-
+      console.log('[Kanban] Config fetched:', configs.length > 0 ? 'Found' : 'Not found');
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id
+    enabled: !!organization?.id,
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 30000,
   });
+
+  // Log when data changes to debug loading issues
+  useEffect(() => {
+    console.log('[Kanban] Data update:', {
+      proposalsCount: proposals.length,
+      hasConfig: !!kanbanConfig,
+      columnsCount: kanbanConfig?.columns?.length || 0,
+      isLoadingConfig
+    });
+  }, [proposals.length, kanbanConfig, isLoadingConfig]);
 
   // Check if config exists and has columns
   const hasKanbanConfig = useMemo(() => {
@@ -211,15 +227,32 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     });
   }, [proposals, searchQuery, filterAgency, filterAssignee]);
 
+  // Enhanced getProposalsForColumn with better logging and null checks
   const getProposalsForColumn = useCallback((column) => {
+    if (!column || !proposals) {
+      console.warn('[Kanban] Missing column or proposals:', { column: !!column, proposals: !!proposals });
+      return [];
+    }
+
     let columnProposals = [];
 
     if (column.type === 'default_status') {
-      columnProposals = filteredProposals.filter(p => p.status === column.default_status_mapping);
+      columnProposals = filteredProposals.filter(p => p && p.status === column.default_status_mapping);
     } else if (column.type === 'custom_stage') {
-      columnProposals = filteredProposals.filter(p => p.custom_workflow_stage_id === column.id);
+      columnProposals = filteredProposals.filter(p => p && p.custom_workflow_stage_id === column.id);
     } else if (column.type === 'locked_phase') {
-      columnProposals = filteredProposals.filter(p => p.current_phase === column.phase_mapping);
+      columnProposals = filteredProposals.filter(p => p && p.current_phase === column.phase_mapping);
+    }
+
+    // Debug logging for empty columns
+    if (columnProposals.length === 0 && proposals.length > 0 && column.type === 'locked_phase') {
+      console.log('[Kanban] Empty column debug:', {
+        columnId: column.id,
+        columnLabel: column.label,
+        phaseMapping: column.phase_mapping,
+        totalProposals: proposals.length,
+        sampleProposalPhases: proposals.slice(0, 3).map(p => ({ id: p.id, phase: p.current_phase, status: p.status }))
+      });
     }
 
     // Sort proposals for display, but manual_order is used for drag persistence
@@ -250,7 +283,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
 
     return columnProposals;
-  }, [filteredProposals, columnSorts]);
+  }, [filteredProposals, columnSorts, proposals]);
 
 
   const handleColumnSortChange = (columnId, sortBy) => {
@@ -698,6 +731,29 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
+  // Show config error if any
+  if (configError) {
+    return (
+      <div className="flex items-center justify-center min-h-[600px] p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Error Loading Board Configuration</h2>
+            <p className="text-lg text-slate-600 mb-6">
+              {configError.message || "Failed to load Kanban configuration"}
+            </p>
+            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['kanban-config'] })} className="bg-blue-600 hover:bg-blue-700">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Show legacy config migration prompt
   if (isLegacyConfig && !isLoadingConfig) {
     return (
@@ -827,6 +883,31 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
           organization={organization}
         />
       </>
+    );
+  }
+
+  // Add a check to ensure columns is an array before rendering
+  const validColumns = Array.isArray(columns) ? columns : [];
+
+  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
+    return (
+      <div className="flex items-center justify-center min-h-[600px] p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">No Columns Configured</h2>
+            <p className="text-lg text-slate-600 mb-6">
+              Your Kanban board exists but has no columns. Please configure your board.
+            </p>
+            <Button onClick={() => setShowBoardConfig(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Settings className="w-4 h-4 mr-2" />
+              Configure Board
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -988,7 +1069,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                     minWidth: 'min-content'
                   }}
                 >
-                  {columns.map((column, index) => {
+                  {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
                     const columnProposals = getProposalsForColumn(column);
 
