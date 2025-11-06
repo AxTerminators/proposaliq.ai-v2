@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1035,8 +1036,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden bg-slate-100">
-        <div ref={boardRef} className="h-full overflow-x-auto overflow-y-visible p-4">
+      <div className="flex-1 bg-slate-100 relative">
+        <div ref={boardRef} className="absolute inset-0 overflow-x-auto overflow-y-hidden p-4">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
@@ -1051,7 +1052,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                   {...providedOuter.droppableProps}
                   className="flex gap-4 h-full"
                   style={{
-                    minWidth: 'min-content'
+                    minWidth: 'min-content',
+                    minHeight: 'calc(100vh - 180px)' 
                   }}
                 >
                   {validColumns.map((column, index) => {
