@@ -57,7 +57,7 @@ import PricingReviewModal from "./modals/PricingReviewModal";
 
 export default function KanbanCard({
   proposal,
-  isDragging, // `provided` and `snapshot` props are removed, `isDragging` is now passed directly
+  isDragging,
   isDragDisabled,
   column,
   onCardClick
@@ -66,8 +66,8 @@ export default function KanbanCard({
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Modal states
-  const [activeModal, setActiveModal] = useState(null);
+  // Modal state - store modal NAME as string
+  const [activeModalName, setActiveModalName] = useState(null);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['proposal-tasks-count', proposal.id],
@@ -124,6 +124,18 @@ export default function KanbanCard({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proposals'] })
   });
 
+  // Map modal component names to actual components
+  const MODAL_COMPONENTS = {
+    'BasicInfoModal': BasicInfoModal,
+    'TeamFormationModal': TeamFormationModal,
+    'ResourceGatheringModal': ResourceGatheringModal,
+    'SolicitationUploadModal': SolicitationUploadModal,
+    'EvaluationModal': EvaluationModal,
+    'WinStrategyModal': WinStrategyModal,
+    'ContentPlanningModal': ContentPlanningModal,
+    'PricingReviewModal': PricingReviewModal,
+  };
+
   const handleArchive = (e) => {
     e.stopPropagation();
     updateProposalMutation.mutate({ status: 'archived', custom_workflow_stage_id: null });
@@ -150,13 +162,17 @@ export default function KanbanCard({
     const actionConfig = getActionConfig(item.associated_action);
 
     if (!actionConfig) {
-      console.warn(`No action config found for: ${item.associated_action}`);
+      console.warn(`[KanbanCard] No action config found for: ${item.associated_action}`);
       return;
     }
 
-    // Handle modal actions
+    console.log('[KanbanCard] Action config found:', actionConfig);
+
+    // Handle modal actions - store the component name (string)
     if (isModalAction(item.associated_action)) {
-      setActiveModal(actionConfig.component);
+      const modalName = actionConfig.component.name; // Get component name
+      console.log('[KanbanCard] Opening modal:', modalName);
+      setActiveModalName(modalName);
       return;
     }
 
@@ -171,9 +187,10 @@ export default function KanbanCard({
         'run_readiness_check_phase7': null // This navigates to ProposalBuilder
       };
 
-      const modalComponent = aiActionModalMap[item.associated_action];
-      if (modalComponent) {
-        setActiveModal(modalComponent);
+      const modalName = aiActionModalMap[item.associated_action];
+      if (modalName) {
+        console.log('[KanbanCard] Opening AI modal:', modalName);
+        setActiveModalName(modalName);
         return;
       }
     }
@@ -207,9 +224,30 @@ export default function KanbanCard({
 
   // Handle modal close
   const handleModalClose = () => {
-    setActiveModal(null);
+    console.log('[KanbanCard] Closing modal');
+    setActiveModalName(null);
     // Refresh proposal data
     queryClient.invalidateQueries({ queryKey: ['proposals'] });
+  };
+
+  // Render active modal dynamically
+  const renderActiveModal = () => {
+    if (!activeModalName) return null;
+    
+    const ModalComponent = MODAL_COMPONENTS[activeModalName];
+    if (!ModalComponent) {
+      console.error('[KanbanCard] Modal component not found:', activeModalName);
+      return null;
+    }
+
+    console.log('[KanbanCard] Rendering modal:', activeModalName);
+    return (
+      <ModalComponent
+        isOpen={true}
+        onClose={handleModalClose}
+        proposalId={proposal.id}
+      />
+    );
   };
 
   return (
@@ -473,70 +511,8 @@ export default function KanbanCard({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modals */}
-      {activeModal === 'BasicInfoModal' && (
-        <BasicInfoModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'TeamFormationModal' && (
-        <TeamFormationModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'ResourceGatheringModal' && (
-        <ResourceGatheringModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'SolicitationUploadModal' && (
-        <SolicitationUploadModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'EvaluationModal' && (
-        <EvaluationModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'WinStrategyModal' && (
-        <WinStrategyModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'ContentPlanningModal' && (
-        <ContentPlanningModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
-
-      {activeModal === 'PricingReviewModal' && (
-        <PricingReviewModal
-          isOpen={true}
-          onClose={handleModalClose}
-          proposalId={proposal.id}
-        />
-      )}
+      {/* Render Modal Dynamically */}
+      {renderActiveModal()}
     </>
   );
 }
