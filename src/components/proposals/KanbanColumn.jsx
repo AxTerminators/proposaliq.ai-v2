@@ -329,15 +329,21 @@ export default function KanbanColumn({
                   type="card"
                   isDragDisabled={!canDragFromHere}
                 >
-                  {(cardProvided, cardSnapshot) => (
-                    <KanbanCard
-                      proposal={proposal}
-                      provided={cardProvided}
-                      snapshot={cardSnapshot}
-                      isDragDisabled={!canDragFromHere}
-                      column={column}
-                      onCardClick={onCardClick}
-                    />
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      style={provided.draggableProps.style}
+                    >
+                      <KanbanCard
+                        proposal={proposal}
+                        isDragging={snapshot.isDragging}
+                        isDragDisabled={!canDragFromHere}
+                        column={column}
+                        onCardClick={onCardClick}
+                      />
+                    </div>
                   )}
                 </Draggable>
               ))}
