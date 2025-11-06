@@ -143,8 +143,9 @@ export default function KanbanCard({
   };
 
   // Handle checklist item click
-  const handleChecklistItemClick = async (e, item) => {
-    if (e) e.stopPropagation(); // Only stop propagation if an event object is provided
+  const handleChecklistItemClick = async (item) => {
+    // Event is already handled by ChecklistItemRenderer
+    console.log('[KanbanCard] Checklist item clicked:', item.label, 'Action:', item.associated_action);
 
     const actionConfig = getActionConfig(item.associated_action);
 
@@ -177,24 +178,9 @@ export default function KanbanCard({
       }
     }
 
-    // Handle navigation actions
+    // Handle navigation actions - ChecklistItemRenderer already handles this
     if (isNavigateAction(item.associated_action)) {
-      let url = actionConfig.path;
-
-      // Replace params in URL
-      if (actionConfig.params?.includes('proposalId')) {
-        url += `?id=${proposal.id}`;
-      }
-
-      // Add query params
-      if (actionConfig.query) {
-        const queryString = Object.entries(actionConfig.query)
-          .map(([key, value]) => `${key}=${value}`)
-          .join('&');
-        url += url.includes('?') ? `&${queryString}` : `?${queryString}`;
-      }
-
-      navigate(url);
+      // Navigation is handled by ChecklistItemRenderer
       return;
     }
 
@@ -340,7 +326,7 @@ export default function KanbanCard({
                         key={item.id}
                         item={item}
                         isCompleted={checklistStatus[item.id]?.completed}
-                        onItemClick={(clickedItem) => handleChecklistItemClick(null, clickedItem)}
+                        onItemClick={(clickedItem) => handleChecklistItemClick(clickedItem)}
                         proposal={proposal}
                       />
                     ))}
