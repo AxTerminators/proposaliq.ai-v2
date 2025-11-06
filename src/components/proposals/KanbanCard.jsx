@@ -58,14 +58,15 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
+          style={provided.draggableProps.style}
           className={cn(
             "mb-3 group",
-            snapshot.isDragging && "opacity-50"
+            snapshot.isDragging && "opacity-70"
           )}
         >
           <Card
             className={cn(
-              "cursor-pointer hover:shadow-xl border-2 transition-all duration-200",
+              "cursor-pointer hover:shadow-xl border-2 transition-all",
               "bg-white",
               snapshot.isDragging 
                 ? "shadow-2xl border-blue-400 scale-105" 
@@ -80,7 +81,6 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
             }}
           >
             <CardContent className="p-4">
-              {/* Drag Handle + Header */}
               <div className="flex items-start gap-2 mb-3">
                 <div
                   {...provided.dragHandleProps}
@@ -122,7 +122,6 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
                     </p>
                   )}
 
-                  {/* Status Badges */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {proposal.is_sample_data && (
                       <Badge className="text-xs bg-amber-100 text-amber-700">
@@ -144,7 +143,6 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
                     )}
                   </div>
 
-                  {/* Checklist Progress */}
                   {totalChecklistItems > 0 && (
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-1">
@@ -169,7 +167,6 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
                     </div>
                   )}
 
-                  {/* Card Details */}
                   <div className="space-y-2 text-xs">
                     {proposal.agency_name && (
                       <div className="flex items-center gap-1.5 text-slate-600">
