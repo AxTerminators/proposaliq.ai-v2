@@ -184,8 +184,34 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     return [...new Set(assignees)].sort();
   }, [proposals]);
 
+  // CRITICAL: Deduplicate proposals by ID to prevent cards appearing in multiple columns
+  const deduplicatedProposals = useMemo(() => {
+    if (!proposals || proposals.length === 0) return [];
+    
+    const uniqueMap = new Map();
+    proposals.forEach(proposal => {
+      if (proposal && proposal.id) {
+        // Only keep the first occurrence of each ID
+        if (!uniqueMap.has(proposal.id)) {
+          uniqueMap.set(proposal.id, proposal);
+        } else {
+          console.warn(`[Kanban] Duplicate proposal found and removed: ${proposal.id} - ${proposal.proposal_name}`);
+        }
+      }
+    });
+    
+    const dedupedArray = Array.from(uniqueMap.values());
+    console.log('[Kanban] Deduplication:', {
+      original: proposals.length,
+      deduplicated: dedupedArray.length,
+      duplicatesRemoved: proposals.length - dedupedArray.length
+    });
+    
+    return dedupedArray;
+  }, [proposals]);
+
   const filteredProposals = useMemo(() => {
-    return proposals.filter(proposal => {
+    return deduplicatedProposals.filter(proposal => {
       const matchesSearch = !searchQuery ||
         proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         proposal.project_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -198,7 +224,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
       return matchesSearch && matchesAgency && matchesAssignee;
     });
-  }, [proposals, searchQuery, filterAgency, filterAssignee]);
+  }, [deduplicatedProposals, searchQuery, filterAgency, filterAssignee]);
 
   // Enhanced getProposalsForColumn with better logging and null checks
   const getProposalsForColumn = useCallback((column) => {
@@ -243,6 +269,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         status: netVisionProposal?.status,
         columnChecking: column.label,
         columnType: column.type,
+        columnId: column.id,
+        columnPhaseMapping: column.phase_mapping,
         matchesThisColumn: columnProposals.some(p => p.id === netVisionProposal?.id)
       });
     }
