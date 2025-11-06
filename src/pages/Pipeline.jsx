@@ -84,19 +84,26 @@ export default function Pipeline() {
     retry: 1
   });
 
-  // Fetch proposals
+  // Fetch proposals with better error handling and retry
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
-      return base44.entities.Proposal.filter(
+      if (!organization?.id) {
+        console.log('[Pipeline] No organization ID, skipping proposal fetch');
+        return [];
+      }
+      console.log('[Pipeline] Fetching proposals for org:', organization.id);
+      const results = await base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
       );
+      console.log('[Pipeline] Fetched proposals:', results.length);
+      return results || [];
     },
     enabled: !!organization?.id,
-    staleTime: 30000,
-    retry: 1,
+    staleTime: 10000, // Reduced from 30000 to refresh more often
+    retry: 3,
+    retryDelay: 1000,
     initialData: [],
   });
 
@@ -132,6 +139,15 @@ export default function Pipeline() {
     retry: 1,
     initialData: [],
   });
+
+  // Force refetch when organization changes
+  useEffect(() => {
+    if (organization?.id) {
+      console.log('[Pipeline] Organization changed, refetching data');
+      refetchProposals();
+      refetchConfig();
+    }
+  }, [organization?.id, refetchProposals, refetchConfig]); // Added refetch functions to dependencies for useEffect best practices
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
@@ -386,7 +402,15 @@ export default function Pipeline() {
                 ) : (
                   <>
                     {viewMode === "kanban" && (
-                      <ProposalsKanban proposals={proposals} organization={organization} user={user} />
+                      <ProposalsKanban 
+                        proposals={proposals} 
+                        organization={organization} 
+                        user={user}
+                        onRefresh={() => {
+                          refetchProposals();
+                          refetchConfig();
+                        }}
+                      />
                     )}
                     {viewMode === "list" && (
                       <div className="p-6">
