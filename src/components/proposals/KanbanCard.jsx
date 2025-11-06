@@ -62,23 +62,14 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
             "mb-3 group",
             snapshot.isDragging && "opacity-50"
           )}
-          style={{
-            ...provided.draggableProps.style,
-            // Override any transform during drag to ensure smooth following
-            ...(snapshot.isDragging && {
-              transform: provided.draggableProps.style?.transform,
-              transition: 'none',
-            })
-          }}
         >
           <Card
             className={cn(
-              "cursor-pointer hover:shadow-xl border-2",
+              "cursor-pointer hover:shadow-xl border-2 transition-all duration-200",
               "bg-white",
               snapshot.isDragging 
-                ? "shadow-2xl border-blue-400 rotate-2 scale-105" 
+                ? "shadow-2xl border-blue-400 scale-105" 
                 : "border-slate-200 hover:border-slate-300",
-              "transition-shadow duration-200",
               proposal.is_blocked && "border-red-300 bg-red-50/30",
               proposal.action_required && !proposal.is_blocked && "border-amber-300 bg-amber-50/30"
             )}
@@ -87,17 +78,13 @@ export default function KanbanCard({ proposal, index, onClick, column }) {
                 onClick(proposal);
               }
             }}
-            style={{
-              transition: snapshot.isDragging ? 'none' : 'box-shadow 0.2s, border-color 0.2s',
-            }}
           >
             <CardContent className="p-4">
               {/* Drag Handle + Header */}
               <div className="flex items-start gap-2 mb-3">
                 <div
                   {...provided.dragHandleProps}
-                  className="cursor-grab active:cursor-grabbing pt-1 opacity-0 group-hover:opacity-100 transition-opacity touch-none"
-                  style={{ touchAction: 'none' }}
+                  className="cursor-grab active:cursor-grabbing pt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <GripVertical className="w-4 h-4 text-slate-400" />
                 </div>
