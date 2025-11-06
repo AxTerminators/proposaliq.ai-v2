@@ -272,7 +272,10 @@ export default function KanbanColumn({
 
       {/* Column Body */}
       <div className="flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden">
-        <div className="h-full overflow-y-auto p-3 space-y-3">
+        <div 
+          className="h-full overflow-y-auto p-3 space-y-3"
+          style={{ minHeight: '200px' }} // Ensure droppable area has minimum height
+        >
           {/* Warning Messages */}
           {!canDragToHere && proposalCount > 0 && (
             <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
@@ -311,27 +314,31 @@ export default function KanbanColumn({
                 Click to add one
               </p>
             </button>
-          ) : (
-            proposals.map((proposal, index) => (
-              <Draggable
-                key={proposal.id}
-                draggableId={proposal.id}
-                index={index}
-                type="card"
-                isDragDisabled={!canDragFromHere}
-              >
-                {(cardProvided, cardSnapshot) => (
-                  <KanbanCard
-                    proposal={proposal}
-                    provided={cardProvided}
-                    snapshot={cardSnapshot}
-                    isDragDisabled={!canDragFromHere}
-                    column={column}
-                    onCardClick={onCardClick}
-                  />
-                )}
-              </Draggable>
-            ))
+          ) : null }
+
+          {proposalCount > 0 && (
+            <>
+              {proposals.map((proposal, index) => (
+                <Draggable
+                  key={proposal.id}
+                  draggableId={proposal.id}
+                  index={index}
+                  type="card"
+                  isDragDisabled={!canDragFromHere}
+                >
+                  {(cardProvided, cardSnapshot) => (
+                    <KanbanCard
+                      proposal={proposal}
+                      provided={cardProvided}
+                      snapshot={cardSnapshot}
+                      isDragDisabled={!canDragFromHere}
+                      column={column}
+                      onCardClick={onCardClick}
+                    />
+                  )}
+                </Draggable>
+              ))}
+            </>
           )}
           {provided.placeholder}
         </div>
