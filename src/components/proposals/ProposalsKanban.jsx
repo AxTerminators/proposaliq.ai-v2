@@ -200,57 +200,79 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     });
   }, [proposals, searchQuery, filterAgency, filterAssignee]);
 
-  // Enhanced getProposalsForColumn with better logging and null checks
+  // Track which proposals have been assigned to which column (to prevent duplicates)
+  const proposalColumnAssignments = useMemo(() => {
+    const assignments = {};
+    
+    // First pass: assign proposals to columns based on their state
+    filteredProposals.forEach(proposal => {
+      if (!proposal) return;
+      
+      // PRIORITY ORDER: custom_stage > locked_phase > default_status
+      if (proposal.custom_workflow_stage_id) {
+        // This proposal belongs to a custom stage column
+        assignments[proposal.id] = {
+          columnId: proposal.custom_workflow_stage_id,
+          columnType: 'custom_stage'
+        };
+      } else {
+        // Find if it matches a locked phase column
+        const matchingLockedPhaseColumn = columns.find(
+          col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
+        );
+        if (matchingLockedPhaseColumn) {
+          assignments[proposal.id] = {
+            columnId: matchingLockedPhaseColumn.id,
+            columnType: 'locked_phase'
+          };
+        } else {
+          // If not a custom stage and not a locked phase, check default status
+          const matchingDefaultStatusColumn = columns.find(
+            col => col.type === 'default_status' && col.default_status_mapping === proposal.status
+          );
+          if (matchingDefaultStatusColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingDefaultStatusColumn.id,
+              columnType: 'default_status'
+            };
+          }
+        }
+      }
+    });
+    
+    // Log any proposals without assignment
+    const unassigned = filteredProposals.filter(p => p && !assignments[p.id]);
+    if (unassigned.length > 0) {
+      console.warn('[Kanban] Unassigned proposals:', unassigned.map(p => ({
+        id: p.id,
+        name: p.proposal_name,
+        custom_workflow_stage_id: p.custom_workflow_stage_id,
+        current_phase: p.current_phase,
+        status: p.status
+      })));
+    }
+    
+    return assignments;
+  }, [filteredProposals, columns]);
+
+  // Enhanced getProposalsForColumn using the assignment map
   const getProposalsForColumn = useCallback((column) => {
     if (!column || !proposals) {
-      console.warn('[Kanban] Missing column or proposals:', { column: !!column, proposals: !!proposals });
       return [];
     }
 
-    let columnProposals = [];
+    // Get proposals assigned to this specific column
+    let columnProposals = filteredProposals.filter(proposal => {
+      if (!proposal) return false;
+      
+      const assignment = proposalColumnAssignments[proposal.id];
+      if (!assignment) return false;
+      
+      // Check if this proposal is assigned to THIS column
+      return assignment.columnId === column.id;
+    });
 
-    // PRIORITY ORDER: custom_stage > locked_phase > default_status
-    // This ensures a proposal only appears in ONE column
-    if (column.type === 'custom_stage') {
-      // For custom stages, ONLY match if custom_workflow_stage_id is set AND matches this column
-      columnProposals = filteredProposals.filter(p => 
-        p && 
-        p.custom_workflow_stage_id === column.id
-      );
-    } else if (column.type === 'locked_phase') {
-      // For locked phases, ONLY match if:
-      // 1. custom_workflow_stage_id is NOT set (null or undefined)
-      // 2. current_phase matches this column
-      columnProposals = filteredProposals.filter(p => 
-        p && 
-        !p.custom_workflow_stage_id && 
-        p.current_phase === column.phase_mapping
-      );
-    } else if (column.type === 'default_status') {
-      // For default status columns, ONLY match if:
-      // 1. custom_workflow_stage_id is NOT set
-      // 2. current_phase is NOT set
-      // 3. status matches
-      columnProposals = filteredProposals.filter(p => 
-        p && 
-        !p.custom_workflow_stage_id && 
-        !p.current_phase && 
-        p.status === column.default_status_mapping
-      );
-    }
-
-    // Debug logging for empty columns
-    if (columnProposals.length === 0 && proposals.length > 0 && column.type === 'locked_phase') {
-      console.log('[Kanban] Empty column debug:', {
-        columnId: column.id,
-        columnLabel: column.label,
-        phaseMapping: column.phase_mapping,
-        totalProposals: proposals.length,
-        sampleProposalPhases: proposals.slice(0, 3).map(p => ({ id: p.id, phase: p.current_phase, status: p.status }))
-      });
-    }
-
-    // Sort proposals for display, but manual_order is used for drag persistence
+    // Sort proposals for display
     const sort = columnSorts[column.id];
     if (sort) {
       columnProposals = [...columnProposals].sort((a, b) => {
@@ -278,7 +300,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
 
     return columnProposals;
-  }, [filteredProposals, columnSorts, proposals]);
+  }, [filteredProposals, proposalColumnAssignments, columnSorts, proposals]);
 
 
   const handleColumnSortChange = (columnId, sortBy) => {
