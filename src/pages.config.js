@@ -44,6 +44,7 @@ import SystemVerification from './pages/SystemVerification';
 import SystemDocumentation from './pages/SystemDocumentation';
 import ContentDevelopment from './pages/ContentDevelopment';
 import FinalReview from './pages/FinalReview';
+import KanbanTestingGuide from './pages/KanbanTestingGuide';
 import Layout from './Layout.jsx';
 
 
@@ -94,6 +95,7 @@ export const PAGES = {
     "SystemDocumentation": SystemDocumentation,
     "ContentDevelopment": ContentDevelopment,
     "FinalReview": FinalReview,
+    "KanbanTestingGuide": KanbanTestingGuide,
 }
 
 export const pagesConfig = {
