@@ -124,7 +124,7 @@ export default function KanbanCard({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proposals'] })
   });
 
-  // Map modal component names to actual components
+  // Map modal component names to actual components - WITH CORRECT STRING KEYS
   const MODAL_COMPONENTS = {
     'BasicInfoModal': BasicInfoModal,
     'TeamFormationModal': TeamFormationModal,
@@ -134,6 +134,62 @@ export default function KanbanCard({
     'WinStrategyModal': WinStrategyModal,
     'ContentPlanningModal': ContentPlanningModal,
     'PricingReviewModal': PricingReviewModal,
+  };
+
+  // Map action IDs directly to modal names
+  const ACTION_TO_MODAL_MAP = {
+    // Phase 1 - Basic Info
+    'enter_basic_info': 'BasicInfoModal',
+    'select_prime_contractor': 'BasicInfoModal',
+    'add_solicitation_number': 'BasicInfoModal',
+    'open_basic_info_modal': 'BasicInfoModal',
+    'open_modal_phase1': 'BasicInfoModal',
+    
+    // Phase 2 - Team
+    'form_team': 'TeamFormationModal',
+    'add_teaming_partners': 'TeamFormationModal',
+    'define_roles': 'TeamFormationModal',
+    'open_team_formation_modal': 'TeamFormationModal',
+    'open_modal_phase2': 'TeamFormationModal',
+    
+    // Phase 2 - Resources
+    'gather_resources': 'ResourceGatheringModal',
+    'link_boilerplate': 'ResourceGatheringModal',
+    'link_past_performance': 'ResourceGatheringModal',
+    'open_resource_gathering_modal': 'ResourceGatheringModal',
+    
+    // Phase 3 - Solicitation
+    'upload_solicitation': 'SolicitationUploadModal',
+    'extract_requirements': 'SolicitationUploadModal',
+    'set_contract_value': 'SolicitationUploadModal',
+    'open_solicitation_upload_modal': 'SolicitationUploadModal',
+    'open_modal_phase3': 'SolicitationUploadModal',
+    'run_ai_analysis_phase3': 'SolicitationUploadModal', // AI action also maps to modal
+    
+    // Phase 4 - Evaluation
+    'run_evaluation': 'EvaluationModal',
+    'calculate_confidence_score': 'EvaluationModal',
+    'open_evaluation_modal': 'EvaluationModal',
+    'open_modal_phase4': 'EvaluationModal',
+    'run_evaluation_phase4': 'EvaluationModal', // AI action also maps to modal
+    
+    // Phase 5 - Win Strategy
+    'develop_win_strategy': 'WinStrategyModal',
+    'generate_win_themes': 'WinStrategyModal',
+    'refine_themes': 'WinStrategyModal',
+    'open_win_strategy_modal': 'WinStrategyModal',
+    'open_modal_phase5': 'WinStrategyModal',
+    'generate_win_themes_phase5': 'WinStrategyModal', // AI action also maps to modal
+    
+    // Phase 5 - Content Planning
+    'plan_content': 'ContentPlanningModal',
+    'select_sections': 'ContentPlanningModal',
+    'set_writing_strategy': 'ContentPlanningModal',
+    'open_content_planning_modal': 'ContentPlanningModal',
+    
+    // Phase 7 - Pricing
+    'review_pricing': 'PricingReviewModal',
+    'open_pricing_review_modal': 'PricingReviewModal',
   };
 
   const handleArchive = (e) => {
@@ -156,52 +212,33 @@ export default function KanbanCard({
 
   // Handle checklist item click
   const handleChecklistItemClick = async (item) => {
-    // Event is already handled by ChecklistItemRenderer
-    console.log('[KanbanCard] Checklist item clicked:', item.label, 'Action:', item.associated_action);
+    console.log('[KanbanCard] ✨ Checklist item clicked:', item.label, 'Action:', item.associated_action);
 
     const actionConfig = getActionConfig(item.associated_action);
 
     if (!actionConfig) {
-      console.warn(`[KanbanCard] No action config found for: ${item.associated_action}`);
+      console.warn(`[KanbanCard] ⚠️ No action config found for: ${item.associated_action}`);
       return;
     }
 
-    console.log('[KanbanCard] Action config found:', actionConfig);
+    console.log('[KanbanCard] ✅ Action config found:', actionConfig);
 
-    // Handle modal actions - store the component name (string)
-    if (isModalAction(item.associated_action)) {
-      const modalName = actionConfig.component.name; // Get component name
-      console.log('[KanbanCard] Opening modal:', modalName);
+    // Check if this action maps to a modal
+    const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
+    
+    if (modalName && MODAL_COMPONENTS[modalName]) {
+      console.log('[KanbanCard] 🎯 Opening modal:', modalName);
       setActiveModalName(modalName);
       return;
     }
 
-    // Handle AI actions
-    if (isAIAction(item.associated_action)) {
-      // For AI actions, open the appropriate modal that contains the AI functionality
-      // Map AI actions to their corresponding modals
-      const aiActionModalMap = {
-        'run_ai_analysis_phase3': 'SolicitationUploadModal',
-        'run_evaluation_phase4': 'EvaluationModal',
-        'generate_win_themes_phase5': 'WinStrategyModal',
-        'run_readiness_check_phase7': null // This navigates to ProposalBuilder
-      };
-
-      const modalName = aiActionModalMap[item.associated_action];
-      if (modalName) {
-        console.log('[KanbanCard] Opening AI modal:', modalName);
-        setActiveModalName(modalName);
-        return;
-      }
-    }
-
-    // Handle navigation actions - ChecklistItemRenderer already handles this
+    // Handle navigation actions
     if (isNavigateAction(item.associated_action)) {
-      // Navigation is handled by ChecklistItemRenderer
+      console.log('[KanbanCard] 🔗 Navigation handled by ChecklistItemRenderer');
       return;
     }
 
-    // Handle system_check or manual_check - just toggle completion
+    // Handle system_check or manual_check - toggle completion
     if (item.type === 'system_check' || item.type === 'manual_check') {
       const currentStatus = checklistStatus[item.id]?.completed || false;
       const newChecklistStatus = {
@@ -210,7 +247,7 @@ export default function KanbanCard({
           ...(proposal.current_stage_checklist_status?.[column.id] || {}),
           [item.id]: {
             completed: !currentStatus,
-            completed_by: 'current_user', // TODO: Get actual user email
+            completed_by: 'current_user',
             completed_date: new Date().toISOString()
           }
         }
@@ -224,9 +261,8 @@ export default function KanbanCard({
 
   // Handle modal close
   const handleModalClose = () => {
-    console.log('[KanbanCard] Closing modal');
+    console.log('[KanbanCard] 🚪 Closing modal');
     setActiveModalName(null);
-    // Refresh proposal data
     queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
@@ -236,11 +272,11 @@ export default function KanbanCard({
     
     const ModalComponent = MODAL_COMPONENTS[activeModalName];
     if (!ModalComponent) {
-      console.error('[KanbanCard] Modal component not found:', activeModalName);
+      console.error('[KanbanCard] ❌ Modal component not found:', activeModalName);
       return null;
     }
 
-    console.log('[KanbanCard] Rendering modal:', activeModalName);
+    console.log('[KanbanCard] 🎭 Rendering modal:', activeModalName);
     return (
       <ModalComponent
         isOpen={true}
