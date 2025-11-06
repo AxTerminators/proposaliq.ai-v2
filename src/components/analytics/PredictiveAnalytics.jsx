@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -403,12 +404,12 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
               <Card className="border-purple-200 bg-purple-50">
                 <CardContent className="p-6 text-center">
                   <BarChart3 className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <Badge className={
+                  <Badge className={`text-white text-base px-4 py-2 capitalize ${
                     predictions.summary.pipeline_health === 'excellent' ? 'bg-green-600' :
                     predictions.summary.pipeline_health === 'good' ? 'bg-blue-600' :
                     predictions.summary.pipeline_health === 'fair' ? 'bg-yellow-600' :
                     'bg-red-600'
-                  } className="text-white text-base px-4 py-2 capitalize">
+                  }`}>
                     {predictions.summary.pipeline_health}
                   </Badge>
                   <p className="text-sm text-purple-900 mt-2">Pipeline Health</p>
@@ -634,12 +635,12 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-semibold text-slate-900">{pred.proposal_name}</h4>
                           <div className="flex items-center gap-2">
-                            <Badge className={
+                            <Badge className={`text-white ${
                               pred.win_probability >= 70 ? 'bg-green-600' :
                               pred.win_probability >= 50 ? 'bg-blue-600' :
                               pred.win_probability >= 30 ? 'bg-yellow-600' :
                               'bg-red-600'
-                            } className="text-white">
+                            }`}>
                               {pred.win_probability}% Win Probability
                             </Badge>
                             <Badge className={
@@ -700,11 +701,11 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h4 className="font-semibold text-slate-900">{indicator.indicator_name}</h4>
-                        <Badge className={
+                        <Badge className={`text-white ${
                           indicator.status === 'healthy' ? 'bg-green-600' :
                           indicator.status === 'warning' ? 'bg-yellow-600' :
                           'bg-red-600'
-                        } className="text-white">
+                        }`}>
                           {indicator.status.toUpperCase()}
                         </Badge>
                       </div>
@@ -752,12 +753,12 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Badge className={
+                            <Badge className={`text-white ${
                               rec.priority === 'critical' ? 'bg-red-600' :
                               rec.priority === 'high' ? 'bg-orange-600' :
                               rec.priority === 'medium' ? 'bg-yellow-600' :
                               'bg-green-600'
-                            } className="text-white">
+                            }`}>
                               {rec.priority.toUpperCase()}
                             </Badge>
                             {rec.forecast_improvement && (
@@ -792,12 +793,12 @@ Use time-series analysis, trend detection, and statistical methods. Return compr
                         <div className="flex items-center justify-between mb-2">
                           <h5 className="font-semibold text-slate-900">{risk.risk_type}</h5>
                           <div className="flex items-center gap-2">
-                            <Badge className={
+                            <Badge className={`text-white ${
                               risk.severity === 'critical' ? 'bg-red-600' :
                               risk.severity === 'high' ? 'bg-orange-600' :
                               risk.severity === 'medium' ? 'bg-yellow-600' :
                               'bg-green-600'
-                            } className="text-white">
+                            }`}>
                               {risk.severity}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
