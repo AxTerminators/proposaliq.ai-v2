@@ -338,11 +338,35 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     },
   });
 
-  // Helper function to get user's role
+  // Helper function to get user's role for the CURRENT organization
   const getUserRole = () => {
-    if (!user) return 'viewer';
-    if (user.role === 'admin') return 'organization_owner'; // Assuming 'admin' in user maps to 'organization_owner' role for columns
-    return user.organization_app_role || 'viewer'; // Assuming organization_app_role is a field on user
+    if (!user || !organization) {
+      console.log('[RBAC] No user or organization, defaulting to viewer');
+      return 'viewer';
+    }
+    
+    // Check if user is platform admin (has full access)
+    if (user.role === 'admin') {
+      console.log('[RBAC] User is platform admin, granting organization_owner role');
+      return 'organization_owner';
+    }
+
+    // Find the user's role for THIS specific organization from client_accesses
+    const orgAccess = user.client_accesses?.find(
+      access => access.organization_id === organization.id
+    );
+
+    const role = orgAccess?.role || 'viewer';
+    
+    console.log('[RBAC] User role for this organization:', {
+      userEmail: user.email,
+      organizationId: organization.id,
+      organizationName: organization.organization_name,
+      role: role,
+      allAccesses: user.client_accesses
+    });
+
+    return role;
   };
 
   // Helper function to get status from phase
@@ -530,20 +554,30 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
     if (!sourceColumn || !destinationColumn) return;
 
+    const userRole = getUserRole();
+
     // **PHASE 3: RBAC Check - Can user drag FROM this column?**
     if (sourceColumn?.can_drag_from_here_roles?.length > 0) {
-      const userRole = getUserRole();
       if (!sourceColumn.can_drag_from_here_roles.includes(userRole)) {
-        alert(`You don't have permission to move proposals out of "${sourceColumn.label}". Required role: ${sourceColumn.can_drag_from_here_roles.join(', ')}`);
+        console.warn('[RBAC] DRAG BLOCKED FROM:', {
+          column: sourceColumn.label,
+          requiredRoles: sourceColumn.can_drag_from_here_roles,
+          userRole: userRole
+        });
+        alert(`🔒 You don't have permission to move proposals out of "${sourceColumn.label}".\n\nRequired role: ${sourceColumn.can_drag_from_here_roles.join(', ')}\nYour role: ${userRole}`);
         return;
       }
     }
 
     // **PHASE 3: RBAC Check - Can user drag TO this column?**
     if (destinationColumn?.can_drag_to_here_roles?.length > 0) {
-      const userRole = getUserRole();
       if (!destinationColumn.can_drag_to_here_roles.includes(userRole)) {
-        alert(`You don't have permission to move proposals into "${destinationColumn.label}". Required role: ${destinationColumn.can_drag_to_here_roles.join(', ')}`);
+        console.warn('[RBAC] DRAG BLOCKED TO:', {
+          column: destinationColumn.label,
+          requiredRoles: destinationColumn.can_drag_to_here_roles,
+          userRole: userRole
+        });
+        alert(`🔒 You don't have permission to move proposals into "${destinationColumn.label}".\n\nRequired role: ${destinationColumn.can_drag_to_here_roles.join(', ')}\nYour role: ${userRole}\n\nPlease contact your organization owner to update your permissions.`);
         return;
       }
     }
