@@ -28,8 +28,7 @@ import {
   Circle,
   AlertCircle,
   ExternalLink,
-  FileEdit,
-  Target
+  FileEdit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -37,7 +36,6 @@ import TaskManager from "../tasks/TaskManager";
 import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
-import WinProbabilityTracker from "../analytics/WinProbabilityTracker"; // New import
 
 // Import modal components
 import BasicInfoModal from "./modals/BasicInfoModal";
@@ -402,13 +400,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   <Paperclip className="w-4 h-4" />
                   Files
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="win-probability" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
-                >
-                  <Target className="w-4 h-4" />
-                  Win Probability
-                </TabsTrigger>
               </TabsList>
 
               {/* Checklist Tab */}
@@ -592,16 +583,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   <ProposalFiles
                     proposal={proposal}
                     organization={organization}
-                  />
-                )}
-              </TabsContent>
-
-              <TabsContent value="win-probability" className="mt-0 p-6">
-                {organization && (
-                  <WinProbabilityTracker
-                    proposal={proposal}
-                    organization={organization}
-                    showCompact={false}
                   />
                 )}
               </TabsContent>

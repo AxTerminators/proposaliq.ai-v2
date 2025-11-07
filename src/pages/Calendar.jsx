@@ -372,9 +372,6 @@ export default function Calendar() {
     proposal: "all"
   });
 
-  // State for selected event details popover
-  const [selectedEvent, setSelectedEvent] = useState(null);
-
   const [eventData, setEventData] = useState({
     title: "",
     description: "",
@@ -944,7 +941,104 @@ export default function Calendar() {
     });
   };
 
-  // Month View - FIX DROPPABLE PROVIDED ISSUE
+  // Event Popover Component
+  const EventPopover = ({ event, children }) => {
+    const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          {children}
+        </PopoverTrigger>
+        <PopoverContent className="w-80" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-3">
+            <div>
+              <h4 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <Icon className="w-5 h-5" />
+                {event.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
+                {event.title}
+              </h4>
+              <Badge className={cn("mt-1", getEventTypeBadgeColor(event.source_type))}>
+                {mergedEventTypeConfig[event.source_type]?.label}
+              </Badge>
+            </div>
+            {event.description && (
+              <p className="text-sm text-slate-600">{event.description}</p>
+            )}
+            {event.is_recurring_instance && event.source_type === 'calendar_event' && (
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
+                <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{getRecurrenceDescription(queries[0].data?.find(e => e.id === event.original_id)?.recurrence_rule)}</span>
+              </div>
+            )}
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center gap-2 text-slate-600">
+                <Clock className="w-4 h-4" />
+                {moment(event.start_date).format('MMM D, h:mm A')} - {moment(event.end_date).format('h:mm A')}
+              </div>
+              {event.location && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <MapPin className="w-4 h-4" />
+                  {event.location}
+                </div>
+              )}
+              {event.meeting_link && (
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Video className="w-4 h-4" />
+                  <a href={event.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    Join Meeting
+                  </a>
+                </div>
+              )}
+              {event.assigned_to && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Users className="w-4 h-4" />
+                  {event.assigned_to}
+                </div>
+              )}
+              {event.priority && (
+                <Badge variant={
+                  event.priority === 'urgent' || event.priority === 'critical' ? 'destructive' :
+                  event.priority === 'high' ? 'default' : 'secondary'
+                }>
+                  {event.priority}
+                </Badge>
+              )}
+            </div>
+            
+            {event.proposal_id && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setContextEvent(event);
+                  setShowContextPanel(true);
+                }}
+              >
+                <Sparkles className="w-3 h-3 mr-2" />
+                View Context & Insights
+              </Button>
+            )}
+            
+            <div className="flex gap-2 pt-2 border-t">
+              <Button size="sm" onClick={() => handleEdit(event)} className="flex-1">
+                {event.can_edit ? (event.is_recurring_instance ? 'Edit Series' : 'Edit') : 'View'}
+                {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
+              </Button>
+              {event.can_edit && event.source_type === 'calendar_event' && (
+                <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // Month View
   const renderMonthView = () => {
     const daysInMonth = moment(currentDate).daysInMonth();
     const firstDay = moment(currentDate).startOf('month').day();
@@ -989,105 +1083,87 @@ export default function Calendar() {
             
             return (
               <Droppable key={index} droppableId={droppableId}>
-                {(provided, snapshot) => {
-                  if (!provided) {
-                    // This can happen if DragDropContext is not ready or Droppable is not mounted yet
-                    // Returning a basic div to avoid runtime errors when provided is null
-                    return (
-                      <div className="min-h-[140px] border-b border-r p-2 bg-slate-50">
-                        <div className="text-xs text-slate-400">Loading day...</div>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={cn(
-                        "min-h-[140px] border-b border-r p-2 transition-all relative",
-                        !day && "bg-slate-50",
-                        isToday(day) && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
-                        snapshot.isDraggingOver && "bg-blue-100"
-                      )}
-                      onDoubleClick={() => {
-                        if (day) {
-                          const dateStr = moment(currentDate).date(day).format('YYYY-MM-DD');
-                          setQuickAddSlot({ date: dateStr, time: "09:00" });
-                        }
-                      }}
-                    >
-                      {day && (
-                        <>
-                          <div className={cn(
-                            "text-sm font-bold mb-2 flex items-center justify-center w-8 h-8 rounded-full",
-                            isToday(day) ? "bg-blue-600 text-white shadow-lg" : "text-slate-700"
-                          )}>
-                            {day}
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={cn(
+                      "min-h-[140px] border-b border-r p-2 transition-all relative",
+                      !day && "bg-slate-50",
+                      isToday(day) && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
+                      snapshot.isDraggingOver && "bg-blue-100"
+                    )}
+                    onDoubleClick={() => {
+                      if (day) {
+                        const dateStr = moment(currentDate).date(day).format('YYYY-MM-DD');
+                        setQuickAddSlot({ date: dateStr, time: "09:00" });
+                      }
+                    }}
+                  >
+                    {day && (
+                      <>
+                        <div className={cn(
+                          "text-sm font-bold mb-2 flex items-center justify-center w-8 h-8 rounded-full",
+                          isToday(day) ? "bg-blue-600 text-white shadow-lg" : "text-slate-700"
+                        )}>
+                          {day}
+                        </div>
+                        
+                        {isQuickAddActive ? (
+                          <div className="absolute top-12 left-2 right-2 z-20">
+                            <QuickAddEvent
+                              initialDate={droppableId}
+                              initialTime={quickAddSlot.time}
+                              customEventTypes={customEventTypes}
+                              onSave={handleQuickAdd}
+                              onCancel={() => setQuickAddSlot(null)}
+                            />
                           </div>
-                          
-                          {isQuickAddActive ? (
-                            <div className="absolute top-12 left-2 right-2 z-20">
-                              <QuickAddEvent
-                                initialDate={droppableId}
-                                initialTime={quickAddSlot.time}
-                                customEventTypes={customEventTypes}
-                                onSave={handleQuickAdd}
-                                onCancel={() => setQuickAddSlot(null)}
-                              />
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              {dayEvents.slice(0, 3).map((event, idx) => {
-                                const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
-                                return (
-                                  <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
-                                    {(dragProvided, dragSnapshot) => {
-                                      if (!dragProvided) {
-                                        // Similar check for draggable provided
-                                        return null; // Or a placeholder if necessary
-                                      }
-                                      
-                                      return (
-                                        <div
-                                          ref={dragProvided.innerRef}
-                                          {...dragProvided.draggableProps}
-                                          {...dragProvided.dragHandleProps}
-                                          className={cn(
-                                            "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
-                                            getEventTypeColor(event.source_type),
-                                            dragSnapshot.isDragging && "rotate-3 scale-105 shadow-xl",
-                                            !event.can_drag && "cursor-default opacity-90"
-                                          )}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedEvent(event);
-                                          }}
-                                        >
-                                          <div className="truncate flex items-center gap-1">
-                                            <Icon className="w-3 h-3 flex-shrink-0" />
-                                            {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
-                                            {moment(event.start_date).format('h:mm A')} {event.title}
-                                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {dayEvents.slice(0, 3).map((event, idx) => {
+                              const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+                              return (
+                                <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
+                                  {(provided, snapshot) => (
+                                    <EventPopover event={event}>
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        className={cn(
+                                          "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
+                                          getEventTypeColor(event.source_type),
+                                          snapshot.isDragging && "rotate-3 scale-105 shadow-xl",
+                                          !event.can_drag && "cursor-default opacity-90"
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                      >
+                                        <div className="truncate flex items-center gap-1">
+                                          <Icon className="w-3 h-3 flex-shrink-0" />
+                                          {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
+                                          {moment(event.start_date).format('h:mm A')} {event.title}
                                         </div>
-                                      );
-                                    }}
-                                  </Draggable>
-                                );
-                              })}
-                              {dayEvents.length > 3 && (
-                                <div className="text-xs text-slate-500 px-2 font-medium">
-                                  +{dayEvents.length - 3} more
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {provided.placeholder}
-                    </div>
-                  );
-                }}
+                                      </div>
+                                    </EventPopover>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {dayEvents.length > 3 && (
+                              <div className="text-xs text-slate-500 px-2 font-medium">
+                                +{dayEvents.length - 3} more
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {provided.placeholder}
+                  </div>
+                )}
               </Droppable>
             );
           })}
@@ -1096,7 +1172,7 @@ export default function Calendar() {
     );
   };
 
-  // Week View - ADD COMPREHENSIVE NULL CHECKS
+  // Week View - keeping existing implementation
   const renderWeekView = () => {
     const startOfWeek = moment(currentDate).startOf('week');
     const days = Array.from({ length: 7 }, (_, i) => moment(startOfWeek).add(i, 'days'));
@@ -1104,20 +1180,11 @@ export default function Calendar() {
     
     const getEventsForDayAndHour = (day, hour) => {
       return filteredEvents.filter(event => {
-        // Ensure event.start_date and event.end_date are valid moment objects
         const eventStart = moment(event.start_date);
         const eventEnd = moment(event.end_date);
-        
-        // Ensure day and hour form valid moment objects
         const targetHour = moment(day).hour(hour);
         const nextHour = moment(day).hour(hour + 1);
         
-        // Comprehensive null checks for moment objects
-        if (!eventStart.isValid() || !eventEnd.isValid() || !targetHour.isValid() || !nextHour.isValid()) {
-            console.warn("Invalid date/time detected for event or time slot:", event, day, hour);
-            return false;
-        }
-
         return (
           (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
           (eventEnd.isAfter(targetHour) && eventEnd.isSameOrBefore(nextHour)) ||
@@ -1181,31 +1248,27 @@ export default function Calendar() {
                       hourEvents.map((event) => {
                         const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                         return (
-                          <div 
-                            key={event.id} 
-                            className={cn(
+                          <EventPopover key={event.id} event={event}>
+                            <div className={cn(
                               "p-2 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white text-xs relative",
                               getEventTypeColor(event.source_type)
-                            )}
-                            onClick={() => setSelectedEvent(event)}
-                          >
-                            <div className="font-bold flex items-center gap-1 mb-1">
-                              <Icon className="w-3 h-3" />
-                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                              {event.title}
-                            </div>
-                            <div className="opacity-90">
-                              {moment(event.start_date).format('h:mm A')}
-                            </div>
-                            {event.can_edit && !event.is_recurring_instance && (
+                            )}>
+                              <div className="font-bold flex items-center gap-1 mb-1">
+                                <Icon className="w-3 h-3" />
+                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                                {event.title}
+                              </div>
+                              <div className="opacity-90">
+                                {moment(event.start_date).format('h:mm A')}
+                              </div>
                               <EventResizeHandle
                                 event={event}
                                 position="bottom"
                                 onResize={(resizeData) => updateEventMutation.mutate(resizeData)}
-                                disabled={false}
+                                disabled={!event.can_edit || event.is_recurring_instance}
                               />
-                            )}
-                          </div>
+                            </div>
+                          </EventPopover>
                         );
                       })
                     )}
@@ -1219,14 +1282,12 @@ export default function Calendar() {
     );
   };
 
-  // Day View - ADD COMPREHENSIVE NULL CHECKS
+  // Day View - keeping existing implementation
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const dayEvents = filteredEvents.filter(event => {
       const eventDate = moment(event.start_date).format('YYYY-MM-DD');
-      // Ensure currentDate is valid
-      const currentDayFormatted = moment(currentDate).format('YYYY-MM-DD');
-      return eventDate === currentDayFormatted;
+      return eventDate === moment(currentDate).format('YYYY-MM-DD');
     });
     
     return (
@@ -1240,19 +1301,10 @@ export default function Calendar() {
           <div className="grid grid-cols-[100px_1fr]">
             {hours.map((hour) => {
               const hourEvents = dayEvents.filter(event => {
-                // Ensure event.start_date and event.end_date are valid moment objects
                 const eventStart = moment(event.start_date);
                 const eventEnd = moment(event.end_date);
-                
-                // Ensure currentDate is valid and can form valid time slots
                 const targetHour = moment(currentDate).hour(hour);
                 const nextHour = moment(currentDate).hour(hour + 1);
-
-                // Comprehensive null checks for moment objects
-                if (!eventStart.isValid() || !eventEnd.isValid() || !targetHour.isValid() || !nextHour.isValid()) {
-                    console.warn("Invalid date/time detected for event or time slot:", event, currentDate, hour);
-                    return false;
-                }
                 
                 return (
                   (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
@@ -1290,31 +1342,27 @@ export default function Calendar() {
                       hourEvents.map((event) => {
                         const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                         return (
-                          <div 
-                            key={event.id} 
-                            className={cn(
+                          <EventPopover key={event.id} event={event}>
+                            <div className={cn(
                               "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white relative",
                               getEventTypeColor(event.source_type)
-                            )}
-                            onClick={() => setSelectedEvent(event)}
-                          >
-                            <div className="font-bold text-sm flex items-center gap-1 mb-1">
-                              <Icon className="w-3 h-3" />
-                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                              {event.title}
-                            </div>
-                            <div className="text-xs opacity-90">
-                              {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
-                            </div>
-                            {event.can_edit && !event.is_recurring_instance && (
+                            )}>
+                              <div className="font-bold text-sm flex items-center gap-1 mb-1">
+                                <Icon className="w-3 h-3" />
+                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                                {event.title}
+                              </div>
+                              <div className="text-xs opacity-90">
+                                {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
+                              </div>
                               <EventResizeHandle
                                 event={event}
                                 position="bottom"
                                 onResize={(resizeData) => updateEventMutation.mutate(resizeData)}
-                                disabled={false}
+                                disabled={!event.can_edit || event.is_recurring_instance}
                               />
-                            )}
-                          </div>
+                            </div>
+                          </EventPopover>
                         );
                       })
                     )}
@@ -1368,7 +1416,7 @@ export default function Calendar() {
                 {events.map((event) => {
                   const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                   return (
-                    <Card key={event.id} className="border-none shadow-md hover:shadow-xl transition-all cursor-pointer" onClick={() => setSelectedEvent(event)}>
+                    <Card key={event.id} className="border-none shadow-md hover:shadow-xl transition-all">
                       <CardContent className="p-4">
                         <div className="flex items-start gap-4">
                           <div className="flex-shrink-0">
@@ -1427,6 +1475,18 @@ export default function Calendar() {
                                   <Users className="w-4 h-4" />
                                   {event.assigned_to}
                                 </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex gap-2 mt-3">
+                              <Button size="sm" onClick={() => handleEdit(event)}>
+                                {event.can_edit ? 'Edit' : 'View'}
+                                {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
+                              </Button>
+                              {event.can_edit && event.source_type === 'calendar_event' && (
+                                <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -1880,7 +1940,7 @@ export default function Calendar() {
                   const Icon = config.icon;
                   return (
                     <div key={key} className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-gradient-to-r" style={{ background: config.color.startsWith('from-') ? `linear-gradient(to right, ${config.color.split(' ')[0].replace('from-', '')}, ${config.color.split(' ')[2].replace('to-', '')})` : config.color }} />
+                      <div className={cn("w-4 h-4 rounded bg-gradient-to-r", config.color)} />
                       <Icon className="w-4 h-4 text-slate-600" />
                       <span className="text-sm text-slate-700">{config.label}</span>
                     </div>
@@ -2210,104 +2270,6 @@ export default function Calendar() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Event Details Popover - Separate from drag/drop */}
-      {selectedEvent && (
-        <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {(() => {
-                  const Icon = mergedEventTypeConfig[selectedEvent.source_type]?.icon || CalendarIcon;
-                  return <Icon className="w-5 h-5" />;
-                })()}
-                {selectedEvent.is_recurring_instance && <Repeat className="w-4 h-4 text-blue-600" />}
-                {selectedEvent.title}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <Badge className={cn(getEventTypeBadgeColor(selectedEvent.source_type))}>
-                {mergedEventTypeConfig[selectedEvent.source_type]?.label}
-              </Badge>
-              
-              {selectedEvent.description && (
-                <p className="text-sm text-slate-600">{selectedEvent.description}</p>
-              )}
-              
-              {selectedEvent.is_recurring_instance && selectedEvent.source_type === 'calendar_event' && (
-                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex items-start gap-2">
-                  <Repeat className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <span>{getRecurrenceDescription(queries[0].data?.find(e => e.id === selectedEvent.original_id)?.recurrence_rule)}</span>
-                </div>
-              )}
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Clock className="w-4 h-4" />
-                  {moment(selectedEvent.start_date).format('MMM D, h:mm A')} - {moment(selectedEvent.end_date).format('h:mm A')}
-                </div>
-                {selectedEvent.location && (
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <MapPin className="w-4 h-4" />
-                    {selectedEvent.location}
-                  </div>
-                )}
-                {selectedEvent.meeting_link && (
-                  <div className="flex items-center gap-2 text-blue-600">
-                    <Video className="w-4 h-4" />
-                    <a href={selectedEvent.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                      Join Meeting
-                    </a>
-                  </div>
-                )}
-                {selectedEvent.assigned_to && (
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Users className="w-4 h-4" />
-                    {selectedEvent.assigned_to}
-                  </div>
-                )}
-                {selectedEvent.priority && (
-                  <Badge variant={
-                    selectedEvent.priority === 'urgent' || selectedEvent.priority === 'critical' ? 'destructive' :
-                    selectedEvent.priority === 'high' ? 'default' : 'secondary'
-                  }>
-                    {selectedEvent.priority}
-                  </Badge>
-                )}
-              </div>
-              
-              {selectedEvent.proposal_id && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    setContextEvent(selectedEvent);
-                    setShowContextPanel(true);
-                    setSelectedEvent(null); // Close the details dialog
-                  }}
-                >
-                  <Sparkles className="w-3 h-3 mr-2" />
-                  View Context & Insights
-                </Button>
-              )}
-              
-              <div className="flex gap-2 pt-2 border-t">
-                <Button size="sm" onClick={() => { handleEdit(selectedEvent); setSelectedEvent(null); }} className="flex-1">
-                  {selectedEvent.can_edit ? (selectedEvent.is_recurring_instance ? 'Edit Series' : 'Edit') : 'View'}
-                  {!selectedEvent.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
-                </Button>
-                {selectedEvent.can_edit && selectedEvent.source_type === 'calendar_event' && (
-                  <Button size="sm" variant="destructive" onClick={() => { handleDelete(selectedEvent); setSelectedEvent(null); }}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* Delete Recurring Event Dialog */}
       <Dialog open={!!deleteRecurringOption} onOpenChange={(open) => !open && setDeleteRecurringOption(null)}>

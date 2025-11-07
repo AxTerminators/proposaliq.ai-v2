@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Sparkles, Target, X } from "lucide-react";
+import { Plus, TrendingUp, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
 import ProposalPipeline from "../components/dashboard/ProposalPipeline";
@@ -15,7 +15,6 @@ import RevenueChart from "../components/dashboard/RevenueChart";
 import MobileDashboard from "../components/mobile/MobileDashboard";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
-import WinProbabilityTracker from "../components/analytics/WinProbabilityTracker";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -28,7 +27,6 @@ export default function Dashboard() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
-  const [showWinProbability, setShowWinProbability] = useState(null); // New state for Win Probability Tracker
 
   useEffect(() => {
     const checkMobile = () => {
@@ -157,7 +155,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 lg:p-8 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between dashboard-overview">
@@ -251,33 +249,6 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <QuickActionsPanel user={user} organization={organization} />
-
-        {/* Win Probability Modal/Panel */}
-        {showWinProbability && (
-          <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-purple-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-6 h-6 text-blue-600" />
-                  Win Probability Analysis
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowWinProbability(null)}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <WinProbabilityTracker
-                proposal={showWinProbability}
-                organization={organization}
-              />
-            </CardContent>
-          </Card>
-        )}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

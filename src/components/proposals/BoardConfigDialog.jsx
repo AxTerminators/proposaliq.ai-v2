@@ -673,135 +673,117 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="columns">
-                    {(provided) => {
-                      // Add comprehensive null check for provided
-                      if (!provided) {
-                        return (
-                          <div className="p-6 bg-slate-100 border border-slate-300 rounded-lg text-center">
-                            <p className="text-sm text-slate-600">Loading columns...</p>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div
-                          {...provided.droppableProps}
-                          ref={provided.innerRef}
-                          className="space-y-3"
-                        >
-                          {config.columns.map((column, index) => {
-                            const locked = isLockedColumn(column);
-                            const canDelete = canDeleteColumn(column);
-                            
-                            return (
-                              <Draggable
-                                key={column.id}
-                                draggableId={column.id}
-                                index={index}
-                                isDragDisabled={locked}
-                              >
-                                {(dragProvided, snapshot) => {
-                                  // Add null check for draggable provided
-                                  if (!dragProvided) {
-                                    return null;
-                                  }
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-3"
+                      >
+                        {config.columns.map((column, index) => {
+                          const locked = isLockedColumn(column);
+                          const canDelete = canDeleteColumn(column);
+                          
+                          return (
+                            <Draggable
+                              key={column.id}
+                              draggableId={column.id}
+                              index={index}
+                              isDragDisabled={locked}
+                            >
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={cn(
+                                    "flex items-center gap-3 p-3 border-2 rounded-lg transition-all bg-white",
+                                    snapshot.isDragging ? "border-blue-400 shadow-lg" : "border-slate-200 hover:border-blue-300",
+                                    locked && "bg-amber-50 border-amber-200"
+                                  )}
+                                >
+                                  <div {...provided.dragHandleProps}>
+                                    {locked ? (
+                                      <Lock className="w-5 h-5 text-amber-600" />
+                                    ) : (
+                                      <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
+                                    )}
+                                  </div>
                                   
-                                  return (
-                                    <div
-                                      ref={dragProvided.innerRef}
-                                      {...dragProvided.draggableProps}
-                                      className={cn(
-                                        "flex items-center gap-3 p-3 border-2 rounded-lg transition-all bg-white",
-                                        snapshot.isDragging ? "border-blue-400 shadow-lg" : "border-slate-200 hover:border-blue-300",
-                                        locked && "bg-amber-50 border-amber-200"
-                                      )}
-                                    >
-                                      <div {...dragProvided.dragHandleProps}>
-                                        {locked ? (
-                                          <Lock className="w-5 h-5 text-amber-600" />
-                                        ) : (
-                                          <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
-                                        )}
-                                      </div>
-                                      
-                                      <div className="flex-1 space-y-2">
-                                        <Input
-                                          value={column.label}
-                                          onChange={(e) => handleColumnLabelChange(column.id, e.target.value)}
-                                          placeholder="Column name"
-                                          className="font-medium"
-                                          disabled={locked}
-                                        />
-                                        
-                                        {/* Color Picker */}
-                                        <div className="flex items-center gap-2">
-                                          <Label className="text-xs text-slate-600">Color:</Label>
-                                          <Select
-                                            value={column.color}
-                                            onValueChange={(value) => handleColumnColorChange(column.id, value)}
-                                          >
-                                            <SelectTrigger className="w-40 h-8">
+                                  <div className="flex-1 space-y-2">
+                                    <Input
+                                      value={column.label}
+                                      onChange={(e) => handleColumnLabelChange(column.id, e.target.value)}
+                                      placeholder="Column name"
+                                      className="font-medium"
+                                      disabled={locked}
+                                    />
+                                    
+                                    {/* Color Picker */}
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-xs text-slate-600">Color:</Label>
+                                      <Select
+                                        value={column.color}
+                                        onValueChange={(value) => handleColumnColorChange(column.id, value)}
+                                      >
+                                        <SelectTrigger className="w-40 h-8">
+                                          <div className="flex items-center gap-2">
+                                            <div className={cn("w-4 h-4 rounded", `bg-gradient-to-r ${column.color}`)} />
+                                            <SelectValue />
+                                          </div>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {COLOR_OPTIONS.map(colorOption => (
+                                            <SelectItem key={colorOption.value} value={colorOption.value}>
                                               <div className="flex items-center gap-2">
-                                                <div className={cn("w-4 h-4 rounded", `bg-gradient-to-r ${column.color}`)} />
-                                                <SelectValue />
+                                                <div className={cn("w-4 h-4 rounded", colorOption.preview)} />
+                                                <span>{colorOption.label}</span>
                                               </div>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {COLOR_OPTIONS.map(colorOption => (
-                                                <SelectItem key={colorOption.value} value={colorOption.value}>
-                                                  <div className="flex items-center gap-2">
-                                                    <div className={cn("w-4 h-4 rounded", colorOption.preview)} />
-                                                    <span>{colorOption.label}</span>
-                                                  </div>
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-2">
-                                        {column.type === 'default_status' && (
-                                          <Badge variant="secondary" className="text-xs">
-                                            Default
-                                          </Badge>
-                                        )}
-                                        {column.type === 'custom_stage' && (
-                                          <Badge variant="outline" className="text-xs">
-                                            Custom
-                                          </Badge>
-                                        )}
-                                        {locked && (
-                                          <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
-                                            <Lock className="w-3 h-3 mr-1" />
-                                            Locked
-                                          </Badge>
-                                        )}
-                                        
-                                        {canDelete ? (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleDeleteColumn(column.id)}
-                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                            title="Delete column"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </Button>
-                                        ) : (
-                                          <div className="w-10" />
-                                        )}
-                                      </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
                                     </div>
-                                  );
-                                }}
-                              </Draggable>
-                            );
-                          })}
-                          {provided.placeholder}
-                        </div>
-                      );
-                    }}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    {column.type === 'default_status' && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Default
+                                      </Badge>
+                                    )}
+                                    {column.type === 'custom_stage' && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Custom
+                                      </Badge>
+                                    )}
+                                    {locked && (
+                                      <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+                                        <Lock className="w-3 h-3 mr-1" />
+                                        Locked
+                                      </Badge>
+                                    )}
+                                    
+                                    {canDelete ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDeleteColumn(column.id)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        title="Delete column"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    ) : (
+                                      <div className="w-10" />
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
                   </Droppable>
                 </DragDropContext>
 
