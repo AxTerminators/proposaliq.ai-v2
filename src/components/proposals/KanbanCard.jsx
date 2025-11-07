@@ -41,7 +41,6 @@ import {
   Shield,
   GripVertical,
   Loader2,
-  Activity, // Added Activity icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -331,7 +330,7 @@ export default function KanbanCard({
               </div>
             )}
 
-            {/* Three Dots Menu - ENHANCED */}
+            {/* Three Dots Menu */}
             <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -343,13 +342,6 @@ export default function KanbanCard({
                   <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Proposal
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(createPageUrl("proposals/ProposalHealth") + `?id=${proposal.id}`);
-                  }}>
-                    <Activity className="w-4 h-4 mr-2" />
-                    View Health Dashboard
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleArchive}>
