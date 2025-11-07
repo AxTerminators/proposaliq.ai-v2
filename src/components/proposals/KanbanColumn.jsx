@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -339,8 +340,9 @@ export default function KanbanColumn({
                   isDragDisabled={!canDragFromHere}
                 >
                   {(cardProvided, cardSnapshot) => {
-                    // Safety check for card provided as well
-                    if (!cardProvided) {
+                    // COMPREHENSIVE safety check for card provided
+                    if (!cardProvided || !cardProvided.innerRef || !cardProvided.draggableProps || !cardProvided.dragHandleProps) {
+                      console.warn('[KanbanColumn] Card provided is missing required properties for proposal:', proposal.id);
                       return null;
                     }
                     
