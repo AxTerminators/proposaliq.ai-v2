@@ -21,22 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FileText,
-  Upload,
+import { 
+  FileText, 
+  Upload, 
   Search,
   Trash2,
   Eye,
   Filter,
   Download,
   Star,
-  StarOff,
-  Sparkles // Added Sparkles import
+  StarOff
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import UniversalAlert from "../components/ui/UniversalAlert";
-import SmartContentLibrary from "../components/resources/SmartContentLibrary"; // Added new import
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -75,7 +73,7 @@ export default function Resources() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-
+  
   // Universal Alert states
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
@@ -83,7 +81,7 @@ export default function Resources() {
     title: "",
     description: ""
   });
-
+  
   const [newResource, setNewResource] = useState({
     resource_type: "boilerplate_text",
     content_category: "general",
@@ -93,14 +91,12 @@ export default function Resources() {
     tags: []
   });
 
-  const [showSmartLibrary, setShowSmartLibrary] = useState(true); // New state for toggling view
-
   useEffect(() => {
     const loadData = async () => {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-
+        
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
@@ -116,17 +112,17 @@ export default function Resources() {
     queryKey: ['resources', organization?.id, filterType, filterCategory],
     queryFn: async () => {
       if (!organization?.id) return [];
-
+      
       let query = { organization_id: organization.id };
-
+      
       if (filterType !== "all") {
         query.resource_type = filterType;
       }
-
+      
       if (filterCategory !== "all") {
         query.content_category = filterCategory;
       }
-
+      
       return base44.entities.ProposalResource.filter(query, '-created_date');
     },
     initialData: [],
@@ -172,12 +168,11 @@ export default function Resources() {
       });
       setShowAlert(true);
     },
-    onError: (error) => {
-      console.error("Error uploading resource:", error);
+    onError: () => {
       setAlertConfig({
         type: "error",
         title: "Upload Failed",
-        description: `Unable to upload resource. ${error.message || "Please try again."}`
+        description: "Unable to upload resource. Please try again."
       });
       setShowAlert(true);
     }
@@ -190,15 +185,6 @@ export default function Resources() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
-    onError: (error) => {
-      console.error("Error toggling favorite:", error);
-      setAlertConfig({
-        type: "error",
-        title: "Action Failed",
-        description: `Unable to update favorite status. ${error.message || "Please try again."}`
-      });
-      setShowAlert(true);
-    }
   });
 
   const deleteResourceMutation = useMutation({
@@ -214,12 +200,11 @@ export default function Resources() {
       });
       setShowAlert(true);
     },
-    onError: (error) => {
-      console.error("Error deleting resource:", error);
+    onError: () => {
       setAlertConfig({
         type: "error",
         title: "Deletion Failed",
-        description: `Unable to delete resource. ${error.message || "Please try again."}`
+        description: "Unable to delete resource. Please try again."
       });
       setShowAlert(true);
     }
@@ -273,8 +258,8 @@ export default function Resources() {
         file_url: fileUrl,
         file_size: fileSize,
         file_name: fileName,
-        word_count: newResource.boilerplate_content
-          ? newResource.boilerplate_content.split(/\s+/).length
+        word_count: newResource.boilerplate_content 
+          ? newResource.boilerplate_content.split(/\s+/).length 
           : 0
       });
     } catch (error) {
@@ -290,7 +275,7 @@ export default function Resources() {
     }
   };
 
-  const filteredResources = resources.filter(r =>
+  const filteredResources = resources.filter(r => 
     r.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -310,157 +295,138 @@ export default function Resources() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Resource Library</h1>
-          <p className="text-slate-600">Manage boilerplate content, templates, and reusable materials</p>
+          <p className="text-slate-600">Manage your proposal resources and boilerplate content</p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant={showSmartLibrary ? "default" : "outline"}
-            onClick={() => setShowSmartLibrary(prev => !prev)}
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            {showSmartLibrary ? 'Standard View' : 'AI-Powered View'}
-          </Button>
-          <Button onClick={() => setShowUploadDialog(true)} className="bg-blue-600 hover:bg-blue-700">
-            <Upload className="w-5 h-5 mr-2" />
-            Upload Resource
-          </Button>
+        <Button onClick={() => setShowUploadDialog(true)}>
+          <Upload className="w-5 h-5 mr-2" />
+          Add Resource
+        </Button>
+      </div>
+
+      <div className="grid lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Input
+              placeholder="Search resources..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger>
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="boilerplate_text">Boilerplate</SelectItem>
+              <SelectItem value="capability_statement">Capability Statement</SelectItem>
+              <SelectItem value="marketing_collateral">Marketing</SelectItem>
+              <SelectItem value="past_proposal">Past Proposal</SelectItem>
+              <SelectItem value="template">Template</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {showSmartLibrary ? (
-        <SmartContentLibrary
-          organization={organization}
-          currentProposal={null} // Placeholder, assuming this component might receive a proposal context later
-        />
+      {isLoading ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3,4,5,6].map(i => (
+            <Skeleton key={i} className="h-64 w-full" />
+          ))}
+        </div>
+      ) : filteredResources.length === 0 ? (
+        <Card className="border-none shadow-lg">
+          <CardContent className="p-12 text-center">
+            <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Resources Yet</h3>
+            <p className="text-slate-600 mb-6">
+              Start building your library by adding capability statements, boilerplate text, and more
+            </p>
+            <Button onClick={() => setShowUploadDialog(true)}>
+              <Upload className="w-5 h-5 mr-2" />
+              Add Your First Resource
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          <div className="grid lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  placeholder="Search resources..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="boilerplate_text">Boilerplate</SelectItem>
-                  <SelectItem value="capability_statement">Capability Statement</SelectItem>
-                  <SelectItem value="marketing_collateral">Marketing</SelectItem>
-                  <SelectItem value="past_proposal">Past Proposal</SelectItem>
-                  <SelectItem value="template">Template</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <Skeleton key={i} className="h-64 w-full" />
-              ))}
-            </div>
-          ) : filteredResources.length === 0 ? (
-            <Card className="border-none shadow-lg">
-              <CardContent className="p-12 text-center">
-                <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Resources Yet</h3>
-                <p className="text-slate-600 mb-6">
-                  Start building your library by adding capability statements, boilerplate text, and more
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredResources.map((resource) => (
+            <Card key={resource.id} className="border-none shadow-lg hover:shadow-xl transition-all">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    {getResourceIcon(resource.resource_type)}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base line-clamp-2">{resource.title}</CardTitle>
+                      <Badge variant="secondary" className="mt-1 capitalize text-xs">
+                        {resource.resource_type?.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleFavoriteMutation.mutate({ 
+                      id: resource.id, 
+                      is_favorite: resource.is_favorite 
+                    })}
+                  >
+                    {resource.is_favorite ? (
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    ) : (
+                      <StarOff className="w-4 h-4 text-slate-400" />
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-600 line-clamp-3 mb-4">
+                  {resource.description || 'No description'}
                 </p>
-                <Button onClick={() => setShowUploadDialog(true)}>
-                  <Upload className="w-5 h-5 mr-2" />
-                  Add Your First Resource
-                </Button>
+                
+                {resource.tags && resource.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    {resource.tags.slice(0, 3).map((tag, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  {resource.file_url && (
+                    <Button size="sm" variant="outline" asChild className="flex-1">
+                      <a href={resource.file_url} target="_blank" rel="noopener noreferrer">
+                        <Download className="w-3 h-3 mr-1" />
+                        Download
+                      </a>
+                    </Button>
+                  )}
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => {
+                      if (confirm('Delete this resource?')) {
+                        deleteResourceMutation.mutate(resource.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-600" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredResources.map((resource) => (
-                <Card key={resource.id} className="border-none shadow-lg hover:shadow-xl transition-all">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        {getResourceIcon(resource.resource_type)}
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base line-clamp-2">{resource.title}</CardTitle>
-                          <Badge variant="secondary" className="mt-1 capitalize text-xs">
-                            {resource.resource_type?.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleFavoriteMutation.mutate({
-                          id: resource.id,
-                          is_favorite: resource.is_favorite
-                        })}
-                      >
-                        {resource.is_favorite ? (
-                          <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                        ) : (
-                          <StarOff className="w-4 h-4 text-slate-400" />
-                        )}
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-slate-600 line-clamp-3 mb-4">
-                      {resource.description || 'No description'}
-                    </p>
-
-                    {resource.tags && resource.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-4">
-                        {resource.tags.slice(0, 3).map((tag, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      {resource.file_url && (
-                        <Button size="sm" variant="outline" asChild className="flex-1">
-                          <a href={resource.file_url} target="_blank" rel="noopener noreferrer">
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </a>
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          if (confirm('Delete this resource?')) {
-                            deleteResourceMutation.mutate(resource.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-3 h-3 text-red-600" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
-
 
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent className="max-w-2xl">
@@ -482,7 +448,7 @@ export default function Resources() {
                 <label className="block text-sm font-medium mb-2">File</label>
                 <Input type="file" onChange={handleFileSelect} />
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium mb-2">Title</label>
                 <Input
@@ -504,8 +470,8 @@ export default function Resources() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Type</label>
-                <Select
-                  value={newResource.resource_type}
+                <Select 
+                  value={newResource.resource_type} 
                   onValueChange={(value) => setNewResource({ ...newResource, resource_type: value })}
                 >
                   <SelectTrigger>
@@ -534,8 +500,8 @@ export default function Resources() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Category</label>
-                <Select
-                  value={newResource.content_category}
+                <Select 
+                  value={newResource.content_category} 
                   onValueChange={(value) => setNewResource({ ...newResource, content_category: value })}
                 >
                   <SelectTrigger>
