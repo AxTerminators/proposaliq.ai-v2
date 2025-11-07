@@ -1096,7 +1096,7 @@ export default function Calendar() {
     );
   };
 
-  // Week View - keeping existing implementation
+  // Week View - ADD COMPREHENSIVE NULL CHECKS
   const renderWeekView = () => {
     const startOfWeek = moment(currentDate).startOf('week');
     const days = Array.from({ length: 7 }, (_, i) => moment(startOfWeek).add(i, 'days'));
@@ -1104,11 +1104,20 @@ export default function Calendar() {
     
     const getEventsForDayAndHour = (day, hour) => {
       return filteredEvents.filter(event => {
+        // Ensure event.start_date and event.end_date are valid moment objects
         const eventStart = moment(event.start_date);
         const eventEnd = moment(event.end_date);
+        
+        // Ensure day and hour form valid moment objects
         const targetHour = moment(day).hour(hour);
         const nextHour = moment(day).hour(hour + 1);
         
+        // Comprehensive null checks for moment objects
+        if (!eventStart.isValid() || !eventEnd.isValid() || !targetHour.isValid() || !nextHour.isValid()) {
+            console.warn("Invalid date/time detected for event or time slot:", event, day, hour);
+            return false;
+        }
+
         return (
           (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
           (eventEnd.isAfter(targetHour) && eventEnd.isSameOrBefore(nextHour)) ||
@@ -1172,29 +1181,31 @@ export default function Calendar() {
                       hourEvents.map((event) => {
                         const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                         return (
-                            <div 
-                                key={event.id} 
-                                className={cn(
-                                "p-2 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white text-xs relative",
-                                getEventTypeColor(event.source_type)
-                                )}
-                                onClick={() => setSelectedEvent(event)}
-                            >
-                                <div className="font-bold flex items-center gap-1 mb-1">
-                                <Icon className="w-3 h-3" />
-                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                                {event.title}
-                                </div>
-                                <div className="opacity-90">
-                                {moment(event.start_date).format('h:mm A')}
-                                </div>
-                                <EventResizeHandle
+                          <div 
+                            key={event.id} 
+                            className={cn(
+                              "p-2 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white text-xs relative",
+                              getEventTypeColor(event.source_type)
+                            )}
+                            onClick={() => setSelectedEvent(event)}
+                          >
+                            <div className="font-bold flex items-center gap-1 mb-1">
+                              <Icon className="w-3 h-3" />
+                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                              {event.title}
+                            </div>
+                            <div className="opacity-90">
+                              {moment(event.start_date).format('h:mm A')}
+                            </div>
+                            {event.can_edit && !event.is_recurring_instance && (
+                              <EventResizeHandle
                                 event={event}
                                 position="bottom"
                                 onResize={(resizeData) => updateEventMutation.mutate(resizeData)}
-                                disabled={!event.can_edit || event.is_recurring_instance}
-                                />
-                            </div>
+                                disabled={false}
+                              />
+                            )}
+                          </div>
                         );
                       })
                     )}
@@ -1208,12 +1219,14 @@ export default function Calendar() {
     );
   };
 
-  // Day View - keeping existing implementation
+  // Day View - ADD COMPREHENSIVE NULL CHECKS
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const dayEvents = filteredEvents.filter(event => {
       const eventDate = moment(event.start_date).format('YYYY-MM-DD');
-      return eventDate === moment(currentDate).format('YYYY-MM-DD');
+      // Ensure currentDate is valid
+      const currentDayFormatted = moment(currentDate).format('YYYY-MM-DD');
+      return eventDate === currentDayFormatted;
     });
     
     return (
@@ -1227,10 +1240,19 @@ export default function Calendar() {
           <div className="grid grid-cols-[100px_1fr]">
             {hours.map((hour) => {
               const hourEvents = dayEvents.filter(event => {
+                // Ensure event.start_date and event.end_date are valid moment objects
                 const eventStart = moment(event.start_date);
                 const eventEnd = moment(event.end_date);
+                
+                // Ensure currentDate is valid and can form valid time slots
                 const targetHour = moment(currentDate).hour(hour);
                 const nextHour = moment(currentDate).hour(hour + 1);
+
+                // Comprehensive null checks for moment objects
+                if (!eventStart.isValid() || !eventEnd.isValid() || !targetHour.isValid() || !nextHour.isValid()) {
+                    console.warn("Invalid date/time detected for event or time slot:", event, currentDate, hour);
+                    return false;
+                }
                 
                 return (
                   (eventStart.isSameOrAfter(targetHour) && eventStart.isBefore(nextHour)) ||
@@ -1268,29 +1290,31 @@ export default function Calendar() {
                       hourEvents.map((event) => {
                         const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
                         return (
-                            <div 
-                                key={event.id} 
-                                className={cn(
-                                "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white relative",
-                                getEventTypeColor(event.source_type)
-                                )}
-                                onClick={() => setSelectedEvent(event)}
-                            >
-                                <div className="font-bold text-sm flex items-center gap-1 mb-1">
-                                <Icon className="w-3 h-3" />
-                                {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
-                                {event.title}
-                                </div>
-                                <div className="text-xs opacity-90">
-                                {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
-                                </div>
-                                <EventResizeHandle
+                          <div 
+                            key={event.id} 
+                            className={cn(
+                              "p-3 rounded-lg cursor-pointer mb-2 shadow-md hover:shadow-xl transition-all bg-gradient-to-r text-white relative",
+                              getEventTypeColor(event.source_type)
+                            )}
+                            onClick={() => setSelectedEvent(event)}
+                          >
+                            <div className="font-bold text-sm flex items-center gap-1 mb-1">
+                              <Icon className="w-3 h-3" />
+                              {event.is_recurring_instance && <Repeat className="w-3 h-3" />}
+                              {event.title}
+                            </div>
+                            <div className="text-xs opacity-90">
+                              {moment(event.start_date).format('h:mm A')} - {moment(event.end_date).format('h:mm A')}
+                            </div>
+                            {event.can_edit && !event.is_recurring_instance && (
+                              <EventResizeHandle
                                 event={event}
                                 position="bottom"
                                 onResize={(resizeData) => updateEventMutation.mutate(resizeData)}
-                                disabled={!event.can_edit || event.is_recurring_instance}
-                                />
-                            </div>
+                                disabled={false}
+                              />
+                            )}
+                          </div>
                         );
                       })
                     )}
