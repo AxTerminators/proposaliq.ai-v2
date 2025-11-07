@@ -944,7 +944,7 @@ export default function Calendar() {
     });
   };
 
-  // Month View
+  // Month View - FIX DROPPABLE PROVIDED ISSUE
   const renderMonthView = () => {
     const daysInMonth = moment(currentDate).daysInMonth();
     const firstDay = moment(currentDate).startOf('month').day();
@@ -989,86 +989,105 @@ export default function Calendar() {
             
             return (
               <Droppable key={index} droppableId={droppableId}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided?.innerRef}
-                    {...(provided?.droppableProps || {})}
-                    className={cn(
-                      "min-h-[140px] border-b border-r p-2 transition-all relative",
-                      !day && "bg-slate-50",
-                      isToday(day) && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
-                      snapshot?.isDraggingOver && "bg-blue-100"
-                    )}
-                    onDoubleClick={() => {
-                      if (day) {
-                        const dateStr = moment(currentDate).date(day).format('YYYY-MM-DD');
-                        setQuickAddSlot({ date: dateStr, time: "09:00" });
-                      }
-                    }}
-                  >
-                    {day && (
-                      <>
-                        <div className={cn(
-                          "text-sm font-bold mb-2 flex items-center justify-center w-8 h-8 rounded-full",
-                          isToday(day) ? "bg-blue-600 text-white shadow-lg" : "text-slate-700"
-                        )}>
-                          {day}
-                        </div>
-                        
-                        {isQuickAddActive ? (
-                          <div className="absolute top-12 left-2 right-2 z-20">
-                            <QuickAddEvent
-                              initialDate={droppableId}
-                              initialTime={quickAddSlot.time}
-                              customEventTypes={customEventTypes}
-                              onSave={handleQuickAdd}
-                              onCancel={() => setQuickAddSlot(null)}
-                            />
+                {(provided, snapshot) => {
+                  if (!provided) {
+                    // This can happen if DragDropContext is not ready or Droppable is not mounted yet
+                    // Returning a basic div to avoid runtime errors when provided is null
+                    return (
+                      <div className="min-h-[140px] border-b border-r p-2 bg-slate-50">
+                        <div className="text-xs text-slate-400">Loading day...</div>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={cn(
+                        "min-h-[140px] border-b border-r p-2 transition-all relative",
+                        !day && "bg-slate-50",
+                        isToday(day) && "bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-400 ring-inset",
+                        snapshot.isDraggingOver && "bg-blue-100"
+                      )}
+                      onDoubleClick={() => {
+                        if (day) {
+                          const dateStr = moment(currentDate).date(day).format('YYYY-MM-DD');
+                          setQuickAddSlot({ date: dateStr, time: "09:00" });
+                        }
+                      }}
+                    >
+                      {day && (
+                        <>
+                          <div className={cn(
+                            "text-sm font-bold mb-2 flex items-center justify-center w-8 h-8 rounded-full",
+                            isToday(day) ? "bg-blue-600 text-white shadow-lg" : "text-slate-700"
+                          )}>
+                            {day}
                           </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {dayEvents.slice(0, 3).map((event, idx) => {
-                              const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
-                              return (
-                                <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
-                                  {(dragProvided, dragSnapshot) => (
-                                    <div
-                                      ref={dragProvided?.innerRef}
-                                      {...(dragProvided?.draggableProps || {})}
-                                      {...(dragProvided?.dragHandleProps || {})}
-                                      className={cn(
-                                        "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
-                                        getEventTypeColor(event.source_type),
-                                        dragSnapshot?.isDragging && "rotate-3 scale-105 shadow-xl",
-                                        !event.can_drag && "cursor-default opacity-90"
-                                      )}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedEvent(event);
-                                      }}
-                                    >
-                                      <div className="truncate flex items-center gap-1">
-                                        <Icon className="w-3 h-3 flex-shrink-0" />
-                                        {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
-                                        {moment(event.start_date).format('h:mm A')} {event.title}
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              );
-                            })}
-                            {dayEvents.length > 3 && (
-                              <div className="text-xs text-slate-500 px-2 font-medium">
-                                +{dayEvents.length - 3} more
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {provided?.placeholder}
-                  </div>
-                )}
+                          
+                          {isQuickAddActive ? (
+                            <div className="absolute top-12 left-2 right-2 z-20">
+                              <QuickAddEvent
+                                initialDate={droppableId}
+                                initialTime={quickAddSlot.time}
+                                customEventTypes={customEventTypes}
+                                onSave={handleQuickAdd}
+                                onCancel={() => setQuickAddSlot(null)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {dayEvents.slice(0, 3).map((event, idx) => {
+                                const Icon = mergedEventTypeConfig[event.source_type]?.icon || CalendarIcon;
+                                return (
+                                  <Draggable key={event.id} draggableId={event.id} index={idx} isDragDisabled={!event.can_drag}>
+                                    {(dragProvided, dragSnapshot) => {
+                                      if (!dragProvided) {
+                                        // Similar check for draggable provided
+                                        return null; // Or a placeholder if necessary
+                                      }
+                                      
+                                      return (
+                                        <div
+                                          ref={dragProvided.innerRef}
+                                          {...dragProvided.draggableProps}
+                                          {...dragProvided.dragHandleProps}
+                                          className={cn(
+                                            "text-xs px-2 py-1.5 rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all bg-gradient-to-r text-white font-medium",
+                                            getEventTypeColor(event.source_type),
+                                            dragSnapshot.isDragging && "rotate-3 scale-105 shadow-xl",
+                                            !event.can_drag && "cursor-default opacity-90"
+                                          )}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedEvent(event);
+                                          }}
+                                        >
+                                          <div className="truncate flex items-center gap-1">
+                                            <Icon className="w-3 h-3 flex-shrink-0" />
+                                            {event.is_recurring_instance && <Repeat className="w-3 h-3 flex-shrink-0" />}
+                                            {moment(event.start_date).format('h:mm A')} {event.title}
+                                          </div>
+                                        </div>
+                                      );
+                                    }}
+                                  </Draggable>
+                                );
+                              })}
+                              {dayEvents.length > 3 && (
+                                <div className="text-xs text-slate-500 px-2 font-medium">
+                                  +{dayEvents.length - 3} more
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {provided.placeholder}
+                    </div>
+                  );
+                }}
               </Droppable>
             );
           })}
@@ -1386,20 +1405,6 @@ export default function Calendar() {
                                 </div>
                               )}
                             </div>
-                            
-                            {/* Actions are now handled by the global selectedEvent dialog
-                            <div className="flex gap-2 mt-3">
-                              <Button size="sm" onClick={() => handleEdit(event)}>
-                                {event.can_edit ? 'Edit' : 'View'}
-                                {!event.can_edit && <ExternalLink className="w-3 h-3 ml-2" />}
-                              </Button>
-                              {event.can_edit && event.source_type === 'calendar_event' && (
-                                <Button size="sm" variant="destructive" onClick={() => handleDelete(event)}>
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                            */}
                           </div>
                         </div>
                       </CardContent>
@@ -1851,7 +1856,7 @@ export default function Calendar() {
                   const Icon = config.icon;
                   return (
                     <div key={key} className="flex items-center gap-2">
-                      <div className={cn("w-4 h-4 rounded bg-gradient-to-r", config.color)} />
+                      <div className="w-4 h-4 rounded bg-gradient-to-r" style={{ background: config.color.startsWith('from-') ? `linear-gradient(to right, ${config.color.split(' ')[0].replace('from-', '')}, ${config.color.split(' ')[2].replace('to-', '')})` : config.color }} />
                       <Icon className="w-4 h-4 text-slate-600" />
                       <span className="text-sm text-slate-700">{config.label}</span>
                     </div>
