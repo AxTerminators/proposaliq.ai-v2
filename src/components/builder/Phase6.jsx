@@ -41,6 +41,7 @@ import AICollaborationAssistant from "../collaboration/AICollaborationAssistant"
 import ErrorAlert from "../ui/ErrorAlert";
 import { AILoadingState, DataFetchingState } from "../ui/LoadingState";
 import ProposalReuseIntelligence from "../content/ProposalReuseIntelligence";
+import AIWritingAssistant from "../content/AIWritingAssistant"; // Added import
 
 const PROPOSAL_SECTIONS = [
   {
@@ -184,6 +185,8 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   // Ref to store scroll position
   const scrollPositionRef = useRef(0);
   const sectionRefs = useRef({});
+
+  const [showAIAssistant, setShowAIAssistant] = useState(true);
 
   // Enhanced context fetching with error handling
   const [contextData, setContextData] = useState({
@@ -836,7 +839,25 @@ The content should be ready to insert into the proposal document. Use HTML forma
     }));
   };
 
+  const handleApplyAISuggestion = (sectionKey, suggestion) => {
+    const currentContent = sectionContent[sectionKey] || '';
+    
+    // Apply suggestion based on type
+    let newContent = currentContent;
+    if (suggestion.type === 'addition' && suggestion.suggested_text) {
+      newContent = currentContent + '\n\n' + suggestion.suggested_text;
+    } else if (suggestion.type === 'improvement' && suggestion.suggested_text) {
+      newContent = currentContent + '\n\n[AI SUGGESTION]: ' + suggestion.suggested_text;
+    }
+    
+    setSectionContent(prev => ({
+      ...prev,
+      [sectionKey]: newContent
+    }));
+  };
+
   const includedSections = getIncludedSections();
+  const { winThemes } = contextData; // Destructure winThemes from contextData for AIWritingAssistant prop
 
   if (!proposalId || !organization) {
     return (
@@ -952,119 +973,137 @@ The content should be ready to insert into the proposal document. Use HTML forma
 
                   {!hasSubsections && (
                     <CardContent className="space-y-4">
-                      <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <Button
-                          size="sm"
-                          onClick={() => generateSectionContent(section, null, false)}
-                          disabled={generatingSection === section.id}
-                          className="bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          {generatingSection === section.id ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-4 h-4 mr-2" />
-                          )}
-                          AI Generate
-                        </Button>
-
-                        {sectionContent[section.id] && (
-                          <>
+                      <div className="grid grid-cols-3 gap-6">
+                        {/* Editor Column - 2/3 width */}
+                        <div className="col-span-2 space-y-4">
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => generateSectionContent(section, null, true)}
+                              onClick={() => generateSectionContent(section, null, false)}
                               disabled={generatingSection === section.id}
+                              className="bg-indigo-600 hover:bg-indigo-700"
                             >
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Regenerate
-                            </Button>
-
-                            <Select
-                              value={selectedTones[section.id] || "default"}
-                              onValueChange={(value) => setSelectedTones(prev => ({ ...prev, [section.id]: value }))}
-                            >
-                              <SelectTrigger className="w-32">
-                                <Mic className="w-4 h-4 mr-2" />
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="default">Default</SelectItem>
-                                <SelectItem value="clear">Clear</SelectItem>
-                                <SelectItem value="formal">Formal</SelectItem>
-                                <SelectItem value="concise">Concise</SelectItem>
-                                <SelectItem value="courteous">Courteous</SelectItem>
-                                <SelectItem value="confident">Confident</SelectItem>
-                                <SelectItem value="persuasive">Persuasive</SelectItem>
-                                <SelectItem value="professional">Professional</SelectItem>
-                                <SelectItem value="humanized">Humanized</SelectItem>
-                                <SelectItem value="conversational">Conversational</SelectItem>
-                              </SelectContent>
-                            </Select>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setCurrentSectionForReuse(section.id);
-                                setShowReuseIntelligence(true);
-                              }}
-                              className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
-                            >
-                              <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
-                              Reuse Content
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setCurrentSectionForBoilerplate(section.id);
-                                setShowBoilerplateDialog(true);
-                              }}
-                            >
-                              <FileCode className="w-4 h-4 mr-2" />
-                              Boilerplate
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleViewHistory(section.id)}
-                            >
-                              <History className="w-4 h-4 mr-2" />
-                              History
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveSection(section.id, section.name)}
-                              disabled={savingSection === section.id}
-                            >
-                              {savingSection === section.id ? (
+                              {generatingSection === section.id ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                               ) : (
-                                <Save className="w-4 h-4 mr-2" />
+                                <Sparkles className="w-4 h-4 mr-2" />
                               )}
-                              Save
+                              AI Generate
                             </Button>
-                          </>
-                        )}
-                      </div>
 
-                      <ReactQuill
-                        value={sectionContent[section.id] || ""}
-                        onChange={(value) => setSectionContent(prev => ({ ...prev, [section.id]: value }))}
-                        className="min-h-64 mb-12"
-                        modules={{
-                          toolbar: [
-                            [{ header: [1, 2, 3, false] }],
-                            ['bold', 'italic', 'underline'],
-                            [{ list: 'ordered' }, { list: 'bullet' }],
-                            ['link'],
-                            ['clean']
-                          ]
-                        }}
-                      />
+                            {sectionContent[section.id] && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => generateSectionContent(section, null, true)}
+                                  disabled={generatingSection === section.id}
+                                >
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Regenerate
+                                </Button>
+
+                                <Select
+                                  value={selectedTones[section.id] || "default"}
+                                  onValueChange={(value) => setSelectedTones(prev => ({ ...prev, [section.id]: value }))}
+                                >
+                                  <SelectTrigger className="w-32">
+                                    <Mic className="w-4 h-4 mr-2" />
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="default">Default</SelectItem>
+                                    <SelectItem value="clear">Clear</SelectItem>
+                                    <SelectItem value="formal">Formal</SelectItem>
+                                    <SelectItem value="concise">Concise</SelectItem>
+                                    <SelectItem value="courteous">Courteous</SelectItem>
+                                    <SelectItem value="confident">Confident</SelectItem>
+                                    <SelectItem value="persuasive">Persuasive</SelectItem>
+                                    <SelectItem value="professional">Professional</SelectItem>
+                                    <SelectItem value="humanized">Humanized</SelectItem>
+                                    <SelectItem value="conversational">Conversational</SelectItem>
+                                  </SelectContent>
+                                </Select>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCurrentSectionForReuse(section.id);
+                                    setShowReuseIntelligence(true);
+                                  }}
+                                  className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+                                >
+                                  <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+                                  Reuse Content
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCurrentSectionForBoilerplate(section.id);
+                                    setShowBoilerplateDialog(true);
+                                  }}
+                                >
+                                  <FileCode className="w-4 h-4 mr-2" />
+                                  Boilerplate
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleViewHistory(section.id)}
+                                >
+                                  <History className="w-4 h-4 mr-2" />
+                                  History
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveSection(section.id, section.name)}
+                                  disabled={savingSection === section.id}
+                                >
+                                  {savingSection === section.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Save className="w-4 h-4 mr-2" />
+                                  )}
+                                  Save
+                                </Button>
+                              </>
+                            )}
+                          </div>
+
+                          <ReactQuill
+                            value={sectionContent[section.id] || ""}
+                            onChange={(value) => setSectionContent(prev => ({ ...prev, [section.id]: value }))}
+                            className="min-h-64 mb-12"
+                            modules={{
+                              toolbar: [
+                                [{ header: [1, 2, 3, false] }],
+                                ['bold', 'italic', 'underline'],
+                                [{ list: 'ordered' }, { list: 'bullet' }],
+                                ['link'],
+                                ['clean']
+                              ]
+                            }}
+                          />
+                        </div>
+
+                        {/* AI Assistant Column - 1/3 width */}
+                        <div className="col-span-1">
+                          {showAIAssistant && (
+                            <AIWritingAssistant
+                              proposal={{ id: proposalId, ...proposalData }}
+                              currentSection={section}
+                              content={sectionContent[section.id] || ''}
+                              onApplySuggestion={(suggestion) => handleApplyAISuggestion(section.id, suggestion)}
+                              winThemes={winThemes}
+                            />
+                          )}
+                        </div>
+                      </div>
                     </CardContent>
                   )}
 
@@ -1083,120 +1122,136 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               <h4 className="font-semibold text-slate-900">{subsection.name}</h4>
                               <Badge variant="outline" className="text-xs">{subsection.defaultWordCount} words</Badge>
                             </div>
-
-                            <div className="flex flex-wrap items-center gap-2 mb-3">
-                              <Button
-                                size="sm"
-                                onClick={() => generateSectionContent(section, subsection, false)}
-                                disabled={generatingSection === subsectionKey}
-                                className="bg-indigo-600 hover:bg-indigo-700"
-                              >
-                                {generatingSection === subsectionKey ? (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Sparkles className="w-4 h-4 mr-2" />
-                                )}
-                                AI Generate
-                              </Button>
-
-                              {sectionContent[subsectionKey] && (
-                                <>
+                            <div className="grid grid-cols-3 gap-6">
+                              {/* Editor Column - 2/3 width */}
+                              <div className="col-span-2 space-y-4">
+                                <div className="flex flex-wrap items-center gap-2 mb-3">
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    onClick={() => generateSectionContent(section, subsection, true)}
+                                    onClick={() => generateSectionContent(section, subsection, false)}
                                     disabled={generatingSection === subsectionKey}
+                                    className="bg-indigo-600 hover:bg-indigo-700"
                                   >
-                                    <RefreshCw className="w-4 h-4 mr-2" />
-                                    Regenerate
-                                  </Button>
-
-                                  <Select
-                                    value={selectedTones[subsectionKey] || "default"}
-                                    onValueChange={(value) => setSelectedTones(prev => ({ ...prev, [subsectionKey]: value }))}
-                                  >
-                                    <SelectTrigger className="w-32">
-                                      <Mic className="w-4 h-4 mr-2" />
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="default">Default</SelectItem>
-                                      <SelectItem value="clear">Clear</SelectItem>
-                                      <SelectItem value="formal">Formal</SelectItem>
-                                      <SelectItem value="concise">Concise</SelectItem>
-                                      <SelectItem value="courteous">Courteous</SelectItem>
-                                      <SelectItem value="confident">Confident</SelectItem>
-                                      <SelectItem value="persuasive">Persuasive</SelectItem>
-                                      <SelectItem value="professional">Professional</SelectItem>
-                                      <SelectItem value="humanized">Humanized</SelectItem>
-                                      <SelectItem value="conversational">Conversational</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setCurrentSectionForReuse(subsectionKey);
-                                      setShowReuseIntelligence(true);
-                                    }}
-                                    className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
-                                  >
-                                    <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
-                                    Reuse
-                                  </Button>
-
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setCurrentSectionForBoilerplate(subsectionKey);
-                                      setShowBoilerplateDialog(true);
-                                    }}
-                                  >
-                                    <FileCode className="w-4 h-4 mr-2" />
-                                    Boilerplate
-                                  </Button>
-
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleViewHistory(subsectionKey)}
-                                  >
-                                    <History className="w-4 h-4 mr-2" />
-                                    History
-                                  </Button>
-
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleSaveSection(subsectionKey, `${section.name} - ${subsection.name}`)}
-                                    disabled={savingSection === subsectionKey}
-                                  >
-                                    {savingSection === subsectionKey ? (
+                                    {generatingSection === subsectionKey ? (
                                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                     ) : (
-                                      <Save className="w-4 h-4 mr-2" />
+                                      <Sparkles className="w-4 h-4 mr-2" />
                                     )}
-                                    Save
+                                    AI Generate
                                   </Button>
-                                </>
-                              )}
-                            </div>
 
-                            <ReactQuill
-                              value={sectionContent[subsectionKey] || ""}
-                              onChange={(value) => setSectionContent(prev => ({ ...prev, [subsectionKey]: value }))}
-                              className="min-h-48 mb-12"
-                              modules={{
-                                toolbar: [
-                                  [{ header: [1, 2, 3, false] }],
-                                  ['bold', 'italic', 'underline'],
-                                  [{ list: 'ordered' }, { list: 'bullet' }],
-                                  ['link'],
-                                  ['clean']
-                                ]
-                              }}
-                            />
+                                  {sectionContent[subsectionKey] && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => generateSectionContent(section, subsection, true)}
+                                        disabled={generatingSection === subsectionKey}
+                                      >
+                                        <RefreshCw className="w-4 h-4 mr-2" />
+                                        Regenerate
+                                      </Button>
+
+                                      <Select
+                                        value={selectedTones[subsectionKey] || "default"}
+                                        onValueChange={(value) => setSelectedTones(prev => ({ ...prev, [subsectionKey]: value }))}
+                                      >
+                                        <SelectTrigger className="w-32">
+                                          <Mic className="w-4 h-4 mr-2" />
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="default">Default</SelectItem>
+                                          <SelectItem value="clear">Clear</SelectItem>
+                                          <SelectItem value="formal">Formal</SelectItem>
+                                          <SelectItem value="concise">Concise</SelectItem>
+                                          <SelectItem value="courteous">Courteous</SelectItem>
+                                          <SelectItem value="confident">Confident</SelectItem>
+                                          <SelectItem value="persuasive">Persuasive</SelectItem>
+                                          <SelectItem value="professional">Professional</SelectItem>
+                                          <SelectItem value="humanized">Humanized</SelectItem>
+                                          <SelectItem value="conversational">Conversational</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setCurrentSectionForReuse(subsectionKey);
+                                          setShowReuseIntelligence(true);
+                                        }}
+                                        className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+                                      >
+                                        <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+                                        Reuse
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setCurrentSectionForBoilerplate(subsectionKey);
+                                          setShowBoilerplateDialog(true);
+                                        }}
+                                      >
+                                        <FileCode className="w-4 h-4 mr-2" />
+                                        Boilerplate
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleViewHistory(subsectionKey)}
+                                      >
+                                        <History className="w-4 h-4 mr-2" />
+                                        History
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleSaveSection(subsectionKey, `${section.name} - ${subsection.name}`)}
+                                        disabled={savingSection === subsectionKey}
+                                      >
+                                        {savingSection === subsectionKey ? (
+                                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <Save className="w-4 h-4 mr-2" />
+                                        )}
+                                        Save
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+
+                                <ReactQuill
+                                  value={sectionContent[subsectionKey] || ""}
+                                  onChange={(value) => setSectionContent(prev => ({ ...prev, [subsectionKey]: value }))}
+                                  className="min-h-48 mb-12"
+                                  modules={{
+                                    toolbar: [
+                                      [{ header: [1, 2, 3, false] }],
+                                      ['bold', 'italic', 'underline'],
+                                      [{ list: 'ordered' }, { list: 'bullet' }],
+                                      ['link'],
+                                      ['clean']
+                                    ]
+                                  }}
+                                />
+                              </div>
+                              {/* AI Assistant Column - 1/3 width */}
+                              <div className="col-span-1">
+                                {showAIAssistant && (
+                                  <AIWritingAssistant
+                                    proposal={{ id: proposalId, ...proposalData }}
+                                    currentSection={subsection}
+                                    content={sectionContent[subsectionKey] || ''}
+                                    onApplySuggestion={(suggestion) => handleApplyAISuggestion(subsectionKey, suggestion)}
+                                    winThemes={winThemes}
+                                  />
+                                )}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}

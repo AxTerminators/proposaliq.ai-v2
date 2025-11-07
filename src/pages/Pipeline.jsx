@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2 } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X } from "lucide-react";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
@@ -15,8 +15,9 @@ import SmartAutomationEngine from "@/components/automation/SmartAutomationEngine
 import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions";
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
+import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export default function Pipeline() {
   const [showAutomation, setShowAutomation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
+  const [showHealthDashboard, setShowHealthDashboard] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -147,7 +149,7 @@ export default function Pipeline() {
       refetchProposals();
       refetchConfig();
     }
-  }, [organization?.id, refetchProposals, refetchConfig]); // Added refetch functions to dependencies for useEffect best practices
+  }, [organization?.id, refetchProposals, refetchConfig]);
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
@@ -264,7 +266,7 @@ export default function Pipeline() {
   const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
-    <>
+    <div className="p-6 space-y-6 flex flex-col h-screen">
       <AutomationExecutor 
         organization={organization} 
         proposals={proposals} 
@@ -360,6 +362,32 @@ export default function Pipeline() {
         </div>
       </div>
 
+      {showHealthDashboard && (
+        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-6 h-6 text-purple-600" />
+                Predictive Health Analysis
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowHealthDashboard(null)}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <PredictiveHealthDashboard
+              proposal={showHealthDashboard}
+              organization={organization}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex-1 overflow-hidden">
         {isLoadingProposals || isLoadingConfig ? (
           <div className="flex items-center justify-center h-full p-6">
@@ -435,6 +463,6 @@ export default function Pipeline() {
         onClose={() => setShowSampleDataGuard(false)}
         onProceed={proceedToProposalBuilder}
       />
-    </>
+    </div>
   );
 }
