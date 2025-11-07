@@ -15,6 +15,7 @@ import SmartAutomationEngine from "@/components/automation/SmartAutomationEngine
 import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions";
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
 import MobileKanbanView from "@/components/mobile/MobileKanbanView";
+import MobilePipeline from "@/components/mobile/MobilePipeline"; // New import
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
 import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
@@ -110,7 +111,7 @@ export default function Pipeline() {
   });
 
   // Fetch kanban config
-  const { data: kanbanConfig, isLoading: isLoadingConfig, refetch: refetchConfig } = useQuery({
+  const { data: kanbanConfig, isLoading: isLoadingConfig, refetch: refetchKanbanConfig } = useQuery({ // Renamed refetch: refetchKanbanConfig
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
@@ -147,9 +148,9 @@ export default function Pipeline() {
     if (organization?.id) {
       console.log('[Pipeline] Organization changed, refetching data');
       refetchProposals();
-      refetchConfig();
+      refetchKanbanConfig(); // Updated name
     }
-  }, [organization?.id, refetchProposals, refetchConfig]);
+  }, [organization?.id, refetchProposals, refetchKanbanConfig]); // Updated name
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
@@ -170,7 +171,7 @@ export default function Pipeline() {
         await base44.functions.invoke('generateSampleData', {});
         alert('Sample data generated! Refreshing...');
         refetchProposals();
-        refetchConfig();
+        refetchKanbanConfig(); // Updated name
       } catch (error) {
         console.error('Error generating sample data:', error);
         alert('Error generating sample data: ' + error.message);
@@ -266,197 +267,200 @@ export default function Pipeline() {
   const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
-    <div className="p-6 space-y-6 flex flex-col h-screen">
-      <AutomationExecutor 
-        organization={organization} 
-        proposals={proposals} 
-        automationRules={automationRules}
-      />
-
-      {showDataRecovery && (
-        <div className="bg-amber-50 border-b border-amber-200 p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-start gap-4">
-              <Database className="w-8 h-8 text-amber-600 flex-shrink-0 mt-1" />
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-amber-900 mb-2">No Proposals Found</h3>
-                <p className="text-amber-800 mb-4">
-                  You're viewing <strong>"{organization.organization_name}"</strong> but there are no proposals yet.
-                </p>
-                
-                <div className="flex gap-3">
-                  <Button onClick={handleCreateProposal} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Proposal
-                  </Button>
-                  {canGenerateSampleData && (
-                    <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
-                      <Database className="w-4 h-4 mr-2" />
-                      Generate Sample Data
-                    </Button>
-                  )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {isMobile ? (
+        <MobilePipeline
+          user={user}
+          organization={organization}
+          proposals={proposals}
+          kanbanConfig={kanbanConfig}
+          onRefresh={() => {
+            refetchProposals();
+            refetchKanbanConfig(); // Updated name
+          }}
+        />
+      ) : (
+        <div className="p-6 space-y-6 flex flex-col h-screen"> {/* Added flex flex-col h-screen to allow inner flex-1 */}
+          {showDataRecovery && (
+            <div className="bg-amber-50 border-b border-amber-200 p-6">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex items-start gap-4">
+                  <Database className="w-8 h-8 text-amber-600 flex-shrink-0 mt-1" />
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-amber-900 mb-2">No Proposals Found</h3>
+                    <p className="text-amber-800 mb-4">
+                      You're viewing <strong>"{organization.organization_name}"</strong> but there are no proposals yet.
+                    </p>
+                    
+                    <div className="flex gap-3">
+                      <Button onClick={handleCreateProposal} className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create New Proposal
+                      </Button>
+                      {canGenerateSampleData && (
+                        <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
+                          <Database className="w-4 h-4 mr-2" />
+                          Generate Sample Data
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Pipeline</h1>
-            <p className="text-sm lg:text-base text-slate-600">Track all your proposals across stages</p>
-          </div>
-          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            {!isMobile && (
-              <>
+          {/* Header - UPDATED TITLE */}
+          {/* Removed old wrapper div with p-4 lg:p-6 border-b bg-white and flex-shrink-0 */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1> {/* Updated text and size */}
+              <p className="text-sm lg:text-base text-slate-600"> {/* Updated text */}
+                Manage your proposal pipeline with visual workflow
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+              {/* Removed !isMobile conditional as this is already within the !isMobile branch */}
+                <>
+                  <Button
+                    variant={showAutomation ? "default" : "outline"}
+                    onClick={() => setShowAutomation(!showAutomation)}
+                    size="sm"
+                    className="h-9"
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    {showAutomation ? 'Hide' : 'Show'} Automation
+                  </Button>
+                  <Button
+                    variant={showAnalytics ? "default" : "outline"}
+                    onClick={() => setShowAnalytics(!showAnalytics)}
+                    size="sm"
+                    className="h-9"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    {showAnalytics ? 'Hide' : 'Show'} Analytics
+                  </Button>
+                </>
+              
+              <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
                 <Button
-                  variant={showAutomation ? "default" : "outline"}
-                  onClick={() => setShowAutomation(!showAutomation)}
+                  variant={viewMode === "kanban" ? "secondary" : "ghost"}
                   size="sm"
-                  className="h-9"
+                  className="h-8"
+                  onClick={() => setViewMode("kanban")}
                 >
-                  <Zap className="w-4 h-4 mr-2" />
-                  {showAutomation ? 'Hide' : 'Show'} Automation
+                  <LayoutGrid className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant={showAnalytics ? "default" : "outline"}
-                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
                   size="sm"
-                  className="h-9"
+                  className="h-8"
+                  onClick={() => setViewMode("list")}
                 >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  {showAnalytics ? 'Hide' : 'Show'} Analytics
+                  <List className="w-4 h-4" />
                 </Button>
-              </>
-            )}
-            
-            <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
-              <Button
-                variant={viewMode === "kanban" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("kanban")}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "table" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("table")}
-              >
-                <Table className="w-4 h-4" />
-              </Button>
+                <Button
+                  variant={viewMode === "table" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setViewMode("table")}
+                >
+                  <Table className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {showHealthDashboard && (
-        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-6 h-6 text-purple-600" />
-                Predictive Health Analysis
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowHealthDashboard(null)}
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <PredictiveHealthDashboard
-              proposal={showHealthDashboard}
-              organization={organization}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex-1 overflow-hidden">
-        {isLoadingProposals || isLoadingConfig ? (
-          <div className="flex items-center justify-center h-full p-6">
-            <Card className="max-w-md border-none shadow-xl">
-              <CardContent className="p-8 text-center">
-                <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">Loading your pipeline...</h3>
-                <p className="text-sm text-slate-600">
-                  {isLoadingConfig ? "Setting up your board..." : "Loading proposals..."}
-                </p>
+          {showHealthDashboard && (
+            <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-purple-600" />
+                    Predictive Health Analysis
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowHealthDashboard(null)}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <PredictiveHealthDashboard
+                  proposal={showHealthDashboard}
+                  organization={organization}
+                />
               </CardContent>
             </Card>
-          </div>
-        ) : (
-          <>
-            {!isMobile && showAutomation && (
-              <div className="p-6 space-y-6 overflow-y-auto max-h-full">
-                <AIWorkflowSuggestions 
-                  organization={organization} 
-                  proposals={proposals}
-                  automationRules={automationRules}
-                />
-                <SmartAutomationEngine organization={organization} />
-              </div>
-            )}
+          )}
 
-            {!isMobile && showAnalytics && (
-              <div className="p-6 space-y-6 overflow-y-auto max-h-full">
-                <SnapshotGenerator organization={organization} proposals={proposals} />
-                <PipelineAnalytics organization={organization} proposals={proposals} />
+          <div className="flex-1 overflow-hidden">
+            {isLoadingProposals || isLoadingConfig ? (
+              <div className="flex items-center justify-center h-full p-6">
+                <Card className="max-w-md border-none shadow-xl">
+                  <CardContent className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">Loading your pipeline...</h3>
+                    <p className="text-sm text-slate-600">
+                      {isLoadingConfig ? "Setting up your board..." : "Loading proposals..."}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-            )}
-
-            {!showAutomation && !showAnalytics && (
+            ) : (
               <>
-                {isMobile ? (
-                  <div className="p-4">
-                    <MobileKanbanView proposals={proposals} columns={kanbanConfig?.columns || []} />
+                {showAutomation && (
+                  <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+                    <AIWorkflowSuggestions 
+                      organization={organization} 
+                      proposals={proposals}
+                      automationRules={automationRules}
+                    />
+                    <SmartAutomationEngine organization={organization} />
                   </div>
-                ) : (
+                )}
+
+                {showAnalytics && (
+                  <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+                    <SnapshotGenerator organization={organization} proposals={proposals} />
+                    <PipelineAnalytics organization={organization} proposals={proposals} />
+                  </div>
+                )}
+
+                {!showAutomation && !showAnalytics && (
                   <>
-                    {viewMode === "kanban" && (
-                      <ProposalsKanban 
-                        proposals={proposals} 
-                        organization={organization} 
-                        user={user}
-                        onRefresh={() => {
-                          refetchProposals();
-                          refetchConfig();
-                        }}
-                      />
-                    )}
-                    {viewMode === "list" && (
-                      <div className="p-6">
-                        <ProposalsList proposals={proposals} organization={organization} />
-                      </div>
-                    )}
-                    {viewMode === "table" && (
-                      <div className="p-6">
-                        <ProposalsTable proposals={proposals} organization={organization} />
-                      </div>
-                    )}
+                    {/* Removed isMobile conditional as this is already within the !isMobile branch */}
+                        {viewMode === "kanban" && (
+                          <ProposalsKanban 
+                            proposals={proposals} 
+                            organization={organization} 
+                            user={user}
+                            onRefresh={() => {
+                              refetchProposals();
+                              refetchKanbanConfig(); // Updated name
+                            }}
+                          />
+                        )}
+                        {viewMode === "list" && (
+                          <div className="p-6">
+                            <ProposalsList proposals={proposals} organization={organization} />
+                          </div>
+                        )}
+                        {viewMode === "table" && (
+                          <div className="p-6">
+                            <ProposalsTable proposals={proposals} organization={organization} />
+                          </div>
+                        )}
                   </>
                 )}
               </>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       <SampleDataGuard
         isOpen={showSampleDataGuard}

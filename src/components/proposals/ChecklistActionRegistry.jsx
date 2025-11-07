@@ -13,47 +13,47 @@ import ContentPlanningModal from './modals/ContentPlanningModal';
 import PricingReviewModal from './modals/PricingReviewModal';
 
 export const ACTION_REGISTRY = {
-  // Phase 1 - Basic Info
+  // Phase 1 - Basic Info (MODAL)
   'enter_basic_info': {
-    type: 'modal',
-    component: BasicInfoModal,
+    type: 'navigate',
+    path: '/proposals/BasicInfo',
     label: 'Enter Basic Info',
     status: '✅'
   },
   'open_basic_info_modal': {
-    type: 'modal',
-    component: BasicInfoModal,
+    type: 'navigate',
+    path: '/proposals/BasicInfo',
     label: 'Enter Basic Information',
     status: '✅'
   },
   'open_modal_phase1': {
-    type: 'modal',
-    component: BasicInfoModal,
+    type: 'navigate',
+    path: '/proposals/BasicInfo',
     label: 'Open Phase 1',
     status: '✅'
   },
   
-  // Phase 2 - Team
+  // Phase 2 - Team (NAVIGATE)
   'form_team': {
-    type: 'modal',
-    component: TeamFormationModal,
+    type: 'navigate',
+    path: '/proposals/TeamSetup',
     label: 'Form Team',
     status: '✅'
   },
   'open_team_formation_modal': {
-    type: 'modal',
-    component: TeamFormationModal,
+    type: 'navigate',
+    path: '/proposals/TeamSetup',
     label: 'Form Team',
     status: '✅'
   },
   'open_modal_phase2': {
-    type: 'modal',
-    component: TeamFormationModal,
+    type: 'navigate',
+    path: '/proposals/TeamSetup',
     label: 'Open Phase 2',
     status: '✅'
   },
   
-  // Phase 2 - Resources
+  // Phase 2 - Resources (MODAL - keep as modal for now)
   'gather_resources': {
     type: 'modal',
     component: ResourceGatheringModal,
@@ -67,7 +67,7 @@ export const ACTION_REGISTRY = {
     status: '✅'
   },
   
-  // Phase 3 - Solicitation
+  // Phase 3 - Solicitation (MODAL - keep as modal)
   'upload_solicitation': {
     type: 'modal',
     component: SolicitationUploadModal,
@@ -87,7 +87,7 @@ export const ACTION_REGISTRY = {
     status: '✅'
   },
   
-  // Phase 4 - Evaluation
+  // Phase 4 - Evaluation (MODAL - keep as modal)
   'run_evaluation': {
     type: 'modal',
     component: EvaluationModal,
@@ -107,7 +107,15 @@ export const ACTION_REGISTRY = {
     status: '✅'
   },
   
-  // Phase 5 - Win Strategy
+  // Phase 4 - Compliance Matrix (NAVIGATE - NEW)
+  'view_compliance_matrix': {
+    type: 'navigate',
+    path: '/proposals/ComplianceMatrix',
+    label: 'View Compliance Matrix',
+    status: '✅'
+  },
+  
+  // Phase 5 - Win Strategy (MODAL - keep as modal)
   'develop_win_strategy': {
     type: 'modal',
     component: WinStrategyModal,
@@ -127,7 +135,7 @@ export const ACTION_REGISTRY = {
     status: '✅'
   },
   
-  // Phase 5 - Content Planning
+  // Phase 5 - Content Planning (MODAL - keep as modal)
   'plan_content': {
     type: 'modal',
     component: ContentPlanningModal,
@@ -141,7 +149,15 @@ export const ACTION_REGISTRY = {
     status: '✅'
   },
   
-  // Phase 7 - Pricing
+  // Phase 6 - Content Writing (NAVIGATE - NEW)
+  'start_writing': {
+    type: 'navigate',
+    path: '/proposals/WriteContent',
+    label: 'Start Writing',
+    status: '✅'
+  },
+  
+  // Phase 7 - Pricing (MODAL - keep as modal)
   'review_pricing': {
     type: 'modal',
     component: PricingReviewModal,
@@ -155,17 +171,19 @@ export const ACTION_REGISTRY = {
     status: '✅'
   },
   
-  // Navigation actions
-  'start_writing': {
-    type: 'navigate',
-    path: '/ContentDevelopment',
-    label: 'Start Writing',
-    status: '✅'
-  },
+  // Phase 8 - Final Review (NAVIGATE)
   'internal_review': {
     type: 'navigate',
     path: '/FinalReview',
     label: 'Internal Review',
+    status: '✅'
+  },
+  
+  // Health Dashboard (NAVIGATE - NEW)
+  'view_health': {
+    type: 'navigate',
+    path: '/proposals/ProposalHealth',
+    label: 'View Health Dashboard',
     status: '✅'
   },
   

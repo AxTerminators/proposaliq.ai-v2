@@ -28,7 +28,11 @@ import {
   Circle,
   AlertCircle,
   ExternalLink,
-  FileEdit
+  FileEdit,
+  Zap, // Added Zap icon
+  Users, // Added Users icon
+  Shield, // Added Shield icon
+  Activity // Added Activity icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -380,6 +384,13 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   )}
                 </TabsTrigger>
                 <TabsTrigger 
+                  value="quick-actions" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
+                >
+                  <Zap className="w-4 h-4" />
+                  Quick Actions
+                </TabsTrigger>
+                <TabsTrigger 
                   value="tasks" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
                 >
@@ -555,6 +566,81 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                     </Card>
                   </div>
                 )}
+              </TabsContent>
+
+              {/* Quick Actions Tab - NEW */}
+              <TabsContent value="quick-actions" className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      navigate(createPageUrl("proposals/BasicInfo") + `?id=${proposal.id}`);
+                    }}
+                    className="h-20 flex flex-col items-center justify-center gap-2"
+                    variant="outline"
+                  >
+                    <Building2 className="w-6 h-6 text-blue-600" />
+                    <span>Basic Info</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      navigate(createPageUrl("proposals/TeamSetup") + `?id=${proposal.id}`);
+                    }}
+                    className="h-20 flex flex-col items-center justify-center gap-2"
+                    variant="outline"
+                  >
+                    <Users className="w-6 h-6 text-purple-600" />
+                    <span>Team Setup</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      navigate(createPageUrl("proposals/WriteContent") + `?id=${proposal.id}`);
+                    }}
+                    className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    <FileEdit className="w-6 h-6" />
+                    <span>Start Writing</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      navigate(createPageUrl("proposals/ComplianceMatrix") + `?id=${proposal.id}`);
+                    }}
+                    className="h-20 flex flex-col items-center justify-center gap-2"
+                    variant="outline"
+                  >
+                    <Shield className="w-6 h-6 text-green-600" />
+                    <span>Compliance Matrix</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      navigate(createPageUrl("proposals/ProposalHealth") + `?id=${proposal.id}`);
+                    }}
+                    className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                  >
+                    <Activity className="w-6 h-6" />
+                    <span>Health Dashboard</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onClose();
+                      navigate(createPageUrl("FinalReview") + `?id=${proposal.id}`);
+                    }}
+                    className="h-20 flex flex-col items-center justify-center gap-2"
+                    variant="outline"
+                  >
+                    <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    <span>Final Review</span>
+                  </Button>
+                </div>
               </TabsContent>
 
               <TabsContent value="tasks" className="mt-0 p-6">

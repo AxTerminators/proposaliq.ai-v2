@@ -6,7 +6,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare, Shield } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge"; // Added Badge import
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -104,13 +105,33 @@ export default function ProposalBuilder() {
     status: "evaluating"
   });
 
+  // Admin access check
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        if (currentUser?.role !== 'admin') {
+          alert("⚠️ ProposalBuilder is now admin-only. Please use the Proposal Board for managing proposals.");
+          navigate(createPageUrl("Pipeline"));
+        } else {
+          setUser(currentUser); // Set user if admin
+        }
+      } catch (error) {
+        console.error("Error checking access:", error);
+        navigate(createPageUrl("Pipeline"));
+      }
+    };
+    checkAccess();
+  }, [navigate]); // Added navigate to dependency array
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
+        // User already set by admin check, if not admin, this won't run further
+        if (!user) return; 
+
         const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
+          { created_by: user.email },
           '-created_date',
           1
         );
@@ -130,8 +151,10 @@ export default function ProposalBuilder() {
         console.error("Error loading data:", error);
       }
     };
-    loadData();
-  }, []);
+    if (user) { // Only load data if user is an admin and has been set
+      loadData();
+    }
+  }, [user]); // Depend on user state
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -185,7 +208,7 @@ export default function ProposalBuilder() {
     if (organization?.id) {
       ensureProposalSaved();
     }
-  }, [currentPhase, organization?.id]);
+  }, [currentPhase, organization?.id, proposalId, proposalData.proposal_name]); // Added missing dependencies
 
   const proceedWithNewProposal = () => {
     // User cleared sample data, they can now create proposals
@@ -407,10 +430,16 @@ export default function ProposalBuilder() {
               onClick={() => navigate(createPageUrl("Pipeline"))}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Pipeline
+              Back to Proposal Board
             </Button>
             
             <div className="flex gap-2">
+              {/* Admin Only Badge */}
+              <Badge className="bg-red-100 text-red-700 border-red-300">
+                <Shield className="w-4 h-4 mr-1" />
+                Admin Only
+              </Badge>
+
               {proposalId && !showAssistant && (
                 <Button
                   variant="outline"
@@ -434,6 +463,16 @@ export default function ProposalBuilder() {
               )}
             </div>
           </div>
+
+          {/* Admin Warning */}
+          <Card className="border-2 border-red-200 bg-red-50 mb-6">
+            <CardContent className="p-4">
+              <p className="text-sm text-red-900">
+                <strong>⚠️ Admin Access:</strong> This is the legacy Proposal Builder interface. Regular users should use the Proposal Board (Kanban) workflow with dedicated pages for each step.
+              </p>
+            </CardContent>
+          </Card>
+
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             {proposalData.proposal_name || "New Proposal"}
           </h1>

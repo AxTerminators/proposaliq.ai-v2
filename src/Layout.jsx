@@ -84,7 +84,7 @@ const SETTINGS_ITEMS = [
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
-  { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all" },
+  { title: "Proposal Board", url: createPageUrl("Pipeline"), icon: FileEdit, showFor: "all" }, // RENAMED from "Proposal Builder"
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
