@@ -15,7 +15,8 @@ import {
   ChevronRight,
   History,
   Mic,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2 // Added for auto-save indicator
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -41,7 +42,8 @@ import AICollaborationAssistant from "../collaboration/AICollaborationAssistant"
 import ErrorAlert from "../ui/ErrorAlert";
 import { AILoadingState, DataFetchingState } from "../ui/LoadingState";
 import ProposalReuseIntelligence from "../content/ProposalReuseIntelligence";
-import AIWritingAssistant from "../content/AIWritingAssistant"; // Added import
+import AIWritingAssistant from "../content/AIWritingAssistant";
+import moment from "moment"; // Added for auto-save timestamp formatting
 
 const PROPOSAL_SECTIONS = [
   {
@@ -181,6 +183,8 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const [saveError, setSaveError] = useState(null);
   const [showReuseIntelligence, setShowReuseIntelligence] = useState(false);
   const [currentSectionForReuse, setCurrentSectionForReuse] = useState(null);
+  const [lastAutoSaved, setLastAutoSaved] = useState(null); // Added for auto-save
+  const [isAutoSaving, setIsAutoSaving] = useState(false); // Added for auto-save
   
   // Ref to store scroll position
   const scrollPositionRef = useRef(0);
@@ -405,6 +409,58 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       });
     } catch (error) {
       console.error("Error creating version history:", error);
+    }
+  };
+
+  // Auto-save content every 30 seconds
+  useEffect(() => {
+    if (!proposalId) return;
+    
+    const autoSaveInterval = setInterval(async () => {
+      await autoSaveAllSections();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [proposalId, sectionContent]); // Re-evaluates if proposalId or sectionContent changes
+
+  const autoSaveAllSections = async () => {
+    if (!currentUser) return;
+    
+    // Filter for sections with actual content that needs saving
+    const sectionsToSave = Object.entries(sectionContent).filter(([key, content]) => 
+      content && content.trim().length > 0
+    );
+    
+    if (sectionsToSave.length === 0) return; // No content to save
+
+    setIsAutoSaving(true);
+    
+    try {
+      // Get the latest sections from query cache to compare
+      const currentSectionsFromQuery = queryClient.getQueryData(['proposal-sections', proposalId]) || [];
+
+      for (const [sectionKey, content] of sectionsToSave) {
+        const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+        const existingSection = currentSectionsFromQuery.find(s => s.section_type === sectionKey);
+
+        // Only update if the content has changed from what's currently in the DB
+        if (existingSection && existingSection.content !== content) {
+          await updateSectionMutation.mutateAsync({
+            id: existingSection.id,
+            data: {
+              content,
+              word_count: wordCount,
+              status: 'draft' // Auto-saved content is still considered a draft
+            }
+          });
+        }
+      }
+      
+      setLastAutoSaved(new Date());
+    } catch (error) {
+      console.error("Auto-save error:", error);
+    } finally {
+      setIsAutoSaving(false);
     }
   };
 
@@ -886,14 +942,35 @@ The content should be ready to insert into the proposal document. Use HTML forma
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-indigo-600" />
-          Phase 6: AI-Powered Proposal Writer
-        </CardTitle>
-        <CardDescription>
-          Generate and edit proposal sections and subsections with AI assistance
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-600" />
+              Phase 6: AI-Powered Proposal Writer
+            </CardTitle>
+            <CardDescription>
+              Generate and edit proposal sections and subsections with AI assistance
+            </CardDescription>
+          </div>
+          
+          {/* Auto-save Indicator */}
+          <div className="flex items-center gap-2">
+            {isAutoSaving && (
+              <Badge variant="outline" className="border-blue-300 text-blue-700">
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Auto-saving...
+              </Badge>
+            )}
+            {!isAutoSaving && lastAutoSaved && (
+              <Badge variant="outline" className="border-green-300 text-green-700">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Auto-saved {moment(lastAutoSaved).fromNow()}
+              </Badge>
+            )}
+          </div>
+        </div>
       </CardHeader>
+      
       <CardContent className="space-y-6">
         {/* Error Messages */}
         {generationError && (
@@ -935,6 +1012,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               <li>✓ Automatic scroll position preservation</li>
               <li>✓ Smart error handling and recovery</li>
               <li>✓ Version history tracking for all changes</li>
+              <li>✓ Auto-saving content every 30 seconds</li> {/* Added this line */}
             </ul>
           </AlertDescription>
         </Alert>
@@ -1370,7 +1448,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               }
             }}
           >
-            Continue to Finalize
+            Continue to Pricing {/* Changed button text */}
           </Button>
         </div>
       </CardContent>
@@ -1382,7 +1460,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               onClick={onSaveAndGoToPipeline}
               className="bg-white hover:bg-slate-50"
             >
-              Save and Go to Pipeline
+              Save and Go to Proposal Board {/* Changed button text */}
             </Button>
           </div>
         </div>
