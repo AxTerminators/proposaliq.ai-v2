@@ -69,29 +69,36 @@ export default function EnhancedComplianceMatrix({ proposal, organization }) {
     setAutoMapping(true);
     
     try {
-      const sectionsInfo = sections.map(s => ({
-        id: s.id,
-        name: s.section_name,
-        type: s.section_type,
-        content_preview: s.content?.substring(0, 500) || ''
-      }));
+      // TOKEN SAFETY: Process in batches of 10 requirements at a time
+      const batchSize = 10;
+      const totalBatches = Math.ceil(requirements.length / batchSize);
 
-      const requirementsInfo = requirements.slice(0, 20).map(r => ({
-        id: r.id,
-        title: r.requirement_title,
-        description: r.requirement_description,
-        type: r.requirement_type
-      }));
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * batchSize;
+        const batchEnd = Math.min(batchStart + batchSize, requirements.length);
+        const batchRequirements = requirements.slice(batchStart, batchEnd);
 
-      const prompt = `You are a compliance mapping expert. Map each compliance requirement to the most appropriate proposal section(s).
+        // TOKEN SAFETY: Minimal section info - only ID, name, type (no content preview)
+        const sectionsInfo = sections.map(s => ({
+          id: s.id,
+          name: s.section_name,
+          type: s.section_type
+        }));
+
+        // TOKEN SAFETY: Minimal requirement info
+        const requirementsInfo = batchRequirements.map(r => ({
+          id: r.id,
+          title: r.requirement_title,
+          type: r.requirement_type
+        }));
+
+        const prompt = `Map each compliance requirement to the most appropriate proposal section(s) based on section type and requirement type.
 
 **SECTIONS:**
 ${JSON.stringify(sectionsInfo, null, 2)}
 
-**REQUIREMENTS:**
+**REQUIREMENTS (Batch ${batchIndex + 1}/${totalBatches}):**
 ${JSON.stringify(requirementsInfo, null, 2)}
-
-For each requirement, identify which section(s) should address it and provide a brief cross-reference note.
 
 Return JSON:
 {
@@ -99,38 +106,44 @@ Return JSON:
     {
       "requirement_id": "string",
       "section_ids": ["string"],
-      "cross_reference": "string (e.g., 'See Section 3.2, page 15')",
-      "confidence": number
+      "cross_reference": "string (e.g., 'See Section 3.2')",
+      "confidence": 85
     }
   ]
 }`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            mappings: { type: "array" }
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              mappings: { type: "array" }
+            }
+          }
+        });
+
+        // Apply mappings for this batch
+        for (const mapping of result.mappings || []) {
+          const req = batchRequirements.find(r => r.id === mapping.requirement_id);
+          if (req) {
+            await updateRequirementMutation.mutateAsync({
+              id: req.id,
+              data: {
+                addressed_in_sections: mapping.section_ids,
+                evidence_provided: mapping.cross_reference,
+                compliance_status: mapping.section_ids.length > 0 ? 'in_progress' : 'not_started'
+              }
+            });
           }
         }
-      });
 
-      // Apply mappings
-      for (const mapping of result.mappings || []) {
-        const req = requirements.find(r => r.id === mapping.requirement_id);
-        if (req) {
-          await updateRequirementMutation.mutateAsync({
-            id: req.id,
-            data: {
-              addressed_in_sections: mapping.section_ids,
-              evidence_provided: mapping.cross_reference,
-              compliance_status: mapping.section_ids.length > 0 ? 'in_progress' : 'not_started'
-            }
-          });
+        // Small delay between batches to avoid rate limits
+        if (batchIndex < totalBatches - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
-      alert(`✓ Auto-mapped ${result.mappings.length} requirements to sections!`);
+      alert(`✓ Auto-mapped ${requirements.length} requirements to sections!`);
     } catch (error) {
       console.error("Error auto-mapping:", error);
       alert("Error during auto-mapping. Please try again.");
@@ -144,7 +157,6 @@ Return JSON:
     setExportingExcel(true);
     
     try {
-      // Create CSV data
       const headers = ["Req ID", "Title", "Type", "Category", "Status", "Risk", "Addressed In", "Evidence", "Source"];
       const rows = filteredRequirements.map(req => [
         req.requirement_id || '',
@@ -184,7 +196,6 @@ Return JSON:
     }
   };
 
-  // Perform gap analysis
   const analyzeGaps = async () => {
     const unmapped = requirements.filter(r => 
       !r.addressed_in_sections || r.addressed_in_sections.length === 0
@@ -363,7 +374,7 @@ Return JSON:
               <p className="text-slate-600">
                 {searchQuery || filterStatus !== 'all' || filterRisk !== 'all'
                   ? 'No requirements match your filters'
-                  : 'Upload solicitation documents in Phase 3 to auto-extract requirements'}
+                  : 'Upload solicitation documents to auto-extract requirements'}
               </p>
             </CardContent>
           </Card>
@@ -459,7 +470,7 @@ function RequirementCard({ requirement, sections, onUpdate, getStatusColor, getR
             <>
               {requirement.requirement_description && (
                 <div className="p-3 bg-slate-50 rounded text-sm border">
-                  <p className="text-slate-700">{requirement.requirement_description}</p>
+                  <p className="text-slate-700 line-clamp-5">{requirement.requirement_description}</p>
                 </div>
               )}
 
@@ -519,7 +530,7 @@ function RequirementCard({ requirement, sections, onUpdate, getStatusColor, getR
                     <Textarea
                       value={evidenceText}
                       onChange={(e) => setEvidenceText(e.target.value)}
-                      placeholder="e.g., See Section 3.2, pages 15-17. Demonstrated in past performance project XYZ..."
+                      placeholder="e.g., See Section 3.2, pages 15-17..."
                       className="text-sm"
                       rows={3}
                     />
@@ -561,5 +572,5 @@ function RequirementCard({ requirement, sections, onUpdate, getStatusColor, getR
         </div>
       </CardContent>
     </Card>
-  ));
+  );
 }

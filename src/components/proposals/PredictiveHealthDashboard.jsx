@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Calendar,
   BarChart3,
-  Loader2
+  Loader2,
+  RotateCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -63,13 +64,14 @@ export default function PredictiveHealthDashboard({ proposal, organization }) {
     queryKey: ['similar-proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
+      // TOKEN SAFETY: Limit to 20 proposals max
       return base44.entities.Proposal.filter(
         { 
           organization_id: organization.id,
           status: { $in: ['won', 'lost', 'submitted'] }
         },
         '-created_date',
-        50
+        20 // Reduced from 50
       );
     },
     enabled: !!organization?.id,
@@ -89,84 +91,78 @@ export default function PredictiveHealthDashboard({ proposal, organization }) {
 
       const totalSections = sections.length;
       const completedSections = sections.filter(s => s.status === 'approved').length;
-      const draftSections = sections.filter(s => s.status === 'draft').length;
 
       const totalCompliance = complianceReqs.length;
       const metCompliance = complianceReqs.filter(c => c.compliance_status === 'compliant').length;
-      const criticalCompliance = complianceReqs.filter(c => 
-        c.risk_level === 'critical' && c.compliance_status !== 'compliant'
-      ).length;
 
       const unresolvedComments = comments.filter(c => !c.is_resolved).length;
       
       const daysUntilDue = proposal.due_date ? moment(proposal.due_date).diff(moment(), 'days') : 999;
       const isOverdue = daysUntilDue < 0;
 
-      // Calculate completion velocity
       const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-      // AI Predictive Analysis
+      // TOKEN SAFETY: Create concise summary of historical data instead of sending full objects
+      const historicalSummary = {
+        total_count: similarProposals.length,
+        won_count: similarProposals.filter(p => p.status === 'won').length,
+        lost_count: similarProposals.filter(p => p.status === 'lost').length,
+        avg_contract_value: similarProposals.length > 0 
+          ? (similarProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0) / similarProposals.length)
+          : 0,
+        avg_completion: similarProposals.length > 0
+          ? (similarProposals.reduce((sum, p) => sum + (p.progress_summary?.completion_percentage || 0), 0) / similarProposals.length)
+          : 0
+      };
+
+      // AI Predictive Analysis with MINIMAL context
       const prompt = `You are a proposal risk assessment AI. Analyze this proposal and provide predictive insights.
 
 **PROPOSAL DATA:**
 - Name: ${proposal.proposal_name}
 - Due Date: ${proposal.due_date} (${daysUntilDue} days remaining)
 - Current Phase: ${proposal.current_phase}
-- Tasks: ${completedTasks}/${totalTasks} complete
+- Tasks: ${completedTasks}/${totalTasks} complete (${overdueTasks} overdue)
 - Sections: ${completedSections}/${totalSections} complete
 - Compliance: ${metCompliance}/${totalCompliance} met
-- Overdue Tasks: ${overdueTasks}
 - Unresolved Comments: ${unresolvedComments}
 - Contract Value: $${proposal.contract_value?.toLocaleString() || 'Unknown'}
 
-**HISTORICAL CONTEXT:**
-We have ${similarProposals.length} similar completed proposals:
-- Won: ${similarProposals.filter(p => p.status === 'won').length}
-- Lost: ${similarProposals.filter(p => p.status === 'lost').length}
-- Average completion pattern: ${similarProposals.filter(p => p.progress_summary?.completion_percentage).length > 0 
-  ? (similarProposals.reduce((sum, p) => sum + (p.progress_summary?.completion_percentage || 0), 0) / similarProposals.length).toFixed(0) 
-  : 'Unknown'}%
+**HISTORICAL CONTEXT (SUMMARY ONLY):**
+- Similar proposals analyzed: ${historicalSummary.total_count}
+- Historical win rate: ${historicalSummary.total_count > 0 ? ((historicalSummary.won_count / historicalSummary.total_count) * 100).toFixed(0) : 0}%
+- Average completion at this stage: ${historicalSummary.avg_completion.toFixed(0)}%
 
 **PROVIDE PREDICTIONS:**
-1. **On-Time Delivery Probability** (0-100%)
-2. **Quality Score Prediction** (0-100)
-3. **Delay Risk Assessment** (days likely to be delayed, 0 if on track)
-4. **Team Velocity Analysis** (hours typically needed to complete similar work)
-5. **Critical Risks** (list 3-5 specific risks with severity)
-6. **Recommended Actions** (prioritized list of 5-7 actions to take NOW)
-7. **Win Probability Impact** (how current health affects win chances)
-
-Return JSON:
+Return JSON with these exact fields:
 {
-  "on_time_probability": number,
-  "predicted_quality_score": number,
-  "predicted_delay_days": number,
-  "required_hours_remaining": number,
-  "team_velocity_hours_per_day": number,
+  "on_time_probability": 75,
+  "predicted_quality_score": 80,
+  "predicted_delay_days": 0,
+  "required_hours_remaining": 40,
+  "team_velocity_hours_per_day": 6,
   "critical_risks": [
     {
-      "risk": "string",
+      "risk": "string (keep concise)",
       "severity": "critical|high|medium|low",
-      "impact": "string",
-      "likelihood": number
+      "impact": "string (brief)",
+      "likelihood": 50
     }
   ],
   "recommended_actions": [
     {
-      "priority": number,
-      "action": "string",
-      "estimated_hours": number,
-      "impact_on_timeline": "string",
-      "impact_on_quality": "string"
+      "priority": 1,
+      "action": "string (concise action)",
+      "estimated_hours": 4,
+      "impact_on_timeline": "string (brief)",
+      "impact_on_quality": "string (brief)"
     }
   ],
   "win_probability_impact": {
-    "current_health_impact": number,
-    "if_no_action_taken": number,
-    "if_actions_completed": number
-  },
-  "bottlenecks": ["string"],
-  "team_capacity_issues": ["string"]
+    "current_health_impact": 65,
+    "if_no_action_taken": 55,
+    "if_actions_completed": 80
+  }
 }`;
 
       const aiAnalysis = await base44.integrations.Core.InvokeLLM({
@@ -181,9 +177,7 @@ Return JSON:
             team_velocity_hours_per_day: { type: "number" },
             critical_risks: { type: "array" },
             recommended_actions: { type: "array" },
-            win_probability_impact: { type: "object" },
-            bottlenecks: { type: "array" },
-            team_capacity_issues: { type: "array" }
+            win_probability_impact: { type: "object" }
           }
         }
       });
@@ -251,7 +245,7 @@ Return JSON:
   };
 
   useEffect(() => {
-    if (proposal?.id && organization?.id) {
+    if (proposal?.id && organization?.id && !healthMetrics) {
       calculatePredictiveHealth();
     }
   }, [proposal?.id, organization?.id]);
@@ -384,14 +378,14 @@ Return JSON:
                     <br />
                     <strong>Team velocity:</strong> {predictions.team_velocity_hours_per_day} hours/day
                     <br />
-                    <strong>Needed acceleration:</strong> {(predictions.required_hours_remaining / Math.max(daysUntilDue, 1)).toFixed(1)} hours/day required
+                    <strong>Needed acceleration:</strong> {(predictions.required_hours_remaining / Math.max(healthMetrics.days_until_deadline, 1)).toFixed(1)} hours/day required
                   </p>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Critical Risks */}
+          {/* Critical Risks - Limit display to top 5 */}
           {predictions.critical_risks && predictions.critical_risks.length > 0 && (
             <Card className="border-none shadow-lg">
               <CardHeader>
@@ -403,6 +397,7 @@ Return JSON:
               <CardContent className="space-y-2">
                 {predictions.critical_risks
                   .filter(r => r.severity === 'critical' || r.severity === 'high')
+                  .slice(0, 5)
                   .map((risk, idx) => (
                     <div
                       key={idx}
@@ -429,7 +424,7 @@ Return JSON:
             </Card>
           )}
 
-          {/* Recommended Actions */}
+          {/* Recommended Actions - Limit to top 7 */}
           {predictions.recommended_actions && predictions.recommended_actions.length > 0 && (
             <Card className="border-none shadow-lg">
               <CardHeader>
@@ -505,26 +500,6 @@ Return JSON:
                     </strong>
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Team Capacity */}
-          {predictions.team_capacity_issues && predictions.team_capacity_issues.length > 0 && (
-            <Card className="border-2 border-amber-300 bg-amber-50">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 text-amber-900">
-                  <Users className="w-5 h-5" />
-                  Team Capacity Alerts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {predictions.team_capacity_issues.map((issue, idx) => (
-                  <div key={idx} className="flex items-start gap-2 p-3 bg-white border border-amber-300 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-amber-900">{issue}</p>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           )}

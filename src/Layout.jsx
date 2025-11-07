@@ -84,7 +84,7 @@ const SETTINGS_ITEMS = [
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
-  { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all" },
+  { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all", adminOnly: true },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
@@ -167,6 +167,10 @@ function LayoutContent({ children }) {
       if (item.superAdminOnly && !userIsSuperAdmin) {
         return false;
       }
+
+      if (item.adminOnly && !userIsAdmin) {
+        return false;
+      }
       
       if (item.showFor === "consultant" && !isConsultant) {
         return false;
@@ -177,7 +181,7 @@ function LayoutContent({ children }) {
       
       return true;
     });
-  }, [organization, userIsSuperAdmin]);
+  }, [organization, userIsSuperAdmin, userIsAdmin]);
 
   return (
     <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">

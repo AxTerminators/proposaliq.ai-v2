@@ -6,7 +6,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare, Shield } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge"; // Added Badge import
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -103,6 +104,23 @@ export default function ProposalBuilder() {
     teaming_partner_ids: [],
     status: "evaluating"
   });
+
+  // Admin-only access check
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        if (currentUser?.role !== 'admin') {
+          navigate(createPageUrl("Pipeline"));
+        }
+      } catch (error) {
+        console.error("Error checking user role:", error);
+        // In case of API error, redirect to Pipeline to prevent unauthorized access
+        navigate(createPageUrl("Pipeline"));
+      }
+    };
+    checkAccess();
+  }, [navigate]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -402,13 +420,20 @@ export default function ProposalBuilder() {
       <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAssistant && !assistantMinimized ? 'mr-96' : ''}`}>
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(createPageUrl("Pipeline"))}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Pipeline
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(createPageUrl("Pipeline"))}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Proposal Board
+              </Button>
+              
+              <Badge className="bg-red-100 text-red-700">
+                <Shield className="w-4 h-4 mr-1" />
+                Admin Only - Legacy Builder
+              </Badge>
+            </div>
             
             <div className="flex gap-2">
               {proposalId && !showAssistant && (

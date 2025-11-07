@@ -38,12 +38,12 @@ export default function AIWritingAssistant({
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState([]);
   const [activeTab, setActiveTab] = useState("suggestions");
 
-  // Debounced analysis when content changes
+  // Debounced analysis when content changes - INCREASED to 5 seconds to reduce calls
   const debouncedAnalyze = useCallback(
     debounce(async (text) => {
       if (!text || text.length < 100) return;
       await analyzeContent(text);
-    }, 2000),
+    }, 5000), // Changed from 2s to 5s
     [currentSection, proposal, winThemes]
   );
 
@@ -57,30 +57,42 @@ export default function AIWritingAssistant({
     setIsAnalyzing(true);
     
     try {
-      // Load compliance requirements
-      const compReqs = await base44.entities.ComplianceRequirement.filter({
-        proposal_id: proposal.id
-      });
+      // TOKEN SAFETY: Truncate content if too long (max ~3000 words = ~4000 tokens)
+      const maxContentLength = 12000; // ~3000 words
+      const truncatedContent = text.length > maxContentLength 
+        ? text.substring(text.length - maxContentLength) // Take last N chars (most recent writing)
+        : text;
+
+      // TOKEN SAFETY: Summarize win themes instead of full objects
+      const winThemeSummary = winThemes
+        .slice(0, 5) // Max 5 themes
+        .map(t => t.theme_title)
+        .join(', ');
+
+      // TOKEN SAFETY: Minimal proposal context
+      const proposalContext = {
+        name: proposal?.proposal_name || 'Unknown',
+        agency: proposal?.agency_name || 'Unknown',
+        section_type: currentSection?.section_type || 'unknown'
+      };
 
       const prompt = `You are an expert proposal writing assistant. Analyze this content and provide actionable suggestions.
 
 **CONTENT TO ANALYZE:**
-${text}
+${truncatedContent}
 
-**SECTION TYPE:** ${currentSection?.section_type || 'unknown'}
-**PROPOSAL:** ${proposal.proposal_name}
-**AGENCY:** ${proposal.agency_name}
-**WIN THEMES:** ${winThemes.map(t => t.theme_title).join(', ')}
+**SECTION TYPE:** ${proposalContext.section_type}
+**PROPOSAL:** ${proposalContext.name}
+**AGENCY:** ${proposalContext.agency}
+**WIN THEMES:** ${winThemeSummary || 'None defined'}
 
 **PROVIDE:**
 1. **Writing Suggestions** (3-5 specific improvements)
 2. **Win Theme Integration** (where and how to weave in win themes)
-3. **Compliance Checks** (requirements that should be addressed here)
-4. **Readability Analysis** (score 0-100, grade level, improvements needed)
-5. **Tone & Style** (government appropriate? areas to strengthen?)
-6. **Missing Elements** (what's missing that evaluators expect?)
+3. **Readability Analysis** (score 0-100, grade level, improvements needed)
+4. **Tone & Style** (government appropriate? areas to strengthen?)
 
-Return JSON:
+Return JSON with these exact fields:
 {
   "suggestions": [
     {
@@ -88,38 +100,25 @@ Return JSON:
       "priority": "high|medium|low",
       "title": "string",
       "description": "string",
-      "suggested_text": "string (optional - exact text to add/replace)",
+      "suggested_text": "string (optional - keep short)",
       "location": "string (where in content)"
     }
   ],
   "win_theme_opportunities": [
     {
       "theme_title": "string",
-      "where_to_add": "string (paragraph/section description)",
-      "suggested_language": "string (how to weave it in)",
+      "where_to_add": "string",
+      "suggested_language": "string (keep concise - max 100 words)",
       "impact": "high|medium|low"
     }
   ],
-  "compliance_gaps": [
-    {
-      "requirement": "string",
-      "severity": "critical|high|medium|low",
-      "recommendation": "string"
-    }
-  ],
   "readability": {
-    "score": number,
-    "grade_level": "string",
-    "avg_sentence_length": number,
-    "passive_voice_percentage": number,
+    "score": 75,
+    "grade_level": "12th grade",
+    "avg_sentence_length": 18,
+    "passive_voice_percentage": 15,
     "recommendations": ["string"]
-  },
-  "tone_analysis": {
-    "current_tone": "string",
-    "strengths": ["string"],
-    "improvements": ["string"]
-  },
-  "missing_elements": ["string"]
+  }
 }`;
 
       const analysis = await base44.integrations.Core.InvokeLLM({
@@ -129,51 +128,20 @@ Return JSON:
           properties: {
             suggestions: { type: "array" },
             win_theme_opportunities: { type: "array" },
-            compliance_gaps: { type: "array" },
-            readability: { type: "object" },
-            tone_analysis: { type: "object" },
-            missing_elements: { type: "array" }
+            readability: { type: "object" }
           }
         }
       });
 
       setSuggestions(analysis.suggestions || []);
       setThemeAlignment(analysis.win_theme_opportunities || []);
-      setComplianceIssues(analysis.compliance_gaps || []);
       setReadabilityScore(analysis.readability || null);
+      // Removed compliance_gaps to reduce token usage - handled separately
 
     } catch (error) {
       console.error("Error analyzing content:", error);
     } finally {
       setIsAnalyzing(false);
-    }
-  };
-
-  const generateAutocomplete = async (currentText, cursorPosition) => {
-    try {
-      const contextBefore = currentText.substring(Math.max(0, cursorPosition - 200), cursorPosition);
-      
-      const prompt = `Complete this sentence naturally for a government proposal:
-
-Context: ${contextBefore}
-
-Provide 3 different completions (each 10-20 words). Make them professional and proposal-appropriate.
-
-Return JSON array of strings.`;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            completions: { type: "array", items: { type: "string" } }
-          }
-        }
-      });
-
-      setAutocompleteSuggestions(result.completions || []);
-    } catch (error) {
-      console.error("Error generating autocomplete:", error);
     }
   };
 
@@ -214,7 +182,7 @@ Return JSON array of strings.`;
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="suggestions" className="text-xs">
               <Lightbulb className="w-3 h-3 mr-1" />
               Tips
@@ -230,15 +198,6 @@ Return JSON array of strings.`;
               {themeAlignment.length > 0 && (
                 <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-xs bg-purple-500">
                   {themeAlignment.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="compliance" className="text-xs">
-              <AlertTriangle className="w-3 h-3 mr-1" />
-              Checks
-              {complianceIssues.length > 0 && (
-                <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-xs bg-orange-500">
-                  {complianceIssues.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -271,7 +230,7 @@ Return JSON array of strings.`;
                     <p className="text-xs text-slate-600 mb-2">{sug.description}</p>
                     {sug.suggested_text && (
                       <div className="bg-slate-50 p-2 rounded text-xs mb-2 border">
-                        <p className="text-slate-700 italic">"{sug.suggested_text}"</p>
+                        <p className="text-slate-700 italic line-clamp-3">"{sug.suggested_text}"</p>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -283,12 +242,6 @@ Return JSON array of strings.`;
                       >
                         <Zap className="w-3 h-3 mr-1" />
                         Apply
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                        <ThumbsUp className="w-3 h-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                        <ThumbsDown className="w-3 h-3" />
                       </Button>
                     </div>
                   </CardContent>
@@ -323,7 +276,7 @@ Return JSON array of strings.`;
                       <strong>Where:</strong> {theme.where_to_add}
                     </p>
                     <div className="bg-white p-2 rounded text-xs border border-purple-200">
-                      <p className="text-slate-700 italic">"{theme.suggested_language}"</p>
+                      <p className="text-slate-700 italic line-clamp-3">"{theme.suggested_language}"</p>
                     </div>
                     <Button
                       size="sm"
@@ -337,48 +290,6 @@ Return JSON array of strings.`;
                       <Sparkles className="w-3 h-3 mr-1" />
                       Insert Theme
                     </Button>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          {/* Compliance Tab */}
-          <TabsContent value="compliance" className="space-y-3 max-h-96 overflow-y-auto">
-            {complianceIssues.length === 0 ? (
-              <div className="text-center py-6">
-                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <p className="text-sm text-green-700 font-medium">No compliance issues detected</p>
-              </div>
-            ) : (
-              complianceIssues.map((issue, idx) => (
-                <Card key={idx} className={cn(
-                  "border-2",
-                  issue.severity === 'critical' ? 'border-red-300 bg-red-50' :
-                  issue.severity === 'high' ? 'border-orange-300 bg-orange-50' :
-                  'border-yellow-300 bg-yellow-50'
-                )}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-2 mb-2">
-                      <AlertTriangle className={cn(
-                        "w-4 h-4 flex-shrink-0 mt-0.5",
-                        issue.severity === 'critical' ? 'text-red-600' :
-                        issue.severity === 'high' ? 'text-orange-600' : 'text-yellow-600'
-                      )} />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-sm">{issue.requirement}</h4>
-                          <Badge className={cn(
-                            "text-xs",
-                            issue.severity === 'critical' ? 'bg-red-600' :
-                            issue.severity === 'high' ? 'bg-orange-600' : 'bg-yellow-600'
-                          )}>
-                            {issue.severity}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-slate-700">{issue.recommendation}</p>
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
               ))
@@ -426,7 +337,7 @@ Return JSON array of strings.`;
                 {readabilityScore.recommendations && readabilityScore.recommendations.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-slate-700">Recommendations:</p>
-                    {readabilityScore.recommendations.map((rec, idx) => (
+                    {readabilityScore.recommendations.slice(0, 5).map((rec, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-xs bg-slate-50 p-2 rounded">
                         <CheckCircle2 className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
                         <span className="text-slate-700">{rec}</span>
@@ -453,9 +364,9 @@ Return JSON array of strings.`;
             </p>
           </div>
           <div className="flex-1 text-center">
-            <p className="text-xs text-slate-600">Issues</p>
-            <p className="text-lg font-bold text-orange-600">
-              {complianceIssues.length + suggestions.filter(s => s.priority === 'high').length}
+            <p className="text-xs text-slate-600">Suggestions</p>
+            <p className="text-lg font-bold text-blue-600">
+              {suggestions.length}
             </p>
           </div>
           <div className="flex-1 text-center">
