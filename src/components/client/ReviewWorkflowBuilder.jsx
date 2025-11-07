@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -329,84 +330,102 @@ export default function ReviewWorkflowBuilder({ proposal, client, teamMembers = 
               ) : (
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="approvers">
-                    {(provided) => (
-                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
-                        {workflowData.required_approvers.map((approver, index) => (
-                          <Draggable key={index} draggableId={`approver-${index}`} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={cn(
-                                  "p-4 border-2 rounded-lg bg-white transition-all",
-                                  snapshot.isDragging ? "border-blue-500 shadow-lg" : "border-slate-200"
-                                )}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold flex-shrink-0">
-                                    {workflowData.is_sequential ? index + 1 : <Users className="w-4 h-4" />}
-                                  </div>
-                                  
-                                  <div className="flex-1 space-y-3">
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div>
-                                        <label className="block text-xs font-medium mb-1">Team Member</label>
-                                        <Select
-                                          value={approver.team_member_id}
-                                          onValueChange={(value) => handleUpdateApprover(index, 'team_member_id', value)}
-                                        >
-                                          <SelectTrigger>
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {teamMembers.map((member) => (
-                                              <SelectItem key={member.id} value={member.id}>
-                                                {member.member_name}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-
-                                      {workflowData.approval_type === 'weighted' && (
-                                        <div>
-                                          <label className="block text-xs font-medium mb-1">Vote Weight</label>
-                                          <Input
-                                            type="number"
-                                            min="1"
-                                            max="10"
-                                            value={approver.vote_weight}
-                                            onChange={(e) => handleUpdateApprover(index, 'vote_weight', parseInt(e.target.value))}
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {workflowData.is_sequential && (
-                                      <div className="flex items-center gap-2 text-xs text-blue-600">
-                                        <ArrowRight className="w-3 h-3" />
-                                        Step {index + 1} of {workflowData.required_approvers.length}
-                                      </div>
+                    {(provided) => {
+                      // Add null check for provided
+                      if (!provided) {
+                        return (
+                          <div className="p-4 bg-slate-50 rounded-lg border border-slate-300">
+                            <p className="text-sm text-slate-600">Loading approvers...</p>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                          {workflowData.required_approvers.map((approver, index) => (
+                            <Draggable key={index} draggableId={`approver-${index}`} index={index}>
+                              {(dragProvided, snapshot) => {
+                                // Add null check for draggable provided
+                                if (!dragProvided) {
+                                  return null;
+                                }
+                                
+                                return (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    {...dragProvided.dragHandleProps}
+                                    className={cn(
+                                      "p-4 border-2 rounded-lg bg-white transition-all",
+                                      snapshot.isDragging ? "border-blue-500 shadow-lg" : "border-slate-200"
                                     )}
-                                  </div>
-
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleRemoveApprover(index)}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                   >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
+                                    <div className="flex items-start gap-3">
+                                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold flex-shrink-0">
+                                        {workflowData.is_sequential ? index + 1 : <Users className="w-4 h-4" />}
+                                      </div>
+                                      
+                                      <div className="flex-1 space-y-3">
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div>
+                                            <label className="block text-xs font-medium mb-1">Team Member</label>
+                                            <Select
+                                              value={approver.team_member_id}
+                                              onValueChange={(value) => handleUpdateApprover(index, 'team_member_id', value)}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {teamMembers.map((member) => (
+                                                  <SelectItem key={member.id} value={member.id}>
+                                                    {member.member_name}
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+
+                                          {workflowData.approval_type === 'weighted' && (
+                                            <div>
+                                              <label className="block text-xs font-medium mb-1">Vote Weight</label>
+                                              <Input
+                                                type="number"
+                                                min="1"
+                                                max="10"
+                                                value={approver.vote_weight}
+                                                onChange={(e) => handleUpdateApprover(index, 'vote_weight', parseInt(e.target.value))}
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {workflowData.is_sequential && (
+                                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                                            <ArrowRight className="w-3 h-3" />
+                                            Step {index + 1} of {workflowData.required_approvers.length}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleRemoveApprover(index)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              }}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      );
+                    }}
                   </Droppable>
                 </DragDropContext>
               )}
