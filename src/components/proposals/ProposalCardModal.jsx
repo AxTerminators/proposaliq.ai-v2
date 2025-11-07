@@ -28,7 +28,12 @@ import {
   Circle,
   AlertCircle,
   ExternalLink,
-  FileEdit
+  FileEdit,
+  Zap, // New icon
+  Shield, // New icon
+  Activity, // New icon
+  Target, // New icon
+  Upload // New icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -178,22 +183,21 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
     console.log('[ProposalCardModal] ✅ Action config found:', actionConfig);
 
+    // Handle navigation actions - CLOSE MODAL and navigate
+    if (isNavigateAction(item.associated_action)) {
+      console.log('[ProposalCardModal] 🔗 Navigating to:', actionConfig.path);
+      const url = `${createPageUrl(actionConfig.path)}?id=${proposal.id}`;
+      navigate(url);
+      onClose(); // CLOSE MODAL when navigating to full page
+      return;
+    }
+
     // Check if this action maps to a modal
     const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
     
     if (modalName && MODAL_COMPONENTS[modalName]) {
       console.log('[ProposalCardModal] 🎯 Opening modal:', modalName);
       setActiveModalName(modalName);
-      return;
-    }
-
-    // Handle navigation actions
-    if (isNavigateAction(item.associated_action)) {
-      console.log('[ProposalCardModal] 🔗 Navigating to:', actionConfig.path);
-      const pageName = actionConfig.path.replace(/^\//, '');
-      const url = `${createPageUrl(pageName)}?id=${proposal.id}`;
-      navigate(url);
-      onClose(); // Close modal when navigating
       return;
     }
 
@@ -400,6 +404,13 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   <Paperclip className="w-4 h-4" />
                   Files
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="quick-actions" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
+                >
+                  <Zap className="w-4 h-4" />
+                  Quick Actions
+                </TabsTrigger>
               </TabsList>
 
               {/* Checklist Tab */}
@@ -585,6 +596,77 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                     organization={organization}
                   />
                 )}
+              </TabsContent>
+
+              {/* NEW: Quick Actions Tab */}
+              <TabsContent value="quick-actions" className="mt-0 p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/WriteContent") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                  >
+                    <FileEdit className="w-8 h-8" />
+                    <span>Start Writing</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/ComplianceMatrix") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700"
+                  >
+                    <Shield className="w-8 h-8" />
+                    <span>Compliance Matrix</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/ProposalHealth") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+                  >
+                    <Activity className="w-8 h-8" />
+                    <span>Health Dashboard</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/WinStrategy") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                  >
+                    <Target className="w-8 h-8" />
+                    <span>Win Strategy</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/PricingBuild") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+                  >
+                    <DollarSign className="w-8 h-8" />
+                    <span>Build Pricing</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/SolicitationUpload") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+                  >
+                    <Upload className="w-8 h-8" />
+                    <span>Upload Documents</span>
+                  </Button>
+                </div>
               </TabsContent>
             </Tabs>
           </div>

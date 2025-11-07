@@ -37,8 +37,7 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     // Handle different action types
     if (isNavigateAction(item.associated_action)) {
       // Navigate to the specified page with proposal ID
-      const pageName = action.path.replace(/^\//, '');
-      const url = `${createPageUrl(pageName)}?id=${proposal?.id || ''}`;
+      const url = `${createPageUrl(action.path)}?id=${proposal?.id || ''}`;
       console.log('[ChecklistItem] Navigating to:', url);
       navigate(url);
     } else if (isModalAction(item.associated_action) || isAIAction(item.associated_action)) {
@@ -80,6 +79,20 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
   // Determine if this is clickable
   const isClickable = !isCompleted && (item.associated_action || item.type === 'manual_check');
 
+  // Get button label based on action type
+  const getButtonLabel = () => {
+    if (isNavigateAction(item.associated_action)) {
+      return 'Open';
+    }
+    if (isModalAction(item.associated_action)) {
+      return 'Edit';
+    }
+    if (isAIAction(item.associated_action)) {
+      return 'Run';
+    }
+    return 'Start';
+  };
+
   return (
     <button
       onClick={isClickable ? handleClick : undefined}
@@ -103,8 +116,8 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       {item.required && !isCompleted && (
         <span className="text-xs text-red-500 font-medium">Required</span>
       )}
-      {actionConfig && actionConfig.status && (
-        <span className="text-xs text-slate-400">{actionConfig.status}</span>
+      {isClickable && (
+        <span className="text-xs text-blue-600 font-medium">{getButtonLabel()}</span>
       )}
     </button>
   );

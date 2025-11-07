@@ -41,6 +41,8 @@ import {
   Shield,
   GripVertical,
   Loader2,
+  FileEdit, // New import
+  Activity, // New import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -203,6 +205,21 @@ export default function KanbanCard({
     navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`);
   };
 
+  const handleViewHealth = (e) => {
+    e.stopPropagation();
+    navigate(createPageUrl("proposals/ProposalHealth") + `?id=${proposal.id}`);
+  };
+
+  const handleStartWriting = (e) => {
+    e.stopPropagation();
+    navigate(createPageUrl("proposals/WriteContent") + `?id=${proposal.id}`);
+  };
+
+  const handleViewCompliance = (e) => {
+    e.stopPropagation();
+    navigate(createPageUrl("proposals/ComplianceMatrix") + `?id=${proposal.id}`);
+  };
+
   const handleCardClick = (e) => {
     // Don't trigger click if we're dragging or if clicking interactive elements
     if (isDragging) return; // Changed from snapshot.isDragging
@@ -341,7 +358,19 @@ export default function KanbanCard({
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="w-4 h-4 mr-2" />
-                    Edit Proposal
+                    Edit (Admin)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleStartWriting}>
+                    <FileEdit className="w-4 h-4 mr-2" />
+                    Start Writing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleViewCompliance}>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Compliance Matrix
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleViewHealth}>
+                    <Activity className="w-4 h-4 mr-2" />
+                    Health Dashboard
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleArchive}>
