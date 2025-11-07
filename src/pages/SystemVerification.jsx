@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +19,8 @@ import {
   LayoutGrid,
   FileText,
   Users,
-  Calendar
+  TrendingUp, // Added TrendingUp icon
+  Sparkles // Added Sparkles icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +94,7 @@ const TEST_SUITES = [
 ];
 
 export default function SystemVerification() {
+  const queryClient = useQueryClient(); // Added useQueryClient hook
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -530,7 +534,7 @@ export default function SystemVerification() {
               <Progress value={progress} className="h-3 mb-2" />
               {currentSuite && currentTest && (
                 <p className="text-sm text-blue-800">
-                  Testing: {TEST_SUITES.find(s => s.id === currentSuite)?.name} → {currentTest}
+                  Testing: {TEST_SUITES.find(s => s.id === currentSuite)?.name} → {TEST_SUITES.find(s => s.id === currentSuite)?.tests.find(t => t.id === currentTest)?.name}
                 </p>
               )}
             </CardContent>
@@ -568,7 +572,7 @@ export default function SystemVerification() {
               <CardContent className="p-4 text-center">
                 <Shield className="w-8 h-8 text-blue-600 mx-auto mb-2" />
                 <p className="text-3xl font-bold text-blue-700">
-                  {Math.round((summary.passed / summary.total) * 100)}%
+                  {summary.total > 0 ? Math.round((summary.passed / summary.total) * 100) : 0}%
                 </p>
                 <p className="text-xs text-blue-900">Health Score</p>
               </CardContent>
