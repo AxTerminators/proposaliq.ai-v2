@@ -1063,83 +1063,112 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
             }}
           >
             <Droppable droppableId="all-columns" direction="horizontal" type="column">
-              {(providedOuter) => (
-                <div
-                  ref={providedOuter.innerRef}
-                  {...providedOuter.droppableProps}
-                  className="flex gap-4 h-full"
-                  style={{
-                    minWidth: 'min-content'
-                  }}
-                >
-                  {validColumns.map((column, index) => {
-                    const isCollapsed = effectiveCollapsedColumns.includes(column.id);
-                    const columnProposals = getProposalsForColumn(column);
+              {(providedOuter) => {
+                // Add null check for outer droppable
+                if (!providedOuter) {
+                  return (
+                    <div className="flex items-center justify-center p-12">
+                      <p className="text-slate-600">Loading board...</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div
+                    ref={providedOuter.innerRef}
+                    {...providedOuter.droppableProps}
+                    className="flex gap-4 h-full"
+                    style={{
+                      minWidth: 'min-content'
+                    }}
+                  >
+                    {validColumns.map((column, index) => {
+                      const isCollapsed = effectiveCollapsedColumns.includes(column.id);
+                      const columnProposals = getProposalsForColumn(column);
 
-                    return (
-                      <Draggable
-                        key={column.id}
-                        draggableId={column.id}
-                        index={index}
-                        type="column"
-                        isDragDisabled={column.is_locked}
-                      >
-                        {(providedDraggable, snapshotDraggable) => (
-                          <div 
-                            ref={providedDraggable.innerRef}
-                            {...providedDraggable.draggableProps}
-                            className={cn(
-                              "transition-opacity",
-                              snapshotDraggable.isDragging && "opacity-70"
-                            )}
-                          >
-                            {isCollapsed ? (
-                              <div
-                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => toggleColumnCollapse(column.id)}
-                                {...providedDraggable.dragHandleProps}
-                              >
-                                <div className="p-3 flex flex-col items-center gap-3 h-full">
-                                  <div
-                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap"
-                                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                                  >
-                                    {column.label}
-                                  </div>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {columnProposals.length}
-                                  </Badge>
-                                  <ChevronsRight className="w-4 h-4 text-slate-400 mt-auto" />
-                                </div>
-                              </div>
-                            ) : (
-                              <Droppable droppableId={column.id} type="card">
-                                {(providedDroppable, snapshotDroppable) => (
-                                  <KanbanColumn
-                                    column={column}
-                                    proposals={columnProposals}
-                                    provided={providedDroppable}
-                                    snapshot={snapshotDroppable}
-                                    onCardClick={handleCardClick}
-                                    onToggleCollapse={toggleColumnCollapse}
-                                    organization={organization}
-                                    onRenameColumn={handleRenameColumn}
-                                    onConfigureColumn={handleConfigureColumn}
-                                    user={user}
-                                    dragHandleProps={providedDraggable.dragHandleProps}
-                                    onCreateProposal={handleCreateProposalInColumn}
-                                  />
+                      return (
+                        <Draggable
+                          key={column.id}
+                          draggableId={column.id}
+                          index={index}
+                          type="column"
+                          isDragDisabled={column.is_locked}
+                        >
+                          {(providedDraggable, snapshotDraggable) => {
+                            // Add null check for column draggable
+                            if (!providedDraggable) {
+                              return null;
+                            }
+                            
+                            return (
+                              <div 
+                                ref={providedDraggable.innerRef}
+                                {...providedDraggable.draggableProps}
+                                className={cn(
+                                  "transition-opacity",
+                                  snapshotDraggable.isDragging && "opacity-70"
                                 )}
-                              </Droppable>
-                            )}
-                          </div>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {providedOuter.placeholder}
-                </div>
-              )}
+                              >
+                                {isCollapsed ? (
+                                  <div
+                                    className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                    onClick={() => toggleColumnCollapse(column.id)}
+                                    {...providedDraggable.dragHandleProps}
+                                  >
+                                    <div className="p-3 flex flex-col items-center gap-3 h-full">
+                                      <div
+                                        className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                      >
+                                        {column.label}
+                                      </div>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {columnProposals.length}
+                                      </Badge>
+                                      <ChevronsRight className="w-4 h-4 text-slate-400 mt-auto" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Droppable droppableId={column.id} type="card">
+                                    {(providedDroppable, snapshotDroppable) => {
+                                      // Add null check for card droppable
+                                      if (!providedDroppable) {
+                                        return (
+                                          <div className="w-80 p-4 bg-slate-100 border border-slate-300 rounded-lg">
+                                            <p className="text-sm text-slate-600">Loading column...</p>
+                                          </div>
+                                        );
+                                      }
+                                      
+                                      return (
+                                        <KanbanColumn
+                                          column={column}
+                                          proposals={columnProposals}
+                                          provided={providedDroppable}
+                                          snapshot={snapshotDroppable}
+                                          onCardClick={handleCardClick}
+                                          onToggleCollapse={toggleColumnCollapse}
+                                          organization={organization}
+                                          onRenameColumn={handleRenameColumn}
+                                          onConfigureColumn={handleConfigureColumn}
+                                          user={user}
+                                          dragHandleProps={providedDraggable.dragHandleProps}
+                                          onCreateProposal={handleCreateProposalInColumn}
+                                        />
+                                      );
+                                    }}
+                                  </Droppable>
+                                )}
+                              </div>
+                            );
+                          }}
+                        </Draggable>
+                      );
+                    })}
+                    {providedOuter.placeholder}
+                  </div>
+                );
+              }}
             </Droppable>
           </DragDropContext>
         </div>
