@@ -38,7 +38,7 @@ import {
   Paperclip,
   Sparkles,
   PlayCircle,
-  Shield,
+  Shield, // Shield icon is still imported but its usage is removed as per the changes.
   GripVertical,
   Loader2,
 } from "lucide-react";
@@ -54,13 +54,17 @@ import EvaluationModal from "./modals/EvaluationModal";
 import WinStrategyModal from "./modals/WinStrategyModal";
 import ContentPlanningModal from "./modals/ContentPlanningModal";
 import PricingReviewModal from "./modals/PricingReviewModal";
+import WinProbabilityTracker from "../analytics/WinProbabilityTracker"; // NEW IMPORT
 
 export default function KanbanCard({
   proposal,
-  isDragging,
-  isDragDisabled,
   column,
-  onCardClick
+  provided, // NEW PROP
+  organization, // NEW PROP
+  onCardClick,
+  dragHandleProps // NEW PROP
+  // isDragging, // REMOVED PROP (now handled by provided.draggableProps.style internally by rbd)
+  // isDragDisabled, // REMOVED PROP
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -203,12 +207,7 @@ export default function KanbanCard({
     navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}&phase=${phase}`);
   };
 
-  const handleCardClick = (e) => {
-    // Don't trigger click if we're dragging or if clicking interactive elements
-    if (isDragging) return; // Changed from snapshot.isDragging
-    if (e.target.closest('button') || e.target.closest('[role="menu"]') || e.target.closest('input')) return;
-    onCardClick?.(proposal);
-  };
+  // Removed handleCardClick as onCardClick will be directly applied to the draggable div.
 
   // Handle checklist item click
   const handleChecklistItemClick = async (item) => {
@@ -288,28 +287,22 @@ export default function KanbanCard({
 
   return (
     <>
-      {/* The outer div consuming react-beautiful-dnd props (`provided.innerRef`, etc.)
-          is now expected to be in the parent component.
-          This div is the direct draggable element that receives styling. */}
       <div
-        onClick={handleCardClick}
+        ref={provided.innerRef}
+        {...provided.draggableProps}
+        onClick={onCardClick}
         className={cn(
-          "relative group",
-          isDragging // Changed from snapshot.isDragging
-            ? "shadow-2xl opacity-90"
-            : "shadow-sm hover:shadow-md transition-shadow",
-          hasActionRequired && "ring-2 ring-orange-400",
-          isDragDisabled && "opacity-60 cursor-not-allowed"
+          "bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-blue-300",
+          proposal.is_blocked && "border-red-300 bg-red-50"
         )}
       >
-        <Card className="relative bg-white">
+        <Card className="relative"> {/* Removed bg-white from here as it's on the outer div */}
           <CardContent className="p-4">
             {/* Drag Indicator - Visual only */}
-            {!isDragDisabled && !isDragging && ( // Changed from snapshot.isDragging
-              <div className="absolute left-1 top-2 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none">
-                <GripVertical className="w-4 h-4 text-slate-600" />
-              </div>
-            )}
+            {/* The dragHandleProps should be applied to the GripVertical's parent div */}
+            <div {...dragHandleProps} className="absolute left-1 top-2 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-auto cursor-grab">
+              <GripVertical className="w-4 h-4 text-slate-600" />
+            </div>
 
             {/* Action Required Pulse */}
             {hasActionRequired && (
@@ -323,12 +316,12 @@ export default function KanbanCard({
               </div>
             )}
 
-            {/* Disabled Indicator */}
-            {isDragDisabled && (
+            {/* Disabled Indicator - REMOVED as isDragDisabled prop is removed */}
+            {/* {isDragDisabled && (
               <div className="absolute top-2 right-2">
                 <Shield className="w-5 h-5 text-orange-500" title="Cannot move from this column" />
               </div>
-            )}
+            )} */}
 
             {/* Three Dots Menu */}
             <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -356,7 +349,7 @@ export default function KanbanCard({
               </DropdownMenu>
             </div>
 
-            {/* Card Content */}
+            {/* Card Content (Main Section) */}
             <div className="space-y-3 pr-6">
               {/* Title */}
               <div>
@@ -465,44 +458,53 @@ export default function KanbanCard({
                   </Badge>
                 )}
               </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                {proposal.due_date && (
-                  <div className={cn(
-                    "flex items-center gap-1.5 text-xs",
-                    isOverdue ? 'text-red-600 font-semibold' :
-                    isDueSoon ? 'text-orange-600 font-semibold' :
-                    'text-slate-600'
-                  )}>
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>
-                      {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` :
-                      isDueSoon ? `${daysUntilDue}d left` :
-                      moment(proposal.due_date).format('MMM D')}
-                    </span>
-                  </div>
-                )}
-
-                {proposal.contract_value && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 ml-auto">
-                    <DollarSign className="w-3.5 h-3.5" />
-                    <span className="font-medium">
-                      ${(proposal.contract_value / 1000000).toFixed(1)}M
-                    </span>
-                  </div>
-                )}
-              </div>
             </div>
-
-            {/* Urgency Corner Indicator */}
-            {(isOverdue || isDueSoon) && (
-              <div className={cn(
-                "absolute top-0 right-0 w-0 h-0 border-t-[24px] border-r-[24px] rounded-tr-lg",
-                isOverdue ? "border-t-red-500 border-r-red-500" : "border-t-orange-400 border-r-orange-400"
-              )} />
-            )}
           </CardContent>
+
+          {/* Win Probability Badge - NEWLY ADDED */}
+          <div className="px-4 pb-3">
+            <WinProbabilityTracker
+              proposal={proposal}
+              organization={organization}
+              showCompact={true}
+            />
+          </div>
+
+          {/* Footer - MOVED OUT OF CardContent, added px-4 */}
+          <div className="flex items-center justify-between px-4 pb-4 pt-2 border-t border-slate-200">
+            {proposal.due_date && (
+              <div className={cn(
+                "flex items-center gap-1.5 text-xs",
+                isOverdue ? 'text-red-600 font-semibold' :
+                isDueSoon ? 'text-orange-600 font-semibold' :
+                'text-slate-600'
+              )}>
+                <Calendar className="w-3.5 h-3.5" />
+                <span>
+                  {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` :
+                  isDueSoon ? `${daysUntilDue}d left` :
+                  moment(proposal.due_date).format('MMM D')}
+                </span>
+              </div>
+            )}
+
+            {proposal.contract_value && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 ml-auto">
+                <DollarSign className="w-3.5 h-3.5" />
+                <span className="font-medium">
+                  ${(proposal.contract_value / 1000000).toFixed(1)}M
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Urgency Corner Indicator */}
+          {(isOverdue || isDueSoon) && (
+            <div className={cn(
+              "absolute top-0 right-0 w-0 h-0 border-t-[24px] border-r-[24px] rounded-tr-lg",
+              isOverdue ? "border-t-red-500 border-r-red-500" : "border-t-orange-400 border-r-orange-400"
+            )} />
+          )}
         </Card>
       </div>
 
