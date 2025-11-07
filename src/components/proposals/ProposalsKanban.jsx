@@ -953,9 +953,24 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   }
 
   return (
-    <>
+    <div className="h-full flex flex-col">
+      {/* Header with filters */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-slate-900">Proposal Board</h2>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowBoardConfig(true)}
+                variant="outline"
+                size="sm"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Configure Board
+              </Button>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between gap-4">
             <Button
               onClick={handleCreateProposal}
@@ -979,15 +994,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
                     {activeFiltersCount}
                   </Badge>
                 )}
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowBoardConfig(true)}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Configure
               </Button>
 
               <Button
@@ -1196,6 +1202,6 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
         isOpen={showHelpPanel}
         onClose={() => setShowHelpPanel(false)}
       />
-    </>
+    </div>
   );
 }

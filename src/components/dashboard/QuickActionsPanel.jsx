@@ -1,111 +1,113 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
+  LayoutGrid,
   Search,
-  MessageSquare,
   Users,
-  Upload,
-  Zap
+  Calendar,
+  MessageSquare,
+  Library,
+  Award,
+  Briefcase
 } from "lucide-react";
-import CustomAlertDialog from "../ui/CustomAlertDialog";
-import SampleDataGuard from "../ui/SampleDataGuard";
 
 export default function QuickActionsPanel({ user, organization }) {
   const navigate = useNavigate();
-  const [showComingSoonDialog, setShowComingSoonDialog] = React.useState(false);
-  const [showSampleDataGuard, setShowSampleDataGuard] = React.useState(false);
-
-  const handleNewProposal = () => {
-    // Check if user is using sample data
-    if (user?.using_sample_data === true) {
-      setShowSampleDataGuard(true);
-    } else {
-      navigate(createPageUrl("ProposalBuilder"));
-    }
-  };
-
-  const proceedToProposalBuilder = () => {
-    navigate(createPageUrl("ProposalBuilder"));
-  };
 
   const quickActions = [
     {
       icon: Plus,
       label: "New Proposal",
       description: "Start a new proposal",
-      color: "bg-blue-500 hover:bg-blue-600",
-      onClick: handleNewProposal
+      color: "from-blue-500 to-indigo-600",
+      action: () => navigate(createPageUrl("Pipeline"))
+    },
+    {
+      icon: LayoutGrid,
+      label: "Proposal Board",
+      description: "View all proposals",
+      color: "from-purple-500 to-pink-600",
+      action: () => navigate(createPageUrl("Pipeline"))
     },
     {
       icon: Search,
       label: "Find Opportunities",
-      description: "Search SAM.gov (Coming Soon)",
-      color: "bg-purple-500 hover:bg-purple-600",
-      onClick: () => setShowComingSoonDialog(true)
+      description: "SAM.gov search",
+      color: "from-green-500 to-emerald-600",
+      action: () => navigate(createPageUrl("OpportunityFinder")),
+      adminOnly: true
+    },
+    {
+      icon: Library,
+      label: "Resources",
+      description: "Manage content",
+      color: "from-amber-500 to-orange-600",
+      action: () => navigate(createPageUrl("Resources"))
+    },
+    {
+      icon: Award,
+      label: "Past Performance",
+      description: "Project history",
+      color: "from-cyan-500 to-blue-600",
+      action: () => navigate(createPageUrl("PastPerformance"))
+    },
+    {
+      icon: Users,
+      label: "Team",
+      description: "Manage users",
+      color: "from-rose-500 to-red-600",
+      action: () => navigate(createPageUrl("Team"))
+    },
+    {
+      icon: Calendar,
+      label: "Calendar",
+      description: "Schedule & deadlines",
+      color: "from-violet-500 to-purple-600",
+      action: () => navigate(createPageUrl("Calendar"))
     },
     {
       icon: MessageSquare,
       label: "AI Chat",
-      description: "Ask AI for help",
-      color: "bg-indigo-500 hover:bg-indigo-600",
-      onClick: () => navigate(createPageUrl("Chat"))
-    },
-    {
-      icon: Users,
-      label: "Invite Team",
-      description: "Add team members",
-      color: "bg-green-500 hover:bg-green-600",
-      onClick: () => navigate(createPageUrl("Team"))
+      description: "Ask questions",
+      color: "from-teal-500 to-cyan-600",
+      action: () => navigate(createPageUrl("Chat"))
     }
   ];
 
+  const userIsSuperAdmin = user?.admin_role === 'super_admin';
+
+  const filteredActions = quickActions.filter(action => {
+    if (action.adminOnly && !userIsSuperAdmin) {
+      return false;
+    }
+    return true;
+  });
+
   return (
-    <>
-      <Card className="border-none shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-500" />
-            Quick Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {quickActions.map((action, idx) => (
-              <button
-                key={idx}
-                onClick={action.onClick}
-                className={`${action.color} text-white rounded-lg p-4 flex flex-col items-center gap-2 transition-all hover:shadow-lg active:scale-95`}
-              >
-                <action.icon className="w-6 h-6" />
-                <span className="font-semibold text-sm text-center">{action.label}</span>
-                <span className="text-xs opacity-90 text-center">{action.description}</span>
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Coming Soon Dialog */}
-      {showComingSoonDialog && (
-        <CustomAlertDialog
-          isOpen={showComingSoonDialog}
-          onClose={() => setShowComingSoonDialog(false)}
-          title="Opportunity Finder Coming Soon!"
-          description="We're working on direct SAM.gov integration to help you discover the perfect opportunities. Stay tuned for this exciting feature!"
-          icon={Search}
-        />
-      )}
-
-      {/* Sample Data Guard */}
-      <SampleDataGuard
-        isOpen={showSampleDataGuard}
-        onClose={() => setShowSampleDataGuard(false)}
-        onProceed={proceedToProposalBuilder}
-      />
-    </>
+    <Card className="border-none shadow-lg">
+      <CardContent className="p-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {filteredActions.map((action, idx) => (
+            <Button
+              key={idx}
+              onClick={action.action}
+              variant="outline"
+              className={`h-24 flex-col gap-2 bg-gradient-to-br ${action.color} text-white border-none hover:opacity-90 transition-opacity`}
+            >
+              <action.icon className="w-6 h-6" />
+              <div className="text-center">
+                <div className="font-semibold text-sm">{action.label}</div>
+                <div className="text-xs opacity-90">{action.description}</div>
+              </div>
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

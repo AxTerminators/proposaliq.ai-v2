@@ -113,12 +113,12 @@ export default function Dashboard() {
     if (user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     } else {
-      navigate(createPageUrl("ProposalBuilder"));
+      navigate(createPageUrl("Pipeline")); // Navigate to Proposal Board
     }
   };
 
   const proceedToProposalBuilder = () => {
-    navigate(createPageUrl("ProposalBuilder"));
+    navigate(createPageUrl("Pipeline")); // Navigate to Proposal Board
   };
 
   // Show loading state
