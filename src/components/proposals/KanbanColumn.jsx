@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -44,14 +43,26 @@ export default function KanbanColumn({
   dragHandleProps,
   onCreateProposal,
 }) {
-  const proposalCount = proposals.length;
+  // Safety check for provided
+  if (!provided) {
+    console.error('[KanbanColumn] Provided is undefined for column:', column?.label);
+    return (
+      <div className="flex flex-col h-full w-80 flex-shrink-0">
+        <div className="p-4 bg-slate-100 border border-slate-300 rounded-lg">
+          <p className="text-sm text-slate-600">Loading column...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const proposalCount = proposals?.length || 0;
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState(column.label);
+  const [editedName, setEditedName] = useState(column?.label || '');
   const inputRef = useRef(null);
 
   // Calculate total dollar value in this column
   const totalValue = useMemo(() => {
-    return proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+    return (proposals || []).reduce((sum, p) => sum + (p.contract_value || 0), 0);
   }, [proposals]);
 
   // Format dollar value for display
@@ -72,33 +83,37 @@ export default function KanbanColumn({
     }
   }, [isEditingName]);
 
+  useEffect(() => {
+    setEditedName(column?.label || '');
+  }, [column?.label]);
+
   const currentUserRole = getUserRole(user);
-  const canDragToHere = !column.can_drag_to_here_roles?.length || 
+  const canDragToHere = !column?.can_drag_to_here_roles?.length || 
                         column.can_drag_to_here_roles.includes(currentUserRole);
-  const canDragFromHere = !column.can_drag_from_here_roles?.length || 
+  const canDragFromHere = !column?.can_drag_from_here_roles?.length || 
                           column.can_drag_from_here_roles.includes(currentUserRole);
 
-  const wipLimit = column.wip_limit || 0;
+  const wipLimit = column?.wip_limit || 0;
   const isAtWipLimit = wipLimit > 0 && proposalCount >= wipLimit;
   const isNearWipLimit = wipLimit > 0 && proposalCount >= wipLimit * 0.8 && proposalCount < wipLimit;
 
   const handleNameClick = (e) => {
     e.stopPropagation();
-    if (!column.is_locked) {
+    if (!column?.is_locked) {
       setIsEditingName(true);
-      setEditedName(column.label);
+      setEditedName(column?.label || '');
     }
   };
 
   const handleNameSave = () => {
-    if (editedName.trim() && editedName !== column.label) {
+    if (editedName.trim() && editedName !== column?.label) {
       onRenameColumn(column.id, editedName.trim());
     }
     setIsEditingName(false);
   };
 
   const handleNameCancel = () => {
-    setEditedName(column.label);
+    setEditedName(column?.label || '');
     setIsEditingName(false);
   };
 
@@ -116,18 +131,18 @@ export default function KanbanColumn({
       {...provided.droppableProps}
       className="flex flex-col h-full w-80 flex-shrink-0"
     >
-      {/* Column Header - Single Row Layout with Consistent Height */}
+      {/* Column Header */}
       <div 
         {...(dragHandleProps || {})}
         className={cn(
           "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px]",
-          column.color || "from-slate-400 to-slate-600",
-          !column.is_locked && "cursor-grab active:cursor-grabbing"
+          column?.color || "from-slate-400 to-slate-600",
+          !column?.is_locked && "cursor-grab active:cursor-grabbing"
         )}
       >
         <div className="p-3 h-full flex items-center">
           <div className="flex items-center gap-2 w-full">
-            {/* Collapse Button - Far Left */}
+            {/* Collapse Button */}
             <Button
               variant="ghost"
               size="icon"
@@ -138,10 +153,10 @@ export default function KanbanColumn({
               className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
               title="Collapse column"
             >
-              <ChevronLeft className="w-4 h-4" title="Collapse" />
+              <ChevronLeft className="w-4 h-4" />
             </Button>
 
-            {/* Column Name - Truncated with tooltip */}
+            {/* Column Name */}
             <div className="flex-1 min-w-0 mr-1">
               {isEditingName ? (
                 <Input
@@ -158,22 +173,21 @@ export default function KanbanColumn({
                   onClick={handleNameClick}
                   className={cn(
                     "text-left w-full",
-                    !column.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
+                    !column?.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
                   )}
-                  disabled={column.is_locked}
-                  title={column.label}
+                  disabled={column?.is_locked}
+                  title={column?.label}
                 >
                   <h3 className="font-bold text-white text-base truncate leading-tight">
-                    {column.label}
+                    {column?.label || 'Untitled'}
                   </h3>
                 </button>
               )}
             </div>
 
-            {/* Compact Metadata Section - All badges same height for consistency */}
+            {/* Metadata Badges */}
             {!isEditingName && (
               <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-                {/* Proposal Count */}
                 <Badge 
                   variant="secondary" 
                   className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
@@ -182,19 +196,17 @@ export default function KanbanColumn({
                   {proposalCount}
                 </Badge>
 
-                {/* Dollar Value */}
                 {formattedValue && (
                   <Badge 
                     variant="secondary" 
                     className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 px-2 flex items-center gap-0.5"
                     title={`Total value: $${formattedValue}`}
                   >
-                    <DollarSign className="w-3 h-3" title="Total value" />
+                    <DollarSign className="w-3 h-3" />
                     {formattedValue}
                   </Badge>
                 )}
 
-                {/* WIP Limit Badge */}
                 {wipLimit > 0 && (
                   <Badge
                     variant="secondary"
@@ -206,46 +218,43 @@ export default function KanbanColumn({
                     )}
                     title={`Work in progress limit: ${proposalCount}/${wipLimit} ${column.wip_limit_type === 'hard' ? '(Hard Limit)' : '(Soft Limit)'}`}
                   >
-                    {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" title="Hard limit" />}
+                    {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" />}
                     {proposalCount}/{wipLimit}
                   </Badge>
                 )}
 
-                {/* Protected Badge */}
                 {!canDragFromHere && (
                   <Badge 
                     variant="secondary" 
                     className="bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
                     title="Protected column - only specific roles can move proposals out"
                   >
-                    <Shield className="w-3 h-3" title="Protected" />
+                    <Shield className="w-3 h-3" />
                   </Badge>
                 )}
 
-                {/* Approval Required Badge */}
-                {column.requires_approval_to_exit && (
+                {column?.requires_approval_to_exit && (
                   <Badge 
                     variant="secondary" 
                     className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
                     title="Requires approval to move proposals out of this column"
                   >
-                    <CheckCircle className="w-3 h-3" title="Approval required" />
+                    <CheckCircle className="w-3 h-3" />
                   </Badge>
                 )}
 
-                {/* Lock Icon */}
-                {column.is_locked && (
+                {column?.is_locked && (
                   <div 
                     className="flex-shrink-0 pl-0.5 h-6 flex items-center"
                     title="System column (locked)"
                   >
-                    <Lock className="w-4 h-4 text-white/90" title="Locked" />
+                    <Lock className="w-4 h-4 text-white/90" />
                   </div>
                 )}
               </div>
             )}
 
-            {/* Menu - Far Right */}
+            {/* Menu */}
             {!isEditingName && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -255,7 +264,7 @@ export default function KanbanColumn({
                     className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
                     title="Column options"
                   >
-                    <MoreVertical className="w-4 h-4" title="Options" />
+                    <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -273,7 +282,7 @@ export default function KanbanColumn({
       {/* Column Body */}
       <div className={cn(
         "flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden",
-        snapshot.isDraggingOver && "bg-blue-50 border-blue-300"
+        snapshot?.isDraggingOver && "bg-blue-50 border-blue-300"
       )}>
         <div 
           className="h-full overflow-y-auto p-3 space-y-3"
@@ -303,7 +312,7 @@ export default function KanbanColumn({
           )}
 
           {/* Empty State */}
-          {proposalCount === 0 ? (
+          {proposalCount === 0 && (
             <button 
               onClick={() => onCreateProposal && onCreateProposal(column)}
               className="w-full p-8 hover:bg-slate-100 rounded-lg transition-all group border-2 border-dashed border-slate-300 hover:border-blue-400"
@@ -317,7 +326,7 @@ export default function KanbanColumn({
                 Click to add one
               </p>
             </button>
-          ) : null }
+          )}
 
           {proposalCount > 0 && (
             <>
@@ -329,22 +338,29 @@ export default function KanbanColumn({
                   type="card"
                   isDragDisabled={!canDragFromHere}
                 >
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      style={provided.draggableProps.style}
-                    >
-                      <KanbanCard
-                        proposal={proposal}
-                        isDragging={snapshot.isDragging}
-                        isDragDisabled={!canDragFromHere}
-                        column={column}
-                        onCardClick={onCardClick}
-                      />
-                    </div>
-                  )}
+                  {(cardProvided, cardSnapshot) => {
+                    // Safety check for card provided as well
+                    if (!cardProvided) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div
+                        ref={cardProvided.innerRef}
+                        {...cardProvided.draggableProps}
+                        {...cardProvided.dragHandleProps}
+                        style={cardProvided.draggableProps.style}
+                      >
+                        <KanbanCard
+                          proposal={proposal}
+                          isDragging={cardSnapshot.isDragging}
+                          isDragDisabled={!canDragFromHere}
+                          column={column}
+                          onCardClick={onCardClick}
+                        />
+                      </div>
+                    );
+                  }}
                 </Draggable>
               ))}
             </>
