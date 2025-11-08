@@ -730,7 +730,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   };
 
   const handleCreateProposalInColumn = (column) => {
-    // Show quick create dialog instead of type selection
     setShowNewProposalDialog(true);
   };
 
