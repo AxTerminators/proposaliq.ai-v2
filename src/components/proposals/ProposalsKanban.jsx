@@ -435,7 +435,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
           if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
-              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
+              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${newColumnProposalsMap[destinationColumn.id].length}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
           }
       }
     } catch (error) {
@@ -804,19 +804,23 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
     return (
-      <>
-        <div className="flex items-center justify-center min-h-[600px] p-6">
-          <Card className="max-w-2xl border-none shadow-xl">
-            <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-10 h-10 text-white" />
+      <div className="h-full overflow-y-auto bg-slate-50 p-6">
+        <div className="max-w-3xl mx-auto">
+          <Card className="border-none shadow-xl">
+            <CardContent className="p-8">
+              <div className="text-center mb-8">
+                <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Sparkles className="w-10 h-10 text-white" />
+                </div>
+                <h2 className="text-3xl font-bold text-slate-900 mb-3">Upgrade to New Workflow</h2>
+                <p className="text-lg text-slate-600 mb-6">
+                  We've detected you're using an older Kanban board configuration. 
+                  Upgrade to our new 8-phase workflow system for better proposal management.
+                </p>
               </div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-3">Upgrade to New Workflow</h2>
-              <p className="text-lg text-slate-600 mb-6 max-w-lg mx-auto">
-                We've detected you're using an older Kanban board configuration. 
-                Upgrade to our new 8-phase workflow system for better proposal management with:
-              </p>
-              <div className="text-left mb-8 max-w-lg mx-auto bg-slate-50 rounded-lg p-6">
+
+              <div className="bg-slate-50 rounded-lg p-6 mb-6">
+                <h3 className="font-semibold text-slate-900 mb-4">New Features:</h3>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -844,6 +848,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   </li>
                 </ul>
               </div>
+
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-amber-900">
                   <strong>Note:</strong> Your existing proposals will be preserved and mapped to the new workflow stages. This process takes just a few seconds.
@@ -851,11 +856,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
               </div>
               
               {user?.role === 'admin' ? (
-                <div className="flex gap-3 justify-center">
+                <div className="flex flex-col gap-3">
                   <Button
                     onClick={handleRunMigration}
                     disabled={isMigrating}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg py-6"
+                    size="lg"
                   >
                     {isMigrating ? (
                       <>
@@ -873,7 +879,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                     variant="outline"
                     onClick={() => setShowSetupWizard(true)}
                     disabled={isMigrating}
-                    className="text-lg px-8 py-6"
+                    size="lg"
+                    className="py-6"
                   >
                     Manual Setup
                   </Button>
@@ -894,7 +901,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           onClose={() => setShowSetupWizard(false)}
           organization={organization}
         />
-      </>
+      </div>
     );
   }
 
