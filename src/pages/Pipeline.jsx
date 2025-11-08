@@ -51,7 +51,7 @@ export default function Pipeline() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
-  const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
+  const [showBoardSwitcher, setShowBoardSwitcher] = useState(false); // This state isn't used based on the current UI, could be removed or used later
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
@@ -145,6 +145,22 @@ export default function Pipeline() {
     retry: 1,
   });
 
+  // Filter out duplicate legacy boards from UI display
+  const displayBoards = useMemo(() => {
+    if (!allBoards || allBoards.length === 0) return [];
+
+    // Find boards with proper metadata (board_type and board_name)
+    const properBoards = allBoards.filter(b => b.board_type && b.board_name);
+
+    // If we have proper boards, only show those
+    if (properBoards.length > 0) {
+      return properBoards;
+    }
+
+    // Otherwise show all (fallback for older setups or if no proper boards yet)
+    return allBoards;
+  }, [allBoards]);
+
   // Auto-ensure master board exists on first load
   useEffect(() => {
     const ensureMasterBoard = async () => {
@@ -170,13 +186,13 @@ export default function Pipeline() {
 
   // Auto-select master board or first board on load
   useEffect(() => {
-    if (allBoards.length > 0 && !selectedBoardId) {
-      const masterBoard = allBoards.find(b => b.is_master_board === true);
-      const boardToSelect = masterBoard || allBoards[0];
+    if (displayBoards.length > 0 && !selectedBoardId) {
+      const masterBoard = displayBoards.find(b => b.is_master_board === true);
+      const boardToSelect = masterBoard || displayBoards[0];
       console.log('[Pipeline] Auto-selecting board:', boardToSelect.board_name);
       setSelectedBoardId(boardToSelect.id);
     }
-  }, [allBoards, selectedBoardId]);
+  }, [displayBoards, selectedBoardId]);
 
   // Get the selected board config
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
@@ -608,9 +624,9 @@ export default function Pipeline() {
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
 
-            {allBoards.length > 0 && (
+            {displayBoards.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                {allBoards.map(board => {
+                {displayBoards.map(board => {
                   const isSelected = selectedBoardId === board.id;
                   const icon = getBoardIcon(board.board_type, board.is_master_board);
 
