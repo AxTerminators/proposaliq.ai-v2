@@ -334,7 +334,7 @@ export default function KanbanColumn({
                   isSelected={selectedProposalIds.includes(proposal.id)}
                   onToggleSelection={onToggleProposalSelection}
                   selectionMode={selectionMode}
-                  column={column}
+                  column={column} {/* Added the column prop here */}
                 />
               )}
             </Draggable>

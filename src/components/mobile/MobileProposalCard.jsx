@@ -1,4 +1,6 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -32,7 +34,8 @@ const formatCurrency = (value) => {
   return `$${value.toLocaleString()}`;
 };
 
-export default function MobileProposalCard({ proposal, onClick, showProgress = true }) {
+export default function MobileProposalCard({ proposal, showProgress = true }) {
+  const navigate = useNavigate();
   const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-500' };
   
   const daysUntilDue = proposal.due_date 
@@ -44,10 +47,14 @@ export default function MobileProposalCard({ proposal, onClick, showProgress = t
 
   const progressPercentage = proposal.progress_summary?.completion_percentage || 0;
 
+  const handleClick = () => {
+    navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+  };
+
   return (
     <Card 
       className="border-2 border-slate-200 cursor-pointer active:scale-98 transition-transform"
-      onClick={() => onClick(proposal)}
+      onClick={handleClick}
     >
       <CardContent className="p-4">
         {/* Header */}
