@@ -138,7 +138,22 @@ export default function Pipeline() {
         'board_type' // Sort by board_type to get master first
       );
       console.log('[Pipeline] Found boards:', boards.length);
-      return boards;
+      
+      // FILTER OUT boards that lack proper board_type and board_name (legacy duplicates)
+      const validBoards = boards.filter(board => {
+        // Keep master boards
+        if (board.is_master_board === true) return true;
+        
+        // Keep boards with a valid board_type AND board_name
+        if (board.board_type && board.board_name) return true;
+        
+        // Filter out legacy boards without proper metadata
+        console.log('[Pipeline] Filtering out legacy board without board_type/board_name:', board.id);
+        return false;
+      });
+      
+      console.log('[Pipeline] Valid boards after filtering:', validBoards.length);
+      return validBoards;
     },
     enabled: !!organization?.id,
     staleTime: 60000,
