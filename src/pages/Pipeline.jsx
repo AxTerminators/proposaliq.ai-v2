@@ -35,6 +35,7 @@ export default function Pipeline() {
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
+  const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -95,14 +96,14 @@ export default function Pipeline() {
   });
 
   // Fetch ALL kanban boards for this organization
-  const { data: allBoards = [], isLoading: isLoadingBoards } = useQuery({
+  const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
       console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_name' // Sort by board_type to get master first
+        'board_type' // Sort by board_type to get master first
       );
       console.log('[Pipeline] Found boards:', boards.length);
       return boards;
@@ -183,14 +184,47 @@ export default function Pipeline() {
     initialData: [],
   });
 
+  const handleCreateMasterBoard = async () => {
+    if (!organization?.id) {
+      alert("Organization not found");
+      return;
+    }
+
+    setIsCreatingMasterBoard(true);
+    try {
+      const response = await base44.functions.invoke('createMasterBoardConfig', {
+        organization_id: organization.id
+      });
+
+      if (response.data.success) {
+        alert(`✅ ${response.data.was_created ? 'Master board created!' : 'Master board already exists'}`);
+        await refetchBoards();
+        
+        // Auto-select the master board
+        const updatedBoards = await base44.entities.KanbanConfig.filter({
+          organization_id: organization.id,
+          is_master_board: true
+        });
+        if (updatedBoards.length > 0) {
+          setSelectedBoardId(updatedBoards[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating master board:', error);
+      alert('Error creating master board: ' + error.message);
+    } finally {
+      setIsCreatingMasterBoard(false);
+    }
+  };
+
   // Force refetch when organization changes
   useEffect(() => {
     if (organization?.id) {
       console.log('[Pipeline] Organization changed, refetching data');
       refetchProposals();
-      // No refetchConfig() needed here anymore, as allBoards handles board fetching.
+      refetchBoards(); // Make sure to refetch boards when org changes
     }
-  }, [organization?.id, refetchProposals]);
+  }, [organization?.id, refetchProposals, refetchBoards]);
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
@@ -302,6 +336,42 @@ export default function Pipeline() {
     );
   }
 
+  // Show "Create Master Board" prompt when no boards exist
+  if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Layers className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-3">Setup Your Proposal Board</h2>
+            <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
+              Get started by creating your master board to view and manage all proposals in one place.
+            </p>
+            <Button
+              onClick={handleCreateMasterBoard}
+              disabled={isCreatingMasterBoard}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+            >
+              {isCreatingMasterBoard ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Creating Master Board...
+                </>
+              ) : (
+                <>
+                  <Layers className="w-5 h-5 mr-2" />
+                  Create Master Board
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const showDataRecovery = filteredProposals.length === 0 && !isLoadingProposals;
   // Only show "Generate Sample Data" if organization is sample data
   const canGenerateSampleData = organization?.is_sample_data === true;
@@ -352,7 +422,7 @@ export default function Pipeline() {
             </div>
             
             {/* Board Switcher */}
-            {allBoards.length > 1 && (
+            {allBoards.length > 0 && (
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-slate-500" />
                 <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
