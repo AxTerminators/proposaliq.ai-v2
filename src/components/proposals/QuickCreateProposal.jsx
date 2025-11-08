@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,13 +31,13 @@ import { Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PROPOSAL_TYPES = [
-  { value: 'RFP', label: 'RFP - Request for Proposal', icon: '📋', description: 'Traditional federal full proposal' },
-  { value: 'RFI', label: 'RFI - Request for Information', icon: '❓', description: 'Quick capability response' },
-  { value: 'SBIR', label: 'SBIR/STTR - Research', icon: '🔬', description: 'Innovation research proposal' },
-  { value: 'GSA', label: 'GSA Schedule', icon: '🏛️', description: 'Contract vehicle application' },
-  { value: 'IDIQ', label: 'IDIQ/BPA', icon: '📑', description: 'Task order response' },
-  { value: 'STATE_LOCAL', label: 'State/Local', icon: '🏢', description: 'State or local bid' },
-  { value: 'OTHER', label: 'Other', icon: '📄', description: 'Custom proposal type' },
+  { value: 'RFP', label: 'RFP - Request for Proposal', icon: '📋' },
+  { value: 'RFI', label: 'RFI - Request for Information', icon: '❓' },
+  { value: 'SBIR', label: 'SBIR/STTR - Research', icon: '🔬' },
+  { value: 'GSA', label: 'GSA Schedule', icon: '🏛️' },
+  { value: 'IDIQ', label: 'IDIQ/BPA', icon: '📑' },
+  { value: 'STATE_LOCAL', label: 'State/Local', icon: '🏢' },
+  { value: 'OTHER', label: 'Other', icon: '📄' },
 ];
 
 export default function QuickCreateProposal({ isOpen, onClose, organization, preselectedType = null, onSuccess }) {
@@ -55,33 +56,15 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
-      // Create the proposal first
-      const createdProposal = await base44.entities.Proposal.create({
+      return base44.entities.Proposal.create({
         ...data,
         organization_id: organization.id,
         current_phase: "phase1",
         status: "evaluating",
       });
-
-      // Apply workflow template to create/ensure board exists
-      if (data.proposal_type_category) {
-        try {
-          await base44.functions.invoke('applyWorkflowTemplate', {
-            organization_id: organization.id,
-            board_type: data.proposal_type_category.toLowerCase(),
-            proposal_id: createdProposal.id
-          });
-        } catch (error) {
-          console.error('Error applying workflow template:', error);
-          // Continue even if template application fails
-        }
-      }
-
-      return createdProposal;
     },
     onSuccess: (createdProposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       
       // Call onSuccess callback with created proposal
       if (onSuccess) {
@@ -122,8 +105,6 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
     });
   };
 
-  const selectedTypeInfo = PROPOSAL_TYPES.find(t => t.value === formData.proposal_type_category);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -133,7 +114,7 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
             Create New Proposal
           </DialogTitle>
           <DialogDescription>
-            Select type to get optimized workflow and board
+            Enter basic information to get started
           </DialogDescription>
         </DialogHeader>
 
@@ -168,28 +149,14 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
               <SelectContent>
                 {PROPOSAL_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
-                    <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-2">
                       <span className="text-lg">{type.icon}</span>
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">{type.label}</span>
-                        <span className="text-xs text-slate-500">{type.description}</span>
-                      </div>
-                    </div>
+                      {type.label}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            
-            {selectedTypeInfo && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-900">
-                  <strong>{selectedTypeInfo.icon} {selectedTypeInfo.label}:</strong> {selectedTypeInfo.description}
-                </p>
-                <p className="text-xs text-blue-700 mt-1">
-                  ✨ Auto-creates optimized board with type-specific workflow
-                </p>
-              </div>
-            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">

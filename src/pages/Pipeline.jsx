@@ -256,30 +256,27 @@ export default function Pipeline() {
 
     setIsCreatingBoard(true);
     try {
-      // Use applyWorkflowTemplate instead - it creates board from template
-      const response = await base44.functions.invoke('applyWorkflowTemplate', {
+      const response = await base44.functions.invoke('createTypeSpecificBoard', {
         organization_id: organization.id,
         board_type: boardType.toLowerCase()
       });
 
       if (response.data.success) {
-        if (response.data.board_was_created) {
-          alert(`✅ ${response.data.template_applied} created with ${response.data.columns_count} optimized columns!`);
+        if (response.data.was_created) {
+          alert(`✅ ${response.data.message}`);
+          await refetchBoards();
+          
+          // Auto-select the newly created board
+          const updatedBoards = await base44.entities.KanbanConfig.filter({
+            organization_id: organization.id,
+            board_type: boardType.toLowerCase()
+          });
+          if (updatedBoards.length > 0) {
+            setSelectedBoardId(updatedBoards[0].id);
+          }
         } else {
-          alert(`Board already exists: ${response.data.template_applied}`);
+          alert(`Board already exists!`);
         }
-        
-        await refetchBoards();
-        
-        // Auto-select the board
-        const updatedBoards = await base44.entities.KanbanConfig.filter({
-          organization_id: organization.id,
-          board_type: boardType.toLowerCase()
-        });
-        if (updatedBoards.length > 0) {
-          setSelectedBoardId(updatedBoards[0].id);
-        }
-        
         setShowCreateBoardDialog(false);
       }
     } catch (error) {

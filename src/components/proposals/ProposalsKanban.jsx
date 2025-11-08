@@ -211,22 +211,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
-      // TERMINAL COLUMNS: Always check terminal columns first (they appear on ALL boards)
-      const terminalStatuses = ['submitted', 'won', 'lost', 'archived'];
-      if (terminalStatuses.includes(proposal.status)) {
-        const terminalColumn = columns.find(
-          col => col.is_terminal && col.default_status_mapping === proposal.status
-        );
-        if (terminalColumn) {
-          assignments[proposal.id] = {
-            columnId: terminalColumn.id,
-            columnType: 'terminal'
-          };
-          return; // Early return - terminal takes precedence
-        }
-      }
-      
-      // NON-TERMINAL: Regular workflow logic
       if (proposal.custom_workflow_stage_id) {
         assignments[proposal.id] = {
           columnId: proposal.custom_workflow_stage_id,
@@ -406,7 +390,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.status = 'in_progress';
-      } else if (destinationColumn.type === 'default_status' || destinationColumn.type === 'terminal') {
+      } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
@@ -471,7 +455,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
           if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
-              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
+              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${newColumnProposalsMap[destinationColumn.id].length}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
           }
       }
     } catch (error) {
@@ -619,7 +603,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     // Only require approval when moving to terminal/end-state columns
     if (sourceColumn?.requires_approval_to_exit) {
       const terminalColumns = ['submitted', 'won', 'lost', 'archived'];
-      const isMovingToTerminalState = terminalColumns.includes(destinationColumn.default_status_mapping); // Check against default_status_mapping for terminal columns
+      const isMovingToTerminalState = terminalColumns.includes(destinationColumn.id);
       
       console.log('[RBAC] 🔐 Checking approval requirements...');
       console.log('[RBAC] Source requires approval to exit:', sourceColumn.requires_approval_to_exit);
