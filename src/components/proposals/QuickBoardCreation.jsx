@@ -6,7 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter, // Added DialogFooter here
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 
 const BOARD_TYPE_ICONS = {
   'rfp': '📋',
-  'rfi': '❓',
+  'rfi': '📝', // Changed from '❓' to '📝'
   'sbir': '🔬',
   'gsa': '🏛️',
   'idiq': '📑',
