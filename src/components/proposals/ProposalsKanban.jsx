@@ -54,7 +54,7 @@ const LEGACY_DEFAULT_COLUMNS = [
   }
 ];
 
-export default function ProposalsKanban({ proposals, organization, user, onRefresh }) {
+export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -76,7 +76,8 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
 
-  const { data: kanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
+  // Use propKanbanConfig if provided, otherwise fetch
+  const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return null;
@@ -89,11 +90,14 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
       console.log('[Kanban] Config fetched:', configs.length > 0 ? 'Found' : 'Not found');
       return configs.length > 0 ? configs[0] : null;
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !propKanbanConfig,
     retry: 3,
     retryDelay: 1000,
     staleTime: 30000,
   });
+
+  // Use provided config or fetched config
+  const kanbanConfig = propKanbanConfig || fetchedKanbanConfig;
 
   useEffect(() => {
     console.log('[Kanban] Data update:', {
@@ -758,7 +762,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     }
   };
 
-  if (isLoadingConfig) {
+  if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -776,7 +780,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  if (configError) {
+  if (configError && !propKanbanConfig) { // Check propKanbanConfig here
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -798,7 +802,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  if (isLegacyConfig && !isLoadingConfig) {
+  if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -894,7 +898,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
     );
   }
 
-  if (!hasKanbanConfig && !isLoadingConfig) {
+  if (!hasKanbanConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -930,7 +934,7 @@ export default function ProposalsKanban({ proposals, organization, user, onRefre
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
+  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
