@@ -18,7 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge"; // Added Badge import
+import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query"; // NEW: Added useQueryClient import
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -71,18 +72,26 @@ const getKanbanStatusFromPhase = (phaseId) => {
 
 export default function ProposalBuilder() {
   const navigate = useNavigate();
-  const [organization, setOrganization] = React.useState(null);
-  const [user, setUser] = React.useState(null);
-  const [subscription, setSubscription] = React.useState(null);
+  const queryClient = useQueryClient(); // NEW: Initialized useQueryClient
+  
+  const [user, setUser] = useState(null);
+  const [organization, setOrganization] = useState(null); // Changed from React.useState
+  const [subscription, setSubscription] = useState(null); // Keep subscription state
+  
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
-  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // Changed from showDeleteWarning
   const [isDeleting, setIsDeleting] = useState(false);
+
   const [showAssistant, setShowAssistant] = useState(false);
   const [assistantMinimized, setAssistantMinimized] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+
+  const [isSaving, setIsSaving] = useState(false); // Changed from React.useState
   const [lastSaved, setLastSaved] = useState(null);
+  const [saveError, setSaveError] = useState(null); // NEW: Added saveError state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // NEW: Added hasUnsavedChanges state
   
   // Universal Alert states
   const [showAlert, setShowAlert] = useState(false);
@@ -92,17 +101,25 @@ export default function ProposalBuilder() {
     description: ""
   });
   
+  const urlParams = new URLSearchParams(window.location.search);
+  const proposalIdFromUrl = urlParams.get("id"); // NEW: Get proposalId from URL
+  const boardTypeFromUrl = urlParams.get("boardType"); // NEW: Get board type from URL
+
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
+    organization_id: "", // NEW: Added organization_id
     prime_contractor_id: "",
     prime_contractor_name: "",
-    project_type: "RFP",
+    project_type: "", // Changed from "RFP" to empty string
     solicitation_number: "",
     agency_name: "",
     project_title: "",
     due_date: "",
+    contract_value: "", // NEW: Added contract_value
     teaming_partner_ids: [],
-    status: "evaluating"
+    current_phase: "phase1", // NEW: Added current_phase
+    status: "evaluating",
+    proposal_type_category: boardTypeFromUrl || "", // NEW: Set from URL parameter
   });
 
   // Admin-only access check
@@ -152,27 +169,24 @@ export default function ProposalBuilder() {
   }, []);
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('id');
+    // Use proposalIdFromUrl consistently
     const phaseParam = urlParams.get('phase');
     
-    if (id && organization?.id) {
-      loadProposal(id, phaseParam);
+    if (proposalIdFromUrl && organization?.id) {
+      loadProposal(proposalIdFromUrl, phaseParam);
     } else if (phaseParam) {
       setCurrentPhase(phaseParam);
     }
-  }, [organization?.id]);
+  }, [organization?.id, proposalIdFromUrl]); // Added proposalIdFromUrl to dependencies
 
   // Check if user is trying to create a new proposal with sample data
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('id');
-    
+    // Use proposalIdFromUrl consistently
     // If no proposal ID (creating new) and user has sample data
-    if (!id && user?.using_sample_data === true) {
+    if (!proposalIdFromUrl && user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     }
-  }, [user, proposalId]);
+  }, [user, proposalIdFromUrl]); // Changed proposalId to proposalIdFromUrl
 
   // Auto-save effect - saves proposal data every 30 seconds if there are changes
   useEffect(() => {
@@ -203,7 +217,7 @@ export default function ProposalBuilder() {
     if (organization?.id) {
       ensureProposalSaved();
     }
-  }, [currentPhase, organization?.id]);
+  }, [currentPhase, organization?.id, proposalId]); // Added proposalId to dependencies
 
   const proceedWithNewProposal = () => {
     // User cleared sample data, they can now create proposals
@@ -248,15 +262,18 @@ export default function ProposalBuilder() {
   const saveProposal = async () => {
     if (!organization?.id) {
       console.error("No organization found");
+      setSaveError("No organization found.");
       return null;
     }
 
     // Don't save if there's no proposal name
     if (!proposalData.proposal_name?.trim()) {
+      setSaveError("Proposal name is required.");
       return null;
     }
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       if (proposalId) {
         // Update existing proposal
@@ -268,6 +285,7 @@ export default function ProposalBuilder() {
         if (existing.length === 0) {
           console.error("Proposal not found or no access");
           setIsSaving(false);
+          setSaveError("Proposal not found or no access.");
           return null;
         }
 
@@ -291,6 +309,8 @@ export default function ProposalBuilder() {
         
         setLastSaved(new Date());
         setIsSaving(false);
+        setHasUnsavedChanges(false);
+        queryClient.invalidateQueries(['proposal', proposalId]); // Invalidate query cache
         return proposalId;
       } else {
         // Create new proposal
@@ -304,6 +324,8 @@ export default function ProposalBuilder() {
         setProposalId(created.id);
         setLastSaved(new Date());
         setIsSaving(false);
+        setHasUnsavedChanges(false);
+        queryClient.invalidateQueries(['proposals']); // Invalidate proposals list cache
         
         // Update URL with new proposal ID
         window.history.replaceState(null, '', `${createPageUrl("ProposalBuilder")}?id=${created.id}&phase=${currentPhase}`);
@@ -318,6 +340,7 @@ export default function ProposalBuilder() {
         description: "Unable to save proposal. Please try again or contact support."
       });
       setShowAlert(true);
+      setSaveError("An error occurred during save.");
       setIsSaving(false);
       return null;
     }
@@ -334,6 +357,7 @@ export default function ProposalBuilder() {
       
       // Update local state to reflect the change
       setProposalData(prev => ({ ...prev, status: "submitted" }));
+      queryClient.invalidateQueries(['proposal', proposalId]);
     } catch (error) {
       console.error("Error marking proposal as submitted:", error);
     }
@@ -350,6 +374,7 @@ export default function ProposalBuilder() {
     setIsDeleting(true);
     try {
       await base44.entities.Proposal.delete(proposalId);
+      queryClient.invalidateQueries(['proposals']); // Invalidate proposals list cache
       navigate(createPageUrl("Pipeline"));
     } catch (error) {
       console.error("Error deleting proposal:", error);
@@ -450,7 +475,7 @@ export default function ProposalBuilder() {
               {proposalId && (
                 <Button
                   variant="outline"
-                  onClick={() => setShowDeleteWarning(true)}
+                  onClick={() => setShowDeleteConfirm(true)} {/* Changed to setShowDeleteConfirm */}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -473,6 +498,12 @@ export default function ProposalBuilder() {
             {!isSaving && lastSaved && (
               <span className="text-sm text-green-600">
                 ✓ Last saved {new Date(lastSaved).toLocaleTimeString()}
+              </span>
+            )}
+            {saveError && (
+              <span className="text-sm text-red-600">
+                <AlertTriangle className="w-4 h-4 inline-block mr-1" />
+                Error: {saveError}
               </span>
             )}
           </div>
@@ -780,7 +811,7 @@ export default function ProposalBuilder() {
 
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
 
-      <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}> {/* Changed from showDeleteWarning */}
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-xl">
@@ -860,7 +891,7 @@ export default function ProposalBuilder() {
         isOpen={showSampleDataGuard}
         onClose={() => {
           setShowSampleDataGuard(false);
-          if (user?.using_sample_data === true && !proposalId) {
+          if (user?.using_sample_data === true && !proposalIdFromUrl) { // Used proposalIdFromUrl here
             navigate(createPageUrl("Pipeline"));
           }
         }}
