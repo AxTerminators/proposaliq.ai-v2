@@ -40,6 +40,7 @@ import KanbanSetupWizard from "./KanbanSetupWizard";
 import { Card, CardContent } from "@/components/ui/card";
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
 import KanbanHelpPanel from "./KanbanHelpPanel";
+import QuickCreateProposal from "./QuickCreateProposal";
 import {
   Dialog,
   DialogContent,
@@ -729,13 +730,15 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   };
 
   const handleCreateProposalInColumn = (column) => {
-    // Show dialog to choose proposal type instead of navigating directly
+    // Show quick create dialog instead of type selection
     setShowNewProposalDialog(true);
   };
 
   const handleCreateProposalWithType = (proposalType) => {
     setShowNewProposalDialog(false);
-    navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
+    // Don't navigate - dialog will be replaced by QuickCreateProposal
+    // If navigation was needed, it would look like:
+    // navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
   };
 
   const clearFilters = () => {
@@ -1083,49 +1086,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* New Proposal Type Selection Dialog */}
-      <Dialog open={showNewProposalDialog} onOpenChange={setShowNewProposalDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-blue-600" />
-              Create New Proposal
-            </DialogTitle>
-            <DialogDescription>
-              Choose which type of proposal you're creating
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
-            {[
-              { type: 'RFP', icon: '📋', name: 'Request for Proposal', description: 'Full proposal with pricing' },
-              { type: 'RFI', icon: '❓', name: 'Request for Information', description: 'Information gathering' },
-              { type: 'SBIR', icon: '🔬', name: 'SBIR/STTR', description: 'Research & development' },
-              { type: 'GSA', icon: '🏛️', name: 'GSA Schedule', description: 'GSA contract vehicle' },
-              { type: 'IDIQ', icon: '📑', name: 'IDIQ/BPA', description: 'Indefinite delivery' },
-              { type: 'STATE_LOCAL', icon: '🏢', name: 'State/Local', description: 'Non-federal contracts' },
-            ].map(option => (
-              <Button
-                key={option.type}
-                variant="outline"
-                className="h-auto flex flex-col items-start p-4 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => handleCreateProposalWithType(option.type)}
-              >
-                <div className="text-3xl mb-2">{option.icon}</div>
-                <div className="font-semibold text-sm text-slate-900 mb-1">{option.name}</div>
-                <div className="text-xs text-slate-600">{option.description}</div>
-              </Button>
-            ))}
-          </div>
-          
-          <div className="flex justify-end pt-4 border-t">
-            <Button variant="ghost" onClick={() => setShowNewProposalDialog(false)}>
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {showBoardConfig && (
         <BoardConfigDialog
           isOpen={showBoardConfig}
@@ -1176,6 +1136,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       <KanbanHelpPanel
         isOpen={showHelpPanel}
         onClose={() => setShowHelpPanel(false)}
+      />
+
+      {/* Quick Create Proposal Dialog - Replaces type selection */}
+      <QuickCreateProposal
+        isOpen={showNewProposalDialog}
+        onClose={() => setShowNewProposalDialog(false)}
+        organization={organization}
+        preselectedType={kanbanConfig?.applies_to_proposal_types?.[0] || null}
       />
     </div>
   );
