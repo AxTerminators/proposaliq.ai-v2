@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -22,7 +23,12 @@ import {
   Sparkles,
   Edit,
   DollarSign,
-  Shield
+  Shield,
+  LayoutGrid,
+  Database,
+  MessageSquare,
+  CheckSquare,
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
