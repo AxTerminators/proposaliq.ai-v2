@@ -589,7 +589,7 @@ export default function Pipeline() {
   const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
-    <div className="p-6 space-y-6 flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       <AutomationExecutor 
         organization={organization} 
         proposals={proposals} 
@@ -775,7 +775,7 @@ export default function Pipeline() {
       </div>
 
       {showHealthDashboard && (
-        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
+        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 mx-6 mt-6">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -802,7 +802,7 @@ export default function Pipeline() {
 
       {/* Board Analytics Panel */}
       {showBoardAnalytics && selectedBoard && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 mx-6 mt-6">
           <BoardAnalytics
             board={selectedBoard}
             proposals={proposals}
@@ -813,7 +813,7 @@ export default function Pipeline() {
 
       {/* Activity Feed Panel */}
       {showActivityFeed && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 mx-6 mt-6">
           <BoardActivityFeed
             organization={organization}
             boardId={selectedBoardId}
@@ -821,7 +821,7 @@ export default function Pipeline() {
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0">
         {isLoadingProposals || isLoadingBoards ? (
           <div className="flex items-center justify-center h-full p-6">
             <Card className="max-w-md border-none shadow-xl">
@@ -837,7 +837,7 @@ export default function Pipeline() {
         ) : (
           <>
             {!isMobile && showAutomation && (
-              <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+              <div className="p-6 space-y-6 h-full overflow-y-auto">
                 <AIWorkflowSuggestions 
                   organization={organization} 
                   proposals={filteredProposals}
@@ -848,7 +848,7 @@ export default function Pipeline() {
             )}
 
             {!isMobile && showAnalytics && (
-              <div className="p-6 space-y-6 overflow-y-auto max-h-full">
+              <div className="p-6 space-y-6 h-full overflow-y-auto">
                 <SnapshotGenerator organization={organization} proposals={filteredProposals} />
                 <PipelineAnalytics organization={organization} proposals={filteredProposals} />
               </div>
@@ -857,11 +857,11 @@ export default function Pipeline() {
             {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && (
               <>
                 {isMobile ? (
-                  <div className="p-4">
+                  <div className="p-4 h-full overflow-y-auto">
                     <MobileKanbanView proposals={filteredProposals} columns={selectedBoard?.columns || []} />
                   </div>
                 ) : (
-                  <>
+                  <div className="h-full">
                     {viewMode === "kanban" && (
                       <ProposalsKanban 
                         proposals={filteredProposals} 
@@ -874,16 +874,16 @@ export default function Pipeline() {
                       />
                     )}
                     {viewMode === "list" && (
-                      <div className="p-6">
+                      <div className="p-6 h-full overflow-y-auto">
                         <ProposalsList proposals={filteredProposals} organization={organization} />
                       </div>
                     )}
                     {viewMode === "table" && (
-                      <div className="p-6">
+                      <div className="p-6 h-full overflow-y-auto">
                         <ProposalsTable proposals={filteredProposals} organization={organization} />
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </>
             )}
