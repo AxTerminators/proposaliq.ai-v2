@@ -1,7 +1,6 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -27,17 +26,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Sparkles, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const PROPOSAL_TYPES = [
-  { value: 'RFP', label: 'RFP - Request for Proposal', icon: '📋' },
-  { value: 'RFI', label: 'RFI - Request for Information', icon: '❓' },
-  { value: 'SBIR', label: 'SBIR/STTR - Research', icon: '🔬' },
-  { value: 'GSA', label: 'GSA Schedule', icon: '🏛️' },
-  { value: 'IDIQ', label: 'IDIQ/BPA', icon: '📑' },
-  { value: 'STATE_LOCAL', label: 'State/Local', icon: '🏢' },
-  { value: 'OTHER', label: 'Other', icon: '📄' },
+  { value: 'RFP', label: 'RFP - Request for Proposal', icon: '📋', description: 'Full proposal with 9-phase workflow' },
+  { value: 'RFI', label: 'RFI - Request for Information', icon: '❓', description: 'Quick 4-phase capability statement' },
+  { value: 'SBIR', label: 'SBIR/STTR - Research', icon: '🔬', description: 'Innovation-focused 5-phase workflow' },
+  { value: 'GSA', label: 'GSA Schedule', icon: '🏛️', description: '5-phase schedule application' },
+  { value: 'IDIQ', label: 'IDIQ/BPA', icon: '📑', description: '5-phase task order response' },
+  { value: 'STATE_LOCAL', label: 'State/Local', icon: '🏢', description: '5-phase with compliance focus' },
+  { value: 'OTHER', label: 'Other', icon: '📄', description: 'Generic workflow' },
 ];
 
 export default function QuickCreateProposal({ isOpen, onClose, organization, preselectedType = null, onSuccess }) {
@@ -54,19 +55,57 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
     contract_value: "",
   });
 
+  // Fetch workflow template for selected type
+  const { data: selectedTemplate } = useQuery({
+    queryKey: ['workflow-template', formData.proposal_type_category],
+    queryFn: async () => {
+      if (!formData.proposal_type_category) return null;
+      const templates = await base44.entities.ProposalWorkflowTemplate.filter({
+        proposal_type_category: formData.proposal_type_category,
+        template_type: 'system',
+        is_active: true
+      }, '-created_date', 1);
+      return templates.length > 0 ? templates[0] : null;
+    },
+    enabled: !!formData.proposal_type_category,
+  });
+
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
-      return base44.entities.Proposal.create({
+      // Create proposal
+      const proposal = await base44.entities.Proposal.create({
         ...data,
         organization_id: organization.id,
         current_phase: "phase1",
         status: "evaluating",
+        workflow_template_id: selectedTemplate?.id || null,
       });
+
+      // If template exists, ensure board exists for this type
+      if (selectedTemplate && data.proposal_type_category !== 'OTHER') {
+        const boardType = data.proposal_type_category.toLowerCase();
+        
+        // Check if board exists
+        const existingBoards = await base44.entities.KanbanConfig.filter({
+          organization_id: organization.id,
+          board_type: boardType
+        });
+
+        // Create board if it doesn't exist
+        if (existingBoards.length === 0) {
+          await base44.functions.invoke('createTypeSpecificBoard', {
+            organization_id: organization.id,
+            board_type: boardType
+          });
+        }
+      }
+
+      return proposal;
     },
     onSuccess: (createdProposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       
-      // Call onSuccess callback with created proposal
       if (onSuccess) {
         onSuccess(createdProposal);
       }
@@ -105,6 +144,8 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
     });
   };
 
+  const selectedTypeInfo = PROPOSAL_TYPES.find(t => t.value === formData.proposal_type_category);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -119,21 +160,7 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          {/* Proposal Name */}
-          <div className="space-y-2">
-            <Label htmlFor="proposal_name">
-              Proposal Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="proposal_name"
-              value={formData.proposal_name}
-              onChange={(e) => setFormData({ ...formData, proposal_name: e.target.value })}
-              placeholder="e.g., DoD IT Services Proposal"
-              required
-            />
-          </div>
-
-          {/* Proposal Type */}
+          {/* Proposal Type - Enhanced */}
           <div className="space-y-2">
             <Label htmlFor="proposal_type">
               Proposal Type <span className="text-red-500">*</span>
@@ -149,14 +176,46 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
               <SelectContent>
                 {PROPOSAL_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
-                    <span className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <span className="text-lg">{type.icon}</span>
-                      {type.label}
-                    </span>
+                      <div className="flex flex-col items-start">
+                        <span>{type.label}</span>
+                        <span className="text-xs text-slate-500">{type.description}</span>
+                      </div>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Template Info Alert */}
+            {selectedTemplate && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <Info className="w-4 h-4 text-blue-600" />
+                <AlertDescription>
+                  <p className="text-sm text-blue-900">
+                    <strong>Workflow:</strong> {selectedTemplate.template_name}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {selectedTemplate.description} • Est. {selectedTemplate.estimated_duration_days} days
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* Proposal Name */}
+          <div className="space-y-2">
+            <Label htmlFor="proposal_name">
+              Proposal Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="proposal_name"
+              value={formData.proposal_name}
+              onChange={(e) => setFormData({ ...formData, proposal_name: e.target.value })}
+              placeholder="e.g., DoD IT Services Proposal"
+              required
+            />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
