@@ -1,65 +1,76 @@
-
-import React from "react";
-import { Draggable } from "@hello-pangea/dnd";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, CheckCircle2, AlertCircle, Clock, Sparkles, Check } from "lucide-react"; // Added Check
 import { cn } from "@/lib/utils";
-
-// Type badge configuration
-const TYPE_BADGES = {
-  RFP: { emoji: '📋', color: 'bg-blue-100 text-blue-700 border-blue-300', label: 'RFP' },
-  RFI: { emoji: '❓', color: 'bg-slate-100 text-slate-700 border-slate-300', label: 'RFI' },
-  SBIR: { emoji: '🔬', color: 'bg-purple-100 text-purple-700 border-purple-300', label: 'SBIR' },
-  GSA: { emoji: '🏛️', color: 'bg-green-100 text-green-700 border-green-300', label: 'GSA' },
-  IDIQ: { emoji: '📑', color: 'bg-indigo-100 text-indigo-700 border-indigo-300', label: 'IDIQ' },
-  STATE_LOCAL: { emoji: '🏢', color: 'bg-amber-100 text-amber-700 border-amber-300', label: 'State/Local' },
-  OTHER: { emoji: '📄', color: 'bg-gray-100 text-gray-700 border-gray-300', label: 'Other' }
-};
-
-const formatCurrency = (value) => {
-  if (!value) return null;
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-  return `$${value.toLocaleString()}`;
-};
-
-const getDaysUntilDue = (dueDate) => {
-  if (!dueDate) return null;
-  const today = new Date();
-  const due = new Date(dueDate);
-  const diffTime = due.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-};
+import {
+  Calendar,
+  DollarSign,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  Clock,
+  Target,
+  Check
+} from "lucide-react";
+import moment from "moment";
 
 export default function KanbanCard({ 
   proposal, 
-  provided, // Added provided prop
-  snapshot, // Added snapshot prop
+  provided, 
+  snapshot, 
   onClick, 
-  column,
-  organization, // Added organization prop
-  isSelectionMode = false, // Added isSelectionMode prop
-  isSelected = false, // Added isSelected prop
-  onToggleSelection // Added onToggleSelection prop
+  organization,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelection,
+  column
 }) {
-  const typeBadge = TYPE_BADGES[proposal.proposal_type_category] || TYPE_BADGES.OTHER;
-  const daysUntilDue = getDaysUntilDue(proposal.due_date);
-  const isUrgent = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7;
+  // Fetch subtasks for this proposal
+  const { data: subtasks = [] } = useQuery({
+    queryKey: ['proposal-subtasks', proposal.id],
+    queryFn: async () => {
+      return base44.entities.ProposalSubtask.filter({
+        proposal_id: proposal.id
+      });
+    },
+    staleTime: 30000
+  });
+
+  // Calculate completion
+  const completedSubtasks = subtasks.filter(t => t.status === 'completed').length;
+  const completionPercentage = subtasks.length > 0 
+    ? Math.round((completedSubtasks / subtasks.length) * 100)
+    : 0;
+
+  // Check for action required
+  const isActionRequired = proposal.action_required || false;
+
+  // Format contract value
+  const formattedValue = useMemo(() => {
+    if (!proposal.contract_value) return null;
+    const value = proposal.contract_value;
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(0)}K`;
+    }
+    return `$${value.toLocaleString()}`;
+  }, [proposal.contract_value]);
+
+  // Calculate days until due
+  const daysUntilDue = useMemo(() => {
+    if (!proposal.due_date) return null;
+    const today = moment();
+    const due = moment(proposal.due_date);
+    const days = due.diff(today, 'days');
+    return days;
+  }, [proposal.due_date]);
+
   const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
+  const isUrgent = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7;
 
-  const currentStageChecklist = proposal.current_stage_checklist_status?.[column?.id] || {};
-  const columnChecklistItems = column?.checklist_items || [];
-  const requiredItems = columnChecklistItems.filter(item => item.required);
-  const completedRequiredItems = requiredItems.filter(item => currentStageChecklist[item.id]?.completed);
-  const hasRequiredItems = requiredItems.length > 0;
-  const allRequiredCompleted = hasRequiredItems && completedRequiredItems.length === requiredItems.length;
-
-  const isActionRequired = proposal.action_required; // Derived from proposal.action_required
-
-  // The Draggable component is now assumed to be an external wrapper,
-  // passing `provided` and `snapshot` directly to KanbanCard.
   return (
     <div
       ref={provided.innerRef}
@@ -69,11 +80,11 @@ export default function KanbanCard({
         if (isSelectionMode) {
           onToggleSelection(proposal.id);
         } else {
-          onClick(proposal); // Pass the entire proposal object to onClick
+          onClick(proposal);
         }
       }}
       className={cn(
-        "mb-3 bg-white rounded-xl border-2 transition-all cursor-pointer group relative", // Added mb-3 here for spacing
+        "bg-white rounded-xl border-2 transition-all cursor-pointer group relative",
         snapshot.isDragging ? "shadow-2xl border-blue-400 rotate-2" : "shadow-md hover:shadow-xl border-slate-200 hover:border-blue-300",
         isActionRequired && "ring-2 ring-amber-400 border-amber-400",
         isSelected && "ring-2 ring-blue-500 border-blue-500"
@@ -84,7 +95,7 @@ export default function KanbanCard({
         <div 
           className="absolute top-2 right-2 z-10"
           onClick={(e) => {
-            e.stopPropagation(); // Prevent the card's onClick from firing
+            e.stopPropagation();
             onToggleSelection(proposal.id);
           }}
         >
@@ -101,122 +112,100 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* The Card component now becomes purely structural inside the main div */}
-      <Card className="shadow-none border-none">
-        <CardContent className="p-4">
-          {/* Header with Title and Type Badge */}
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <h3 className="font-semibold text-slate-900 text-sm leading-tight flex-1 line-clamp-2">
-              {proposal.proposal_name}
-            </h3>
-            <Badge className={cn("border flex-shrink-0", typeBadge.color)}>
-              <span className="mr-1">{typeBadge.emoji}</span>
-              {typeBadge.label}
+      <div className="p-4">
+        {/* Header */}
+        <div className="mb-3">
+          <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
+            {proposal.proposal_name}
+          </h4>
+          {proposal.agency_name && (
+            <p className="text-xs text-slate-600 truncate">{proposal.agency_name}</p>
+          )}
+        </div>
+
+        {/* Metadata Badges */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {proposal.status && (
+            <Badge variant="outline" className="text-xs">
+              {proposal.status}
             </Badge>
-          </div>
+          )}
+          {proposal.proposal_type_category && (
+            <Badge className="bg-purple-100 text-purple-700 text-xs">
+              {proposal.proposal_type_category}
+            </Badge>
+          )}
+        </div>
 
-          {/* Metadata */}
-          <div className="space-y-2 text-xs">
-            {proposal.agency_name && (
-              <div className="flex items-center gap-2 text-slate-600">
-                <span className="font-medium truncate">{proposal.agency_name}</span>
+        {/* Stats Row */}
+        <div className="space-y-2">
+          {/* Due Date */}
+          {proposal.due_date && (
+            <div className={cn(
+              "flex items-center gap-2 text-xs",
+              isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-slate-600"
+            )}>
+              <Calendar className="w-3 h-3" />
+              <span>{moment(proposal.due_date).format('MMM D, YYYY')}</span>
+              {isOverdue && <Badge variant="destructive" className="text-xs h-5">Overdue</Badge>}
+              {isUrgent && !isOverdue && <Badge className="bg-amber-500 text-white text-xs h-5">Urgent</Badge>}
+            </div>
+          )}
+
+          {/* Contract Value */}
+          {formattedValue && (
+            <div className="flex items-center gap-2 text-xs text-green-700">
+              <DollarSign className="w-3 h-3" />
+              <span className="font-semibold">{formattedValue}</span>
+            </div>
+          )}
+
+          {/* Team Members */}
+          {proposal.assigned_team_members?.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <Users className="w-3 h-3" />
+              <span>{proposal.assigned_team_members.length} member{proposal.assigned_team_members.length !== 1 ? 's' : ''}</span>
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          {subtasks.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                <span>{completedSubtasks}/{subtasks.length} tasks</span>
+                <span>{completionPercentage}%</span>
               </div>
-            )}
-
-            {proposal.solicitation_number && (
-              <div className="text-slate-500 font-mono truncate">
-                {proposal.solicitation_number}
+              <div className="w-full bg-slate-200 rounded-full h-1.5">
+                <div
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    completionPercentage === 100 ? 'bg-green-500' :
+                    completionPercentage >= 50 ? 'bg-blue-500' :
+                    'bg-amber-500'
+                  )}
+                  style={{ width: `${completionPercentage}%` }}
+                />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Contract Value */}
-            {proposal.contract_value && (
-              <div className="flex items-center gap-1 text-green-700 font-semibold">
-                <DollarSign className="w-3 h-3" />
-                {formatCurrency(proposal.contract_value)}
-              </div>
-            )}
+          {/* Match Score */}
+          {proposal.match_score > 0 && (
+            <div className="flex items-center gap-2 text-xs text-blue-600">
+              <Target className="w-3 h-3" />
+              <span>{proposal.match_score}% match</span>
+            </div>
+          )}
 
-            {/* Due Date */}
-            {proposal.due_date && (
-              <div className={cn(
-                "flex items-center gap-1.5",
-                isOverdue ? "text-red-600 font-semibold" :
-                isUrgent ? "text-orange-600 font-semibold" :
-                "text-slate-600"
-              )}>
-                <Calendar className="w-3 h-3" />
-                {isOverdue && "Overdue "}
-                {isUrgent && !isOverdue && "Due in " + daysUntilDue + "d"}
-                {!isUrgent && !isOverdue && new Date(proposal.due_date).toLocaleDateString()}
-              </div>
-            )}
-
-            {/* Assigned Team */}
-            {proposal.assigned_team_members?.length > 0 && (
-              <div className="flex items-center gap-1.5 text-slate-600">
-                <Users className="w-3 h-3" />
-                {proposal.assigned_team_members.length} assigned
-              </div>
-            )}
-
-            {/* Progress Indicator */}
-            {proposal.progress_summary && (
-              <div className="flex items-center gap-2 pt-2 border-t">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-600">Progress</span>
-                    <span className="font-semibold text-slate-900">
-                      {Math.round(proposal.progress_summary.completion_percentage || 0)}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-1.5">
-                    <div
-                      className="bg-blue-600 h-1.5 rounded-full transition-all"
-                      style={{ width: `${proposal.progress_summary.completion_percentage || 0}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Checklist Progress */}
-            {hasRequiredItems && (
-              <div className="flex items-center gap-2 pt-2">
-                {allRequiredCompleted ? (
-                  <div className="flex items-center gap-1.5 text-green-700">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span className="text-xs font-semibold">All required items complete</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-amber-700">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span className="text-xs font-semibold">
-                      {completedRequiredItems.length}/{requiredItems.length} required
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Action Required Badge */}
-            {proposal.action_required && (
-              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Action Required
-              </Badge>
-            )}
-
-            {/* Sample Data Badge */}
-            {proposal.is_sample_data && (
-              <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
-                <Sparkles className="w-3 h-3 mr-1" />
-                SAMPLE
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          {/* Action Required */}
+          {isActionRequired && (
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+              <AlertCircle className="w-3 h-3" />
+              <span className="font-medium">{proposal.action_required_description || 'Action required'}</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
