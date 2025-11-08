@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { useQueryClient } from "@tanstack/react-query"; // NEW: Added useQueryClient import
+import { useQueryClient } from "@tanstack/react-query";
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -27,8 +26,8 @@ import Phase3 from "../components/builder/Phase3";
 import Phase4 from "../components/builder/Phase4";
 import Phase5 from "../components/builder/Phase5";
 import Phase6 from "../components/builder/Phase6";
-import Phase7 from "../components/builder/Phase7"; // This component is now effectively for Phase 8 (Finalize)
-import Phase7Pricing from "../components/builder/Phase7Pricing"; // New component for Phase 7 (Pricing & Cost Build)
+import Phase7 from "../components/builder/Phase7";
+import Phase7Pricing from "../components/builder/Phase7Pricing";
 import TaskManager from "../components/tasks/TaskManager";
 import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
 import ProposalFiles from "../components/collaboration/ProposalFiles";
@@ -50,7 +49,6 @@ const PHASES = [
   { id: "phase8", label: "Finalize" }
 ];
 
-// Helper function to map builder phases to Kanban statuses
 const getKanbanStatusFromPhase = (phaseId) => {
   switch (phaseId) {
     case "phase1":
@@ -62,9 +60,9 @@ const getKanbanStatusFromPhase = (phaseId) => {
     case "phase6":
       return "draft";
     case "phase7":
-      return "in_progress"; // Pricing phase
+      return "in_progress";
     case "phase8":
-      return "in_progress"; // Finalize phase - Maps to "Review" column
+      return "in_progress";
     default:
       return "evaluating";
   }
@@ -72,28 +70,27 @@ const getKanbanStatusFromPhase = (phaseId) => {
 
 export default function ProposalBuilder() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient(); // NEW: Initialized useQueryClient
+  const queryClient = useQueryClient();
   
   const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null); // Changed from React.useState
-  const [subscription, setSubscription] = useState(null); // Keep subscription state
+  const [organization, setOrganization] = useState(null);
+  const [subscription, setSubscription] = useState(null);
   
   const [currentPhase, setCurrentPhase] = useState("phase1");
   const [proposalId, setProposalId] = useState(null);
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // Changed from showDeleteWarning
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [showAssistant, setShowAssistant] = useState(false);
   const [assistantMinimized, setAssistantMinimized] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
 
-  const [isSaving, setIsSaving] = useState(false); // Changed from React.useState
+  const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
-  const [saveError, setSaveError] = useState(null); // NEW: Added saveError state
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // NEW: Added hasUnsavedChanges state
+  const [saveError, setSaveError] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  // Universal Alert states
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: "info",
@@ -102,27 +99,26 @@ export default function ProposalBuilder() {
   });
   
   const urlParams = new URLSearchParams(window.location.search);
-  const proposalIdFromUrl = urlParams.get("id"); // NEW: Get proposalId from URL
-  const boardTypeFromUrl = urlParams.get("boardType"); // NEW: Get board type from URL
+  const proposalIdFromUrl = urlParams.get("id");
+  const boardTypeFromUrl = urlParams.get("boardType");
 
   const [proposalData, setProposalData] = useState({
     proposal_name: "",
-    organization_id: "", // NEW: Added organization_id
+    organization_id: "",
     prime_contractor_id: "",
     prime_contractor_name: "",
-    project_type: "", // Changed from "RFP" to empty string
+    project_type: "",
     solicitation_number: "",
     agency_name: "",
     project_title: "",
     due_date: "",
-    contract_value: "", // NEW: Added contract_value
+    contract_value: "",
     teaming_partner_ids: [],
-    current_phase: "phase1", // NEW: Added current_phase
+    current_phase: "phase1",
     status: "evaluating",
-    proposal_type_category: boardTypeFromUrl || "", // NEW: Set from URL parameter
+    proposal_type_category: boardTypeFromUrl || "",
   });
 
-  // Admin-only access check
   useEffect(() => {
     const checkAccess = async () => {
       try {
@@ -132,7 +128,6 @@ export default function ProposalBuilder() {
         }
       } catch (error) {
         console.error("Error checking user role:", error);
-        // In case of API error, redirect to Pipeline to prevent unauthorized access
         navigate(createPageUrl("Pipeline"));
       }
     };
@@ -169,7 +164,6 @@ export default function ProposalBuilder() {
   }, []);
 
   useEffect(() => {
-    // Use proposalIdFromUrl consistently
     const phaseParam = urlParams.get('phase');
     
     if (proposalIdFromUrl && organization?.id) {
@@ -177,18 +171,14 @@ export default function ProposalBuilder() {
     } else if (phaseParam) {
       setCurrentPhase(phaseParam);
     }
-  }, [organization?.id, proposalIdFromUrl]); // Added proposalIdFromUrl to dependencies
+  }, [organization?.id, proposalIdFromUrl]);
 
-  // Check if user is trying to create a new proposal with sample data
   useEffect(() => {
-    // Use proposalIdFromUrl consistently
-    // If no proposal ID (creating new) and user has sample data
     if (!proposalIdFromUrl && user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     }
-  }, [user, proposalIdFromUrl]); // Changed proposalId to proposalIdFromUrl
+  }, [user, proposalIdFromUrl]);
 
-  // Auto-save effect - saves proposal data every 30 seconds if there are changes
   useEffect(() => {
     if (!proposalId || !organization?.id) return;
     
@@ -196,15 +186,13 @@ export default function ProposalBuilder() {
       if (proposalData.proposal_name) {
         await saveProposal();
       }
-    }, 30000); // Auto-save every 30 seconds
+    }, 30000);
 
     return () => clearInterval(autoSaveInterval);
   }, [proposalId, proposalData, organization?.id]);
 
-  // Force save when navigating to a phase if proposal hasn't been created yet
   useEffect(() => {
     const ensureProposalSaved = async () => {
-      // If we have proposal data but no proposalId, save it
       if (!proposalId && proposalData.proposal_name && organization?.id) {
         console.log("Auto-saving proposal on phase navigation...");
         const savedId = await saveProposal();
@@ -217,10 +205,9 @@ export default function ProposalBuilder() {
     if (organization?.id) {
       ensureProposalSaved();
     }
-  }, [currentPhase, organization?.id, proposalId]); // Added proposalId to dependencies
+  }, [currentPhase, organization?.id, proposalId]);
 
   const proceedWithNewProposal = () => {
-    // User cleared sample data, they can now create proposals
     setShowSampleDataGuard(false);
   };
 
@@ -236,7 +223,6 @@ export default function ProposalBuilder() {
         setProposalId(id);
         setProposalData(proposal);
         
-        // Priority: URL phase > database current_phase > default to phase1
         if (phaseFromUrl && PHASES.some(p => p.id === phaseFromUrl)) {
           setCurrentPhase(phaseFromUrl);
         } else if (proposal.current_phase) {
@@ -266,7 +252,6 @@ export default function ProposalBuilder() {
       return null;
     }
 
-    // Don't save if there's no proposal name
     if (!proposalData.proposal_name?.trim()) {
       setSaveError("Proposal name is required.");
       return null;
@@ -276,7 +261,6 @@ export default function ProposalBuilder() {
     setSaveError(null);
     try {
       if (proposalId) {
-        // Update existing proposal
         const existing = await base44.entities.Proposal.filter({
           id: proposalId,
           organization_id: organization.id
@@ -310,10 +294,9 @@ export default function ProposalBuilder() {
         setLastSaved(new Date());
         setIsSaving(false);
         setHasUnsavedChanges(false);
-        queryClient.invalidateQueries(['proposal', proposalId]); // Invalidate query cache
+        queryClient.invalidateQueries(['proposal', proposalId]);
         return proposalId;
       } else {
-        // Create new proposal
         const initialStatus = getKanbanStatusFromPhase(currentPhase);
         const created = await base44.entities.Proposal.create({
           ...proposalData,
@@ -325,9 +308,8 @@ export default function ProposalBuilder() {
         setLastSaved(new Date());
         setIsSaving(false);
         setHasUnsavedChanges(false);
-        queryClient.invalidateQueries(['proposals']); // Invalidate proposals list cache
+        queryClient.invalidateQueries(['proposals']);
         
-        // Update URL with new proposal ID
         window.history.replaceState(null, '', `${createPageUrl("ProposalBuilder")}?id=${created.id}&phase=${currentPhase}`);
         
         return created.id;
@@ -346,7 +328,6 @@ export default function ProposalBuilder() {
     }
   };
 
-  // Function to explicitly mark proposal as submitted (called from Phase8, which uses Phase7 component)
   const markAsSubmitted = async () => {
     if (!proposalId || !organization?.id) return;
     
@@ -355,7 +336,6 @@ export default function ProposalBuilder() {
         status: "submitted"
       });
       
-      // Update local state to reflect the change
       setProposalData(prev => ({ ...prev, status: "submitted" }));
       queryClient.invalidateQueries(['proposal', proposalId]);
     } catch (error) {
@@ -374,7 +354,7 @@ export default function ProposalBuilder() {
     setIsDeleting(true);
     try {
       await base44.entities.Proposal.delete(proposalId);
-      queryClient.invalidateQueries(['proposals']); // Invalidate proposals list cache
+      queryClient.invalidateQueries(['proposals']);
       navigate(createPageUrl("Pipeline"));
     } catch (error) {
       console.error("Error deleting proposal:", error);
@@ -389,7 +369,6 @@ export default function ProposalBuilder() {
   };
 
   const handleNext = async () => {
-    // Ensure we have minimum required data
     if (!proposalData.proposal_name?.trim()) {
       setAlertConfig({
         type: "warning",
@@ -400,10 +379,9 @@ export default function ProposalBuilder() {
       return;
     }
 
-    // Save the proposal
     const savedId = await saveProposal();
     
-    if (!savedId && !proposalId) { // Check if it's a new proposal and save failed
+    if (!savedId && !proposalId) {
       setAlertConfig({
         type: "error",
         title: "Save Failed",
@@ -413,12 +391,10 @@ export default function ProposalBuilder() {
       return;
     }
     
-    // Update proposalId if this is a new proposal and it was successfully saved
     if (!proposalId && savedId) {
       setProposalId(savedId);
     }
     
-    // Move to next phase
     const currentIndex = PHASES.findIndex(p => p.id === currentPhase);
     if (currentIndex < PHASES.length - 1) {
       setCurrentPhase(PHASES[currentIndex + 1].id);
@@ -475,7 +451,7 @@ export default function ProposalBuilder() {
               {proposalId && (
                 <Button
                   variant="outline"
-                  onClick={() => setShowDeleteConfirm(true)} {/* Changed to setShowDeleteConfirm */}
+                  onClick={() => setShowDeleteConfirm(true)}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -630,7 +606,7 @@ export default function ProposalBuilder() {
                   />
                 )}
                 {currentPhase === "phase8" && (
-                  <Phase7 // The original Phase7 component is now used for "Finalize" (Phase8)
+                  <Phase7
                     proposal={{ id: proposalId, ...proposalData }}
                     user={user}
                     organization={organization}
@@ -669,7 +645,6 @@ export default function ProposalBuilder() {
                 </div>
               )}
 
-              {/* Special handling for the last phase (Finalize) if needed, e.g., only "Save and Go to Pipeline" */}
               {currentPhaseIndex === PHASES.length - 1 && (
                 <div className="flex justify-end max-w-4xl">
                   <Button
@@ -811,7 +786,7 @@ export default function ProposalBuilder() {
 
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
 
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}> {/* Changed from showDeleteWarning */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-xl">
@@ -891,7 +866,7 @@ export default function ProposalBuilder() {
         isOpen={showSampleDataGuard}
         onClose={() => {
           setShowSampleDataGuard(false);
-          if (user?.using_sample_data === true && !proposalIdFromUrl) { // Used proposalIdFromUrl here
+          if (user?.using_sample_data === true && !proposalIdFromUrl) {
             navigate(createPageUrl("Pipeline"));
           }
         }}
