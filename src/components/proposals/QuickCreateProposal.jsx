@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -39,7 +40,7 @@ const PROPOSAL_TYPES = [
   { value: 'OTHER', label: 'Other', icon: '📄' },
 ];
 
-export default function QuickCreateProposal({ isOpen, onClose, organization, preselectedType = null }) {
+export default function QuickCreateProposal({ isOpen, onClose, organization, preselectedType = null, onSuccess }) {
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -62,8 +63,14 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
         status: "evaluating",
       });
     },
-    onSuccess: () => {
+    onSuccess: (createdProposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      
+      // Call onSuccess callback with created proposal
+      if (onSuccess) {
+        onSuccess(createdProposal);
+      }
+      
       onClose();
       setFormData({
         proposal_name: "",
