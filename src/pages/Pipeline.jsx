@@ -123,6 +123,29 @@ export default function Pipeline() {
     retry: 1,
   });
 
+  // Auto-ensure master board exists on first load
+  useEffect(() => {
+    const ensureMasterBoard = async () => {
+      if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
+        console.log('[Pipeline] No boards found, auto-creating master board');
+        try {
+          const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
+            organization_id: organization.id
+          });
+          
+          if (response.data.success && response.data.was_created) {
+            console.log('[Pipeline] Master board auto-created');
+            await refetchBoards();
+          }
+        } catch (error) {
+          console.error('[Pipeline] Error auto-creating master board:', error);
+        }
+      }
+    };
+    
+    ensureMasterBoard();
+  }, [organization?.id, allBoards.length, isLoadingBoards]);
+
   // Auto-select master board or first board on load
   useEffect(() => {
     if (allBoards.length > 0 && !selectedBoardId) {
