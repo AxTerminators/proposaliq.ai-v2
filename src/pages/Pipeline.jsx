@@ -465,7 +465,7 @@ export default function Pipeline() {
     if (isMaster) return "⭐";
     switch (boardType) {
       case 'rfp': return "📋";
-      case 'rfi': return "❓";
+      case 'rfi': return "📝";
       case 'sbir': return "🔬";
       case 'gsa': return "🏛️";
       case 'idiq': return "📑";
@@ -984,7 +984,7 @@ export default function Pipeline() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
             {[
               { type: 'RFP', icon: '📋', name: 'RFP Board', description: '8-phase detailed workflow' },
-              { type: 'RFI', icon: '❓', name: 'RFI Board', description: 'Simplified information gathering' },
+              { type: 'RFI', icon: '📝', name: 'RFI Board', description: 'Simplified information gathering' },
               { type: 'SBIR', icon: '🔬', name: 'SBIR Board', description: 'Research-focused workflow' },
               { type: 'GSA', icon: '🏛️', name: 'GSA Schedule Board', description: 'Schedule-specific process' },
               { type: 'IDIQ', icon: '📑', name: 'IDIQ Board', description: 'Contract vehicle workflow' },
