@@ -49,6 +49,7 @@ import KanbanRoadmapStatus from './pages/KanbanRoadmapStatus';
 import PricingBuilder from './pages/PricingBuilder';
 import CompetitorIntel from './pages/CompetitorIntel';
 import TestJourney from './pages/TestJourney';
+import TemplateManager from './pages/TemplateManager';
 import Layout from './Layout.jsx';
 
 
@@ -104,6 +105,7 @@ export const PAGES = {
     "PricingBuilder": PricingBuilder,
     "CompetitorIntel": CompetitorIntel,
     "TestJourney": TestJourney,
+    "TemplateManager": TemplateManager,
 }
 
 export const pagesConfig = {

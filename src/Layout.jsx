@@ -58,7 +58,7 @@ const WORKSPACE_ITEMS = [
   { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
-  { title: "Templates", url: createPageUrl("TemplatesLibrary"), icon: FileText },
+  { title: "Templates", url: createPageUrl("TemplateManager"), icon: FileText },
   { title: "Best Practices", url: createPageUrl("BestPractices"), icon: BookOpen },
   { title: "Search", url: createPageUrl("AdvancedSearch"), icon: Search },
 ];
