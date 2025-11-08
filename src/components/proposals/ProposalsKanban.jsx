@@ -40,6 +40,14 @@ import KanbanSetupWizard from "./KanbanSetupWizard";
 import { Card, CardContent } from "@/components/ui/card";
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
 import KanbanHelpPanel from "./KanbanHelpPanel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 
 const LEGACY_DEFAULT_COLUMNS = [
   {
@@ -74,7 +82,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
-  // Removed [isMigrating, setIsMigrating] useState hook as migration screen is removed
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
 
   // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
@@ -639,7 +648,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   };
 
   const handleCreateProposal = () => {
-    navigate(createPageUrl("ProposalBuilder"));
+    setShowNewProposalDialog(true);
   };
 
   const handleAddColumn = async (insertIndex) => {
@@ -720,7 +729,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   };
 
   const handleCreateProposalInColumn = (column) => {
-    navigate(createPageUrl("ProposalBuilder"));
+    // Show dialog to choose proposal type instead of navigating directly
+    setShowNewProposalDialog(true);
+  };
+
+  const handleCreateProposalWithType = (proposalType) => {
+    setShowNewProposalDialog(false);
+    navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
   };
 
   const clearFilters = () => {
@@ -736,8 +751,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (filterAssignee !== "all") count++;
     return count;
   }, [searchQuery, filterAgency, filterAssignee]);
-
-  // handleRunMigration function and isMigrating state removed as per request.
 
   if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
     return (
@@ -1069,6 +1082,49 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           </DragDropContext>
         </div>
       </div>
+
+      {/* New Proposal Type Selection Dialog */}
+      <Dialog open={showNewProposalDialog} onOpenChange={setShowNewProposalDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-blue-600" />
+              Create New Proposal
+            </DialogTitle>
+            <DialogDescription>
+              Choose which type of proposal you're creating
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
+            {[
+              { type: 'RFP', icon: '📋', name: 'Request for Proposal', description: 'Full proposal with pricing' },
+              { type: 'RFI', icon: '❓', name: 'Request for Information', description: 'Information gathering' },
+              { type: 'SBIR', icon: '🔬', name: 'SBIR/STTR', description: 'Research & development' },
+              { type: 'GSA', icon: '🏛️', name: 'GSA Schedule', description: 'GSA contract vehicle' },
+              { type: 'IDIQ', icon: '📑', name: 'IDIQ/BPA', description: 'Indefinite delivery' },
+              { type: 'STATE_LOCAL', icon: '🏢', name: 'State/Local', description: 'Non-federal contracts' },
+            ].map(option => (
+              <Button
+                key={option.type}
+                variant="outline"
+                className="h-auto flex flex-col items-start p-4 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => handleCreateProposalWithType(option.type)}
+              >
+                <div className="text-3xl mb-2">{option.icon}</div>
+                <div className="font-semibold text-sm text-slate-900 mb-1">{option.name}</div>
+                <div className="text-xs text-slate-600">{option.description}</div>
+              </Button>
+            ))}
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t">
+            <Button variant="ghost" onClick={() => setShowNewProposalDialog(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showBoardConfig && (
         <BoardConfigDialog
