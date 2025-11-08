@@ -211,12 +211,61 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
+      // PRIORITY 1: Check for custom workflow stage (user moved it manually)
       if (proposal.custom_workflow_stage_id) {
-        assignments[proposal.id] = {
-          columnId: proposal.custom_workflow_stage_id,
-          columnType: 'custom_stage'
+        const customColumn = columns.find(col => col.id === proposal.custom_workflow_stage_id);
+        if (customColumn) {
+          assignments[proposal.id] = {
+            columnId: proposal.custom_workflow_stage_id,
+            columnType: customColumn.type || 'custom_stage'
+          };
+          return;
+        }
+      }
+      
+      // PRIORITY 2: For master board, use simple status mapping
+      if (kanbanConfig?.is_master_board) {
+        const statusToColumnId = {
+          'evaluating': 'new',
+          'watch_list': 'new',
+          'draft': 'active',
+          'in_progress': 'active',
+          'client_review': 'review',
+          'client_accepted': 'won',
+          'client_rejected': 'lost',
+          'submitted': 'submitted',
+          'won': 'won',
+          'lost': 'lost',
+          'archived': 'archived'
         };
-      } else {
+        
+        const masterColumnId = statusToColumnId[proposal.status] || 'new';
+        const masterColumn = columns.find(col => col.id === masterColumnId);
+        
+        if (masterColumn) {
+          assignments[proposal.id] = {
+            columnId: masterColumn.id,
+            columnType: 'master_status'
+          };
+        }
+        return;
+      }
+      
+      // PRIORITY 3: For type-specific boards, check terminal columns first
+      const terminalColumn = columns.find(
+        col => col.is_terminal && col.default_status_mapping === proposal.status
+      );
+      
+      if (terminalColumn) {
+        assignments[proposal.id] = {
+          columnId: terminalColumn.id,
+          columnType: 'default_status'
+        };
+        return;
+      }
+      
+      // PRIORITY 4: Try to match by locked phase
+      if (proposal.current_phase) {
         const matchingLockedPhaseColumn = columns.find(
           col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
         );
@@ -225,17 +274,29 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             columnId: matchingLockedPhaseColumn.id,
             columnType: 'locked_phase'
           };
-        } else {
-          const matchingDefaultStatusColumn = columns.find(
-            col => col.type === 'default_status' && col.default_status_mapping === proposal.status
-          );
-          if (matchingDefaultStatusColumn) {
-            assignments[proposal.id] = {
-              columnId: matchingDefaultStatusColumn.id,
-              columnType: 'default_status'
-            };
-          }
+          return;
         }
+      }
+      
+      // PRIORITY 5: Try default status mapping
+      const matchingDefaultStatusColumn = columns.find(
+        col => col.type === 'default_status' && col.default_status_mapping === proposal.status
+      );
+      if (matchingDefaultStatusColumn) {
+        assignments[proposal.id] = {
+          columnId: matchingDefaultStatusColumn.id,
+          columnType: 'default_status'
+        };
+        return;
+      }
+      
+      // FALLBACK: Put in first non-terminal column
+      const firstColumn = columns.find(col => !col.is_terminal);
+      if (firstColumn) {
+        assignments[proposal.id] = {
+          columnId: firstColumn.id,
+          columnType: firstColumn.type || 'custom_stage'
+        };
       }
     });
     
@@ -251,7 +312,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
     
     return assignments;
-  }, [filteredProposals, columns]);
+  }, [filteredProposals, columns, kanbanConfig]);
 
   const getProposalsForColumn = useCallback((column) => {
     if (!column || !proposals) {
@@ -394,7 +455,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
+      } else if (destinationColumn.type === 'master_status') { // Added for master board explicit status setting
+        updatesForMovedProposal.status = destinationColumn.id; // Master board column IDs are directly status values
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null;
       }
+
 
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
