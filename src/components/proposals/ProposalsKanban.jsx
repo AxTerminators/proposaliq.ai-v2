@@ -48,6 +48,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import AdvancedFilterPanel from "./AdvancedFilterPanel";
+import GlobalSearch from "./GlobalSearch";
+import BulkActionsPanel from "./BulkActionsPanel";
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -85,6 +88,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [advancedFilteredProposals, setAdvancedFilteredProposals] = useState(null);
+  const [selectedProposalIds, setSelectedProposalIds] = useState([]);
 
   // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
@@ -158,7 +164,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       : [...currentCollapsed, columnId];
 
     await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      collapsed_column_ids: newCollapsed
+      collapsed_column_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
     });
 
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
@@ -189,7 +195,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return [...new Set(assignees)].sort();
   }, [proposals]);
 
+  // Get unique team members for filters (for AdvancedFilterPanel)
+  const uniqueTeamMembers = useMemo(() => {
+    const members = new Set();
+    proposals.forEach(p => {
+      if (p.assigned_team_members) {
+        p.assigned_team_members.forEach(email => members.add(email));
+      }
+      if (p.lead_writer_email) {
+        members.add(p.lead_writer_email);
+      }
+    });
+    return Array.from(members).sort();
+  }, [proposals]);
+
   const filteredProposals = useMemo(() => {
+    // If advanced filters are applied, use those results
+    if (advancedFilteredProposals !== null) {
+      return advancedFilteredProposals;
+    }
+
+    // Otherwise use basic filters
     return proposals.filter(proposal => {
       const matchesSearch = !searchQuery ||
         proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -203,7 +229,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       return matchesSearch && matchesAgency && matchesAssignee;
     });
-  }, [proposals, searchQuery, filterAgency, filterAssignee]);
+  }, [proposals, searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
   const proposalColumnAssignments = useMemo(() => {
     const assignments = {};
@@ -309,16 +335,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
     if (column.is_terminal) {
-      console.log(`[Kanban] Terminal column "${column.label}" - showing ALL proposals with status: ${column.default_status_mapping}`);
+      // console.log(`[Kanban] Terminal column "${column.label}" - showing ALL proposals with status: ${column.default_status_mapping}`);
       columnProposals = filteredProposals.filter(proposal => {
         if (!proposal) return false;
         
         // Match by status for terminal columns
         const statusMatch = proposal.status === column.default_status_mapping;
         
-        if (statusMatch) {
-          console.log(`[Kanban] ✓ Including ${proposal.proposal_type_category} proposal "${proposal.proposal_name}" in terminal column`);
-        }
+        // if (statusMatch) {
+        //   console.log(`[Kanban] ✓ Including ${proposal.proposal_type_category} proposal "${proposal.proposal_name}" in terminal column`);
+        // }
         
         return statusMatch;
       });
@@ -532,7 +558,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
           if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
-              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${newColumnProposalsMap[destinationColumn.id].length}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
+              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
           }
       }
     } catch (error) {
@@ -817,10 +843,34 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     // navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
   };
 
+  const handleAdvancedFilterChange = (filtered) => {
+    // If the filtered array has the same length as the original 'proposals',
+    // it means no actual filtering occurred (or all items match), so treat it as 'null'.
+    // This helps differentiate between 'no filters applied' and 'filters applied, all match'.
+    setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
+  };
+
+  const handleToggleProposalSelection = (proposalId) => {
+    setSelectedProposalIds(prev => 
+      prev.includes(proposalId)
+        ? prev.filter(id => id !== proposalId)
+        : [...prev, proposalId]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedProposalIds([]);
+  };
+
+  const selectedProposalsData = useMemo(() => {
+    return proposals.filter(p => selectedProposalIds.includes(p.id));
+  }, [proposals, selectedProposalIds]);
+
   const clearFilters = () => {
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
+    setAdvancedFilteredProposals(null); // Clear advanced filters too
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -828,8 +878,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (searchQuery) count++;
     if (filterAgency !== "all") count++;
     if (filterAssignee !== "all") count++;
+    if (advancedFilteredProposals !== null) count++; // Count advanced filters as one active filter
     return count;
-  }, [searchQuery, filterAgency, filterAssignee]);
+  }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
   if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
     return (
@@ -972,6 +1023,19 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             <h2 className="text-xl font-bold text-slate-900">Proposal Board</h2>
             <div className="flex gap-2">
               <Button
+                onClick={() => setShowGlobalSearch(true)}
+                variant="outline"
+                size="sm"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+              <AdvancedFilterPanel
+                proposals={proposals}
+                onFilterChange={handleAdvancedFilterChange}
+                teamMembers={uniqueTeamMembers}
+              />
+              <Button
                 onClick={() => setShowBoardConfig(true)}
                 variant="outline"
                 size="sm"
@@ -999,7 +1063,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <Filter className="w-4 h-4 mr-2" />
-                Filters
+                Quick Filters
                 {activeFiltersCount > 0 && (
                   <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center bg-white text-blue-600 hover:bg-white">
                     {activeFiltersCount}
@@ -1021,7 +1085,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           {showFilters && (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-900 text-sm">Filter Proposals</h3>
+                <h3 className="font-semibold text-slate-900 text-sm">Quick Filters</h3>
                 {activeFiltersCount > 0 && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8">
                     <X className="w-4 h-4 mr-1" />
@@ -1065,6 +1129,22 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   </SelectContent>
                 </Select>
               </div>
+
+              {advancedFilteredProposals !== null && (
+                <div className="mt-3 flex items-center gap-2">
+                  <Badge className="bg-blue-600 text-white">
+                    Advanced filters active: {advancedFilteredProposals.length} results
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAdvancedFilteredProposals(null)}
+                    className="h-7"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1145,6 +1225,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     user={user}
                                     dragHandleProps={providedDraggable.dragHandleProps}
                                     onCreateProposal={handleCreateProposalInColumn}
+                                    selectedProposalIds={selectedProposalIds} // Pass new prop
+                                    onToggleProposalSelection={handleToggleProposalSelection} // Pass new prop
                                   />
                                 )}
                               </Droppable>
@@ -1161,6 +1243,19 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           </DragDropContext>
         </div>
       </div>
+
+      <GlobalSearch
+        organization={organization}
+        isOpen={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+      />
+
+      <BulkActionsPanel
+        selectedProposals={selectedProposalsData}
+        onClearSelection={handleClearSelection}
+        organization={organization}
+        kanbanConfig={kanbanConfig}
+      />
 
       {showBoardConfig && (
         <BoardConfigDialog

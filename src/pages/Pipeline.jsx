@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -38,6 +38,7 @@ import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
 import BoardAnalytics from "@/components/proposals/BoardAnalytics";
 import SavedViews from "@/components/proposals/SavedViews";
 import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
+import GlobalSearch from "@/components/global/GlobalSearch";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ export default function Pipeline() {
     filterAgency: "all",
     filterAssignee: "all"
   });
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -643,6 +645,15 @@ export default function Pipeline() {
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowGlobalSearch(true)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <SearchIcon className="w-4 h-4 mr-2" />
+                  Global Search
+                </Button>
                 <SavedViews
                   organization={organization}
                   user={user}
@@ -940,6 +951,12 @@ export default function Pipeline() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <GlobalSearch
+        organization={organization}
+        isOpen={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+      />
 
       <SampleDataGuard
         isOpen={showSampleDataGuard}
