@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -233,7 +232,6 @@ const TEMPLATE_14_COLUMN_FULL = [
   }
 ];
 
-// Available color options for columns
 const COLOR_OPTIONS = [
   { value: 'from-slate-400 to-slate-600', label: 'Slate', preview: 'bg-gradient-to-r from-slate-400 to-slate-600' },
   { value: 'from-gray-400 to-gray-600', label: 'Gray', preview: 'bg-gradient-to-r from-gray-400 to-gray-600' },
@@ -285,9 +283,8 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   const [deleteWarning, setDeleteWarning] = useState(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [editingColumn, setEditingColumn] = useState(null); // Added state
-  const [showColumnEditor, setShowColumnEditor] = useState(false); // Added state
-
+  const [editingColumn, setEditingColumn] = useState(null);
+  const [showColumnEditor, setShowColumnEditor] = useState(false);
 
   useEffect(() => {
     if (currentConfig) {
@@ -352,15 +349,15 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       const newConfigData = {
         organization_id: organization.id,
         columns: TEMPLATE_14_COLUMN_FULL,
-        swimlane_config: currentConfig?.swimlane_config || { // Preserve existing swimlane settings
+        swimlane_config: currentConfig?.swimlane_config || {
           enabled: false,
           group_by: 'none',
           custom_field_name: '',
           show_empty_swimlanes: false
         },
-        view_settings: currentConfig?.view_settings || { // Preserve existing view settings
+        view_settings: currentConfig?.view_settings || {
           default_view: 'kanban',
-          show_card_details: ['assignees', 'due_date', 'progress', 'value'], // Default if no existing
+          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
           compact_mode: false
         },
         collapsed_column_ids: currentConfig?.collapsed_column_ids || []
@@ -402,24 +399,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     saveConfigMutation.mutate(config);
   };
 
-  const handleColumnLabelChange = (columnId, newLabel) => {
-    setConfig({
-      ...config,
-      columns: config.columns.map(col => 
-        col.id === columnId ? { ...col, label: newLabel } : col
-      )
-    });
-  };
-
-  const handleColumnColorChange = (columnId, newColor) => {
-    setConfig({
-      ...config,
-      columns: config.columns.map(col => 
-        col.id === columnId ? { ...col, color: newColor } : col
-      )
-    });
-  };
-
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
@@ -427,7 +406,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update order property
     const updatedColumns = items.map((col, index) => ({
       ...col,
       order: index
@@ -446,7 +424,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       color: 'from-blue-400 to-blue-600',
       type: 'custom_stage',
       order: config.columns.length,
-      checklist_items: [] // Initialize with empty checklist
+      checklist_items: []
     };
     setConfig({
       ...config,
@@ -457,12 +435,10 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   const handleDeleteColumn = async (columnId) => {
     const column = config.columns.find(col => col.id === columnId);
     
-    // Check if it's a custom column
     if (column.type !== 'custom_stage') {
-      return; // Should never happen due to UI restrictions
+      return;
     }
 
-    // Check if column has proposals
     try {
       const proposals = await base44.entities.Proposal.filter(
         { organization_id: organization.id }
@@ -484,7 +460,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         return;
       }
 
-      // Safe to delete
       setConfig({
         ...config,
         columns: config.columns.filter(col => col.id !== columnId)
@@ -504,20 +479,15 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   };
 
   const isLockedColumn = (column) => {
-    // New template columns have explicit `is_locked` property
     if (column.is_locked) return true;
-
-    // Old default status columns that are hardcoded as locked
     const oldLockedDefaultStatuses = ['evaluating', 'draft', 'in_progress', 'submitted'];
     return column.type === 'default_status' && oldLockedDefaultStatuses.includes(column.default_status_mapping);
   };
 
   const canDeleteColumn = (column) => {
-    // Only custom columns can be deleted
     return column.type === 'custom_stage';
   };
 
-  // Swimlane handlers
   const handleSwimlaneToggle = (enabled) => {
     setConfig({
       ...config,
@@ -639,7 +609,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
             <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '50vh' }}>
               <TabsContent value="columns" className="space-y-4 mt-0">
-                {/* Apply 14-Column Template Section */}
                 <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg mb-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start gap-3">
@@ -691,7 +660,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                   </div>
                 </div>
 
-                {/* Important Notice about Locked Columns */}
                 <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg mb-4">
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -744,10 +712,10 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                     )}
                                   </div>
                                   
-                                  <div className="flex-1 space-y-0"> {/* Adjusted spacing */}
+                                  <div className="flex-1">
                                     <div className="flex items-center gap-2">
                                       <div className={cn("w-6 h-6 rounded flex-shrink-0", `bg-gradient-to-r ${column.color}`)} />
-                                      <span className="font-semibold text-slate-900 text-lg">{column.label}</span>
+                                      <span className="font-semibold text-slate-900">{column.label}</span>
                                       
                                       {column.checklist_items && column.checklist_items.length > 0 && (
                                         <Badge variant="outline" className="text-xs">
@@ -779,13 +747,12 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                       variant="outline"
                                       size="sm"
                                       onClick={() => handleEditColumn(column)}
-                                      disabled={locked} // Disabled for locked columns
                                     >
                                       <Settings className="w-4 h-4 mr-1" />
                                       Configure
                                     </Button>
                                     
-                                    {canDelete ? (
+                                    {canDelete && (
                                       <Button
                                         variant="ghost"
                                         size="sm"
@@ -795,8 +762,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </Button>
-                                    ) : (
-                                      <div className="w-10" />
                                     )}
                                   </div>
                                 </div>
@@ -812,7 +777,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
                   <div className="text-sm text-blue-900">
-                    <strong>Tip:</strong> Drag columns to reorder them on your board. Default columns map to proposal statuses, while custom columns create new workflow stages.
+                    <strong>Tip:</strong> Drag columns to reorder them on your board. Click "Configure" to customize checklists, permissions, and WIP limits.
                   </div>
                 </div>
               </TabsContent>
@@ -985,7 +950,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         </DialogContent>
       </Dialog>
 
-      {/* Column Detail Editor */}
       {showColumnEditor && editingColumn && (
         <ColumnDetailEditor
           column={editingColumn}
@@ -995,12 +959,9 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
             setEditingColumn(null);
           }}
           isOpen={showColumnEditor}
-          COLOR_OPTIONS={COLOR_OPTIONS} // Pass COLOR_OPTIONS to the editor
-          isLockedColumn={isLockedColumn} // Pass the locking logic
         />
       )}
 
-      {/* Apply Template Confirmation Dialog */}
       <AlertDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1058,7 +1019,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Warning Dialog */}
       <AlertDialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
