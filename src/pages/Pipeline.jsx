@@ -33,6 +33,7 @@ import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
 import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
+import QuickCreateProposal from "@/components/proposals/QuickCreateProposal";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -300,21 +301,17 @@ export default function Pipeline() {
     }
   }, [organization?.id, refetchProposals, refetchBoards]);
 
-  const handleCreateProposal = (boardType = null) => {
+  const handleCreateProposal = () => {
     // Check if user is using sample data
     if (user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     } else {
-      // Navigate with board type parameter if specified
-      const url = boardType 
-        ? `${createPageUrl("ProposalBuilder")}?boardType=${boardType}`
-        : createPageUrl("ProposalBuilder");
-      navigate(url);
+      setShowNewProposalDialog(true);
     }
   };
 
   const proceedToProposalBuilder = () => {
-    navigate(createPageUrl("ProposalBuilder"));
+    setShowNewProposalDialog(true);
   };
 
   const handleGenerateSampleData = async () => {
@@ -672,51 +669,13 @@ export default function Pipeline() {
         )}
       </div>
 
-      {/* New Proposal Dialog with Board Type Selection */}
-      <Dialog open={showNewProposalDialog} onOpenChange={setShowNewProposalDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-blue-600" />
-              Create New Proposal
-            </DialogTitle>
-            <DialogDescription>
-              Choose which type of proposal you're creating
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
-            {[
-              { type: 'RFP', icon: '📋', name: 'Request for Proposal', description: 'Full proposal with pricing' },
-              { type: 'RFI', icon: '❓', name: 'Request for Information', description: 'Information gathering' },
-              { type: 'SBIR', icon: '🔬', name: 'SBIR/STTR', description: 'Research & development' },
-              { type: 'GSA', icon: '🏛️', name: 'GSA Schedule', description: 'GSA contract vehicle' },
-              { type: 'IDIQ', icon: '📑', name: 'IDIQ/BPA', description: 'Indefinite delivery' },
-              { type: 'STATE_LOCAL', icon: '🏢', name: 'State/Local', description: 'Non-federal contracts' },
-            ].map(option => (
-              <Button
-                key={option.type}
-                variant="outline"
-                className="h-auto flex flex-col items-start p-4 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => {
-                  setShowNewProposalDialog(false);
-                  handleCreateProposal(option.type);
-                }}
-              >
-                <div className="text-3xl mb-2">{option.icon}</div>
-                <div className="font-semibold text-sm text-slate-900 mb-1">{option.name}</div>
-                <div className="text-xs text-slate-600">{option.description}</div>
-              </Button>
-            ))}
-          </div>
-          
-          <div className="flex justify-end pt-4 border-t">
-            <Button variant="ghost" onClick={() => setShowNewProposalDialog(false)}>
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Quick Create Proposal Dialog */}
+      <QuickCreateProposal
+        isOpen={showNewProposalDialog}
+        onClose={() => setShowNewProposalDialog(false)}
+        organization={organization}
+        preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
+      />
 
       {/* Create New Board Dialog */}
       <Dialog open={showCreateBoardDialog} onOpenChange={setShowCreateBoardDialog}>
