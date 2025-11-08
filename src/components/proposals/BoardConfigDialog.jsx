@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -33,19 +34,20 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Settings2, 
-  Columns, 
-  Layers, 
-  Zap, 
-  Save, 
-  AlertCircle, 
-  Trash2, 
-  GripVertical, 
-  Plus, 
-  Lock, 
-  Info, 
-  Sparkles, 
+import { Textarea } from "@/components/ui/textarea"; // Added Textarea import
+import {
+  Settings2,
+  Columns,
+  Layers,
+  Zap,
+  Save,
+  AlertCircle,
+  Trash2,
+  GripVertical,
+  Plus,
+  Lock,
+  Info,
+  Sparkles,
   RefreshCw,
   Settings,
   ListChecks
@@ -253,7 +255,7 @@ const COLOR_OPTIONS = [
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
   const queryClient = useQueryClient();
-  
+
   const defaultColumns = [
     { id: 'evaluating', label: 'Evaluating', color: 'from-slate-400 to-slate-600', type: 'default_status', default_status_mapping: 'evaluating', order: 0 },
     { id: 'watch_list', label: 'Watch List', color: 'from-amber-400 to-amber-600', type: 'default_status', default_status_mapping: 'watch_list', order: 1 },
@@ -285,6 +287,13 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [editingColumn, setEditingColumn] = useState(null);
   const [showColumnEditor, setShowColumnEditor] = useState(false);
+  const [showSaveAsTemplateDialog, setShowSaveAsTemplateDialog] = useState(false);
+  const [templateData, setTemplateData] = useState({
+    template_name: '',
+    description: '',
+    icon_emoji: '📋',
+    estimated_duration_days: 30
+  });
 
   useEffect(() => {
     if (currentConfig) {
@@ -377,6 +386,48 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     }
   });
 
+  const saveAsTemplateMutation = useMutation({
+    mutationFn: async (templateInfo) => {
+      if (!organization?.id) throw new Error("No organization");
+      if (!currentConfig) throw new Error("No current configuration to save");
+
+      // Determine board type from current config or default to custom
+      const boardType = currentConfig.board_type || 'custom';
+      const proposalTypes = currentConfig.applies_to_proposal_types || ['OTHER'];
+
+      const templateToCreate = {
+        organization_id: organization.id,
+        template_name: templateInfo.template_name,
+        template_type: 'organization',
+        proposal_type_category: proposalTypes[0] || 'OTHER',
+        board_type: boardType,
+        description: templateInfo.description,
+        workflow_config: JSON.stringify({
+          columns: config.columns,
+          swimlane_config: config.swimlane_config,
+          view_settings: config.view_settings
+        }),
+        icon_emoji: templateInfo.icon_emoji,
+        estimated_duration_days: templateInfo.estimated_duration_days,
+        is_active: true,
+        usage_count: 0
+      };
+
+      return base44.entities.ProposalWorkflowTemplate.create(templateToCreate);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
+      setShowSaveAsTemplateDialog(false);
+      setTemplateData({
+        template_name: '',
+        description: '',
+        icon_emoji: '📋',
+        estimated_duration_days: 30
+      });
+      alert('✅ Template saved successfully! You can now find it in the Template Manager.');
+    }
+  });
+
   const handleDeleteConfig = () => {
     if (confirm('⚠️ WARNING: This will delete your entire Kanban board configuration and all column settings. Your proposals will NOT be deleted, but their column positions will be reset. \n\nAre you sure you want to continue?')) {
       deleteConfigMutation.mutate();
@@ -397,6 +448,18 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const handleSave = () => {
     saveConfigMutation.mutate(config);
+  };
+
+  const handleSaveAsTemplate = () => {
+    setShowSaveAsTemplateDialog(true);
+  };
+
+  const confirmSaveAsTemplate = () => {
+    if (!templateData.template_name.trim()) {
+      alert('Please enter a template name');
+      return;
+    }
+    saveAsTemplateMutation.mutate(templateData);
   };
 
   const handleDragEnd = (result) => {
@@ -434,7 +497,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const handleDeleteColumn = async (columnId) => {
     const column = config.columns.find(col => col.id === columnId);
-    
+
     if (column.type !== 'custom_stage') {
       return;
     }
@@ -533,7 +596,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     const newDetails = currentDetails.includes(detail)
       ? currentDetails.filter(d => d !== detail)
       : [...currentDetails, detail];
-    
+
     setConfig({
       ...config,
       view_settings: {
@@ -686,7 +749,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                         {config.columns.map((column, index) => {
                           const locked = isLockedColumn(column);
                           const canDelete = canDeleteColumn(column);
-                          
+
                           return (
                             <Draggable
                               key={column.id}
@@ -711,19 +774,19 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                       <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
                                     )}
                                   </div>
-                                  
+
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
                                       <div className={cn("w-6 h-6 rounded flex-shrink-0", `bg-gradient-to-r ${column.color}`)} />
                                       <span className="font-semibold text-slate-900">{column.label}</span>
-                                      
+
                                       {column.checklist_items && column.checklist_items.length > 0 && (
                                         <Badge variant="outline" className="text-xs">
                                           <ListChecks className="w-3 h-3 mr-1" />
                                           {column.checklist_items.length} items
                                         </Badge>
                                       )}
-                                      
+
                                       {column.type === 'default_status' && (
                                         <Badge variant="secondary" className="text-xs">Default</Badge>
                                       )}
@@ -751,7 +814,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                       <Settings className="w-4 h-4 mr-1" />
                                       Configure
                                     </Button>
-                                    
+
                                     {canDelete && (
                                       <Button
                                         variant="ghost"
@@ -829,7 +892,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                             <div className="text-xs text-amber-700 flex items-start gap-2 mt-2">
                               <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                               <span>
-                                Enter the exact name of a custom field you've defined on proposals. 
+                                Enter the exact name of a custom field you've defined on proposals.
                                 Proposals will be grouped by their values in this field.
                               </span>
                             </div>
@@ -909,8 +972,8 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           </Tabs>
 
           <DialogFooter className="flex items-center justify-between">
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDeleteConfig}
               disabled={deleteConfigMutation.isPending}
               className="mr-auto"
@@ -927,10 +990,27 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                 </>
               )}
             </Button>
-            
+
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>
                 Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleSaveAsTemplate}
+                disabled={saveAsTemplateMutation.isPending}
+              >
+                {saveAsTemplateMutation.isPending ? (
+                  <>
+                    <div className="animate-spin mr-2">⏳</div>
+                    Saving Template...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save as Template
+                  </>
+                )}
               </Button>
               <Button onClick={handleSave} disabled={saveConfigMutation.isPending}>
                 {saveConfigMutation.isPending ? (
@@ -1039,6 +1119,99 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Save as Template Dialog */}
+      <Dialog open={showSaveAsTemplateDialog} onOpenChange={setShowSaveAsTemplateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Save as Workflow Template
+            </DialogTitle>
+            <DialogDescription>
+              Create a reusable template from your current board configuration
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="template_name">Template Name *</Label>
+              <Input
+                id="template_name"
+                value={templateData.template_name}
+                onChange={(e) => setTemplateData({ ...templateData, template_name: e.target.value })}
+                placeholder="e.g., My Custom RFP Workflow"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={templateData.description}
+                onChange={(e) => setTemplateData({ ...templateData, description: e.target.value })}
+                placeholder="Describe when to use this template..."
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="icon_emoji">Icon Emoji</Label>
+                <Input
+                  id="icon_emoji"
+                  value={templateData.icon_emoji}
+                  onChange={(e) => setTemplateData({ ...templateData, icon_emoji: e.target.value })}
+                  placeholder="📋"
+                  maxLength={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="duration">Est. Duration (days)</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  value={templateData.estimated_duration_days}
+                  onChange={(e) => setTemplateData({ ...templateData, estimated_duration_days: parseInt(e.target.value) || 30 })}
+                  placeholder="30"
+                />
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+              <strong>Info:</strong> This will save your current column configuration, checklist items, WIP limits, and permissions as a reusable template.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSaveAsTemplateDialog(false)}
+              disabled={saveAsTemplateMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmSaveAsTemplate}
+              disabled={saveAsTemplateMutation.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {saveAsTemplateMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Create Template
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

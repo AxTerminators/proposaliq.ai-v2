@@ -49,6 +49,7 @@ export default function Pipeline() {
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -385,6 +386,52 @@ export default function Pipeline() {
     window.location.reload();
   };
 
+  const handleMigrateProposals = async () => {
+    if (!organization?.id) {
+      alert("Organization not found");
+      return;
+    }
+
+    const confirmed = confirm(
+      '📊 Categorize Existing Proposals\n\n' +
+      'This will analyze all your existing proposals and assign them to the appropriate board type (RFP, RFI, SBIR, etc.) based on:\n\n' +
+      '• Project type field\n' +
+      '• Keywords in proposal name/title\n' +
+      '• Agency patterns\n\n' +
+      'Your proposals will NOT be modified except for the category assignment.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) return;
+
+    setIsMigrating(true);
+    try {
+      const response = await base44.functions.invoke('categorizeExistingProposals', {
+        organization_id: organization.id,
+        dry_run: false
+      });
+
+      if (response.data.success) {
+        const { newly_categorized, already_categorized, total_proposals } = response.data;
+        
+        alert(
+          `✅ Categorization Complete!\n\n` +
+          `Total Proposals: ${total_proposals}\n` +
+          `Already Categorized: ${already_categorized}\n` +
+          `Newly Categorized: ${newly_categorized}\n\n` +
+          `Your proposals are now organized by type.`
+        );
+        
+        await refetchProposals();
+      }
+    } catch (error) {
+      console.error('Error migrating proposals:', error);
+      alert('Error during migration: ' + error.message);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   // Board type icon mapping
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
@@ -575,6 +622,26 @@ export default function Pipeline() {
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
+                <Button
+                  variant="outline"
+                  onClick={handleMigrateProposals}
+                  disabled={isMigrating}
+                  size="sm"
+                  className="h-9"
+                  title="Categorize existing proposals by type"
+                >
+                  {isMigrating ? (
+                    <>
+                      <div className="animate-spin mr-2">⏳</div>
+                      Migrating...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4 mr-2" />
+                      Categorize Proposals
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant={showAutomation ? "default" : "outline"}
                   onClick={() => setShowAutomation(!showAutomation)}
