@@ -720,6 +720,15 @@ export default function Pipeline() {
                   <Zap className="w-4 h-4 mr-2" />
                   {showAutomation ? 'Hide' : 'Show'} Automation
                 </Button>
+                <Button
+                  variant={showAnalytics ? "default" : "outline"}
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  {showAnalytics ? 'Hide' : 'Show'} Analytics
+                </Button>
               </>
             )}
 
