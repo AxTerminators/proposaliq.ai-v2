@@ -51,7 +51,7 @@ export default function Pipeline() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
-  const [showBoardSwitcher, setShowBoardSwitcher] = useState(false); // This state isn't used based on the current code logic, but kept as it was in original
+  const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
@@ -180,11 +180,6 @@ export default function Pipeline() {
 
   // Get the selected board config
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
-
-  // Filter out duplicate/legacy boards (boards without board_name or board_type)
-  const validBoards = useMemo(() => {
-    return allBoards.filter(board => board.board_name && board.board_type !== null);
-  }, [allBoards]);
 
   // Fetch proposals with better error handling and retry
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
@@ -559,7 +554,7 @@ export default function Pipeline() {
   }
 
   // Show "Create Master Board" prompt when no boards exist
-  if (!isLoadingBoards && validBoards.length === 0 && organization && !isLoadingOrg) {
+  if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -613,9 +608,9 @@ export default function Pipeline() {
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
 
-            {validBoards.length > 0 && (
+            {allBoards.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                {validBoards.map(board => {
+                {allBoards.map(board => {
                   const isSelected = selectedBoardId === board.id;
                   const icon = getBoardIcon(board.board_type, board.is_master_board);
 
