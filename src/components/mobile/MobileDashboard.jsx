@@ -1,203 +1,231 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   TrendingUp,
-  Sparkles,
-  LayoutGrid,
-  MessageSquare,
-  Calendar,
-  Library,
-  Award,
-  Users,
+  DollarSign,
+  Target,
   Clock,
-  DollarSign
+  FileText,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  Activity,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 
-export default function MobileDashboard({
-  user,
-  organization,
-  proposals = [],
-  stats,
-  onCreateProposal
-}) {
+export default function MobileDashboard({ organization, user }) {
   const navigate = useNavigate();
 
-  const recentProposals = proposals
-    .filter(p => ['evaluating', 'draft', 'in_progress'].includes(p.status))
-    .slice(0, 5);
+  const { data: proposals = [], isLoading } = useQuery({
+    queryKey: ['dashboard-proposals', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Proposal.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        50
+      );
+    },
+    enabled: !!organization?.id,
+  });
 
-  const quickActions = [
-    {
-      icon: Plus,
-      label: "New Proposal",
-      color: "from-blue-500 to-indigo-600",
-      action: onCreateProposal
+  const { data: recentActivity = [] } = useQuery({
+    queryKey: ['dashboard-activity', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.ActivityLog.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        10
+      );
     },
-    {
-      icon: LayoutGrid,
-      label: "Board",
-      color: "from-purple-500 to-pink-600",
-      action: () => navigate(createPageUrl("Pipeline"))
-    },
-    {
-      icon: MessageSquare,
-      label: "AI Chat",
-      color: "from-green-500 to-emerald-600",
-      action: () => navigate(createPageUrl("Chat"))
-    },
-    {
-      icon: Calendar,
-      label: "Calendar",
-      color: "from-amber-500 to-orange-600",
-      action: () => navigate(createPageUrl("Calendar"))
-    }
-  ];
+    enabled: !!organization?.id,
+  });
+
+  // Calculate metrics
+  const activeProposals = proposals.filter(p => !['won', 'lost', 'archived'].includes(p.status));
+  const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+  const wonProposals = proposals.filter(p => p.status === 'won').length;
+  const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status));
+  const winRate = submittedProposals.length > 0 
+    ? Math.round((wonProposals / submittedProposals.length) * 100)
+    : 0;
+
+  const urgentProposals = activeProposals.filter(p => {
+    if (!p.due_date) return false;
+    const daysUntil = moment(p.due_date).diff(moment(), 'days');
+    return daysUntil >= 0 && daysUntil <= 7;
+  });
+
+  const formatValue = (value) => {
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+    return `$${value.toLocaleString()}`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto"></div>
+          <p className="text-sm text-slate-600 mt-3">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pb-20">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Welcome, {user?.full_name?.split(' ')[0]}! 👋
-        </h1>
-        <p className="text-sm text-slate-600">{organization?.organization_name}</p>
+      <div className="bg-white border-b p-4">
+        <h1 className="text-2xl font-bold text-slate-900 mb-1">Dashboard</h1>
+        <p className="text-sm text-slate-600">
+          Welcome back, {user?.full_name?.split(' ')[0] || 'there'}!
+        </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-4 text-center">
-            <LayoutGrid className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-slate-900">{stats.total_proposals}</p>
-            <p className="text-xs text-slate-600">Proposals</p>
+      <div className="p-4 space-y-4">
+        {/* Quick Action */}
+        <Button
+          onClick={() => navigate(createPageUrl("ProposalBuilder"))}
+          className="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-base"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Create New Proposal
+        </Button>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-green-100">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                <Badge variant="outline" className="text-xs">Pipeline</Badge>
+              </div>
+              <p className="text-xl font-bold text-green-900">{formatValue(totalValue)}</p>
+              <p className="text-xs text-green-700 mt-1">Total Value</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-5 h-5 text-blue-600" />
+                <Badge variant="outline" className="text-xs">Success</Badge>
+              </div>
+              <p className="text-xl font-bold text-blue-900">{winRate}%</p>
+              <p className="text-xs text-blue-700 mt-1">Win Rate</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-5 h-5 text-purple-600" />
+                <Badge variant="outline" className="text-xs">Active</Badge>
+              </div>
+              <p className="text-xl font-bold text-purple-900">{activeProposals.length}</p>
+              <p className="text-xs text-purple-700 mt-1">In Progress</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-5 h-5 text-amber-600" />
+                <Badge variant="outline" className="text-xs">Urgent</Badge>
+              </div>
+              <p className="text-xl font-bold text-amber-900">{urgentProposals.length}</p>
+              <p className="text-xs text-amber-700 mt-1">Due Soon</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="w-4 h-4 text-blue-600" />
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-slate-600 text-center py-4">No recent activity</p>
+            ) : (
+              recentActivity.slice(0, 5).map(activity => (
+                <div key={activity.id} className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Activity className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-900 line-clamp-2">
+                      <span className="font-semibold">{activity.user_name}</span>{' '}
+                      {activity.action_description}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {moment(activity.created_date).fromNow()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-4 text-center">
-            <TrendingUp className="w-6 h-6 text-green-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-slate-900">
-              ${(stats.total_value / 1000000).toFixed(1)}M
-            </p>
-            <p className="text-xs text-slate-600">Pipeline Value</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-4 text-center">
-            <Sparkles className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-slate-900">{stats.win_rate}%</p>
-            <p className="text-xs text-slate-600">Win Rate</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-4 text-center">
-            <Clock className="w-6 h-6 text-amber-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-slate-900">{stats.active_proposals}</p>
-            <p className="text-xs text-slate-600">Active</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card className="border-none shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-base">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            {quickActions.map((action, idx) => (
-              <Button
-                key={idx}
-                onClick={action.action}
-                className={cn(
-                  "h-20 flex-col gap-2 bg-gradient-to-br text-white border-none",
-                  action.color
-                )}
-              >
-                <action.icon className="w-6 h-6" />
-                <span className="text-xs font-medium">{action.label}</span>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Proposals */}
-      <Card className="border-none shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Recent Proposals</CardTitle>
+        {/* Quick Links */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              className="w-full justify-between h-12"
               onClick={() => navigate(createPageUrl("Pipeline"))}
             >
-              View All
+              <span className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                View Pipeline
+              </span>
+              <ChevronRight className="w-4 h-4" />
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {recentProposals.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">No active proposals</p>
-          ) : (
-            <div className="space-y-3">
-              {recentProposals.map((proposal) => {
-                const daysUntilDue = proposal.due_date
-                  ? moment(proposal.due_date).diff(moment(), 'days')
-                  : null;
-                const isUrgent = daysUntilDue !== null && daysUntilDue <= 7;
 
-                return (
-                  <div
-                    key={proposal.id}
-                    onClick={() => navigate(createPageUrl("Pipeline"))}
-                    className={cn(
-                      "p-3 border rounded-lg cursor-pointer transition-all active:scale-95",
-                      isUrgent ? 'border-orange-300 bg-orange-50' : 'border-slate-200 bg-white'
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-sm text-slate-900 line-clamp-1">
-                        {proposal.proposal_name}
-                      </h4>
-                      <Badge className={cn("text-white text-xs ml-2", getStatusColor(proposal.status))}>
-                        {getStatusLabel(proposal.status)}
-                      </Badge>
-                    </div>
+            <Button
+              variant="outline"
+              className="w-full justify-between h-12"
+              onClick={() => navigate(createPageUrl("Calendar"))}
+            >
+              <span className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                View Calendar
+              </span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
 
-                    <div className="flex items-center gap-3 text-xs text-slate-600">
-                      {proposal.due_date && (
-                        <div className={cn(
-                          "flex items-center gap-1",
-                          isUrgent && "text-orange-600 font-semibold"
-                        )}>
-                          <Clock className="w-3 h-3" />
-                          {daysUntilDue >= 0 ? `${daysUntilDue}d` : `${Math.abs(daysUntilDue)}d overdue`}
-                        </div>
-                      )}
-                      {proposal.contract_value && (
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="w-3 h-3" />
-                          ${(proposal.contract_value / 1000000).toFixed(1)}M
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button
+              variant="outline"
+              className="w-full justify-between h-12"
+              onClick={() => navigate(createPageUrl("Tasks"))}
+            >
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                My Tasks
+              </span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -1,75 +1,85 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { LayoutDashboard, LayoutGrid, MessageSquare, Calendar, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  Calendar,
+  CheckSquare,
+  Menu,
+  Users
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export default function MobileNavigation({ user, organization }) {
   const location = useLocation();
 
-  const navItems = [
-    {
+  const isConsultant = organization?.organization_type === 'consultancy';
+
+  const navigationItems = [
+    { 
+      title: "Dashboard", 
+      url: createPageUrl("Dashboard"), 
       icon: LayoutDashboard,
-      label: "Dashboard",
-      path: createPageUrl("Dashboard"),
-      show: true
+      showFor: "all"
     },
-    {
-      icon: LayoutGrid,
-      label: "Board",
-      path: createPageUrl("Pipeline"),
-      show: true
+    { 
+      title: "Pipeline", 
+      url: createPageUrl("Pipeline"), 
+      icon: FileText,
+      showFor: "all"
     },
-    {
-      icon: MessageSquare,
-      label: "Chat",
-      path: createPageUrl("Chat"),
-      show: true
-    },
-    {
+    { 
+      title: "Calendar", 
+      url: createPageUrl("Calendar"), 
       icon: Calendar,
-      label: "Calendar",
-      path: createPageUrl("Calendar"),
-      show: true
+      showFor: "all"
     },
-    {
-      icon: Settings,
-      label: "Settings",
-      path: createPageUrl("Settings"),
-      show: true
-    }
+    { 
+      title: "Tasks", 
+      url: createPageUrl("Tasks"), 
+      icon: CheckSquare,
+      showFor: "all"
+    },
+    { 
+      title: isConsultant ? "Clients" : "More", 
+      url: isConsultant ? createPageUrl("Clients") : createPageUrl("Settings"), 
+      icon: isConsultant ? Users : Menu,
+      showFor: "all"
+    },
   ];
 
-  const visibleItems = navItems.filter(item => item.show);
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 lg:hidden z-50">
-      <div className="flex items-center justify-around">
-        {visibleItems.map((item) => {
-          const isActive = location.pathname === item.path;
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 safe-area-inset-bottom">
+      <div className="grid grid-cols-5 h-16">
+        {navigationItems.map((item) => {
+          const isActive = location.pathname === item.url;
+          const Icon = item.icon;
+
           return (
             <Link
-              key={item.path}
-              to={item.path}
+              key={item.title}
+              to={item.url}
               className={cn(
-                "flex flex-col items-center justify-center py-3 px-4 flex-1 transition-colors",
-                isActive
-                  ? "text-blue-600"
-                  : "text-slate-600 hover:text-blue-600"
+                "flex flex-col items-center justify-center gap-1 transition-all active:bg-slate-100 touch-manipulation",
+                isActive ? "text-blue-600" : "text-slate-600"
               )}
             >
-              <item.icon className={cn(
-                "w-6 h-6 mb-1",
-                isActive && "fill-current"
-              )} />
-              <span className="text-xs font-medium">{item.label}</span>
-              {isActive && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600" />
-              )}
+              <Icon className={cn("w-5 h-5", isActive && "scale-110")} />
+              <span className={cn(
+                "text-xs font-medium",
+                isActive && "font-bold"
+              )}>
+                {item.title}
+              </span>
             </Link>
           );
         })}
       </div>
+
+      {/* Safe area padding for devices with notches */}
+      <div className="h-safe-area-inset-bottom bg-white" />
     </nav>
   );
 }

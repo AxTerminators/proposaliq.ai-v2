@@ -30,7 +30,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      setIsMobile(window.innerWidth < 768);
     };
 
     checkMobile();
@@ -122,36 +122,21 @@ export default function Dashboard() {
   };
 
   // Show loading state
-  if (isLoadingOrg || !organization || !user) {
+  // `isLoadingOrg` from useOrganization covers loading state for both user and organization data.
+  if (isLoadingOrg) { 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 flex items-center justify-center">
-        <Card className="border-none shadow-xl">
-          <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-600">Loading your dashboard...</p>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
+  // Mobile-optimized dashboard
   if (isMobile) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
-        <MobileDashboard
-          user={user}
-          organization={organization}
-          proposals={proposals}
-          stats={stats}
-          onCreateProposal={handleCreateProposal}
-        />
-        <SampleDataGuard
-          isOpen={showSampleDataGuard}
-          onClose={() => setShowSampleDataGuard(false)}
-          onProceed={proceedToProposalBuilder}
-        />
-      </div>
-    );
+    return <MobileDashboard organization={organization} user={user} />;
   }
 
   return (
