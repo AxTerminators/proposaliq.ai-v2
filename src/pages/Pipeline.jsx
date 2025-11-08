@@ -631,20 +631,19 @@ export default function Pipeline() {
                     </Button>
                   );
                 })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQuickBoardCreate(true)}
+                  className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+                  title="Quick create board from template"
+                >
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <span className="hidden sm:inline">Quick Create</span>
+                </Button>
               </div>
             )}
-            {/* Moved Quick Create button to be a sibling of the allBoards conditional,
-                so it's always available next to board options */}
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowQuickBoardCreate(true)}
-                className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
-                title="Quick create board from template"
-            >
-                <Zap className="w-4 h-4 text-blue-600" />
-                <span className="hidden sm:inline">Quick Create</span>
-            </Button>
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
