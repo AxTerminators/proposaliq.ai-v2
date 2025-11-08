@@ -6,13 +6,8 @@ import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils"; // Assuming cn utility is available here
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
@@ -36,6 +31,8 @@ export default function Pipeline() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
+  const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
+  const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -226,12 +223,16 @@ export default function Pipeline() {
     }
   }, [organization?.id, refetchProposals, refetchBoards]);
 
-  const handleCreateProposal = () => {
+  const handleCreateProposal = (boardType = null) => {
     // Check if user is using sample data
     if (user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     } else {
-      navigate(createPageUrl("ProposalBuilder"));
+      // Navigate with board type parameter if specified
+      const url = boardType 
+        ? `${createPageUrl("ProposalBuilder")}?boardType=${boardType}`
+        : createPageUrl("ProposalBuilder");
+      navigate(url);
     }
   };
 
@@ -255,6 +256,20 @@ export default function Pipeline() {
 
   const handleRetry = () => {
     window.location.reload();
+  };
+
+  // Board type icon mapping
+  const getBoardIcon = (boardType, isMaster) => {
+    if (isMaster) return "⭐";
+    switch (boardType) {
+      case 'RFP': return "📋";
+      case 'RFI': return "❓";
+      case 'SBIR': return "🔬";
+      case 'GSA': return "🏛️";
+      case 'IDIQ': return "📑";
+      case 'STATE_LOCAL': return "🏢";
+      default: return "📊";
+    }
   };
 
   // Show error state
@@ -396,7 +411,7 @@ export default function Pipeline() {
                 </p>
                 
                 <div className="flex gap-3">
-                  <Button onClick={handleCreateProposal} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={() => setShowNewProposalDialog(true)} className="bg-blue-600 hover:bg-blue-700">
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Proposal
                   </Button>
@@ -415,29 +430,49 @@ export default function Pipeline() {
 
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
             
-            {/* Board Switcher */}
+            {/* Enhanced Board Switcher with Icons */}
             {allBoards.length > 0 && (
               <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-slate-500" />
-                <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Select board..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allBoards.map(board => (
-                      <SelectItem key={board.id} value={board.id}>
-                        {board.is_master_board && "⭐ "}
-                        {board.board_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {allBoards.map(board => {
+                  const isSelected = selectedBoardId === board.id;
+                  const icon = getBoardIcon(board.board_type, board.is_master_board);
+                  
+                  return (
+                    <Button
+                      key={board.id}
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedBoardId(board.id)}
+                      className={cn(
+                        "gap-2 transition-all",
+                        isSelected && "ring-2 ring-blue-400"
+                      )}
+                      title={board.board_name}
+                    >
+                      <span className="text-lg">{icon}</span>
+                      <span className="hidden sm:inline">{board.board_name}</span>
+                    </Button>
+                  );
+                })}
+                
+                {/* Add Board Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCreateMasterBoard}
+                  disabled={isCreatingMasterBoard}
+                  className="gap-2"
+                  title="Add new board"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Add Board</span>
+                </Button>
               </div>
             )}
           </div>
@@ -591,6 +626,52 @@ export default function Pipeline() {
           </>
         )}
       </div>
+
+      {/* New Proposal Dialog with Board Type Selection */}
+      <Dialog open={showNewProposalDialog} onOpenChange={setShowNewProposalDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-blue-600" />
+              Create New Proposal
+            </DialogTitle>
+            <DialogDescription>
+              Choose which type of proposal you're creating
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
+            {[
+              { type: 'RFP', icon: '📋', name: 'Request for Proposal', description: 'Full proposal with pricing' },
+              { type: 'RFI', icon: '❓', name: 'Request for Information', description: 'Information gathering' },
+              { type: 'SBIR', icon: '🔬', name: 'SBIR/STTR', description: 'Research & development' },
+              { type: 'GSA', icon: '🏛️', name: 'GSA Schedule', description: 'GSA contract vehicle' },
+              { type: 'IDIQ', icon: '📑', name: 'IDIQ/BPA', description: 'Indefinite delivery' },
+              { type: 'STATE_LOCAL', icon: '🏢', name: 'State/Local', description: 'Non-federal contracts' },
+            ].map(option => (
+              <Button
+                key={option.type}
+                variant="outline"
+                className="h-auto flex flex-col items-start p-4 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => {
+                  setShowNewProposalDialog(false);
+                  handleCreateProposal(option.type);
+                }}
+              >
+                <div className="text-3xl mb-2">{option.icon}</div>
+                <div className="font-semibold text-sm text-slate-900 mb-1">{option.name}</div>
+                <div className="text-xs text-slate-600">{option.description}</div>
+              </Button>
+            ))}
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t">
+            <Button variant="ghost" onClick={() => setShowNewProposalDialog(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <SampleDataGuard
         isOpen={showSampleDataGuard}
