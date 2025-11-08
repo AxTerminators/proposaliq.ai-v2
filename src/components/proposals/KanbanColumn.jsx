@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -334,7 +333,6 @@ export default function KanbanColumn({
                   isSelected={selectedProposalIds.includes(proposal.id)}
                   onToggleSelection={onToggleProposalSelection}
                   selectionMode={selectionMode}
-                  column={column} {/* Added the column prop here */}
                 />
               )}
             </Draggable>
