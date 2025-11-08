@@ -34,9 +34,25 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus, Lock, Info, Sparkles, RefreshCw, Settings, ListChecks } from "lucide-react";
+import { 
+  Settings2, 
+  Columns, 
+  Layers, 
+  Zap, 
+  Save, 
+  AlertCircle, 
+  Trash2, 
+  GripVertical, 
+  Plus, 
+  Lock, 
+  Info, 
+  Sparkles, 
+  RefreshCw,
+  Settings,
+  ListChecks
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import ColumnDetailEditor from "./ColumnDetailEditor"; // Added import
+import ColumnDetailEditor from "./ColumnDetailEditor";
 
 // 14-column template definition
 const TEMPLATE_14_COLUMN_FULL = [
