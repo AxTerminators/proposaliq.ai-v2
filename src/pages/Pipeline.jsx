@@ -314,6 +314,31 @@ export default function Pipeline() {
     setShowNewProposalDialog(true);
   };
 
+  const handleProposalCreated = async (createdProposal) => {
+    refetchProposals(); // Refresh the list of proposals
+
+    // Find the board that matches this proposal type
+    const proposalType = createdProposal.proposal_type_category;
+    
+    if (!proposalType) {
+      // If no type specified, stay on current board
+      return;
+    }
+
+    // Find the board that applies to this proposal type
+    const matchingBoard = allBoards.find(board => 
+      board.applies_to_proposal_types?.includes(proposalType)
+    );
+
+    if (matchingBoard) {
+      console.log('[Pipeline] Switching to board:', matchingBoard.board_name);
+      setSelectedBoardId(matchingBoard.id);
+    } else {
+      // If no matching board, stay on master board or current board
+      console.log('[Pipeline] No matching board found, staying on current board');
+    }
+  };
+
   const handleGenerateSampleData = async () => {
     if (confirm('Generate sample proposal data for testing?')) {
       try {
@@ -675,6 +700,7 @@ export default function Pipeline() {
         onClose={() => setShowNewProposalDialog(false)}
         organization={organization}
         preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
+        onSuccess={handleProposalCreated}
       />
 
       {/* Create New Board Dialog */}
