@@ -211,26 +211,29 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
-      // MASTER BOARD LOGIC - simplified status mapping
+      // MASTER BOARD LOGIC - map by status_mapping array
       if (kanbanConfig?.is_master_board) {
-        const statusToColumn = {
-          'evaluating': 'new',
-          'watch_list': 'new',
-          'draft': 'active',
-          'in_progress': 'active',
-          'client_review': 'review',
-          'client_accepted': 'review',
-          'submitted': 'submitted',
-          'won': 'won',
-          'lost': 'lost',
-          'archived': 'archived'
-        };
+        // Find the master column that includes this proposal's status
+        const matchingColumn = columns.find(col => 
+          col.type === 'master_status' && 
+          col.status_mapping?.includes(proposal.status)
+        );
         
-        const masterColumn = statusToColumn[proposal.status] || 'new';
-        assignments[proposal.id] = {
-          columnId: masterColumn,
-          columnType: 'master_status'
-        };
+        if (matchingColumn) {
+          assignments[proposal.id] = {
+            columnId: matchingColumn.id,
+            columnType: 'master_status'
+          };
+        } else {
+          // Fallback to first column if no match
+          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status, 'assigned to first column.');
+          if (columns.length > 0) {
+            assignments[proposal.id] = {
+              columnId: columns[0].id,
+              columnType: 'master_status'
+            };
+          }
+        }
       } 
       // TYPE-SPECIFIC BOARD LOGIC
       else {
@@ -460,7 +463,15 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
+      } else if (destinationColumn.type === 'master_status') {
+        // For master boards, just update the status to the first mapped status in the destination column
+        if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
+          updatesForMovedProposal.status = destinationColumn.status_mapping[0];
+        }
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null;
       }
+
 
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
@@ -1115,7 +1126,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
-                                  <ChevronsRight className="w-4 h-4 text-slate-400 mt-auto" />
+                                  <ChevronsRight className="w-4 h-4 mr-2" />
                                 </div>
                               </div>
                             ) : (
