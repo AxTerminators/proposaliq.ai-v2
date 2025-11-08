@@ -74,7 +74,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
+  // Removed [isMigrating, setIsMigrating] useState hook as migration screen is removed
 
   // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
@@ -727,40 +727,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return count;
   }, [searchQuery, filterAgency, filterAssignee]);
 
-  const handleRunMigration = async () => {
-    if (!window.confirm('⚠️ IMPORTANT: This will migrate your Kanban board to the new 8-phase workflow.\n\nYour existing proposals will be preserved and mapped to new columns.\n\nThis action cannot be undone.\n\nContinue?')) {
-      return;
-    }
-
-    setIsMigrating(true);
-    
-    try {
-      const response = await base44.functions.invoke('migrateToNewKanbanWorkflow', {
-        organization_id: organization.id
-      });
-
-      if (response.data.success) {
-        alert(`✅ Migration Completed Successfully!\n\n` +
-              `• ${response.data.migration_log.proposals_migrated} proposals migrated\n` +
-              `• ${response.data.migration_log.new_columns_count} new columns created\n\n` +
-              `Your board will now reload with the new workflow.`);
-        
-        queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-        queryClient.invalidateQueries({ queryKey: ['proposals'] });
-        
-        if (onRefresh) {
-          onRefresh();
-        }
-      } else {
-        throw new Error(response.data.message || 'Migration failed');
-      }
-    } catch (error) {
-      console.error('Migration error:', error);
-      alert(`❌ Migration Failed\n\n${error.message || 'Unknown error occurred'}\n\nPlease contact support if this issue persists.`);
-    } finally {
-      setIsMigrating(false);
-    }
-  };
+  // handleRunMigration function and isMigrating state removed as per request.
 
   if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
     return (
@@ -788,7 +755,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-red-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">Error Loading Board Configuration</h2>
+            <h2 className="2xl font-bold text-slate-900 mb-3">Error Loading Board Configuration</h2>
             <p className="text-lg text-slate-600 mb-6">
               {configError.message || "Failed to load Kanban configuration"}
             </p>
@@ -804,94 +771,25 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
     return (
-      <div className="h-full overflow-y-auto bg-slate-50 p-6">
-        <div className="max-w-3xl mx-auto">
-          <Card className="border-none shadow-xl">
-            <CardContent className="p-8">
-              <div className="text-center mb-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Sparkles className="w-10 h-10 text-white" />
-                </div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-3">Upgrade to New Workflow</h2>
-                <p className="text-lg text-slate-600 mb-6">
-                  We've detected you're using an older Kanban board configuration. 
-                  Upgrade to our new 8-phase workflow system for better proposal management.
-                </p>
+      <>
+        <div className="flex items-center justify-center min-h-[600px] p-6">
+          <Card className="max-w-2xl border-none shadow-xl">
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-10 h-10 text-white" />
               </div>
-
-              <div className="bg-slate-50 rounded-lg p-6 mb-6">
-                <h3 className="font-semibold text-slate-900 mb-4">New Features:</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-slate-700">Interactive checklists for each proposal stage</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-slate-700">AI-powered actions and modals</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-slate-700">15 optimized workflow stages</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-slate-700">Approval gates and automation rules</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-amber-900">
-                  <strong>Note:</strong> Your existing proposals will be preserved and mapped to the new workflow stages. This process takes just a few seconds.
-                </p>
-              </div>
-              
-              {user?.role === 'admin' ? (
-                <div className="flex flex-col gap-3">
-                  <Button
-                    onClick={handleRunMigration}
-                    disabled={isMigrating}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg py-6"
-                    size="lg"
-                  >
-                    {isMigrating ? (
-                      <>
-                        <div className="animate-spin mr-2">⏳</div>
-                        Migrating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-5 h-5 mr-2" />
-                        Run Automatic Migration
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowSetupWizard(true)}
-                    disabled={isMigrating}
-                    size="lg"
-                    className="py-6"
-                  >
-                    Manual Setup
-                  </Button>
-                </div>
-              ) : (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-900">
-                    <strong>Admin Access Required:</strong> Only organization administrators can perform this migration. Please contact your admin to upgrade your workflow.
-                  </p>
-                </div>
-              )}
+              <h2 className="text-3xl font-bold text-slate-900 mb-3">Update Your Kanban Board Configuration</h2>
+              <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
+                It looks like your Kanban board is using an outdated configuration.
+                Choose a new workflow template to get access to the latest features.
+              </p>
+              <Button
+                onClick={() => setShowSetupWizard(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                Setup Workflow
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -901,7 +799,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           onClose={() => setShowSetupWizard(false)}
           organization={organization}
         />
-      </div>
+      </>
     );
   }
 
