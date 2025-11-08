@@ -211,21 +211,64 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
-      if (proposal.custom_workflow_stage_id) {
-        assignments[proposal.id] = {
-          columnId: proposal.custom_workflow_stage_id,
-          columnType: 'custom_stage'
+      // MASTER BOARD LOGIC - simplified status mapping
+      if (kanbanConfig?.is_master_board) {
+        const statusToColumn = {
+          'evaluating': 'new',
+          'watch_list': 'new',
+          'draft': 'active',
+          'in_progress': 'active',
+          'client_review': 'review',
+          'client_accepted': 'review',
+          'submitted': 'submitted',
+          'won': 'won',
+          'lost': 'lost',
+          'archived': 'archived'
         };
-      } else {
-        const matchingLockedPhaseColumn = columns.find(
-          col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
-        );
-        if (matchingLockedPhaseColumn) {
+        
+        const masterColumn = statusToColumn[proposal.status] || 'new';
+        assignments[proposal.id] = {
+          columnId: masterColumn,
+          columnType: 'master_status'
+        };
+      } 
+      // TYPE-SPECIFIC BOARD LOGIC
+      else {
+        // Priority 1: Check if in custom workflow stage
+        if (proposal.custom_workflow_stage_id) {
           assignments[proposal.id] = {
-            columnId: matchingLockedPhaseColumn.id,
-            columnType: 'locked_phase'
+            columnId: proposal.custom_workflow_stage_id,
+            columnType: 'custom_stage'
           };
-        } else {
+        } 
+        // Priority 2: Check for terminal status columns (Won, Lost, Archived, Submitted)
+        else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
+          const matchingTerminalColumn = columns.find(
+            col => col.type === 'default_status' && 
+                   col.default_status_mapping === proposal.status &&
+                   col.is_terminal === true
+          );
+          if (matchingTerminalColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingTerminalColumn.id,
+              columnType: 'default_status'
+            };
+          }
+        }
+        // Priority 3: Check for locked phase columns
+        else if (proposal.current_phase) {
+          const matchingLockedPhaseColumn = columns.find(
+            col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
+          );
+          if (matchingLockedPhaseColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingLockedPhaseColumn.id,
+              columnType: 'locked_phase'
+            };
+          }
+        }
+        // Priority 4: Fallback to default status mapping
+        else {
           const matchingDefaultStatusColumn = columns.find(
             col => col.type === 'default_status' && col.default_status_mapping === proposal.status
           );
@@ -246,27 +289,50 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         name: p.proposal_name,
         custom_workflow_stage_id: p.custom_workflow_stage_id,
         current_phase: p.current_phase,
-        status: p.status
+        status: p.status,
+        type: p.proposal_type_category
       })));
     }
     
     return assignments;
-  }, [filteredProposals, columns]);
+  }, [filteredProposals, columns, kanbanConfig]);
 
   const getProposalsForColumn = useCallback((column) => {
     if (!column || !proposals) {
       return [];
     }
 
-    let columnProposals = filteredProposals.filter(proposal => {
-      if (!proposal) return false;
-      
-      const assignment = proposalColumnAssignments[proposal.id];
-      if (!assignment) return false;
-      
-      return assignment.columnId === column.id;
-    });
+    let columnProposals;
 
+    // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
+    if (column.is_terminal) {
+      console.log(`[Kanban] Terminal column "${column.label}" - showing ALL proposals with status: ${column.default_status_mapping}`);
+      columnProposals = filteredProposals.filter(proposal => {
+        if (!proposal) return false;
+        
+        // Match by status for terminal columns
+        const statusMatch = proposal.status === column.default_status_mapping;
+        
+        if (statusMatch) {
+          console.log(`[Kanban] ✓ Including ${proposal.proposal_type_category} proposal "${proposal.proposal_name}" in terminal column`);
+        }
+        
+        return statusMatch;
+      });
+    } 
+    // NON-TERMINAL COLUMNS: Filter by assignment
+    else {
+      columnProposals = filteredProposals.filter(proposal => {
+        if (!proposal) return false;
+        
+        const assignment = proposalColumnAssignments[proposal.id];
+        if (!assignment) return false;
+        
+        return assignment.columnId === column.id;
+      });
+    }
+
+    // Apply sorting
     const sort = columnSorts[column.id];
     if (sort) {
       columnProposals = [...columnProposals].sort((a, b) => {
@@ -603,7 +669,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     // Only require approval when moving to terminal/end-state columns
     if (sourceColumn?.requires_approval_to_exit) {
       const terminalColumns = ['submitted', 'won', 'lost', 'archived'];
-      const isMovingToTerminalState = terminalColumns.includes(destinationColumn.id);
+      const isMovingToTerminalState = terminalColumns.includes(destinationColumn.id) || destinationColumn.is_terminal;
       
       console.log('[RBAC] 🔐 Checking approval requirements...');
       console.log('[RBAC] Source requires approval to exit:', sourceColumn.requires_approval_to_exit);
