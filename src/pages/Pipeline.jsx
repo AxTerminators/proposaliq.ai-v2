@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils"; // Assuming cn utility is available here
+import { cn } from "@/lib/utils";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
@@ -35,6 +35,9 @@ import SampleDataGuard from "@/components/ui/SampleDataGuard";
 import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
 import QuickCreateProposal from "@/components/proposals/QuickCreateProposal";
 import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
+import BoardAnalytics from "@/components/proposals/BoardAnalytics";
+import SavedViews from "@/components/proposals/SavedViews";
+import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -51,7 +54,14 @@ export default function Pipeline() {
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
-  const [showQuickBoardCreate, setShowQuickBoardCreate] = useState(false); // Added this line
+  const [showQuickBoardCreate, setShowQuickBoardCreate] = useState(false);
+  const [showBoardAnalytics, setShowBoardAnalytics] = useState(false);
+  const [showActivityFeed, setShowActivityFeed] = useState(false);
+  const [savedFilters, setSavedFilters] = useState({
+    searchQuery: "",
+    filterAgency: "all",
+    filterAssignee: "all"
+  });
 
   useEffect(() => {
     const checkMobile = () => {
@@ -440,6 +450,10 @@ export default function Pipeline() {
     alert(`✅ Board "${newBoard.board_name}" created successfully!`);
   };
 
+  const handleApplySavedView = (filters) => {
+    setSavedFilters(filters);
+  };
+
   // Board type icon mapping
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
@@ -629,6 +643,30 @@ export default function Pipeline() {
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
+                <SavedViews
+                  organization={organization}
+                  user={user}
+                  currentFilters={savedFilters}
+                  onApplyView={handleApplySavedView}
+                />
+                <Button
+                  variant={showActivityFeed ? "default" : "outline"}
+                  onClick={() => setShowActivityFeed(!showActivityFeed)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  {showActivityFeed ? 'Hide' : 'Show'} Activity
+                </Button>
+                <Button
+                  variant={showBoardAnalytics ? "default" : "outline"}
+                  onClick={() => setShowBoardAnalytics(!showBoardAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  {showBoardAnalytics ? 'Hide' : 'Show'} Board Stats
+                </Button>
                 <Button
                   variant="outline"
                   onClick={handleMigrateProposals}
@@ -751,6 +789,27 @@ export default function Pipeline() {
         </Card>
       )}
 
+      {/* Board Analytics Panel */}
+      {showBoardAnalytics && selectedBoard && (
+        <div className="flex-shrink-0">
+          <BoardAnalytics
+            board={selectedBoard}
+            proposals={proposals}
+            organization={organization}
+          />
+        </div>
+      )}
+
+      {/* Activity Feed Panel */}
+      {showActivityFeed && (
+        <div className="flex-shrink-0">
+          <BoardActivityFeed
+            organization={organization}
+            boardId={selectedBoardId}
+          />
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden">
         {isLoadingProposals || isLoadingBoards ? (
           <div className="flex items-center justify-center h-full p-6">
@@ -784,7 +843,7 @@ export default function Pipeline() {
               </div>
             )}
 
-            {!showAutomation && !showAnalytics && (
+            {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && (
               <>
                 {isMobile ? (
                   <div className="p-4">
