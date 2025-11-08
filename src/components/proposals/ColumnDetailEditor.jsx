@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,45 +32,32 @@ import {
   Save,
   Palette,
   Lock,
-  Info,
-  Sparkles
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Checklist Item Library - Pre-built common checklist items
+// Checklist Item Library
 const CHECKLIST_ITEM_LIBRARY = [
-  // Basic Setup
   { id: 'enter_basics', label: 'Enter Basic Details', type: 'modal_trigger', associated_action: 'open_modal_basic_info', category: 'Setup' },
   { id: 'upload_solicitation', label: 'Upload Solicitation Document', type: 'modal_trigger', associated_action: 'navigate_solicitation_upload', category: 'Setup' },
   { id: 'set_due_date', label: 'Set Due Date', type: 'system_check', associated_action: 'check_due_date', category: 'Setup' },
-  
-  // Team Formation
   { id: 'configure_team', label: 'Configure Team', type: 'modal_trigger', associated_action: 'open_modal_team_formation', category: 'Team' },
   { id: 'identify_prime', label: 'Identify Prime Contractor', type: 'modal_trigger', associated_action: 'open_modal_basic_info', category: 'Team' },
   { id: 'add_partners', label: 'Add Teaming Partners', type: 'modal_trigger', associated_action: 'navigate_team_setup', category: 'Team' },
-  
-  // Analysis
   { id: 'run_evaluation', label: 'Run AI Evaluation', type: 'ai_trigger', associated_action: 'open_modal_evaluation', category: 'Analysis' },
   { id: 'compliance_check', label: 'Compliance Check', type: 'modal_trigger', associated_action: 'open_modal_compliance', category: 'Analysis' },
   { id: 'competitor_analysis', label: 'Competitor Analysis', type: 'modal_trigger', associated_action: 'open_modal_competitor', category: 'Analysis' },
-  
-  // Content
   { id: 'plan_content', label: 'Plan Content Sections', type: 'modal_trigger', associated_action: 'open_modal_content_planning', category: 'Content' },
   { id: 'write_content', label: 'Write Content', type: 'ai_trigger', associated_action: 'navigate_write_content', category: 'Content' },
   { id: 'company_overview', label: 'Write Company Overview', type: 'ai_trigger', associated_action: 'navigate_write_content', category: 'Content' },
-  
-  // Pricing
   { id: 'build_pricing', label: 'Build Pricing', type: 'modal_trigger', associated_action: 'navigate_pricing_build', category: 'Pricing' },
   { id: 'pricing_review', label: 'Pricing Review', type: 'manual_check', associated_action: 'open_modal_pricing_review', category: 'Pricing' },
   { id: 'budget_justification', label: 'Budget Justification', type: 'modal_trigger', associated_action: 'navigate_pricing_build', category: 'Pricing' },
-  
-  // Review
   { id: 'final_review', label: 'Final Review', type: 'manual_check', associated_action: 'open_modal_review', category: 'Review' },
   { id: 'technical_review', label: 'Technical Review', type: 'manual_check', associated_action: 'open_modal_review', category: 'Review' },
   { id: 'check_page_limits', label: 'Check Page Limits', type: 'manual_check', associated_action: 'open_modal_compliance', category: 'Review' },
 ];
 
-// Available role options
 const ROLE_OPTIONS = [
   { value: 'organization_owner', label: 'Organization Owner' },
   { value: 'proposal_manager', label: 'Proposal Manager' },
@@ -80,7 +67,6 @@ const ROLE_OPTIONS = [
   { value: 'viewer', label: 'Viewer' }
 ];
 
-// Color options
 const COLOR_OPTIONS = [
   { value: 'from-slate-400 to-slate-600', label: 'Slate', preview: 'bg-gradient-to-r from-slate-400 to-slate-600' },
   { value: 'from-gray-400 to-gray-600', label: 'Gray', preview: 'bg-gradient-to-r from-gray-400 to-gray-600' },
@@ -131,7 +117,6 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update order property
     const updatedItems = items.map((item, index) => ({
       ...item,
       order: index
@@ -279,7 +264,6 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
           </TabsList>
 
           <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '55vh' }}>
-            {/* CHECKLIST TAB */}
             <TabsContent value="checklist" className="space-y-4 mt-0">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900">Checklist Items</h3>
@@ -293,7 +277,6 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
                 </Button>
               </div>
 
-              {/* Checklist Library */}
               {showChecklistLibrary && (
                 <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
                   <div className="flex items-center justify-between">
@@ -332,7 +315,6 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
                 </div>
               )}
 
-              {/* Current Checklist Items */}
               <DragDropContext onDragEnd={handleChecklistDragEnd}>
                 <Droppable droppableId="checklist-items">
                   {(provided) => (
@@ -425,7 +407,6 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
                 </div>
               )}
 
-              {/* Add Custom Item */}
               <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50 space-y-3">
                 <h4 className="font-semibold text-blue-900">Add Custom Checklist Item</h4>
                 
@@ -489,293 +470,249 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
               </div>
             </TabsContent>
 
-            {/* PERMISSIONS TAB */}
             <TabsContent value="permissions" className="space-y-4 mt-0">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3 mb-3">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">Role-Based Access Control (RBAC)</div>
+                    <div className="text-sm text-blue-800">
+                      Control which user roles can move proposals into or out of this column. 
+                      Leave empty to allow all roles.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Who Can Move Proposals INTO This Column</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLE_OPTIONS.map(role => (
+                    <div
+                      key={`to_${role.value}`}
+                      onClick={() => toggleRole('can_drag_to_here_roles', role.value)}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
+                        (editedColumn.can_drag_to_here_roles || []).includes(role.value)
+                          ? 'bg-blue-50 border-blue-300'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      )}
+                    >
+                      <span className="text-sm font-medium">{role.label}</span>
+                      <Switch
+                        checked={(editedColumn.can_drag_to_here_roles || []).includes(role.value)}
+                        onCheckedChange={() => toggleRole('can_drag_to_here_roles', role.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {(editedColumn.can_drag_to_here_roles?.length === 0) && (
+                  <p className="text-xs text-slate-500 italic">✓ All roles can move proposals into this column</p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Who Can Move Proposals OUT OF This Column</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLE_OPTIONS.map(role => (
+                    <div
+                      key={`from_${role.value}`}
+                      onClick={() => toggleRole('can_drag_from_here_roles', role.value)}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
+                        (editedColumn.can_drag_from_here_roles || []).includes(role.value)
+                          ? 'bg-green-50 border-green-300'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      )}
+                    >
+                      <span className="text-sm font-medium">{role.label}</span>
+                      <Switch
+                        checked={(editedColumn.can_drag_from_here_roles || []).includes(role.value)}
+                        onCheckedChange={() => toggleRole('can_drag_from_here_roles', role.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {(editedColumn.can_drag_from_here_roles?.length === 0) && (
+                  <p className="text-xs text-slate-500 italic">✓ All roles can move proposals out of this column</p>
+                )}
+              </div>
+
+              <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="font-semibold text-purple-900 mb-1">Require Approval to Exit Column</div>
+                    <div className="text-sm text-purple-800">
+                      When enabled, moving proposals OUT of this column requires approval from specified roles
+                    </div>
+                  </div>
+                  <Switch
+                    checked={editedColumn.requires_approval_to_exit || false}
+                    onCheckedChange={(checked) => setEditedColumn({ ...editedColumn, requires_approval_to_exit: checked })}
+                  />
+                </div>
+
+                {editedColumn.requires_approval_to_exit && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Who Can Approve</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ROLE_OPTIONS.map(role => (
+                        <div
+                          key={`approver_${role.value}`}
+                          onClick={() => toggleApproverRole(role.value)}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded border-2 cursor-pointer transition-all",
+                            (editedColumn.approver_roles || []).includes(role.value)
+                              ? 'bg-purple-100 border-purple-300'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          )}
+                        >
+                          <span className="text-xs font-medium">{role.label}</span>
+                          <Switch
+                            checked={(editedColumn.approver_roles || []).includes(role.value)}
+                            onCheckedChange={() => toggleApproverRole(role.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="wip" className="space-y-4 mt-0">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">Work-In-Progress (WIP) Limits</div>
+                    <div className="text-sm text-blue-800">
+                      Set limits to prevent bottlenecks and maintain workflow efficiency. 
+                      <strong> Soft limits</strong> show warnings, <strong>hard limits</strong> block moves when exceeded.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3 mb-3">
-                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-blue-900 mb-1">Role-Based Access Control (RBAC)</div>
-                      <div className="text-sm text-blue-800">
-                        Control which user roles can move proposals into or out of this column. 
-                        Leave empty to allow all roles. This is useful for restricting sensitive stages like "Final Review" or "Submitted" to managers only.
-                      </div>
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label>WIP Limit</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editedColumn.wip_limit || 0}
+                    onChange={(e) => setEditedColumn({ ...editedColumn, wip_limit: parseInt(e.target.value) || 0 })}
+                    placeholder="0 = No limit"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Set to 0 to disable WIP limits for this column
+                  </p>
                 </div>
 
-                {/* Can Drag TO Here */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Who Can Move Proposals INTO This Column</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ROLE_OPTIONS.map(role => (
-                      <div
-                        key={`to_${role.value}`}
-                        onClick={() => toggleRole('can_drag_to_here_roles', role.value)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
-                          (editedColumn.can_drag_to_here_roles || []).includes(role.value)
-                            ? 'bg-blue-50 border-blue-300'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">{role.label}</span>
-                        <Switch
-                          checked={(editedColumn.can_drag_to_here_roles || []).includes(role.value)}
-                          onCheckedChange={() => toggleRole('can_drag_to_here_roles', role.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {(editedColumn.can_drag_to_here_roles?.length === 0) && (
-                    <p className="text-xs text-slate-500 italic">✓ All roles can move proposals into this column</p>
-                  )}
-                </div>
-
-                {/* Can Drag FROM Here */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Who Can Move Proposals OUT OF This Column</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ROLE_OPTIONS.map(role => (
-                      <div
-                        key={`from_${role.value}`}
-                        onClick={() => toggleRole('can_drag_from_here_roles', role.value)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
-                          (editedColumn.can_drag_from_here_roles || []).includes(role.value)
-                            ? 'bg-green-50 border-green-300'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">{role.label}</span>
-                        <Switch
-                          checked={(editedColumn.can_drag_from_here_roles || []).includes(role.value)}
-                          onCheckedChange={() => toggleRole('can_drag_from_here_roles', role.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {(editedColumn.can_drag_from_here_roles?.length === 0) && (
-                    <p className="text-xs text-slate-500 italic">✓ All roles can move proposals out of this column</p>
-                  )}
-                </div>
-
-                {/* Approval Gate */}
-                <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-semibold text-purple-900 mb-1">Require Approval to Exit Column</div>
-                      <div className="text-sm text-purple-800">
-                        When enabled, moving proposals OUT of this column requires approval from specified roles
-                      </div>
-                    </div>
-                    <Switch
-                      checked={editedColumn.requires_approval_to_exit || false}
-                      onCheckedChange={(checked) => setEditedColumn({ ...editedColumn, requires_approval_to_exit: checked })}
-                    />
-                  </div>
-
-                  {editedColumn.requires_approval_to_exit && (
+                {editedColumn.wip_limit > 0 && (
+                  <div className="space-y-3">
+                    <Label>Limit Type</Label>
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Who Can Approve</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {ROLE_OPTIONS.map(role => (
-                          <div
-                            key={`approver_${role.value}`}
-                            onClick={() => toggleApproverRole(role.value)}
-                            className={cn(
-                              "flex items-center justify-between p-2 rounded border-2 cursor-pointer transition-all",
-                              (editedColumn.approver_roles || []).includes(role.value)
-                                ? 'bg-purple-100 border-purple-300'
-                                : 'bg-white border-slate-200 hover:border-slate-300'
-                            )}
-                          >
-                            <span className="text-xs font-medium">{role.label}</span>
-                            <Switch
-                              checked={(editedColumn.approver_roles || []).includes(role.value)}
-                              onCheckedChange={() => toggleApproverRole(role.value)}
-                            />
+                      <div
+                        onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
+                        className={cn(
+                          "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                          editedColumn.wip_limit_type === 'soft'
+                            ? 'bg-amber-50 border-amber-300'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        )}
+                      >
+                        <Switch
+                          checked={editedColumn.wip_limit_type === 'soft'}
+                          onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
+                        />
+                        <div>
+                          <div className="font-semibold text-slate-900">Soft Limit (Warning)</div>
+                          <div className="text-sm text-slate-600">
+                            Shows a warning when limit is exceeded, but allows the move
                           </div>
-                        ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
 
-              {/* PERMISSIONS TAB */}
-              <TabsContent value="permissions" className="space-y-4 mt-0">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-blue-900 mb-1">Permission Settings</div>
-                      <div className="text-sm text-blue-800">
-                        Configure role-based access control (RBAC) for this column. Control who can drag proposals into/out of this stage and set up approval requirements.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {column?.is_locked && (
-                  <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <Lock className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-semibold text-amber-900 mb-1">Locked System Column</div>
-                        <div className="text-sm text-amber-800">
-                          This is a system column required for workflow integrity. Permission settings can still be configured.
+                      <div
+                        onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
+                        className={cn(
+                          "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                          editedColumn.wip_limit_type === 'hard'
+                            ? 'bg-red-50 border-red-300'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        )}
+                      >
+                        <Switch
+                          checked={editedColumn.wip_limit_type === 'hard'}
+                          onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
+                        />
+                        <div>
+                          <div className="font-semibold text-slate-900">Hard Limit (Enforced)</div>
+                          <div className="text-sm text-slate-600">
+                            Prevents moving proposals when limit is reached - forces resolution of bottlenecks
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
+              </div>
+            </TabsContent>
 
-                {/* Permission content is shown via the checklist tab for now */}
-                <div className="text-center py-12 text-slate-500">
-                  <Shield className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="text-lg mb-2">Permission settings are configured in the Checklist tab</p>
-                  <p className="text-sm">Look for "Approval Gate" section to set up approval requirements</p>
-                </div>
-              </TabsContent>
-
-              {/* WIP LIMITS TAB */}
-              <TabsContent value="wip" className="space-y-4 mt-0">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-blue-900 mb-1">Work-In-Progress (WIP) Limits</div>
-                      <div className="text-sm text-blue-800">
-                        Set limits to prevent bottlenecks and maintain workflow efficiency. 
-                        <strong> Soft limits</strong> show warnings, <strong>hard limits</strong> block moves when exceeded.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>WIP Limit</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editedColumn.wip_limit || 0}
-                      onChange={(e) => setEditedColumn({ ...editedColumn, wip_limit: parseInt(e.target.value) || 0 })}
-                      placeholder="0 = No limit"
-                    />
-                    <p className="text-xs text-slate-500">
-                      Set to 0 to disable WIP limits for this column
+            <TabsContent value="appearance" className="space-y-4 mt-0">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Column Name</Label>
+                  <Input
+                    value={editedColumn.label}
+                    onChange={(e) => setEditedColumn({ ...editedColumn, label: e.target.value })}
+                    placeholder="Column name"
+                    disabled={column?.is_locked}
+                    className="text-lg font-semibold"
+                  />
+                  {column?.is_locked && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      System column names cannot be changed
                     </p>
-                  </div>
-
-                  {editedColumn.wip_limit > 0 && (
-                    <div className="space-y-3">
-                      <Label>Limit Type</Label>
-                      <div className="space-y-2">
-                        <div
-                          onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
-                          className={cn(
-                            "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
-                            editedColumn.wip_limit_type === 'soft'
-                              ? 'bg-amber-50 border-amber-300'
-                              : 'bg-white border-slate-200 hover:border-slate-300'
-                          )}
-                        >
-                          <Switch
-                            checked={editedColumn.wip_limit_type === 'soft'}
-                            onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
-                          />
-                          <div>
-                            <div className="font-semibold text-slate-900">Soft Limit (Warning)</div>
-                            <div className="text-sm text-slate-600">
-                              Shows a warning when limit is exceeded, but allows the move
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
-                          className={cn(
-                            "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
-                            editedColumn.wip_limit_type === 'hard'
-                              ? 'bg-red-50 border-red-300'
-                              : 'bg-white border-slate-200 hover:border-slate-300'
-                          )}
-                        >
-                          <Switch
-                            checked={editedColumn.wip_limit_type === 'hard'}
-                            onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
-                          />
-                          <div>
-                            <div className="font-semibold text-slate-900">Hard Limit (Enforced)</div>
-                            <div className="text-sm text-slate-600">
-                              Prevents moving proposals when limit is reached - forces resolution of bottlenecks
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   )}
                 </div>
-              </TabsContent>
 
-              {/* APPEARANCE TAB */}
-              <TabsContent value="appearance" className="space-y-4 mt-0">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">Column Name</Label>
-                    <Input
-                      value={editedColumn.label}
-                      onChange={(e) => setEditedColumn({ ...editedColumn, label: e.target.value })}
-                      placeholder="Column name"
-                      disabled={column?.is_locked}
-                      className="text-lg font-semibold"
-                    />
-                    {column?.is_locked && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        System column names cannot be changed
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">Column Color</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {COLOR_OPTIONS.map(colorOption => (
-                        <div
-                          key={colorOption.value}
-                          onClick={() => setEditedColumn({ ...editedColumn, color: colorOption.value })}
-                          className={cn(
-                            "flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all",
-                            editedColumn.color === colorOption.value
-                              ? 'border-blue-500 ring-2 ring-blue-200'
-                              : 'border-slate-200 hover:border-slate-300'
-                          )}
-                        >
-                          <div className={cn("w-8 h-8 rounded", colorOption.preview)} />
-                          <span className="text-sm font-medium">{colorOption.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Preview */}
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">Preview</Label>
-                    <div className={cn(
-                      "p-4 rounded-xl text-white text-center font-semibold text-lg",
-                      `bg-gradient-to-r ${editedColumn.color}`
-                    )}>
-                      {editedColumn.label}
-                    </div>
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Column Color</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {COLOR_OPTIONS.map(colorOption => (
+                      <div
+                        key={colorOption.value}
+                        onClick={() => setEditedColumn({ ...editedColumn, color: colorOption.value })}
+                        className={cn(
+                          "flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all",
+                          editedColumn.color === colorOption.value
+                            ? 'border-blue-500 ring-2 ring-blue-200'
+                            : 'border-slate-200 hover:border-slate-300'
+                        )}
+                      >
+                        <div className={cn("w-8 h-8 rounded", colorOption.preview)} />
+                        <span className="text-sm font-medium">{colorOption.label}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </TabsContent>
-            </div>
-          </Tabs>
+
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Preview</Label>
+                  <div className={cn(
+                    "p-4 rounded-xl text-white text-center font-semibold text-lg",
+                    `bg-gradient-to-r ${editedColumn.color}`
+                  )}>
+                    {editedColumn.label}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </div>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
