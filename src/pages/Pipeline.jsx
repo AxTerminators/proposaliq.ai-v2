@@ -465,7 +465,6 @@ export default function Pipeline() {
   }
 
   const showDataRecovery = filteredProposals.length === 0 && !isLoadingProposals;
-  // Only show "Generate Sample Data" if organization is sample data
   const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
@@ -475,35 +474,6 @@ export default function Pipeline() {
         proposals={proposals} 
         automationRules={automationRules}
       />
-
-      {showDataRecovery && (
-        <div className="bg-amber-50 border-b border-amber-200 p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-start gap-4">
-              <Database className="w-8 h-8 text-amber-600 flex-shrink-0 mt-1" />
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-amber-900 mb-2">No Proposals Found</h3>
-                <p className="text-amber-800 mb-4">
-                  You're viewing <strong>"{organization.organization_name}"</strong> but there are no proposals yet.
-                </p>
-                
-                <div className="flex gap-3">
-                  <Button onClick={() => setShowNewProposalDialog(true)} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Proposal
-                  </Button>
-                  {canGenerateSampleData && (
-                    <Button onClick={handleGenerateSampleData} variant="outline" className="border-amber-300">
-                      <Database className="w-4 h-4 mr-2" />
-                      Generate Sample Data
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
