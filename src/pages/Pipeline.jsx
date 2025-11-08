@@ -460,19 +460,19 @@ export default function Pipeline() {
     setSavedFilters(filters);
   };
 
-  // Board type icon mapping - THIS FUNCTION IS NO LONGER USED AFTER THE CHANGE
-  // const getBoardIcon = (boardType, isMaster) => {
-  //   if (isMaster) return "⭐";
-  //   switch (boardType) {
-  //     case 'rfp': return "📋";
-  //     case 'rfi': return "📝";
-  //     case 'sbir': return "🔬";
-  //     case 'gsa': return "🏛️";
-  //     case 'idiq': return "📑";
-  //     case 'state_local': return "🏢";
-  //     default: return "📊";
-  //   }
-  // };
+  // Board type icon mapping
+  const getBoardIcon = (boardType, isMaster) => {
+    if (isMaster) return "⭐";
+    switch (boardType) {
+      case 'rfp': return "📋";
+      case 'rfi': return "📝";
+      case 'sbir': return "🔬";
+      case 'gsa': return "🏛️";
+      case 'idiq': return "📑";
+      case 'state_local': return "🏢";
+      default: return "📊";
+    }
+  };
 
   // Show error state
   if (proposalsError) {
@@ -612,6 +612,7 @@ export default function Pipeline() {
               <div className="flex items-center gap-2 flex-wrap">
                 {allBoards.map(board => {
                   const isSelected = selectedBoardId === board.id;
+                  const icon = getBoardIcon(board.board_type, board.is_master_board);
 
                   return (
                     <Button
@@ -625,6 +626,7 @@ export default function Pipeline() {
                       )}
                       title={board.board_name}
                     >
+                      <span className="text-lg">{icon}</span>
                       <span className="hidden sm:inline">{board.board_name}</span>
                     </Button>
                   );
