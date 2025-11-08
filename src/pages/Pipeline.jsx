@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
 import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
 import QuickCreateProposal from "@/components/proposals/QuickCreateProposal";
+import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ export default function Pipeline() {
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [showQuickBoardCreate, setShowQuickBoardCreate] = useState(false); // Added this line
 
   useEffect(() => {
     const checkMobile = () => {
@@ -432,6 +434,12 @@ export default function Pipeline() {
     }
   };
 
+  const handleQuickBoardCreated = async (newBoard) => {
+    await refetchBoards();
+    setSelectedBoardId(newBoard.id);
+    alert(`✅ Board "${newBoard.board_name}" created successfully!`);
+  };
+
   // Board type icon mapping
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
@@ -607,13 +615,12 @@ export default function Pipeline() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowCreateBoardDialog(true)}
-                  disabled={isCreatingBoard}
-                  className="gap-2"
-                  title="Add new board"
+                  onClick={() => setShowQuickBoardCreate(true)}
+                  className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+                  title="Quick create board from template"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Add Board</span>
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <span className="hidden sm:inline">Quick Create</span>
                 </Button>
               </div>
             )}
@@ -821,6 +828,14 @@ export default function Pipeline() {
         organization={organization}
         preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
         onSuccess={handleProposalCreated}
+      />
+
+      {/* Quick Board Creation Dialog */}
+      <QuickBoardCreation
+        isOpen={showQuickBoardCreate}
+        onClose={() => setShowQuickBoardCreate(false)}
+        organization={organization}
+        onBoardCreated={handleQuickBoardCreated}
       />
 
       {/* Create New Board Dialog */}
