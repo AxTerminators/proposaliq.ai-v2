@@ -39,6 +39,7 @@ import BoardAnalytics from "@/components/proposals/BoardAnalytics";
 import SavedViews from "@/components/proposals/SavedViews";
 import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
 import GlobalSearch from "@/components/proposals/GlobalSearch";
+import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -64,12 +65,15 @@ export default function Pipeline() {
     filterAssignee: "all"
   });
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [listGroupBy, setListGroupBy] = useState('none');
+  const [tableGroupBy, setTableGroupBy] = useState('none');
+  const [showMultiBoardAnalytics, setShowMultiBoardAnalytics] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -91,13 +95,13 @@ export default function Pipeline() {
     queryKey: ['current-organization', user?.email],
     queryFn: async () => {
       if (!user) return null;
-      
+
       let orgId = user.active_client_id;
-      
+
       if (!orgId && user.client_accesses?.length > 0) {
         orgId = user.client_accesses[0].organization_id;
       }
-      
+
       if (!orgId) {
         const orgs = await base44.entities.Organization.filter(
           { created_by: user.email },
@@ -108,14 +112,14 @@ export default function Pipeline() {
           orgId = orgs[0].id;
         }
       }
-      
+
       if (orgId) {
         const orgs = await base44.entities.Organization.filter({ id: orgId });
         if (orgs.length > 0) {
           return orgs[0];
         }
       }
-      
+
       return null;
     },
     enabled: !!user,
@@ -150,7 +154,7 @@ export default function Pipeline() {
           const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
             organization_id: organization.id
           });
-          
+
           if (response.data.success && response.data.was_created) {
             console.log('[Pipeline] Master board auto-created');
             await refetchBoards();
@@ -160,7 +164,7 @@ export default function Pipeline() {
         }
       }
     };
-    
+
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards]);
 
@@ -203,35 +207,35 @@ export default function Pipeline() {
   // Filter proposals based on selected board
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
-    
+
     // Master board shows all proposals
     if (selectedBoard.is_master_board) {
       return proposals;
     }
-    
+
     // Type-specific boards filter by proposal_type_category
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
-      return proposals.filter(p => 
+      return proposals.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
       );
     }
-    
+
     return proposals;
   }, [proposals, selectedBoard]);
 
   // Calculate pipeline stats
   const pipelineStats = useMemo(() => {
     const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-    const formattedValue = totalValue >= 1000000 
-      ? `$${(totalValue / 1000000).toFixed(1)}M` 
-      : totalValue >= 1000 
+    const formattedValue = totalValue >= 1000000
+      ? `$${(totalValue / 1000000).toFixed(1)}M`
+      : totalValue >= 1000
       ? `$${(totalValue / 1000).toFixed(0)}K`
       : `$${totalValue.toLocaleString()}`;
-    
+
     const wonProposals = proposals.filter(p => p.status === 'won').length;
     const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
     const winRate = submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
-    
+
     const today = new Date();
     const urgentProposals = filteredProposals.filter(p => {
       if (!p.due_date) return false;
@@ -239,7 +243,7 @@ export default function Pipeline() {
       const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return daysUntil >= 0 && daysUntil <= 7; // Due within 7 days
     }).length;
-    
+
     return {
       totalValue: formattedValue,
       winRate,
@@ -280,7 +284,7 @@ export default function Pipeline() {
         if (response.data.was_created) {
           alert(`✅ ${response.data.message}`);
           await refetchBoards();
-          
+
           // Auto-select the newly created board
           const updatedBoards = await base44.entities.KanbanConfig.filter({
             organization_id: organization.id,
@@ -317,7 +321,7 @@ export default function Pipeline() {
       if (response.data.success) {
         alert(`✅ ${response.data.was_created ? 'Master board created!' : 'Master board already exists'}`);
         await refetchBoards();
-        
+
         // Auto-select the master board
         const updatedBoards = await base44.entities.KanbanConfig.filter({
           organization_id: organization.id,
@@ -362,14 +366,14 @@ export default function Pipeline() {
 
     // Find the board that matches this proposal type
     const proposalType = createdProposal.proposal_type_category;
-    
+
     if (!proposalType) {
       // If no type specified, stay on current board
       return;
     }
 
     // Find the board that applies to this proposal type
-    const matchingBoard = allBoards.find(board => 
+    const matchingBoard = allBoards.find(board =>
       board.applies_to_proposal_types?.includes(proposalType)
     );
 
@@ -427,7 +431,7 @@ export default function Pipeline() {
 
       if (response.data.success) {
         const { newly_categorized, already_categorized, total_proposals } = response.data;
-        
+
         alert(
           `✅ Categorization Complete!\n\n` +
           `Total Proposals: ${total_proposals}\n` +
@@ -435,7 +439,7 @@ export default function Pipeline() {
           `Newly Categorized: ${newly_categorized}\n\n` +
           `Your proposals are now organized by type.`
         );
-        
+
         await refetchProposals();
       }
     } catch (error) {
@@ -590,9 +594,9 @@ export default function Pipeline() {
 
   return (
     <div className="flex flex-col h-full">
-      <AutomationExecutor 
-        organization={organization} 
-        proposals={proposals} 
+      <AutomationExecutor
+        organization={organization}
+        proposals={proposals}
         automationRules={automationRules}
       />
 
@@ -603,13 +607,13 @@ export default function Pipeline() {
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
-            
+
             {allBoards.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 {allBoards.map(board => {
                   const isSelected = selectedBoardId === board.id;
                   const icon = getBoardIcon(board.board_type, board.is_master_board);
-                  
+
                   return (
                     <Button
                       key={board.id}
@@ -627,7 +631,7 @@ export default function Pipeline() {
                     </Button>
                   );
                 })}
-                
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -641,7 +645,7 @@ export default function Pipeline() {
               </div>
             )}
           </div>
-          
+
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
@@ -677,6 +681,15 @@ export default function Pipeline() {
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   {showBoardAnalytics ? 'Hide' : 'Show'} Board Stats
+                </Button>
+                <Button
+                  variant={showMultiBoardAnalytics ? "default" : "outline"}
+                  onClick={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  {showMultiBoardAnalytics ? 'Hide' : 'Show'} Portfolio
                 </Button>
                 <Button
                   variant="outline"
@@ -718,7 +731,7 @@ export default function Pipeline() {
                 </Button>
               </>
             )}
-            
+
             <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
               <Button
                 variant={viewMode === "kanban" ? "secondary" : "ghost"}
@@ -756,13 +769,13 @@ export default function Pipeline() {
               <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
               <span className="text-green-700">Pipeline Value</span>
             </div>
-            
+
             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
               <TrendingUp className="w-4 h-4 text-blue-600" />
               <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
               <span className="text-blue-700">Win Rate</span>
             </div>
-            
+
             {pipelineStats.urgentCount > 0 && (
               <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
                 <AlertCircle className="w-4 h-4 text-orange-600" />
@@ -811,6 +824,17 @@ export default function Pipeline() {
         </div>
       )}
 
+      {/* Multi-Board Analytics Panel */}
+      {showMultiBoardAnalytics && (
+        <div className="flex-shrink-0 mx-6 mt-6">
+          <MultiBoardAnalytics
+            proposals={proposals}
+            allBoardConfigs={allBoards}
+            organization={organization}
+          />
+        </div>
+      )}
+
       {/* Activity Feed Panel */}
       {showActivityFeed && (
         <div className="flex-shrink-0 mx-6 mt-6">
@@ -838,8 +862,8 @@ export default function Pipeline() {
           <>
             {!isMobile && showAutomation && (
               <div className="p-6 space-y-6 h-full overflow-y-auto">
-                <AIWorkflowSuggestions 
-                  organization={organization} 
+                <AIWorkflowSuggestions
+                  organization={organization}
                   proposals={filteredProposals}
                   automationRules={automationRules}
                 />
@@ -854,7 +878,7 @@ export default function Pipeline() {
               </div>
             )}
 
-            {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && (
+            {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && !showMultiBoardAnalytics && (
               <>
                 {isMobile ? (
                   <div className="p-4 h-full overflow-y-auto">
@@ -863,9 +887,9 @@ export default function Pipeline() {
                 ) : (
                   <div className="h-full">
                     {viewMode === "kanban" && (
-                      <ProposalsKanban 
-                        proposals={filteredProposals} 
-                        organization={organization} 
+                      <ProposalsKanban
+                        proposals={filteredProposals}
+                        organization={organization}
                         user={user}
                         kanbanConfig={selectedBoard}
                         onRefresh={() => {
@@ -875,12 +899,48 @@ export default function Pipeline() {
                     )}
                     {viewMode === "list" && (
                       <div className="p-6 h-full overflow-y-auto">
-                        <ProposalsList proposals={filteredProposals} organization={organization} />
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold text-slate-900">List View</h2>
+                          <Select value={listGroupBy} onValueChange={setListGroupBy}>
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Group by..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Grouping</SelectItem>
+                              <SelectItem value="proposal_type_category">Group by Type</SelectItem>
+                              <SelectItem value="status">Group by Status</SelectItem>
+                              <SelectItem value="agency">Group by Agency</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <ProposalsList
+                          proposals={filteredProposals}
+                          organization={organization}
+                          groupBy={listGroupBy}
+                        />
                       </div>
                     )}
                     {viewMode === "table" && (
                       <div className="p-6 h-full overflow-y-auto">
-                        <ProposalsTable proposals={filteredProposals} organization={organization} />
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold text-slate-900">Table View</h2>
+                          <Select value={tableGroupBy} onValueChange={setTableGroupBy}>
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Group by..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Grouping</SelectItem>
+                              <SelectItem value="proposal_type_category">Group by Type</SelectItem>
+                              <SelectItem value="status">Group by Status</SelectItem>
+                              <SelectItem value="agency">Group by Agency</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <ProposalsTable
+                          proposals={filteredProposals}
+                          organization={organization}
+                          groupBy={tableGroupBy}
+                        />
                       </div>
                     )}
                   </div>
@@ -920,7 +980,7 @@ export default function Pipeline() {
               Choose which type of board you want to create
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
             {[
               { type: 'RFP', icon: '📋', name: 'RFP Board', description: '8-phase detailed workflow' },
@@ -943,7 +1003,7 @@ export default function Pipeline() {
               </Button>
             ))}
           </div>
-          
+
           <div className="flex justify-end pt-4 border-t">
             <Button variant="ghost" onClick={() => setShowCreateBoardDialog(false)}>
               Cancel
