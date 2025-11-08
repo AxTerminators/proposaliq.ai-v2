@@ -56,35 +56,15 @@ export default function QuickCreateProposal({ isOpen, onClose, organization, pre
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
-      // Create proposal
-      const createdProposal = await base44.entities.Proposal.create({
+      return base44.entities.Proposal.create({
         ...data,
         organization_id: organization.id,
         current_phase: "phase1",
         status: "evaluating",
       });
-
-      // Find and apply workflow template for this type
-      const templates = await base44.entities.ProposalWorkflowTemplate.filter({
-        proposal_type_category: data.proposal_type_category,
-        template_type: 'system',
-        is_active: true
-      }, '-created_date', 1); // Get the most recent active system template
-
-      if (templates.length > 0) {
-        // Apply template (creates board if needed)
-        await base44.functions.invoke('applyWorkflowTemplate', {
-          organization_id: organization.id,
-          template_id: templates[0].id,
-          proposal_id: createdProposal.id
-        });
-      }
-
-      return createdProposal;
     },
     onSuccess: (createdProposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] }); // Invalidate kanban boards to reflect new proposal
       
       // Call onSuccess callback with created proposal
       if (onSuccess) {
