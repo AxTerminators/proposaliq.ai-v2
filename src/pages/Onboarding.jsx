@@ -125,9 +125,15 @@ export default function Onboarding() {
         });
       }
 
+      // Create master board for new organization
+      await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
+        organization_id: createdOrg.id
+      });
+
       // Update user flags to indicate they've created their real organization
       await base44.auth.updateMe({
-        has_created_real_organization: true
+        has_created_real_organization: true,
+        active_client_id: createdOrg.id
       });
 
       navigate(createPageUrl("Dashboard"));
