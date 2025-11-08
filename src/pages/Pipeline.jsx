@@ -25,8 +25,6 @@ import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
 import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
-import BoardSwitcher from "@/components/proposals/BoardSwitcher";
-import NewProposalDialog from "@/components/proposals/NewProposalDialog";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -38,7 +36,6 @@ export default function Pipeline() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
-  const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -234,33 +231,12 @@ export default function Pipeline() {
     if (user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     } else {
-      setShowNewProposalDialog(true);
-    }
-  };
-
-  const handleCreateProposalWithType = async (data) => {
-    try {
-      // Create the proposal with the selected type
-      const newProposal = await base44.entities.Proposal.create({
-        proposal_name: data.proposal_name,
-        proposal_type_category: data.proposal_type_category,
-        organization_id: organization.id,
-        status: "evaluating",
-        current_phase: "phase1"
-      });
-
-      setShowNewProposalDialog(false);
-      
-      // Navigate to proposal builder
-      navigate(createPageUrl("ProposalBuilder") + `?id=${newProposal.id}`);
-    } catch (error) {
-      console.error("Error creating proposal:", error);
-      alert("Failed to create proposal. Please try again.");
+      navigate(createPageUrl("ProposalBuilder"));
     }
   };
 
   const proceedToProposalBuilder = () => {
-    setShowNewProposalDialog(true);
+    navigate(createPageUrl("ProposalBuilder"));
   };
 
   const handleGenerateSampleData = async () => {
@@ -439,18 +415,31 @@ export default function Pipeline() {
 
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 w-full lg:w-auto">
+          <div className="flex items-center gap-4">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
             
-            {/* Enhanced Board Switcher */}
-            <BoardSwitcher 
-              boards={allBoards}
-              selectedBoardId={selectedBoardId}
-              onBoardChange={setSelectedBoardId}
-            />
+            {/* Board Switcher */}
+            {allBoards.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-slate-500" />
+                <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select board..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allBoards.map(board => (
+                      <SelectItem key={board.id} value={board.id}>
+                        {board.is_master_board && "⭐ "}
+                        {board.board_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
@@ -602,12 +591,6 @@ export default function Pipeline() {
           </>
         )}
       </div>
-
-      <NewProposalDialog
-        isOpen={showNewProposalDialog}
-        onClose={() => setShowNewProposalDialog(false)}
-        onCreateProposal={handleCreateProposalWithType}
-      />
 
       <SampleDataGuard
         isOpen={showSampleDataGuard}
