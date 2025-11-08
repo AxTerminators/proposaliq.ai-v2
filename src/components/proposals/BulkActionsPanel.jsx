@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,317 +12,168 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  CheckSquare,
-  Archive,
+  ArrowRight,
   Trash2,
-  Users,
-  Calendar,
+  UserPlus,
   Tag,
-  Loader2,
-  AlertCircle
+  X,
+  CheckCircle,
+  Archive
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format } from "date-fns";
 
 export default function BulkActionsPanel({ 
-  selectedProposals = [], 
-  onClearSelection,
+  selectedProposals, 
+  onClearSelection, 
   organization,
-  kanbanConfig
+  kanbanConfig 
 }) {
   const queryClient = useQueryClient();
-  const [showBulkDialog, setShowBulkDialog] = useState(false);
-  const [bulkAction, setBulkAction] = useState('');
-  const [bulkValue, setBulkValue] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const bulkUpdateMutation = useMutation({
-    mutationFn: async ({ action, value }) => {
-      const updates = {};
-      
-      if (action === 'change_status') {
-        updates.status = value;
-      } else if (action === 'assign_user') {
-        updates.assigned_team_members = [value];
-      } else if (action === 'set_due_date') {
-        updates.due_date = format(value, 'yyyy-MM-dd');
-      } else if (action === 'archive') {
-        updates.status = 'archived';
-      } else if (action === 'move_to_column') {
-        const column = kanbanConfig?.columns?.find(c => c.id === value);
-        if (!column) throw new Error('Column not found');
-        
-        if (column.type === 'custom_stage') {
-          updates.custom_workflow_stage_id = column.id;
-        } else if (column.type === 'default_status') {
-          updates.status = column.default_status_mapping;
-          updates.custom_workflow_stage_id = null;
-        } else if (column.type === 'locked_phase') {
-          updates.current_phase = column.phase_mapping;
-          updates.custom_workflow_stage_id = column.id;
-        }
+  if (selectedProposals.length === 0) {
+    return null;
+  }
+
+  const handleBulkMove = async (columnId) => {
+    setIsProcessing(true);
+    try {
+      const targetColumn = kanbanConfig.columns.find(col => col.id === columnId);
+      if (!targetColumn) {
+        alert("Target column not found");
+        return;
       }
 
-      // Update all selected proposals
-      await Promise.all(
-        selectedProposals.map(proposal =>
-          base44.entities.Proposal.update(proposal.id, updates)
-        )
-      );
+      const updates = selectedProposals.map(proposal => ({
+        id: proposal.id,
+        updates: {
+          custom_workflow_stage_id: targetColumn.type === 'custom_stage' ? columnId : null,
+          current_phase: targetColumn.type === 'locked_phase' ? targetColumn.phase_mapping : null,
+          status: targetColumn.type === 'default_status' ? targetColumn.default_status_mapping : proposal.status
+        }
+      }));
 
-      return { count: selectedProposals.length };
-    },
-    onSuccess: (data) => {
+      await Promise.all(updates.map(({ id, updates }) => 
+        base44.entities.Proposal.update(id, updates)
+      ));
+
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      setShowBulkDialog(false);
-      setBulkAction('');
-      setBulkValue('');
       onClearSelection();
-      alert(`✅ ${data.count} proposal${data.count !== 1 ? 's' : ''} updated successfully!`);
+      
+      alert(`✓ Moved ${selectedProposals.length} proposals to "${targetColumn.label}"`);
+    } catch (error) {
+      console.error("Error moving proposals:", error);
+      alert("Failed to move proposals. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
-  });
-
-  const handleBulkAction = (action) => {
-    setBulkAction(action);
-    setShowBulkDialog(true);
   };
 
-  const handleConfirmBulkAction = () => {
-    if (!bulkAction) return;
+  const handleBulkArchive = async () => {
+    if (!confirm(`Archive ${selectedProposals.length} proposals?`)) return;
     
-    if (bulkAction !== 'archive' && bulkAction !== 'delete' && !bulkValue) {
-      alert('Please select a value');
-      return;
-    }
+    setIsProcessing(true);
+    try {
+      await Promise.all(selectedProposals.map(p => 
+        base44.entities.Proposal.update(p.id, { status: 'archived' })
+      ));
 
-    bulkUpdateMutation.mutate({ action: bulkAction, value: bulkValue });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      onClearSelection();
+      
+      alert(`✓ Archived ${selectedProposals.length} proposals`);
+    } catch (error) {
+      console.error("Error archiving:", error);
+      alert("Failed to archive proposals");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const getActionTitle = () => {
-    switch (bulkAction) {
-      case 'change_status': return 'Change Status';
-      case 'assign_user': return 'Assign Team Member';
-      case 'set_due_date': return 'Set Due Date';
-      case 'move_to_column': return 'Move to Column';
-      case 'archive': return 'Archive Proposals';
-      default: return 'Bulk Action';
+  const handleBulkDelete = async () => {
+    if (!confirm(`⚠️ Permanently delete ${selectedProposals.length} proposals? This cannot be undone.`)) return;
+    
+    setIsProcessing(true);
+    try {
+      await Promise.all(selectedProposals.map(p => 
+        base44.entities.Proposal.delete(p.id)
+      ));
+
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      onClearSelection();
+      
+      alert(`✓ Deleted ${selectedProposals.length} proposals`);
+    } catch (error) {
+      console.error("Error deleting:", error);
+      alert("Failed to delete proposals");
+    } finally {
+      setIsProcessing(false);
     }
   };
-
-  if (selectedProposals.length === 0) return null;
 
   return (
-    <>
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <Card className="border-2 border-blue-500 shadow-2xl bg-white">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <CheckSquare className="w-5 h-5 text-blue-600" />
-              <span className="font-semibold text-slate-900">
-                {selectedProposals.length} proposal{selectedProposals.length !== 1 ? 's' : ''} selected
-              </span>
-            </div>
-
-            <div className="h-8 w-px bg-slate-200" />
-
-            <div className="flex gap-2">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 lg:left-64">
+      <Card className="border-2 border-blue-500 shadow-2xl bg-gradient-to-r from-blue-600 to-indigo-600">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Badge className="bg-white text-blue-600 text-base px-3 py-1">
+                {selectedProposals.length} Selected
+              </Badge>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() => handleBulkAction('move_to_column')}
+                onClick={onClearSelection}
+                className="text-white hover:bg-white/20"
               >
-                <ArrowRight className="w-4 h-4 mr-2" />
-                Move
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleBulkAction('change_status')}
-              >
-                <Tag className="w-4 h-4 mr-2" />
-                Status
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleBulkAction('assign_user')}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Assign
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleBulkAction('set_due_date')}
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Due Date
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleBulkAction('archive')}
-                className="text-amber-600 hover:text-amber-700"
-              >
-                <Archive className="w-4 h-4 mr-2" />
-                Archive
+                <X className="w-4 h-4 mr-1" />
+                Clear
               </Button>
             </div>
 
-            <div className="h-8 w-px bg-slate-200" />
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearSelection}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bulk Action Dialog */}
-      <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{getActionTitle()}</DialogTitle>
-            <DialogDescription>
-              This will update {selectedProposals.length} proposal{selectedProposals.length !== 1 ? 's' : ''}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            {bulkAction === 'change_status' && (
-              <div className="space-y-2">
-                <Label>New Status</Label>
-                <Select value={bulkValue} onValueChange={setBulkValue}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status..." />
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Move to Column */}
+              {kanbanConfig?.columns && (
+                <Select onValueChange={handleBulkMove} disabled={isProcessing}>
+                  <SelectTrigger className="w-48 bg-white">
+                    <SelectValue placeholder="Move to column..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="evaluating">Evaluating</SelectItem>
-                    <SelectItem value="watch_list">Watch List</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="submitted">Submitted</SelectItem>
-                    <SelectItem value="won">Won</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {bulkAction === 'move_to_column' && (
-              <div className="space-y-2">
-                <Label>Destination Column</Label>
-                <Select value={bulkValue} onValueChange={setBulkValue}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select column..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {kanbanConfig?.columns?.map(col => (
+                    {kanbanConfig.columns.map(col => (
                       <SelectItem key={col.id} value={col.id}>
                         {col.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
-
-            {bulkAction === 'assign_user' && (
-              <div className="space-y-2">
-                <Label>Assign To</Label>
-                <Input
-                  type="email"
-                  placeholder="Enter email address"
-                  value={bulkValue}
-                  onChange={(e) => setBulkValue(e.target.value)}
-                />
-              </div>
-            )}
-
-            {bulkAction === 'set_due_date' && (
-              <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !bulkValue && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {bulkValue ? format(bulkValue, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarPicker
-                      mode="single"
-                      selected={bulkValue}
-                      onSelect={setBulkValue}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
-
-            {bulkAction === 'archive' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-900">
-                  <p className="font-semibold mb-1">Archive {selectedProposals.length} proposal{selectedProposals.length !== 1 ? 's' : ''}?</p>
-                  <p>Archived proposals can be restored later from the Archive column.</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmBulkAction}
-              disabled={bulkUpdateMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {bulkUpdateMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <CheckSquare className="w-4 h-4 mr-2" />
-                  Apply to {selectedProposals.length}
-                </>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+
+              {/* Archive */}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleBulkArchive}
+                disabled={isProcessing}
+                className="bg-white hover:bg-slate-100"
+              >
+                <Archive className="w-4 h-4 mr-1" />
+                Archive
+              </Button>
+
+              {/* Delete */}
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={isProcessing}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

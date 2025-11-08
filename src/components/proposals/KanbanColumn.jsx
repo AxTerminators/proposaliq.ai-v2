@@ -44,14 +44,14 @@ export default function KanbanColumn({
   dragHandleProps,
   onCreateProposal,
   selectedProposalIds = [],
-  onToggleProposalSelection = () => {}
+  onToggleProposalSelection
 }) {
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(column.label);
   const inputRef = useRef(null);
 
-  const isSelectionMode = selectedProposalIds.length > 0;
+  const selectionMode = selectedProposalIds.length > 0;
 
   // Calculate total dollar value in this column
   const totalValue = useMemo(() => {
@@ -77,9 +77,9 @@ export default function KanbanColumn({
   }, [isEditingName]);
 
   const currentUserRole = getUserRole(user);
-  const canDragToHere = !column.can_drag_to_here_roles?.length || 
+  const canDragToHere = !column.can_drag_to_here_roles?.length ||
                         column.can_drag_to_here_roles.includes(currentUserRole);
-  const canDragFromHere = !column.can_drag_from_here_roles?.length || 
+  const canDragFromHere = !column.can_drag_from_here_roles?.length ||
                           column.can_drag_from_here_roles.includes(currentUserRole);
 
   const wipLimit = column.wip_limit || 0;
@@ -116,16 +116,13 @@ export default function KanbanColumn({
 
   return (
     <div
-      ref={provided.innerRef}
-      {...provided.droppableProps}
       className={cn(
-        "flex flex-col w-80 flex-shrink-0 transition-all",
-        snapshot.isDraggingOver && "ring-2 ring-blue-400",
-        "h-full" // Ensure column takes full height
+        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50"
       )}
     >
       {/* Column Header - Single Row Layout with Consistent Height */}
-      <div 
+      <div
         {...(dragHandleProps || {})}
         className={cn(
           "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px]",
@@ -182,8 +179,8 @@ export default function KanbanColumn({
             {!isEditingName && (
               <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
                 {/* Proposal Count */}
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
                   title={`${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`}
                 >
@@ -192,8 +189,8 @@ export default function KanbanColumn({
 
                 {/* Dollar Value */}
                 {formattedValue && (
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 px-2 flex items-center gap-0.5"
                     title={`Total value: $${formattedValue}`}
                   >
@@ -221,8 +218,8 @@ export default function KanbanColumn({
 
                 {/* Protected Badge */}
                 {!canDragFromHere && (
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
                     title="Protected column - only specific roles can move proposals out"
                   >
@@ -232,8 +229,8 @@ export default function KanbanColumn({
 
                 {/* Approval Required Badge */}
                 {column.requires_approval_to_exit && (
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
                     title="Requires approval to move proposals out of this column"
                   >
@@ -243,7 +240,7 @@ export default function KanbanColumn({
 
                 {/* Lock Icon */}
                 {column.is_locked && (
-                  <div 
+                  <div
                     className="flex-shrink-0 pl-0.5 h-6 flex items-center"
                     title="System column (locked)"
                   >
@@ -257,9 +254,9 @@ export default function KanbanColumn({
             {!isEditingName && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
                     title="Column options"
                   >
@@ -278,75 +275,72 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      {/* Column Body */}
-      <div className={cn(
-        "flex-1 bg-slate-50 rounded-b-xl border-2 border-t-0 border-slate-200 overflow-hidden",
-        snapshot.isDraggingOver && "bg-blue-50 border-blue-300"
-      )}>
-        <div 
-          className="h-full overflow-y-auto p-3 space-y-3"
-        >
-          {/* Warning Messages */}
-          {!canDragToHere && proposalCount > 0 && (
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Shield className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-orange-900">
-                  <strong>Restricted:</strong> Only {column.can_drag_to_here_roles?.join(', ')} can move proposals here.
-                </p>
-              </div>
+      {/* Proposal Cards */}
+      <div
+        ref={provided.innerRef}
+        {...provided.droppableProps}
+        className={cn(
+          "flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]",
+          snapshot.isDraggingOver && "bg-blue-50/50"
+        )}
+        style={{
+          maxHeight: 'calc(100vh - 280px)'
+        }}
+      >
+        {/* Warning Messages */}
+        {!canDragToHere && proposalCount > 0 && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Shield className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-orange-900">
+                <strong>Restricted:</strong> Only {column.can_drag_to_here_roles?.join(', ')} can move proposals here.
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {isAtWipLimit && column.wip_limit_type === 'hard' && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-900">
-                  <strong>WIP Limit Reached:</strong> Cannot add more proposals until others are moved out.
-                </p>
-              </div>
+        {isAtWipLimit && column.wip_limit_type === 'hard' && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-red-900">
+                <strong>WIP Limit Reached:</strong> Cannot add more proposals until others are moved out.
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {proposals.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <p className="text-sm">No proposals</p>
-              {/* The original 'create proposal' button was here,
-                  but the outline suggests a simpler "No proposals" text.
-                  If onCreateProposal functionality is still desired for empty state,
-                  it needs to be explicitly re-added or the new empty state
-                  is a simplification as requested by the outline.
-                  For now, I'll keep the simplified empty state from the outline.
-              */}
-            </div>
-          ) : (
-            proposals.map((proposal, index) => (
-              <Draggable
-                key={proposal.id}
-                draggableId={proposal.id}
-                index={index}
-                type="card"
-                isDragDisabled={!canDragFromHere}
-              >
-                {(providedCard, snapshotCard) => (
-                  <KanbanCard
-                    proposal={proposal}
-                    provided={providedCard}
-                    snapshot={snapshotCard}
-                    onClick={onCardClick}
-                    organization={organization}
-                    isSelectionMode={isSelectionMode}
-                    isSelected={selectedProposalIds.includes(proposal.id)}
-                    onToggleSelection={onToggleProposalSelection}
-                    column={column}
-                  />
-                )}
-              </Draggable>
-            ))
-          )}
-          {provided.placeholder}
-        </div>
+        {proposals.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">
+            <p className="text-sm">No proposals</p>
+            <p className="text-xs mt-1">Drag here or create new</p>
+          </div>
+        ) : (
+          proposals.map((proposal, index) => (
+            <Draggable
+              key={proposal.id}
+              draggableId={proposal.id}
+              index={index}
+              type="card"
+              isDragDisabled={!canDragFromHere}
+            >
+              {(providedCard, snapshotCard) => (
+                <KanbanCard
+                  proposal={proposal}
+                  provided={providedCard}
+                  snapshot={snapshotCard}
+                  onClick={onCardClick}
+                  organization={organization}
+                  isSelected={selectedProposalIds.includes(proposal.id)}
+                  onToggleSelection={onToggleProposalSelection}
+                  selectionMode={selectionMode}
+                  column={column}
+                />
+              )}
+            </Draggable>
+          ))
+        )}
+        {provided.placeholder}
       </div>
     </div>
   );
