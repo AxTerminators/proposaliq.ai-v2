@@ -119,8 +119,9 @@ export default function KanbanColumn({
       ref={provided.innerRef}
       {...provided.droppableProps}
       className={cn(
-        "flex flex-col h-full w-80 flex-shrink-0 transition-all",
-        snapshot.isDraggingOver && "ring-2 ring-blue-400"
+        "flex flex-col w-80 flex-shrink-0 transition-all",
+        snapshot.isDraggingOver && "ring-2 ring-blue-400",
+        "h-full" // Ensure column takes full height
       )}
     >
       {/* Column Header - Single Row Layout with Consistent Height */}
@@ -284,7 +285,6 @@ export default function KanbanColumn({
       )}>
         <div 
           className="h-full overflow-y-auto p-3 space-y-3"
-          style={{ minHeight: '300px' }}
         >
           {/* Warning Messages */}
           {!canDragToHere && proposalCount > 0 && (
