@@ -34,8 +34,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus, Lock, Info, Sparkles, RefreshCw } from "lucide-react";
+import { Settings2, Columns, Layers, Zap, Save, AlertCircle, Trash2, GripVertical, Plus, Lock, Info, Sparkles, RefreshCw, Settings, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ColumnDetailEditor from "./ColumnDetailEditor"; // Added import
 
 // 14-column template definition
 const TEMPLATE_14_COLUMN_FULL = [
@@ -268,6 +269,8 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   const [deleteWarning, setDeleteWarning] = useState(null);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [editingColumn, setEditingColumn] = useState(null); // Added state
+  const [showColumnEditor, setShowColumnEditor] = useState(false); // Added state
 
 
   useEffect(() => {
@@ -426,7 +429,8 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       label: 'New Column',
       color: 'from-blue-400 to-blue-600',
       type: 'custom_stage',
-      order: config.columns.length
+      order: config.columns.length,
+      checklist_items: [] // Initialize with empty checklist
     };
     setConfig({
       ...config,
@@ -571,6 +575,22 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     applyTemplateMutation.mutate();
   };
 
+  const handleEditColumn = (column) => {
+    setEditingColumn(column);
+    setShowColumnEditor(true);
+  };
+
+  const handleSaveColumnDetails = (updatedColumn) => {
+    setConfig({
+      ...config,
+      columns: config.columns.map(col =>
+        col.id === updatedColumn.id ? updatedColumn : col
+      )
+    });
+    setShowColumnEditor(false);
+    setEditingColumn(null);
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -708,59 +728,46 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                     )}
                                   </div>
                                   
-                                  <div className="flex-1 space-y-2">
-                                    <Input
-                                      value={column.label}
-                                      onChange={(e) => handleColumnLabelChange(column.id, e.target.value)}
-                                      placeholder="Column name"
-                                      className="font-medium"
-                                      disabled={locked}
-                                    />
-                                    
-                                    {/* Color Picker */}
+                                  <div className="flex-1 space-y-0"> {/* Adjusted spacing */}
                                     <div className="flex items-center gap-2">
-                                      <Label className="text-xs text-slate-600">Color:</Label>
-                                      <Select
-                                        value={column.color}
-                                        onValueChange={(value) => handleColumnColorChange(column.id, value)}
-                                      >
-                                        <SelectTrigger className="w-40 h-8">
-                                          <div className="flex items-center gap-2">
-                                            <div className={cn("w-4 h-4 rounded", `bg-gradient-to-r ${column.color}`)} />
-                                            <SelectValue />
-                                          </div>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {COLOR_OPTIONS.map(colorOption => (
-                                            <SelectItem key={colorOption.value} value={colorOption.value}>
-                                              <div className="flex items-center gap-2">
-                                                <div className={cn("w-4 h-4 rounded", colorOption.preview)} />
-                                                <span>{colorOption.label}</span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                      <div className={cn("w-6 h-6 rounded flex-shrink-0", `bg-gradient-to-r ${column.color}`)} />
+                                      <span className="font-semibold text-slate-900 text-lg">{column.label}</span>
+                                      
+                                      {column.checklist_items && column.checklist_items.length > 0 && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <ListChecks className="w-3 h-3 mr-1" />
+                                          {column.checklist_items.length} items
+                                        </Badge>
+                                      )}
+                                      
+                                      {column.type === 'default_status' && (
+                                        <Badge variant="secondary" className="text-xs">Default</Badge>
+                                      )}
+                                      {column.type === 'custom_stage' && (
+                                        <Badge variant="outline" className="text-xs">Custom</Badge>
+                                      )}
+                                      {column.type === 'locked_phase' && (
+                                        <Badge className="bg-purple-100 text-purple-800 text-xs">Phase</Badge>
+                                      )}
+                                      {locked && (
+                                        <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+                                          <Lock className="w-3 h-3 mr-1" />
+                                          Locked
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    {column.type === 'default_status' && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Default
-                                      </Badge>
-                                    )}
-                                    {column.type === 'custom_stage' && (
-                                      <Badge variant="outline" className="text-xs">
-                                        Custom
-                                      </Badge>
-                                    )}
-                                    {locked && (
-                                      <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
-                                        <Lock className="w-3 h-3 mr-1" />
-                                        Locked
-                                      </Badge>
-                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEditColumn(column)}
+                                      disabled={locked} // Disabled for locked columns
+                                    >
+                                      <Settings className="w-4 h-4 mr-1" />
+                                      Configure
+                                    </Button>
                                     
                                     {canDelete ? (
                                       <Button
@@ -961,6 +968,21 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Column Detail Editor */}
+      {showColumnEditor && editingColumn && (
+        <ColumnDetailEditor
+          column={editingColumn}
+          onSave={handleSaveColumnDetails}
+          onClose={() => {
+            setShowColumnEditor(false);
+            setEditingColumn(null);
+          }}
+          isOpen={showColumnEditor}
+          COLOR_OPTIONS={COLOR_OPTIONS} // Pass COLOR_OPTIONS to the editor
+          isLockedColumn={isLockedColumn} // Pass the locking logic
+        />
+      )}
 
       {/* Apply Template Confirmation Dialog */}
       <AlertDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
