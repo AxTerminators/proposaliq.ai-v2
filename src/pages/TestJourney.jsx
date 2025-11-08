@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -17,18 +16,13 @@ import {
   Building2,
   FileText,
   Users,
-  // Library, // Library was in the original, but not in the outline. Removing it as per outline.
+  Library,
   Upload,
   Target,
   Sparkles,
   Edit,
   DollarSign,
-  Shield,
-  LayoutGrid, // Added as per outline
-  MessageSquare, // Added as per outline
-  CheckSquare, // Added as per outline
-  Bell, // Added as per outline
-  Database // Added as per outline
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
