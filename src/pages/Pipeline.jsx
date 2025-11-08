@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -203,6 +203,34 @@ export default function Pipeline() {
     
     return proposals;
   }, [proposals, selectedBoard]);
+
+  // Calculate pipeline stats
+  const pipelineStats = useMemo(() => {
+    const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+    const formattedValue = totalValue >= 1000000 
+      ? `$${(totalValue / 1000000).toFixed(1)}M` 
+      : totalValue >= 1000 
+      ? `$${(totalValue / 1000).toFixed(0)}K`
+      : `$${totalValue.toLocaleString()}`;
+    
+    const wonProposals = proposals.filter(p => p.status === 'won').length;
+    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+    const winRate = submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
+    
+    const today = new Date();
+    const urgentProposals = filteredProposals.filter(p => {
+      if (!p.due_date) return false;
+      const dueDate = new Date(p.due_date);
+      const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntil >= 0 && daysUntil <= 7; // Due within 7 days
+    }).length;
+    
+    return {
+      totalValue: formattedValue,
+      winRate,
+      urgentCount: urgentProposals
+    };
+  }, [filteredProposals, proposals]);
 
   // Fetch automation rules
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
@@ -596,6 +624,31 @@ export default function Pipeline() {
             </div>
           </div>
         </div>
+
+        {/* Quick Stats Bar */}
+        {filteredProposals.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
+              <span className="text-green-700">Pipeline Value</span>
+            </div>
+            
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+              <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
+              <span className="text-blue-700">Win Rate</span>
+            </div>
+            
+            {pipelineStats.urgentCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-orange-600" />
+                <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
+                <span className="text-orange-700">Due This Week</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showHealthDashboard && (
