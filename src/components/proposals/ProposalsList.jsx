@@ -1,3 +1,4 @@
+
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -21,7 +22,7 @@ const STATUS_CONFIG = {
 
 const TYPE_EMOJIS = {
   RFP: '📄',
-  RFI: '📋',
+  RFI: '📝',
   SBIR: '💡',
   GSA: '🏛️',
   IDIQ: '📑',

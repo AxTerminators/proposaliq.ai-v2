@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +30,7 @@ import {
 
 const PROPOSAL_TYPES = [
   { value: 'RFP', label: 'RFP', icon: '📄', color: 'from-blue-400 to-blue-600' },
-  { value: 'RFI', label: 'RFI', icon: '📋', color: 'from-purple-400 to-purple-600' },
+  { value: 'RFI', label: 'RFI', icon: '📝', color: 'from-purple-400 to-purple-600' }, // Changed icon here
   { value: 'SBIR', label: 'SBIR', icon: '💡', color: 'from-green-400 to-green-600' },
   { value: 'GSA', label: 'GSA', icon: '🏛️', color: 'from-amber-400 to-amber-600' },
   { value: 'IDIQ', label: 'IDIQ', icon: '📑', color: 'from-indigo-400 to-indigo-600' },

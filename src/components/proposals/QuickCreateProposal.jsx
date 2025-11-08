@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,7 +49,7 @@ const PROPOSAL_TYPES = [
   { 
     value: 'RFI', 
     label: 'Request for Information (RFI)', 
-    icon: '📋',
+    icon: '📝',
     description: 'Information gathering with streamlined process',
     avgDuration: '15-30 days',
     complexity: 'Low'
