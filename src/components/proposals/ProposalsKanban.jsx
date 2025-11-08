@@ -104,7 +104,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       proposalsCount: proposals.length,
       hasConfig: !!kanbanConfig,
       columnsCount: kanbanConfig?.columns?.length || 0,
-      isLoadingConfig
+      isLoadingConfig,
+      boardType: kanbanConfig?.board_type,
+      isMasterBoard: kanbanConfig?.is_master_board
     });
   }, [proposals.length, kanbanConfig, isLoadingConfig]);
 
@@ -112,9 +114,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
+  // IMPROVED: More explicit legacy detection - only flag boards that are truly legacy
   const isLegacyConfig = useMemo(() => {
     if (!kanbanConfig?.columns) return false;
     
+    // NEW BOARDS: If board has board_type or is_master_board flag, it's NOT legacy
+    if (kanbanConfig.board_type || kanbanConfig.is_master_board === true || kanbanConfig.is_master_board === false) {
+      return false;
+    }
+    
+    // LEGACY DETECTION: Old boards that lack the new metadata
     const hasOldColumns = kanbanConfig.columns.some(col => 
       ['new', 'evaluate', 'qualify', 'gather', 'analyze', 'strategy', 'outline', 'drafting', 'review', 'final', 'submitted', 'won', 'lost', 'archived'].includes(col.id)
     );
@@ -123,6 +132,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       ['initiate', 'team', 'resources', 'solicit'].includes(col.id)
     );
     
+    // Only flag as legacy if it has old columns, no new columns, and lacks new board metadata
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
   }, [kanbanConfig]);
 
