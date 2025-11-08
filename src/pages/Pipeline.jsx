@@ -46,6 +46,8 @@ export default function Pipeline() {
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
+  const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
+  const [isCreatingBoard, setIsCreatingBoard] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -217,6 +219,45 @@ export default function Pipeline() {
     initialData: [],
   });
 
+  const handleCreateTypeSpecificBoard = async (boardType) => {
+    if (!organization?.id) {
+      alert("Organization not found");
+      return;
+    }
+
+    setIsCreatingBoard(true);
+    try {
+      const response = await base44.functions.invoke('createTypeSpecificBoard', {
+        organization_id: organization.id,
+        board_type: boardType.toLowerCase()
+      });
+
+      if (response.data.success) {
+        if (response.data.was_created) {
+          alert(`✅ ${response.data.message}`);
+          await refetchBoards();
+          
+          // Auto-select the newly created board
+          const updatedBoards = await base44.entities.KanbanConfig.filter({
+            organization_id: organization.id,
+            board_type: boardType.toLowerCase()
+          });
+          if (updatedBoards.length > 0) {
+            setSelectedBoardId(updatedBoards[0].id);
+          }
+        } else {
+          alert(`Board already exists!`);
+        }
+        setShowCreateBoardDialog(false);
+      }
+    } catch (error) {
+      console.error('Error creating board:', error);
+      alert('Error creating board: ' + error.message);
+    } finally {
+      setIsCreatingBoard(false);
+    }
+  };
+
   const handleCreateMasterBoard = async () => {
     if (!organization?.id) {
       alert("Organization not found");
@@ -225,7 +266,7 @@ export default function Pipeline() {
 
     setIsCreatingMasterBoard(true);
     try {
-      const response = await base44.functions.invoke('createMasterBoardConfig', {
+      const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
         organization_id: organization.id
       });
 
@@ -298,12 +339,12 @@ export default function Pipeline() {
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
     switch (boardType) {
-      case 'RFP': return "📋";
-      case 'RFI': return "❓";
-      case 'SBIR': return "🔬";
-      case 'GSA': return "🏛️";
-      case 'IDIQ': return "📑";
-      case 'STATE_LOCAL': return "🏢";
+      case 'rfp': return "📋";
+      case 'rfi': return "❓";
+      case 'sbir': return "🔬";
+      case 'gsa': return "🏛️";
+      case 'idiq': return "📑";
+      case 'state_local': return "🏢";
       default: return "📊";
     }
   };
@@ -472,9 +513,8 @@ export default function Pipeline() {
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
             
-            {/* Enhanced Board Switcher with Icons */}
             {allBoards.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {allBoards.map(board => {
                   const isSelected = selectedBoardId === board.id;
                   const icon = getBoardIcon(board.board_type, board.is_master_board);
@@ -497,12 +537,11 @@ export default function Pipeline() {
                   );
                 })}
                 
-                {/* Add Board Button */}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleCreateMasterBoard}
-                  disabled={isCreatingMasterBoard}
+                  onClick={() => setShowCreateBoardDialog(true)}
+                  disabled={isCreatingBoard}
                   className="gap-2"
                   title="Add new board"
                 >
@@ -703,6 +742,50 @@ export default function Pipeline() {
           
           <div className="flex justify-end pt-4 border-t">
             <Button variant="ghost" onClick={() => setShowNewProposalDialog(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create New Board Dialog */}
+      <Dialog open={showCreateBoardDialog} onOpenChange={setShowCreateBoardDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-blue-600" />
+              Create New Board
+            </DialogTitle>
+            <DialogDescription>
+              Choose which type of board you want to create
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
+            {[
+              { type: 'RFP', icon: '📋', name: 'RFP Board', description: '8-phase detailed workflow' },
+              { type: 'RFI', icon: '❓', name: 'RFI Board', description: 'Simplified information gathering' },
+              { type: 'SBIR', icon: '🔬', name: 'SBIR Board', description: 'Research-focused workflow' },
+              { type: 'GSA', icon: '🏛️', name: 'GSA Schedule Board', description: 'Schedule-specific process' },
+              { type: 'IDIQ', icon: '📑', name: 'IDIQ Board', description: 'Contract vehicle workflow' },
+              { type: 'STATE_LOCAL', icon: '🏢', name: 'State/Local Board', description: 'Non-federal process' },
+            ].map(option => (
+              <Button
+                key={option.type}
+                variant="outline"
+                className="h-auto flex flex-col items-start p-4 hover:bg-blue-50 hover:border-blue-300"
+                onClick={() => handleCreateTypeSpecificBoard(option.type)}
+                disabled={isCreatingBoard}
+              >
+                <div className="text-3xl mb-2">{option.icon}</div>
+                <div className="font-semibold text-sm text-slate-900 mb-1">{option.name}</div>
+                <div className="text-xs text-slate-600">{option.description}</div>
+              </Button>
+            ))}
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t">
+            <Button variant="ghost" onClick={() => setShowCreateBoardDialog(false)}>
               Cancel
             </Button>
           </div>
