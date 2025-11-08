@@ -1,11 +1,18 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
 import ProposalsTable from "@/components/proposals/ProposalsTable";
@@ -27,6 +34,7 @@ export default function Pipeline() {
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
+  const [selectedBoardId, setSelectedBoardId] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -86,6 +94,37 @@ export default function Pipeline() {
     retry: 1
   });
 
+  // Fetch ALL kanban boards for this organization
+  const { data: allBoards = [], isLoading: isLoadingBoards } = useQuery({
+    queryKey: ['all-kanban-boards', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      console.log('[Pipeline] Fetching all boards for org:', organization.id);
+      const boards = await base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        'board_name' // Sort by board_type to get master first
+      );
+      console.log('[Pipeline] Found boards:', boards.length);
+      return boards;
+    },
+    enabled: !!organization?.id,
+    staleTime: 60000,
+    retry: 1,
+  });
+
+  // Auto-select master board or first board on load
+  useEffect(() => {
+    if (allBoards.length > 0 && !selectedBoardId) {
+      const masterBoard = allBoards.find(b => b.is_master_board === true);
+      const boardToSelect = masterBoard || allBoards[0];
+      console.log('[Pipeline] Auto-selecting board:', boardToSelect.board_name);
+      setSelectedBoardId(boardToSelect.id);
+    }
+  }, [allBoards, selectedBoardId]);
+
+  // Get the selected board config
+  const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
+
   // Fetch proposals with better error handling and retry
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
@@ -103,28 +142,30 @@ export default function Pipeline() {
       return results || [];
     },
     enabled: !!organization?.id,
-    staleTime: 10000, // Reduced from 30000 to refresh more often
+    staleTime: 10000,
     retry: 3,
     retryDelay: 1000,
     initialData: [],
   });
 
-  // Fetch kanban config
-  const { data: kanbanConfig, isLoading: isLoadingConfig, refetch: refetchConfig } = useQuery({
-    queryKey: ['kanban-config', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return null;
-      const configs = await base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        '-created_date',
-        1
+  // Filter proposals based on selected board
+  const filteredProposals = useMemo(() => {
+    if (!selectedBoard || !proposals) return proposals;
+    
+    // Master board shows all proposals
+    if (selectedBoard.is_master_board) {
+      return proposals;
+    }
+    
+    // Type-specific boards filter by proposal_type_category
+    if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
+      return proposals.filter(p => 
+        selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
       );
-      return configs.length > 0 ? configs[0] : null;
-    },
-    enabled: !!organization?.id,
-    staleTime: 60000,
-    retry: 1,
-  });
+    }
+    
+    return proposals;
+  }, [proposals, selectedBoard]);
 
   // Fetch automation rules
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
@@ -147,9 +188,9 @@ export default function Pipeline() {
     if (organization?.id) {
       console.log('[Pipeline] Organization changed, refetching data');
       refetchProposals();
-      refetchConfig();
+      // No refetchConfig() needed here anymore, as allBoards handles board fetching.
     }
-  }, [organization?.id, refetchProposals, refetchConfig]);
+  }, [organization?.id, refetchProposals]);
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
@@ -170,7 +211,7 @@ export default function Pipeline() {
         await base44.functions.invoke('generateSampleData', {});
         alert('Sample data generated! Refreshing...');
         refetchProposals();
-        refetchConfig();
+        // No refetchConfig() needed here anymore. allBoards query will be re-evaluated.
       } catch (error) {
         console.error('Error generating sample data:', error);
         alert('Error generating sample data: ' + error.message);
@@ -261,7 +302,7 @@ export default function Pipeline() {
     );
   }
 
-  const showDataRecovery = proposals.length === 0 && !isLoadingProposals;
+  const showDataRecovery = filteredProposals.length === 0 && !isLoadingProposals;
   // Only show "Generate Sample Data" if organization is sample data
   const canGenerateSampleData = organization?.is_sample_data === true;
 
@@ -304,10 +345,33 @@ export default function Pipeline() {
 
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
-            <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
+              <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
+            </div>
+            
+            {/* Board Switcher */}
+            {allBoards.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-slate-500" />
+                <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select board..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allBoards.map(board => (
+                      <SelectItem key={board.id} value={board.id}>
+                        {board.is_master_board && "⭐ "}
+                        {board.board_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
+          
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
@@ -389,14 +453,14 @@ export default function Pipeline() {
       )}
 
       <div className="flex-1 overflow-hidden">
-        {isLoadingProposals || isLoadingConfig ? (
+        {isLoadingProposals || isLoadingBoards ? (
           <div className="flex items-center justify-center h-full p-6">
             <Card className="max-w-md border-none shadow-xl">
               <CardContent className="p-8 text-center">
                 <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">Loading your pipeline...</h3>
                 <p className="text-sm text-slate-600">
-                  {isLoadingConfig ? "Setting up your board..." : "Loading proposals..."}
+                  {isLoadingBoards ? "Loading boards..." : "Loading proposals..."}
                 </p>
               </CardContent>
             </Card>
@@ -407,7 +471,7 @@ export default function Pipeline() {
               <div className="p-6 space-y-6 overflow-y-auto max-h-full">
                 <AIWorkflowSuggestions 
                   organization={organization} 
-                  proposals={proposals}
+                  proposals={filteredProposals}
                   automationRules={automationRules}
                 />
                 <SmartAutomationEngine organization={organization} />
@@ -416,8 +480,8 @@ export default function Pipeline() {
 
             {!isMobile && showAnalytics && (
               <div className="p-6 space-y-6 overflow-y-auto max-h-full">
-                <SnapshotGenerator organization={organization} proposals={proposals} />
-                <PipelineAnalytics organization={organization} proposals={proposals} />
+                <SnapshotGenerator organization={organization} proposals={filteredProposals} />
+                <PipelineAnalytics organization={organization} proposals={filteredProposals} />
               </div>
             )}
 
@@ -425,29 +489,29 @@ export default function Pipeline() {
               <>
                 {isMobile ? (
                   <div className="p-4">
-                    <MobileKanbanView proposals={proposals} columns={kanbanConfig?.columns || []} />
+                    <MobileKanbanView proposals={filteredProposals} columns={selectedBoard?.columns || []} />
                   </div>
                 ) : (
                   <>
                     {viewMode === "kanban" && (
                       <ProposalsKanban 
-                        proposals={proposals} 
+                        proposals={filteredProposals} 
                         organization={organization} 
                         user={user}
+                        kanbanConfig={selectedBoard}
                         onRefresh={() => {
                           refetchProposals();
-                          refetchConfig();
                         }}
                       />
                     )}
                     {viewMode === "list" && (
                       <div className="p-6">
-                        <ProposalsList proposals={proposals} organization={organization} />
+                        <ProposalsList proposals={filteredProposals} organization={organization} />
                       </div>
                     )}
                     {viewMode === "table" && (
                       <div className="p-6">
-                        <ProposalsTable proposals={proposals} organization={organization} />
+                        <ProposalsTable proposals={filteredProposals} organization={organization} />
                       </div>
                     )}
                   </>
