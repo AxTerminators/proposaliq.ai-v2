@@ -38,7 +38,7 @@ import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
 import BoardAnalytics from "@/components/proposals/BoardAnalytics";
 import SavedViews from "@/components/proposals/SavedViews";
 import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
-import GlobalSearch from "@/components/global/GlobalSearch";
+import GlobalSearch from "@/components/proposals/GlobalSearch";
 
 export default function Pipeline() {
   const navigate = useNavigate();

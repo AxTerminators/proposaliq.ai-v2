@@ -43,11 +43,15 @@ export default function KanbanColumn({
   user,
   dragHandleProps,
   onCreateProposal,
+  selectedProposalIds = [],
+  onToggleProposalSelection = () => {}
 }) {
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(column.label);
   const inputRef = useRef(null);
+
+  const isSelectionMode = selectedProposalIds.length > 0;
 
   // Calculate total dollar value in this column
   const totalValue = useMemo(() => {
@@ -114,7 +118,10 @@ export default function KanbanColumn({
     <div
       ref={provided.innerRef}
       {...provided.droppableProps}
-      className="flex flex-col h-full w-80 flex-shrink-0"
+      className={cn(
+        "flex flex-col h-full w-80 flex-shrink-0 transition-all",
+        snapshot.isDraggingOver && "ring-2 ring-blue-400"
+      )}
     >
       {/* Column Header - Single Row Layout with Consistent Height */}
       <div 
@@ -302,52 +309,41 @@ export default function KanbanColumn({
             </div>
           )}
 
-          {/* Empty State */}
-          {proposalCount === 0 ? (
-            <button 
-              onClick={() => onCreateProposal && onCreateProposal(column)}
-              className="w-full p-8 hover:bg-slate-100 rounded-lg transition-all group border-2 border-dashed border-slate-300 hover:border-blue-400"
-              title="Click to create a new proposal"
-            >
-              <FileText className="w-12 h-12 text-slate-300 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
-              <p className="text-sm font-medium text-slate-500 group-hover:text-blue-600 transition-colors">
-                No proposals yet
-              </p>
-              <p className="text-xs text-slate-400 mt-1 group-hover:text-blue-500 transition-colors">
-                Click to add one
-              </p>
-            </button>
-          ) : null }
-
-          {proposalCount > 0 && (
-            <>
-              {proposals.map((proposal, index) => (
-                <Draggable
-                  key={proposal.id}
-                  draggableId={proposal.id}
-                  index={index}
-                  type="card"
-                  isDragDisabled={!canDragFromHere}
-                >
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      style={provided.draggableProps.style}
-                    >
-                      <KanbanCard
-                        proposal={proposal}
-                        isDragging={snapshot.isDragging}
-                        isDragDisabled={!canDragFromHere}
-                        column={column}
-                        onCardClick={onCardClick}
-                      />
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-            </>
+          {proposals.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <p className="text-sm">No proposals</p>
+              {/* The original 'create proposal' button was here,
+                  but the outline suggests a simpler "No proposals" text.
+                  If onCreateProposal functionality is still desired for empty state,
+                  it needs to be explicitly re-added or the new empty state
+                  is a simplification as requested by the outline.
+                  For now, I'll keep the simplified empty state from the outline.
+              */}
+            </div>
+          ) : (
+            proposals.map((proposal, index) => (
+              <Draggable
+                key={proposal.id}
+                draggableId={proposal.id}
+                index={index}
+                type="card"
+                isDragDisabled={!canDragFromHere}
+              >
+                {(providedCard, snapshotCard) => (
+                  <KanbanCard
+                    proposal={proposal}
+                    provided={providedCard}
+                    snapshot={snapshotCard}
+                    onClick={onCardClick}
+                    organization={organization}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedProposalIds.includes(proposal.id)}
+                    onToggleSelection={onToggleProposalSelection}
+                    column={column}
+                  />
+                )}
+              </Draggable>
+            ))
           )}
           {provided.placeholder}
         </div>
