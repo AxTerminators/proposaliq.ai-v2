@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,22 +28,23 @@ import { cn } from "@/lib/utils";
 
 const BOARD_TYPE_ICONS = {
   'rfp': '📋',
-  'rfi': '📝', // Changed from '❓' to '📝'
+  'rfi': '📝',
   'sbir': '🔬',
   'gsa': '🏛️',
   'idiq': '📑',
   'state_local': '🏢',
   'custom': '📊',
-  'master': '⭐'
+  'master': '⭐',
+  'rfp_15_column': '🎯'
 };
 
 export default function QuickBoardCreation({ isOpen, onClose, organization, onBoardCreated }) {
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [boardName, setBoardName] = useState("");
-  const [step, setStep] = 1);
+  const [step, setStep] = useState(1);
 
-  const BOARD_TEMPLATES = [
+  const SPECIAL_BOARDS = [
     {
       id: 'rfp_15_column',
       name: '15-Column RFP Workflow',
@@ -55,9 +55,46 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       features: ['11 workflow stages', 'Mandatory checklists', 'AI-powered actions', 'Independent from builder'],
       recommendedFor: 'Teams wanting maximum control and visibility',
       estimatedDuration: '60-90 days',
-      complexity: 'Advanced'
+      complexity: 'Advanced',
+      proposal_type_category: 'RFP'
     }
   ];
+
+  const createSpecialBoardMutation = useMutation({
+    mutationFn: async ({ functionName }) => {
+      const response = await base44.functions.invoke(functionName, {
+        organization_id: organization.id
+      });
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to create board');
+      }
+      
+      return response.data;
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      
+      // Fetch the newly created board
+      const boards = await base44.entities.KanbanConfig.filter({
+        id: data.board_id
+      });
+      
+      if (boards.length > 0 && onBoardCreated) {
+        onBoardCreated(boards[0]);
+      }
+      
+      setSelectedTemplate(null);
+      setBoardName("");
+      setStep(1);
+      onClose();
+      
+      alert(`✅ ${data.message}`);
+    },
+    onError: (error) => {
+      alert(`Error creating board: ${error.message}`);
+    }
+  });
 
   // Fetch available templates
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -80,7 +117,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
     enabled: isOpen && !!organization?.id,
   });
 
-  // Create board mutation
+  // Create board mutation (for template-based boards)
   const createBoardMutation = useMutation({
     mutationFn: async ({ template, customBoardName }) => {
       const workflowConfig = typeof template.workflow_config === 'string'
@@ -120,7 +157,6 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
         onBoardCreated(newBoard);
       }
       
-      // Reset state
       setSelectedTemplate(null);
       setBoardName("");
       setStep(1);
@@ -130,7 +166,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   const handleTemplateSelect = (template) => {
     setSelectedTemplate(template);
-    setBoardName(template.template_name);
+    setBoardName(template.template_name || template.name);
     setStep(2);
   };
 
@@ -140,6 +176,15 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       return;
     }
 
+    // Check if this is a special board (with function)
+    if (selectedTemplate.functionName) {
+      createSpecialBoardMutation.mutate({
+        functionName: selectedTemplate.functionName
+      });
+      return;
+    }
+
+    // Template-based board creation
     if (!boardName.trim()) {
       alert("Please enter a board name");
       return;
@@ -166,9 +211,12 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   const workflowConfig = selectedTemplate && (() => {
     try {
-      return typeof selectedTemplate.workflow_config === 'string'
-        ? JSON.parse(selectedTemplate.workflow_config)
-        : selectedTemplate.workflow_config;
+      if (selectedTemplate.workflow_config) {
+        return typeof selectedTemplate.workflow_config === 'string'
+          ? JSON.parse(selectedTemplate.workflow_config)
+          : selectedTemplate.workflow_config;
+      }
+      return { columns: [] };
     } catch {
       return { columns: [] };
     }
@@ -176,6 +224,9 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   const columns = workflowConfig?.columns || [];
   const nonTerminalColumns = columns.filter(col => !col.is_terminal);
+
+  // Combine special boards with templates
+  const allOptions = [...SPECIAL_BOARDS, ...templates];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
@@ -188,7 +239,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
           <DialogDescription>
             {step === 1 
               ? "Choose a workflow template to create a new board" 
-              : "Customize your new board"}
+              : "Review and create your new board"}
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +250,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
                 <p className="text-slate-600">Loading templates...</p>
               </div>
-            ) : templates.length === 0 ? (
+            ) : allOptions.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">No Templates Available</h3>
@@ -207,8 +258,9 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {templates.map(template => {
+                {allOptions.map(template => {
                   const isSystem = template.template_type === 'system';
+                  const isSpecial = !!template.functionName;
                   
                   return (
                     <Card
@@ -218,10 +270,15 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
-                          <div className="text-3xl">{template.icon_emoji || BOARD_TYPE_ICONS[template.board_type] || '📋'}</div>
+                          <div className="text-3xl">{template.icon || template.icon_emoji || BOARD_TYPE_ICONS[template.boardType || template.board_type] || '📋'}</div>
                           <div className="flex flex-col gap-1 items-end">
+                            {isSpecial && (
+                              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs">
+                                ⚡ Featured
+                              </Badge>
+                            )}
                             <Badge variant={isSystem ? "default" : "outline"} className="text-xs">
-                              {isSystem ? 'System' : 'Custom'}
+                              {isSystem ? 'System' : isSpecial ? 'Special' : 'Custom'}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
                               {template.proposal_type_category}
@@ -229,29 +286,32 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                           </div>
                         </div>
                         
-                        <h3 className="font-bold text-slate-900 mb-2">{template.template_name}</h3>
+                        <h3 className="font-bold text-slate-900 mb-2">{template.name || template.template_name}</h3>
                         
                         <p className="text-xs text-slate-600 mb-3 line-clamp-2">
                           {template.description || 'No description'}
                         </p>
                         
+                        {template.features && (
+                          <div className="mb-3 space-y-1">
+                            {template.features.slice(0, 2).map((feature, idx) => (
+                              <div key={idx} className="flex items-center gap-1 text-xs text-slate-600">
+                                <Check className="w-3 h-3 text-green-600" />
+                                <span>{feature}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
                         <div className="flex flex-wrap gap-2 text-xs">
-                          <Badge variant="outline" className="gap-1">
-                            <Layers className="w-3 h-3" />
-                            {(() => {
-                              try {
-                                const config = typeof template.workflow_config === 'string'
-                                  ? JSON.parse(template.workflow_config)
-                                  : template.workflow_config;
-                                return config?.columns?.length || 0;
-                              } catch {
-                                return 0;
-                              }
-                            })()} steps
-                          </Badge>
+                          {template.complexity && (
+                            <Badge variant="outline" className="capitalize">
+                              {template.complexity}
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="gap-1">
                             <Clock className="w-3 h-3" />
-                            ~{template.estimated_duration_days || 30}d
+                            {template.estimatedDuration || `~${template.estimated_duration_days || 30}d`}
                           </Badge>
                           {template.usage_count > 0 && (
                             <Badge className="bg-green-100 text-green-700 gap-1">
@@ -275,58 +335,65 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  <div className="text-4xl">{selectedTemplate.icon_emoji || '📋'}</div>
+                  <div className="text-4xl">{selectedTemplate.icon || selectedTemplate.icon_emoji || '📋'}</div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.template_name}</h3>
+                    <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.name || selectedTemplate.template_name}</h3>
                     <p className="text-sm text-slate-600 mb-2">{selectedTemplate.description}</p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Badge variant="outline">{selectedTemplate.proposal_type_category}</Badge>
-                      <Badge variant="outline">{nonTerminalColumns.length} workflow steps</Badge>
-                      <Badge variant="outline">~{selectedTemplate.estimated_duration_days || 30} days</Badge>
+                      {selectedTemplate.complexity && (
+                        <Badge variant="outline" className="capitalize">{selectedTemplate.complexity}</Badge>
+                      )}
+                      <Badge variant="outline">
+                        {selectedTemplate.estimatedDuration || `~${selectedTemplate.estimated_duration_days || 30} days`}
+                      </Badge>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Workflow Preview */}
-            <div>
-              <Label className="text-base font-semibold mb-3 block">Workflow Preview</Label>
-              <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-200">
-                <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                  {nonTerminalColumns.slice(0, 6).map((col, idx) => (
-                    <React.Fragment key={col.id}>
-                      <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                        <div className={cn("w-3 h-3 rounded", `bg-gradient-to-r ${col.color}`)} />
-                        <div className="text-xs font-medium text-slate-700 whitespace-nowrap">
-                          {col.label}
+            {/* Workflow Preview (only if not special board) */}
+            {!selectedTemplate.functionName && nonTerminalColumns.length > 0 && (
+              <div>
+                <Label className="text-base font-semibold mb-3 block">Workflow Preview</Label>
+                <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-200">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                    {nonTerminalColumns.slice(0, 6).map((col, idx) => (
+                      <React.Fragment key={col.id}>
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          <div className={cn("w-3 h-3 rounded", `bg-gradient-to-r ${col.color}`)} />
+                          <div className="text-xs font-medium text-slate-700 whitespace-nowrap">
+                            {col.label}
+                          </div>
                         </div>
-                      </div>
-                      {idx < Math.min(nonTerminalColumns.length, 6) - 1 && (
-                        <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      )}
-                    </React.Fragment>
-                  ))}
-                  {nonTerminalColumns.length > 6 && (
-                    <span className="text-xs text-slate-500 ml-2">+{nonTerminalColumns.length - 6} more</span>
-                  )}
+                        {idx < Math.min(nonTerminalColumns.length, 6) - 1 && (
+                          <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        )}
+                      </React.Fragment>
+                    ))}
+                    {nonTerminalColumns.length > 6 && (
+                      <span className="text-xs text-slate-500 ml-2">+{nonTerminalColumns.length - 6} more</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Customize Board Name */}
-            <div className="space-y-2">
-              <Label htmlFor="board_name">Board Name *</Label>
-              <Input
-                id="board_name"
-                value={boardName}
-                onChange={(e) => setBoardName(e.target.value)}
-                placeholder="e.g., My RFP Workflow Board"
-              />
-              <p className="text-xs text-slate-500">
-                This name will appear in your board switcher
-              </p>
-            </div>
+            {/* Features (for special boards) */}
+            {selectedTemplate.features && (
+              <div>
+                <Label className="text-base font-semibold mb-3 block">Features</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedTemplate.features.map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm text-slate-700">
+                      <Check className="w-4 h-4 text-green-600" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Info Box */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -361,10 +428,10 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             {step === 2 && (
               <Button
                 onClick={handleCreateBoard}
-                disabled={createBoardMutation.isPending || !boardName.trim()}
+                disabled={createBoardMutation.isPending || createSpecialBoardMutation.isPending}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
-                {createBoardMutation.isPending ? (
+                {(createBoardMutation.isPending || createSpecialBoardMutation.isPending) ? (
                   <>
                     <div className="animate-spin mr-2">⏳</div>
                     Creating Board...
