@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -46,7 +47,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_solicitation_upload': {
     type: 'navigate',
-    path: 'proposals/SolicitationUpload',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Upload & Analyze Solicitation'
   },
   
@@ -55,7 +56,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_evaluation': {
     type: 'navigate',
-    path: 'proposals/StrategicEvaluation',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Strategic Evaluation'
   },
   
@@ -64,7 +65,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_win_strategy': {
     type: 'navigate',
-    path: 'proposals/WinStrategy',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Develop Win Strategy'
   },
   
@@ -73,7 +74,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_content_planning': {
     type: 'navigate',
-    path: 'proposals/ContentPlanning',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Plan Content Outline'
   },
   'open_content_planning_modal': {
@@ -87,12 +88,12 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_write_content': {
     type: 'navigate',
-    path: 'proposals/WriteContent',
+    path: 'ProposalBuilder', // FIXED: Using existing page instead of non-existent proposals/WriteContent
     label: 'Write Proposal Content'
   },
   'navigate_compliance_check': {
     type: 'navigate',
-    path: 'proposals/ComplianceCheck',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Compliance Check'
   },
   
@@ -101,7 +102,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_pricing_build': {
     type: 'navigate',
-    path: 'proposals/PricingBuild',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Build Pricing & CLINs'
   },
   
@@ -110,7 +111,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_red_team': {
     type: 'navigate',
-    path: 'proposals/RedTeamReview',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Red Team Review'
   },
   
@@ -124,7 +125,7 @@ export const ACTION_REGISTRY = {
   },
   'navigate_submission_ready': {
     type: 'navigate',
-    path: 'proposals/SubmissionReady',
+    path: 'ProposalBuilder', // FIXED: Using existing page
     label: 'Submission Checklist'
   }
 };
