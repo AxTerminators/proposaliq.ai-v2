@@ -242,6 +242,12 @@ function LayoutContent({ children }) {
         .animate-ping-slow {
           animation: ping-slow 10s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
+
+        /* FIX: Ensure sub-menu items are clickable */
+        .collapsible-submenu-item {
+          pointer-events: auto !important;
+          cursor: pointer !important;
+        }
       `}</style>
 
       {/* Desktop Sidebar */}
@@ -341,6 +347,10 @@ function LayoutContent({ children }) {
                             sidebarCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
                           )}
                           title={sidebarCollapsed ? item.title : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsOpen(!isOpen);
+                          }}
                         >
                           <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} title={item.title} />
                           {!sidebarCollapsed && (
@@ -356,15 +366,18 @@ function LayoutContent({ children }) {
                       </CollapsibleTrigger>
                       {!sidebarCollapsed && (
                         <CollapsibleContent>
-                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5">
+                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5 py-1">
                             {subItems.map((subItem) => (
                               <Link
                                 key={subItem.title}
                                 to={subItem.url}
                                 className={cn(
-                                  "flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg",
+                                  "collapsible-submenu-item flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg",
                                   location.pathname === subItem.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
                                 )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
                               >
                                 <subItem.icon className="w-4 h-4" title={subItem.title} />
                                 <span className="text-sm">{subItem.title}</span>
