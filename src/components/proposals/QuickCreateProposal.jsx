@@ -245,8 +245,15 @@ export default function QuickCreateProposal({
       
       onClose();
       
-      // Navigate to proposal builder
-      navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+      // For 15-column workflow, stay on Pipeline
+      // For legacy workflows, go to ProposalBuilder
+      if (proposalType === 'RFP_15_COLUMN') {
+        // Just close and refresh - user stays on Pipeline
+        navigate(createPageUrl("Pipeline"));
+      } else {
+        // Navigate to proposal builder for other types
+        navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+      }
     }
   });
 
