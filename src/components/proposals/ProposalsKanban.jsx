@@ -26,7 +26,8 @@ import {
   HelpCircle,
   CheckCircle2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Star // Added Star icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -1020,7 +1021,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900">Proposal Board</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-900">
+                {kanbanConfig?.board_name || 'Proposal Board'}
+              </h2>
+              {kanbanConfig?.is_master_board && (
+                <Badge className="bg-amber-100 text-amber-700">
+                  <Star className="w-3 h-3 mr-1 fill-amber-700" />
+                  Master Board
+                </Badge>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 onClick={() => setShowGlobalSearch(true)}
@@ -1041,7 +1052,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 size="sm"
               >
                 <Settings className="w-4 h-4 mr-2" />
-                Configure Board
+                Configure
               </Button>
             </div>
           </div>

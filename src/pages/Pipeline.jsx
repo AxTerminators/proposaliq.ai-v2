@@ -602,6 +602,9 @@ export default function Pipeline() {
       case 'gsa': return "🏛️";
       case 'idiq': return "📑";
       case 'state_local': return "🏢";
+      case 'template_workspace': return "📂";
+      case 'custom_proposal': return "🎨";
+      case 'custom_project': return "🛠️";
       default: return "📊";
     }
   };
@@ -844,27 +847,24 @@ export default function Pipeline() {
                   size="sm"
                   onClick={() => setShowQuickBoardCreate(true)}
                   className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
-                  title="Quick create board from template"
+                  title="Create a new board from templates"
                 >
                   <Zap className="w-4 h-4 text-blue-600" />
-                  <span className="hidden sm:inline">Quick Create</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBoardManager(true)}
-                  className="gap-2"
-                  title="Manage boards"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Manage Boards</span>
+                  <Plus className="w-3 h-3 text-blue-600" />
                 </Button>
               </div>
             )}
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+            <Button
+              onClick={handleCreateProposal}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Proposal
+            </Button>
+            
             {!isMobile && (
               <>
                 <Button
@@ -874,7 +874,7 @@ export default function Pipeline() {
                   className="h-9"
                 >
                   <SearchIcon className="w-4 h-4 mr-2" />
-                  Global Search
+                  Search
                 </Button>
                 <SavedViews
                   organization={organization}
@@ -889,7 +889,7 @@ export default function Pipeline() {
                   className="h-9"
                 >
                   <Activity className="w-4 h-4 mr-2" />
-                  {showActivityFeed ? 'Hide' : 'Show'} Activity
+                  Activity
                 </Button>
                 <Button
                   variant={showBoardAnalytics ? "default" : "outline"}
@@ -898,7 +898,7 @@ export default function Pipeline() {
                   className="h-9"
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
-                  {showBoardAnalytics ? 'Hide' : 'Show'} Board Stats
+                  Stats
                 </Button>
                 <Button
                   variant={showMultiBoardAnalytics ? "default" : "outline"}
@@ -907,27 +907,7 @@ export default function Pipeline() {
                   className="h-9"
                 >
                   <Layers className="w-4 h-4 mr-2" />
-                  {showMultiBoardAnalytics ? 'Hide' : 'Show'} Portfolio
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleMigrateProposals}
-                  disabled={isMigrating}
-                  size="sm"
-                  className="h-9"
-                  title="Categorize existing proposals by type"
-                >
-                  {isMigrating ? (
-                    <>
-                      <div className="animate-spin mr-2">⏳</div>
-                      Migrating...
-                    </>
-                  ) : (
-                    <>
-                      <Database className="w-4 h-4 mr-2" />
-                      Categorize Proposals
-                    </>
-                  )}
+                  Portfolio
                 </Button>
                 <Button
                   variant={showAutomation ? "default" : "outline"}
@@ -936,7 +916,7 @@ export default function Pipeline() {
                   className="h-9"
                 >
                   <Zap className="w-4 h-4 mr-2" />
-                  {showAutomation ? 'Hide' : 'Show'} Automation
+                  Automation
                 </Button>
                 <Button
                   variant={showAnalytics ? "default" : "outline"}
@@ -945,7 +925,7 @@ export default function Pipeline() {
                   className="h-9"
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
-                  {showAnalytics ? 'Hide' : 'Show'} Analytics
+                  Analytics
                 </Button>
               </>
             )}
