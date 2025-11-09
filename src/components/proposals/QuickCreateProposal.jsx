@@ -180,30 +180,49 @@ export default function QuickCreateProposal({
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[QuickCreate] 🚀 STARTING PROPOSAL CREATION');
+      console.log('[QuickCreate] Type:', proposalType);
+      console.log('[QuickCreate] Existing board:', existingBoard?.board_name || 'NONE');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
       let boardConfig = existingBoard;
       
       // If no board exists and this is a 15-column board, create it via function
       if (!boardConfig && proposalType === 'RFP_15_COLUMN') {
-        console.log('[QuickCreate] 🎯 Creating 15-column board...');
+        console.log('[QuickCreate] 📋 No existing board, creating 15-column board...');
         const response = await base44.functions.invoke('create15ColumnRFPBoard', {
           organization_id: organization.id
         });
         
+        console.log('[QuickCreate] Board creation response:', response.data);
+        
         if (response.data.success && response.data.board_id) {
-          console.log('[QuickCreate] ✅ 15-column board created:', response.data.board_id);
+          console.log('[QuickCreate] ✅ Board created, fetching config...');
           
           // Fetch the newly created board
           const boards = await base44.entities.KanbanConfig.filter({
             id: response.data.board_id
           });
+          
           if (boards.length > 0) {
             boardConfig = boards[0];
-            console.log('[QuickCreate] 📋 Board config loaded:', boardConfig.board_name);
+            console.log('[QuickCreate] ✅ Board config loaded:', {
+              id: boardConfig.id,
+              name: boardConfig.board_name,
+              type: boardConfig.board_type,
+              columnsCount: boardConfig.columns?.length
+            });
+          } else {
+            console.error('[QuickCreate] ❌ Board created but not found in query!');
           }
+        } else {
+          console.error('[QuickCreate] ❌ Board creation failed:', response.data);
         }
       }
       // If no board exists for other types, create one from template
       else if (!boardConfig && selectedTemplate) {
+        console.log('[QuickCreate] Creating board from template:', selectedTemplate.template_name);
         const workflowConfig = typeof selectedTemplate.workflow_config === 'string'
           ? JSON.parse(selectedTemplate.workflow_config)
           : selectedTemplate.workflow_config;
@@ -226,8 +245,28 @@ export default function QuickCreateProposal({
         });
       }
 
-      // CRITICAL FIX: Determine the first non-terminal column to place the proposal
-      // Initialize proposalCreateData with common fields and default phase/status
+      if (!boardConfig) {
+        console.error('[QuickCreate] ❌ CRITICAL: No board config available!');
+        throw new Error('No board configuration available');
+      }
+
+      // Determine the first non-terminal column to place the proposal
+      const firstColumn = boardConfig.columns
+        .filter(col => !col.is_terminal)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+
+      if (!firstColumn) {
+        console.error('[QuickCreate] ❌ No first column found!');
+        throw new Error('No workflow columns found in board');
+      }
+
+      console.log('[QuickCreate] 📍 First column:', {
+        id: firstColumn.id,
+        label: firstColumn.label,
+        type: firstColumn.type,
+        phase_mapping: firstColumn.phase_mapping
+      });
+
       let proposalCreateData = {
         ...data,
         organization_id: organization.id,
@@ -235,86 +274,103 @@ export default function QuickCreateProposal({
         workflow_template_id: selectedTemplate?.id || null,
         manual_order: 0,
         is_sample_data: false,
-        // Default values, will be overridden if a valid first column is found
         current_phase: 'phase1', 
         status: 'evaluating',
         custom_workflow_stage_id: null,
-        current_stage_checklist_status: {}, // Initialize empty
+        current_stage_checklist_status: {},
         action_required: false,
         action_required_description: null
       };
 
-      if (boardConfig?.columns) {
-        // Find the first workflow column (not terminal)
-        const firstColumn = boardConfig.columns
-          .filter(col => !col.is_terminal)
-          .sort((a, b) => (a.order || 0) - (b.order || 0))[0];
-
-        if (firstColumn) {
-          console.log('[QuickCreate] 🎯 Placing proposal in first column:', firstColumn.label);
-
-          // Set the proposal to start in the first column based on column type
-          if (firstColumn.type === 'custom_stage') {
-            proposalCreateData.custom_workflow_stage_id = firstColumn.id;
-            proposalCreateData.current_phase = null;
-            proposalCreateData.status = 'in_progress';
-          } else if (firstColumn.type === 'locked_phase') {
-            proposalCreateData.custom_workflow_stage_id = firstColumn.id; // Store column ID
-            proposalCreateData.current_phase = firstColumn.phase_mapping;
-            proposalCreateData.status = firstColumn.default_status_mapping || 'evaluating';
-          } else if (firstColumn.type === 'default_status') {
-            proposalCreateData.status = firstColumn.default_status_mapping;
-            proposalCreateData.current_phase = null;
-            proposalCreateData.custom_workflow_stage_id = null;
-          } else if (firstColumn.type === 'master_status') {
-            proposalCreateData.status = firstColumn.status_mapping?.[0] || 'evaluating';
-            proposalCreateData.current_phase = null;
-            proposalCreateData.custom_workflow_stage_id = null;
-          }
-
-          // Initialize checklist status for the first column
-          proposalCreateData.current_stage_checklist_status = {
-            [firstColumn.id]: {}
-          };
-
-          // Set action_required flag if first column has required items
-          const hasRequiredItems = firstColumn.checklist_items?.some(item => item.required);
-          proposalCreateData.action_required = hasRequiredItems;
-          proposalCreateData.action_required_description = hasRequiredItems 
-            ? `Complete required items in ${firstColumn.label}` 
-            : null;
-        }
+      if (firstColumn.type === 'custom_stage') {
+        proposalCreateData.custom_workflow_stage_id = firstColumn.id;
+        proposalCreateData.current_phase = null;
+        proposalCreateData.status = 'in_progress';
+      } else if (firstColumn.type === 'locked_phase') {
+        proposalCreateData.custom_workflow_stage_id = firstColumn.id;
+        proposalCreateData.current_phase = firstColumn.phase_mapping;
+        proposalCreateData.status = firstColumn.default_status_mapping || 'evaluating';
+      } else if (firstColumn.type === 'default_status') {
+        proposalCreateData.status = firstColumn.default_status_mapping;
+        proposalCreateData.current_phase = null;
+        proposalCreateData.custom_workflow_stage_id = null;
+      } else if (firstColumn.type === 'master_status') {
+        proposalCreateData.status = firstColumn.status_mapping?.[0] || 'evaluating';
+        proposalCreateData.current_phase = null;
+        proposalCreateData.custom_workflow_stage_id = null;
       }
 
-      // Create the proposal with proper column assignment
+      proposalCreateData.current_stage_checklist_status = {
+        [firstColumn.id]: {}
+      };
+
+      const hasRequiredItems = firstColumn.checklist_items?.some(item => item.required);
+      proposalCreateData.action_required = hasRequiredItems;
+      proposalCreateData.action_required_description = hasRequiredItems 
+        ? `Complete required items in ${firstColumn.label}` 
+        : null;
+
+      console.log('[QuickCreate] 💾 Creating proposal with data:', {
+        type: proposalCreateData.proposal_type_category,
+        custom_workflow_stage_id: proposalCreateData.custom_workflow_stage_id,
+        current_phase: proposalCreateData.current_phase,
+        status: proposalCreateData.status
+      });
+
       const proposal = await base44.entities.Proposal.create(proposalCreateData);
-      console.log('[QuickCreate] ✅ Proposal created:', proposal.id, proposal.proposal_name);
+      
+      console.log('[QuickCreate] ✅ Proposal created:', {
+        id: proposal.id,
+        name: proposal.proposal_name,
+        type: proposal.proposal_type_category
+      });
 
       return { proposal, boardConfig };
     },
     onSuccess: async ({ proposal, boardConfig }) => {
-      console.log('[QuickCreate] 🎉 Mutation success, invalidating queries...');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[QuickCreate] 🎉 MUTATION SUCCESS');
+      console.log('[QuickCreate] Proposal:', proposal.proposal_name);
+      console.log('[QuickCreate] Board:', boardConfig.board_name);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      // CRITICAL: Invalidate AND refetch boards to ensure Pipeline has the new board
+      // Force refetch of boards to ensure Pipeline has latest
+      console.log('[QuickCreate] 🔄 Invalidating and refetching boards...');
       await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
-      await queryClient.refetchQueries({ queryKey: ['all-kanban-boards'] });
+      
+      // Wait for refetch to complete
+      await queryClient.refetchQueries({ 
+        queryKey: ['all-kanban-boards'],
+        exact: false
+      });
+      
+      console.log('[QuickCreate] ✅ Boards refetched');
       
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       
       onClose(); // Close the creation dialog
       
+      console.log('[QuickCreate] 🚀 Calling onSuccess callback...');
+      
       if (onSuccess) {
-        // For 15-column workflow, signal to open BasicInfoModal first
+        // For 15-column workflow, signal to open BasicInfoModal
         if (proposalType === 'RFP_15_COLUMN') {
-          console.log('[QuickCreate] 🚀 Calling onSuccess with BasicInfoModal for 15-column workflow');
-          // Pass board config back so Pipeline knows which board was created/used
+          console.log('[QuickCreate] 🎯 Triggering onSuccess for 15-column with BasicInfoModal');
           onSuccess(proposal, 'BasicInfoModal', boardConfig);
         } else {
           // For legacy workflows, navigate to ProposalBuilder
+          console.log('[QuickCreate] 📝 Triggering onSuccess for legacy workflow');
           onSuccess(proposal);
           navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
         }
       }
+    },
+    onError: (error) => {
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('[QuickCreate] ❌ CREATION FAILED');
+      console.error('[QuickCreate] Error:', error.message);
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      alert('Failed to create proposal: ' + error.message);
     }
   });
 

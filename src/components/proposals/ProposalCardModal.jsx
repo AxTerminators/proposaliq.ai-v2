@@ -158,8 +158,17 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   // NEW: Auto-open the initial modal if specified
   useEffect(() => {
     if (isOpen && initialModalToOpen) {
-      console.log('[ProposalCardModal] 🚀 Auto-opening initial modal:', initialModalToOpen);
-      setActiveModalName(initialModalToOpen);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[ProposalCardModal] 🚀 AUTO-OPENING INITIAL MODAL');
+      console.log('[ProposalCardModal] Modal name:', initialModalToOpen);
+      console.log('[ProposalCardModal] Proposal:', proposal.proposal_name);
+      console.log('[ProposalCardModal] KanbanConfig:', kanbanConfig?.board_name);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      // Small delay to ensure modal has rendered
+      setTimeout(() => {
+        setActiveModalName(initialModalToOpen);
+      }, 100);
     }
   }, [isOpen, initialModalToOpen]);
 
