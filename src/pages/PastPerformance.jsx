@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -5,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
+import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -43,6 +45,8 @@ export default function PastPerformance() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [projectToPromote, setProjectToPromote] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -97,6 +101,38 @@ export default function PastPerformance() {
   const handleCloseForm = () => {
     setShowAddForm(false);
     setEditingProject(null);
+  };
+
+  const handlePromoteToLibrary = (project) => {
+    // Create a formatted narrative from project data
+    const narrative = `
+<h3>${project.project_title || ''}</h3>
+<p><strong>Client:</strong> ${project.client_name || ''} ${project.client_agency ? `(${project.client_agency})` : ''}</p>
+<p><strong>Contract:</strong> ${project.contract_number || 'N/A'} | ${project.contract_type || ''} | $${project.contract_value ? (project.contract_value / 1000000).toFixed(1) + 'M' : 'N/A'}</p>
+<p><strong>Period:</strong> ${project.project_start_date ? new Date(project.project_start_date).getFullYear() : 'N/A'} - ${project.project_end_date ? new Date(project.project_end_date).getFullYear() : 'N/A'}</p>
+
+<h4>Project Description</h4>
+<p>${project.project_description || 'No description provided.'}</p>
+
+${project.services_provided && project.services_provided.length > 0 ? `
+<h4>Services Provided</h4>
+<ul>
+${project.services_provided.map(s => `<li>${s}</li>`).join('\n')}
+</ul>
+` : ''}
+
+${project.outcomes ? `
+<h4>Outcomes</h4>
+<ul>
+${project.outcomes.on_time_delivery_pct ? `<li>On-Time Delivery: ${project.outcomes.on_time_delivery_pct}%</li>` : ''}
+${project.outcomes.quality_score ? `<li>Quality Score: ${project.outcomes.quality_score}/5</li>` : ''}
+${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project.outcomes.customer_satisfaction}/5</li>` : ''}
+</ul>
+` : ''}
+    `.trim();
+
+    setProjectToPromote({ content: narrative, title: project.project_title });
+    setShowPromoteDialog(true);
   };
 
   if (!organization) {
@@ -164,7 +200,7 @@ export default function PastPerformance() {
             <Card key={project.id} className="border-none shadow-lg hover:shadow-xl transition-all">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-1">
                     <CardTitle className="text-lg mb-2 line-clamp-2">
                       {project.project_title}
                     </CardTitle>
@@ -217,11 +253,34 @@ export default function PastPerformance() {
                     {project.project_description}
                   </p>
                 )}
+
+                <div className="pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handlePromoteToLibrary(project)}
+                    className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
+                  >
+                    <Library className="w-4 h-4 mr-2 text-green-600" />
+                    Add to Content Library
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <PromoteToLibraryDialog
+        isOpen={showPromoteDialog}
+        onClose={() => {
+          setShowPromoteDialog(false);
+          setProjectToPromote(null);
+        }}
+        sectionContent={projectToPromote?.content}
+        sectionName={projectToPromote?.title}
+        organization={organization}
+      />
     </div>
   );
 }

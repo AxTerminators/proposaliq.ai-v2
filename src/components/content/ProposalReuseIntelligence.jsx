@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,12 +19,14 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Library // Added Library icon
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import { cn } from "@/lib/utils"; // Added cn utility
 
 export default function ProposalReuseIntelligence({ 
   currentProposal, 
@@ -37,6 +40,24 @@ export default function ProposalReuseIntelligence({
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState(null);
+
+  // UPDATED: Fetch from Content Library folders in addition to historical sections
+  const { data: libraryContent = [] } = useQuery({
+    queryKey: ['library-content-reuse', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      
+      // Fetch boilerplate resources from Content Library
+      const resources = await base44.entities.ProposalResource.filter({
+        organization_id: organization.id,
+        resource_type: 'boilerplate_text'
+      }, '-created_date', 50); // Fetch up to 50 latest boilerplate texts
+      
+      return resources;
+    },
+    enabled: !!organization?.id,
+    staleTime: 180000 // 3 minutes
+  });
 
   // Fetch historical sections for analysis
   const { data: historicalSections = [] } = useQuery({
@@ -107,10 +128,15 @@ export default function ProposalReuseIntelligence({
     }
   });
 
-  // AI-powered content matching
+  // UPDATED: Enhanced AI analysis to include library content
   const analyzeAndSuggestContent = async () => {
-    if (!currentSection || !currentProposal || historicalSections.length === 0) {
-      alert("No historical content available for analysis");
+    if (!currentSection || !currentProposal) {
+      alert("Missing section or proposal context");
+      return;
+    }
+
+    if (historicalSections.length === 0 && libraryContent.length === 0) {
+      alert("No content available for analysis. Add content to your Content Library or complete more proposals.");
       return;
     }
 
@@ -128,7 +154,31 @@ export default function ProposalReuseIntelligence({
         section_name: currentSection.section_name
       };
 
-      // Group historical sections by proposal for better context
+      // COMBINE library content and historical sections for analysis
+      const combinedContentSources = [];
+
+      // Add library content
+      libraryContent.forEach(resource => {
+        if (resource.boilerplate_content && resource.boilerplate_content.trim()) {
+          combinedContentSources.push({
+            source_id: resource.id,
+            source_type: 'library',
+            title: resource.title,
+            content_preview: resource.boilerplate_content.replace(/<[^>]*>/g, '').substring(0, 500),
+            content_full: resource.boilerplate_content,
+            word_count: resource.word_count,
+            tags: resource.tags,
+            category: resource.content_category,
+            usage_count: resource.usage_count,
+            metadata: {
+              folder_id: resource.folder_id,
+              is_favorite: resource.is_favorite
+            }
+          });
+        }
+      });
+
+      // Add historical sections
       const proposalMap = {};
       for (const section of historicalSections) {
         if (!proposalMap[section.proposal_id]) {
@@ -137,7 +187,6 @@ export default function ProposalReuseIntelligence({
         proposalMap[section.proposal_id].push(section);
       }
 
-      // Get proposal details for context
       const proposalIds = Object.keys(proposalMap);
       const historicalProposals = await Promise.all(
         proposalIds.map(id => 
@@ -150,33 +199,34 @@ export default function ProposalReuseIntelligence({
         s.section_type === currentSection.section_type
       ).slice(0, 10); // Limit to top 10 for AI analysis
 
-      if (sameSectionType.length === 0) {
-        alert("No similar sections found in historical proposals");
-        setAnalyzing(false);
-        return;
-      }
-
-      // Prepare data for AI analysis
-      const sectionsForAnalysis = sameSectionType.map(section => {
+      sameSectionType.forEach(section => {
         const proposal = historicalProposals.find(p => p?.id === section.proposal_id);
-        return {
-          section_id: section.id,
-          section_name: section.section_name,
-          section_type: section.section_type,
+        combinedContentSources.push({
+          source_id: section.id,
+          source_type: 'historical',
+          title: section.section_name,
           content_preview: section.content.replace(/<[^>]*>/g, '').substring(0, 500),
+          content_full: section.content,
           word_count: section.word_count,
-          proposal_info: {
-            id: section.proposal_id,
-            name: proposal?.proposal_name || 'Unknown',
+          section_type: section.section_type,
+          metadata: {
+            proposal_id: section.proposal_id,
+            proposal_name: proposal?.proposal_name || 'Unknown',
             agency: proposal?.agency_name || 'Unknown',
             status: proposal?.status || 'unknown',
             project_type: proposal?.project_type || 'Unknown'
           }
-        };
+        });
       });
 
-      // Use AI to calculate relevance and provide reasoning
-      const prompt = `You are an expert at analyzing proposal content for reuse potential. Analyze these historical proposal sections and determine which are most relevant for reuse in the current proposal.
+      if (combinedContentSources.length === 0) {
+        alert("No content available for analysis");
+        setAnalyzing(false);
+        return;
+      }
+
+      // Use AI to calculate relevance
+      const prompt = `You are an expert at analyzing proposal content for reuse potential. Analyze these content sources (from both Content Library and historical proposals) and determine which are most relevant for the current proposal section.
 
 **CURRENT PROPOSAL CONTEXT:**
 - Agency: ${proposalContext.agency}
@@ -185,25 +235,26 @@ export default function ProposalReuseIntelligence({
 - Section Type: ${proposalContext.section_type}
 - Section Name: ${proposalContext.section_name}
 
-**HISTORICAL SECTIONS TO ANALYZE:**
-${JSON.stringify(sectionsForAnalysis, null, 2)}
+**CONTENT SOURCES TO ANALYZE:**
+${JSON.stringify(combinedContentSources, null, 2)}
 
 **YOUR TASK:**
-Analyze each historical section and:
-1. Calculate a relevance score (0-100) based on:
+Analyze each content source and:
+1. Calculate relevance score (0-100) based on:
+   - Content Library items with matching tags/categories get +20 bonus
    - Agency match (government agencies often have similar requirements)
    - Section type match (exact match = highest relevance)
    - Project type similarity
    - Content topic overlap
-   - Quality indicators (word count, proposal outcome)
+   - Quality indicators (word count, usage count, proposal outcome)
 
-2. Identify specific match reasons (why this content is relevant)
+2. Identify specific match reasons
 
-3. Suggest modifications needed to adapt the content for current use
+3. Suggest modifications needed
 
-4. Determine similarity type (exact_match, agency_match, topic_match, keyword_match, semantic_match)
+4. Determine similarity type
 
-Return the top 5 most relevant suggestions, ranked by relevance score.`;
+Return the top 8 most relevant suggestions, prioritizing Content Library items when highly relevant.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -215,7 +266,8 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
               items: {
                 type: "object",
                 properties: {
-                  section_id: { type: "string" },
+                  source_id: { type: "string" },
+                  source_type: { type: "string", enum: ["library", "historical"] }, // Added source_type
                   relevance_score: { 
                     type: "number",
                     minimum: 0,
@@ -260,21 +312,24 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
       const enrichedSuggestions = [];
       
       for (const aiSuggestion of result.suggestions) {
-        const sourceSection = historicalSections.find(s => s.id === aiSuggestion.section_id);
-        const sourceProposal = historicalProposals.find(p => p?.id === sourceSection?.proposal_id);
+        const sourceContent = combinedContentSources.find(s => s.source_id === aiSuggestion.source_id);
         
-        if (!sourceSection || !sourceProposal) continue;
+        if (!sourceContent) continue;
 
         const suggestionData = {
           organization_id: organization.id,
           proposal_id: currentProposal.id,
           section_id: currentSection.id,
           section_type: currentSection.section_type,
-          source_proposal_id: sourceProposal.id,
-          source_proposal_name: sourceProposal.proposal_name,
-          source_section_id: sourceSection.id,
-          source_section_name: sourceSection.section_name,
-          suggested_content: sourceSection.content,
+          source_proposal_id: sourceContent.source_type === 'historical' 
+            ? sourceContent.metadata.proposal_id 
+            : null,
+          source_proposal_name: sourceContent.source_type === 'historical'
+            ? sourceContent.metadata.proposal_name
+            : `[Library] ${sourceContent.title}`, // Prefix for library items
+          source_section_id: sourceContent.source_id,
+          source_section_name: sourceContent.title, // Use title for both section name and resource name
+          suggested_content: sourceContent.content_full,
           relevance_score: aiSuggestion.relevance_score,
           match_reasons: aiSuggestion.match_reasons,
           similarity_type: aiSuggestion.similarity_type,
@@ -282,12 +337,17 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
           keyword_overlap: aiSuggestion.keyword_overlap,
           confidence_level: aiSuggestion.confidence_level,
           estimated_time_saved_hours: aiSuggestion.estimated_time_saved_hours,
-          source_proposal_outcome: sourceProposal.status,
-          word_count: sourceSection.word_count,
-          content_preview: sourceSection.content.replace(/<[^>]*>/g, '').substring(0, 200)
+          source_proposal_outcome: sourceContent.source_type === 'historical'
+            ? sourceContent.metadata.status
+            : 'library', // Indicate library source
+          word_count: sourceContent.word_count,
+          content_preview: sourceContent.content_preview,
+          // Store source type for display
+          _source_type: sourceContent.source_type, // New internal field
+          _tags: sourceContent.tags, // New internal field
+          _is_favorite: sourceContent.metadata?.is_favorite // New internal field
         };
 
-        // Save to database
         const created = await createSuggestionMutation.mutateAsync(suggestionData);
         enrichedSuggestions.push({ ...suggestionData, id: created.id });
       }
@@ -295,7 +355,7 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
       setSuggestions(enrichedSuggestions);
       
       if (enrichedSuggestions.length === 0) {
-        alert("No relevant content found. Try writing more sections to build your content library.");
+        alert("No relevant content found. Add more items to your Content Library or complete more proposals.");
       }
 
     } catch (err) {
@@ -361,13 +421,13 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
             <div>
               <CardTitle className="text-xl">Content Reuse Intelligence</CardTitle>
               <CardDescription>
-                AI-powered suggestions from your historical proposals
+                AI-powered suggestions from Content Library and historical proposals
               </CardDescription>
             </div>
           </div>
           <Button
             onClick={analyzeAndSuggestContent}
-            disabled={analyzing || !currentSection || historicalSections.length === 0}
+            disabled={analyzing || !currentSection || (historicalSections.length === 0 && libraryContent.length === 0)}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
           >
             {analyzing ? (
@@ -396,11 +456,11 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
           </Alert>
         )}
 
-        {historicalSections.length === 0 && (
+        {historicalSections.length === 0 && libraryContent.length === 0 && (
           <Alert className="bg-blue-50 border-blue-200">
             <AlertCircle className="w-4 h-4 text-blue-600" />
             <AlertDescription className="text-blue-800">
-              No historical content available yet. Complete more proposals to build your reusable content library.
+              No content available yet. Add items to your Content Library or complete more proposals to build your reusable content repository.
             </AlertDescription>
           </Alert>
         )}
@@ -414,17 +474,29 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
           </Alert>
         )}
 
-        {/* Statistics */}
-        {historicalSections.length > 0 && (
+        {/* UPDATED: Statistics to include library content */}
+        {(historicalSections.length > 0 || libraryContent.length > 0) && (
           <div className="grid md:grid-cols-3 gap-4">
             <Card className="border-purple-200 bg-purple-50">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-purple-900 mb-1">Historical Sections</p>
-                    <p className="text-3xl font-bold text-purple-600">{historicalSections.length}</p>
+                    <p className="text-sm text-purple-900 mb-1">Library Items</p>
+                    <p className="text-3xl font-bold text-purple-600">{libraryContent.length}</p>
                   </div>
-                  <FileText className="w-8 h-8 text-purple-600" />
+                  <Library className="w-8 h-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-900 mb-1">Historical Sections</p>
+                    <p className="text-3xl font-bold text-blue-600">{historicalSections.length}</p>
+                  </div>
+                  <FileText className="w-8 h-8 text-blue-600" />
                 </div>
               </CardContent>
             </Card>
@@ -440,21 +512,6 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-900 mb-1">Content Library</p>
-                    <p className="text-3xl font-bold text-blue-600">
-                      {Math.floor(historicalSections.reduce((sum, s) => sum + (s.word_count || 0), 0) / 1000)}k
-                    </p>
-                    <p className="text-xs text-blue-800">words</p>
-                  </div>
-                  <Award className="w-8 h-8 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 
@@ -467,9 +524,13 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
 
             {displaySuggestions.map((suggestion) => {
               const SimilarityIcon = getSimilarityIcon(suggestion.similarity_type);
+              const isFromLibrary = suggestion._source_type === 'library';
               
               return (
-                <Card key={suggestion.id} className="border-2 hover:shadow-lg transition-all">
+                <Card key={suggestion.id} className={cn(
+                  "border-2 hover:shadow-lg transition-all",
+                  isFromLibrary && "border-purple-300 bg-purple-50/30"
+                )}>
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-3 flex-1">
@@ -479,6 +540,12 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
                             <h4 className="font-semibold text-slate-900">
                               {suggestion.source_section_name}
                             </h4>
+                            {isFromLibrary && (
+                              <Badge className="bg-purple-100 text-purple-700 gap-1">
+                                <Library className="w-3 h-3" />
+                                Content Library
+                              </Badge>
+                            )}
                             <Badge className={getRelevanceColor(suggestion.relevance_score)}>
                               {suggestion.relevance_score}% Match
                             </Badge>
@@ -498,12 +565,26 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
 
                           <p className="text-sm text-slate-600 mb-3">
                             From: <span className="font-medium">{suggestion.source_proposal_name}</span>
-                            {suggestion.source_proposal_outcome && (
+                            {suggestion.source_proposal_outcome && suggestion.source_proposal_outcome !== 'library' && (
                               <Badge variant="outline" className="ml-2 text-xs">
                                 {suggestion.source_proposal_outcome}
                               </Badge>
                             )}
                           </p>
+
+                          {/* Tags (for library items) */}
+                          {isFromLibrary && suggestion._tags && suggestion._tags.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs font-semibold text-slate-700 mb-1">Tags:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {suggestion._tags.map((tag, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Match Reasons */}
                           {suggestion.match_reasons && suggestion.match_reasons.length > 0 && (
@@ -637,14 +718,14 @@ Return the top 5 most relevant suggestions, ranked by relevance score.`;
         )}
 
         {/* Empty State */}
-        {!analyzing && displaySuggestions.length === 0 && currentSection && historicalSections.length > 0 && (
+        {!analyzing && displaySuggestions.length === 0 && currentSection && (historicalSections.length > 0 || libraryContent.length > 0) && (
           <div className="text-center py-12">
             <Sparkles className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
               No Suggestions Yet
             </h3>
             <p className="text-slate-600 mb-6">
-              Click "Find Reusable Content" to analyze your historical proposals and discover relevant content for this section.
+              Click "Find Reusable Content" to analyze your content library and historical proposals and discover relevant content for this section.
             </p>
           </div>
         )}

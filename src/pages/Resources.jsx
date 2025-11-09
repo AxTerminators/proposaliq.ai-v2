@@ -30,11 +30,13 @@ import {
   Filter,
   Download,
   Star,
-  StarOff
+  StarOff,
+  Library
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import UniversalAlert from "../components/ui/UniversalAlert";
+import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -81,6 +83,10 @@ export default function Resources() {
     title: "",
     description: ""
   });
+
+  // Promote to Library states
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [resourceToPromote, setResourceToPromote] = useState(null);
   
   const [newResource, setNewResource] = useState({
     resource_type: "boilerplate_text",
@@ -275,6 +281,11 @@ export default function Resources() {
     }
   };
 
+  const handlePromoteToLibrary = (resource) => {
+    setResourceToPromote(resource);
+    setShowPromoteDialog(true);
+  };
+
   const filteredResources = resources.filter(r => 
     r.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -402,6 +413,18 @@ export default function Resources() {
                 )}
 
                 <div className="flex gap-2">
+                  {resource.boilerplate_content && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePromoteToLibrary(resource)}
+                      className="flex-1 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
+                      title="Organize in Content Library"
+                    >
+                      <Library className="w-3 h-3 mr-1 text-green-600" />
+                      Organize
+                    </Button>
+                  )}
                   {resource.file_url && (
                     <Button size="sm" variant="outline" asChild className="flex-1">
                       <a href={resource.file_url} target="_blank" rel="noopener noreferrer">
@@ -540,6 +563,17 @@ export default function Resources() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PromoteToLibraryDialog
+        isOpen={showPromoteDialog}
+        onClose={() => {
+          setShowPromoteDialog(false);
+          setResourceToPromote(null);
+        }}
+        sectionContent={resourceToPromote?.boilerplate_content}
+        sectionName={resourceToPromote?.title}
+        organization={organization}
+      />
 
       <UniversalAlert
         isOpen={showAlert}

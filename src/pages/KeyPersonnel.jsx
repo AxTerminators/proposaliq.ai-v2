@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -5,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Search, Edit, Trash2, Award, Mail, Phone, Briefcase } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, Award, Mail, Phone, Briefcase, Library } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ResumeBioGenerator from "../components/personnel/ResumeBioGenerator";
+import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -43,6 +45,8 @@ export default function KeyPersonnel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [selectedPersonnel, setSelectedPersonnel] = useState(null);
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [personnelToPromote, setPersonnelToPromote] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -92,6 +96,43 @@ export default function KeyPersonnel() {
   const handleEdit = (person) => {
     setSelectedPersonnel(person);
     setShowDialog(true);
+  };
+
+  const handlePromoteToLibrary = (person) => {
+    // Create formatted bio content
+    const bioContent = `
+<h3>${person.full_name}</h3>
+<p><strong>Title:</strong> ${person.title || 'N/A'}</p>
+${person.years_experience ? `<p><strong>Experience:</strong> ${person.years_experience} years</p>` : ''}
+${person.clearance_level && person.clearance_level !== 'none' ? `<p><strong>Clearance:</strong> ${person.clearance_level.toUpperCase().replace('_', ' ')}</p>` : ''}
+
+${person.bio_short ? `
+<h4>Professional Summary</h4>
+<p>${person.bio_short}</p>
+` : ''}
+
+${person.education && person.education.length > 0 ? `
+<h4>Education</h4>
+<ul>
+${person.education.map(e => `<li>${e.degree} in ${e.field}, ${e.institution} (${e.year})</li>`).join('\n')}
+</ul>
+` : ''}
+
+${person.certifications && person.certifications.length > 0 ? `
+<h4>Certifications</h4>
+<ul>
+${person.certifications.map(c => `<li>${c.name || c} - ${c.issuing_org || ''}</li>`).join('\n')}
+</ul>
+` : ''}
+
+${person.skills && person.skills.length > 0 ? `
+<h4>Key Skills</h4>
+<p>${person.skills.join(', ')}</p>
+` : ''}
+    `.trim();
+
+    setPersonnelToPromote({ content: bioContent, title: person.full_name });
+    setShowPromoteDialog(true);
   };
 
   if (!organization) {
@@ -244,6 +285,18 @@ export default function KeyPersonnel() {
                     Used in {person.usage_count} proposal{person.usage_count !== 1 ? 's' : ''}
                   </div>
                 )}
+
+                <div className="pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handlePromoteToLibrary(person)}
+                    className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
+                  >
+                    <Library className="w-4 h-4 mr-2 text-green-600" />
+                    Add to Content Library
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -265,6 +318,17 @@ export default function KeyPersonnel() {
           }}
         />
       )}
+
+      <PromoteToLibraryDialog
+        isOpen={showPromoteDialog}
+        onClose={() => {
+          setShowPromoteDialog(false);
+          setPersonnelToPromote(null);
+        }}
+        sectionContent={personnelToPromote?.content}
+        sectionName={personnelToPromote?.title}
+        organization={organization}
+      />
     </div>
   );
 }

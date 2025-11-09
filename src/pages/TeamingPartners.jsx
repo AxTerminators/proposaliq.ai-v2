@@ -26,10 +26,12 @@ import {
   Globe,
   Award,
   Star,
-  StarOff
+  StarOff,
+  Library // Added Library icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import UniversalAlert from "@/components/ui/UniversalAlert";
+import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog"; // Added PromoteToLibraryDialog import
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -65,6 +67,9 @@ export default function TeamingPartners() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [editingPartner, setEditingPartner] = useState(null);
+  // New state for PromoteToLibraryDialog
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [partnerToPromote, setPartnerToPromote] = useState(null);
   
   // Universal Alert states
   const [showAlert, setShowAlert] = useState(false);
@@ -88,7 +93,9 @@ export default function TeamingPartners() {
     certifications: [],
     tags: [],
     notes: "",
-    status: "active"
+    status: "active",
+    differentiators: [], // New field
+    past_performance_summary: "" // New field
   });
 
   useEffect(() => {
@@ -123,11 +130,19 @@ export default function TeamingPartners() {
 
   const createPartnerMutation = useMutation({
     mutationFn: async (data) => {
+      const dataToSave = {
+        ...data,
+        // Ensure array fields are handled correctly if they come from comma-separated input
+        core_capabilities: Array.isArray(data.core_capabilities) ? data.core_capabilities : data.core_capabilities.split(',').map(item => item.trim()).filter(item => item),
+        certifications: Array.isArray(data.certifications) ? data.certifications : data.certifications.split(',').map(item => item.trim()).filter(item => item),
+        differentiators: Array.isArray(data.differentiators) ? data.differentiators : data.differentiators.split(',').map(item => item.trim()).filter(item => item),
+      };
+
       if (editingPartner) {
-        return base44.entities.TeamingPartner.update(editingPartner.id, data);
+        return base44.entities.TeamingPartner.update(editingPartner.id, dataToSave);
       } else {
         return base44.entities.TeamingPartner.create({
-          ...data,
+          ...dataToSave,
           organization_id: organization.id
         });
       }
@@ -194,13 +209,21 @@ export default function TeamingPartners() {
       certifications: [],
       tags: [],
       notes: "",
-      status: "active"
+      status: "active",
+      differentiators: [],
+      past_performance_summary: ""
     });
   };
 
   const handleEdit = (partner) => {
     setEditingPartner(partner);
-    setPartnerData(partner);
+    // Ensure array fields are converted to comma-separated string for editing
+    setPartnerData({
+      ...partner,
+      core_capabilities: partner.core_capabilities?.join(', ') || '',
+      certifications: partner.certifications?.join(', ') || '',
+      differentiators: partner.differentiators?.join(', ') || '',
+    });
     setShowDialog(true);
   };
 
@@ -220,7 +243,9 @@ export default function TeamingPartners() {
   const filteredPartners = partners.filter(p => 
     p.partner_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.poc_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    p.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    p.core_capabilities?.some(cap => cap.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    p.certifications?.some(cert => cert.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const getPartnerTypeColor = (type) => {
@@ -232,6 +257,43 @@ export default function TeamingPartners() {
       vendor: "bg-slate-100 text-slate-800"
     };
     return colors[type] || colors.teaming_partner;
+  };
+
+  const handlePromoteToLibrary = (partner) => {
+    // Create formatted partner profile
+    const partnerContent = `
+<h3>${partner.partner_name}</h3>
+<p><strong>Type:</strong> ${partner.partner_type?.replace('_', ' ')}</p>
+${partner.uei ? `<p><strong>UEI:</strong> ${partner.uei}</p>` : ''}
+${partner.cage_code ? `<p><strong>CAGE Code:</strong> ${partner.cage_code}</p>` : ''}
+
+${partner.core_capabilities && partner.core_capabilities.length > 0 ? `
+<h4>Core Capabilities</h4>
+<ul>
+${partner.core_capabilities.map(c => `<li>${c}</li>`).join('\n')}
+</ul>
+` : ''}
+
+${partner.differentiators && partner.differentiators.length > 0 ? `
+<h4>Key Differentiators</h4>
+<ul>
+${partner.differentiators.map(d => `<li>${d}</li>`).join('\n')}
+</ul>
+` : ''}
+
+${partner.past_performance_summary ? `
+<h4>Past Performance Summary</h4>
+<p>${partner.past_performance_summary}</p>
+` : ''}
+
+${partner.certifications && partner.certifications.length > 0 ? `
+<h4>Certifications</h4>
+<p>${partner.certifications.join(', ')}</p>
+` : ''}
+    `.trim();
+
+    setPartnerToPromote({ content: partnerContent, title: partner.partner_name });
+    setShowPromoteDialog(true);
   };
 
   if (!organization) {
@@ -357,9 +419,32 @@ export default function TeamingPartners() {
                           {cert}
                         </Badge>
                       ))}
+                      {partner.certifications.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{partner.certifications.length - 3} more
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 )}
+
+                {partner.last_collaboration_date && (
+                  <div className="pt-2 border-t text-xs text-slate-500">
+                    Last collaboration: {new Date(partner.last_collaboration_date).toLocaleDateString()}
+                  </div>
+                )}
+
+                <div className="pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handlePromoteToLibrary(partner)}
+                    className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
+                  >
+                    <Library className="w-4 h-4 mr-2 text-green-600" />
+                    Add to Content Library
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -487,6 +572,46 @@ export default function TeamingPartners() {
               </div>
 
               <div className="col-span-2">
+                <label className="block text-sm font-medium mb-2">Core Capabilities (comma-separated)</label>
+                <Textarea
+                  value={partnerData.core_capabilities}
+                  onChange={(e) => setPartnerData({ ...partnerData, core_capabilities: e.target.value })}
+                  placeholder="e.g., Software Development, Cloud Migration, Cybersecurity"
+                  rows={2}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-2">Certifications (comma-separated)</label>
+                <Textarea
+                  value={partnerData.certifications}
+                  onChange={(e) => setPartnerData({ ...partnerData, certifications: e.target.value })}
+                  placeholder="e.g., ISO 9001, CMMI Level 3, FedRAMP"
+                  rows={2}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-2">Key Differentiators (comma-separated)</label>
+                <Textarea
+                  value={partnerData.differentiators}
+                  onChange={(e) => setPartnerData({ ...partnerData, differentiators: e.target.value })}
+                  placeholder="e.g., Unique Technology, Niche Expertise, Veteran-Owned"
+                  rows={2}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-2">Past Performance Summary</label>
+                <Textarea
+                  value={partnerData.past_performance_summary}
+                  onChange={(e) => setPartnerData({ ...partnerData, past_performance_summary: e.target.value })}
+                  placeholder="Summarize key past performance highlights relevant to future collaborations."
+                  rows={3}
+                />
+              </div>
+
+              <div className="col-span-2">
                 <label className="block text-sm font-medium mb-2">Notes</label>
                 <Textarea
                   value={partnerData.notes}
@@ -515,6 +640,17 @@ export default function TeamingPartners() {
         type={alertConfig.type}
         title={alertConfig.title}
         description={alertConfig.description}
+      />
+
+      <PromoteToLibraryDialog
+        isOpen={showPromoteDialog}
+        onClose={() => {
+          setShowPromoteDialog(false);
+          setPartnerToPromote(null);
+        }}
+        sectionContent={partnerToPromote?.content || ""}
+        sectionName={partnerToPromote?.title || ""}
+        organization={organization}
       />
     </div>
   );
