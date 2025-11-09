@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -49,7 +50,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       id: 'rfp_15_column',
       name: '15-Column RFP Workflow',
       description: 'Complete independent 15-column workflow with mandatory checklists',
-      icon: '🎯',
+      icon_emoji: '🎯', // Changed from 'icon' to 'icon_emoji'
       boardType: 'rfp_15_column',
       functionName: 'create15ColumnRFPBoard',
       features: ['11 workflow stages', 'Mandatory checklists', 'AI-powered actions', 'Independent from builder'],
@@ -112,7 +113,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
           }, '-created_date')
         : [];
       
-      return [...systemTemplates, ...orgTemplates];
+      return [...systemTemplates, ...orgTemplates].filter(t => t != null); // Added filter
     },
     enabled: isOpen && !!organization?.id,
   });
@@ -225,8 +226,11 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const columns = workflowConfig?.columns || [];
   const nonTerminalColumns = columns.filter(col => !col.is_terminal);
 
-  // Combine special boards with templates
-  const allOptions = [...SPECIAL_BOARDS, ...templates];
+  // Combine special boards with templates - with safety checks
+  const allOptions = [
+    ...SPECIAL_BOARDS, 
+    ...templates.filter(t => t && t.id) // Added filter
+  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
@@ -259,18 +263,24 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {allOptions.map(template => {
+                  if (!template) return null; // Added null check
+                  
                   const isSystem = template.template_type === 'system';
                   const isSpecial = !!template.functionName;
+                  const displayIcon = template.icon_emoji || template.icon || BOARD_TYPE_ICONS[template.boardType || template.board_type] || '📋';
+                  const displayName = template.name || template.template_name || 'Unnamed Template';
+                  const displayDescription = template.description || 'No description';
+                  const displayCategory = template.proposal_type_category || 'OTHER';
                   
                   return (
                     <Card
-                      key={template.id}
+                      key={template.id || `template-${Math.random()}`} // Updated key for safety
                       className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-400"
                       onClick={() => handleTemplateSelect(template)}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
-                          <div className="text-3xl">{template.icon || template.icon_emoji || BOARD_TYPE_ICONS[template.boardType || template.board_type] || '📋'}</div>
+                          <div className="text-3xl">{displayIcon}</div>
                           <div className="flex flex-col gap-1 items-end">
                             {isSpecial && (
                               <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs">
@@ -281,18 +291,18 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                               {isSystem ? 'System' : isSpecial ? 'Special' : 'Custom'}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
-                              {template.proposal_type_category}
+                              {displayCategory}
                             </Badge>
                           </div>
                         </div>
                         
-                        <h3 className="font-bold text-slate-900 mb-2">{template.name || template.template_name}</h3>
+                        <h3 className="font-bold text-slate-900 mb-2">{displayName}</h3>
                         
                         <p className="text-xs text-slate-600 mb-3 line-clamp-2">
-                          {template.description || 'No description'}
+                          {displayDescription}
                         </p>
                         
-                        {template.features && (
+                        {template.features && Array.isArray(template.features) && ( // Added Array.isArray check
                           <div className="mb-3 space-y-1">
                             {template.features.slice(0, 2).map((feature, idx) => (
                               <div key={idx} className="flex items-center gap-1 text-xs text-slate-600">
@@ -311,7 +321,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                           )}
                           <Badge variant="outline" className="gap-1">
                             <Clock className="w-3 h-3" />
-                            {template.estimatedDuration || `~${template.estimated_duration_days || 30}d`}
+                            {template.estimatedDuration || (template.estimated_duration_days ? `~${template.estimated_duration_days}d` : '~30d')} {/* Updated fallback */}
                           </Badge>
                           {template.usage_count > 0 && (
                             <Badge className="bg-green-100 text-green-700 gap-1">
@@ -335,17 +345,17 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  <div className="text-4xl">{selectedTemplate.icon || selectedTemplate.icon_emoji || '📋'}</div>
+                  <div className="text-4xl">{selectedTemplate.icon_emoji || selectedTemplate.icon || '📋'}</div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.name || selectedTemplate.template_name}</h3>
-                    <p className="text-sm text-slate-600 mb-2">{selectedTemplate.description}</p>
+                    <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.name || selectedTemplate.template_name || 'Template'}</h3>
+                    <p className="text-sm text-slate-600 mb-2">{selectedTemplate.description || ''}</p>
                     <div className="flex gap-2 flex-wrap">
-                      <Badge variant="outline">{selectedTemplate.proposal_type_category}</Badge>
+                      <Badge variant="outline">{selectedTemplate.proposal_type_category || 'OTHER'}</Badge>
                       {selectedTemplate.complexity && (
                         <Badge variant="outline" className="capitalize">{selectedTemplate.complexity}</Badge>
                       )}
                       <Badge variant="outline">
-                        {selectedTemplate.estimatedDuration || `~${selectedTemplate.estimated_duration_days || 30} days`}
+                        {selectedTemplate.estimatedDuration || (selectedTemplate.estimated_duration_days ? `~${selectedTemplate.estimated_duration_days} days` : '~30 days')} {/* Updated fallback */}
                       </Badge>
                     </div>
                   </div>
