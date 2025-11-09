@@ -11,7 +11,8 @@ import {
   Edit,
   Trash2,
   FolderPlus,
-  Archive
+  Archive,
+  Library
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,7 +26,8 @@ export default function FolderTreeNavigation({
   folders, 
   selectedFolderId, 
   onSelectFolder, 
-  organization 
+  organization,
+  allContentItems = [] // Add this prop
 }) {
   const [expandedFolderIds, setExpandedFolderIds] = useState(new Set());
 
