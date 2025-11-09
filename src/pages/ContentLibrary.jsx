@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tantml:react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   FolderPlus,
   Library,
@@ -18,11 +19,16 @@ import {
   Grid3x3,
   List as ListIcon,
   ChevronRight,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  Eye,
+  BarChart3,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FolderSidebar from "@/components/folders/FolderSidebar";
 import { useOrganization } from "@/components/layout/OrganizationContext";
+import LibraryBulkOperations from "@/components/content/LibraryBulkOperations";
+import LibraryItemDetailView from "@/components/content/LibraryItemDetailView";
 
 const CONTENT_TYPE_CONFIG = {
   'ProposalResource': { 
@@ -69,9 +75,13 @@ export default function ContentLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [filterType, setFilterType] = useState('all');
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [detailViewItem, setDetailViewItem] = useState(null);
+  const [showDetailView, setShowDetailView] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   // Fetch content for selected folder
-  const { data: folderContent = [], isLoading: isLoadingContent } = useQuery({
+  const { data: folderContent = [], isLoading: isLoadingContent, refetch } = useQuery({
     queryKey: ['folder-content', selectedFolderId, organization?.id],
     queryFn: async () => {
       if (!organization?.id || !selectedFolderId) return [];
@@ -113,6 +123,20 @@ export default function ContentLibrary() {
     enabled: !!organization?.id && !!selectedFolderId,
   });
 
+  // Calculate library stats
+  const libraryStats = React.useMemo(() => {
+    const totalWords = folderContent.reduce((sum, item) => sum + (item.word_count || 0), 0);
+    const totalUsage = folderContent.reduce((sum, item) => sum + (item.usage_count || 0), 0);
+    const favorites = folderContent.filter(item => item.is_favorite).length;
+    
+    return {
+      totalItems: folderContent.length,
+      totalWords,
+      totalUsage,
+      favorites
+    };
+  }, [folderContent]);
+
   // Filter and search content
   const filteredContent = folderContent.filter(item => {
     if (filterType !== 'all' && item._entityType !== filterType) return false;
@@ -135,13 +159,42 @@ export default function ContentLibrary() {
     return item.description || item.project_description || item.bio_short || item.past_performance_summary || 'No description';
   };
 
+  const toggleItemSelection = (item) => {
+    setSelectedItems(prev => {
+      const isSelected = prev.some(i => i.id === item.id && i._entityType === item._entityType);
+      if (isSelected) {
+        return prev.filter(i => !(i.id === item.id && i._entityType === item._entityType));
+      } else {
+        return [...prev, item];
+      }
+    });
+  };
+
+  const isItemSelected = (item) => {
+    return selectedItems.some(i => i.id === item.id && i._entityType === item._entityType);
+  };
+
+  const handleItemClick = (item, e) => {
+    // If clicking checkbox, handle selection
+    if (e.target.type === 'checkbox') {
+      toggleItemSelection(item);
+    } else {
+      // Otherwise open detail view
+      setDetailViewItem(item);
+      setShowDetailView(true);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Folder Sidebar */}
       <FolderSidebar
         organization={organization}
         selectedFolderId={selectedFolderId}
-        onSelectFolder={setSelectedFolderId}
+        onSelectFolder={(folderId) => {
+          setSelectedFolderId(folderId);
+          setSelectedItems([]); // Clear selections when changing folders
+        }}
         purpose="content_library"
       />
 
@@ -164,6 +217,14 @@ export default function ContentLibrary() {
 
             <div className="flex gap-2">
               <Button
+                variant={showStats ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowStats(!showStats)}
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Stats
+              </Button>
+              <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
                 size="icon"
                 onClick={() => setViewMode('grid')}
@@ -180,6 +241,30 @@ export default function ContentLibrary() {
             </div>
           </div>
 
+          {/* Stats Panel */}
+          {showStats && selectedFolderId && (
+            <div className="grid grid-cols-4 gap-3 mb-4 p-4 bg-slate-50 rounded-lg">
+              <div className="text-center">
+                <p className="text-sm text-slate-600 mb-1">Total Items</p>
+                <p className="text-2xl font-bold text-slate-900">{libraryStats.totalItems}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-slate-600 mb-1">Total Words</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {(libraryStats.totalWords / 1000).toFixed(1)}k
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-slate-600 mb-1">Total Uses</p>
+                <p className="text-2xl font-bold text-slate-900">{libraryStats.totalUsage}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-slate-600 mb-1">Favorites</p>
+                <p className="text-2xl font-bold text-slate-900">{libraryStats.favorites}</p>
+              </div>
+            </div>
+          )}
+
           {/* Search and Filters */}
           <div className="flex gap-3">
             <div className="flex-1 relative">
@@ -191,31 +276,39 @@ export default function ContentLibrary() {
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant={filterType === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterType('all')}
-              >
-                All Types
-              </Button>
-              {Object.entries(CONTENT_TYPE_CONFIG).map(([type, config]) => {
-                const Icon = config.icon;
-                return (
-                  <Button
-                    key={type}
-                    variant={filterType === type ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setFilterType(type)}
-                    className="gap-2"
-                  >
-                    <Icon className="w-4 h-4" />
-                    {config.label}
-                  </Button>
-                );
-              })}
-            </div>
+            <Button
+              variant={filterType === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('all')}
+            >
+              All
+            </Button>
+            {Object.entries(CONTENT_TYPE_CONFIG).map(([type, config]) => {
+              const Icon = config.icon;
+              return (
+                <Button
+                  key={type}
+                  variant={filterType === type ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilterType(type)}
+                  className="gap-2"
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden lg:inline">{config.label}</span>
+                </Button>
+              );
+            })}
           </div>
+
+          {/* Selection indicator */}
+          {selectedItems.length > 0 && (
+            <div className="mt-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+              <Checkbox checked={true} />
+              <span className="text-sm font-medium text-blue-900">
+                {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Content Display */}
@@ -249,7 +342,7 @@ export default function ContentLibrary() {
                 <p className="text-slate-600">
                   {searchQuery || filterType !== 'all' 
                     ? 'Try adjusting your search or filters' 
-                    : 'Add content to this folder from various parts of the application'}
+                    : 'Add content to this folder using "Promote to Library" throughout the app'}
                 </p>
               </div>
             </div>
@@ -262,17 +355,30 @@ export default function ContentLibrary() {
               {filteredContent.map(item => {
                 const config = CONTENT_TYPE_CONFIG[item._entityType] || {};
                 const Icon = config.icon || FileText;
+                const isSelected = isItemSelected(item);
 
                 return (
                   <Card 
                     key={`${item._entityType}-${item.id}`}
                     className={cn(
-                      "border-2 transition-all hover:shadow-lg cursor-pointer",
-                      config.borderColor
+                      "border-2 transition-all hover:shadow-lg cursor-pointer group relative",
+                      config.borderColor,
+                      isSelected && "ring-4 ring-blue-300 border-blue-500"
                     )}
+                    onClick={(e) => handleItemClick(item, e)}
                   >
+                    {/* Selection Checkbox */}
+                    <div className="absolute top-3 right-3 z-10">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleItemSelection(item)}
+                        className="bg-white"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
                     <CardHeader className="pb-3">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-3 pr-8">
                         <div className={cn(
                           "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
                           config.bgColor
@@ -309,11 +415,31 @@ export default function ContentLibrary() {
                         </div>
                       )}
 
-                      {item.usage_count > 0 && (
-                        <div className="text-xs text-slate-500 pt-2 border-t">
-                          Used {item.usage_count} time{item.usage_count !== 1 ? 's' : ''}
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between pt-2 border-t text-xs text-slate-500">
+                        {item.usage_count > 0 && (
+                          <span>Used {item.usage_count}x</span>
+                        )}
+                        {item.word_count > 0 && (
+                          <span>{item.word_count} words</span>
+                        )}
+                      </div>
+
+                      {/* Hover action */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDetailViewItem(item);
+                            setShowDetailView(true);
+                          }}
+                        >
+                          <Eye className="w-3 h-3 mr-2" />
+                          View Details
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -322,6 +448,25 @@ export default function ContentLibrary() {
           )}
         </div>
       </div>
+
+      {/* Bulk Operations Toolbar */}
+      <LibraryBulkOperations
+        selectedItems={selectedItems}
+        onClearSelection={() => setSelectedItems([])}
+        organization={organization}
+        currentFolderId={selectedFolderId}
+      />
+
+      {/* Detail View Dialog */}
+      <LibraryItemDetailView
+        item={detailViewItem}
+        isOpen={showDetailView}
+        onClose={() => {
+          setShowDetailView(false);
+          setDetailViewItem(null);
+        }}
+        onItemUpdated={() => refetch()}
+      />
     </div>
   );
 }

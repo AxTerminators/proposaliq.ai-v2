@@ -45,6 +45,7 @@ import { AILoadingState, DataFetchingState } from "../ui/LoadingState";
 import ProposalReuseIntelligence from "../content/ProposalReuseIntelligence";
 import AIWritingAssistant from "../content/AIWritingAssistant";
 import PromoteToLibraryDialog from "../proposals/PromoteToLibraryDialog"; // Added import
+import ContentLibraryQuickInsert from "../content/ContentLibraryQuickInsert";
 import moment from "moment"; // Added for auto-save timestamp formatting
 
 const PROPOSAL_SECTIONS = [
@@ -190,6 +191,8 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const [showPromoteDialog, setShowPromoteDialog] = useState(false); // Added for Promote to Library
   const [currentSectionForPromote, setCurrentSectionForPromote] = useState(null); // Added for Promote to Library
   const [currentSectionNameForPromote, setCurrentSectionNameForPromote] = useState(''); // Added for Promote to Library
+  const [showLibraryInsert, setShowLibraryInsert] = useState(false);
+  const [currentSectionForInsert, setCurrentSectionForInsert] = useState(null);
   
   // Ref to store scroll position
   const scrollPositionRef = useRef(0);
@@ -866,6 +869,21 @@ The content should be ready to insert into the proposal document. Use HTML forma
     setCurrentSectionForReuse(null);
   };
 
+  const handleInsertFromLibrary = (content, sectionKey) => {
+    const existingContent = sectionContent[sectionKey] || '';
+    const newContent = existingContent 
+      ? `${existingContent}\n\n${content}`
+      : content;
+    
+    setSectionContent(prev => ({
+      ...prev,
+      [sectionKey]: newContent
+    }));
+    
+    setShowLibraryInsert(false);
+    setCurrentSectionForInsert(null);
+  };
+
   const handleViewHistory = (sectionKey) => {
     const section = sections.find(s => s.section_type === sectionKey);
     if (section) {
@@ -1107,6 +1125,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                     <SelectItem value="conversational">Conversational</SelectItem>
                                   </SelectContent>
                                 </Select>
+                                
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCurrentSectionForInsert(section.id);
+                                    setShowLibraryInsert(true);
+                                  }}
+                                  className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+                                >
+                                  <Library className="w-4 h-4 mr-2 text-purple-600" />
+                                  Insert from Library
+                                </Button>
 
                                 <Button
                                   size="sm"
@@ -1118,7 +1149,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                   className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
                                 >
                                   <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
-                                  Reuse Content
+                                  AI Reuse
                                 </Button>
 
                                 <Button
@@ -1276,13 +1307,26 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                         size="sm"
                                         variant="outline"
                                         onClick={() => {
+                                          setCurrentSectionForInsert(subsectionKey);
+                                          setShowLibraryInsert(true);
+                                        }}
+                                        className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+                                      >
+                                        <Library className="w-4 h-4 mr-2 text-purple-600" />
+                                        Library
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
                                           setCurrentSectionForReuse(subsectionKey);
                                           setShowReuseIntelligence(true);
                                         }}
                                         className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
                                       >
                                         <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
-                                        Reuse
+                                        AI Reuse
                                       </Button>
 
                                       <Button
@@ -1484,6 +1528,17 @@ The content should be ready to insert into the proposal document. Use HTML forma
           sectionContent={currentSectionForPromote}
           sectionName={currentSectionNameForPromote}
           organization={organization}
+        />
+
+        {/* Library Quick Insert Dialog */}
+        <ContentLibraryQuickInsert
+          isOpen={showLibraryInsert}
+          onClose={() => {
+            setShowLibraryInsert(false);
+            setCurrentSectionForInsert(null);
+          }}
+          organization={organization}
+          onInsert={(content) => handleInsertFromLibrary(content, currentSectionForInsert)}
         />
 
         <div className="flex gap-4 pt-6 border-t">
