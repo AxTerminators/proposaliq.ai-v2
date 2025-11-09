@@ -18,15 +18,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles,
+  Building2,
   Calendar,
+  DollarSign,
+  FileText,
+  Zap,
   ArrowRight,
   Layers,
   AlertCircle,
-  TrendingUp,
-  CheckCircle,
-  Zap // Added Zap icon
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PROPOSAL_TYPES = [
   { 
@@ -78,15 +87,6 @@ const PROPOSAL_TYPES = [
     complexity: 'Medium'
   },
   { 
-    value: 'QUICK_PROPOSAL', 
-    label: 'Quick Proposal', 
-    icon: '⚡',
-    description: 'AI-powered rapid proposal for tight deadlines',
-    avgDuration: '3-7 days',
-    complexity: 'Low',
-    isQuick: true
-  },
-  { 
     value: 'OTHER', 
     label: 'Other/Custom', 
     icon: '📊',
@@ -107,26 +107,27 @@ export default function QuickCreateProposal({
   const queryClient = useQueryClient();
   
   const [step, setStep] = useState(1);
-  const [selectedType, setSelectedType] = useState(preselectedType || '');
-  const [selectedBoardId, setSelectedBoardId] = useState(null);
+  const [proposalType, setProposalType] = useState(preselectedType || '');
   const [proposalData, setProposalData] = useState({
     proposal_name: '',
     solicitation_number: '',
     agency_name: '',
+    project_title: '',
     due_date: '',
     contract_value: ''
   });
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
+  // Reset when dialog opens/closes
   useEffect(() => {
     if (isOpen) {
       setStep(1);
-      setSelectedType(preselectedType || '');
-      setSelectedBoardId(null);
+      setProposalType(preselectedType || '');
       setProposalData({
         proposal_name: '',
         solicitation_number: '',
         agency_name: '',
+        project_title: '',
         due_date: '',
         contract_value: ''
       });
@@ -134,154 +135,135 @@ export default function QuickCreateProposal({
     }
   }, [isOpen, preselectedType]);
 
-  const { data: availableBoards = [] } = useQuery({
-    queryKey: ['available-boards', organization?.id, selectedType],
+  // Fetch available workflow templates for the selected type
+  const { data: availableTemplates = [] } = useQuery({
+    queryKey: ['workflow-templates', proposalType],
     queryFn: async () => {
-      if (!organization?.id || !selectedType) return [];
-      
-      const allBoards = await base44.entities.KanbanConfig.filter({
-        organization_id: organization.id,
-        board_category: 'proposal_board'
-      });
-      
-      return allBoards.filter(board => {
-        if (board.board_type === selectedType.toLowerCase()) return true;
-        
-        if (board.board_type === 'custom') {
-          if (!board.applies_to_proposal_types || board.applies_to_proposal_types.length === 0) {
-            return true;
-          }
-          return board.applies_to_proposal_types.includes(selectedType);
-        }
-        
-        return false;
-      });
-    },
-    enabled: !!organization?.id && !!selectedType && step === 2,
-  });
-
-  const { data: workflowTemplates = [] } = useQuery({
-    queryKey: ['workflow-templates', selectedType],
-    queryFn: async () => {
-      if (!selectedType) return [];
+      if (!proposalType) return [];
       
       const templates = await base44.entities.ProposalWorkflowTemplate.filter({
-        proposal_type_category: selectedType,
+        proposal_type_category: proposalType,
         is_active: true
       }, '-usage_count');
       
       return templates;
     },
-    enabled: !!selectedType && step === 3,
+    enabled: !!proposalType && step === 2,
+  });
+
+  // Check if board exists for this type
+  const { data: existingBoard } = useQuery({
+    queryKey: ['board-for-type', organization?.id, proposalType],
+    queryFn: async () => {
+      if (!organization?.id || !proposalType) return null;
+      
+      const boards = await base44.entities.KanbanConfig.filter({
+        organization_id: organization.id,
+        applies_to_proposal_types: [proposalType]
+      });
+      
+      return boards.length > 0 ? boards[0] : null;
+    },
+    enabled: !!organization?.id && !!proposalType && step === 2,
   });
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
+      // If no board exists for this type, create one
+      let boardConfig = existingBoard;
+      
+      if (!boardConfig && selectedTemplate) {
+        const workflowConfig = typeof selectedTemplate.workflow_config === 'string'
+          ? JSON.parse(selectedTemplate.workflow_config)
+          : selectedTemplate.workflow_config;
+
+        boardConfig = await base44.entities.KanbanConfig.create({
+          organization_id: organization.id,
+          board_type: proposalType.toLowerCase(),
+          board_name: `${proposalType} Board`,
+          is_master_board: false,
+          applies_to_proposal_types: [proposalType],
+          simplified_workflow: false,
+          columns: workflowConfig.columns || [],
+          collapsed_column_ids: [],
+          swimlane_config: { enabled: false, group_by: 'none' },
+          view_settings: { 
+            default_view: 'kanban',
+            show_card_details: ['assignees', 'due_date', 'progress', 'value'],
+            compact_mode: false
+          }
+        });
+      }
+
+      // Create the proposal
       const proposal = await base44.entities.Proposal.create({
         ...data,
         organization_id: organization.id,
-        proposal_type_category: selectedType,
-        workflow_template_id: data.workflow_template_id || null,
+        proposal_type_category: proposalType,
+        workflow_template_id: selectedTemplate?.id || null,
         current_phase: 'phase1',
         status: 'evaluating',
+        manual_order: 0,
+        is_sample_data: false
       });
 
-      return proposal;
+      return { proposal, boardConfig };
     },
-    onSuccess: (proposal) => {
+    onSuccess: ({ proposal, boardConfig }) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       
       if (onSuccess) {
         onSuccess(proposal);
       }
       
-      // Navigate to Quick Proposal Builder if QUICK_PROPOSAL type selected
-      if (selectedType === 'QUICK_PROPOSAL') {
-        navigate(`${createPageUrl("QuickProposalBuilder")}?id=${proposal.id}`);
-      } else {
-        navigate(`${createPageUrl("ProposalBuilder")}?id=${proposal.id}`);
-      }
       onClose();
-    },
+      
+      // Navigate to proposal builder
+      navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+    }
   });
 
   const handleTypeSelect = (type) => {
-    setSelectedType(type);
-    
-    // For quick proposals, skip board selection and template selection and go straight to details
-    if (type === 'QUICK_PROPOSAL') {
-      setStep(4);
-    } else {
-      setStep(2);
-    }
-  };
-
-  const handleNext = () => {
-    if (step === 1 && !selectedType) {
-      alert('Please select a proposal type to proceed.');
-      return;
-    }
-    if (step === 2 && availableBoards.length > 0 && !selectedBoardId) {
-      alert('Please select a board for your proposal.');
-      return;
-    }
-    if (step === 3 && workflowTemplates.length > 0 && !selectedTemplate) {
-      alert('Please select a workflow template to proceed.');
-      return;
-    }
-    setStep(step + 1);
+    setProposalType(type);
+    setStep(2);
   };
 
   const handleBack = () => {
-    if (step === 4 && selectedType === 'QUICK_PROPOSAL') {
-      setStep(1); // Skip back to type selection for quick proposals
-      setSelectedTemplate(null); // Clear template if returning from quick proposal details
-    } else if (step === 4) {
-      setStep(3);
-      setSelectedTemplate(null);
-    } else if (step === 3) {
-      setStep(2);
-      setSelectedTemplate(null);
-    } else if (step === 2) {
+    if (step === 2) {
       setStep(1);
-      setSelectedBoardId(null);
+      setProposalType(preselectedType || '');
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!proposalData.proposal_name.trim()) {
-      alert('Please enter a proposal name to create.');
+      alert('Please enter a proposal name');
       return;
     }
 
-    await createProposalMutation.mutateAsync({
-      ...proposalData,
-      // workflow_template_id is null for QUICK_PROPOSAL as it handles its own internal flow
-      workflow_template_id: selectedType === 'QUICK_PROPOSAL' ? null : selectedTemplate?.id || null,
-    });
+    createProposalMutation.mutate(proposalData);
   };
 
-  const selectedTypeConfig = PROPOSAL_TYPES.find(t => t.value === selectedType);
+  const selectedTypeConfig = PROPOSAL_TYPES.find(t => t.value === proposalType);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-blue-600" />
-            Create New Proposal
+            <Sparkles className="w-5 h-5 text-blue-600" />
+            {step === 1 ? 'Create New Proposal' : 'Proposal Details'}
           </DialogTitle>
           <DialogDescription>
-            Step {step} of {selectedType === 'QUICK_PROPOSAL' ? 2 : 4}: {
-              step === 1 ? 'Choose Type' : 
-              (selectedType === 'QUICK_PROPOSAL' && step === 4) ? 'Enter Details' :
-              step === 2 ? 'Select Board' : 
-              step === 3 ? 'Choose Template' : 
-              'Enter Details'
+            {step === 1 
+              ? "Choose the type of proposal you're creating"
+              : `Creating a ${selectedTypeConfig?.label}`
             }
           </DialogDescription>
         </DialogHeader>
 
+        {/* Step 1: Select Proposal Type */}
         {step === 1 && (
           <div className="py-4">
             <div className="grid md:grid-cols-2 gap-4">
@@ -290,23 +272,14 @@ export default function QuickCreateProposal({
                   key={type.value}
                   className={cn(
                     "cursor-pointer transition-all border-2 hover:shadow-lg",
-                    selectedType === type.value 
+                    proposalType === type.value 
                       ? "border-blue-500 bg-blue-50" 
-                      : "border-slate-200 hover:border-blue-300",
-                    type.isQuick && "ring-2 ring-purple-400" // Conditional styling for Quick Proposal
+                      : "border-slate-200 hover:border-blue-300"
                   )}
                   onClick={() => handleTypeSelect(type.value)}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="text-3xl">{type.icon}</div>
-                      {type.isQuick && ( // Conditional badge for Quick Proposal
-                        <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-                          <Zap className="w-3 h-3 mr-1" />
-                          Fast Track
-                        </Badge>
-                      )}
-                    </div>
+                    <div className="text-3xl mb-3">{type.icon}</div>
                     <h3 className="font-bold text-slate-900 mb-2">{type.label}</h3>
                     <p className="text-sm text-slate-600 mb-3 line-clamp-2">
                       {type.description}
@@ -335,8 +308,10 @@ export default function QuickCreateProposal({
           </div>
         )}
 
+        {/* Step 2: Enter Proposal Details */}
         {step === 2 && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
+            {/* Selected Type Info */}
             {selectedTypeConfig && (
               <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
                 <CardContent className="p-4">
@@ -352,101 +327,57 @@ export default function QuickCreateProposal({
               </Card>
             )}
 
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Select Board</h3>
-              <p className="text-sm text-slate-600 mb-4">
-                Choose which board this proposal will appear on
-              </p>
-            </div>
-
-            {availableBoards.length === 0 ? (
-              <Card className="border-2 border-dashed border-slate-300 bg-gray-50">
-                <CardContent className="p-8 text-center">
-                  <p className="text-slate-600 mb-4">
-                    No boards available for {selectedTypeConfig?.label || selectedType} proposals.
+            {/* Board Status */}
+            {existingBoard ? (
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                  <Layers className="w-4 h-4 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-900">
+                    ✓ Board Ready: "{existingBoard.board_name}"
                   </p>
-                  <p className="text-sm text-slate-500">
-                    The proposal will be created and visible on the Master Board.
+                  <p className="text-xs text-green-700 mt-1">
+                    Your proposal will be added to this board with {existingBoard.columns?.length || 0} workflow stages
                   </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-3">
-                {availableBoards.map((board) => (
-                  <Card
-                    key={board.id}
-                    className={cn(
-                      "cursor-pointer transition-all hover:shadow-lg",
-                      selectedBoardId === board.id ? "ring-2 ring-blue-500 bg-blue-50" : "border-slate-200"
-                    )}
-                    onClick={() => setSelectedBoardId(board.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-bold text-slate-900 mb-1">{board.board_name}</h4>
-                          <div className="flex items-center gap-2">
-                            {board.is_template_board && (
-                              <Badge className="bg-blue-500 text-white text-xs">Template</Badge>
-                            )}
-                            {board.board_type === 'custom' && (
-                              <Badge variant="outline" className="text-xs">Custom Board</Badge>
-                            )}
-                            <span className="text-xs text-slate-600">
-                              {board.columns?.length || 0} stages
-                            </span>
-                          </div>
-                        </div>
-                        {selectedBoardId === board.id && (
-                          <CheckCircle className="w-5 h-5 text-blue-600" />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-4 py-4">
-            {selectedTypeConfig && (
-              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl">{selectedTypeConfig.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-slate-900">{selectedTypeConfig.label}</h3>
-                      <p className="text-sm text-slate-600">{selectedTypeConfig.description}</p>
-                    </div>
-                    <Badge variant="outline">{selectedTypeConfig.avgDuration}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {selectedBoardId && availableBoards.find(b => b.id === selectedBoardId) && (
+            ) : selectedTemplate ? (
               <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <Layers className="w-4 h-4 text-blue-600" />
+                  <Sparkles className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-blue-900">
-                    Selected Board: "{availableBoards.find(b => b.id === selectedBoardId)?.board_name}"
+                    New Board Will Be Created
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
-                    Your proposal will be organized on this board. Now choose a workflow template.
+                    Using "{selectedTemplate.template_name}" workflow template
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Select a Template
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Choose a workflow template to structure your proposal process
                   </p>
                 </div>
               </div>
             )}
 
-            {workflowTemplates.length > 0 ? (
+            {/* Template Selection */}
+            {!existingBoard && availableTemplates.length > 0 && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Workflow Template</Label>
                 <div className="grid md:grid-cols-2 gap-3">
-                  {workflowTemplates.map(template => {
+                  {availableTemplates.map(template => {
                     const isSelected = selectedTemplate?.id === template.id;
                     
                     return (
@@ -492,73 +423,9 @@ export default function QuickCreateProposal({
                   })}
                 </div>
               </div>
-            ) : (
-              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">
-                    No Workflow Templates Found
-                  </p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    No active workflow templates are available for this proposal type.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-4 py-4">
-            {selectedTypeConfig && (
-              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl">{selectedTypeConfig.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-slate-900">{selectedTypeConfig.label}</h3>
-                      <p className="text-sm text-slate-600">{selectedTypeConfig.description}</p>
-                    </div>
-                    <Badge variant="outline">{selectedTypeConfig.avgDuration}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
             )}
 
-            {selectedType !== 'QUICK_PROPOSAL' && selectedTemplate && ( // Only show template for non-quick proposals
-              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-4 h-4 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-green-900">
-                    Workflow Template: "{selectedTemplate.template_name}"
-                  </p>
-                  <p className="text-xs text-green-700 mt-1">
-                    Your proposal will follow this workflow structure.
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {selectedType === 'QUICK_PROPOSAL' && ( // Special message for quick proposals
-              <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-4 h-4 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-purple-900">
-                    Quick Proposal: Fast Track Workflow
-                  </p>
-                  <p className="text-xs text-purple-700 mt-1">
-                    This proposal type utilizes an optimized AI-powered workflow for rapid response.
-                  </p>
-                </div>
-              </div>
-            )}
-
+            {/* Proposal Details Form */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="proposal_name">
@@ -598,6 +465,18 @@ export default function QuickCreateProposal({
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="project_title">
+                  Project Title
+                </Label>
+                <Input
+                  id="project_title"
+                  value={proposalData.project_title}
+                  onChange={(e) => setProposalData({...proposalData, project_title: e.target.value})}
+                  placeholder="e.g., Enterprise Cloud Migration Services"
+                />
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="due_date">
@@ -625,42 +504,33 @@ export default function QuickCreateProposal({
                 </div>
               </div>
             </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button variant="outline" onClick={handleBack}>
+                Back
+              </Button>
+              
+              <Button
+                onClick={handleCreate}
+                disabled={createProposalMutation.isPending || !proposalData.proposal_name.trim() || (!existingBoard && !selectedTemplate)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
+                {createProposalMutation.isPending ? (
+                  <>
+                    <div className="animate-spin mr-2">⏳</div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Create Proposal
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
-
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="outline" onClick={step === 1 ? onClose : handleBack}>
-            {step === 1 ? 'Cancel' : 'Back'}
-          </Button>
-          
-          {step < 4 ? (
-            <Button 
-              onClick={handleNext} 
-              disabled={step === 1 && !selectedType}
-            >
-              Next
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleCreate}
-              disabled={createProposalMutation.isPending || !proposalData.proposal_name.trim()}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {createProposalMutation.isPending ? (
-                <>
-                  <div className="animate-spin mr-2">⏳</div>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Create Proposal
-                </>
-              )}
-            </Button>
-          )}
-        </div>
       </DialogContent>
     </Dialog>
   );

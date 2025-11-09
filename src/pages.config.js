@@ -50,10 +50,6 @@ import PricingBuilder from './pages/PricingBuilder';
 import CompetitorIntel from './pages/CompetitorIntel';
 import TestJourney from './pages/TestJourney';
 import TemplateManager from './pages/TemplateManager';
-import BoardManager from './pages/BoardManager';
-import FolderManager from './pages/FolderManager';
-import TemplateWorkflowManager from './pages/TemplateWorkflowManager';
-import QuickProposalBuilder from './pages/QuickProposalBuilder';
 import Layout from './Layout.jsx';
 
 
@@ -110,10 +106,6 @@ export const PAGES = {
     "CompetitorIntel": CompetitorIntel,
     "TestJourney": TestJourney,
     "TemplateManager": TemplateManager,
-    "BoardManager": BoardManager,
-    "FolderManager": FolderManager,
-    "TemplateWorkflowManager": TemplateWorkflowManager,
-    "QuickProposalBuilder": QuickProposalBuilder,
 }
 
 export const pagesConfig = {

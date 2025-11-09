@@ -34,9 +34,7 @@ import {
   FileEdit,
   TrendingUp,
   Search,
-  BookOpen,
-  Layers, // Added Layers icon
-  Zap // Added Zap icon
+  BookOpen
 } from "lucide-react";
 import {
   Collapsible,
@@ -61,15 +59,12 @@ const WORKSPACE_ITEMS = [
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
   { title: "Templates", url: createPageUrl("TemplateManager"), icon: FileText },
-  { title: "Template Workflows", url: createPageUrl("TemplateWorkflowManager"), icon: Wrench }, // New item
-  { title: "Board Manager", url: createPageUrl("BoardManager"), icon: Layers }, // New item
   { title: "Best Practices", url: createPageUrl("BestPractices"), icon: BookOpen },
   { title: "Search", url: createPageUrl("AdvancedSearch"), icon: Search },
 ];
 
 // Tools sub-menu items
 const TOOLS_ITEMS = [
-  { title: "Quick Proposal Builder", url: createPageUrl("QuickProposalBuilder"), icon: Zap },
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },
@@ -242,12 +237,6 @@ function LayoutContent({ children }) {
         .animate-ping-slow {
           animation: ping-slow 10s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
-
-        /* FIX: Ensure sub-menu items are clickable */
-        .collapsible-submenu-item {
-          pointer-events: auto !important;
-          cursor: pointer !important;
-        }
       `}</style>
 
       {/* Desktop Sidebar */}
@@ -347,10 +336,6 @@ function LayoutContent({ children }) {
                             sidebarCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
                           )}
                           title={sidebarCollapsed ? item.title : undefined}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsOpen(!isOpen);
-                          }}
                         >
                           <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} title={item.title} />
                           {!sidebarCollapsed && (
@@ -366,18 +351,15 @@ function LayoutContent({ children }) {
                       </CollapsibleTrigger>
                       {!sidebarCollapsed && (
                         <CollapsibleContent>
-                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5 py-1">
+                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5">
                             {subItems.map((subItem) => (
                               <Link
                                 key={subItem.title}
                                 to={subItem.url}
                                 className={cn(
-                                  "collapsible-submenu-item flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg",
+                                  "flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg",
                                   location.pathname === subItem.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
                                 )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }}
                               >
                                 <subItem.icon className="w-4 h-4" title={subItem.title} />
                                 <span className="text-sm">{subItem.title}</span>
@@ -468,7 +450,6 @@ function LayoutContent({ children }) {
                       style={{ width: `${tokenPercentage}%` }}
                     />
                   </div>
-                </div>
                 <Link to={createPageUrl("Settings")}>
                   <Button variant="outline" size="sm" className="w-full">
                     <CreditCard className="w-4 h-4 mr-2" title="Manage plan" />
@@ -476,6 +457,7 @@ function LayoutContent({ children }) {
                   </Button>
                 </Link>
               </div>
+            </div>
             </div>
           )}
         </div>

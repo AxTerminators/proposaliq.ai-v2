@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon, Folder as FolderIcon } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -40,7 +40,6 @@ import SavedViews from "@/components/proposals/SavedViews";
 import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
 import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
-import FolderNavigation from "@/components/folders/FolderNavigation";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -69,7 +68,6 @@ export default function Pipeline() {
   const [listGroupBy, setListGroupBy] = useState('none');
   const [tableGroupBy, setTableGroupBy] = useState('none');
   const [showMultiBoardAnalytics, setShowMultiBoardAnalytics] = useState(false);
-  const [selectedFolderId, setSelectedFolderId] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -129,19 +127,6 @@ export default function Pipeline() {
     retry: 1
   });
 
-  // Fetch folders
-  const { data: folders = [] } = useQuery({
-    queryKey: ['folders', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return [];
-      return base44.entities.Folder.filter(
-        { organization_id: organization.id },
-        'order'
-      );
-    },
-    enabled: !!organization?.id,
-  });
-
   // Fetch ALL kanban boards for this organization
   const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
@@ -150,36 +135,15 @@ export default function Pipeline() {
       console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_type'
+        'board_type' // Sort by board_type to get master first
       );
       console.log('[Pipeline] Found boards:', boards.length);
-      
-      const validBoards = boards.filter(board => {
-        if (board.is_master_board === true) return true;
-        if (board.board_category) return true;
-        if (board.board_type && board.board_name) return true;
-        console.log('[Pipeline] Filtering out legacy board without metadata:', board.id);
-        return false;
-      });
-      
-      console.log('[Pipeline] Valid boards after filtering:', validBoards.length);
-      return validBoards;
+      return boards;
     },
     enabled: !!organization?.id,
     staleTime: 60000,
     retry: 1,
   });
-
-  // Filter boards by selected folder
-  const displayedBoards = useMemo(() => {
-    if (selectedFolderId === null) {
-      return allBoards; // Show all boards
-    } else if (selectedFolderId === 'unorganized') {
-      return allBoards.filter(b => !b.folder_id);
-    } else {
-      return allBoards.filter(b => b.folder_id === selectedFolderId);
-    }
-  }, [allBoards, selectedFolderId]);
 
   // Auto-ensure master board exists on first load
   useEffect(() => {
@@ -206,13 +170,13 @@ export default function Pipeline() {
 
   // Auto-select master board or first board on load
   useEffect(() => {
-    if (displayedBoards.length > 0 && !selectedBoardId) {
-      const masterBoard = displayedBoards.find(b => b.is_master_board === true);
-      const boardToSelect = masterBoard || displayedBoards[0];
+    if (allBoards.length > 0 && !selectedBoardId) {
+      const masterBoard = allBoards.find(b => b.is_master_board === true);
+      const boardToSelect = masterBoard || allBoards[0];
       console.log('[Pipeline] Auto-selecting board:', boardToSelect.board_name);
       setSelectedBoardId(boardToSelect.id);
     }
-  }, [displayedBoards, selectedBoardId]);
+  }, [allBoards, selectedBoardId]);
 
   // Get the selected board config
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
@@ -240,7 +204,7 @@ export default function Pipeline() {
     initialData: [],
   });
 
-  // UPDATED: Filter proposals based on selected board with board_category support
+  // Filter proposals based on selected board
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
 
@@ -249,28 +213,7 @@ export default function Pipeline() {
       return proposals;
     }
 
-    // Project Management boards don't show proposals (they show ProjectTasks)
-    if (selectedBoard.board_category === 'project_management_board') {
-      return []; // Return empty for now, will be replaced with ProjectTask query later
-    }
-
-    // Proposal boards filter by proposal_type_category
-    if (selectedBoard.board_category === 'proposal_board') {
-      // Custom proposal boards that accept all types
-      if (selectedBoard.board_type === 'custom' && 
-          (!selectedBoard.applies_to_proposal_types || selectedBoard.applies_to_proposal_types.length === 0)) {
-        return proposals;
-      }
-      
-      // Boards with specific type filters
-      if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
-        return proposals.filter(p =>
-          selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
-        );
-      }
-    }
-
-    // Type-specific boards (old logic for backward compatibility)
+    // Type-specific boards filter by proposal_type_category
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
       return proposals.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
@@ -517,19 +460,16 @@ export default function Pipeline() {
     setSavedFilters(filters);
   };
 
-  // UPDATED: Board type icon mapping with board_category support
-  const getBoardIcon = (board) => {
-    if (board.is_master_board) return "⭐";
-    if (board.board_category === 'project_management_board') return "✅"; // Using a checkmark for project management
-    
-    switch (board.board_type) {
+  // Board type icon mapping
+  const getBoardIcon = (boardType, isMaster) => {
+    if (isMaster) return "⭐";
+    switch (boardType) {
       case 'rfp': return "📋";
       case 'rfi': return "📝";
       case 'sbir': return "🔬";
       case 'gsa': return "🏛️";
       case 'idiq': return "📑";
       case 'state_local': return "🏢";
-      case 'custom': return "⚙️"; // Icon for custom boards
       default: return "📊";
     }
   };
@@ -668,60 +608,42 @@ export default function Pipeline() {
               <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Folder Navigation Dropdown */}
-              {folders.length > 0 && (
-                <FolderNavigation
-                  folders={folders}
-                  selectedFolderId={selectedFolderId}
-                  setSelectedFolderId={setSelectedFolderId}
-                />
-              )}
+            {allBoards.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {allBoards.map(board => {
+                  const isSelected = selectedBoardId === board.id;
+                  const icon = getBoardIcon(board.board_type, board.is_master_board);
 
-              {/* Board Switcher */}
-              {displayedBoards.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {displayedBoards.map(board => {
-                    const isSelected = selectedBoardId === board.id;
-                    const icon = getBoardIcon(board);
-                    
-                    const categoryLabel = board.board_category === 'project_management_board' 
-                      ? 'Project Mgmt' 
-                      : board.is_master_board 
-                      ? 'All Proposals' 
-                      : board.board_name;
+                  return (
+                    <Button
+                      key={board.id}
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedBoardId(board.id)}
+                      className={cn(
+                        "gap-2 transition-all",
+                        isSelected && "ring-2 ring-blue-400"
+                      )}
+                      title={board.board_name}
+                    >
+                      <span className="text-lg">{icon}</span>
+                      <span className="hidden sm:inline">{board.board_name}</span>
+                    </Button>
+                  );
+                })}
 
-                    return (
-                      <Button
-                        key={board.id}
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedBoardId(board.id)}
-                        className={cn(
-                          "gap-2 transition-all",
-                          isSelected && "ring-2 ring-blue-400"
-                        )}
-                        title={board.board_name}
-                      >
-                        <span className="text-lg">{icon}</span>
-                        <span className="hidden sm:inline">{categoryLabel}</span>
-                      </Button>
-                    );
-                  })}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowQuickBoardCreate(true)}
-                    className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
-                    title="Quick create board from template"
-                  >
-                    <Zap className="w-4 h-4 text-blue-600" />
-                    <span className="hidden sm:inline">Quick Create</span>
-                  </Button>
-                </div>
-              )}
-            </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQuickBoardCreate(true)}
+                  className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+                  title="Quick create board from template"
+                >
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <span className="hidden sm:inline">Quick Create</span>
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
@@ -742,15 +664,6 @@ export default function Pipeline() {
                   currentFilters={savedFilters}
                   onApplyView={handleApplySavedView}
                 />
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(createPageUrl("FolderManager"))}
-                  size="sm"
-                  className="h-9"
-                >
-                  <FolderIcon className="w-4 h-4 mr-2" />
-                  Manage Folders
-                </Button>
                 <Button
                   variant={showActivityFeed ? "default" : "outline"}
                   onClick={() => setShowActivityFeed(!showActivityFeed)}

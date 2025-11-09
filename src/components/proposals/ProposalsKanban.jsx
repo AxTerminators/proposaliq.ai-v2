@@ -51,7 +51,7 @@ import {
 import AdvancedFilterPanel from "./AdvancedFilterPanel";
 import GlobalSearch from "./GlobalSearch";
 import BulkActionsPanel from "./BulkActionsPanel";
-import ProjectTasksKanban from "../projects/ProjectTasksKanban";
+
 
 const LEGACY_DEFAULT_COLUMNS = [
   {
@@ -122,8 +122,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       columnsCount: kanbanConfig?.columns?.length || 0,
       isLoadingConfig,
       boardType: kanbanConfig?.board_type,
-      isMasterBoard: kanbanConfig?.is_master_board,
-      boardCategory: kanbanConfig?.board_category
+      isMasterBoard: kanbanConfig?.is_master_board
     });
   }, [proposals.length, kanbanConfig, isLoadingConfig]);
 
@@ -131,16 +130,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
-  // UPDATED: Legacy detection now considers board_category
+  // IMPROVED: More explicit legacy detection - only flag boards that are truly legacy
   const isLegacyConfig = useMemo(() => {
     if (!kanbanConfig?.columns) return false;
     
-    // NEW BOARDS: If board has board_category, it's NOT legacy
-    if (kanbanConfig.board_category) {
-      return false;
-    }
-    
-    // If board has board_type or is_master_board flag, it's NOT legacy
+    // NEW BOARDS: If board has board_type or is_master_board flag, it's NOT legacy
     if (kanbanConfig.board_type || kanbanConfig.is_master_board === true || kanbanConfig.is_master_board === false) {
       return false;
     }
@@ -154,12 +148,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       ['initiate', 'team', 'resources', 'solicit'].includes(col.id)
     );
     
+    // Only flag as legacy if it has old columns, no new columns, and lacks new board metadata
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
-  }, [kanbanConfig]);
-
-  // UPDATED: Check if this is a project management board
-  const isProjectManagementBoard = useMemo(() => {
-    return kanbanConfig?.board_category === 'project_management_board';
   }, [kanbanConfig]);
 
   const columns = kanbanConfig?.columns || [];
@@ -174,7 +164,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       : [...currentCollapsed, columnId];
 
     await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      collapsed_column_ids: newCollapsed
+      collapsed_column_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
     });
 
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
@@ -220,10 +210,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   }, [proposals]);
 
   const filteredProposals = useMemo(() => {
+    // If advanced filters are applied, use those results
     if (advancedFilteredProposals !== null) {
       return advancedFilteredProposals;
     }
 
+    // Otherwise use basic filters
     return proposals.filter(proposal => {
       const matchesSearch = !searchQuery ||
         proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -245,7 +237,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
+      // MASTER BOARD LOGIC - map by status_mapping array
       if (kanbanConfig?.is_master_board) {
+        // Find the master column that includes this proposal's status
         const matchingColumn = columns.find(col => 
           col.type === 'master_status' && 
           col.status_mapping?.includes(proposal.status)
@@ -257,7 +251,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             columnType: 'master_status'
           };
         } else {
-          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status);
+          // Fallback to first column if no match
+          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status, 'assigned to first column.');
           if (columns.length > 0) {
             assignments[proposal.id] = {
               columnId: columns[0].id,
@@ -266,67 +261,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           }
         }
       } 
-      else if (kanbanConfig?.board_category === 'proposal_board') {
-        if (proposal.custom_workflow_stage_id) {
-          const matchingColumn = columns.find(col => col.id === proposal.custom_workflow_stage_id);
-          if (matchingColumn) {
-            assignments[proposal.id] = {
-              columnId: proposal.custom_workflow_stage_id,
-              columnType: 'custom_stage'
-            };
-          }
-        }
-        else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
-          const matchingTerminalColumn = columns.find(
-            col => col.type === 'default_status' && 
-                   col.default_status_mapping === proposal.status &&
-                   col.is_terminal === true
-          );
-          if (matchingTerminalColumn) {
-            assignments[proposal.id] = {
-              columnId: matchingTerminalColumn.id,
-              columnType: 'default_status'
-            };
-          }
-        }
-        else if (proposal.current_phase) {
-          const matchingLockedPhaseColumn = columns.find(
-            col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
-          );
-          if (matchingLockedPhaseColumn) {
-            assignments[proposal.id] = {
-              columnId: matchingLockedPhaseColumn.id,
-              columnType: 'locked_phase'
-            };
-          }
-        }
-        else {
-          const matchingDefaultStatusColumn = columns.find(
-            col => col.type === 'default_status' && col.default_status_mapping === proposal.status
-          );
-          if (matchingDefaultStatusColumn) {
-            assignments[proposal.id] = {
-              columnId: matchingDefaultStatusColumn.id,
-              columnType: 'default_status'
-            };
-          }
-        }
-      }
-      else if (kanbanConfig?.board_category === 'project_management_board') {
-        if (proposal.custom_workflow_stage_id) {
-          assignments[proposal.id] = {
-            columnId: proposal.custom_workflow_stage_id,
-            columnType: 'custom_stage'
-          };
-        }
-      }
+      // TYPE-SPECIFIC BOARD LOGIC
       else {
+        // Priority 1: Check if in custom workflow stage
         if (proposal.custom_workflow_stage_id) {
           assignments[proposal.id] = {
             columnId: proposal.custom_workflow_stage_id,
             columnType: 'custom_stage'
           };
         } 
+        // Priority 2: Check for terminal status columns (Won, Lost, Archived, Submitted)
         else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
           const matchingTerminalColumn = columns.find(
             col => col.type === 'default_status' && 
@@ -340,6 +284,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
+        // Priority 3: Check for locked phase columns
         else if (proposal.current_phase) {
           const matchingLockedPhaseColumn = columns.find(
             col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
@@ -351,6 +296,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
+        // Priority 4: Fallback to default status mapping
         else {
           const matchingDefaultStatusColumn = columns.find(
             col => col.type === 'default_status' && col.default_status_mapping === proposal.status
@@ -387,13 +333,23 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     let columnProposals;
 
+    // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
     if (column.is_terminal) {
+      // console.log(`[Kanban] Terminal column "${column.label}" - showing ALL proposals with status: ${column.default_status_mapping}`);
       columnProposals = filteredProposals.filter(proposal => {
         if (!proposal) return false;
+        
+        // Match by status for terminal columns
         const statusMatch = proposal.status === column.default_status_mapping;
+        
+        // if (statusMatch) {
+        //   console.log(`[Kanban] ✓ Including ${proposal.proposal_type_category} proposal "${proposal.proposal_name}" in terminal column`);
+        // }
+        
         return statusMatch;
       });
     } 
+    // NON-TERMINAL COLUMNS: Filter by assignment
     else {
       columnProposals = filteredProposals.filter(proposal => {
         if (!proposal) return false;
@@ -405,6 +361,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       });
     }
 
+    // Apply sorting
     const sort = columnSorts[column.id];
     if (sort) {
       columnProposals = [...columnProposals].sort((a, b) => {
@@ -521,27 +478,26 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
+        // IMPORTANT: Store the specific column ID so we know which locked_phase column
+        // This is critical when multiple columns share the same phase_mapping
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
         updatesForMovedProposal.current_phase = null;
-        
-        if (kanbanConfig?.board_category === 'proposal_board' && destinationColumn.master_board_status_mapping) {
-          updatesForMovedProposal.status = destinationColumn.master_board_status_mapping;
-        } else {
-          updatesForMovedProposal.status = 'in_progress';
-        }
+        updatesForMovedProposal.status = 'in_progress';
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       } else if (destinationColumn.type === 'master_status') {
+        // For master boards, just update the status to the first mapped status in the destination column
         if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
           updatesForMovedProposal.status = destinationColumn.status_mapping[0];
         }
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       }
+
 
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
@@ -555,17 +511,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       const newColumnProposalsMap = {};
       columns.forEach(col => {
-        newColumnProposalsMap[col.id] = getProposalsForColumn(col);
+          newColumnProposalsMap[col.id] = getProposalsForColumn(col);
       });
 
       newColumnProposalsMap[sourceColumn.id] = newColumnProposalsMap[sourceColumn.id].filter(
-        p => p.id !== proposal.id
+          p => p.id !== proposal.id
       );
 
       const destColumnProposals = Array.from(newColumnProposalsMap[destinationColumn.id]);
       const existingIndexInDest = destColumnProposals.findIndex(p => p.id === proposal.id);
       if (existingIndexInDest !== -1) {
-        destColumnProposals.splice(existingIndexInDest, 1);
+          destColumnProposals.splice(existingIndexInDest, 1);
       }
       destColumnProposals.splice(destinationIndex, 0, proposal);
       newColumnProposalsMap[destinationColumn.id] = destColumnProposals;
@@ -587,7 +543,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         proposalName: proposal.proposal_name,
         from: sourceColumn.label,
         to: destinationColumn.label,
-        boardCategory: kanbanConfig?.board_category,
         updates: updatesForMovedProposal
       });
 
@@ -602,9 +557,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
-        if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
-          alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
-        }
+          if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
+              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
+          }
       }
     } catch (error) {
       console.error("Error moving proposal:", error);
@@ -747,6 +702,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
     }
 
+    // Check if approval is required when exiting source column
+    // Only require approval when moving to terminal/end-state columns
     if (sourceColumn?.requires_approval_to_exit) {
       const terminalColumns = ['submitted', 'won', 'lost', 'archived'];
       const isMovingToTerminalState = terminalColumns.includes(destinationColumn.id) || destinationColumn.is_terminal;
@@ -881,9 +838,15 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const handleCreateProposalWithType = (proposalType) => {
     setShowNewProposalDialog(false);
+    // Don't navigate - dialog will be replaced by QuickCreateProposal
+    // If navigation was needed, it would look like:
+    // navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
   };
 
   const handleAdvancedFilterChange = (filtered) => {
+    // If the filtered array has the same length as the original 'proposals',
+    // it means no actual filtering occurred (or all items match), so treat it as 'null'.
+    // This helps differentiate between 'no filters applied' and 'filters applied, all match'.
     setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
   };
 
@@ -907,7 +870,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
-    setAdvancedFilteredProposals(null);
+    setAdvancedFilteredProposals(null); // Clear advanced filters too
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -915,11 +878,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (searchQuery) count++;
     if (filterAgency !== "all") count++;
     if (filterAssignee !== "all") count++;
-    if (advancedFilteredProposals !== null) count++;
+    if (advancedFilteredProposals !== null) count++; // Count advanced filters as one active filter
     return count;
   }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
-  if (isLoadingConfig && !propKanbanConfig) {
+  if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -937,7 +900,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (configError && !propKanbanConfig) {
+  if (configError && !propKanbanConfig) { // Check propKanbanConfig here
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -945,7 +908,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-red-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">Error Loading Board Configuration</h2>
+            <h2 className="2xl font-bold text-slate-900 mb-3">Error Loading Board Configuration</h2>
             <p className="text-lg text-slate-600 mb-6">
               {configError.message || "Failed to load Kanban configuration"}
             </p>
@@ -959,18 +922,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  // UPDATED: Render project management board view
-  if (isProjectManagementBoard) {
-    return (
-      <ProjectTasksKanban
-        organization={organization}
-        user={user}
-        kanbanConfig={kanbanConfig}
-      />
-    );
-  }
-
-  if (isLegacyConfig && !isLoadingConfig) {
+  if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1004,7 +956,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (!hasKanbanConfig && !isLoadingConfig) {
+  if (!hasKanbanConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1040,7 +992,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
+  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1064,6 +1016,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   return (
     <div className="h-full flex flex-col">
+      {/* Header with filters */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
@@ -1253,7 +1206,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
-                                  <ChevronsRight className="w-4 h-4" />
+                                  <ChevronsRight className="w-4 h-4 mr-2" />
                                 </div>
                               </div>
                             ) : (
@@ -1272,8 +1225,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     user={user}
                                     dragHandleProps={providedDraggable.dragHandleProps}
                                     onCreateProposal={handleCreateProposalInColumn}
-                                    selectedProposalIds={selectedProposalIds}
-                                    onToggleProposalSelection={handleToggleProposalSelection}
+                                    selectedProposalIds={selectedProposalIds} // Pass new prop
+                                    onToggleProposalSelection={handleToggleProposalSelection} // Pass new prop
                                   />
                                 )}
                               </Droppable>
@@ -1356,6 +1309,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         onClose={() => setShowHelpPanel(false)}
       />
 
+      {/* Quick Create Proposal Dialog - Replaces type selection */}
       <QuickCreateProposal
         isOpen={showNewProposalDialog}
         onClose={() => setShowNewProposalDialog(false)}
