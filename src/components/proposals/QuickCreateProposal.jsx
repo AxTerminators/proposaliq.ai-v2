@@ -332,6 +332,8 @@ export default function QuickCreateProposal({
       console.log('[QuickCreate] 🎉 MUTATION SUCCESS');
       console.log('[QuickCreate] Proposal:', proposal.proposal_name);
       console.log('[QuickCreate] Board:', boardConfig.board_name);
+      console.log('[QuickCreate] Current proposalType state:', proposalType);
+      console.log('[QuickCreate] onSuccess callback exists?', !!onSuccess);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       // Force refetch of boards to ensure Pipeline has latest
@@ -351,18 +353,26 @@ export default function QuickCreateProposal({
       onClose(); // Close the creation dialog
       
       console.log('[QuickCreate] 🚀 Calling onSuccess callback...');
+      console.log('[QuickCreate] 🔍 Checking conditions:');
+      console.log('[QuickCreate]   - onSuccess exists?', !!onSuccess);
+      console.log('[QuickCreate]   - proposalType:', proposalType);
+      console.log('[QuickCreate]   - Is RFP_15_COLUMN?', proposalType === 'RFP_15_COLUMN');
       
       if (onSuccess) {
         // For 15-column workflow, signal to open BasicInfoModal
         if (proposalType === 'RFP_15_COLUMN') {
           console.log('[QuickCreate] 🎯 Triggering onSuccess for 15-column with BasicInfoModal');
+          console.log('[QuickCreate] 📤 Calling: onSuccess(proposal, "BasicInfoModal", boardConfig)');
           onSuccess(proposal, 'BasicInfoModal', boardConfig);
+          console.log('[QuickCreate] ✅ onSuccess called!');
         } else {
           // For legacy workflows, navigate to ProposalBuilder
           console.log('[QuickCreate] 📝 Triggering onSuccess for legacy workflow');
           onSuccess(proposal);
           navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
         }
+      } else {
+        console.error('[QuickCreate] ❌ onSuccess callback is NOT defined!');
       }
     },
     onError: (error) => {
@@ -375,16 +385,19 @@ export default function QuickCreateProposal({
   });
 
   const handleTypeSelect = (type) => {
+    console.log('[QuickCreate] 🎯 Type selected:', type);
     setProposalType(type);
     
     // For 15-column workflow, skip to immediate creation
     if (type === 'RFP_15_COLUMN') {
+      console.log('[QuickCreate] 🚀 Creating 15-column proposal immediately...');
       // Create proposal immediately with minimal data
       createProposalMutation.mutate({
         proposal_name: 'New Proposal', // Temporary name, will be updated in BasicInfoModal
       });
     } else {
       // For other types, go to step 2 for details
+      console.log('[QuickCreate] 📝 Moving to step 2 for details...');
       setStep(2);
     }
   };
