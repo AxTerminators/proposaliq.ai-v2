@@ -346,10 +346,9 @@ export default function Pipeline() {
           alert(`✅ ${response.data.message}`);
           await refetchBoards();
 
-          const updatedBoards = await base44.entities.KanbanConfig.filter({
-            organization_id: organization.id,
-            board_type: boardType.toLowerCase()
-          });
+          const updatedBoards = await base44.entities.KanbanConfig.filter(
+            { organization_id: organization.id, board_type: boardType.toLowerCase() }
+          );
           if (updatedBoards.length > 0) {
             setSelectedBoardId(updatedBoards[0].id);
           }
@@ -420,12 +419,14 @@ export default function Pipeline() {
 
   const handleProposalCreated = async (createdProposal, openModal = null, boardConfig = null) => {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[Pipeline] 📝 HANDLE PROPOSAL CREATED');
-    console.log('[Pipeline] Proposal:', createdProposal.proposal_name);
-    console.log('[Pipeline] Type:', createdProposal.proposal_type_category);
-    console.log('[Pipeline] ID:', createdProposal.id);
+    console.log('[Pipeline] 📝 ✨✨ HANDLE PROPOSAL CREATED CALLED ✨✨');
+    console.log('[Pipeline] Proposal:', createdProposal?.proposal_name);
+    console.log('[Pipeline] Type:', createdProposal?.proposal_type_category);
+    console.log('[Pipeline] ID:', createdProposal?.id);
     console.log('[Pipeline] Modal to open:', openModal);
     console.log('[Pipeline] Board config provided:', !!boardConfig);
+    console.log('[Pipeline] Board config ID:', boardConfig?.id);
+    console.log('[Pipeline] Board config name:', boardConfig?.board_name);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Refetch proposals
@@ -495,6 +496,10 @@ export default function Pipeline() {
       // For 15-column workflow, set up pending modal and switch board
       if (proposalType === 'RFP_15_COLUMN' && openModal) {
         console.log('[Pipeline] 🎯 Setting up pending modal:', openModal);
+        console.log('[Pipeline] 🎯 Proposal data being stored:', {
+          id: createdProposal.id,
+          name: createdProposal.proposal_name
+        });
         
         // Set up the pending modal data WITH the board ID
         setPendingProposalModal({

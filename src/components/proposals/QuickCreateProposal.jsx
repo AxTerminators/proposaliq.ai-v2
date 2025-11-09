@@ -332,6 +332,8 @@ export default function QuickCreateProposal({
       console.log('[QuickCreate] 🎉 MUTATION SUCCESS');
       console.log('[QuickCreate] Proposal:', proposal.proposal_name);
       console.log('[QuickCreate] Board:', boardConfig.board_name);
+      console.log('[QuickCreate] onSuccess prop exists?', typeof onSuccess);
+      console.log('[QuickCreate] onSuccess prop value:', onSuccess);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       // Force refetch of boards to ensure Pipeline has latest
@@ -350,19 +352,28 @@ export default function QuickCreateProposal({
       
       onClose(); // Close the creation dialog
       
-      console.log('[QuickCreate] 🚀 Calling onSuccess callback...');
+      console.log('[QuickCreate] 🚀 About to call onSuccess callback...');
+      console.log('[QuickCreate] Proposal type:', proposalType);
+      console.log('[QuickCreate] Is RFP_15_COLUMN?', proposalType === 'RFP_15_COLUMN');
       
       if (onSuccess) {
         // For 15-column workflow, signal to open BasicInfoModal
         if (proposalType === 'RFP_15_COLUMN') {
-          console.log('[QuickCreate] 🎯 Triggering onSuccess for 15-column with BasicInfoModal');
+          console.log('[QuickCreate] 🎯 CALLING onSuccess with:', {
+            proposal: proposal.proposal_name,
+            modal: 'BasicInfoModal',
+            boardId: boardConfig.id
+          });
           onSuccess(proposal, 'BasicInfoModal', boardConfig);
+          console.log('[QuickCreate] ✅ onSuccess called successfully');
         } else {
           // For legacy workflows, navigate to ProposalBuilder
           console.log('[QuickCreate] 📝 Triggering onSuccess for legacy workflow');
           onSuccess(proposal);
           navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
         }
+      } else {
+        console.error('[QuickCreate] ❌ ERROR: onSuccess callback is NULL/UNDEFINED!');
       }
     },
     onError: (error) => {
