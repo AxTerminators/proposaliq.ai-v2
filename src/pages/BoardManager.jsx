@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,9 +14,9 @@ import {
   Layers,
   AlertCircle,
   CheckCircle,
-  Folder as FolderIcon, // Renamed to avoid conflict with Folder component
-  FolderOpen, // New
-  Move // New
+  Folder as FolderIcon,
+  FolderOpen,
+  Move
 } from "lucide-react";
 import {
   AlertDialog,
@@ -37,16 +36,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, // New
-  DialogContent, // New
-  DialogDescription, // New
-  DialogHeader, // New
-  DialogTitle, // New
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import CustomBoardCreationWizard from "../components/proposals/CustomBoardCreationWizard";
-import FolderSelector from "../components/folders/FolderSelector"; // New
-import { cn } from "@/lib/utils"; // Assuming cn utility is available from shadcn/ui
+import FolderSelector from "../components/folders/FolderSelector";
+import { cn } from "@/lib/utils";
 
 const PROPOSAL_TYPES = [
   { value: 'RFP', label: 'RFP - Request for Proposal', emoji: '📄' },
@@ -61,13 +60,16 @@ const PROPOSAL_TYPES = [
 export default function BoardManager() {
   const queryClient = useQueryClient();
   const { organization, user } = useOrganization();
+  
+  // ALL STATE HOOKS FIRST
   const [boardToDelete, setBoardToDelete] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [categorizingProposal, setCategorizingProposal] = useState(null);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
-  const [movingBoard, setMovingBoard] = useState(null); // New state for moving boards
-  const [showMoveDialog, setShowMoveDialog] = useState(false); // New state for move dialog
+  const [movingBoard, setMovingBoard] = useState(null);
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
 
+  // ALL DATA FETCHING HOOKS
   const { data: boards = [], isLoading } = useQuery({
     queryKey: ['all-boards', organization?.id],
     queryFn: async () => {
@@ -92,7 +94,6 @@ export default function BoardManager() {
     enabled: !!organization?.id,
   });
 
-  // New query for folders
   const { data: folders = [] } = useQuery({
     queryKey: ['folders', organization?.id],
     queryFn: async () => {
@@ -105,6 +106,7 @@ export default function BoardManager() {
     enabled: !!organization?.id,
   });
 
+  // ALL MUTATION HOOKS
   const deleteMutation = useMutation({
     mutationFn: async (boardId) => {
       return base44.entities.KanbanConfig.delete(boardId);
@@ -129,7 +131,6 @@ export default function BoardManager() {
     },
   });
 
-  // New mutation for moving boards
   const moveBoardMutation = useMutation({
     mutationFn: async ({ boardId, folderId }) => {
       return base44.entities.KanbanConfig.update(boardId, {
@@ -138,32 +139,49 @@ export default function BoardManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-boards'] });
-      queryClient.invalidateQueries({ queryKey: ['folders'] }); // Invalidate folders to reflect changes
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
       setShowMoveDialog(false);
       setMovingBoard(null);
     },
   });
 
-  const handleDeleteClick = (board) => {
-    if (!canDeleteBoard()) {
-      alert("Only admins and managers can delete boards.");
-      return;
-    }
+  // COMPUTED VALUES - MUST BE AFTER ALL HOOKS, BEFORE ANY EARLY RETURNS
+  const proposalBoards = useMemo(() => {
+    return boards.filter(b => 
+      b.board_category === 'proposal_board' || 
+      b.is_master_board || 
+      b.is_template_board ||
+      (!b.board_category && b.board_type)
+    );
+  }, [boards]);
 
-    setBoardToDelete(board);
-    setShowDeleteConfirm(true);
-  };
+  const projectBoards = useMemo(() => {
+    return boards.filter(b => 
+      b.board_category === 'project_management_board'
+    );
+  }, [boards]);
 
-  const handleConfirmDelete = async () => {
-    if (boardToDelete) {
-      await deleteMutation.mutateAsync(boardToDelete.id);
-    }
-  };
+  const boardsByFolder = useMemo(() => {
+    const grouped = {
+      unorganized: [],
+      byFolder: {}
+    };
 
-  const handleCategorizeProposal = async (proposalId, category) => {
-    await categorizeMutation.mutateAsync({ proposalId, category });
-  };
+    proposalBoards.forEach(board => {
+      if (!board.folder_id) {
+        grouped.unorganized.push(board);
+      } else {
+        if (!grouped.byFolder[board.folder_id]) {
+          grouped.byFolder[board.folder_id] = [];
+        }
+        grouped.byFolder[board.folder_id].push(board);
+      }
+    });
 
+    return grouped;
+  }, [proposalBoards, folders]);
+
+  // HELPER FUNCTIONS
   const canDeleteBoard = () => {
     if (user?.role === 'admin') return true;
     
@@ -172,25 +190,6 @@ export default function BoardManager() {
     );
     
     return orgAccess?.role === 'organization_owner' || orgAccess?.role === 'manager';
-  };
-
-  const handleBoardCreated = (newBoard) => {
-    alert(`✅ Board "${newBoard.board_name}" created successfully!`);
-  };
-
-  // New handler for opening the move board dialog
-  const handleMoveBoard = (board) => {
-    setMovingBoard(board);
-    setShowMoveDialog(true);
-  };
-
-  // New handler for confirming board move
-  const handleConfirmMove = async (folderId) => {
-    if (!movingBoard) return;
-    await moveBoardMutation.mutateAsync({
-      boardId: movingBoard.id,
-      folderId: folderId
-    });
   };
 
   const getProposalCount = (board) => {
@@ -226,47 +225,44 @@ export default function BoardManager() {
     return !board.board_type && !board.board_name;
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-      </div>
-    );
-  }
+  // EVENT HANDLERS
+  const handleDeleteClick = (board) => {
+    if (!canDeleteBoard()) {
+      alert("Only admins and managers can delete boards.");
+      return;
+    }
 
-  const proposalBoards = boards.filter(b => 
-    b.board_category === 'proposal_board' || 
-    b.is_master_board || 
-    b.is_template_board ||
-    (!b.board_category && b.board_type)
-  );
+    setBoardToDelete(board);
+    setShowDeleteConfirm(true);
+  };
 
-  const projectBoards = boards.filter(b => 
-    b.board_category === 'project_management_board'
-  );
+  const handleConfirmDelete = async () => {
+    if (boardToDelete) {
+      await deleteMutation.mutateAsync(boardToDelete.id);
+    }
+  };
 
-  // Group boards by folder using useMemo
-  const boardsByFolder = useMemo(() => {
-    const grouped = {
-      unorganized: [],
-      byFolder: {}
-    };
+  const handleCategorizeProposal = async (proposalId, category) => {
+    await categorizeMutation.mutateAsync({ proposalId, category });
+  };
 
-    proposalBoards.forEach(board => {
-      if (!board.folder_id) {
-        grouped.unorganized.push(board);
-      } else {
-        if (!grouped.byFolder[board.folder_id]) {
-          grouped.byFolder[board.folder_id] = [];
-        }
-        grouped.byFolder[board.folder_id].push(board);
-      }
+  const handleBoardCreated = (newBoard) => {
+    alert(`✅ Board "${newBoard.board_name}" created successfully!`);
+  };
+
+  const handleMoveBoard = (board) => {
+    setMovingBoard(board);
+    setShowMoveDialog(true);
+  };
+
+  const handleConfirmMove = async (folderId) => {
+    if (!movingBoard) return;
+    await moveBoardMutation.mutateAsync({
+      boardId: movingBoard.id,
+      folderId: folderId
     });
+  };
 
-    return grouped;
-  }, [proposalBoards, folders]); // Re-evaluate when proposalBoards or folders change
-
-  // Helper function to render a single board card
   const renderBoardCard = (board) => {
     const proposalCount = getProposalCount(board);
     const hasProposals = proposalCount > 0;
@@ -343,7 +339,7 @@ export default function BoardManager() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Button // New move button
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleMoveBoard(board)}
@@ -443,6 +439,15 @@ export default function BoardManager() {
     );
   };
 
+  // NOW EARLY RETURN CAN HAPPEN - ALL HOOKS DECLARED ABOVE
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -470,12 +475,11 @@ export default function BoardManager() {
               <Badge variant="secondary">{proposalBoards.length}</Badge>
             </div>
             
-            {/* Boards organized by folder */}
             {folders
-              .filter(f => !f.parent_folder_id) // Only root folders for now
+              .filter(f => !f.parent_folder_id)
               .map(folder => {
                 const folderBoards = boardsByFolder.byFolder[folder.id] || [];
-                if (folderBoards.length === 0) return null; // Don't render empty folders
+                if (folderBoards.length === 0) return null;
 
                 return (
                   <div key={folder.id} className="mb-8 pl-4 border-l-2 border-blue-200">
@@ -491,7 +495,6 @@ export default function BoardManager() {
                 );
               })}
 
-            {/* Unorganized boards */}
             {boardsByFolder.unorganized.length > 0 && (
               <div className="mb-8">
                 <div className="flex items-center gap-2 mb-4">
@@ -510,7 +513,7 @@ export default function BoardManager() {
         {projectBoards.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <FolderIcon className="w-5 h-5 text-purple-600" /> {/* Changed to FolderIcon */}
+              <FolderIcon className="w-5 h-5 text-purple-600" />
               <h2 className="text-xl font-bold text-slate-900">Project Management Boards</h2>
               <Badge variant="secondary">{projectBoards.length}</Badge>
             </div>
@@ -599,7 +602,7 @@ export default function BoardManager() {
               {boardToDelete && getProposalCount(boardToDelete) > 0 && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-900 font-medium">
-                    ⚠️ This board has {getProposalCount(boardToDelete)} proposal(s). The proposals will not be deleted, 
+                    ⚠️ This board has {getProposalCount(boardToDelete) proposal(s). The proposals will not be deleted, 
                     but will need to be reassigned to other boards.
                   </p>
                 </div>
@@ -619,7 +622,6 @@ export default function BoardManager() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* New: Move Board Dialog */}
       <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
         <DialogContent>
           <DialogHeader>
@@ -633,9 +635,9 @@ export default function BoardManager() {
             <Label className="mb-2 block">Select Folder</Label>
             <FolderSelector
               organization={organization}
-              value={movingBoard?.folder_id || ''} // Pass current folder_id or empty string for no selection
+              value={movingBoard?.folder_id || ''}
               onChange={(folderId) => handleConfirmMove(folderId)}
-              allowNone={true} // Allow setting folder_id to null (unassigning from folder)
+              allowNone={true}
             />
           </div>
 
