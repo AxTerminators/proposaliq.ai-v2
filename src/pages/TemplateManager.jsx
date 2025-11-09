@@ -195,14 +195,19 @@ export default function TemplateManager() {
     onSuccess: (response) => {
       if (response.data.was_created) {
         queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
-        // alert('✅ 15-Column RFP Workflow template added!'); // Commenting out to avoid multiple alerts on load
+        alert('✅ 15-Column RFP Workflow template added!');
       }
     }
   });
 
-  // Auto-create 15-column template on first load if it doesn't exist
+  // Auto-create 15-column template on first load if it doesn't exist - WITH GUARD
+  const [hasCheckedTemplate, setHasCheckedTemplate] = useState(false);
+  
   useEffect(() => {
-    if (organization?.id && allTemplates.length > 0) {
+    // Only run once and only if we haven't checked yet
+    if (organization?.id && allTemplates.length > 0 && !hasCheckedTemplate) {
+      setHasCheckedTemplate(true); // Mark as checked immediately to prevent multiple runs
+      
       const has15ColumnTemplate = allTemplates.some(
         t => t.proposal_type_category === 'RFP_15_COLUMN'
       );
@@ -211,7 +216,7 @@ export default function TemplateManager() {
         create15ColumnTemplateMutation.mutate();
       }
     }
-  }, [organization?.id, allTemplates, create15ColumnTemplateMutation]); // Add create15ColumnTemplateMutation to dependencies
+  }, [organization?.id, allTemplates.length]);
 
   const handleDuplicate = (template) => {
     duplicateTemplateMutation.mutate(template);
