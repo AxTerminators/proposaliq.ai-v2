@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -43,7 +42,7 @@ import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
 
-// Import modal components
+// Import ALL modal components
 import BasicInfoModal from "./modals/BasicInfoModal";
 import TeamFormationModal from "./modals/TeamFormationModal";
 import ResourceGatheringModal from "./modals/ResourceGatheringModal";
@@ -96,12 +95,14 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     'define_roles': 'TeamFormationModal',
     'open_team_formation_modal': 'TeamFormationModal',
     'open_modal_phase2': 'TeamFormationModal',
+    'open_team_modal': 'TeamFormationModal',
     
     // Phase 2 - Resources
     'gather_resources': 'ResourceGatheringModal',
     'link_boilerplate': 'ResourceGatheringModal',
     'link_past_performance': 'ResourceGatheringModal',
     'open_resource_gathering_modal': 'ResourceGatheringModal',
+    'open_resources_modal': 'ResourceGatheringModal',
     
     // Phase 3 - Solicitation
     'upload_solicitation': 'SolicitationUploadModal',
@@ -110,6 +111,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     'open_solicitation_upload_modal': 'SolicitationUploadModal',
     'open_modal_phase3': 'SolicitationUploadModal',
     'run_ai_analysis_phase3': 'SolicitationUploadModal',
+    'navigate_solicitation_upload': 'SolicitationUploadModal',
     
     // Phase 4 - Evaluation
     'run_evaluation': 'EvaluationModal',
@@ -117,6 +119,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     'open_evaluation_modal': 'EvaluationModal',
     'open_modal_phase4': 'EvaluationModal',
     'run_evaluation_phase4': 'EvaluationModal',
+    'navigate_evaluation': 'EvaluationModal',
     
     // Phase 5 - Win Strategy
     'develop_win_strategy': 'WinStrategyModal',
@@ -125,12 +128,14 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     'open_win_strategy_modal': 'WinStrategyModal',
     'open_modal_phase5': 'WinStrategyModal',
     'generate_win_themes_phase5': 'WinStrategyModal',
+    'navigate_win_strategy': 'WinStrategyModal',
     
     // Phase 5 - Content Planning
     'plan_content': 'ContentPlanningModal',
     'select_sections': 'ContentPlanningModal',
     'set_writing_strategy': 'ContentPlanningModal',
     'open_content_planning_modal': 'ContentPlanningModal',
+    'navigate_content_planning': 'ContentPlanningModal',
     
     // Phase 7 - Pricing
     'review_pricing': 'PricingReviewModal',
@@ -188,13 +193,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
   // Determine which board this proposal belongs to
   const getCurrentBoardId = () => {
-    // For 15-column board (board_type = rfp_15_column), check board_type
     const rfp15Board = allBoards.find(b => b.board_type === 'rfp_15_column');
     if (rfp15Board && proposal.proposal_type_category === 'RFP_15_COLUMN') {
       return rfp15Board.id;
     }
 
-    // For other type-specific boards
     const typeBoard = allBoards.find(b => 
       !b.is_master_board && 
       b.applies_to_proposal_types?.includes(proposal.proposal_type_category)
@@ -204,12 +207,10 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       return typeBoard.id;
     }
 
-    // Default to master board
     const masterBoard = allBoards.find(b => b.is_master_board);
     return masterBoard?.id || '';
   };
 
-  // Handle board reassignment - FIXED to reset workflow fields and place in first column
   const handleBoardReassignment = async (newBoardId) => {
     if (!newBoardId) return;
     
@@ -217,7 +218,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     if (!newBoard) return;
 
     try {
-      // Determine new proposal type based on board
       let newProposalType;
       
       if (newBoard.is_master_board) {
@@ -228,7 +228,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         newProposalType = newBoard.applies_to_proposal_types?.[0] || 'OTHER';
       }
 
-      // Get the first non-terminal column of the new board
       const newBoardColumns = newBoard.columns || [];
       const firstColumn = newBoardColumns.find(col => !col.is_terminal);
       
@@ -244,18 +243,16 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         newType: newProposalType
       });
 
-      // CRITICAL FIX: Reset all workflow fields and place in first column
       const updates = {
         proposal_type_category: newProposalType
       };
 
-      // Reset workflow stage based on first column type
       if (firstColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = firstColumn.id;
         updates.current_phase = null;
-        updates.status = 'in_progress'; // Default status for custom stages
+        updates.status = 'in_progress';
       } else if (firstColumn.type === 'locked_phase') {
-        updates.custom_workflow_stage_id = firstColumn.id; // Store which specific column
+        updates.custom_workflow_stage_id = firstColumn.id;
         updates.current_phase = firstColumn.phase_mapping;
         updates.status = firstColumn.default_status_mapping || 'evaluating';
       } else if (firstColumn.type === 'default_status') {
@@ -268,34 +265,27 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         updates.custom_workflow_stage_id = null;
       }
 
-      // Reset checklist status for new board
       updates.current_stage_checklist_status = {
         [firstColumn.id]: {}
       };
 
-      // Set action required if first column has required items
       const hasRequiredItems = firstColumn.checklist_items?.some(item => item.required);
       updates.action_required = hasRequiredItems;
       updates.action_required_description = hasRequiredItems 
         ? `Complete required items in ${firstColumn.label}` 
         : null;
 
-      // Reset manual order
       updates.manual_order = 0;
 
       console.log('[ProposalCardModal] Applying updates:', updates);
 
-      // Update the proposal
       await updateProposalMutation.mutateAsync(updates);
 
-      // Force refetch proposals to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       await queryClient.refetchQueries({ queryKey: ['proposals'] });
       
-      // Show success and close modal
       alert(`✅ Proposal moved to "${newBoard.board_name}" → "${firstColumn.label}" column!`);
       
-      // Close the modal so user can see the board update
       onClose();
       
     } catch (error) {
@@ -304,7 +294,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   };
 
-  // Get board icons
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
     switch (boardType) {
@@ -319,11 +308,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   };
 
-  // Handle checklist item click
   const handleChecklistItemClick = async (item) => {
     console.log('[ProposalCardModal] ✨ Checklist item clicked:', item.label, 'Action:', item.associated_action);
 
-    // If no associated action, treat as manual checkbox
     if (!item.associated_action) {
       await handleChecklistItemToggle(item);
       return;
@@ -344,7 +331,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       console.log('[ProposalCardModal] 🔗 Navigating to:', actionConfig.path);
       const url = `${createPageUrl(actionConfig.path)}?id=${proposal.id}`;
       navigate(url);
-      onClose(); // CLOSE MODAL when navigating to full page
+      onClose();
       return;
     }
 
@@ -363,7 +350,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   };
 
-  // Handler for checking/unchecking checklist items
   const handleChecklistItemToggle = async (item) => {
     const currentStatus = proposal.current_stage_checklist_status || {};
     const columnStatus = currentStatus[currentColumn?.id] || {};
@@ -400,14 +386,12 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     });
   };
 
-  // Handle modal close
   const handleModalClose = () => {
     console.log('[ProposalCardModal] 🚪 Closing modal');
     setActiveModalName(null);
     queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
-  // Render active modal dynamically
   const renderActiveModal = () => {
     if (!activeModalName) return null;
     
@@ -427,7 +411,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     );
   };
 
-  // System check validation
   const systemCheckStatus = (item) => {
     switch (item.id) {
       case 'contract_value_present':
@@ -444,7 +427,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   };
 
-  // Determine icon based on action type
   const getItemIcon = (item, isCompleted) => {
     if (isCompleted) {
       return <CheckCircle2 className="w-6 h-6 text-green-600" />;
@@ -512,7 +494,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   )}
                 </div>
 
-                {/* Board Assignment Section - IMPROVED UI */}
                 {allBoards.length > 1 && (
                   <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                     <div className="flex items-start gap-3">
@@ -566,7 +547,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
             </div>
           </DialogHeader>
 
-          {/* Main Content */}
           <div className="flex-1 overflow-y-auto">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent sticky top-0 z-10 bg-white">
@@ -612,7 +592,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 </TabsTrigger>
               </TabsList>
 
-              {/* Checklist Tab */}
               <TabsContent value="checklist" className="p-6 space-y-4">
                 {currentColumn && (
                   <div>
@@ -662,7 +641,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                               >
                                 <CardContent className="p-4">
                                   <div className="flex items-start gap-3">
-                                    {/* Icon */}
                                     <div className="mt-1 flex-shrink-0">
                                       {getItemIcon(item, isCompleted)}
                                     </div>
@@ -695,7 +673,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                           )}
                                         </div>
 
-                                        {/* Click to Start Button for clickable items */}
                                         {isClickable && (
                                           <Button
                                             onClick={(e) => {
@@ -732,7 +709,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                       </div>
                     )}
 
-                    {/* Summary */}
                     <Card className="mt-6 bg-slate-50">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
@@ -797,23 +773,22 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 )}
               </TabsContent>
 
-              {/* NEW: Quick Actions Tab */}
               <TabsContent value="quick-actions" className="mt-0 p-6">
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     onClick={() => {
-                      navigate(createPageUrl("proposals/WriteContent") + `?id=${proposal.id}`);
+                      navigate(createPageUrl("proposals/WriteContentStandalone") + `?id=${proposal.id}`);
                       onClose();
                     }}
                     className="h-24 flex-col gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                   >
                     <FileEdit className="w-8 h-8" />
-                    <span>Start Writing</span>
+                    <span>Write Content</span>
                   </Button>
 
                   <Button
                     onClick={() => {
-                      navigate(createPageUrl("proposals/ComplianceMatrix") + `?id=${proposal.id}`);
+                      navigate(createPageUrl("proposals/ComplianceMatrixStandalone") + `?id=${proposal.id}`);
                       onClose();
                     }}
                     className="h-24 flex-col gap-2 bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700"
@@ -824,29 +799,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
                   <Button
                     onClick={() => {
-                      navigate(createPageUrl("proposals/ProposalHealth") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
-                  >
-                    <Activity className="w-8 h-8" />
-                    <span>Health Dashboard</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/WinStrategy") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                  >
-                    <Target className="w-8 h-8" />
-                    <span>Win Strategy</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/PricingBuild") + `?id=${proposal.id}`);
+                      navigate(createPageUrl("proposals/PricingBuildStandalone") + `?id=${proposal.id}`);
                       onClose();
                     }}
                     className="h-24 flex-col gap-2 bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
@@ -857,13 +810,35 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
                   <Button
                     onClick={() => {
-                      navigate(createPageUrl("proposals/SolicitationUpload") + `?id=${proposal.id}`);
+                      navigate(createPageUrl("proposals/RedTeamReviewStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+                  >
+                    <Activity className="w-8 h-8" />
+                    <span>Red Team Review</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/SubmissionReadyStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                  >
+                    <Target className="w-8 h-8" />
+                    <span>Submission Checklist</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("ExportCenter") + `?id=${proposal.id}`);
                       onClose();
                     }}
                     className="h-24 flex-col gap-2 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
                   >
                     <Upload className="w-8 h-8" />
-                    <span>Upload Documents</span>
+                    <span>Export Proposal</span>
                   </Button>
                 </div>
               </TabsContent>
@@ -872,7 +847,6 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         </DialogContent>
       </Dialog>
 
-      {/* Render Modal Dynamically */}
       {renderActiveModal()}
     </>
   );
