@@ -17,7 +17,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles,
+  Building2,
   Calendar,
+  DollarSign,
+  FileText,
+  Zap,
   ArrowRight,
   Layers,
   AlertCircle,
@@ -25,6 +29,13 @@ import {
   CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PROPOSAL_TYPES = [
   { 
@@ -146,7 +157,7 @@ export default function QuickCreateProposal({
         return false;
       });
     },
-    enabled: !!organization?.id && !!selectedType && step === 2,
+    enabled: !!organization?.id && !!selectedType,
   });
 
   const { data: workflowTemplates = [] } = useQuery({
@@ -166,6 +177,12 @@ export default function QuickCreateProposal({
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
+      let boardToUse = availableBoards.find(b => b.id === selectedBoardId);
+      
+      if (!boardToUse && availableBoards.length > 0) {
+        boardToUse = availableBoards.find(b => b.is_template_board) || availableBoards[0];
+      }
+
       const proposal = await base44.entities.Proposal.create({
         ...data,
         organization_id: organization.id,
@@ -173,20 +190,23 @@ export default function QuickCreateProposal({
         workflow_template_id: data.workflow_template_id || null,
         current_phase: 'phase1',
         status: 'evaluating',
+        manual_order: 0,
+        is_sample_data: false
       });
 
       return proposal;
     },
     onSuccess: (proposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       
       if (onSuccess) {
         onSuccess(proposal);
       }
       
-      navigate(`${createPageUrl("ProposalBuilder")}?id=${proposal.id}`);
       onClose();
-    },
+      navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}`);
+    }
   });
 
   const handleTypeSelect = (type) => {
@@ -313,7 +333,7 @@ export default function QuickCreateProposal({
             <div>
               <h3 className="font-semibold text-lg mb-2">Select Board</h3>
               <p className="text-sm text-slate-600 mb-4">
-                Choose which board this proposal will appear on
+                Choose which board this proposal will appear on.
               </p>
             </div>
 
@@ -384,7 +404,7 @@ export default function QuickCreateProposal({
               </Card>
             )}
 
-            {selectedBoardId && availableBoards.find(b => b.id === selectedBoardId) && (
+            {selectedBoardId && availableBoards.find(b => b.id === selectedBoardId) ? (
               <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <Layers className="w-4 h-4 text-blue-600" />
@@ -398,8 +418,22 @@ export default function QuickCreateProposal({
                   </p>
                 </div>
               </div>
+            ) : (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-900">
+                    No Specific Board Selected
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    The system will use the default board for your proposal type.
+                  </p>
+                </div>
+              </div>
             )}
-
+            
             {workflowTemplates.length > 0 ? (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Workflow Template</Label>
@@ -451,15 +485,15 @@ export default function QuickCreateProposal({
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-4 h-4 text-amber-600" />
+              <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">
+                  <p className="text-sm font-semibold text-red-900">
                     No Workflow Templates Found
                   </p>
-                  <p className="text-xs text-amber-700 mt-1">
+                  <p className="text-xs text-red-700 mt-1">
                     No active workflow templates are available for this proposal type.
                   </p>
                 </div>
