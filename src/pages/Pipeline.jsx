@@ -87,6 +87,7 @@ export default function Pipeline() {
   const [selectedProposalToOpen, setSelectedProposalToOpen] = useState(null);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [initialModalToOpen, setInitialModalToOpen] = useState(null);
+  const [pendingProposalModal, setPendingProposalModal] = useState(null); // NEW: Track pending modal
 
   useEffect(() => {
     const checkMobile = () => {
@@ -181,20 +182,41 @@ export default function Pipeline() {
     };
 
     ensureMasterBoard();
-  }, [organization?.id, allBoards.length, isLoadingBoards]);
+  }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
   useEffect(() => {
     if (allBoards.length > 0 && !selectedBoardId) {
       const masterBoard = allBoards.find(b => b.is_master_board === true);
       const boardToSelect = masterBoard || allBoards[0];
-      console.log('[Pipeline] Auto-selecting board:', boardToSelect.board_name);
-      setSelectedBoardId(boardToSelect.id);
+      console.log('[Pipeline] Auto-selecting board:', boardToSelect?.board_name);
+      setSelectedBoardId(boardToSelect?.id);
     } else if (allBoards.length === 0 && selectedBoardId) {
       setSelectedBoardId(null);
     }
   }, [allBoards, selectedBoardId]);
 
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
+
+  // NEW: Effect to handle pending proposal modal after board switch
+  useEffect(() => {
+    if (!pendingProposalModal) return;
+    
+    const { proposal, initialModal, targetBoardType } = pendingProposalModal;
+    
+    // Check if the currently selected board matches the target
+    const isCorrectBoardSelected = targetBoardType === 'rfp_15_column' 
+      ? selectedBoard?.board_type === 'rfp_15_column'
+      : (selectedBoard?.applies_to_proposal_types?.includes(proposal.proposal_type_category) || false);
+    
+    if (isCorrectBoardSelected && selectedBoard) {
+      console.log('[Pipeline] ✅ Correct board selected, opening modal now:', selectedBoard.board_name);
+      
+      setSelectedProposalToOpen(proposal);
+      setInitialModalToOpen(initialModal);
+      setShowProposalModal(true);
+      setPendingProposalModal(null); // Clear pending state
+    }
+  }, [selectedBoard, pendingProposalModal]);
 
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
@@ -367,40 +389,52 @@ export default function Pipeline() {
   };
 
   const handleProposalCreated = async (createdProposal, openModal = null) => {
+    console.log('[Pipeline] 📝 Proposal created:', createdProposal.proposal_name, 'Type:', createdProposal.proposal_type_category);
+    
     await refetchProposals();
 
     const proposalType = createdProposal.proposal_type_category;
 
     if (!proposalType) {
+      console.warn('[Pipeline] ⚠️ No proposal type category, skipping board switch');
       return;
     }
 
+    // Find the correct board for this proposal type
     let matchingBoard = null;
     
     if (proposalType === 'RFP_15_COLUMN') {
       matchingBoard = allBoards.find(board => board.board_type === 'rfp_15_column');
-      console.log('[Pipeline] Found 15-column board:', matchingBoard?.board_name);
+      console.log('[Pipeline] 🎯 Looking for 15-column board:', matchingBoard ? 'FOUND' : 'NOT FOUND');
     } else {
       matchingBoard = allBoards.find(board =>
         board.applies_to_proposal_types?.includes(proposalType)
       );
+      console.log('[Pipeline] Looking for type-specific board:', matchingBoard ? 'FOUND' : 'NOT FOUND');
     }
 
     if (matchingBoard) {
-      console.log('[Pipeline] Switching to board:', matchingBoard.board_name);
-      setSelectedBoardId(matchingBoard.id);
+      console.log('[Pipeline] 🔄 Switching to board:', matchingBoard.board_name, 'ID:', matchingBoard.id);
       
+      // For 15-column workflow, set up pending modal and switch board
       if (proposalType === 'RFP_15_COLUMN') {
-        console.log('[Pipeline] 🎯 Auto-opening proposal modal for 15-column workflow with BasicInfoModal');
+        console.log('[Pipeline] 🎯 Setting up pending modal for BasicInfoModal');
         
-        setTimeout(() => {
-          setSelectedProposalToOpen(createdProposal);
-          setInitialModalToOpen(openModal);
-          setShowProposalModal(true);
-        }, 300);
+        // First, set up the pending modal data
+        setPendingProposalModal({
+          proposal: createdProposal,
+          initialModal: openModal,
+          targetBoardType: 'rfp_15_column'
+        });
+        
+        // Then switch the board - the useEffect will handle opening the modal
+        setSelectedBoardId(matchingBoard.id);
+      } else {
+        // For other types, just switch the board
+        setSelectedBoardId(matchingBoard.id);
       }
     } else {
-      console.log('[Pipeline] No matching board found, staying on current board');
+      console.log('[Pipeline] ⚠️ No matching board found, staying on current board');
     }
   };
 
@@ -650,11 +684,14 @@ export default function Pipeline() {
     
     const proposalType = selectedProposalToOpen.proposal_type_category;
     
+    // For 15-column proposals, explicitly find that board
     if (proposalType === 'RFP_15_COLUMN') {
       const rfp15Board = allBoards.find(board => board.board_type === 'rfp_15_column');
+      console.log('[Pipeline] Modal board config for 15-column:', rfp15Board ? 'FOUND' : 'FALLBACK TO SELECTED');
       return rfp15Board || selectedBoard;
     }
     
+    // For other types, find by applies_to_proposal_types
     const typeBoard = allBoards.find(board =>
       board.applies_to_proposal_types?.includes(proposalType)
     );
