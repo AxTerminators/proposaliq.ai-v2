@@ -290,19 +290,15 @@ export default function QuickCreateProposal({
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       
+      // FIXED: Don't navigate for 15-column workflow - let parent handle modal opening
+      onClose(); // Close the creation dialog
+      
       if (onSuccess) {
-        onSuccess(proposal);
+        onSuccess(proposal); // This triggers handleProposalCreated in Pipeline
       }
       
-      onClose();
-      
-      // For 15-column workflow, stay on Pipeline
-      // For legacy workflows, go to ProposalBuilder
-      if (proposalType === 'RFP_15_COLUMN') {
-        // Just close and refresh - user stays on Pipeline
-        navigate(createPageUrl("Pipeline"));
-      } else {
-        // Navigate to proposal builder for other types
+      // Only navigate to ProposalBuilder for legacy workflows
+      if (proposalType !== 'RFP_15_COLUMN') {
         navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
       }
     }
