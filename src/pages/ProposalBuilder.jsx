@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/use-toast"; // Assuming Shadcn UI toast
 
 import Phase1 from "../components/builder/Phase1";
 import Phase2 from "../components/builder/Phase2";
@@ -37,6 +39,8 @@ import ClientSharingPanel from "../components/builder/ClientSharingPanel";
 import ProposalAssistant from "../components/assistant/ProposalAssistant";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import UniversalAlert from "../components/ui/UniversalAlert";
+import ContentLibraryIntegration from "../components/builder/ContentLibraryIntegration";
+import PromoteToLibraryButton from "../components/contentLibrary/PromoteToLibraryButton";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -71,6 +75,7 @@ const getKanbanStatusFromPhase = (phaseId) => {
 export default function ProposalBuilder() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
@@ -118,6 +123,12 @@ export default function ProposalBuilder() {
     status: "evaluating",
     proposal_type_category: boardTypeFromUrl || "",
   });
+
+  // New state for Content Library Integration
+  const [selectedTextForPromotion, setSelectedTextForPromotion] = useState('');
+  // Placeholder for a section selected for editing.
+  // In a real application, this would be dynamically set when a user clicks on an editable section.
+  const [selectedSection, setSelectedSection] = useState(null); 
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -207,6 +218,62 @@ export default function ProposalBuilder() {
     }
   }, [currentPhase, organization?.id, proposalId]);
 
+  // Handle text selection for promotion to library
+  const handleTextSelection = () => {
+    const selection = window.getSelection();
+    const text = selection?.toString()?.trim();
+    if (text && text.length >= 50) {
+      setSelectedTextForPromotion(text);
+    } else {
+      setSelectedTextForPromotion('');
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('mouseup', handleTextSelection);
+    return () => {
+      document.removeEventListener('mouseup', handleTextSelection);
+    };
+  }, []);
+
+  // Placeholder for updating a section's content
+  const handleSectionUpdate = (sectionId, newContent) => {
+    console.log(`[ProposalBuilder] Attempting to update section ${sectionId} with new content.`);
+    // In a full implementation, this function would update the relevant part of `proposalData`
+    // or trigger an update within the active phase component.
+    // For demonstration, we'll assume `selectedSection` can be updated directly if it matches.
+    if (selectedSection && selectedSection.id === sectionId) {
+      setSelectedSection(prev => ({ ...prev, content: newContent }));
+      // This also implies that `selectedSection` should be set when a phase component
+      // has an active editable area.
+    }
+    toast({
+      title: "Section Updated (simulated)",
+      description: `Content for section ${sectionId} was updated.`,
+    });
+  };
+
+  const handleInsertFromLibrary = (content) => {
+    if (!selectedSection) {
+      toast({
+        variant: "destructive",
+        title: "No section selected",
+        description: "Please select an editable section to insert content.",
+      });
+      return;
+    }
+
+    const currentContent = selectedSection.content || '';
+    const newContent = currentContent + '\n\n' + content;
+    
+    // This assumes selectedSection has an 'id' which can be used to identify it.
+    handleSectionUpdate(selectedSection.id, newContent);
+    toast({
+      title: "Content Inserted",
+      description: "Content successfully inserted from library into the selected section.",
+    });
+  };
+
   const proceedWithNewProposal = () => {
     setShowSampleDataGuard(false);
   };
@@ -230,6 +297,14 @@ export default function ProposalBuilder() {
         } else {
           setCurrentPhase("phase1");
         }
+        
+        // Temporarily set a dummy selectedSection for library integration to be visible
+        // In a real app, this would be set by user interaction or by the active phase component.
+        setSelectedSection({
+          id: 'dummy-section-id', // Unique ID for the section
+          content: 'This is some dummy content in the selected section.', // Current content of the section
+          section_type: 'executive_summary', // Example section type
+        });
       } else {
         setAlertConfig({
           type: "error",
@@ -417,8 +492,8 @@ export default function ProposalBuilder() {
   const isDataLoaded = proposalId && user && organization;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-32">
-      <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAssistant && !assistantMinimized ? 'mr-96' : ''}`}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pb-20">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 ${showAssistant && !assistantMinimized ? 'mr-96' : ''}`}>
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -437,7 +512,7 @@ export default function ProposalBuilder() {
             </div>
             
             <div className="flex gap-2">
-              {proposalId && !showAssistant && (
+              {proposalId && (
                 <Button
                   variant="outline"
                   onClick={() => setShowAssistant(true)}
@@ -518,272 +593,312 @@ export default function ProposalBuilder() {
           </CardContent>
         </Card>
 
-        {isDataLoaded ? (
-          <Tabs defaultValue="builder" className="mb-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="builder">Builder</TabsTrigger>
-              {hasClientPortal && (
-                <TabsTrigger value="client-sharing">
-                  <Users className="w-4 h-4 mr-2" />
-                  Client Sharing
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="tasks">
-                <CheckSquare className="w-4 h-4 mr-2" />
-                Tasks
-              </TabsTrigger>
-              <TabsTrigger value="discussions">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Discussions
-              </TabsTrigger>
-              <TabsTrigger value="files">
-                <Paperclip className="w-4 h-4 mr-2" />
-                Files
-              </TabsTrigger>
-              <TabsTrigger value="automation">
-                <Zap className="w-4 h-4 mr-2" />
-                Automation
-              </TabsTrigger>
-            </TabsList>
+        {/* New grid structure for content and sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main content area (2/3 width on large screens) */}
+          <div className="lg:col-span-2 space-y-6">
+            {isDataLoaded ? (
+              <Tabs defaultValue="builder" className="mb-6">
+                <TabsList className="grid w-full grid-cols-6">
+                  <TabsTrigger value="builder">Builder</TabsTrigger>
+                  {hasClientPortal && (
+                    <TabsTrigger value="client-sharing">
+                      <Users className="w-4 h-4 mr-2" />
+                      Client Sharing
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="tasks">
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    Tasks
+                  </TabsTrigger>
+                  <TabsTrigger value="discussions">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Discussions
+                  </TabsTrigger>
+                  <TabsTrigger value="files">
+                    <Paperclip className="w-4 h-4 mr-2" />
+                    Files
+                  </TabsTrigger>
+                  <TabsTrigger value="automation">
+                    <Zap className="w-4 h-4 mr-2" />
+                    Automation
+                  </TabsTrigger>
+                </TabsList>
 
-            <TabsContent value="builder" className="space-y-6">
-              <div className="mb-6">
-                {currentPhase === "phase1" && (
-                  <Phase1 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
+                <TabsContent value="builder" className="space-y-6">
+                  {selectedSection && ( // Show these components when a section is "selected"
+                    <>
+                      <ContentLibraryIntegration
+                        organization={organization}
+                        sectionType={selectedSection.section_type}
+                        onInsertContent={handleInsertFromLibrary}
+                        currentContent={selectedSection.content}
+                      />
+                      {/* Placeholder for the section editor if it were a distinct component */}
+                    </>
+                  )}
+
+                  <div className="mb-6">
+                    {currentPhase === "phase1" && (
+                      <Phase1 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase2" && (
+                      <Phase2 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase3" && (
+                      <Phase3 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase4" && (
+                      <Phase4 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase5" && (
+                      <Phase5 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase6" && (
+                      <Phase6 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase7" && (
+                      <Phase7Pricing 
+                        proposalData={proposalData} 
+                        setProposalData={setProposalData} 
+                        proposalId={proposalId}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                    {currentPhase === "phase8" && (
+                      <Phase7
+                        proposal={{ id: proposalId, ...proposalData }}
+                        user={user}
+                        organization={organization}
+                        teamMembers={[]}
+                        onMarkAsSubmitted={markAsSubmitted}
+                        onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                      />
+                    )}
+                  </div>
+
+                  {currentPhaseIndex !== PHASES.length - 1 && (
+                    <div className="flex justify-between max-w-4xl">
+                      <Button
+                        variant="outline"
+                        onClick={handlePrevious}
+                        disabled={currentPhaseIndex === 0}
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleSaveAndGoToPipeline}
+                        className="bg-white hover:bg-slate-50"
+                      >
+                        Save and Go to Pipeline
+                      </Button>
+                      <Button
+                        onClick={handleNext}
+                        disabled={currentPhaseIndex === PHASES.length - 1}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Next
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {currentPhaseIndex === PHASES.length - 1 && (
+                    <div className="flex justify-end max-w-4xl">
+                      <Button
+                        variant="outline"
+                        onClick={handlePrevious}
+                        disabled={currentPhaseIndex === 0}
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleSaveAndGoToPipeline}
+                        className="ml-auto bg-white hover:bg-slate-50"
+                      >
+                        Save and Go to Pipeline
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {hasClientPortal && (
+                  <TabsContent value="client-sharing">
+                    <ClientSharingPanel 
+                      proposal={{ id: proposalId, ...proposalData }}
+                      organization={organization}
+                    />
+                  </TabsContent>
                 )}
-                {currentPhase === "phase2" && (
-                  <Phase2 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase3" && (
-                  <Phase3 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase4" && (
-                  <Phase4 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase5" && (
-                  <Phase5 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase6" && (
-                  <Phase6 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase7" && (
-                  <Phase7Pricing 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase8" && (
-                  <Phase7
+
+                <TabsContent value="tasks">
+                  <TaskManager 
                     proposal={{ id: proposalId, ...proposalData }}
                     user={user}
                     organization={organization}
-                    teamMembers={[]}
-                    onMarkAsSubmitted={markAsSubmitted}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
                   />
+                </TabsContent>
+
+                <TabsContent value="discussions">
+                  <ProposalDiscussion
+                    proposal={{ id: proposalId, ...proposalData }}
+                    user={user}
+                    organization={organization}
+                  />
+                </TabsContent>
+
+                <TabsContent value="files">
+                  <ProposalFiles
+                    proposal={{ id: proposalId, ...proposalData }}
+                    user={user}
+                    organization={organization}
+                  />
+                </TabsContent>
+
+                <TabsContent value="automation">
+                  <AutomationHub
+                    proposal={{ id: proposalId, ...proposalData }}
+                    organization={organization}
+                    user={user}
+                  />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <>
+                <div className="mb-6">
+                  {currentPhase === "phase1" && (
+                    <Phase1 
+                      proposalData={proposalData} 
+                      setProposalData={setProposalData} 
+                      proposalId={proposalId}
+                      onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                    />
+                  )}
+                </div>
+
+                {currentPhaseIndex !== PHASES.length - 1 && (
+                  <div className="flex justify-between max-w-4xl">
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevious}
+                      disabled={currentPhaseIndex === 0}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleSaveAndGoToPipeline}
+                      className="bg-white hover:bg-slate-50"
+                    >
+                      Save and Go to Pipeline
+                    </Button>
+                    <Button
+                      onClick={handleNext}
+                      disabled={currentPhaseIndex === PHASES.length - 1}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Next
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
                 )}
-              </div>
 
-              {currentPhaseIndex !== PHASES.length - 1 && (
-                <div className="flex justify-between max-w-4xl">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevious}
-                    disabled={currentPhaseIndex === 0}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveAndGoToPipeline}
-                    className="bg-white hover:bg-slate-50"
-                  >
-                    Save and Go to Pipeline
-                  </Button>
-                  <Button
-                    onClick={handleNext}
-                    disabled={currentPhaseIndex === PHASES.length - 1}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Next
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              )}
+                {currentPhaseIndex === PHASES.length - 1 && (
+                  <div className="flex justify-end max-w-4xl">
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevious}
+                      disabled={currentPhaseIndex === 0}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleSaveAndGoToPipeline}
+                      className="ml-auto bg-white hover:bg-slate-50"
+                    >
+                      Save and Go to Pipeline
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
-              {currentPhaseIndex === PHASES.length - 1 && (
-                <div className="flex justify-end max-w-4xl">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevious}
-                    disabled={currentPhaseIndex === 0}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveAndGoToPipeline}
-                    className="ml-auto bg-white hover:bg-slate-50"
-                  >
-                    Save and Go to Pipeline
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
+          {/* Right sidebar for AI Assistant */}
+          <div className="lg:col-span-1">
+            {showAssistant && proposalId && (
+              <ProposalAssistant
+                proposal={{ id: proposalId, ...proposalData }}
+                currentPhase={currentPhase}
+                onClose={() => {
+                  setShowAssistant(false);
+                  setAssistantMinimized(false);
+                }}
+                isMinimized={assistantMinimized}
+                onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
+                // Positioned within the grid column, so it won't be floating unless explicitly styled.
+                // You might need to adjust ProposalAssistant's internal styling or props for this layout.
+              />
+            )}
+          </div>
+        </div>
 
-            {hasClientPortal && (
-              <TabsContent value="client-sharing">
-                <ClientSharingPanel 
-                  proposal={{ id: proposalId, ...proposalData }}
+        {/* Promote to Library Button - Shows when text is selected */}
+        {selectedTextForPromotion && selectedSection && (
+          <div className="fixed bottom-24 right-6 z-50 animate-in slide-in-from-bottom">
+            <Card className="border-2 border-amber-300 shadow-xl">
+              <CardContent className="p-3">
+                <PromoteToLibraryButton
+                  selectedText={selectedTextForPromotion}
                   organization={organization}
+                  sectionType={selectedSection.section_type}
+                  onSuccess={() => setSelectedTextForPromotion('')}
                 />
-              </TabsContent>
-            )}
-
-            <TabsContent value="tasks">
-              <TaskManager 
-                proposal={{ id: proposalId, ...proposalData }}
-                user={user}
-                organization={organization}
-              />
-            </TabsContent>
-
-            <TabsContent value="discussions">
-              <ProposalDiscussion
-                proposal={{ id: proposalId, ...proposalData }}
-                user={user}
-                organization={organization}
-              />
-            </TabsContent>
-
-            <TabsContent value="files">
-              <ProposalFiles
-                proposal={{ id: proposalId, ...proposalData }}
-                user={user}
-                organization={organization}
-              />
-            </TabsContent>
-
-            <TabsContent value="automation">
-              <AutomationHub
-                proposal={{ id: proposalId, ...proposalData }}
-                organization={organization}
-                user={user}
-              />
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <>
-            <div className="mb-6">
-              {currentPhase === "phase1" && (
-                <Phase1 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-            </div>
-
-            {currentPhaseIndex !== PHASES.length - 1 && (
-              <div className="flex justify-between max-w-4xl">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentPhaseIndex === 0}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleSaveAndGoToPipeline}
-                  className="bg-white hover:bg-slate-50"
-                >
-                  Save and Go to Pipeline
-                </Button>
-                <Button
-                  onClick={handleNext}
-                  disabled={currentPhaseIndex === PHASES.length - 1}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Next
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            )}
-
-            {currentPhaseIndex === PHASES.length - 1 && (
-              <div className="flex justify-end max-w-4xl">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentPhaseIndex === 0}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleSaveAndGoToPipeline}
-                  className="ml-auto bg-white hover:bg-slate-50"
-                >
-                  Save and Go to Pipeline
-                </Button>
-              </div>
-            )}
-          </>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
-      {showAssistant && proposalId && (
-        <ProposalAssistant
-          proposal={{ id: proposalId, ...proposalData }}
-          currentPhase={currentPhase}
-          onClose={() => {
-            setShowAssistant(false);
-            setAssistantMinimized(false);
-          }}
-          isMinimized={assistantMinimized}
-          onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
-        />
-      )}
-
+      {/* Floating chat button - remains floating */}
       {proposalId && <FloatingChatButton proposalId={proposalId} />}
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
