@@ -34,7 +34,7 @@ import {
   Activity,
   Target,
   Upload,
-  Layers // Add this icon
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -154,10 +154,12 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      // Fetch all fields for KanbanConfig objects
-      return base44.entities.KanbanConfig.filter({ organization_id: organization.id });
+      return base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        'board_type'
+      );
     },
-    enabled: !!organization?.id && isOpen, // Only fetch when modal is open and org ID is available
+    enabled: !!organization?.id && isOpen,
   });
 
   // Get current column configuration
@@ -184,22 +186,66 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   });
 
+  // Determine which board this proposal belongs to
+  const getCurrentBoardId = () => {
+    // For 15-column board (board_type = rfp_15_column), check board_type
+    const rfp15Board = allBoards.find(b => b.board_type === 'rfp_15_column');
+    if (rfp15Board && proposal.proposal_type_category === 'RFP_15_COLUMN') {
+      return rfp15Board.id;
+    }
+
+    // For other type-specific boards
+    const typeBoard = allBoards.find(b => 
+      !b.is_master_board && 
+      b.applies_to_proposal_types?.includes(proposal.proposal_type_category)
+    );
+    
+    if (typeBoard) {
+      return typeBoard.id;
+    }
+
+    // Default to master board
+    const masterBoard = allBoards.find(b => b.is_master_board);
+    return masterBoard?.id || '';
+  };
+
   // Handle board reassignment
   const handleBoardReassignment = async (newBoardId) => {
+    if (!newBoardId) return;
+    
     const newBoard = allBoards.find(b => b.id === newBoardId);
     if (!newBoard) return;
 
-    // Extract the proposal type from the board
-    const newProposalType = newBoard.is_master_board
-      ? proposal.proposal_type_category // Keep existing type for master board
-      : (newBoard.applies_to_proposal_types?.[0] || 'OTHER');
+    try {
+      // Determine new proposal type based on board
+      let newProposalType;
+      
+      if (newBoard.is_master_board) {
+        // Keep existing type for master board
+        newProposalType = proposal.proposal_type_category;
+      } else if (newBoard.board_type === 'rfp_15_column') {
+        // Special handling for 15-column board
+        newProposalType = 'RFP_15_COLUMN';
+      } else {
+        // Use first type from applies_to_proposal_types
+        newProposalType = newBoard.applies_to_proposal_types?.[0] || 'OTHER';
+      }
 
-    await updateProposalMutation.mutateAsync({
-      proposal_type_category: newProposalType
-    });
+      console.log('[ProposalCardModal] Reassigning proposal to board:', newBoard.board_name, 'Type:', newProposalType);
 
-    queryClient.invalidateQueries({ queryKey: ['proposals'] });
-    queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      await updateProposalMutation.mutateAsync({
+        proposal_type_category: newProposalType
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      
+      // Show success feedback
+      alert(`✅ Proposal moved to "${newBoard.board_name}"!`);
+    } catch (error) {
+      console.error('[ProposalCardModal] Error reassigning board:', error);
+      alert('Error moving proposal to new board. Please try again.');
+    }
   };
 
   // Get board icons
@@ -412,19 +458,16 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
                 {/* Board Assignment Section */}
                 {allBoards.length > 1 && (
-                  <div className="mt-4 flex items-center gap-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <Label className="text-sm font-medium flex items-center gap-2 mb-2">
                       <Layers className="w-4 h-4" />
-                      Board Assignment:
+                      Board Assignment
                     </Label>
                     <Select
-                      value={allBoards.find(b => 
-                        b.is_master_board || 
-                        b.applies_to_proposal_types?.includes(proposal.proposal_type_category)
-                      )?.id || ''}
+                      value={getCurrentBoardId()}
                       onValueChange={handleBoardReassignment}
                     >
-                      <SelectTrigger className="w-[300px] h-8">
+                      <SelectTrigger className="w-full h-9 bg-white">
                         <SelectValue placeholder="Select board..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -441,6 +484,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                         })}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      💡 Move this proposal to a different board
+                    </p>
                   </div>
                 )}
               </div>

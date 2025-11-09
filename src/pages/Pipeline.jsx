@@ -460,11 +460,12 @@ export default function Pipeline() {
     setSavedFilters(filters);
   };
 
-  // Board type icon mapping
+  // Board type icon mapping - UPDATED to include rfp_15_column
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
     switch (boardType) {
       case 'rfp': return "📋";
+      case 'rfp_15_column': return "🎯";
       case 'rfi': return "📝";
       case 'sbir': return "🔬";
       case 'gsa': return "🏛️";
@@ -984,6 +985,7 @@ export default function Pipeline() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
             {[
               { type: 'RFP', icon: '📋', name: 'RFP Board', description: '8-phase detailed workflow' },
+              { type: 'RFP_15_COLUMN', icon: '🎯', name: 'RFP (15-Column) Board', description: '15-phase detailed workflow' },
               { type: 'RFI', icon: '📝', name: 'RFI Board', description: 'Simplified information gathering' },
               { type: 'SBIR', icon: '🔬', name: 'SBIR Board', description: 'Research-focused workflow' },
               { type: 'GSA', icon: '🏛️', name: 'GSA Schedule Board', description: 'Schedule-specific process' },
