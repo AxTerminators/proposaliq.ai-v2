@@ -135,20 +135,23 @@ export default function Pipeline() {
       console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_type' // Sort by board_type to get master first
+        'board_type'
       );
       console.log('[Pipeline] Found boards:', boards.length);
       
-      // FILTER OUT boards that lack proper board_type and board_name (legacy duplicates)
+      // UPDATED: Filter out boards without proper metadata AND consider board_category
       const validBoards = boards.filter(board => {
         // Keep master boards
         if (board.is_master_board === true) return true;
         
-        // Keep boards with a valid board_type AND board_name
+        // Keep boards with board_category (new system)
+        if (board.board_category) return true;
+        
+        // Keep boards with a valid board_type AND board_name (old but valid)
         if (board.board_type && board.board_name) return true;
         
         // Filter out legacy boards without proper metadata
-        console.log('[Pipeline] Filtering out legacy board without board_type/board_name:', board.id);
+        console.log('[Pipeline] Filtering out legacy board without metadata:', board.id);
         return false;
       });
       
@@ -219,7 +222,7 @@ export default function Pipeline() {
     initialData: [],
   });
 
-  // Filter proposals based on selected board
+  // UPDATED: Filter proposals based on selected board with board_category support
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
 
@@ -228,7 +231,28 @@ export default function Pipeline() {
       return proposals;
     }
 
-    // Type-specific boards filter by proposal_type_category
+    // Project Management boards don't show proposals (they show ProjectTasks)
+    if (selectedBoard.board_category === 'project_management_board') {
+      return []; // Return empty for now, will be replaced with ProjectTask query later
+    }
+
+    // Proposal boards filter by proposal_type_category
+    if (selectedBoard.board_category === 'proposal_board') {
+      // Custom proposal boards that accept all types
+      if (selectedBoard.board_type === 'custom' && 
+          (!selectedBoard.applies_to_proposal_types || selectedBoard.applies_to_proposal_types.length === 0)) {
+        return proposals;
+      }
+      
+      // Boards with specific type filters
+      if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
+        return proposals.filter(p =>
+          selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
+        );
+      }
+    }
+
+    // Type-specific boards (old logic for backward compatibility)
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
       return proposals.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
@@ -475,16 +499,19 @@ export default function Pipeline() {
     setSavedFilters(filters);
   };
 
-  // Board type icon mapping
-  const getBoardIcon = (boardType, isMaster) => {
-    if (isMaster) return "⭐";
-    switch (boardType) {
+  // UPDATED: Board type icon mapping with board_category support
+  const getBoardIcon = (board) => {
+    if (board.is_master_board) return "⭐";
+    if (board.board_category === 'project_management_board') return "✅"; // Using a checkmark for project management
+    
+    switch (board.board_type) {
       case 'rfp': return "📋";
       case 'rfi': return "📝";
       case 'sbir': return "🔬";
       case 'gsa': return "🏛️";
       case 'idiq': return "📑";
       case 'state_local': return "🏢";
+      case 'custom': return "⚙️"; // Icon for custom boards
       default: return "📊";
     }
   };
@@ -627,7 +654,14 @@ export default function Pipeline() {
               <div className="flex items-center gap-2 flex-wrap">
                 {allBoards.map(board => {
                   const isSelected = selectedBoardId === board.id;
-                  const icon = getBoardIcon(board.board_type, board.is_master_board);
+                  const icon = getBoardIcon(board);
+                  
+                  // UPDATED: Show board category badge
+                  const categoryLabel = board.board_category === 'project_management_board' 
+                    ? 'Project Mgmt' 
+                    : board.is_master_board 
+                    ? 'All Proposals' 
+                    : board.board_name;
 
                   return (
                     <Button
@@ -642,7 +676,7 @@ export default function Pipeline() {
                       title={board.board_name}
                     >
                       <span className="text-lg">{icon}</span>
-                      <span className="hidden sm:inline">{board.board_name}</span>
+                      <span className="hidden sm:inline">{categoryLabel}</span>
                     </Button>
                   );
                 })}

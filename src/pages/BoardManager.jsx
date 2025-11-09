@@ -1,11 +1,19 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Eye, Settings, AlertCircle, Layers, Tag, Plus } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Eye,
+  Settings,
+  Layers,
+  AlertCircle,
+  CheckCircle,
+  Folder
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,7 +91,7 @@ export default function BoardManager() {
     mutationFn: async ({ proposalId, category }) => {
       return base44.entities.Proposal.update(proposalId, {
         proposal_type_category: category,
-        custom_workflow_stage_id: null, // Reset to let it appear on the new board
+        custom_workflow_stage_id: null,
       });
     },
     onSuccess: () => {
@@ -93,7 +101,6 @@ export default function BoardManager() {
   });
 
   const handleDeleteClick = (board) => {
-    // Check permissions
     if (!canDeleteBoard()) {
       alert("Only admins and managers can delete boards.");
       return;
@@ -114,7 +121,6 @@ export default function BoardManager() {
   };
 
   const canDeleteBoard = () => {
-    // Only admin or users with manager role can delete
     if (user?.role === 'admin') return true;
     
     const orgAccess = user?.client_accesses?.find(
@@ -125,8 +131,6 @@ export default function BoardManager() {
   };
 
   const handleBoardCreated = (newBoard) => {
-    queryClient.invalidateQueries({ queryKey: ['all-boards'] });
-    setShowCreateWizard(false);
     alert(`✅ Board "${newBoard.board_name}" created successfully!`);
   };
 
@@ -134,31 +138,33 @@ export default function BoardManager() {
     if (board.is_master_board) {
       return proposals.length;
     }
-    if (board.applies_to_proposal_types?.length > 0) {
+
+    if (board.board_category === 'project_management_board') {
+      return 0;
+    }
+
+    if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
       return proposals.filter(p =>
         board.applies_to_proposal_types.includes(p.proposal_type_category)
       ).length;
     }
-    return 0;
+
+    return proposals.filter(p => p.custom_workflow_stage_id).length;
   };
 
   const getLegacyProposals = (board) => {
-    // Find proposals with no category that might be using this unnamed board
-    if (board.board_name === 'Unnamed Board' || !board.board_name) {
-      return proposals.filter(p => 
-        !p.proposal_type_category && 
-        p.custom_workflow_stage_id && 
-        board.columns?.some(col => col.id === p.custom_workflow_stage_id)
-      );
-    }
-    return [];
+    return proposals.filter(p => 
+      !p.proposal_type_category && 
+      p.custom_workflow_stage_id &&
+      board.columns?.some(col => col.id === p.custom_workflow_stage_id)
+    );
   };
 
   const isLegacyBoard = (board) => {
-    return !board.is_master_board && 
-           !board.board_type && 
-           (board.board_name === 'Unnamed Board' || !board.board_name) &&
-           board.columns?.length >= 10;
+    if (board.board_category) return false;
+    if (board.is_master_board === true || board.is_master_board === false) return false;
+    if (board.board_type && board.board_name) return false;
+    return !board.board_type && !board.board_name;
   };
 
   if (isLoading) {
@@ -168,6 +174,17 @@ export default function BoardManager() {
       </div>
     );
   }
+
+  const proposalBoards = boards.filter(b => 
+    b.board_category === 'proposal_board' || 
+    b.is_master_board || 
+    b.is_template_board ||
+    (!b.board_category && b.board_type)
+  );
+
+  const projectBoards = boards.filter(b => 
+    b.board_category === 'project_management_board'
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -188,179 +205,251 @@ export default function BoardManager() {
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {boards.map((board) => {
-            const proposalCount = getProposalCount(board);
-            const hasProposals = proposalCount > 0;
-            const isLegacy = isLegacyBoard(board);
-            const legacyProposals = isLegacy ? getLegacyProposals(board) : [];
-            const canDelete = canDeleteBoard() && board.is_deletable !== false;
+        {proposalBoards.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers className="w-5 h-5 text-blue-600" />
+              <h2 className="text-xl font-bold text-slate-900">Proposal Boards</h2>
+              <Badge variant="secondary">{proposalBoards.length}</Badge>
+            </div>
+            
+            <div className="grid gap-4">
+              {proposalBoards.map((board) => {
+                const proposalCount = getProposalCount(board);
+                const hasProposals = proposalCount > 0;
+                const isLegacy = isLegacyBoard(board);
+                const legacyProposals = isLegacy ? getLegacyProposals(board) : [];
+                const canDelete = canDeleteBoard() && board.is_deletable !== false;
 
-            return (
-              <Card key={board.id} className={`border-2 ${isLegacy ? 'border-amber-300 bg-amber-50/30' : ''}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-xl font-bold text-slate-900">
-                          {board.board_name || 'Unnamed Board'}
-                        </h3>
-                        {board.is_master_board && (
-                          <Badge className="bg-yellow-500 text-white">⭐ Master</Badge>
-                        )}
-                        {board.is_template_board && (
-                          <Badge className="bg-blue-500 text-white">📋 Template</Badge>
-                        )}
-                        {board.board_type && (
-                          <Badge className="bg-blue-100 text-blue-700">
-                            {board.board_type.toUpperCase()}
-                          </Badge>
-                        )}
-                        {board.board_category && (
-                          <Badge variant="outline">
-                            {board.board_category === 'proposal_board' ? 'Proposal' : 'Project Mgmt'}
-                          </Badge>
-                        )}
-                        {isLegacy && (
-                          <Badge className="bg-amber-500 text-white">Legacy Board</Badge>
-                        )}
-                        {board.is_deletable === false && (
-                          <Badge className="bg-slate-500 text-white">Protected</Badge>
-                        )}
-                      </div>
-
-                      <div className="space-y-2 text-sm text-slate-600">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4" />
-                          <span>{board.columns?.length || 0} columns</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Eye className="w-4 h-4" />
-                          <span>{proposalCount} proposal{proposalCount !== 1 ? 's' : ''}</span>
-                        </div>
-                        {board.applies_to_proposal_types?.length > 0 && (
-                          <div>
-                            <span className="font-medium">Shows: </span>
-                            {board.applies_to_proposal_types.join(', ')}
+                return (
+                  <Card key={board.id} className={cn(
+                    "border-2",
+                    isLegacy && 'border-amber-300 bg-amber-50/30'
+                  )}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3 flex-wrap">
+                            <h3 className="text-xl font-bold text-slate-900">
+                              {board.board_name || 'Unnamed Board'}
+                            </h3>
+                            {board.is_master_board && (
+                              <Badge className="bg-yellow-500 text-white">⭐ Master</Badge>
+                            )}
+                            {board.is_template_board && (
+                              <Badge className="bg-blue-500 text-white">📋 Template</Badge>
+                            )}
+                            {board.board_category === 'proposal_board' && !board.is_master_board && (
+                              <Badge className="bg-purple-100 text-purple-700">Proposal Board</Badge>
+                            )}
+                            {board.board_type && (
+                              <Badge className="bg-blue-100 text-blue-700">
+                                {board.board_type.toUpperCase()}
+                              </Badge>
+                            )}
+                            {isLegacy && (
+                              <Badge className="bg-amber-500 text-white">Legacy Board</Badge>
+                            )}
+                            {board.is_deletable === false && (
+                              <Badge className="bg-slate-500 text-white">Protected</Badge>
+                            )}
                           </div>
-                        )}
-                        {board.created_by && (
-                          <div className="text-xs text-slate-500">
-                            Created by: {board.created_by}
+
+                          <div className="space-y-2 text-sm text-slate-600">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4" />
+                              <span>{board.columns?.length || 0} columns</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Eye className="w-4 h-4" />
+                              <span>{proposalCount} proposal{proposalCount !== 1 ? 's' : ''}</span>
+                            </div>
+                            {board.applies_to_proposal_types?.length > 0 && (
+                              <div>
+                                <span className="font-medium">Shows: </span>
+                                {board.applies_to_proposal_types.join(', ')}
+                              </div>
+                            )}
+                            {board.created_by && (
+                              <div className="text-xs text-slate-500">
+                                Created by: {board.created_by}
+                              </div>
+                            )}
+                            <div className="text-xs text-slate-400">
+                              Created: {new Date(board.created_date).toLocaleDateString()}
+                            </div>
                           </div>
-                        )}
-                        <div className="text-xs text-slate-400">
-                          Created: {new Date(board.created_date).toLocaleDateString()}
                         </div>
-                        <div className="text-xs text-slate-400">
-                          ID: {board.id}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-col gap-2">
-                      {canDelete && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteClick(board)}
-                          disabled={deleteMutation.isPending || legacyProposals.length > 0 || board.is_deletable === false}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete Board
-                        </Button>
-                      )}
-                      {!canDelete && board.is_deletable !== false && (
-                        <Badge variant="outline" className="text-xs">
-                          Admin/Manager Only
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {isLegacy && legacyProposals.length > 0 && (
-                    <div className="mt-4 p-4 bg-white border-2 border-amber-300 rounded-lg">
-                      <div className="flex items-start gap-2 mb-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-amber-900 mb-1">
-                            Legacy Proposals Found
-                          </p>
-                          <p className="text-xs text-amber-800">
-                            These proposals need to be categorized before you can delete this board.
-                            Choose a type for each proposal to move them to the new board system:
-                          </p>
+                        <div className="flex flex-col gap-2">
+                          {canDelete && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteClick(board)}
+                              disabled={deleteMutation.isPending || legacyProposals.length > 0 || board.is_deletable === false}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Board
+                            </Button>
+                          )}
+                          {!canDelete && board.is_deletable !== false && (
+                            <Badge variant="outline" className="text-xs">
+                              Admin/Manager Only
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
-                      <div className="space-y-3 mt-4">
-                        {legacyProposals.map((proposal) => (
-                          <div key={proposal.id} className="flex items-start gap-3 p-3 bg-white border border-slate-200 rounded-lg">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-slate-900 mb-1">{proposal.proposal_name}</p>
-                              <p className="text-xs text-slate-600">
-                                Currently in: <span className="font-medium">{proposal.custom_workflow_stage_id}</span>
+                      {isLegacy && legacyProposals.length > 0 && (
+                        <div className="mt-4 p-4 bg-white border-2 border-amber-300 rounded-lg">
+                          <div className="flex items-start gap-2 mb-3">
+                            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-semibold text-amber-900 mb-1">
+                                Legacy Proposals Found
+                              </p>
+                              <p className="text-xs text-amber-800">
+                                These proposals need to be categorized before you can delete this board.
                               </p>
                             </div>
-                            <div className="flex-shrink-0 w-48">
-                              <Select
-                                onValueChange={(value) => handleCategorizeProposal(proposal.id, value)}
-                                disabled={categorizeMutation.isPending}
-                              >
-                                <SelectTrigger className="h-9">
-                                  <SelectValue placeholder="Choose type..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {PROPOSAL_TYPES.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      <div className="flex items-center gap-2">
-                                        <span>{type.emoji}</span>
-                                        <span>{type.value}</span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                          </div>
+
+                          <div className="space-y-3 mt-4">
+                            {legacyProposals.map((proposal) => (
+                              <div key={proposal.id} className="flex items-start gap-3 p-3 bg-white border border-slate-200 rounded-lg">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-slate-900 mb-1">{proposal.proposal_name}</p>
+                                  <p className="text-xs text-slate-600">
+                                    Currently in: <span className="font-medium">{proposal.custom_workflow_stage_id}</span>
+                                  </p>
+                                </div>
+                                <div className="flex-shrink-0 w-48">
+                                  <Select
+                                    onValueChange={(value) => handleCategorizeProposal(proposal.id, value)}
+                                    disabled={categorizeMutation.isPending}
+                                  >
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Choose type..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {PROPOSAL_TYPES.map((type) => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                          <div className="flex items-center gap-2">
+                                            <span>{type.emoji}</span>
+                                            <span>{type.value}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {isLegacy && legacyProposals.length === 0 && (
+                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <div className="text-sm text-green-900">
+                            ✅ This legacy board is empty and safe to delete!
+                          </div>
+                        </div>
+                      )}
+
+                      {hasProposals && !isLegacy && (
+                        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div className="text-sm text-amber-900">
+                            <strong>Warning:</strong> This board has {proposalCount} proposal{proposalCount !== 1 ? 's' : ''}. 
+                            Deleting the board won't delete the proposals.
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {projectBoards.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Folder className="w-5 h-5 text-purple-600" />
+              <h2 className="text-xl font-bold text-slate-900">Project Management Boards</h2>
+              <Badge variant="secondary">{projectBoards.length}</Badge>
+            </div>
+            
+            <div className="grid gap-4">
+              {projectBoards.map((board) => {
+                const canDelete = canDeleteBoard() && board.is_deletable !== false;
+
+                return (
+                  <Card key={board.id} className="border-2">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3 flex-wrap">
+                            <h3 className="text-xl font-bold text-slate-900">
+                              {board.board_name || 'Unnamed Board'}
+                            </h3>
+                            <Badge className="bg-purple-100 text-purple-700">Project Management</Badge>
+                            {board.board_type === 'custom' && (
+                              <Badge variant="outline">Custom</Badge>
+                            )}
+                          </div>
+
+                          <div className="space-y-2 text-sm text-slate-600">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4" />
+                              <span>{board.columns?.length || 0} columns</span>
+                            </div>
+                            {board.created_by && (
+                              <div className="text-xs text-slate-500">
+                                Created by: {board.created_by}
+                              </div>
+                            )}
+                            <div className="text-xs text-slate-400">
+                              Created: {new Date(board.created_date).toLocaleDateString()}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
 
-                  {isLegacy && legacyProposals.length === 0 && (
-                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-green-900">
-                        ✅ This legacy board is empty and safe to delete!
+                        <div className="flex flex-col gap-2">
+                          {canDelete && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteClick(board)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Board
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {hasProposals && !isLegacy && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-amber-900">
-                        <strong>Warning:</strong> This board has {proposalCount} proposal{proposalCount !== 1 ? 's' : ''}. 
-                        Deleting the board won't delete the proposals, but they may need to be reassigned to other boards.
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {boards.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
               <Layers className="w-16 h-16 mx-auto mb-4 text-slate-300" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">No boards found</h3>
-              <p className="text-slate-600">Create your first custom board to get started</p>
+              <p className="text-slate-600 mb-4">Create your first custom board to get started</p>
               <Button
                 onClick={() => setShowCreateWizard(true)}
-                className="mt-4 bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Custom Board
@@ -380,7 +469,7 @@ export default function BoardManager() {
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-900 font-medium">
                     ⚠️ This board has {getProposalCount(boardToDelete)} proposal(s). The proposals will not be deleted, 
-                    but will need to be reassigned to other boards or may not appear on any board until recategorized.
+                    but will need to be reassigned to other boards.
                   </p>
                 </div>
               )}

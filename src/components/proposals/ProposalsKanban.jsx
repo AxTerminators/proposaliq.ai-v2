@@ -122,7 +122,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       columnsCount: kanbanConfig?.columns?.length || 0,
       isLoadingConfig,
       boardType: kanbanConfig?.board_type,
-      isMasterBoard: kanbanConfig?.is_master_board
+      isMasterBoard: kanbanConfig?.is_master_board,
+      boardCategory: kanbanConfig?.board_category
     });
   }, [proposals.length, kanbanConfig, isLoadingConfig]);
 
@@ -130,11 +131,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
-  // IMPROVED: More explicit legacy detection - only flag boards that are truly legacy
+  // UPDATED: Legacy detection now considers board_category
   const isLegacyConfig = useMemo(() => {
     if (!kanbanConfig?.columns) return false;
     
-    // NEW BOARDS: If board has board_type or is_master_board flag, it's NOT legacy
+    // NEW BOARDS: If board has board_category, it's NOT legacy
+    if (kanbanConfig.board_category) {
+      return false;
+    }
+    
+    // If board has board_type or is_master_board flag, it's NOT legacy
     if (kanbanConfig.board_type || kanbanConfig.is_master_board === true || kanbanConfig.is_master_board === false) {
       return false;
     }
@@ -148,7 +154,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       ['initiate', 'team', 'resources', 'solicit'].includes(col.id)
     );
     
-    // Only flag as legacy if it has old columns, no new columns, and lacks new board metadata
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
   }, [kanbanConfig]);
 
@@ -231,6 +236,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     });
   }, [proposals, searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
+  // UPDATED: Proposal column assignments with improved custom board handling
   const proposalColumnAssignments = useMemo(() => {
     const assignments = {};
     
@@ -239,7 +245,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       
       // MASTER BOARD LOGIC - map by status_mapping array
       if (kanbanConfig?.is_master_board) {
-        // Find the master column that includes this proposal's status
         const matchingColumn = columns.find(col => 
           col.type === 'master_status' && 
           col.status_mapping?.includes(proposal.status)
@@ -251,8 +256,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             columnType: 'master_status'
           };
         } else {
-          // Fallback to first column if no match
-          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status, 'assigned to first column.');
+          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status);
           if (columns.length > 0) {
             assignments[proposal.id] = {
               columnId: columns[0].id,
@@ -261,16 +265,19 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           }
         }
       } 
-      // TYPE-SPECIFIC BOARD LOGIC
-      else {
-        // Priority 1: Check if in custom workflow stage
+      // CUSTOM PROPOSAL BOARD LOGIC - check board_category
+      else if (kanbanConfig?.board_category === 'proposal_board') {
+        // Priority 1: Custom workflow stage
         if (proposal.custom_workflow_stage_id) {
-          assignments[proposal.id] = {
-            columnId: proposal.custom_workflow_stage_id,
-            columnType: 'custom_stage'
-          };
-        } 
-        // Priority 2: Check for terminal status columns (Won, Lost, Archived, Submitted)
+          const matchingColumn = columns.find(col => col.id === proposal.custom_workflow_stage_id);
+          if (matchingColumn) {
+            assignments[proposal.id] = {
+              columnId: proposal.custom_workflow_stage_id,
+              columnType: 'custom_stage'
+            };
+          }
+        }
+        // Priority 2: Terminal status columns
         else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
           const matchingTerminalColumn = columns.find(
             col => col.type === 'default_status' && 
@@ -284,7 +291,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
-        // Priority 3: Check for locked phase columns
+        // Priority 3: Locked phase columns
         else if (proposal.current_phase) {
           const matchingLockedPhaseColumn = columns.find(
             col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
@@ -296,7 +303,60 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
-        // Priority 4: Fallback to default status mapping
+        // Priority 4: Default status mapping
+        else {
+          const matchingDefaultStatusColumn = columns.find(
+            col => col.type === 'default_status' && col.default_status_mapping === proposal.status
+          );
+          if (matchingDefaultStatusColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingDefaultStatusColumn.id,
+              columnType: 'default_status'
+            };
+          }
+        }
+      }
+      // PROJECT MANAGEMENT BOARD LOGIC - only custom_workflow_stage_id matters
+      else if (kanbanConfig?.board_category === 'project_management_board') {
+        if (proposal.custom_workflow_stage_id) {
+          assignments[proposal.id] = {
+            columnId: proposal.custom_workflow_stage_id,
+            columnType: 'custom_stage'
+          };
+        }
+      }
+      // FALLBACK for TYPE-SPECIFIC TEMPLATE BOARDS (old logic)
+      else {
+        if (proposal.custom_workflow_stage_id) {
+          assignments[proposal.id] = {
+            columnId: proposal.custom_workflow_stage_id,
+            columnType: 'custom_stage'
+          };
+        } 
+        else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
+          const matchingTerminalColumn = columns.find(
+            col => col.type === 'default_status' && 
+                   col.default_status_mapping === proposal.status &&
+                   col.is_terminal === true
+          );
+          if (matchingTerminalColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingTerminalColumn.id,
+              columnType: 'default_status'
+            };
+          }
+        }
+        else if (proposal.current_phase) {
+          const matchingLockedPhaseColumn = columns.find(
+            col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
+          );
+          if (matchingLockedPhaseColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingLockedPhaseColumn.id,
+              columnType: 'locked_phase'
+            };
+          }
+        }
         else {
           const matchingDefaultStatusColumn = columns.find(
             col => col.type === 'default_status' && col.default_status_mapping === proposal.status
@@ -469,6 +529,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
   };
 
+  // UPDATED: Perform proposal move with custom board status mapping
   const performProposalMove = async (proposal, sourceColumn, destinationColumn, destinationIndex) => {
     try {
       setDragInProgress(true);
@@ -478,26 +539,28 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        // IMPORTANT: Store the specific column ID so we know which locked_phase column
-        // This is critical when multiple columns share the same phase_mapping
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
         updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.status = 'in_progress';
+        
+        // IMPORTANT: For custom proposal boards, update status based on master_board_status_mapping
+        if (kanbanConfig?.board_category === 'proposal_board' && destinationColumn.master_board_status_mapping) {
+          updatesForMovedProposal.status = destinationColumn.master_board_status_mapping;
+        } else {
+          updatesForMovedProposal.status = 'in_progress';
+        }
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       } else if (destinationColumn.type === 'master_status') {
-        // For master boards, just update the status to the first mapped status in the destination column
         if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
           updatesForMovedProposal.status = destinationColumn.status_mapping[0];
         }
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       }
-
 
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
@@ -511,17 +574,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       const newColumnProposalsMap = {};
       columns.forEach(col => {
-          newColumnProposalsMap[col.id] = getProposalsForColumn(col);
+        newColumnProposalsMap[col.id] = getProposalsForColumn(col);
       });
 
       newColumnProposalsMap[sourceColumn.id] = newColumnProposalsMap[sourceColumn.id].filter(
-          p => p.id !== proposal.id
+        p => p.id !== proposal.id
       );
 
       const destColumnProposals = Array.from(newColumnProposalsMap[destinationColumn.id]);
       const existingIndexInDest = destColumnProposals.findIndex(p => p.id === proposal.id);
       if (existingIndexInDest !== -1) {
-          destColumnProposals.splice(existingIndexInDest, 1);
+        destColumnProposals.splice(existingIndexInDest, 1);
       }
       destColumnProposals.splice(destinationIndex, 0, proposal);
       newColumnProposalsMap[destinationColumn.id] = destColumnProposals;
@@ -543,6 +606,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         proposalName: proposal.proposal_name,
         from: sourceColumn.label,
         to: destinationColumn.label,
+        boardCategory: kanbanConfig?.board_category,
         updates: updatesForMovedProposal
       });
 
@@ -557,9 +621,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
-          if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
-              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
-          }
+        if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
+          alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
+        }
       }
     } catch (error) {
       console.error("Error moving proposal:", error);
@@ -1202,7 +1266,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                                   >
                                     {column.label}
-                                  </div>
+                                  </d>
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
