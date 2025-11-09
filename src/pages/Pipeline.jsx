@@ -3,9 +3,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon, Settings, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -20,6 +20,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
@@ -40,9 +50,11 @@ import SavedViews from "@/components/proposals/SavedViews";
 import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
 import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
+import { Badge } from "@/components/ui/badge"; // Added Badge import
 
 export default function Pipeline() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient(); // Initialize queryClient
   const [viewMode, setViewMode] = useState("kanban");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
@@ -68,6 +80,9 @@ export default function Pipeline() {
   const [listGroupBy, setListGroupBy] = useState('none');
   const [tableGroupBy, setTableGroupBy] = useState('none');
   const [showMultiBoardAnalytics, setShowMultiBoardAnalytics] = useState(false);
+  const [showBoardManager, setShowBoardManager] = useState(false); // New state for board manager
+  const [deletingBoard, setDeletingBoard] = useState(null); // New state for board to be deleted
+  const [showDeleteBoardDialog, setShowDeleteBoardDialog] = useState(false); // New state for delete confirmation dialog
 
   useEffect(() => {
     const checkMobile = () => {
@@ -175,6 +190,9 @@ export default function Pipeline() {
       const boardToSelect = masterBoard || allBoards[0];
       console.log('[Pipeline] Auto-selecting board:', boardToSelect.board_name);
       setSelectedBoardId(boardToSelect.id);
+    } else if (allBoards.length === 0 && selectedBoardId) {
+      // If all boards are deleted or none exist, clear selection
+      setSelectedBoardId(null);
     }
   }, [allBoards, selectedBoardId]);
 
@@ -475,6 +493,49 @@ export default function Pipeline() {
     }
   };
 
+  // Delete board mutation
+  const deleteBoardMutation = useMutation({
+    mutationFn: async (boardId) => {
+      return base44.entities.KanbanConfig.delete(boardId);
+    },
+    onSuccess: async (_, deletedBoardId) => {
+      await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      await refetchBoards(); // Ensure boards are up-to-date in the local state
+
+      setShowDeleteBoardDialog(false);
+      setDeletingBoard(null);
+      alert('✅ Board deleted successfully!');
+      
+      // If the currently selected board was deleted, select a new one
+      if (selectedBoardId === deletedBoardId) {
+        // Use the newly fetched boards data directly from the cache if available, or assume allBoards is updated
+        const updatedBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]);
+        const masterBoard = updatedBoards?.find(b => b.is_master_board === true);
+        const boardToSelect = masterBoard || (updatedBoards?.length > 0 ? updatedBoards[0] : null);
+
+        if (boardToSelect) {
+          setSelectedBoardId(boardToSelect.id);
+        } else {
+          setSelectedBoardId(null); // No boards left or unable to select
+        }
+      }
+    },
+    onError: (error) => {
+      alert(`Error deleting board: ${error.message}`);
+    }
+  });
+
+  const handleDeleteBoard = (board) => {
+    setDeletingBoard(board);
+    setShowDeleteBoardDialog(true);
+  };
+
+  const confirmDeleteBoard = () => {
+    if (deletingBoard) {
+      deleteBoardMutation.mutate(deletingBoard.id);
+    }
+  };
+
   // Show error state
   if (proposalsError) {
     return (
@@ -642,6 +703,17 @@ export default function Pipeline() {
                 >
                   <Zap className="w-4 h-4 text-blue-600" />
                   <span className="hidden sm:inline">Quick Create</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBoardManager(true)}
+                  className="gap-2"
+                  title="Manage boards"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Manage Boards</span>
                 </Button>
               </div>
             )}
@@ -1013,6 +1085,124 @@ export default function Pipeline() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Board Manager Dialog */}
+      <Dialog open={showBoardManager} onOpenChange={setShowBoardManager}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-blue-600" />
+              Manage Boards
+            </DialogTitle>
+            <DialogDescription>
+              View and manage all your Kanban boards
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-4">
+            {allBoards.map(board => {
+              const icon = getBoardIcon(board.board_type, board.is_master_board);
+              const boardProposalCount = proposals.filter(p => {
+                if (board.is_master_board) return true;
+                if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
+                    return board.applies_to_proposal_types.includes(p.proposal_type_category);
+                }
+                return false;
+              }).length;
+
+              return (
+                <Card key={board.id} className="border-2">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="text-3xl">{icon}</div>
+                        <div>
+                          <h3 className="font-semibold text-slate-900">{board.board_name}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {board.is_master_board ? 'Master Board' : board.board_type.toUpperCase()}
+                            </Badge>
+                            <Badge className="bg-blue-100 text-blue-700 text-xs">
+                              {boardProposalCount} proposal{boardProposalCount !== 1 ? 's' : ''}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {board.columns?.length || 0} columns
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {!board.is_master_board && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteBoard(board)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete board"
+                            disabled={deleteBoardMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Board Confirmation Dialog */}
+      <AlertDialog open={showDeleteBoardDialog} onOpenChange={setShowDeleteBoardDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              Delete Board?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>"{deletingBoard?.board_name}"</strong>?
+              </p>
+              
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-amber-900 text-sm">
+                  ⚠️ <strong>Note:</strong> Proposals on this board will NOT be deleted. They will still appear on your Master Board and can be reassigned to other boards.
+                </p>
+              </div>
+              
+              <p className="text-sm">
+                This action only deletes the board configuration and cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBoardMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteBoard}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteBoardMutation.isPending}
+            >
+              {deleteBoardMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Yes, Delete Board
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <GlobalSearch
         organization={organization}
