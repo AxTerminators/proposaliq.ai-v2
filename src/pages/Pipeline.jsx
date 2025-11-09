@@ -50,12 +50,12 @@ import SavedViews from "@/components/proposals/SavedViews";
 import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
 import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
-import { Badge } from "@/components/ui/badge"; // Added Badge import
-import ProposalCardModal from "@/components/proposals/ProposalCardModal"; // NEW: Import ProposalCardModal
+import { Badge } from "@/components/ui/badge";
+import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 
 export default function Pipeline() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient(); // Initialize queryClient
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState("kanban");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAutomation, setShowAutomation] = useState(false);
@@ -81,12 +81,12 @@ export default function Pipeline() {
   const [listGroupBy, setListGroupBy] = useState('none');
   const [tableGroupBy, setTableGroupBy] = useState('none');
   const [showMultiBoardAnalytics, setShowMultiBoardAnalytics] = useState(false);
-  const [showBoardManager, setShowBoardManager] = useState(false); // New state for board manager
-  const [deletingBoard, setDeletingBoard] = useState(null); // New state for board to be deleted
-  const [showDeleteBoardDialog, setShowDeleteBoardDialog] = useState(false); // New state for delete confirmation dialog
-  const [selectedProposalToOpen, setSelectedProposalToOpen] = useState(null); // NEW: Track proposal to auto-open
-  const [showProposalModal, setShowProposalModal] = useState(false); // NEW: Control proposal modal
-  const [initialModalToOpen, setInitialModalToOpen] = useState(null); // NEW: Track which modal to auto-open
+  const [showBoardManager, setShowBoardManager] = useState(false);
+  const [deletingBoard, setDeletingBoard] = useState(null);
+  const [showDeleteBoardDialog, setShowDeleteBoardDialog] = useState(false);
+  const [selectedProposalToOpen, setSelectedProposalToOpen] = useState(null);
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [initialModalToOpen, setInitialModalToOpen] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -98,7 +98,6 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load user directly
   const { data: user, isLoading: isLoadingUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
@@ -109,7 +108,6 @@ export default function Pipeline() {
     retry: 1
   });
 
-  // Load organization directly
   const { data: organization, isLoading: isLoadingOrg } = useQuery({
     queryKey: ['current-organization', user?.email],
     queryFn: async () => {
@@ -146,7 +144,6 @@ export default function Pipeline() {
     retry: 1
   });
 
-  // Fetch ALL kanban boards for this organization
   const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
@@ -154,7 +151,7 @@ export default function Pipeline() {
       console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_type' // Sort by board_type to get master first
+        'board_type'
       );
       console.log('[Pipeline] Found boards:', boards.length);
       return boards;
@@ -164,7 +161,6 @@ export default function Pipeline() {
     retry: 1,
   });
 
-  // Auto-ensure master board exists on first load
   useEffect(() => {
     const ensureMasterBoard = async () => {
       if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
@@ -187,7 +183,6 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards]);
 
-  // Auto-select master board or first board on load
   useEffect(() => {
     if (allBoards.length > 0 && !selectedBoardId) {
       const masterBoard = allBoards.find(b => b.is_master_board === true);
@@ -195,15 +190,12 @@ export default function Pipeline() {
       console.log('[Pipeline] Auto-selecting board:', boardToSelect.board_name);
       setSelectedBoardId(boardToSelect.id);
     } else if (allBoards.length === 0 && selectedBoardId) {
-      // If all boards are deleted or none exist, clear selection
       setSelectedBoardId(null);
     }
   }, [allBoards, selectedBoardId]);
 
-  // Get the selected board config
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
 
-  // Fetch proposals with better error handling and retry
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
@@ -226,16 +218,13 @@ export default function Pipeline() {
     initialData: [],
   });
 
-  // Filter proposals based on selected board
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
 
-    // Master board shows all proposals
     if (selectedBoard.is_master_board) {
       return proposals;
     }
 
-    // Type-specific boards filter by proposal_type_category
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
       return proposals.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
@@ -245,7 +234,6 @@ export default function Pipeline() {
     return proposals;
   }, [proposals, selectedBoard]);
 
-  // Calculate pipeline stats
   const pipelineStats = useMemo(() => {
     const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
     const formattedValue = totalValue >= 1000000
@@ -263,7 +251,7 @@ export default function Pipeline() {
       if (!p.due_date) return false;
       const dueDate = new Date(p.due_date);
       const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return daysUntil >= 0 && daysUntil <= 7; // Due within 7 days
+      return daysUntil >= 0 && daysUntil <= 7;
     }).length;
 
     return {
@@ -273,7 +261,6 @@ export default function Pipeline() {
     };
   }, [filteredProposals, proposals]);
 
-  // Fetch automation rules
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
@@ -307,7 +294,6 @@ export default function Pipeline() {
           alert(`✅ ${response.data.message}`);
           await refetchBoards();
 
-          // Auto-select the newly created board
           const updatedBoards = await base44.entities.KanbanConfig.filter({
             organization_id: organization.id,
             board_type: boardType.toLowerCase()
@@ -344,7 +330,6 @@ export default function Pipeline() {
         alert(`✅ ${response.data.was_created ? 'Master board created!' : 'Master board already exists'}`);
         await refetchBoards();
 
-        // Auto-select the master board
         const updatedBoards = await base44.entities.KanbanConfig.filter({
           organization_id: organization.id,
           is_master_board: true
@@ -361,17 +346,15 @@ export default function Pipeline() {
     }
   };
 
-  // Force refetch when organization changes
   useEffect(() => {
     if (organization?.id) {
       console.log('[Pipeline] Organization changed, refetching data');
       refetchProposals();
-      refetchBoards(); // Make sure to refetch boards when org changes
+      refetchBoards();
     }
   }, [organization?.id, refetchProposals, refetchBoards]);
 
   const handleCreateProposal = () => {
-    // Check if user is using sample data
     if (user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     } else {
@@ -384,39 +367,40 @@ export default function Pipeline() {
   };
 
   const handleProposalCreated = async (createdProposal, openModal = null) => {
-    refetchProposals(); // Refresh the list of proposals
+    await refetchProposals();
 
-    // Find the board that matches this proposal type
     const proposalType = createdProposal.proposal_type_category;
 
     if (!proposalType) {
-      // If no type specified, stay on current board
       return;
     }
 
-    // Find the board that applies to this proposal type
-    const matchingBoard = allBoards.find(board =>
-      board.applies_to_proposal_types?.includes(proposalType)
-    );
+    let matchingBoard = null;
+    
+    if (proposalType === 'RFP_15_COLUMN') {
+      matchingBoard = allBoards.find(board => board.board_type === 'rfp_15_column');
+      console.log('[Pipeline] Found 15-column board:', matchingBoard?.board_name);
+    } else {
+      matchingBoard = allBoards.find(board =>
+        board.applies_to_proposal_types?.includes(proposalType)
+      );
+    }
 
     if (matchingBoard) {
       console.log('[Pipeline] Switching to board:', matchingBoard.board_name);
       setSelectedBoardId(matchingBoard.id);
-    } else {
-      // If no matching board, stay on master board or current board
-      console.log('[Pipeline] No matching board found, staying on current board');
-    }
-
-    // NEW: For 15-column workflow, auto-open the ProposalCardModal with BasicInfoModal
-    if (proposalType === 'RFP_15_COLUMN') {
-      console.log('[Pipeline] 🎯 Auto-opening proposal modal for 15-column workflow with BasicInfoModal');
       
-      // Small delay to ensure the proposal is in the UI
-      setTimeout(() => {
-        setSelectedProposalToOpen(createdProposal);
-        setInitialModalToOpen(openModal || 'BasicInfoModal'); // Set which modal to open initially
-        setShowProposalModal(true);
-      }, 500);
+      if (proposalType === 'RFP_15_COLUMN') {
+        console.log('[Pipeline] 🎯 Auto-opening proposal modal for 15-column workflow with BasicInfoModal');
+        
+        setTimeout(() => {
+          setSelectedProposalToOpen(createdProposal);
+          setInitialModalToOpen(openModal);
+          setShowProposalModal(true);
+        }, 300);
+      }
+    } else {
+      console.log('[Pipeline] No matching board found, staying on current board');
     }
   };
 
@@ -426,7 +410,6 @@ export default function Pipeline() {
         await base44.functions.invoke('generateSampleData', {});
         alert('Sample data generated! Refreshing...');
         refetchProposals();
-        // No refetchConfig() needed here anymore. allBoards query will be re-evaluated.
       } catch (error) {
         console.error('Error generating sample data:', error);
         alert('Error generating sample data: ' + error.message);
@@ -494,7 +477,6 @@ export default function Pipeline() {
     setSavedFilters(filters);
   };
 
-  // Board type icon mapping - UPDATED to include rfp_15_column
   const getBoardIcon = (boardType, isMaster) => {
     if (isMaster) return "⭐";
     switch (boardType) {
@@ -509,22 +491,19 @@ export default function Pipeline() {
     }
   };
 
-  // Delete board mutation
   const deleteBoardMutation = useMutation({
     mutationFn: async (boardId) => {
       return base44.entities.KanbanConfig.delete(boardId);
     },
     onSuccess: async (_, deletedBoardId) => {
       await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
-      await refetchBoards(); // Ensure boards are up-to-date in the local state
+      await refetchBoards();
 
       setShowDeleteBoardDialog(false);
       setDeletingBoard(null);
       alert('✅ Board deleted successfully!');
       
-      // If the currently selected board was deleted, select a new one
       if (selectedBoardId === deletedBoardId) {
-        // Use the newly fetched boards data directly from the cache if available, or assume allBoards is updated
         const updatedBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]);
         const masterBoard = updatedBoards?.find(b => b.is_master_board === true);
         const boardToSelect = masterBoard || (updatedBoards?.length > 0 ? updatedBoards[0] : null);
@@ -532,7 +511,7 @@ export default function Pipeline() {
         if (boardToSelect) {
           setSelectedBoardId(boardToSelect.id);
         } else {
-          setSelectedBoardId(null); // No boards left or unable to select
+          setSelectedBoardId(null);
         }
       }
     },
@@ -552,7 +531,6 @@ export default function Pipeline() {
     }
   };
 
-  // Show error state
   if (proposalsError) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -580,7 +558,6 @@ export default function Pipeline() {
     );
   }
 
-  // Show loading state
   if (isLoadingUser || isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -603,7 +580,6 @@ export default function Pipeline() {
     );
   }
 
-  // Show "no organization" state
   if (!organization && !isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -631,7 +607,6 @@ export default function Pipeline() {
     );
   }
 
-  // Show "Create Master Board" prompt when no boards exist
   if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -669,6 +644,23 @@ export default function Pipeline() {
 
   const showDataRecovery = filteredProposals.length === 0 && !isLoadingProposals;
   const canGenerateSampleData = organization?.is_sample_data === true;
+
+  const getModalBoardConfig = () => {
+    if (!selectedProposalToOpen) return selectedBoard;
+    
+    const proposalType = selectedProposalToOpen.proposal_type_category;
+    
+    if (proposalType === 'RFP_15_COLUMN') {
+      const rfp15Board = allBoards.find(board => board.board_type === 'rfp_15_column');
+      return rfp15Board || selectedBoard;
+    }
+    
+    const typeBoard = allBoards.find(board =>
+      board.applies_to_proposal_types?.includes(proposalType)
+    );
+    
+    return typeBoard || selectedBoard;
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -850,7 +842,6 @@ export default function Pipeline() {
           </div>
         </div>
 
-        {/* Quick Stats Bar */}
         {filteredProposals.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
@@ -902,7 +893,6 @@ export default function Pipeline() {
         </Card>
       )}
 
-      {/* Board Analytics Panel */}
       {showBoardAnalytics && selectedBoard && (
         <div className="flex-shrink-0 mx-6 mt-6">
           <BoardAnalytics
@@ -913,7 +903,6 @@ export default function Pipeline() {
         </div>
       )}
 
-      {/* Multi-Board Analytics Panel */}
       {showMultiBoardAnalytics && (
         <div className="flex-shrink-0 mx-6 mt-6">
           <MultiBoardAnalytics
@@ -924,7 +913,6 @@ export default function Pipeline() {
         </div>
       )}
 
-      {/* Activity Feed Panel */}
       {showActivityFeed && (
         <div className="flex-shrink-0 mx-6 mt-6">
           <BoardActivityFeed
@@ -1040,7 +1028,6 @@ export default function Pipeline() {
         )}
       </div>
 
-      {/* Quick Create Proposal Dialog */}
       <QuickCreateProposal
         isOpen={showNewProposalDialog}
         onClose={() => setShowNewProposalDialog(false)}
@@ -1049,23 +1036,21 @@ export default function Pipeline() {
         onSuccess={handleProposalCreated}
       />
 
-      {/* Auto-opened Proposal Modal after creation */}
-      {showProposalModal && selectedProposalToOpen && selectedBoard && (
+      {showProposalModal && selectedProposalToOpen && (
         <ProposalCardModal
           proposal={selectedProposalToOpen}
           isOpen={showProposalModal}
           onClose={() => {
             setShowProposalModal(false);
             setSelectedProposalToOpen(null);
-            setInitialModalToOpen(null); // Clear modal flag
+            setInitialModalToOpen(null);
           }}
           organization={organization}
-          kanbanConfig={selectedBoard}
-          initialModalToOpen={initialModalToOpen} // NEW: Pass which modal to auto-open
+          kanbanConfig={getModalBoardConfig()}
+          initialModalToOpen={initialModalToOpen}
         />
       )}
 
-      {/* Quick Board Creation Dialog */}
       <QuickBoardCreation
         isOpen={showQuickBoardCreate}
         onClose={() => setShowQuickBoardCreate(false)}
@@ -1073,7 +1058,6 @@ export default function Pipeline() {
         onBoardCreated={handleQuickBoardCreated}
       />
 
-      {/* Create New Board Dialog */}
       <Dialog open={showCreateBoardDialog} onOpenChange={setShowCreateBoardDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1118,7 +1102,6 @@ export default function Pipeline() {
         </DialogContent>
       </Dialog>
 
-      {/* Board Manager Dialog */}
       <Dialog open={showBoardManager} onOpenChange={setShowBoardManager}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -1187,7 +1170,6 @@ export default function Pipeline() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Board Confirmation Dialog */}
       <AlertDialog open={showDeleteBoardDialog} onOpenChange={setShowDeleteBoardDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
