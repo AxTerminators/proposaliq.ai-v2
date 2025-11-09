@@ -35,7 +35,8 @@ import {
   TrendingUp,
   Search,
   BookOpen,
-  Layers // Added Layers icon
+  Layers, // Added Layers icon
+  Zap // Added Zap icon
 } from "lucide-react";
 import {
   Collapsible,
@@ -68,6 +69,7 @@ const WORKSPACE_ITEMS = [
 
 // Tools sub-menu items
 const TOOLS_ITEMS = [
+  { title: "Quick Proposal Builder", url: createPageUrl("QuickProposalBuilder"), icon: Zap },
   { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
   { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
   { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },

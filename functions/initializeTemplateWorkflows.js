@@ -1,3 +1,4 @@
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
 
 // Comprehensive template definitions for all proposal types
@@ -804,6 +805,114 @@ const TEMPLATE_DEFINITIONS = {
         }
       ]
     }
+  },
+  
+  QUICK_PROPOSAL: {
+    template_name: "Quick Proposal",
+    proposal_type_category: "OTHER",
+    board_type: "quick_proposal",
+    description: "Rapid proposal creation with AI assistance - ideal for tight deadlines and simple opportunities",
+    icon_emoji: "⚡",
+    estimated_duration_days: 7,
+    workflow_config: {
+      columns: [
+        {
+          id: "setup",
+          label: "Setup",
+          color: "from-blue-400 to-blue-600",
+          type: "locked_phase",
+          phase_mapping: "phase1",
+          is_locked: true,
+          order: 0,
+          checklist_items: [
+            { id: "basic_info", label: "Enter basic opportunity info", type: "modal_trigger", associated_action: "open_modal_phase1", required: true, order: 0 },
+            { id: "upload_rfp", label: "Upload RFP/requirements (optional)", type: "manual_check", required: false, order: 1 }
+          ]
+        },
+        {
+          id: "ai_generate",
+          label: "AI Generation",
+          color: "from-purple-400 to-purple-600",
+          type: "custom_stage",
+          is_locked: true,
+          order: 1,
+          checklist_items: [
+            { id: "ai_outline", label: "Generate AI-powered outline", type: "ai_trigger", required: true, order: 0 },
+            { id: "ai_content", label: "Generate initial content with AI", type: "ai_trigger", required: true, order: 1 },
+            { id: "review_ai", label: "Review and customize AI content", type: "manual_check", required: true, order: 2 }
+          ]
+        },
+        {
+          id: "refine",
+          label: "Refine",
+          color: "from-cyan-400 to-cyan-600",
+          type: "custom_stage",
+          is_locked: true,
+          order: 2,
+          checklist_items: [
+            { id: "add_details", label: "Add specific details and examples", type: "manual_check", required: true, order: 0 },
+            { id: "quick_pricing", label: "Add quick pricing estimate", type: "manual_check", required: true, order: 1 },
+            { id: "format_check", label: "Quick format check", type: "manual_check", required: true, order: 2 }
+          ]
+        },
+        {
+          id: "finalize",
+          label: "Finalize",
+          color: "from-green-400 to-green-600",
+          type: "custom_stage",
+          is_locked: true,
+          order: 3,
+          checklist_items: [
+            { id: "final_review", label: "Final quality review", type: "manual_check", required: true, order: 0 },
+            { id: "export_ready", label: "Prepare for export", type: "manual_check", required: true, order: 1 }
+          ]
+        },
+        {
+          id: "submitted",
+          label: "Submitted",
+          color: "from-indigo-400 to-indigo-600",
+          type: "default_status",
+          default_status_mapping: "submitted",
+          is_terminal: true,
+          is_locked: true,
+          order: 4,
+          checklist_items: []
+        },
+        {
+          id: "won",
+          label: "Won",
+          color: "from-green-400 to-green-600",
+          type: "default_status",
+          default_status_mapping: "won",
+          is_terminal: true,
+          is_locked: true,
+          order: 5,
+          checklist_items: []
+        },
+        {
+          id: "lost",
+          label: "Lost",
+          color: "from-red-400 to-red-600",
+          type: "default_status",
+          default_status_mapping: "lost",
+          is_terminal: true,
+          is_locked: true,
+          order: 6,
+          checklist_items: []
+        },
+        {
+          id: "archived",
+          label: "Archived",
+          color: "from-gray-400 to-gray-600",
+          type: "default_status",
+          default_status_mapping: "archived",
+          is_terminal: true,
+          is_locked: true,
+          order: 7,
+          checklist_items: []
+        }
+      ]
+    }
   }
 };
 
@@ -848,15 +957,6 @@ Deno.serve(async (req) => {
         t.proposal_type_category === type && t.template_type === 'system'
       );
 
-      if (existing && !overwrite_existing) {
-        results.skipped.push({
-          type,
-          template_id: existing.id,
-          message: `Template for ${type} already exists`
-        });
-        continue;
-      }
-
       const templateData = {
         ...definition,
         template_type: 'system',
@@ -866,17 +966,25 @@ Deno.serve(async (req) => {
         usage_count: 0
       };
 
-      if (existing && overwrite_existing) {
-        // Update existing template
-        await base44.asServiceRole.entities.ProposalWorkflowTemplate.update(
-          existing.id,
-          templateData
-        );
-        results.updated.push({
-          type,
-          template_id: existing.id,
-          message: `Updated template for ${type}`
-        });
+      if (existing) {
+        if (overwrite_existing) {
+          // Update existing template
+          await base44.asServiceRole.entities.ProposalWorkflowTemplate.update(
+            existing.id,
+            templateData
+          );
+          results.updated.push({
+            type,
+            template_id: existing.id,
+            message: `Updated template for ${type}`
+          });
+        } else {
+          results.skipped.push({
+            type,
+            template_id: existing.id,
+            message: `Template for ${type} already exists`
+          });
+        }
       } else {
         // Create new template
         const created = await base44.asServiceRole.entities.ProposalWorkflowTemplate.create(

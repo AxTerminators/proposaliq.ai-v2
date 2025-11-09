@@ -53,6 +53,7 @@ import TemplateManager from './pages/TemplateManager';
 import BoardManager from './pages/BoardManager';
 import FolderManager from './pages/FolderManager';
 import TemplateWorkflowManager from './pages/TemplateWorkflowManager';
+import QuickProposalBuilder from './pages/QuickProposalBuilder';
 import Layout from './Layout.jsx';
 
 
@@ -112,6 +113,7 @@ export const PAGES = {
     "BoardManager": BoardManager,
     "FolderManager": FolderManager,
     "TemplateWorkflowManager": TemplateWorkflowManager,
+    "QuickProposalBuilder": QuickProposalBuilder,
 }
 
 export const pagesConfig = {
