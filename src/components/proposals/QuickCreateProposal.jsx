@@ -39,14 +39,6 @@ import {
 
 const PROPOSAL_TYPES = [
   { 
-    value: 'RFP', 
-    label: 'Request for Proposal (RFP)', 
-    icon: '📄',
-    description: 'Comprehensive proposals with 8-phase workflow',
-    avgDuration: '45-90 days',
-    complexity: 'High'
-  },
-  { 
     value: 'RFP_15_COLUMN', 
     label: '15-Column RFP Workflow', 
     icon: '🎯',
