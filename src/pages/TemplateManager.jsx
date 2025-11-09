@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -186,6 +186,32 @@ export default function TemplateManager() {
       alert('✅ Template deleted successfully!');
     }
   });
+
+  // Add function to create 15-column template if it doesn't exist
+  const create15ColumnTemplateMutation = useMutation({
+    mutationFn: async () => {
+      return base44.functions.invoke('create15ColumnTemplateIfNotExists', {});
+    },
+    onSuccess: (response) => {
+      if (response.data.was_created) {
+        queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
+        // alert('✅ 15-Column RFP Workflow template added!'); // Commenting out to avoid multiple alerts on load
+      }
+    }
+  });
+
+  // Auto-create 15-column template on first load if it doesn't exist
+  useEffect(() => {
+    if (organization?.id && allTemplates.length > 0) {
+      const has15ColumnTemplate = allTemplates.some(
+        t => t.proposal_type_category === 'RFP_15_COLUMN'
+      );
+      
+      if (!has15ColumnTemplate) {
+        create15ColumnTemplateMutation.mutate();
+      }
+    }
+  }, [organization?.id, allTemplates, create15ColumnTemplateMutation]); // Add create15ColumnTemplateMutation to dependencies
 
   const handleDuplicate = (template) => {
     duplicateTemplateMutation.mutate(template);
