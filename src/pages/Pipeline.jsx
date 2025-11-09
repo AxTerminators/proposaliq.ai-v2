@@ -677,6 +677,14 @@ export default function Pipeline() {
     });
   }, [showProposalModal, selectedProposalToOpen, initialModalToOpen, pendingProposalModal]);
 
+  // DEBUG: Log when showNewProposalDialog changes
+  useEffect(() => {
+    console.log('[Pipeline] 🎭 QuickCreate Dialog State:', {
+      isOpen: showNewProposalDialog,
+      hasHandleProposalCreated: typeof handleProposalCreated === 'function'
+    });
+  }, [showNewProposalDialog]);
+
   if (proposalsError) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -1159,10 +1167,20 @@ export default function Pipeline() {
 
       <QuickCreateProposal
         isOpen={showNewProposalDialog}
-        onClose={() => setShowNewProposalDialog(false)}
+        onClose={() => {
+          console.log('[Pipeline] 🚪 Closing QuickCreate dialog');
+          setShowNewProposalDialog(false);
+        }}
         organization={organization}
         preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
-        onSuccess={handleProposalCreated}
+        onSuccess={(proposal, modal, board) => {
+          console.log('[Pipeline] 📞 onSuccess CALLBACK INVOKED!', {
+            proposal: proposal?.proposal_name,
+            modal,
+            board: board?.board_name
+          });
+          handleProposalCreated(proposal, modal, board);
+        }}
       />
 
       {showProposalModal && selectedProposalToOpen && (
