@@ -1,10 +1,11 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Eye, Settings, AlertCircle, Layers, Tag } from "lucide-react";
+import { Trash2, Eye, Settings, AlertCircle, Layers, Tag, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useOrganization } from "../components/layout/OrganizationContext";
+import CustomBoardCreationWizard from "../components/proposals/CustomBoardCreationWizard";
 
 const PROPOSAL_TYPES = [
   { value: 'RFP', label: 'RFP - Request for Proposal', emoji: '📄' },
@@ -36,10 +38,11 @@ const PROPOSAL_TYPES = [
 
 export default function BoardManager() {
   const queryClient = useQueryClient();
-  const { organization } = useOrganization();
+  const { organization, user } = useOrganization();
   const [boardToDelete, setBoardToDelete] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [categorizingProposal, setCategorizingProposal] = useState(null);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
 
   const { data: boards = [], isLoading } = useQuery({
     queryKey: ['all-boards', organization?.id],
@@ -90,6 +93,12 @@ export default function BoardManager() {
   });
 
   const handleDeleteClick = (board) => {
+    // Check permissions
+    if (!canDeleteBoard()) {
+      alert("Only admins and managers can delete boards.");
+      return;
+    }
+
     setBoardToDelete(board);
     setShowDeleteConfirm(true);
   };
@@ -102,6 +111,23 @@ export default function BoardManager() {
 
   const handleCategorizeProposal = async (proposalId, category) => {
     await categorizeMutation.mutateAsync({ proposalId, category });
+  };
+
+  const canDeleteBoard = () => {
+    // Only admin or users with manager role can delete
+    if (user?.role === 'admin') return true;
+    
+    const orgAccess = user?.client_accesses?.find(
+      access => access.organization_id === organization?.id
+    );
+    
+    return orgAccess?.role === 'organization_owner' || orgAccess?.role === 'manager';
+  };
+
+  const handleBoardCreated = (newBoard) => {
+    queryClient.invalidateQueries({ queryKey: ['all-boards'] });
+    setShowCreateWizard(false);
+    alert(`✅ Board "${newBoard.board_name}" created successfully!`);
   };
 
   const getProposalCount = (board) => {
@@ -147,8 +173,19 @@ export default function BoardManager() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Board Manager</h1>
-          <p className="text-slate-600">Manage your Kanban board configurations</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">Board Manager</h1>
+              <p className="text-slate-600">Manage your Kanban board configurations</p>
+            </div>
+            <Button
+              onClick={() => setShowCreateWizard(true)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create Custom Board
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4">
@@ -157,6 +194,7 @@ export default function BoardManager() {
             const hasProposals = proposalCount > 0;
             const isLegacy = isLegacyBoard(board);
             const legacyProposals = isLegacy ? getLegacyProposals(board) : [];
+            const canDelete = canDeleteBoard() && board.is_deletable !== false;
 
             return (
               <Card key={board.id} className={`border-2 ${isLegacy ? 'border-amber-300 bg-amber-50/30' : ''}`}>
@@ -170,13 +208,24 @@ export default function BoardManager() {
                         {board.is_master_board && (
                           <Badge className="bg-yellow-500 text-white">⭐ Master</Badge>
                         )}
+                        {board.is_template_board && (
+                          <Badge className="bg-blue-500 text-white">📋 Template</Badge>
+                        )}
                         {board.board_type && (
                           <Badge className="bg-blue-100 text-blue-700">
                             {board.board_type.toUpperCase()}
                           </Badge>
                         )}
+                        {board.board_category && (
+                          <Badge variant="outline">
+                            {board.board_category === 'proposal_board' ? 'Proposal' : 'Project Mgmt'}
+                          </Badge>
+                        )}
                         {isLegacy && (
                           <Badge className="bg-amber-500 text-white">Legacy Board</Badge>
+                        )}
+                        {board.is_deletable === false && (
+                          <Badge className="bg-slate-500 text-white">Protected</Badge>
                         )}
                       </div>
 
@@ -195,6 +244,11 @@ export default function BoardManager() {
                             {board.applies_to_proposal_types.join(', ')}
                           </div>
                         )}
+                        {board.created_by && (
+                          <div className="text-xs text-slate-500">
+                            Created by: {board.created_by}
+                          </div>
+                        )}
                         <div className="text-xs text-slate-400">
                           Created: {new Date(board.created_date).toLocaleDateString()}
                         </div>
@@ -205,15 +259,22 @@ export default function BoardManager() {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteClick(board)}
-                        disabled={deleteMutation.isPending || legacyProposals.length > 0}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Board
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteClick(board)}
+                          disabled={deleteMutation.isPending || legacyProposals.length > 0 || board.is_deletable === false}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Board
+                        </Button>
+                      )}
+                      {!canDelete && board.is_deletable !== false && (
+                        <Badge variant="outline" className="text-xs">
+                          Admin/Manager Only
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -296,7 +357,14 @@ export default function BoardManager() {
             <CardContent className="p-12 text-center">
               <Layers className="w-16 h-16 mx-auto mb-4 text-slate-300" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">No boards found</h3>
-              <p className="text-slate-600">Create a board in the Pipeline view</p>
+              <p className="text-slate-600">Create your first custom board to get started</p>
+              <Button
+                onClick={() => setShowCreateWizard(true)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Custom Board
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -330,6 +398,13 @@ export default function BoardManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CustomBoardCreationWizard
+        isOpen={showCreateWizard}
+        onClose={() => setShowCreateWizard(false)}
+        organization={organization}
+        onBoardCreated={handleBoardCreated}
+      />
     </div>
   );
 }
