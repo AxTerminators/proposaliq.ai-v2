@@ -51,6 +51,7 @@ import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
 import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge"; // Added Badge import
+import ProposalCardModal from "@/components/proposals/ProposalCardModal"; // NEW: Import ProposalCardModal
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -83,6 +84,8 @@ export default function Pipeline() {
   const [showBoardManager, setShowBoardManager] = useState(false); // New state for board manager
   const [deletingBoard, setDeletingBoard] = useState(null); // New state for board to be deleted
   const [showDeleteBoardDialog, setShowDeleteBoardDialog] = useState(false); // New state for delete confirmation dialog
+  const [selectedProposalToOpen, setSelectedProposalToOpen] = useState(null); // NEW: Track proposal to auto-open
+  const [showProposalModal, setShowProposalModal] = useState(false); // NEW: Control proposal modal
 
   useEffect(() => {
     const checkMobile = () => {
@@ -401,6 +404,17 @@ export default function Pipeline() {
     } else {
       // If no matching board, stay on master board or current board
       console.log('[Pipeline] No matching board found, staying on current board');
+    }
+
+    // NEW: For 15-column workflow, auto-open the proposal card modal
+    if (proposalType === 'RFP_15_COLUMN') {
+      console.log('[Pipeline] 🎯 Auto-opening proposal modal for 15-column workflow');
+      
+      // Small delay to ensure the proposal is in the UI
+      setTimeout(() => {
+        setSelectedProposalToOpen(createdProposal);
+        setShowProposalModal(true);
+      }, 500);
     }
   };
 
@@ -1032,6 +1046,20 @@ export default function Pipeline() {
         preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
         onSuccess={handleProposalCreated}
       />
+
+      {/* NEW: Auto-opened Proposal Modal after creation */}
+      {showProposalModal && selectedProposalToOpen && selectedBoard && (
+        <ProposalCardModal
+          proposal={selectedProposalToOpen}
+          isOpen={showProposalModal}
+          onClose={() => {
+            setShowProposalModal(false);
+            setSelectedProposalToOpen(null);
+          }}
+          organization={organization}
+          kanbanConfig={selectedBoard}
+        />
+      )}
 
       {/* Quick Board Creation Dialog */}
       <QuickBoardCreation
