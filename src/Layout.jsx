@@ -350,16 +350,20 @@ function LayoutContent({ children }) {
                         </button>
                       </CollapsibleTrigger>
                       {!sidebarCollapsed && (
-                        <CollapsibleContent>
-                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5">
+                        <CollapsibleContent className="overflow-visible">
+                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5 py-1">
                             {subItems.map((subItem) => (
                               <Link
                                 key={subItem.title}
                                 to={subItem.url}
                                 className={cn(
-                                  "flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg",
+                                  "flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg relative z-10",
                                   location.pathname === subItem.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
                                 )}
+                                onClick={(e) => {
+                                  // Allow the link to work normally
+                                  e.stopPropagation();
+                                }}
                               >
                                 <subItem.icon className="w-4 h-4" title={subItem.title} />
                                 <span className="text-sm">{subItem.title}</span>
