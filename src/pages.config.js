@@ -51,6 +51,7 @@ import CompetitorIntel from './pages/CompetitorIntel';
 import TestJourney from './pages/TestJourney';
 import TemplateManager from './pages/TemplateManager';
 import BoardManager from './pages/BoardManager';
+import FolderManager from './pages/FolderManager';
 import Layout from './Layout.jsx';
 
 
@@ -108,6 +109,7 @@ export const PAGES = {
     "TestJourney": TestJourney,
     "TemplateManager": TemplateManager,
     "BoardManager": BoardManager,
+    "FolderManager": FolderManager,
 }
 
 export const pagesConfig = {

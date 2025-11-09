@@ -1,6 +1,7 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, GripVertical, FileText, Briefcase, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import FolderSelector from "../folders/FolderSelector"; // Added import
 
 const BOARD_CATEGORIES = [
   { value: 'proposal_board', label: 'Proposal Board', icon: FileText, description: 'Manage proposals with workflow stages' },
@@ -56,6 +58,7 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
   const [boardName, setBoardName] = useState("");
   const [boardCategory, setBoardCategory] = useState("");
   const [columns, setColumns] = useState([]);
+  const [selectedFolderId, setSelectedFolderId] = useState(null); // Added state
 
   const createBoardMutation = useMutation({
     mutationFn: async (boardData) => {
@@ -64,6 +67,7 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
     onSuccess: (newBoard) => {
       queryClient.invalidateQueries({ queryKey: ['all-boards'] });
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] }); // Added query invalidation
       if (onBoardCreated) {
         onBoardCreated(newBoard);
       }
@@ -71,11 +75,25 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
     },
   });
 
+  // Query for folders to display in summary
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const response = await base44.entities.Folder.list({
+        organization_id: organization.id,
+      });
+      return response.items;
+    },
+    enabled: !!organization?.id,
+  });
+
   const handleClose = () => {
     setStep(1);
     setBoardName("");
     setBoardCategory("");
     setColumns([]);
+    setSelectedFolderId(null); // Reset folder selection
     onClose();
   };
 
@@ -179,6 +197,7 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
       is_template_board: false,
       is_deletable: true,
       applies_to_proposal_types: boardCategory === 'proposal_board' ? [] : null,
+      folder_id: selectedFolderId, // Added folder assignment
       columns: columns.map((col, idx) => ({
         ...col,
         order: idx
@@ -199,7 +218,7 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
         <DialogHeader>
           <DialogTitle>Create Custom Board</DialogTitle>
           <DialogDescription>
-            Step {step} of 2: {step === 1 ? 'Board Details' : 'Configure Columns'}
+            Step {step} of 3: {step === 1 ? 'Board Details' : step === 2 ? 'Configure Columns' : 'Organization & Summary'}
           </DialogDescription>
         </DialogHeader>
 
@@ -359,10 +378,39 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
           </div>
         )}
 
+        {step === 3 && (
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label>Organize into Folder (Optional)</Label>
+              <FolderSelector
+                organization={organization}
+                value={selectedFolderId}
+                onChange={setSelectedFolderId}
+                filterType={boardCategory === 'proposal_board' ? 'proposal_boards' : 'project_boards'}
+                placeholder="Select a folder or leave at root level"
+                allowNone={true}
+              />
+              <p className="text-xs text-slate-500">
+                Choose a folder to keep your boards organized, or leave at root level
+              </p>
+            </div>
+
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">Summary</h4>
+              <div className="space-y-1 text-sm text-blue-800">
+                <p><strong>Board Name:</strong> {boardName}</p>
+                <p><strong>Category:</strong> {boardCategory === 'proposal_board' ? 'Proposal Board' : 'Project Management Board'}</p>
+                <p><strong>Columns:</strong> {columns.filter(c => !c.is_terminal).length} custom stages + {columns.filter(c => c.is_terminal).length} terminal</p>
+                <p><strong>Folder:</strong> {selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.folder_name || 'Unknown' : 'Root level'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between pt-4 border-t">
           <Button
             variant="outline"
-            onClick={step === 1 ? handleClose : () => setStep(1)}
+            onClick={step === 1 ? handleClose : step === 2 ? () => setStep(1) : () => setStep(2)}
           >
             {step === 1 ? (
               'Cancel'
@@ -374,8 +422,8 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
             )}
           </Button>
 
-          {step === 1 ? (
-            <Button onClick={handleNext} disabled={!canProceed}>
+          {step < 3 ? (
+            <Button onClick={step === 1 ? handleNext : () => setStep(3)} disabled={!canProceed}>
               Next
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
