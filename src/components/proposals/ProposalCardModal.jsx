@@ -209,7 +209,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     return masterBoard?.id || '';
   };
 
-  // Handle board reassignment
+  // Handle board reassignment - FIXED with proper refresh and close
   const handleBoardReassignment = async (newBoardId) => {
     if (!newBoardId) return;
     
@@ -221,30 +221,33 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       let newProposalType;
       
       if (newBoard.is_master_board) {
-        // Keep existing type for master board
         newProposalType = proposal.proposal_type_category;
       } else if (newBoard.board_type === 'rfp_15_column') {
-        // Special handling for 15-column board
         newProposalType = 'RFP_15_COLUMN';
       } else {
-        // Use first type from applies_to_proposal_types
         newProposalType = newBoard.applies_to_proposal_types?.[0] || 'OTHER';
       }
 
       console.log('[ProposalCardModal] Reassigning proposal to board:', newBoard.board_name, 'Type:', newProposalType);
 
+      // Update the proposal
       await updateProposalMutation.mutateAsync({
         proposal_type_category: newProposalType
       });
 
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      // Force refetch proposals to ensure UI updates
+      await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      await queryClient.refetchQueries({ queryKey: ['proposals'] });
       
-      // Show success feedback
+      // Show success and close modal
       alert(`✅ Proposal moved to "${newBoard.board_name}"!`);
+      
+      // Close the modal so user can see the board update
+      onClose();
+      
     } catch (error) {
       console.error('[ProposalCardModal] Error reassigning board:', error);
-      alert('Error moving proposal to new board. Please try again.');
+      alert('❌ Error moving proposal to new board. Please try again.');
     }
   };
 
@@ -456,37 +459,46 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   )}
                 </div>
 
-                {/* Board Assignment Section */}
+                {/* Board Assignment Section - IMPROVED UI */}
                 {allBoards.length > 1 && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <Label className="text-sm font-medium flex items-center gap-2 mb-2">
-                      <Layers className="w-4 h-4" />
-                      Board Assignment
-                    </Label>
-                    <Select
-                      value={getCurrentBoardId()}
-                      onValueChange={handleBoardReassignment}
-                    >
-                      <SelectTrigger className="w-full h-9 bg-white">
-                        <SelectValue placeholder="Select board..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allBoards.map(board => {
-                          const icon = getBoardIcon(board.board_type, board.is_master_board);
-                          return (
-                            <SelectItem key={board.id} value={board.id}>
-                              <span className="flex items-center gap-2">
-                                <span>{icon}</span>
-                                <span>{board.board_name}</span>
-                              </span>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-slate-500 mt-1">
-                      💡 Move this proposal to a different board
-                    </p>
+                  <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <Layers className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-sm font-semibold text-slate-900 mb-2 block">
+                          Board Assignment
+                        </Label>
+                        <Select
+                          value={getCurrentBoardId()}
+                          onValueChange={handleBoardReassignment}
+                        >
+                          <SelectTrigger className="w-full h-10 bg-white border-2 border-blue-300 hover:border-blue-400">
+                            <SelectValue placeholder="Select board..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allBoards.map(board => {
+                              const icon = getBoardIcon(board.board_type, board.is_master_board);
+                              return (
+                                <SelectItem key={board.id} value={board.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span className="text-lg">{icon}</span>
+                                    <span>{board.board_name}</span>
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
+                          <span>💡</span>
+                          <span><strong>Move this proposal</strong> to a different workflow board</span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
