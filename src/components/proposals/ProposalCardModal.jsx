@@ -209,7 +209,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     return masterBoard?.id || '';
   };
 
-  // Handle board reassignment - FIXED with proper refresh and close
+  // Handle board reassignment - FIXED to reset workflow fields and place in first column
   const handleBoardReassignment = async (newBoardId) => {
     if (!newBoardId) return;
     
@@ -228,19 +228,72 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         newProposalType = newBoard.applies_to_proposal_types?.[0] || 'OTHER';
       }
 
-      console.log('[ProposalCardModal] Reassigning proposal to board:', newBoard.board_name, 'Type:', newProposalType);
+      // Get the first non-terminal column of the new board
+      const newBoardColumns = newBoard.columns || [];
+      const firstColumn = newBoardColumns.find(col => !col.is_terminal);
+      
+      if (!firstColumn) {
+        alert('❌ Error: New board has no workflow columns.');
+        return;
+      }
+
+      console.log('[ProposalCardModal] Reassigning proposal:', {
+        proposalName: proposal.proposal_name,
+        toBoard: newBoard.board_name,
+        firstColumn: firstColumn.label,
+        newType: newProposalType
+      });
+
+      // CRITICAL FIX: Reset all workflow fields and place in first column
+      const updates = {
+        proposal_type_category: newProposalType
+      };
+
+      // Reset workflow stage based on first column type
+      if (firstColumn.type === 'custom_stage') {
+        updates.custom_workflow_stage_id = firstColumn.id;
+        updates.current_phase = null;
+        updates.status = 'in_progress'; // Default status for custom stages
+      } else if (firstColumn.type === 'locked_phase') {
+        updates.custom_workflow_stage_id = firstColumn.id; // Store which specific column
+        updates.current_phase = firstColumn.phase_mapping;
+        updates.status = firstColumn.default_status_mapping || 'evaluating';
+      } else if (firstColumn.type === 'default_status') {
+        updates.status = firstColumn.default_status_mapping;
+        updates.current_phase = null;
+        updates.custom_workflow_stage_id = null;
+      } else if (firstColumn.type === 'master_status') {
+        updates.status = firstColumn.status_mapping?.[0] || 'evaluating';
+        updates.current_phase = null;
+        updates.custom_workflow_stage_id = null;
+      }
+
+      // Reset checklist status for new board
+      updates.current_stage_checklist_status = {
+        [firstColumn.id]: {}
+      };
+
+      // Set action required if first column has required items
+      const hasRequiredItems = firstColumn.checklist_items?.some(item => item.required);
+      updates.action_required = hasRequiredItems;
+      updates.action_required_description = hasRequiredItems 
+        ? `Complete required items in ${firstColumn.label}` 
+        : null;
+
+      // Reset manual order
+      updates.manual_order = 0;
+
+      console.log('[ProposalCardModal] Applying updates:', updates);
 
       // Update the proposal
-      await updateProposalMutation.mutateAsync({
-        proposal_type_category: newProposalType
-      });
+      await updateProposalMutation.mutateAsync(updates);
 
       // Force refetch proposals to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       await queryClient.refetchQueries({ queryKey: ['proposals'] });
       
       // Show success and close modal
-      alert(`✅ Proposal moved to "${newBoard.board_name}"!`);
+      alert(`✅ Proposal moved to "${newBoard.board_name}" → "${firstColumn.label}" column!`);
       
       // Close the modal so user can see the board update
       onClose();
