@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -50,7 +51,7 @@ import {
 import AdvancedFilterPanel from "./AdvancedFilterPanel";
 import GlobalSearch from "./GlobalSearch";
 import BulkActionsPanel from "./BulkActionsPanel";
-
+import ProjectTasksKanban from "../projects/ProjectTasksKanban";
 
 const LEGACY_DEFAULT_COLUMNS = [
   {
@@ -154,6 +155,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
     
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
+  }, [kanbanConfig]);
+
+  // UPDATED: Check if this is a project management board
+  const isProjectManagementBoard = useMemo(() => {
+    return kanbanConfig?.board_category === 'project_management_board';
   }, [kanbanConfig]);
 
   const columns = kanbanConfig?.columns || [];
@@ -950,6 +956,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  // UPDATED: Render project management board view
+  if (isProjectManagementBoard) {
+    return (
+      <ProjectTasksKanban
+        organization={organization}
+        user={user}
+        kanbanConfig={kanbanConfig}
+      />
     );
   }
 

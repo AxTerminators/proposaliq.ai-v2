@@ -58,7 +58,8 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
   const [boardName, setBoardName] = useState("");
   const [boardCategory, setBoardCategory] = useState("");
   const [columns, setColumns] = useState([]);
-  const [selectedFolderId, setSelectedFolderId] = useState(null); // Added state
+  const [selectedFolderId, setSelectedFolderId] = useState(null);
+  const [generateSampleData, setGenerateSampleData] = useState(false); // Added state
 
   const createBoardMutation = useMutation({
     mutationFn: async (boardData) => {
@@ -67,7 +68,7 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
     onSuccess: (newBoard) => {
       queryClient.invalidateQueries({ queryKey: ['all-boards'] });
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-      queryClient.invalidateQueries({ queryKey: ['folders'] }); // Added query invalidation
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
       if (onBoardCreated) {
         onBoardCreated(newBoard);
       }
@@ -93,7 +94,8 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
     setBoardName("");
     setBoardCategory("");
     setColumns([]);
-    setSelectedFolderId(null); // Reset folder selection
+    setSelectedFolderId(null);
+    setGenerateSampleData(false); // Reset
     onClose();
   };
 
@@ -197,7 +199,7 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
       is_template_board: false,
       is_deletable: true,
       applies_to_proposal_types: boardCategory === 'proposal_board' ? [] : null,
-      folder_id: selectedFolderId, // Added folder assignment
+      folder_id: selectedFolderId,
       columns: columns.map((col, idx) => ({
         ...col,
         order: idx
@@ -205,7 +207,19 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
       created_by: organization.created_by
     };
 
-    await createBoardMutation.mutateAsync(boardData);
+    const newBoard = await createBoardMutation.mutateAsync(boardData);
+
+    // If project management board and user wants sample data, generate it
+    if (boardCategory === 'project_management_board' && generateSampleData && newBoard) {
+      try {
+        await base44.functions.invoke('generateSampleProjectTasks', {
+          organization_id: organization.id,
+          board_id: newBoard.id
+        });
+      } catch (error) {
+        console.error('Error generating sample tasks:', error);
+      }
+    }
   };
 
   const isProposalBoard = boardCategory === 'proposal_board';
@@ -395,13 +409,37 @@ export default function CustomBoardCreationWizard({ isOpen, onClose, organizatio
               </p>
             </div>
 
+            {/* NEW: Sample data option for project boards */}
+            {boardCategory === 'project_management_board' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="generateSampleData"
+                    checked={generateSampleData}
+                    onChange={(e) => setGenerateSampleData(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300"
+                  />
+                  <Label htmlFor="generateSampleData" className="cursor-pointer">
+                    Generate sample tasks to get started
+                  </Label>
+                </div>
+                <p className="text-xs text-slate-500 ml-6">
+                  We'll create 7 example tasks across your workflow stages to help you get familiar with the board
+                </p>
+              </div>
+            )}
+
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-semibold text-blue-900 mb-2">Summary</h4>
               <div className="space-y-1 text-sm text-blue-800">
                 <p><strong>Board Name:</strong> {boardName}</p>
                 <p><strong>Category:</strong> {boardCategory === 'proposal_board' ? 'Proposal Board' : 'Project Management Board'}</p>
-                <p><strong>Columns:</strong> {columns.filter(c => !c.is_terminal).length} custom stages + {columns.filter(c => c.is_terminal).length} terminal</p>
+                <p><strong>Columns:</strong> {columns.filter(c => !c.is_terminal).length} custom stages{columns.filter(c => c.is_terminal).length > 0 && ` + ${columns.filter(c => c.is_terminal).length} terminal`}</p>
                 <p><strong>Folder:</strong> {selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.folder_name || 'Unknown' : 'Root level'}</p>
+                {generateSampleData && (
+                  <p><strong>Sample Data:</strong> Yes, will generate 7 example tasks</p>
+                )}
               </div>
             </div>
           </div>
