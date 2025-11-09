@@ -155,22 +155,30 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     loadUser();
   }, []);
 
-  // NEW: Auto-open the initial modal if specified
+  // Auto-open the initial modal if specified
   useEffect(() => {
     if (isOpen && initialModalToOpen) {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[ProposalCardModal] 🚀 AUTO-OPENING INITIAL MODAL');
       console.log('[ProposalCardModal] Modal name:', initialModalToOpen);
       console.log('[ProposalCardModal] Proposal:', proposal.proposal_name);
-      console.log('[ProposalCardModal] KanbanConfig:', kanbanConfig?.board_name);
+      console.log('[ProposalCardModal] isOpen:', isOpen);
+      console.log('[ProposalCardModal] Available modals:', Object.keys(MODAL_COMPONENTS));
+      console.log('[ProposalCardModal] Modal exists?', !!MODAL_COMPONENTS[initialModalToOpen]);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      // Small delay to ensure modal has rendered
+      // Delay to ensure ProposalCardModal has fully rendered
       setTimeout(() => {
+        console.log('[ProposalCardModal] ⏰ Timeout fired - setting activeModalName to:', initialModalToOpen);
         setActiveModalName(initialModalToOpen);
-      }, 100);
+      }, 200);
     }
-  }, [isOpen, initialModalToOpen]);
+  }, [isOpen, initialModalToOpen, proposal.proposal_name]);
+
+  // Debug log whenever activeModalName changes
+  useEffect(() => {
+    console.log('[ProposalCardModal] 🎭 activeModalName changed to:', activeModalName);
+  }, [activeModalName]);
 
   // Fetch all boards for reassignment
   const { data: allBoards = [] } = useQuery({
@@ -453,27 +461,36 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const renderActiveModal = () => {
-    if (!activeModalName) return null;
+    if (!activeModalName) {
+      console.log('[ProposalCardModal] 🚫 No active modal to render');
+      return null;
+    }
     
     const ModalComponent = MODAL_COMPONENTS[activeModalName];
     if (!ModalComponent) {
-      console.error('[ProposalCardModal] ❌ Modal component not found:', activeModalName);
+      console.error('[ProposalCardModal] ❌ Modal component not found for:', activeModalName);
+      console.error('[ProposalCardModal] Available:', Object.keys(MODAL_COMPONENTS));
       return null;
     }
 
-    console.log('[ProposalCardModal] 🎭 Rendering modal:', activeModalName);
+    console.log('[ProposalCardModal] 🎭 Rendering modal component:', activeModalName);
     
     // Find the checklist item that opened this modal
     const checklistItem = currentColumn?.checklist_items?.find(item => {
-      if (!item || !item.associated_action) return false; // Safety check
+      if (!item || !item.associated_action) return false;
       const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
       return modalName === activeModalName;
     });
     
+    console.log('[ProposalCardModal] 📋 Checklist item for modal:', checklistItem?.label || 'Not found');
+    
     return (
       <ModalComponent
         isOpen={true}
-        onClose={() => handleModalClose(checklistItem?.id)}
+        onClose={() => {
+          console.log('[ProposalCardModal] 🔙 Modal closing, checklist item:', checklistItem?.id);
+          handleModalClose(checklistItem?.id);
+        }}
         proposalId={proposal.id}
       />
     );
