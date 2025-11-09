@@ -24,22 +24,52 @@ const defaultColumns = [
   { id: 'archived', label: 'Archived', emoji: '📦' }
 ];
 
+// Helper to get emoji for a column
+const getColumnEmoji = (col) => {
+  if (col?.emoji) return col.emoji;
+  
+  // Try to extract emoji from label
+  const emojiMatch = col?.label?.match(/^([🔍👀📝⚡📤🏆❌📦🎯📋🔬🏛️📑🏢📊])\s*/);
+  if (emojiMatch) return emojiMatch[1];
+  
+  // Fallback based on common column types
+  if (col?.label?.toLowerCase().includes('submit')) return '📤';
+  if (col?.label?.toLowerCase().includes('won')) return '🏆';
+  if (col?.label?.toLowerCase().includes('lost')) return '❌';
+  if (col?.label?.toLowerCase().includes('archive')) return '📦';
+  if (col?.label?.toLowerCase().includes('draft')) return '📝';
+  if (col?.label?.toLowerCase().includes('progress')) return '⚡';
+  if (col?.label?.toLowerCase().includes('evaluat')) return '🔍';
+  if (col?.label?.toLowerCase().includes('watch')) return '👀';
+  
+  // Default fallback
+  return '📋';
+};
+
 export default function MobileKanbanView({ proposals = [], columns = defaultColumns }) {
   const [selectedColumn, setSelectedColumn] = useState(columns[0]?.id || 'evaluating');
   const [expandedColumn, setExpandedColumn] = useState(null);
 
-  const currentColumn = columns.find(c => c.id === selectedColumn) || columns[0];
+  const currentColumn = columns.find(c => c?.id === selectedColumn) || columns[0];
   
   const columnProposals = proposals.filter(p => {
+    if (!currentColumn) return false;
+    
     if (currentColumn.type === 'default_status') {
       return p.status === currentColumn.default_status_mapping;
     } else if (currentColumn.type === 'custom_stage') {
       return p.custom_workflow_stage_id === currentColumn.id;
+    } else if (currentColumn.type === 'locked_phase') {
+      return p.custom_workflow_stage_id === currentColumn.id;
+    } else if (currentColumn.type === 'master_status') {
+      return currentColumn.status_mapping?.includes(p.status);
     } else {
       // Fallback for default columns
       return p.status === currentColumn.id;
     }
   });
+
+  const currentEmoji = getColumnEmoji(currentColumn);
 
   return (
     <div className="space-y-4">
@@ -53,25 +83,36 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {columns.map((col) => (
-                  <SelectItem key={col.id} value={col.id}>
-                    <div className="flex items-center gap-2">
-                      {col.emoji && <span>{col.emoji}</span>}
-                      <span>{col.label}</span>
-                      <Badge variant="secondary" className="ml-2">
-                        {proposals.filter(p => {
-                          if (col.type === 'default_status') {
-                            return p.status === col.default_status_mapping;
-                          } else if (col.type === 'custom_stage') {
-                            return p.custom_workflow_stage_id === col.id;
-                          } else {
-                            return p.status === col.id;
-                          }
-                        }).length}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
+                {columns.map((col) => {
+                  if (!col) return null;
+                  
+                  const colEmoji = getColumnEmoji(col);
+                  const colProposalCount = proposals.filter(p => {
+                    if (col.type === 'default_status') {
+                      return p.status === col.default_status_mapping;
+                    } else if (col.type === 'custom_stage') {
+                      return p.custom_workflow_stage_id === col.id;
+                    } else if (col.type === 'locked_phase') {
+                      return p.custom_workflow_stage_id === col.id;
+                    } else if (col.type === 'master_status') {
+                      return col.status_mapping?.includes(p.status);
+                    } else {
+                      return p.status === col.id;
+                    }
+                  }).length;
+                  
+                  return (
+                    <SelectItem key={col.id} value={col.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{colEmoji}</span>
+                        <span>{col.label}</span>
+                        <Badge variant="secondary" className="ml-2">
+                          {colProposalCount}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -81,9 +122,9 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
       {/* Current Column Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-3xl">{currentColumn.emoji}</span>
+          <span className="text-3xl">{currentEmoji}</span>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">{currentColumn.label}</h2>
+            <h2 className="text-xl font-bold text-slate-900">{currentColumn?.label || 'Column'}</h2>
             <p className="text-sm text-slate-600">{columnProposals.length} proposal{columnProposals.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -97,8 +138,8 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
         {columnProposals.length === 0 ? (
           <Card className="border-2 border-dashed border-slate-300">
             <CardContent className="p-8 text-center">
-              <div className="text-4xl mb-3">{currentColumn.emoji}</div>
-              <p className="text-slate-600">No proposals in {currentColumn.label}</p>
+              <div className="text-4xl mb-3">{currentEmoji}</div>
+              <p className="text-slate-600">No proposals in {currentColumn?.label || 'this column'}</p>
             </CardContent>
           </Card>
         ) : (
@@ -117,11 +158,18 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Quick Jump</h3>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {columns.map((col) => {
+            if (!col) return null;
+            
+            const colEmoji = getColumnEmoji(col);
             const count = proposals.filter(p => {
               if (col.type === 'default_status') {
                 return p.status === col.default_status_mapping;
               } else if (col.type === 'custom_stage') {
                 return p.custom_workflow_stage_id === col.id;
+              } else if (col.type === 'locked_phase') {
+                return p.custom_workflow_stage_id === col.id;
+              } else if (col.type === 'master_status') {
+                return col.status_mapping?.includes(p.status);
               } else {
                 return p.status === col.id;
               }
@@ -138,7 +186,7 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
                     : "bg-white border-slate-200"
                 )}
               >
-                <div className="text-2xl mb-1">{col.emoji}</div>
+                <div className="text-2xl mb-1">{colEmoji}</div>
                 <div className={cn(
                   "text-xs font-medium mb-1",
                   selectedColumn === col.id ? "text-blue-900" : "text-slate-700"
