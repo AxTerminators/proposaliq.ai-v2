@@ -12,7 +12,9 @@ import {
   ChevronDown,
   Edit2,
   Trash2,
-  Plus
+  Plus,
+  MoreVertical,
+  FolderEdit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -23,6 +25,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -36,6 +54,10 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
   const queryClient = useQueryClient();
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editingFolder, setEditingFolder] = useState(null);
+  const [deletingFolder, setDeletingFolder] = useState(null);
   const [newFolderData, setNewFolderData] = useState({
     folder_name: '',
     parent_folder_id: null,
@@ -78,6 +100,42 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
     }
   });
 
+  // Update folder mutation
+  const updateFolderMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      return base44.entities.Folder.update(id, data);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['folders'] });
+      setShowEditDialog(false);
+      setEditingFolder(null);
+      alert('✅ Folder updated successfully!');
+    }
+  });
+
+  // Delete folder mutation
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (folderId) => {
+      return base44.entities.Folder.delete(folderId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['folders'] });
+      await queryClient.invalidateQueries({ queryKey: ['folder-content'] });
+      setShowDeleteDialog(false);
+      setDeletingFolder(null);
+      
+      // If deleted folder was selected, clear selection
+      if (selectedFolderId === deletingFolder?.id) {
+        onSelectFolder(null);
+      }
+      
+      alert('✅ Folder deleted successfully!');
+    },
+    onError: (error) => {
+      alert(`Error deleting folder: ${error.message}`);
+    }
+  });
+
   const toggleFolder = (folderId) => {
     const newExpanded = new Set(expandedFolders);
     if (newExpanded.has(folderId)) {
@@ -94,6 +152,38 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
       return;
     }
     createFolderMutation.mutate(newFolderData);
+  };
+
+  const handleEditFolder = (folder) => {
+    setEditingFolder({
+      id: folder.id,
+      folder_name: folder.folder_name,
+      description: folder.description || '',
+      icon: folder.icon || '📁',
+      parent_folder_id: folder.parent_folder_id
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingFolder.folder_name.trim()) {
+      alert('Please enter a folder name');
+      return;
+    }
+
+    const { id, ...updateData } = editingFolder;
+    updateFolderMutation.mutate({ id, data: updateData });
+  };
+
+  const handleDeleteFolder = (folder) => {
+    setDeletingFolder(folder);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletingFolder) {
+      deleteFolderMutation.mutate(deletingFolder.id);
+    }
   };
 
   // Build folder tree
@@ -113,33 +203,65 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
       <div key={folder.id}>
         <div
           className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all",
+            "flex items-center gap-2 px-3 py-2 rounded-lg transition-all group",
             isSelected 
               ? "bg-blue-100 text-blue-900 font-medium" 
               : "hover:bg-slate-100 text-slate-700",
             level > 0 && "ml-4"
           )}
-          onClick={() => onSelectFolder(folder.id)}
         >
-          {hasChildren && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFolder(folder.id);
-              }}
-              className="p-0.5 hover:bg-slate-200 rounded"
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
-          )}
-          {!hasChildren && <div className="w-5" />}
+          <div 
+            className="flex items-center gap-2 flex-1 cursor-pointer"
+            onClick={() => onSelectFolder(folder.id)}
+          >
+            {hasChildren && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFolder(folder.id);
+                }}
+                className="p-0.5 hover:bg-slate-200 rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
+            )}
+            {!hasChildren && <div className="w-5" />}
+            
+            <span className="text-lg">{folder.icon || (isExpanded ? '📂' : '📁')}</span>
+            <span className="flex-1 truncate text-sm">{folder.folder_name}</span>
+          </div>
           
-          <span className="text-lg">{folder.icon || (isExpanded ? '📂' : '📁')}</span>
-          <span className="flex-1 truncate text-sm">{folder.folder_name}</span>
+          {!folder.is_system_folder && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleEditFolder(folder)}>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Edit Folder
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleDeleteFolder(folder)}
+                  className="text-red-600"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Folder
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           
           {folder.is_system_folder && (
             <Badge variant="secondary" className="text-xs">System</Badge>
@@ -292,6 +414,154 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Folder Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderEdit className="w-5 h-5 text-blue-600" />
+              Edit Folder
+            </DialogTitle>
+            <DialogDescription>
+              Update folder details
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingFolder && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_folder_name">Folder Name *</Label>
+                <Input
+                  id="edit_folder_name"
+                  value={editingFolder.folder_name}
+                  onChange={(e) => setEditingFolder({...editingFolder, folder_name: e.target.value})}
+                  placeholder="e.g., Technical Approaches"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_parent_folder">Parent Folder</Label>
+                <Select
+                  value={editingFolder.parent_folder_id || 'none'}
+                  onValueChange={(value) => setEditingFolder({
+                    ...editingFolder, 
+                    parent_folder_id: value === 'none' ? null : value
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="None (top level)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (top level)</SelectItem>
+                    {folders.filter(f => f.id !== editingFolder.id).map(f => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.icon || '📁'} {f.folder_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_description">Description</Label>
+                <Input
+                  id="edit_description"
+                  value={editingFolder.description}
+                  onChange={(e) => setEditingFolder({...editingFolder, description: e.target.value})}
+                  placeholder="Brief description"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_icon">Icon (Emoji)</Label>
+                <Input
+                  id="edit_icon"
+                  value={editingFolder.icon}
+                  onChange={(e) => setEditingFolder({...editingFolder, icon: e.target.value})}
+                  placeholder="📁"
+                  maxLength={2}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowEditDialog(false);
+                setEditingFolder(null);
+              }}
+              disabled={updateFolderMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={updateFolderMutation.isPending || !editingFolder?.folder_name.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {updateFolderMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Delete Folder?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>"{deletingFolder?.folder_name}"</strong>?
+              </p>
+              
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-amber-900 text-sm">
+                  ⚠️ <strong>Warning:</strong> This will also delete all content and subfolders inside this folder. This action cannot be undone.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteFolderMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteFolderMutation.isPending}
+            >
+              {deleteFolderMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Yes, Delete Folder
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

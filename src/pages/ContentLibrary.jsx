@@ -23,13 +23,16 @@ import {
   Folder as FolderIcon,
   Eye,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  Sparkles // Added Sparkles icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FolderSidebar from "@/components/folders/FolderSidebar";
 import { useOrganization } from "@/components/layout/OrganizationContext";
 import LibraryBulkOperations from "@/components/content/LibraryBulkOperations";
 import LibraryItemDetailView from "@/components/content/LibraryItemDetailView";
+import LibraryAnalyticsDashboard from "@/components/content/LibraryAnalyticsDashboard"; // New import
+import SmartPromoteSuggestions from "@/components/content/SmartPromoteSuggestions"; // New import
 
 const CONTENT_TYPE_CONFIG = {
   'ProposalResource': { 
@@ -80,6 +83,8 @@ export default function ContentLibrary() {
   const [detailViewItem, setDetailViewItem] = useState(null);
   const [showDetailView, setShowDetailView] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false); // New state
+  const [showSmartSuggestions, setShowSmartSuggestions] = useState(false); // New state
 
   // Fetch content for selected folder
   const { data: folderContent = [], isLoading: isLoadingContent, refetch } = useQuery({
@@ -218,11 +223,28 @@ export default function ContentLibrary() {
 
             <div className="flex gap-2">
               <Button
+                variant={showSmartSuggestions ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowSmartSuggestions(!showSmartSuggestions)}
+                className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
+              >
+                <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+                Smart Suggestions
+              </Button>
+              <Button
+                variant={showAnalytics ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowAnalytics(!showAnalytics)}
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Button>
+              <Button
                 variant={showStats ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setShowStats(!showStats)}
               >
-                <BarChart3 className="w-4 h-4 mr-2" />
+                <TrendingUp className="w-4 h-4 mr-2" /> {/* Icon changed from BarChart3 to TrendingUp */}
                 Stats
               </Button>
               <Button
@@ -241,6 +263,29 @@ export default function ContentLibrary() {
               </Button>
             </div>
           </div>
+
+          {/* Smart Suggestions Panel */}
+          {showSmartSuggestions && (
+            <div className="mb-4">
+              <SmartPromoteSuggestions
+                organization={organization}
+                onPromoteClick={(suggestion) => {
+                  // Handle promote action - could open promote dialog with pre-filled data
+                  alert(`Feature coming: Auto-promote "${suggestion.suggested_title}"`);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Analytics Panel */}
+          {showAnalytics && (
+            <div className="mb-4">
+              <LibraryAnalyticsDashboard
+                organization={organization}
+                selectedFolderId={selectedFolderId}
+              />
+            </div>
+          )}
 
           {/* Stats Panel */}
           {showStats && selectedFolderId && (
