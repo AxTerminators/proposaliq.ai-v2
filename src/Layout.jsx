@@ -322,57 +322,46 @@ function LayoutContent({ children }) {
                   const subItems = item.subMenuItems || [];
                   
                   return (
-                    <Collapsible
-                      key={item.title}
-                      open={isOpen}
-                      onOpenChange={setIsOpen}
-                      className="group/collapsible"
-                    >
-                      <CollapsibleTrigger asChild>
-                        <button
-                          className={cn(
-                            "w-full hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg mb-1 flex items-center",
-                            (location.pathname === item.url || subItems.some(sub => location.pathname === sub.url)) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
-                            sidebarCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
-                          )}
-                          title={sidebarCollapsed ? item.title : undefined}
-                        >
-                          <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} title={item.title} />
-                          {!sidebarCollapsed && (
-                            <>
-                              <span className="flex-1 text-left">{item.title}</span>
-                              <ChevronDown className={cn(
-                                "w-4 h-4 transition-transform",
-                                isOpen && "rotate-180"
-                              )} title={isOpen ? "Collapse menu" : "Expand menu"} />
-                            </>
-                          )}
-                        </button>
-                      </CollapsibleTrigger>
-                      {!sidebarCollapsed && (
-                        <CollapsibleContent className="overflow-visible">
-                          <div className="ml-4 border-l-2 border-slate-200 space-y-0.5 py-1">
-                            {subItems.map((subItem) => (
-                              <Link
-                                key={subItem.title}
-                                to={subItem.url}
-                                className={cn(
-                                  "flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg relative z-10",
-                                  location.pathname === subItem.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
-                                )}
-                                onClick={(e) => {
-                                  // Allow the link to work normally
-                                  e.stopPropagation();
-                                }}
-                              >
-                                <subItem.icon className="w-4 h-4" title={subItem.title} />
-                                <span className="text-sm">{subItem.title}</span>
-                              </Link>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
+                    <div key={item.title} className="space-y-1">
+                      <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={cn(
+                          "w-full hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg flex items-center",
+                          (location.pathname === item.url || subItems.some(sub => location.pathname === sub.url)) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600',
+                          sidebarCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-2.5'
+                        )}
+                        title={sidebarCollapsed ? item.title : undefined}
+                      >
+                        <item.icon className={cn(sidebarCollapsed ? "w-6 h-6" : "w-5 h-5")} title={item.title} />
+                        {!sidebarCollapsed && (
+                          <>
+                            <span className="flex-1 text-left">{item.title}</span>
+                            <ChevronDown className={cn(
+                              "w-4 h-4 transition-transform",
+                              isOpen && "rotate-180"
+                            )} title={isOpen ? "Collapse menu" : "Expand menu"} />
+                          </>
+                        )}
+                      </button>
+                      
+                      {!sidebarCollapsed && isOpen && (
+                        <div className="ml-4 pl-3 border-l-2 border-slate-200 space-y-1">
+                          {subItems.map((subItem) => (
+                            <Link
+                              key={subItem.title}
+                              to={subItem.url}
+                              className={cn(
+                                "flex items-center gap-3 py-2 px-3 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-lg",
+                                location.pathname === subItem.url ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600'
+                              )}
+                            >
+                              <subItem.icon className="w-4 h-4" title={subItem.title} />
+                              <span className="text-sm">{subItem.title}</span>
+                            </Link>
+                          ))}
+                        </div>
                       )}
-                    </Collapsible>
+                    </div>
                   );
                 }
 
@@ -740,7 +729,7 @@ function LayoutContent({ children }) {
               </button>
 
               {/* Mobile Logo */}
-              <div className="flex items-center gap-2 lg:hidden">
+              <div className="flex items-center gap-4 lg:hidden">
                 <Sparkles className="w-5 h-5 text-blue-600" title="ProposalIQ.ai" />
                 <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
               </div>
