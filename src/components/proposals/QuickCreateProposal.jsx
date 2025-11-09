@@ -47,6 +47,15 @@ const PROPOSAL_TYPES = [
     complexity: 'High'
   },
   { 
+    value: 'RFP_15_COLUMN', 
+    label: '15-Column RFP Workflow', 
+    icon: '🎯',
+    description: 'Advanced 15-column independent workflow with mandatory checklists',
+    avgDuration: '60-90 days',
+    complexity: 'Advanced',
+    featured: true
+  },
+  { 
     value: 'RFI', 
     label: 'Request for Information (RFI)', 
     icon: '📝',
@@ -157,6 +166,16 @@ export default function QuickCreateProposal({
     queryFn: async () => {
       if (!organization?.id || !proposalType) return null;
       
+      // For 15-column board, check by board_type
+      if (proposalType === 'RFP_15_COLUMN') {
+        const boards = await base44.entities.KanbanConfig.filter({
+          organization_id: organization.id,
+          board_type: 'rfp_15_column'
+        });
+        return boards.length > 0 ? boards[0] : null;
+      }
+      
+      // For other types, check by applies_to_proposal_types
       const boards = await base44.entities.KanbanConfig.filter({
         organization_id: organization.id,
         applies_to_proposal_types: [proposalType]
@@ -169,10 +188,25 @@ export default function QuickCreateProposal({
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
-      // If no board exists for this type, create one
       let boardConfig = existingBoard;
       
-      if (!boardConfig && selectedTemplate) {
+      // If no board exists and this is a 15-column board, create it via function
+      if (!boardConfig && proposalType === 'RFP_15_COLUMN') {
+        const response = await base44.functions.invoke('create15ColumnRFPBoard', {
+          organization_id: organization.id
+        });
+        
+        if (response.data.success && response.data.board_id) {
+          const boards = await base44.entities.KanbanConfig.filter({
+            id: response.data.board_id
+          });
+          if (boards.length > 0) {
+            boardConfig = boards[0];
+          }
+        }
+      }
+      // If no board exists for other types, create one from template
+      else if (!boardConfig && selectedTemplate) {
         const workflowConfig = typeof selectedTemplate.workflow_config === 'string'
           ? JSON.parse(selectedTemplate.workflow_config)
           : selectedTemplate.workflow_config;
@@ -271,13 +305,21 @@ export default function QuickCreateProposal({
                 <Card
                   key={type.value}
                   className={cn(
-                    "cursor-pointer transition-all border-2 hover:shadow-lg",
+                    "cursor-pointer transition-all border-2 hover:shadow-lg relative",
                     proposalType === type.value 
                       ? "border-blue-500 bg-blue-50" 
-                      : "border-slate-200 hover:border-blue-300"
+                      : "border-slate-200 hover:border-blue-300",
+                    type.featured && "ring-2 ring-amber-400"
                   )}
                   onClick={() => handleTypeSelect(type.value)}
                 >
+                  {type.featured && (
+                    <div className="absolute -top-2 -right-2">
+                      <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                        ⚡ Featured
+                      </Badge>
+                    </div>
+                  )}
                   <CardContent className="p-4">
                     <div className="text-3xl mb-3">{type.icon}</div>
                     <h3 className="font-bold text-slate-900 mb-2">{type.label}</h3>
@@ -291,7 +333,7 @@ export default function QuickCreateProposal({
                       </Badge>
                       <Badge 
                         className={cn(
-                          type.complexity === 'High' || type.complexity === 'Very High' 
+                          type.complexity === 'Advanced' || type.complexity === 'High' || type.complexity === 'Very High' 
                             ? 'bg-red-100 text-red-700' 
                             : type.complexity === 'Medium'
                             ? 'bg-amber-100 text-amber-700'
@@ -373,7 +415,12 @@ export default function QuickCreateProposal({
             )}
 
             {/* Template Selection */}
-            {!existingBoard && availableTemplates.length > 0 && (
+            {
+            // Only show template selection if:
+            // 1. No existing board is found
+            // 2. The proposal type is NOT 'RFP_15_COLUMN' (as 15-column board is created via function, not template)
+            // 3. There are available templates
+            !existingBoard && proposalType !== 'RFP_15_COLUMN' && availableTemplates.length > 0 && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Workflow Template</Label>
                 <div className="grid md:grid-cols-2 gap-3">
@@ -513,7 +560,7 @@ export default function QuickCreateProposal({
               
               <Button
                 onClick={handleCreate}
-                disabled={createProposalMutation.isPending || !proposalData.proposal_name.trim() || (!existingBoard && !selectedTemplate)}
+                disabled={createProposalMutation.isPending || !proposalData.proposal_name.trim() || (!existingBoard && !selectedTemplate && proposalType !== 'RFP_15_COLUMN')}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 {createProposalMutation.isPending ? (
