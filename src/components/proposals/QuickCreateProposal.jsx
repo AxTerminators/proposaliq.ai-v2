@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -149,7 +148,7 @@ export default function QuickCreateProposal({
       
       return templates;
     },
-    enabled: !!proposalType && step === 2,
+    enabled: !!proposalType && step === 2 && proposalType !== 'RFP_15_COLUMN',
   });
 
   // Check if board exists for this type
@@ -175,7 +174,7 @@ export default function QuickCreateProposal({
       
       return boards.length > 0 ? boards[0] : null;
     },
-    enabled: !!organization?.id && !!proposalType && step === 2,
+    enabled: !!organization?.id && !!proposalType && (step === 2 || proposalType === 'RFP_15_COLUMN'),
   });
 
   const createProposalMutation = useMutation({
@@ -290,23 +289,34 @@ export default function QuickCreateProposal({
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       
-      // FIXED: Don't navigate for 15-column workflow - let parent handle modal opening
       onClose(); // Close the creation dialog
       
       if (onSuccess) {
-        onSuccess(proposal); // This triggers handleProposalCreated in Pipeline
-      }
-      
-      // Only navigate to ProposalBuilder for legacy workflows
-      if (proposalType !== 'RFP_15_COLUMN') {
-        navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+        // For 15-column workflow, signal to open BasicInfoModal first
+        if (proposalType === 'RFP_15_COLUMN') {
+          onSuccess(proposal, 'BasicInfoModal'); // Pass modal name to open
+        } else {
+          // For legacy workflows, navigate to ProposalBuilder
+          onSuccess(proposal);
+          navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+        }
       }
     }
   });
 
   const handleTypeSelect = (type) => {
     setProposalType(type);
-    setStep(2);
+    
+    // For 15-column workflow, skip to immediate creation
+    if (type === 'RFP_15_COLUMN') {
+      // Create proposal immediately with minimal data
+      createProposalMutation.mutate({
+        proposal_name: 'New Proposal', // Temporary name, will be updated in BasicInfoModal
+      });
+    } else {
+      // For other types, go to step 2 for details
+      setStep(2);
+    }
   };
 
   const handleBack = () => {
@@ -355,7 +365,8 @@ export default function QuickCreateProposal({
                     proposalType === type.value 
                       ? "border-blue-500 bg-blue-50" 
                       : "border-slate-200 hover:border-blue-300",
-                    type.featured && "ring-2 ring-amber-400"
+                    type.featured && "ring-2 ring-amber-400",
+                    createProposalMutation.isPending && "opacity-50 pointer-events-none"
                   )}
                   onClick={() => handleTypeSelect(type.value)}
                 >
@@ -393,10 +404,20 @@ export default function QuickCreateProposal({
                 </Card>
               ))}
             </div>
+            
+            {/* Show loading overlay when creating 15-column proposal */}
+            {createProposalMutation.isPending && (
+              <div className="mt-6 text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="animate-spin">⏳</div>
+                  <span className="text-blue-900 font-medium">Creating proposal...</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Step 2: Enter Proposal Details */}
+        {/* Step 2: Enter Proposal Details (for non-15-column workflows) */}
         {step === 2 && (
           <div className="space-y-6 py-4">
             {/* Selected Type Info */}
@@ -461,12 +482,7 @@ export default function QuickCreateProposal({
             )}
 
             {/* Template Selection */}
-            {
-            // Only show template selection if:
-            // 1. No existing board is found
-            // 2. The proposal type is NOT 'RFP_15_COLUMN' (as 15-column board is created via function, not template)
-            // 3. There are available templates
-            !existingBoard && proposalType !== 'RFP_15_COLUMN' && availableTemplates.length > 0 && (
+            {!existingBoard && proposalType !== 'RFP_15_COLUMN' && availableTemplates.length > 0 && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Workflow Template</Label>
                 <div className="grid md:grid-cols-2 gap-3">

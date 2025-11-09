@@ -62,7 +62,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
-export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig }) {
+export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig, initialModalToOpen = null }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("checklist");
@@ -154,6 +154,14 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     };
     loadUser();
   }, []);
+
+  // NEW: Auto-open the initial modal if specified
+  useEffect(() => {
+    if (isOpen && initialModalToOpen) {
+      console.log('[ProposalCardModal] 🚀 Auto-opening initial modal:', initialModalToOpen);
+      setActiveModalName(initialModalToOpen);
+    }
+  }, [isOpen, initialModalToOpen]);
 
   // Fetch all boards for reassignment
   const { data: allBoards = [] } = useQuery({
@@ -393,9 +401,45 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     });
   };
 
-  const handleModalClose = () => {
+  const handleModalClose = (checklistItemId = null) => {
     console.log('[ProposalCardModal] 🚪 Closing modal');
+    const closingModalName = activeModalName; // This variable is kept as per outline, though not used below.
     setActiveModalName(null);
+    
+    // If a checklist item ID is provided, mark it as complete
+    if (checklistItemId && currentColumn) {
+      const currentStatus = proposal.current_stage_checklist_status || {};
+      const columnStatus = currentStatus[currentColumn.id] || {};
+      
+      const updatedColumnStatus = {
+        ...columnStatus,
+        [checklistItemId]: {
+          completed: true,
+          completed_by: user?.email || "system",
+          completed_date: new Date().toISOString()
+        }
+      };
+      
+      const updatedChecklistStatus = {
+        ...currentStatus,
+        [currentColumn.id]: updatedColumnStatus
+      };
+      
+      const allRequiredComplete = currentColumn.checklist_items
+        ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
+        .every(ci => {
+          if (ci.id === checklistItemId) {
+            return true;
+          }
+          return updatedColumnStatus[ci.id]?.completed || false;
+        });
+
+      updateProposalMutation.mutate({
+        current_stage_checklist_status: updatedChecklistStatus,
+        action_required: !allRequiredComplete
+      });
+    }
+    
     queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
@@ -409,10 +453,18 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
 
     console.log('[ProposalCardModal] 🎭 Rendering modal:', activeModalName);
+    
+    // Find the checklist item that opened this modal
+    const checklistItem = currentColumn?.checklist_items?.find(item => {
+      if (!item || !item.associated_action) return false; // Safety check
+      const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
+      return modalName === activeModalName;
+    });
+    
     return (
       <ModalComponent
         isOpen={true}
-        onClose={handleModalClose}
+        onClose={() => handleModalClose(checklistItem?.id)}
         proposalId={proposal.id}
       />
     );

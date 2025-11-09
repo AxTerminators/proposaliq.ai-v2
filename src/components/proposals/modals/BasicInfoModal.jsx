@@ -1,66 +1,106 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Save } from "lucide-react";
+
+const PROJECT_TYPES = [
+  { value: 'RFP', label: 'RFP - Request for Proposal' },
+  { value: 'RFQ', label: 'RFQ - Request for Quote' },
+  { value: 'RFI', label: 'RFI - Request for Information' },
+  { value: 'IFB', label: 'IFB - Invitation for Bid' },
+  { value: 'Other', label: 'Other' }
+];
 
 export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [proposalData, setProposalData] = useState({
-    proposal_name: "",
-    solicitation_number: "",
-    project_type: "RFP",
-    agency_name: "",
-    project_title: "",
+  const queryClient = useQueryClient();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    proposal_name: '',
+    solicitation_number: '',
+    project_type: 'RFP',
+    agency_name: '',
+    project_title: ''
   });
 
   useEffect(() => {
-    if (isOpen && proposalId) {
-      loadProposal();
-    }
-  }, [isOpen, proposalId]);
-
-  const loadProposal = async () => {
-    try {
-      setLoading(true);
-      const proposals = await base44.entities.Proposal.filter({ id: proposalId });
-      if (proposals.length > 0) {
-        setProposalData(proposals[0]);
+    const loadProposal = async () => {
+      if (!proposalId || !isOpen) {
+        setIsLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Error loading proposal:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      setIsLoading(true);
+      try {
+        const proposals = await base44.entities.Proposal.filter({ id: proposalId });
+        if (proposals.length > 0) {
+          const proposal = proposals[0];
+          setFormData({
+            proposal_name: proposal.proposal_name || '',
+            solicitation_number: proposal.solicitation_number || '',
+            project_type: proposal.project_type || 'RFP',
+            agency_name: proposal.agency_name || '',
+            project_title: proposal.project_title || ''
+          });
+        }
+      } catch (error) {
+        console.error('[BasicInfoModal] Error loading proposal:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProposal();
+  }, [proposalId, isOpen]);
 
   const handleSave = async () => {
+    if (!formData.proposal_name.trim()) {
+      alert('Please enter a Proposal Name');
+      return;
+    }
+
+    if (!formData.solicitation_number.trim()) {
+      alert('Please enter a Solicitation Number');
+      return;
+    }
+
+    setIsSaving(true);
     try {
-      setSaving(true);
       await base44.entities.Proposal.update(proposalId, {
-        proposal_name: proposalData.proposal_name,
-        solicitation_number: proposalData.solicitation_number,
-        project_type: proposalData.project_type,
-        agency_name: proposalData.agency_name,
-        project_title: proposalData.project_title,
+        proposal_name: formData.proposal_name,
+        solicitation_number: formData.solicitation_number,
+        project_type: formData.project_type,
+        agency_name: formData.agency_name,
+        project_title: formData.project_title
       });
-      onClose();
+
+      await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      
+      console.log('[BasicInfoModal] ✅ Proposal basic info saved successfully');
+      onClose(); // This will trigger handleModalClose in ProposalCardModal with checklist completion
     } catch (error) {
-      console.error("Error saving proposal:", error);
-      alert("Error saving proposal. Please try again.");
+      console.error('[BasicInfoModal] Error saving proposal:', error);
+      alert('Failed to save proposal information. Please try again.');
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -74,91 +114,111 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="proposal_name">Proposal Name *</Label>
+              <Label htmlFor="proposal_name">
+                Proposal Name *
+              </Label>
               <Input
                 id="proposal_name"
-                placeholder="e.g., GSA IT Services Proposal"
-                value={proposalData.proposal_name || ""}
-                onChange={(e) => setProposalData({ ...proposalData, proposal_name: e.target.value })}
+                value={formData.proposal_name}
+                onChange={(e) => setFormData({...formData, proposal_name: e.target.value})}
+                placeholder="Internal name for easy identification"
               />
-              <p className="text-xs text-slate-500">Internal name for easy identification</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="solicitation_number">Solicitation Number *</Label>
+              <Label htmlFor="solicitation_number">
+                Solicitation Number *
+              </Label>
               <Input
                 id="solicitation_number"
-                placeholder="e.g., 47QSMD24R0001"
-                value={proposalData.solicitation_number || ""}
-                onChange={(e) => setProposalData({ ...proposalData, solicitation_number: e.target.value })}
+                value={formData.solicitation_number}
+                onChange={(e) => setFormData({...formData, solicitation_number: e.target.value})}
+                placeholder="e.g., RTT099343s"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="project_type">Project Type</Label>
+                <Label htmlFor="project_type">
+                  Project Type
+                </Label>
                 <Select
-                  value={proposalData.project_type || "RFP"}
-                  onValueChange={(value) => setProposalData({ ...proposalData, project_type: value })}
+                  value={formData.project_type}
+                  onValueChange={(value) => setFormData({...formData, project_type: value})}
                 >
                   <SelectTrigger id="project_type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="RFP">RFP</SelectItem>
-                    <SelectItem value="RFQ">RFQ</SelectItem>
-                    <SelectItem value="RFI">RFI</SelectItem>
-                    <SelectItem value="IFB">IFB</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    {PROJECT_TYPES.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="agency_name">Agency Name</Label>
+                <Label htmlFor="agency_name">
+                  Agency Name
+                </Label>
                 <Input
                   id="agency_name"
+                  value={formData.agency_name}
+                  onChange={(e) => setFormData({...formData, agency_name: e.target.value})}
                   placeholder="e.g., Department of Defense"
-                  value={proposalData.agency_name || ""}
-                  onChange={(e) => setProposalData({ ...proposalData, agency_name: e.target.value })}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="project_title">Project Title</Label>
+              <Label htmlFor="project_title">
+                Project Title
+              </Label>
               <Input
                 id="project_title"
-                placeholder="e.g., Enterprise IT Modernization Services"
-                value={proposalData.project_title || ""}
-                onChange={(e) => setProposalData({ ...proposalData, project_title: e.target.value })}
+                value={formData.project_title}
+                onChange={(e) => setFormData({...formData, project_title: e.target.value})}
+                placeholder="e.g., IT Support Services for DoD"
               />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={isSaving || !formData.proposal_name.trim() || !formData.solicitation_number.trim()}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving || loading || !proposalData.proposal_name}>
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save"
-            )}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -86,6 +86,7 @@ export default function Pipeline() {
   const [showDeleteBoardDialog, setShowDeleteBoardDialog] = useState(false); // New state for delete confirmation dialog
   const [selectedProposalToOpen, setSelectedProposalToOpen] = useState(null); // NEW: Track proposal to auto-open
   const [showProposalModal, setShowProposalModal] = useState(false); // NEW: Control proposal modal
+  const [initialModalToOpen, setInitialModalToOpen] = useState(null); // NEW: Track which modal to auto-open
 
   useEffect(() => {
     const checkMobile = () => {
@@ -382,7 +383,7 @@ export default function Pipeline() {
     setShowNewProposalDialog(true);
   };
 
-  const handleProposalCreated = async (createdProposal) => {
+  const handleProposalCreated = async (createdProposal, openModal = null) => {
     refetchProposals(); // Refresh the list of proposals
 
     // Find the board that matches this proposal type
@@ -406,13 +407,14 @@ export default function Pipeline() {
       console.log('[Pipeline] No matching board found, staying on current board');
     }
 
-    // NEW: For 15-column workflow, auto-open the proposal card modal
+    // NEW: For 15-column workflow, auto-open the ProposalCardModal with BasicInfoModal
     if (proposalType === 'RFP_15_COLUMN') {
-      console.log('[Pipeline] 🎯 Auto-opening proposal modal for 15-column workflow');
+      console.log('[Pipeline] 🎯 Auto-opening proposal modal for 15-column workflow with BasicInfoModal');
       
       // Small delay to ensure the proposal is in the UI
       setTimeout(() => {
         setSelectedProposalToOpen(createdProposal);
+        setInitialModalToOpen(openModal || 'BasicInfoModal'); // Set which modal to open initially
         setShowProposalModal(true);
       }, 500);
     }
@@ -1047,7 +1049,7 @@ export default function Pipeline() {
         onSuccess={handleProposalCreated}
       />
 
-      {/* NEW: Auto-opened Proposal Modal after creation */}
+      {/* Auto-opened Proposal Modal after creation */}
       {showProposalModal && selectedProposalToOpen && selectedBoard && (
         <ProposalCardModal
           proposal={selectedProposalToOpen}
@@ -1055,9 +1057,11 @@ export default function Pipeline() {
           onClose={() => {
             setShowProposalModal(false);
             setSelectedProposalToOpen(null);
+            setInitialModalToOpen(null); // Clear modal flag
           }}
           organization={organization}
           kanbanConfig={selectedBoard}
+          initialModalToOpen={initialModalToOpen} // NEW: Pass which modal to auto-open
         />
       )}
 
