@@ -29,11 +29,12 @@ import {
   AlertCircle,
   ExternalLink,
   FileEdit,
-  Zap, // New icon
-  Shield, // New icon
-  Activity, // New icon
-  Target, // New icon
-  Upload // New icon
+  Zap,
+  Shield,
+  Activity,
+  Target,
+  Upload,
+  Layers // Add this icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -51,6 +52,15 @@ import EvaluationModal from "./modals/EvaluationModal";
 import WinStrategyModal from "./modals/WinStrategyModal";
 import ContentPlanningModal from "./modals/ContentPlanningModal";
 import PricingReviewModal from "./modals/PricingReviewModal";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig }) {
   const navigate = useNavigate();
@@ -139,6 +149,17 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     loadUser();
   }, []);
 
+  // Fetch all boards for reassignment
+  const { data: allBoards = [] } = useQuery({
+    queryKey: ['all-kanban-boards', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      // Fetch all fields for KanbanConfig objects
+      return base44.entities.KanbanConfig.filter({ organization_id: organization.id });
+    },
+    enabled: !!organization?.id && isOpen, // Only fetch when modal is open and org ID is available
+  });
+
   // Get current column configuration
   const currentColumn = kanbanConfig?.columns?.find(col => {
     if (col.type === 'locked_phase') {
@@ -162,6 +183,39 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     }
   });
+
+  // Handle board reassignment
+  const handleBoardReassignment = async (newBoardId) => {
+    const newBoard = allBoards.find(b => b.id === newBoardId);
+    if (!newBoard) return;
+
+    // Extract the proposal type from the board
+    const newProposalType = newBoard.is_master_board
+      ? proposal.proposal_type_category // Keep existing type for master board
+      : (newBoard.applies_to_proposal_types?.[0] || 'OTHER');
+
+    await updateProposalMutation.mutateAsync({
+      proposal_type_category: newProposalType
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+  };
+
+  // Get board icons
+  const getBoardIcon = (boardType, isMaster) => {
+    if (isMaster) return "⭐";
+    switch (boardType) {
+      case 'rfp': return "📋";
+      case 'rfp_15_column': return "🎯";
+      case 'rfi': return "📝";
+      case 'sbir': return "🔬";
+      case 'gsa': return "🏛️";
+      case 'idiq': return "📑";
+      case 'state_local': return "🏢";
+      default: return "📊";
+    }
+  };
 
   // Handle checklist item click
   const handleChecklistItemClick = async (item) => {
@@ -355,6 +409,40 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                     </div>
                   )}
                 </div>
+
+                {/* Board Assignment Section */}
+                {allBoards.length > 1 && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Layers className="w-4 h-4" />
+                      Board Assignment:
+                    </Label>
+                    <Select
+                      value={allBoards.find(b => 
+                        b.is_master_board || 
+                        b.applies_to_proposal_types?.includes(proposal.proposal_type_category)
+                      )?.id || ''}
+                      onValueChange={handleBoardReassignment}
+                    >
+                      <SelectTrigger className="w-[300px] h-8">
+                        <SelectValue placeholder="Select board..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allBoards.map(board => {
+                          const icon = getBoardIcon(board.board_type, board.is_master_board);
+                          return (
+                            <SelectItem key={board.id} value={board.id}>
+                              <span className="flex items-center gap-2">
+                                <span>{icon}</span>
+                                <span>{board.board_name}</span>
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <Button
                 variant="ghost"
