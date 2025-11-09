@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -8,6 +7,10 @@ import BasicInfoModal from './modals/BasicInfoModal';
 import TeamFormationModal from './modals/TeamFormationModal';
 import ResourceGatheringModal from './modals/ResourceGatheringModal';
 import ContentPlanningModal from './modals/ContentPlanningModal';
+import SolicitationUploadModal from './modals/SolicitationUploadModal';
+import EvaluationModal from './modals/EvaluationModal';
+import WinStrategyModal from './modals/WinStrategyModal';
+import PricingReviewModal from './modals/PricingReviewModal';
 
 export const ACTION_REGISTRY = {
   // ============================================
@@ -46,8 +49,8 @@ export const ACTION_REGISTRY = {
   // COLUMN 4: SOLICITATION
   // ============================================
   'navigate_solicitation_upload': {
-    type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    type: 'modal',
+    component: SolicitationUploadModal,
     label: 'Upload & Analyze Solicitation'
   },
   
@@ -55,8 +58,8 @@ export const ACTION_REGISTRY = {
   // COLUMN 5: EVALUATION
   // ============================================
   'navigate_evaluation': {
-    type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    type: 'modal',
+    component: EvaluationModal,
     label: 'Strategic Evaluation'
   },
   
@@ -64,8 +67,8 @@ export const ACTION_REGISTRY = {
   // COLUMN 6: STRATEGY
   // ============================================
   'navigate_win_strategy': {
-    type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    type: 'modal',
+    component: WinStrategyModal,
     label: 'Develop Win Strategy'
   },
   
@@ -73,8 +76,8 @@ export const ACTION_REGISTRY = {
   // COLUMN 7: PLANNING
   // ============================================
   'navigate_content_planning': {
-    type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    type: 'modal',
+    component: ContentPlanningModal,
     label: 'Plan Content Outline'
   },
   'open_content_planning_modal': {
@@ -88,12 +91,12 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_write_content': {
     type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page instead of non-existent proposals/WriteContent
+    path: 'proposals/WriteContentStandalone',
     label: 'Write Proposal Content'
   },
   'navigate_compliance_check': {
     type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    path: 'proposals/ComplianceMatrixStandalone',
     label: 'Compliance Check'
   },
   
@@ -102,7 +105,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_pricing_build': {
     type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    path: 'proposals/PricingBuildStandalone',
     label: 'Build Pricing & CLINs'
   },
   
@@ -111,7 +114,7 @@ export const ACTION_REGISTRY = {
   // ============================================
   'navigate_red_team': {
     type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    path: 'proposals/RedTeamReviewStandalone',
     label: 'Red Team Review'
   },
   
@@ -125,7 +128,7 @@ export const ACTION_REGISTRY = {
   },
   'navigate_submission_ready': {
     type: 'navigate',
-    path: 'ProposalBuilder', // FIXED: Using existing page
+    path: 'proposals/SubmissionReadyStandalone',
     label: 'Submission Checklist'
   }
 };
