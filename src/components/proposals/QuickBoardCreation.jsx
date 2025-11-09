@@ -42,7 +42,22 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [boardName, setBoardName] = useState("");
-  const [step, setStep] = useState(1);
+  const [step, setStep] = 1);
+
+  const BOARD_TEMPLATES = [
+    {
+      id: 'rfp_15_column',
+      name: '15-Column RFP Workflow',
+      description: 'Complete independent 15-column workflow with mandatory checklists',
+      icon: '🎯',
+      boardType: 'rfp_15_column',
+      functionName: 'create15ColumnRFPBoard',
+      features: ['11 workflow stages', 'Mandatory checklists', 'AI-powered actions', 'Independent from builder'],
+      recommendedFor: 'Teams wanting maximum control and visibility',
+      estimatedDuration: '60-90 days',
+      complexity: 'Advanced'
+    }
+  ];
 
   // Fetch available templates
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
