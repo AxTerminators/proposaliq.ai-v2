@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -183,16 +184,21 @@ export default function QuickCreateProposal({
       
       // If no board exists and this is a 15-column board, create it via function
       if (!boardConfig && proposalType === 'RFP_15_COLUMN') {
+        console.log('[QuickCreate] 🎯 Creating 15-column board...');
         const response = await base44.functions.invoke('create15ColumnRFPBoard', {
           organization_id: organization.id
         });
         
         if (response.data.success && response.data.board_id) {
+          console.log('[QuickCreate] ✅ 15-column board created:', response.data.board_id);
+          
+          // Fetch the newly created board
           const boards = await base44.entities.KanbanConfig.filter({
             id: response.data.board_id
           });
           if (boards.length > 0) {
             boardConfig = boards[0];
+            console.log('[QuickCreate] 📋 Board config loaded:', boardConfig.board_name);
           }
         }
       }
@@ -282,19 +288,27 @@ export default function QuickCreateProposal({
 
       // Create the proposal with proper column assignment
       const proposal = await base44.entities.Proposal.create(proposalCreateData);
+      console.log('[QuickCreate] ✅ Proposal created:', proposal.id, proposal.proposal_name);
 
       return { proposal, boardConfig };
     },
-    onSuccess: ({ proposal, boardConfig }) => {
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+    onSuccess: async ({ proposal, boardConfig }) => {
+      console.log('[QuickCreate] 🎉 Mutation success, invalidating queries...');
+      
+      // CRITICAL: Invalidate AND refetch boards to ensure Pipeline has the new board
+      await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      await queryClient.refetchQueries({ queryKey: ['all-kanban-boards'] });
+      
+      await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       
       onClose(); // Close the creation dialog
       
       if (onSuccess) {
         // For 15-column workflow, signal to open BasicInfoModal first
         if (proposalType === 'RFP_15_COLUMN') {
-          onSuccess(proposal, 'BasicInfoModal'); // Pass modal name to open
+          console.log('[QuickCreate] 🚀 Calling onSuccess with BasicInfoModal for 15-column workflow');
+          // Pass board config back so Pipeline knows which board was created/used
+          onSuccess(proposal, 'BasicInfoModal', boardConfig);
         } else {
           // For legacy workflows, navigate to ProposalBuilder
           onSuccess(proposal);
