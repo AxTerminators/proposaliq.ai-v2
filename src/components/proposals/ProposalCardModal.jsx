@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -351,6 +352,12 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const handleChecklistItemToggle = async (item) => {
+    // SAFETY CHECK: Ensure item exists
+    if (!item || !currentColumn) {
+      console.error('[ProposalCardModal] Cannot toggle - invalid item or column');
+      return;
+    }
+
     const currentStatus = proposal.current_stage_checklist_status || {};
     const columnStatus = currentStatus[currentColumn?.id] || {};
     const itemStatus = columnStatus[item.id] || {};
@@ -372,7 +379,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     };
     
     const allRequiredComplete = currentColumn?.checklist_items
-      ?.filter(ci => ci.required && ci.type !== 'system_check')
+      ?.filter(ci => ci && ci.required && ci.type !== 'system_check') // Add ci safety check
       .every(ci => {
         if (ci.id === item.id) {
           return !isCurrentlyCompleted;
@@ -412,6 +419,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const systemCheckStatus = (item) => {
+    // SAFETY CHECK: Ensure item exists
+    if (!item || !item.id) return false;
+
     switch (item.id) {
       case 'contract_value_present':
         return proposal.contract_value ? true : false;
@@ -428,6 +438,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const getItemIcon = (item, isCompleted) => {
+    // SAFETY CHECK: Ensure item exists
+    if (!item) return <Circle className="w-6 h-6 text-slate-400" />;
+
     if (isCompleted) {
       return <CheckCircle2 className="w-6 h-6 text-green-600" />;
     }
@@ -556,9 +569,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 >
                   <CheckSquare className="w-4 h-4" />
                   Stage Checklist
-                  {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length > 0 && (
+                  {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item?.id]?.completed)).length > 0 && (
                     <Badge className="ml-2 bg-red-500">
-                      {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length}
+                      {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item?.id]?.completed)).length}
                     </Badge>
                   )}
                 </TabsTrigger>
@@ -593,7 +606,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
               </TabsList>
 
               <TabsContent value="checklist" className="p-6 space-y-4">
-                {currentColumn && (
+                {currentColumn ? (
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                       <div className={cn(
@@ -601,11 +614,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                         currentColumn.color
                       )}>
                         <span className="text-white font-bold text-sm">
-                          {currentColumn.label.charAt(0)}
+                          {currentColumn.label?.charAt(0) || '?'}
                         </span>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg">{currentColumn.label} Stage</h3>
+                        <h3 className="font-semibold text-lg">{currentColumn.label || 'Current Stage'}</h3>
                         <p className="text-sm text-slate-500">
                           Complete these items to progress to the next stage
                         </p>
@@ -620,8 +633,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                     ) : (
                       <div className="space-y-3">
                         {checklistItems
+                          .filter(item => item != null) // Filter out any null/undefined items
                           .sort((a, b) => (a.order || 0) - (b.order || 0))
                           .map((item) => {
+                            if (!item) return null; // Extra safety check
+
                             const itemStatus = checklistStatus[item.id] || {};
                             const isCompleted = item.type === 'system_check' 
                               ? systemCheckStatus(item)
@@ -652,7 +668,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                                             <span className={cn(
                                               isCompleted ? "text-green-900" : "text-slate-900"
                                             )}>
-                                              {item.label}
+                                              {item.label || 'Unnamed Item'}
                                             </span>
                                             {item.required && !isCompleted && (
                                               <Badge className="bg-red-500 text-xs">Required</Badge>
@@ -716,6 +732,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                             <p className="text-sm font-medium text-slate-700">Checklist Progress</p>
                             <p className="text-xs text-slate-500">
                               {checklistItems.filter(item => {
+                                if (!item) return false; // Safety check
                                 if (item.type === 'system_check') {
                                   return systemCheckStatus(item);
                                 }
@@ -724,7 +741,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                             </p>
                           </div>
                           <div className="text-right">
-                            {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length === 0 ? (
+                            {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length === 0 ? (
                               <Badge className="bg-green-500">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                 Ready to Progress
@@ -732,13 +749,19 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                             ) : (
                               <Badge className="bg-orange-500">
                                 <AlertCircle className="w-3 h-3 mr-1" />
-                                {checklistItems.filter(item => item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length} Required Items
+                                {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length} Required Items
                               </Badge>
                             )}
                           </div>
                         </div>
                       </CardContent>
                     </Card>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-slate-500">
+                    <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Unable to determine current stage</p>
+                    <p className="text-xs mt-2">The proposal may not be properly assigned to a column</p>
                   </div>
                 )}
               </TabsContent>
