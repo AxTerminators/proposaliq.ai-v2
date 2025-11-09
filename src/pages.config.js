@@ -52,6 +52,7 @@ import TestJourney from './pages/TestJourney';
 import TemplateManager from './pages/TemplateManager';
 import BoardManager from './pages/BoardManager';
 import FolderManager from './pages/FolderManager';
+import TemplateWorkflowManager from './pages/TemplateWorkflowManager';
 import Layout from './Layout.jsx';
 
 
@@ -110,6 +111,7 @@ export const PAGES = {
     "TemplateManager": TemplateManager,
     "BoardManager": BoardManager,
     "FolderManager": FolderManager,
+    "TemplateWorkflowManager": TemplateWorkflowManager,
 }
 
 export const pagesConfig = {

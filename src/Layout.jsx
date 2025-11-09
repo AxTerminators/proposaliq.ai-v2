@@ -34,7 +34,8 @@ import {
   FileEdit,
   TrendingUp,
   Search,
-  BookOpen
+  BookOpen,
+  Layers // Added Layers icon
 } from "lucide-react";
 import {
   Collapsible,
@@ -59,6 +60,8 @@ const WORKSPACE_ITEMS = [
   { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
   { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
   { title: "Templates", url: createPageUrl("TemplateManager"), icon: FileText },
+  { title: "Template Workflows", url: createPageUrl("TemplateWorkflowManager"), icon: Wrench }, // New item
+  { title: "Board Manager", url: createPageUrl("BoardManager"), icon: Layers }, // New item
   { title: "Best Practices", url: createPageUrl("BestPractices"), icon: BookOpen },
   { title: "Search", url: createPageUrl("AdvancedSearch"), icon: Search },
 ];
@@ -450,6 +453,7 @@ function LayoutContent({ children }) {
                       style={{ width: `${tokenPercentage}%` }}
                     />
                   </div>
+                </div>
                 <Link to={createPageUrl("Settings")}>
                   <Button variant="outline" size="sm" className="w-full">
                     <CreditCard className="w-4 h-4 mr-2" title="Manage plan" />
@@ -457,7 +461,6 @@ function LayoutContent({ children }) {
                   </Button>
                 </Link>
               </div>
-            </div>
             </div>
           )}
         </div>
