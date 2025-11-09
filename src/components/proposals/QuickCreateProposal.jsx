@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,25 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles,
-  Building2,
   Calendar,
-  DollarSign,
-  FileText,
-  Zap,
   ArrowRight,
   Layers,
   AlertCircle,
   TrendingUp,
-  CheckCircle // Added CheckCircle for selected board indication
+  CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const PROPOSAL_TYPES = [
   { 
@@ -108,29 +96,26 @@ export default function QuickCreateProposal({
   const queryClient = useQueryClient();
   
   const [step, setStep] = useState(1);
-  const [selectedType, setSelectedType] = useState(preselectedType || ''); // Renamed from proposalType
-  const [selectedBoardId, setSelectedBoardId] = useState(null); // New state for selected board
+  const [selectedType, setSelectedType] = useState(preselectedType || '');
+  const [selectedBoardId, setSelectedBoardId] = useState(null);
   const [proposalData, setProposalData] = useState({
     proposal_name: '',
     solicitation_number: '',
     agency_name: '',
-    // project_title removed as per outline
     due_date: '',
     contract_value: ''
   });
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
-  // Reset when dialog opens/closes
   useEffect(() => {
     if (isOpen) {
       setStep(1);
       setSelectedType(preselectedType || '');
-      setSelectedBoardId(null); // Reset selected board
+      setSelectedBoardId(null);
       setProposalData({
         proposal_name: '',
         solicitation_number: '',
         agency_name: '',
-        // project_title removed
         due_date: '',
         contract_value: ''
       });
@@ -138,29 +123,22 @@ export default function QuickCreateProposal({
     }
   }, [isOpen, preselectedType]);
 
-  // Fetch available boards for the selected type
   const { data: availableBoards = [] } = useQuery({
     queryKey: ['available-boards', organization?.id, selectedType],
     queryFn: async () => {
       if (!organization?.id || !selectedType) return [];
       
-      // Get all proposal boards (templates and custom)
       const allBoards = await base44.entities.KanbanConfig.filter({
         organization_id: organization.id,
-        board_category: 'proposal_board' // Assuming 'proposal_board' is a valid category
+        board_category: 'proposal_board'
       });
       
-      // Filter boards that accept this proposal type
       return allBoards.filter(board => {
-        // Template boards (derived from system types, e.g., 'rfp' board_type for 'RFP' selectedType)
-        if (board.board_type && board.board_type.toLowerCase() === selectedType.toLowerCase()) {
-          return true;
-        }
+        if (board.board_type === selectedType.toLowerCase()) return true;
         
-        // Custom boards that accept this type or all types
-        if (board.board_type === 'custom') { // Assuming 'custom' is a type for user-created boards
+        if (board.board_type === 'custom') {
           if (!board.applies_to_proposal_types || board.applies_to_proposal_types.length === 0) {
-            return true; // Custom board accepts all types if array is empty or null
+            return true;
           }
           return board.applies_to_proposal_types.includes(selectedType);
         }
@@ -168,12 +146,11 @@ export default function QuickCreateProposal({
         return false;
       });
     },
-    enabled: !!organization?.id && !!selectedType && step === 2, // Enable when on step 2 and type is selected
+    enabled: !!organization?.id && !!selectedType && step === 2,
   });
 
-  // Fetch available workflow templates for the selected type (renamed `availableTemplates` to `workflowTemplates`)
   const { data: workflowTemplates = [] } = useQuery({
-    queryKey: ['workflow-templates', selectedType], // Use selectedType
+    queryKey: ['workflow-templates', selectedType],
     queryFn: async () => {
       if (!selectedType) return [];
       
@@ -184,108 +161,76 @@ export default function QuickCreateProposal({
       
       return templates;
     },
-    enabled: !!selectedType && step === 3, // Enable when on step 3 and type is selected
+    enabled: !!selectedType && step === 3,
   });
-
-  // Removed 'existingBoard' query as it's replaced by 'availableBoards' and new flow.
 
   const createProposalMutation = useMutation({
     mutationFn: async (data) => {
-      // Find the selected board or default board (logic moved from old board creation).
-      // `boardToUse` is determined here but not explicitly passed to the `Proposal.create`
-      // assuming `Proposal` entity schema does not directly have `kanban_config_id`.
-      // The system should infer the correct board based on proposal_type_category and workflow_template_id.
-      let boardToUse = availableBoards.find(b => b.id === selectedBoardId);
-      
-      if (!boardToUse && availableBoards.length > 0) {
-        // Auto-select template board if exists, or the first available board
-        boardToUse = availableBoards.find(b => b.is_template_board) || availableBoards[0];
-      }
-
-      // Create the proposal
       const proposal = await base44.entities.Proposal.create({
         ...data,
         organization_id: organization.id,
-        proposal_type_category: selectedType, // Use selectedType
-        workflow_template_id: data.workflow_template_id || null, // `workflow_template_id` now expected in `data` from `handleCreate`
-        current_phase: 'phase1', // Default phase
-        status: 'evaluating', // Default status
-        manual_order: 0, // Default value, if needed
-        is_sample_data: false // Default value, if needed
+        proposal_type_category: selectedType,
+        workflow_template_id: data.workflow_template_id || null,
+        current_phase: 'phase1',
+        status: 'evaluating',
       });
 
-      return proposal; // Return just the proposal
+      return proposal;
     },
-    onSuccess: (proposal) => { // Destructure proposal directly
+    onSuccess: (proposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] }); // Invalidate all boards, in case the new proposal affects counts/views.
       
       if (onSuccess) {
         onSuccess(proposal);
       }
       
+      navigate(`${createPageUrl("ProposalBuilder")}?id=${proposal.id}`);
       onClose();
-      
-      // Navigate to proposal builder using 'id' as per outline
-      navigate(createPageUrl("ProposalBuilder") + `?id=${proposal.id}`);
-    }
+    },
   });
 
-  // Function to handle type selection (Step 1)
   const handleTypeSelect = (type) => {
     setSelectedType(type);
-    setStep(2); // Move to Step 2: Select Board
+    setStep(2);
   };
 
-  // Function to handle moving to the next step
   const handleNext = () => {
     if (step === 1 && !selectedType) {
-      // Validation for Step 1: Proposal Type must be selected
       alert('Please select a proposal type to proceed.');
       return;
     }
     if (step === 2 && availableBoards.length > 0 && !selectedBoardId) {
-      // Validation for Step 2: If boards are available, one must be selected
-      alert('Please select a board for your proposal or choose "No Specific Board" option if available.');
+      alert('Please select a board for your proposal.');
       return;
     }
     if (step === 3 && workflowTemplates.length > 0 && !selectedTemplate) {
-        // Validation for Step 3: If templates are available, one must be selected
-        alert('Please select a workflow template to proceed.');
-        return;
+      alert('Please select a workflow template to proceed.');
+      return;
     }
     setStep(step + 1);
   };
 
-  // Function to handle moving back a step
   const handleBack = () => {
     if (step === 4) {
       setStep(3);
     } else if (step === 3) {
       setStep(2);
-      setSelectedTemplate(null); // Clear selected template when going back from step 3
+      setSelectedTemplate(null);
     } else if (step === 2) {
       setStep(1);
-      setSelectedBoardId(null); // Clear selected board when going back from step 2
+      setSelectedBoardId(null);
     }
-    // No specific action for step 1, as 'Cancel' button handles close
   };
 
-  // Function to handle final creation
   const handleCreate = async () => {
     if (!proposalData.proposal_name.trim()) {
       alert('Please enter a proposal name to create.');
       return;
     }
-    // Ensure a template is selected if there are templates to choose from
-    if (workflowTemplates.length > 0 && !selectedTemplate) {
-      alert('Please select a workflow template to create the proposal.');
-      return;
-    }
 
     await createProposalMutation.mutateAsync({
       ...proposalData,
-      workflow_template_id: selectedTemplate?.id || null, // Pass selected template ID
+      workflow_template_id: selectedTemplate?.id || null,
     });
   };
 
@@ -293,20 +238,17 @@ export default function QuickCreateProposal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* DialogContent max-w-3xl as per outline */}
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-blue-600" /> {/* Icon size updated */}
+            <Sparkles className="w-6 h-6 text-blue-600" />
             Create New Proposal
           </DialogTitle>
           <DialogDescription>
-            {/* Dialog description updated for 4 steps */}
             Step {step} of 4: {step === 1 ? 'Choose Type' : step === 2 ? 'Select Board' : step === 3 ? 'Choose Template' : 'Enter Details'}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step 1: Select Proposal Type */}
         {step === 1 && (
           <div className="py-4">
             <div className="grid md:grid-cols-2 gap-4">
@@ -351,10 +293,8 @@ export default function QuickCreateProposal({
           </div>
         )}
 
-        {/* Step 2: Select Board (NEW STEP) */}
         {step === 2 && (
           <div className="space-y-4 py-4">
-            {/* Selected Type Info - kept for context for user */}
             {selectedTypeConfig && (
               <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
                 <CardContent className="p-4">
@@ -373,8 +313,7 @@ export default function QuickCreateProposal({
             <div>
               <h3 className="font-semibold text-lg mb-2">Select Board</h3>
               <p className="text-sm text-slate-600 mb-4">
-                Choose which board this proposal will appear on.
-                If no specific board is selected, the system will use a default.
+                Choose which board this proposal will appear on
               </p>
             </div>
 
@@ -382,11 +321,10 @@ export default function QuickCreateProposal({
               <Card className="border-2 border-dashed border-slate-300 bg-gray-50">
                 <CardContent className="p-8 text-center">
                   <p className="text-slate-600 mb-4">
-                    No custom or template boards found for {selectedTypeConfig?.label || selectedType} proposals.
+                    No boards available for {selectedTypeConfig?.label || selectedType} proposals.
                   </p>
                   <p className="text-sm text-slate-500">
-                    The proposal will be created and visible on a system-default board.
-                    You can create a custom board for this type later in board settings.
+                    The proposal will be created and visible on the Master Board.
                   </p>
                 </CardContent>
               </Card>
@@ -418,7 +356,7 @@ export default function QuickCreateProposal({
                           </div>
                         </div>
                         {selectedBoardId === board.id && (
-                          <CheckCircle className="w-5 h-5 text-blue-600" /> {/* Check icon for selected board */}
+                          <CheckCircle className="w-5 h-5 text-blue-600" />
                         )}
                       </div>
                     </CardContent>
@@ -429,130 +367,8 @@ export default function QuickCreateProposal({
           </div>
         )}
 
-        {/* Step 3: Choose Workflow Template (formerly part of Step 2) */}
         {step === 3 && (
-            <div className="space-y-4 py-4">
-                {/* Selected Type Info - kept for context for user */}
-                {selectedTypeConfig && (
-                    <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="text-3xl">{selectedTypeConfig.icon}</div>
-                                <div className="flex-1">
-                                    <h3 className="font-bold text-slate-900">{selectedTypeConfig.label}</h3>
-                                    <p className="text-sm text-slate-600">{selectedTypeConfig.description}</p>
-                                </div>
-                                <Badge variant="outline">{selectedTypeConfig.avgDuration}</Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Board Selection Context */}
-                {selectedBoardId && availableBoards.find(b => b.id === selectedBoardId) ? (
-                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <Layers className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                          <p className="text-sm font-semibold text-blue-900">
-                              Selected Board: "{availableBoards.find(b => b.id === selectedBoardId)?.board_name}"
-                          </p>
-                          <p className="text-xs text-blue-700 mt-1">
-                              Your proposal will be organized on this board. Now choose a workflow template.
-                          </p>
-                      </div>
-                  </div>
-                ) : ( // Fallback if no specific board is selected, or no boards available
-                  <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <AlertCircle className="w-4 h-4 text-amber-600" />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-sm font-semibold text-amber-900">
-                            No Specific Board Selected
-                        </p>
-                        <p className="text-xs text-amber-700 mt-1">
-                            The system will determine the default board for your proposal type. Please choose a workflow template.
-                        </p>
-                    </div>
-                  </div>
-                )}
-                
-                {workflowTemplates.length > 0 && (
-                    <div className="space-y-3">
-                        <Label className="text-base font-semibold">Workflow Template</Label>
-                        <div className="grid md:grid-cols-2 gap-3">
-                            {workflowTemplates.map(template => { // Use workflowTemplates here
-                                const isSelected = selectedTemplate?.id === template.id;
-                                
-                                return (
-                                    <Card
-                                        key={template.id}
-                                        className={cn(
-                                            "cursor-pointer transition-all border-2",
-                                            isSelected 
-                                                ? "border-blue-500 bg-blue-50" 
-                                                : "border-slate-200 hover:border-blue-300"
-                                        )}
-                                        onClick={() => setSelectedTemplate(template)}
-                                    >
-                                        <CardContent className="p-3">
-                                            <div className="flex items-start justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xl">{template.icon_emoji || '📋'}</span>
-                                                    <h4 className="font-semibold text-sm">{template.template_name}</h4>
-                                                </div>
-                                                {isSelected && (
-                                                    <Badge className="bg-blue-600 text-white">Selected</Badge>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-slate-600 mb-2 line-clamp-2">
-                                                {template.description || 'No description'}
-                                            </p>
-                                            <div className="flex gap-2 text-xs">
-                                                {template.usage_count > 0 && (
-                                                    <Badge variant="outline" className="gap-1">
-                                                        <TrendingUp className="w-3 h-3" />
-                                                        {template.usage_count} uses
-                                                    </Badge>
-                                                )}
-                                                {template.estimated_duration_days && (
-                                                    <Badge variant="outline">
-                                                        ~{template.estimated_duration_days}d
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-                {workflowTemplates.length === 0 && (
-                  <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-sm font-semibold text-red-900">
-                            No Workflow Templates Found
-                        </p>
-                        <p className="text-xs text-red-700 mt-1">
-                            No active workflow templates are available for this proposal type. The proposal will be created without a specific workflow.
-                        </p>
-                    </div>
-                  </div>
-                )}
-            </div>
-        )}
-
-
-        {/* Step 4: Enter Proposal Details (formerly part of Step 2) */}
-        {step === 4 && (
           <div className="space-y-4 py-4">
-            {/* Selected Type Info */}
             {selectedTypeConfig && (
               <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
                 <CardContent className="p-4">
@@ -568,7 +384,107 @@ export default function QuickCreateProposal({
               </Card>
             )}
 
-            {/* Template selected info */}
+            {selectedBoardId && availableBoards.find(b => b.id === selectedBoardId) && (
+              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Layers className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-900">
+                    Selected Board: "{availableBoards.find(b => b.id === selectedBoardId)?.board_name}"
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Your proposal will be organized on this board. Now choose a workflow template.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {workflowTemplates.length > 0 ? (
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Workflow Template</Label>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {workflowTemplates.map(template => {
+                    const isSelected = selectedTemplate?.id === template.id;
+                    
+                    return (
+                      <Card
+                        key={template.id}
+                        className={cn(
+                          "cursor-pointer transition-all border-2",
+                          isSelected 
+                            ? "border-blue-500 bg-blue-50" 
+                            : "border-slate-200 hover:border-blue-300"
+                        )}
+                        onClick={() => setSelectedTemplate(template)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{template.icon_emoji || '📋'}</span>
+                              <h4 className="font-semibold text-sm">{template.template_name}</h4>
+                            </div>
+                            {isSelected && (
+                              <Badge className="bg-blue-600 text-white">Selected</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 mb-2 line-clamp-2">
+                            {template.description || 'No description'}
+                          </p>
+                          <div className="flex gap-2 text-xs">
+                            {template.usage_count > 0 && (
+                              <Badge variant="outline" className="gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                {template.usage_count} uses
+                              </Badge>
+                            )}
+                            {template.estimated_duration_days && (
+                              <Badge variant="outline">
+                                ~{template.estimated_duration_days}d
+                              </Badge>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-900">
+                    No Workflow Templates Found
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    No active workflow templates are available for this proposal type.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-4 py-4">
+            {selectedTypeConfig && (
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-3xl">{selectedTypeConfig.icon}</div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-slate-900">{selectedTypeConfig.label}</h3>
+                      <p className="text-sm text-slate-600">{selectedTypeConfig.description}</p>
+                    </div>
+                    <Badge variant="outline">{selectedTypeConfig.avgDuration}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {selectedTemplate && (
               <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -585,7 +501,6 @@ export default function QuickCreateProposal({
               </div>
             )}
 
-            {/* Proposal Details Form */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="proposal_name">
@@ -625,8 +540,6 @@ export default function QuickCreateProposal({
                 </div>
               </div>
 
-              {/* Removed Project Title as per outline */}
-
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="due_date">
@@ -657,7 +570,6 @@ export default function QuickCreateProposal({
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="flex justify-between pt-4 border-t">
           <Button variant="outline" onClick={step === 1 ? onClose : handleBack}>
             {step === 1 ? 'Cancel' : 'Back'}
@@ -666,11 +578,7 @@ export default function QuickCreateProposal({
           {step < 4 ? (
             <Button 
               onClick={handleNext} 
-              disabled={
-                (step === 1 && !selectedType) || // Disable next if type not selected on step 1
-                (step === 2 && availableBoards.length > 0 && !selectedBoardId) || // Disable if boards available but none selected on step 2
-                (step === 3 && workflowTemplates.length > 0 && !selectedTemplate) // Disable if templates available but none selected on step 3
-              }
+              disabled={step === 1 && !selectedType}
             >
               Next
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -678,8 +586,8 @@ export default function QuickCreateProposal({
           ) : (
             <Button
               onClick={handleCreate}
-              disabled={createProposalMutation.isPending || !proposalData.proposal_name.trim()} // Disable if creating or proposal name is empty
-              className="bg-blue-600 hover:bg-blue-700" // Updated button style
+              disabled={createProposalMutation.isPending || !proposalData.proposal_name.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
             >
               {createProposalMutation.isPending ? (
                 <>
