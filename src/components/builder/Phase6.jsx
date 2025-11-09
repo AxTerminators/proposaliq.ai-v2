@@ -16,7 +16,8 @@ import {
   History,
   Mic,
   AlertCircle,
-  CheckCircle2 // Added for auto-save indicator
+  CheckCircle2, // Added for auto-save indicator
+  Library // Added for Promote to Library feature
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -43,6 +44,7 @@ import ErrorAlert from "../ui/ErrorAlert";
 import { AILoadingState, DataFetchingState } from "../ui/LoadingState";
 import ProposalReuseIntelligence from "../content/ProposalReuseIntelligence";
 import AIWritingAssistant from "../content/AIWritingAssistant";
+import PromoteToLibraryDialog from "../proposals/PromoteToLibraryDialog"; // Added import
 import moment from "moment"; // Added for auto-save timestamp formatting
 
 const PROPOSAL_SECTIONS = [
@@ -185,6 +187,9 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const [currentSectionForReuse, setCurrentSectionForReuse] = useState(null);
   const [lastAutoSaved, setLastAutoSaved] = useState(null); // Added for auto-save
   const [isAutoSaving, setIsAutoSaving] = useState(false); // Added for auto-save
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false); // Added for Promote to Library
+  const [currentSectionForPromote, setCurrentSectionForPromote] = useState(null); // Added for Promote to Library
+  const [currentSectionNameForPromote, setCurrentSectionNameForPromote] = useState(''); // Added for Promote to Library
   
   // Ref to store scroll position
   const scrollPositionRef = useRef(0);
@@ -1012,7 +1017,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               <li>✓ Automatic scroll position preservation</li>
               <li>✓ Smart error handling and recovery</li>
               <li>✓ Version history tracking for all changes</li>
-              <li>✓ Auto-saving content every 30 seconds</li> {/* Added this line */}
+              <li>✓ Auto-saving content every 30 seconds</li>
             </ul>
           </AlertDescription>
         </Alert>
@@ -1135,6 +1140,21 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                 >
                                   <History className="w-4 h-4 mr-2" />
                                   History
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCurrentSectionForPromote(sectionContent[section.id]);
+                                    setCurrentSectionNameForPromote(section.name);
+                                    setShowPromoteDialog(true);
+                                  }}
+                                  className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200"
+                                  title="Save this content to the Content Library for reuse"
+                                >
+                                  <Library className="w-4 h-4 mr-2 text-green-600" />
+                                  Promote to Library
                                 </Button>
 
                                 <Button
@@ -1284,6 +1304,21 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                       >
                                         <History className="w-4 h-4 mr-2" />
                                         History
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setCurrentSectionForPromote(sectionContent[subsectionKey]);
+                                          setCurrentSectionNameForPromote(`${section.name} - ${subsection.name}`);
+                                          setShowPromoteDialog(true);
+                                        }}
+                                        className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200"
+                                        title="Save this content to the Content Library for reuse"
+                                      >
+                                        <Library className="w-4 h-4 mr-2 text-green-600" />
+                                        Promote
                                       </Button>
 
                                       <Button
@@ -1438,6 +1473,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
           />
         )}
 
+        {/* Promote to Library Dialog */}
+        <PromoteToLibraryDialog
+          isOpen={showPromoteDialog}
+          onClose={() => {
+            setShowPromoteDialog(false);
+            setCurrentSectionForPromote(null);
+            setCurrentSectionNameForPromote('');
+          }}
+          sectionContent={currentSectionForPromote}
+          sectionName={currentSectionNameForPromote}
+          organization={organization}
+        />
+
         <div className="flex gap-4 pt-6 border-t">
           <Button
             size="lg"
@@ -1448,7 +1496,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               }
             }}
           >
-            Continue to Pricing {/* Changed button text */}
+            Continue to Pricing
           </Button>
         </div>
       </CardContent>
@@ -1460,7 +1508,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
               onClick={onSaveAndGoToPipeline}
               className="bg-white hover:bg-slate-50"
             >
-              Save and Go to Proposal Board {/* Changed button text */}
+              Save and Go to Proposal Board
             </Button>
           </div>
         </div>
