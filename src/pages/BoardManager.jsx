@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -596,13 +597,13 @@ export default function BoardManager() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Board "{boardToDelete?.board_name}"</AlertDialogTitle>
+            <AlertDialogTitle>Delete Board "{boardToDelete?.board_name}"?</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>This will permanently delete this board configuration.</p>
               {boardToDelete && getProposalCount(boardToDelete) > 0 && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-900 font-medium">
-                    ⚠️ This board has {getProposalCount(boardToDelete) proposal(s). The proposals will not be deleted, 
+                    ⚠️ This board has {getProposalCount(boardToDelete)} proposal(s). The proposals will not be deleted, 
                     but will need to be reassigned to other boards.
                   </p>
                 </div>
