@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,11 +37,11 @@ const CONTENT_CATEGORIES = [
   { value: 'general', label: 'General' }
 ];
 
-export default function PromoteToLibraryButton({ 
-  selectedText, 
-  organization, 
+export default function PromoteToLibraryButton({
+  selectedText,
+  organization,
   sectionType = null,
-  onSuccess 
+  onSuccess
 }) {
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
