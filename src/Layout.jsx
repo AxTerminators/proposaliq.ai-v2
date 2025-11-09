@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -33,7 +34,9 @@ import {
   FileEdit,
   TrendingUp,
   Search,
-  BookOpen
+  BookOpen,
+  Layers,
+  FolderOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +49,8 @@ import { OrganizationProvider, useOrganization } from "./components/layout/Organ
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
   { title: "Pipeline", url: createPageUrl("Pipeline"), icon: TrendingUp },
+  { title: "Board Management", url: createPageUrl("BoardManagement"), icon: Layers },
+  { title: "Content Library", url: createPageUrl("ContentLibrary"), icon: FolderOpen },
   { title: "Resources", url: createPageUrl("Resources"), icon: Library },
   { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
   { title: "Key Personnel", url: createPageUrl("KeyPersonnel"), icon: Users },

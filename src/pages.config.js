@@ -50,6 +50,8 @@ import PricingBuilder from './pages/PricingBuilder';
 import CompetitorIntel from './pages/CompetitorIntel';
 import TestJourney from './pages/TestJourney';
 import TemplateManager from './pages/TemplateManager';
+import BoardManagement from './pages/BoardManagement';
+import ContentLibrary from './pages/ContentLibrary';
 import Layout from './Layout.jsx';
 
 
@@ -106,6 +108,8 @@ export const PAGES = {
     "CompetitorIntel": CompetitorIntel,
     "TestJourney": TestJourney,
     "TemplateManager": TemplateManager,
+    "BoardManagement": BoardManagement,
+    "ContentLibrary": ContentLibrary,
 }
 
 export const pagesConfig = {
