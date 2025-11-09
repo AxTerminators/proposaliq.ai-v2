@@ -221,17 +221,68 @@ export default function QuickCreateProposal({
         });
       }
 
-      // Create the proposal
-      const proposal = await base44.entities.Proposal.create({
+      // CRITICAL FIX: Determine the first non-terminal column to place the proposal
+      // Initialize proposalCreateData with common fields and default phase/status
+      let proposalCreateData = {
         ...data,
         organization_id: organization.id,
         proposal_type_category: proposalType,
         workflow_template_id: selectedTemplate?.id || null,
-        current_phase: 'phase1',
-        status: 'evaluating',
         manual_order: 0,
-        is_sample_data: false
-      });
+        is_sample_data: false,
+        // Default values, will be overridden if a valid first column is found
+        current_phase: 'phase1', 
+        status: 'evaluating',
+        custom_workflow_stage_id: null,
+        current_stage_checklist_status: {}, // Initialize empty
+        action_required: false,
+        action_required_description: null
+      };
+
+      if (boardConfig?.columns) {
+        // Find the first workflow column (not terminal)
+        const firstColumn = boardConfig.columns
+          .filter(col => !col.is_terminal)
+          .sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+
+        if (firstColumn) {
+          console.log('[QuickCreate] 🎯 Placing proposal in first column:', firstColumn.label);
+
+          // Set the proposal to start in the first column based on column type
+          if (firstColumn.type === 'custom_stage') {
+            proposalCreateData.custom_workflow_stage_id = firstColumn.id;
+            proposalCreateData.current_phase = null;
+            proposalCreateData.status = 'in_progress';
+          } else if (firstColumn.type === 'locked_phase') {
+            proposalCreateData.custom_workflow_stage_id = firstColumn.id; // Store column ID
+            proposalCreateData.current_phase = firstColumn.phase_mapping;
+            proposalCreateData.status = firstColumn.default_status_mapping || 'evaluating';
+          } else if (firstColumn.type === 'default_status') {
+            proposalCreateData.status = firstColumn.default_status_mapping;
+            proposalCreateData.current_phase = null;
+            proposalCreateData.custom_workflow_stage_id = null;
+          } else if (firstColumn.type === 'master_status') {
+            proposalCreateData.status = firstColumn.status_mapping?.[0] || 'evaluating';
+            proposalCreateData.current_phase = null;
+            proposalCreateData.custom_workflow_stage_id = null;
+          }
+
+          // Initialize checklist status for the first column
+          proposalCreateData.current_stage_checklist_status = {
+            [firstColumn.id]: {}
+          };
+
+          // Set action_required flag if first column has required items
+          const hasRequiredItems = firstColumn.checklist_items?.some(item => item.required);
+          proposalCreateData.action_required = hasRequiredItems;
+          proposalCreateData.action_required_description = hasRequiredItems 
+            ? `Complete required items in ${firstColumn.label}` 
+            : null;
+        }
+      }
+
+      // Create the proposal with proper column assignment
+      const proposal = await base44.entities.Proposal.create(proposalCreateData);
 
       return { proposal, boardConfig };
     },
