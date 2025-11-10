@@ -130,7 +130,7 @@ export default function Clients() {
     enabled: !!organization?.id,
   });
 
-  // FIXED: Safer queries with organization_id filters
+  // FIXED: Safer queries with organization_id filters and null checks
   const { data: clientMetrics = {} } = useQuery({
     queryKey: ['client-metrics', organization?.id, clients.map(c => c?.id).filter(Boolean).join(',')],
     queryFn: async () => {
@@ -264,11 +264,12 @@ export default function Clients() {
   const handleViewPortal = (client, e) => {
     e.stopPropagation();
 
-    if (client.access_token) {
-      navigate(createPageUrl(`ClientPortal?token=${client.access_token}`));
-    } else {
+    if (!client || !client.access_token) {
       alert("❌ This client doesn't have an access token yet. The token is auto-generated when a client is created, but may be missing for older clients. Please edit and re-save this client to generate a token.");
+      return;
     }
+
+    navigate(createPageUrl(`ClientPortal?token=${client.access_token}`));
   };
 
   if (!organization) {
@@ -314,8 +315,8 @@ export default function Clients() {
             ← Back to All Clients
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">{selectedClient.client_name}</h1>
-            <p className="text-slate-600">{selectedClient.contact_name}</p>
+            <h1 className="text-3xl font-bold text-slate-900">{selectedClient?.client_name || 'Client'}</h1>
+            <p className="text-slate-600">{selectedClient?.contact_name || ''}</p>
           </div>
         </div>
 
@@ -342,7 +343,7 @@ export default function Clients() {
           </TabsList>
 
           <TabsContent value="overview">
-            <ClientOverview client={selectedClient} onEdit={handleEdit} metrics={clientMetrics[selectedClient.id]} />
+            <ClientOverview client={selectedClient} onEdit={handleEdit} metrics={clientMetrics[selectedClient?.id] || {}} />
           </TabsContent>
 
           <TabsContent value="health">

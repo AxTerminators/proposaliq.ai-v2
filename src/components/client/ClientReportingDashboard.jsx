@@ -47,14 +47,26 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 export default function ClientReportingDashboard({ client, currentMember }) {
   const [timeRange, setTimeRange] = useState('30d');
 
+  // FIXED: Add safety checks
+  if (!client || !currentMember) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading reports...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch client's proposals
   const { data: proposals = [] } = useQuery({
-    queryKey: ['client-reporting-proposals', client.id],
+    queryKey: ['client-reporting-proposals', client?.id],
     queryFn: async () => {
       try {
         const allProposals = await base44.entities.Proposal.list();
-        return (allProposals || []).filter(p => 
-          p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) && 
+        return (allProposals || []).filter(p =>
+          p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) &&
           p.shared_with_client_ids.includes(client.id) && p.client_view_enabled
         );
       } catch (error) {
@@ -63,21 +75,22 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       }
     },
     initialData: [],
-    retry: 1
+    retry: 1,
+    enabled: !!client?.id
   });
 
   // Fetch engagement metrics
   const { data: engagementMetrics = [] } = useQuery({
-    queryKey: ['client-reporting-engagement', client.id, timeRange],
+    queryKey: ['client-reporting-engagement', client?.id, timeRange],
     queryFn: async () => {
       try {
         const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
         const startDate = moment().subtract(daysBack, 'days').toISOString();
-        
+
         const allMetrics = await base44.entities.ClientEngagementMetric.filter({
           client_id: client.id
         }, '-created_date', 1000);
-        
+
         return (allMetrics || []).filter(m => m && moment(m.created_date).isAfter(startDate));
       } catch (error) {
         console.error('Error fetching engagement metrics:', error);
@@ -85,12 +98,13 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       }
     },
     initialData: [],
-    retry: 1
+    retry: 1,
+    enabled: !!client?.id
   });
 
   // Fetch meetings
   const { data: meetings = [] } = useQuery({
-    queryKey: ['client-reporting-meetings', client.id],
+    queryKey: ['client-reporting-meetings', client?.id],
     queryFn: async () => {
       try {
         return await base44.entities.ClientMeeting.filter({
@@ -102,12 +116,13 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       }
     },
     initialData: [],
-    retry: 1
+    retry: 1,
+    enabled: !!client?.id
   });
 
   // Fetch uploaded files
   const { data: uploadedFiles = [] } = useQuery({
-    queryKey: ['client-reporting-files', client.id],
+    queryKey: ['client-reporting-files', client?.id],
     queryFn: async () => {
       try {
         return await base44.entities.ClientUploadedFile.filter({
@@ -119,7 +134,8 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       }
     },
     initialData: [],
-    retry: 1
+    retry: 1,
+    enabled: !!client?.id
   });
 
   // Calculate summary metrics
@@ -128,11 +144,11 @@ export default function ClientReportingDashboard({ client, currentMember }) {
     const inReview = proposals.filter(p => p.status === 'client_review').length;
     const accepted = proposals.filter(p => p.status === 'client_accepted').length;
     const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-    
-    const totalEngagementTime = engagementMetrics.reduce((sum, m) => 
+
+    const totalEngagementTime = engagementMetrics.reduce((sum, m) =>
       sum + (m.time_spent_seconds || 0), 0
     );
-    
+
     const validProposalsForResponseTime = proposals.filter(p => p.client_last_viewed && p.updated_date);
     const avgResponseTime = validProposalsForResponseTime.length > 0
       ? validProposalsForResponseTime.reduce((sum, p) => {
@@ -162,7 +178,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       const status = p.status || 'unknown';
       statuses[status] = (statuses[status] || 0) + 1;
     });
-    
+
     const data = Object.entries(statuses).map(([status, count]) => ({
       name: status.replace(/_/g, ' ').toUpperCase(),
       value: count,
@@ -175,25 +191,25 @@ export default function ClientReportingDashboard({ client, currentMember }) {
   // Engagement over time
   const engagementTimeline = useMemo(() => {
     const dateGroups = {};
-    
+
     engagementMetrics.forEach(metric => {
       const date = moment(metric.created_date).format('MMM D');
       if (!dateGroups[date]) {
         dateGroups[date] = { date, views: 0, interactions: 0, timeMinutes: 0 };
       }
-      
+
       if (metric.event_type === 'page_view' || metric.event_type === 'section_view') {
         dateGroups[date].views += 1;
       }
-      
+
       if (['annotation_created', 'comment_added', 'file_uploaded'].includes(metric.event_type)) {
         dateGroups[date].interactions += 1;
       }
-      
+
       dateGroups[date].timeMinutes += (metric.time_spent_seconds || 0) / 60;
     });
-    
-    return Object.values(dateGroups).sort((a, b) => 
+
+    return Object.values(dateGroups).sort((a, b) =>
       moment(a.date, 'MMM D').diff(moment(b.date, 'MMM D'))
     );
   }, [engagementMetrics]);
@@ -203,7 +219,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
     const completed = meetings.filter(m => m.status === 'completed');
     const scheduled = meetings.filter(m => m.status === 'scheduled');
     const cancelled = meetings.filter(m => m.status === 'cancelled');
-    
+
     return [
       { name: 'Completed', value: completed.length },
       { name: 'Scheduled', value: scheduled.length },

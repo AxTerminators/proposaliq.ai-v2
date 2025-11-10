@@ -25,50 +25,71 @@ import moment from "moment";
 export default function EnhancedClientHealthMonitor({ client, organization }) {
   const queryClient = useQueryClient();
 
+  // FIXED: Add safety checks
+  if (!client || !organization) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading health monitor...</p>
+        </div>
+      </div>
+    );
+  }
+
   // FIXED: Add error handling and safer queries
   const { data: proposals = [] } = useQuery({
-    queryKey: ['health-proposals', client.id, organization?.id],
+    queryKey: ['health-proposals', client?.id, organization?.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
+      if (!organization?.id || !client?.id) return [];
       const allProposals = await base44.entities.Proposal.filter({ organization_id: organization.id });
       return allProposals.filter(p => 
         p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) && p.shared_with_client_ids.includes(client.id)
       );
     },
-    enabled: !!organization?.id,
+    enabled: !!organization?.id && !!client?.id,
     initialData: [],
     retry: 1
   });
 
   const { data: engagementMetrics = [] } = useQuery({
-    queryKey: ['health-engagement', client.id, organization?.id],
-    queryFn: () => base44.entities.ClientEngagementMetric.filter({
-      client_id: client.id,
-      organization_id: organization.id
-    }, '-created_date', 500),
-    enabled: !!organization?.id,
+    queryKey: ['health-engagement', client?.id, organization?.id],
+    queryFn: () => {
+      if (!organization?.id || !client?.id) return [];
+      return base44.entities.ClientEngagementMetric.filter({
+        client_id: client.id,
+        organization_id: organization.id
+      }, '-created_date', 500)
+    },
+    enabled: !!organization?.id && !!client?.id,
     initialData: [],
     retry: 1
   });
 
   const { data: meetings = [] } = useQuery({
-    queryKey: ['health-meetings', client.id, organization?.id],
-    queryFn: () => base44.entities.ClientMeeting.filter({
-      client_id: client.id,
-      organization_id: organization.id
-    }),
-    enabled: !!organization?.id,
+    queryKey: ['health-meetings', client?.id, organization?.id],
+    queryFn: () => {
+      if (!organization?.id || !client?.id) return [];
+      return base44.entities.ClientMeeting.filter({
+        client_id: client.id,
+        organization_id: organization.id
+      });
+    },
+    enabled: !!organization?.id && !!client?.id,
     initialData: [],
     retry: 1
   });
 
   const { data: feedbacks = [] } = useQuery({
-    queryKey: ['health-feedback', client.id, organization?.id],
-    queryFn: () => base44.entities.Feedback.filter({
-      client_id: client.id,
-      organization_id: organization.id
-    }),
-    enabled: !!organization?.id,
+    queryKey: ['health-feedback', client?.id, organization?.id],
+    queryFn: () => {
+      if (!organization?.id || !client?.id) return [];
+      return base44.entities.Feedback.filter({
+        client_id: client.id,
+        organization_id: organization.id
+      });
+    },
+    enabled: !!organization?.id && !!client?.id,
     initialData: [],
     retry: 1
   });
@@ -197,6 +218,7 @@ export default function EnhancedClientHealthMonitor({ client, organization }) {
   // Update health score mutation
   const updateHealthScoreMutation = useMutation({
     mutationFn: async () => {
+      if (!client?.id || !organization?.id) throw new Error("Client or Organization ID is missing.");
       const existingScores = await base44.entities.ClientHealthScore.filter({
         client_id: client.id
       });

@@ -20,38 +20,54 @@ import { createPageUrl } from "@/utils";
 import moment from "moment";
 
 export default function ClientDashboard({ client, currentMember }) {
+  // FIXED: Add safety checks for client and currentMember
+  if (!client || !currentMember) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   const { data: proposals } = useQuery({
-    queryKey: ['client-dashboard-proposals', client.id],
+    queryKey: ['client-dashboard-proposals', client?.id],
     queryFn: async () => {
       const allProposals = await base44.entities.Proposal.list();
       return allProposals.filter(p => 
         p.shared_with_client_ids?.includes(client.id) && p.client_view_enabled
       );
     },
-    initialData: []
+    initialData: [],
+    enabled: !!client?.id
   });
 
   const { data: approvalRequests } = useQuery({
-    queryKey: ['client-dashboard-approvals', client.id],
+    queryKey: ['client-dashboard-approvals', client?.id],
     queryFn: () => base44.entities.ClientApprovalRequest.filter({ client_id: client.id }),
-    initialData: []
+    initialData: [],
+    enabled: !!client?.id
   });
 
   const { data: meetings } = useQuery({
-    queryKey: ['client-dashboard-meetings', client.id],
+    queryKey: ['client-dashboard-meetings', client?.id],
     queryFn: () => base44.entities.ClientMeeting.filter({ 
       client_id: client.id 
     }, '-scheduled_date', 10),
-    initialData: []
+    initialData: [],
+    enabled: !!client?.id
   });
 
   const { data: notifications } = useQuery({
-    queryKey: ['client-dashboard-notifications', client.id],
+    queryKey: ['client-dashboard-notifications', client?.id],
     queryFn: () => base44.entities.ClientNotification.filter({
       client_id: client.id,
       is_read: false
     }, '-created_date', 5),
-    initialData: []
+    initialData: [],
+    enabled: !!client?.id
   });
 
   // Calculate stats
@@ -63,7 +79,7 @@ export default function ClientDashboard({ client, currentMember }) {
   ).length;
 
   const myPendingApprovals = approvalRequests.filter(r => {
-    const myApprover = r.required_approvers?.find(a => a.team_member_id === currentMember.id);
+    const myApprover = r.required_approvers?.find(a => a.team_member_id === currentMember?.id);
     return myApprover && myApprover.approval_status === 'pending';
   }).length;
 
@@ -88,15 +104,17 @@ export default function ClientDashboard({ client, currentMember }) {
     }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
-  // FIXED: Create proper link with token
-  const viewAllProposalsUrl = `${createPageUrl('ClientPortal')}?token=${client.access_token}`;
+  // FIXED: Safely create link with token check
+  const viewAllProposalsUrl = client?.access_token 
+    ? `${createPageUrl('ClientPortal')}?token=${client.access_token}`
+    : createPageUrl('ClientPortal');
 
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">
-          Welcome back, {currentMember.member_name}!
+          Welcome back, {currentMember?.member_name || 'User'}!
         </h1>
         <p className="text-blue-100">
           You have {myPendingApprovals} approval{myPendingApprovals !== 1 ? 's' : ''} awaiting your review
@@ -153,15 +171,26 @@ export default function ClientDashboard({ client, currentMember }) {
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-3 gap-4">
-            <Link to={viewAllProposalsUrl}>
+            {client?.access_token ? (
+              <Link to={viewAllProposalsUrl}>
+                <Button
+                  variant="outline"
+                  className="h-auto py-4 flex-col gap-2 w-full"
+                >
+                  <FileText className="w-6 h-6 text-blue-600" />
+                  <span>View All Proposals</span>
+                </Button>
+              </Link>
+            ) : (
               <Button
                 variant="outline"
-                className="h-auto py-4 flex-col gap-2 w-full"
+                className="h-auto py-4 flex-col gap-2"
+                disabled
               >
-                <FileText className="w-6 h-6 text-blue-600" />
+                <FileText className="w-6 h-6 text-slate-400" />
                 <span>View All Proposals</span>
               </Button>
-            </Link>
+            )}
             <Button
               variant="outline"
               className="h-auto py-4 flex-col gap-2"
