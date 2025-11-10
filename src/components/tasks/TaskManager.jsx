@@ -24,7 +24,7 @@ export default function TaskManager({ user, organization, proposalId = null, emb
     queryFn: async () => {
       if (!organization?.id) return [];
       
-      const filter = { organization_id: organization.id };
+      const filter = {};
       if (proposalId) {
         filter.proposal_id = proposalId;
       }
@@ -52,7 +52,7 @@ export default function TaskManager({ user, organization, proposalId = null, emb
   });
 
   const { data: proposals = [] } = useQuery({
-    queryKey: ['proposals', organization?.id],
+    queryKey: ['proposals-for-tasks', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
       return base44.entities.Proposal.filter({ organization_id: organization.id }, '-created_date');
@@ -62,9 +62,13 @@ export default function TaskManager({ user, organization, proposalId = null, emb
   });
 
   // Get the current proposal object
-  const currentProposal = proposalId 
-    ? proposals.find(p => p.id === proposalId) || { id: proposalId, proposal_name: 'Current Proposal' }
-    : null;
+  const currentProposal = React.useMemo(() => {
+    if (proposalId) {
+      const foundProposal = proposals.find(p => p.id === proposalId);
+      return foundProposal || { id: proposalId, proposal_name: 'Current Proposal' };
+    }
+    return null;
+  }, [proposalId, proposals]);
 
   const createTaskMutation = useMutation({
     mutationFn: (taskData) => base44.entities.ProposalTask.create(taskData),

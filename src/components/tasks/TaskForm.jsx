@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -59,7 +58,7 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     }
   }, [task, user, open]);
 
-  const { data: teamMembers } = useQuery({
+  const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -69,31 +68,52 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         return accesses.some(a => a.organization_id === organization.id);
       });
     },
-    initialData: [],
     enabled: !!organization?.id
   });
 
-  const { data: sections } = useQuery({
+  const { data: sections = [] } = useQuery({
     queryKey: ['proposal-sections', proposal?.id],
     queryFn: async () => {
       if (!proposal?.id) return [];
       return base44.entities.ProposalSection.filter({ proposal_id: proposal.id });
     },
-    initialData: [],
     enabled: !!proposal?.id
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // FIXED: Validation before saving
+    if (!formData.title?.trim()) {
+      alert("Please enter a task title");
+      return;
+    }
+    
+    if (!formData.assigned_to_email) {
+      alert("Please assign the task to a team member");
+      return;
+    }
+    
+    if (!proposal?.id) {
+      alert("No proposal selected. Please select a proposal first.");
+      return;
+    }
+    
     setIsSaving(true);
 
     try {
       const taskData = {
-        ...formData,
         proposal_id: proposal.id,
+        title: formData.title.trim(),
+        description: formData.description?.trim() || "",
+        assigned_to_email: formData.assigned_to_email,
+        assigned_to_name: formData.assigned_to_name,
         assigned_by_email: user.email,
         assigned_by_name: user.full_name,
+        priority: formData.priority,
+        status: formData.status,
         due_date: formData.due_date ? format(formData.due_date, 'yyyy-MM-dd') : null,
+        section_id: formData.section_id || null,
         estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : null
       };
 
@@ -105,23 +125,28 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
 
       // Create notification for assigned user
       if (formData.assigned_to_email && formData.assigned_to_email !== user.email) {
-        await base44.entities.Notification.create({
-          user_email: formData.assigned_to_email,
-          notification_type: "task_assigned",
-          title: "New Task Assigned",
-          message: `You've been assigned: ${formData.title}`,
-          related_proposal_id: proposal.id,
-          from_user_email: user.email,
-          from_user_name: user.full_name,
-          action_url: `/app/ProposalBuilder?id=${proposal.id}`
-        });
+        try {
+          await base44.entities.Notification.create({
+            user_email: formData.assigned_to_email,
+            notification_type: "task_assigned",
+            title: "New Task Assigned",
+            message: `You've been assigned: ${formData.title}`,
+            related_proposal_id: proposal.id,
+            from_user_email: user.email,
+            from_user_name: user.full_name,
+            action_url: `/app/ProposalBuilder?id=${proposal.id}`
+          });
+        } catch (notifError) {
+          console.warn("Failed to create notification:", notifError);
+          // Don't fail the whole operation if notification fails
+        }
       }
 
       onSave();
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving task:", error);
-      alert("Failed to save task. Please try again.");
+      alert("Failed to save task: " + (error.message || "Please try again."));
     } finally {
       setIsSaving(false);
     }
@@ -165,7 +190,9 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
           <Label htmlFor="assignee">Assign To *</Label>
           <Select value={formData.assigned_to_email} onValueChange={handleAssigneeChange}>
             <SelectTrigger id="assignee">
-              <SelectValue placeholder="Select team member" />
+              <SelectValue placeholder="Select team member">
+                {formData.assigned_to_name || "Select team member"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {teamMembers.map(member => (
