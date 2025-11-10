@@ -1,0 +1,605 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+/**
+ * Creates a fully-featured demo organization with mock data for sales demos and testing.
+ * 
+ * This function creates:
+ * - A demo organization with generous subscription limits
+ * - Mock proposals in various stages (evaluating, in progress, submitted, won, lost)
+ * - Sample past performance, key personnel, teaming partners
+ * - Content library with default folder structure
+ * - Clients (for consultancy demo view)
+ * - Tasks, discussions, and other supporting data
+ * 
+ * Only callable by super admins.
+ * 
+ * @param {string} owner_email - Email of the user who will own this demo account
+ * @param {string} organization_name - Name for the demo organization
+ * @param {string} demo_view_mode - Initial view mode ('corporate' or 'consultancy')
+ */
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    
+    // Authenticate user and check super admin permission
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (user.admin_role !== 'super_admin') {
+      return Response.json({ 
+        error: 'Forbidden - Only super admins can create demo accounts' 
+      }, { status: 403 });
+    }
+
+    const { owner_email, organization_name, demo_view_mode = 'corporate' } = await req.json();
+
+    if (!owner_email || !organization_name) {
+      return Response.json({ 
+        success: false, 
+        message: 'owner_email and organization_name are required' 
+      }, { status: 400 });
+    }
+
+    console.log('[CreateDemoOrg] Creating demo organization:', organization_name, 'for:', owner_email);
+
+    // 1. Create Demo Organization
+    const demoOrg = await base44.asServiceRole.entities.Organization.create({
+      organization_name: organization_name,
+      organization_type: 'demo',
+      demo_view_mode: demo_view_mode,
+      contact_name: 'Demo User',
+      contact_email: owner_email,
+      address: '123 Demo Street, Washington, DC 20001',
+      uei: 'DEMO123456789',
+      cage_code: 'DEMO1',
+      website_url: 'https://demo-company.example.com',
+      primary_naics: '541330',
+      secondary_naics: ['541511', '541512', '541519'],
+      certifications: ['8(a)', 'SDVOSB', 'WOSB', 'ISO 9001', 'CMMI Level 3'],
+      is_primary: false,
+      onboarding_completed: true,
+      is_sample_data: true
+    });
+
+    console.log('[CreateDemoOrg] ✅ Organization created:', demoOrg.id);
+
+    // 2. Create Generous Subscription
+    await base44.asServiceRole.entities.Subscription.create({
+      organization_id: demoOrg.id,
+      plan_type: 'demo',
+      token_credits: 10000000, // 10M tokens for demos
+      token_credits_used: 0,
+      max_users: 50,
+      max_clients: 50,
+      monthly_price: 0,
+      status: 'active',
+      preferred_llm: 'gemini',
+      features_enabled: {
+        client_portal: true,
+        custom_branding: true,
+        advanced_analytics: true,
+        api_access: true,
+        white_label: true
+      }
+    });
+
+    console.log('[CreateDemoOrg] ✅ Subscription created');
+
+    // 3. Create Default Content Library Folders
+    await base44.asServiceRole.functions.invoke('createDefaultContentLibraryFolders', {
+      organization_id: demoOrg.id
+    });
+
+    console.log('[CreateDemoOrg] ✅ Content Library folders created');
+
+    // 4. Create Master Board and 15-Column Board
+    await base44.asServiceRole.functions.invoke('ensureMasterBoardOnFirstLoad', {
+      organization_id: demoOrg.id
+    });
+
+    await base44.asServiceRole.functions.invoke('create15ColumnRFPBoard', {
+      organization_id: demoOrg.id
+    });
+
+    console.log('[CreateDemoOrg] ✅ Kanban boards created');
+
+    // 5. Create Mock Teaming Partners
+    const partners = [
+      {
+        partner_name: 'TechCorp Solutions',
+        partner_type: 'subcontractor',
+        address: '456 Partner Ave, Boston, MA 02101',
+        poc_name: 'Sarah Johnson',
+        poc_email: 'sarah.johnson@techcorp.example.com',
+        poc_phone: '(617) 555-0100',
+        uei: 'TECH987654321',
+        cage_code: 'TECH1',
+        website_url: 'https://techcorp.example.com',
+        primary_naics: '541511',
+        certifications: ['8(a)', 'HUBZone', 'ISO 27001'],
+        core_capabilities: ['Cloud Migration', 'Cybersecurity', 'DevSecOps'],
+        differentiators: ['FedRAMP Authorized', '15+ Years DoD Experience', 'Agile Certified Team'],
+        past_performance_summary: 'Successfully delivered 50+ cloud migration projects for federal agencies with 98% customer satisfaction.',
+        status: 'preferred',
+        is_sample_data: true
+      },
+      {
+        partner_name: 'DataVault Inc',
+        partner_type: 'teaming_partner',
+        address: '789 Data Blvd, Austin, TX 78701',
+        poc_name: 'Michael Chen',
+        poc_email: 'michael.chen@datavault.example.com',
+        poc_phone: '(512) 555-0200',
+        uei: 'DATA456789123',
+        cage_code: 'DATA1',
+        certifications: ['SDVOSB', 'ISO 9001'],
+        core_capabilities: ['Data Analytics', 'AI/ML Solutions', 'Business Intelligence'],
+        differentiators: ['Veteran-Owned', 'Proprietary AI Platform', 'Clearance-Ready Team'],
+        status: 'active',
+        is_sample_data: true
+      }
+    ];
+
+    for (const partner of partners) {
+      await base44.asServiceRole.entities.TeamingPartner.create({
+        ...partner,
+        organization_id: demoOrg.id
+      });
+    }
+
+    console.log('[CreateDemoOrg] ✅ Teaming partners created');
+
+    // 6. Create Mock Past Performance
+    const pastPerformanceProjects = [
+      {
+        project_name: 'Enterprise Cloud Modernization - Department of Defense',
+        client_name: 'U.S. Department of Defense',
+        client_agency: 'DoD',
+        client_type: 'federal',
+        contract_number: 'W52P1J-20-D-0001',
+        contract_value: 15000000,
+        contract_type: 'CPFF',
+        start_date: '2020-01-15',
+        end_date: '2023-01-15',
+        period_of_performance_months: 36,
+        status: 'completed',
+        naics_codes: ['541330', '541511'],
+        project_description: 'Led comprehensive cloud modernization initiative migrating legacy systems to AWS GovCloud, improving system performance by 300% and reducing operational costs by 40%.',
+        services_provided: ['Cloud Architecture', 'DevSecOps', 'System Migration', 'Security Compliance', 'Training'],
+        technologies_used: ['AWS GovCloud', 'Kubernetes', 'Terraform', 'Jenkins', 'Python'],
+        team_size: 12,
+        outcomes: {
+          on_time_delivery_pct: 100,
+          on_budget_pct: 98,
+          uptime_pct: 99.9,
+          customer_satisfaction: 5,
+          quality_score: 5
+        },
+        cpars_rating: 'Exceptional',
+        testimonial: 'Outstanding performance. The team exceeded all expectations and delivered ahead of schedule.',
+        reference_permission: true,
+        prime_or_sub: 'prime',
+        is_featured: true,
+        is_sample_data: true
+      },
+      {
+        project_name: 'Cybersecurity Assessment - Department of Homeland Security',
+        client_name: 'Department of Homeland Security',
+        client_agency: 'DHS',
+        client_type: 'federal',
+        contract_number: 'HSHQDC-21-C-00234',
+        contract_value: 8500000,
+        contract_type: 'FFP',
+        start_date: '2021-03-01',
+        end_date: '2023-03-01',
+        status: 'completed',
+        project_description: 'Conducted comprehensive cybersecurity assessment across 50+ systems, identifying vulnerabilities and implementing robust security controls.',
+        services_provided: ['Security Assessment', 'Penetration Testing', 'Compliance Review', 'Risk Management'],
+        technologies_used: ['Nessus', 'Metasploit', 'Splunk', 'SIEM Tools'],
+        outcomes: {
+          customer_satisfaction: 4.8,
+          quality_score: 5
+        },
+        cpars_rating: 'Very Good',
+        prime_or_sub: 'prime',
+        is_sample_data: true
+      },
+      {
+        project_name: 'IT Modernization - Veterans Affairs',
+        client_name: 'Department of Veterans Affairs',
+        client_agency: 'VA',
+        client_type: 'federal',
+        contract_value: 5200000,
+        contract_type: 'T&M',
+        start_date: '2022-06-01',
+        end_date: '2024-06-01',
+        status: 'in_progress',
+        project_description: 'Modernizing veteran healthcare IT systems to improve patient care and operational efficiency.',
+        prime_or_sub: 'subcontractor',
+        is_sample_data: true
+      }
+    ];
+
+    for (const project of pastPerformanceProjects) {
+      await base44.asServiceRole.entities.PastPerformance.create({
+        ...project,
+        organization_id: demoOrg.id
+      });
+    }
+
+    console.log('[CreateDemoOrg] ✅ Past performance created');
+
+    // 7. Create Mock Key Personnel
+    const keyPersonnel = [
+      {
+        full_name: 'Dr. James Mitchell',
+        title: 'Chief Technology Officer',
+        email: 'james.mitchell@demo.example.com',
+        phone: '(202) 555-0301',
+        years_experience: 20,
+        education: [
+          { degree: 'Ph.D.', field: 'Computer Science', institution: 'MIT', year: '2004' },
+          { degree: 'M.S.', field: 'Information Systems', institution: 'Stanford University', year: '2000' }
+        ],
+        certifications: [
+          { name: 'PMP', issuing_org: 'PMI', date_obtained: '2010-05-15' },
+          { name: 'CISSP', issuing_org: 'ISC2', date_obtained: '2012-08-20' }
+        ],
+        clearance_level: 'top_secret',
+        skills: ['Cloud Architecture', 'Enterprise Systems', 'Agile Management', 'Strategic Planning'],
+        bio_short: 'Dr. James Mitchell is a seasoned technology leader with 20 years of experience delivering mission-critical systems for federal agencies. He holds a Ph.D. in Computer Science from MIT and has led over 50 successful cloud modernization projects.',
+        is_available: true,
+        is_sample_data: true
+      },
+      {
+        full_name: 'Maria Rodriguez',
+        title: 'Senior Program Manager',
+        email: 'maria.rodriguez@demo.example.com',
+        years_experience: 15,
+        education: [
+          { degree: 'MBA', field: 'Business Administration', institution: 'Harvard Business School', year: '2008' }
+        ],
+        certifications: [
+          { name: 'PgMP', issuing_org: 'PMI', date_obtained: '2015-03-10' }
+        ],
+        clearance_level: 'secret',
+        skills: ['Program Management', 'Stakeholder Engagement', 'Budget Management', 'Team Leadership'],
+        bio_short: 'Maria Rodriguez brings 15 years of federal program management expertise, having successfully managed portfolios exceeding $100M. Known for exceptional client relationships and on-time delivery.',
+        is_available: true,
+        is_sample_data: true
+      },
+      {
+        full_name: 'Alex Thompson',
+        title: 'Lead Software Architect',
+        email: 'alex.thompson@demo.example.com',
+        years_experience: 12,
+        certifications: [
+          { name: 'AWS Solutions Architect - Professional', issuing_org: 'Amazon', date_obtained: '2019-06-15' }
+        ],
+        clearance_level: 'secret',
+        skills: ['Microservices', 'Cloud Native', 'DevOps', 'Python', 'Java'],
+        bio_short: 'Alex Thompson is an innovative software architect specializing in cloud-native solutions. With 12 years of experience, Alex has designed scalable systems supporting millions of users.',
+        is_available: true,
+        is_sample_data: true
+      }
+    ];
+
+    for (const person of keyPersonnel) {
+      await base44.asServiceRole.entities.KeyPersonnel.create({
+        ...person,
+        organization_id: demoOrg.id
+      });
+    }
+
+    console.log('[CreateDemoOrg] ✅ Key personnel created');
+
+    // 8. Create Mock Proposals
+    const mockProposals = [
+      {
+        proposal_name: 'DoD Cloud Infrastructure Modernization',
+        proposal_type_category: 'RFP',
+        project_type: 'RFP',
+        solicitation_number: 'FA8750-25-R-0001',
+        agency_name: 'Department of Defense - Air Force',
+        project_title: 'Enterprise Cloud Infrastructure Modernization and Support',
+        due_date: '2025-03-15',
+        contract_value: 25000000,
+        contract_value_type: 'ceiling',
+        status: 'in_progress',
+        current_phase: 'phase6',
+        match_score: 92,
+        is_sample_data: true
+      },
+      {
+        proposal_name: 'DHS Cybersecurity Enhancement Program',
+        proposal_type_category: 'RFP',
+        project_type: 'RFP',
+        solicitation_number: 'HSHQDC-25-R-00123',
+        agency_name: 'Department of Homeland Security',
+        project_title: 'Comprehensive Cybersecurity Assessment and Enhancement',
+        due_date: '2025-02-28',
+        contract_value: 12000000,
+        status: 'draft',
+        current_phase: 'phase4',
+        match_score: 88,
+        is_sample_data: true
+      },
+      {
+        proposal_name: 'NASA Data Analytics Platform',
+        proposal_type_category: 'RFP',
+        project_type: 'RFP',
+        solicitation_number: 'NASA-25-001',
+        agency_name: 'NASA',
+        project_title: 'Advanced Data Analytics and Visualization Platform',
+        due_date: '2025-04-20',
+        contract_value: 18000000,
+        status: 'evaluating',
+        current_phase: 'phase2',
+        match_score: 85,
+        is_sample_data: true
+      },
+      {
+        proposal_name: 'GSA Schedule Refresh',
+        proposal_type_category: 'GSA',
+        project_type: 'Other',
+        solicitation_number: 'GSA-25-SCHED-001',
+        agency_name: 'General Services Administration',
+        project_title: 'GSA Schedule 70 IT Services',
+        due_date: '2025-01-30',
+        contract_value: 50000000,
+        status: 'submitted',
+        is_sample_data: true
+      },
+      {
+        proposal_name: 'VA Healthcare IT Support - WON',
+        proposal_type_category: 'RFP',
+        project_type: 'RFP',
+        solicitation_number: 'VA-24-IT-9876',
+        agency_name: 'Department of Veterans Affairs',
+        project_title: 'Healthcare IT Support Services',
+        due_date: '2024-11-15',
+        contract_value: 8000000,
+        status: 'won',
+        is_sample_data: true
+      },
+      {
+        proposal_name: 'State Department Security Audit',
+        proposal_type_category: 'RFP',
+        project_type: 'RFP',
+        solicitation_number: 'STATE-24-SEC-555',
+        agency_name: 'Department of State',
+        project_title: 'Comprehensive Security Audit and Remediation',
+        due_date: '2024-10-01',
+        contract_value: 6000000,
+        status: 'lost',
+        is_sample_data: true
+      }
+    ];
+
+    const createdProposals = [];
+    for (const proposalData of mockProposals) {
+      const created = await base44.asServiceRole.entities.Proposal.create({
+        ...proposalData,
+        organization_id: demoOrg.id,
+        prime_contractor_id: demoOrg.id,
+        prime_contractor_name: demoOrg.organization_name
+      });
+      createdProposals.push(created);
+    }
+
+    console.log('[CreateDemoOrg] ✅ Mock proposals created:', createdProposals.length);
+
+    // 9. Create Sample Proposal Sections for Won Proposal
+    const wonProposal = createdProposals.find(p => p.status === 'won');
+    if (wonProposal) {
+      const sampleSections = [
+        {
+          section_name: 'Executive Summary',
+          section_type: 'executive_summary',
+          content: '<h2>Executive Summary</h2><p>Our team brings unparalleled expertise in healthcare IT modernization, having successfully delivered similar projects for the VA over the past decade. We understand the critical importance of reliable, secure healthcare systems that serve our nation\'s veterans.</p><p>Our approach combines proven methodologies with innovative cloud-native solutions, ensuring seamless integration with existing VA infrastructure while providing a clear path to future scalability.</p>',
+          word_count: 78,
+          status: 'approved',
+          order: 1
+        },
+        {
+          section_name: 'Technical Approach',
+          section_type: 'technical_approach',
+          content: '<h2>Technical Approach</h2><p>We propose a phased modernization strategy that prioritizes system stability and security. Our approach includes:</p><ul><li>Comprehensive system assessment and architecture review</li><li>Incremental migration to AWS GovCloud with zero-downtime deployment</li><li>Implementation of microservices architecture for improved scalability</li><li>Continuous monitoring and automated security compliance</li></ul><p>This methodology has been successfully applied across 15+ federal healthcare IT projects.</p>',
+          word_count: 95,
+          status: 'approved',
+          order: 2
+        },
+        {
+          section_name: 'Management Plan',
+          section_type: 'management_plan',
+          content: '<h2>Management Plan</h2><p>Our proven project management framework ensures successful delivery through:</p><ul><li>Dedicated Program Manager with 15+ years VA experience</li><li>Bi-weekly sprint cycles with continuous stakeholder engagement</li><li>Risk management framework aligned with NIST 800-53</li><li>Quality assurance processes including automated testing and peer review</li></ul>',
+          word_count: 67,
+          status: 'approved',
+          order: 3
+        }
+      ];
+
+      for (const sectionData of sampleSections) {
+        await base44.asServiceRole.entities.ProposalSection.create({
+          ...sectionData,
+          proposal_id: wonProposal.id,
+          is_sample_data: true
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Sample sections created for won proposal');
+    }
+
+    // 10. Create Mock Clients (for consultancy demo view)
+    const mockClients = [
+      {
+        client_name: 'Acme Federal Contracting',
+        contact_name: 'Jennifer Williams',
+        contact_email: 'j.williams@acmefederal.example.com',
+        contact_phone: '(301) 555-0400',
+        client_organization: 'Acme Federal Contracting LLC',
+        client_title: 'Vice President of Business Development',
+        address: '100 Client Plaza, Rockville, MD 20850',
+        industry: 'Government Contracting',
+        relationship_status: 'active',
+        portal_access_enabled: true,
+        total_proposals_shared: 5,
+        is_sample_data: true
+      },
+      {
+        client_name: 'TechGov Innovations',
+        contact_name: 'Robert Davis',
+        contact_email: 'r.davis@techgov.example.com',
+        contact_phone: '(703) 555-0500',
+        client_organization: 'TechGov Innovations Inc',
+        client_title: 'Director of Proposals',
+        relationship_status: 'active',
+        portal_access_enabled: true,
+        total_proposals_shared: 3,
+        is_sample_data: true
+      }
+    ];
+
+    for (const client of mockClients) {
+      await base44.asServiceRole.entities.Client.create({
+        ...client,
+        organization_id: demoOrg.id
+      });
+    }
+
+    console.log('[CreateDemoOrg] ✅ Mock clients created');
+
+    // 11. Create Mock Resources (Boilerplate)
+    const mockResources = [
+      {
+        resource_type: 'boilerplate_text',
+        content_category: 'company_overview',
+        title: 'Standard Company Overview',
+        description: 'Generic company overview boilerplate for federal proposals',
+        boilerplate_content: '<p>Founded in 2010, our company has established itself as a trusted partner to federal agencies, delivering innovative technology solutions that drive mission success. With a proven track record of excellence and a team of certified professionals, we combine deep domain expertise with cutting-edge technical capabilities.</p>',
+        tags: ['company', 'overview', 'federal'],
+        word_count: 52,
+        is_sample_data: true
+      },
+      {
+        resource_type: 'capability_statement',
+        title: 'Cloud & Cybersecurity Capability Statement',
+        description: 'Capability statement highlighting cloud and security expertise',
+        boilerplate_content: '<h3>Core Capabilities</h3><ul><li>Cloud Migration & Modernization (AWS, Azure, GCP)</li><li>Cybersecurity & Compliance (FedRAMP, FISMA, NIST)</li><li>DevSecOps Implementation</li><li>Enterprise Architecture</li></ul><p>Certifications: ISO 9001, ISO 27001, CMMI Level 3, FedRAMP Authorized</p>',
+        tags: ['capability', 'cloud', 'cybersecurity'],
+        is_favorite: true,
+        is_sample_data: true
+      }
+    ];
+
+    for (const resource of mockResources) {
+      await base44.asServiceRole.entities.ProposalResource.create({
+        ...resource,
+        organization_id: demoOrg.id
+      });
+    }
+
+    console.log('[CreateDemoOrg] ✅ Mock resources created');
+
+    // 12. Create Sample Tasks for In-Progress Proposal
+    const inProgressProposal = createdProposals.find(p => p.status === 'in_progress');
+    if (inProgressProposal) {
+      const sampleTasks = [
+        {
+          title: 'Complete Technical Approach Section',
+          description: 'Draft comprehensive technical approach addressing all RFP requirements',
+          assigned_to_email: owner_email,
+          assigned_to_name: 'Demo User',
+          status: 'in_progress',
+          priority: 'high',
+          due_date: '2025-02-15',
+          is_sample_data: true
+        },
+        {
+          title: 'Review Compliance Matrix',
+          description: 'Ensure all mandatory requirements are addressed',
+          assigned_to_email: owner_email,
+          assigned_to_name: 'Demo User',
+          status: 'todo',
+          priority: 'high',
+          due_date: '2025-02-20',
+          is_sample_data: true
+        },
+        {
+          title: 'Gather Past Performance References',
+          description: 'Collect and format relevant past performance examples',
+          assigned_to_email: owner_email,
+          assigned_to_name: 'Demo User',
+          status: 'completed',
+          priority: 'medium',
+          completed_date: new Date().toISOString(),
+          is_sample_data: true
+        }
+      ];
+
+      for (const task of sampleTasks) {
+        await base44.asServiceRole.entities.ProposalTask.create({
+          ...task,
+          proposal_id: inProgressProposal.id,
+          assigned_by_email: owner_email,
+          assigned_by_name: 'Demo User'
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Sample tasks created');
+    }
+
+    // 13. Create Sample Discussions
+    const discussions = [
+      {
+        title: 'Win Strategy Discussion for DoD Cloud Project',
+        content: 'Let\'s discuss our win themes and competitive positioning for the DoD cloud modernization opportunity. What are our key discriminators?',
+        author_email: owner_email,
+        author_name: 'Demo User',
+        category: 'proposal',
+        proposal_id: createdProposals[0]?.id,
+        tags: ['strategy', 'win-themes'],
+        comment_count: 2,
+        is_sample_data: true
+      }
+    ];
+
+    for (const discussion of discussions) {
+      await base44.asServiceRole.entities.Discussion.create({
+        ...discussion,
+        organization_id: demoOrg.id
+      });
+    }
+
+    console.log('[CreateDemoOrg] ✅ Sample discussions created');
+
+    console.log('[CreateDemoOrg] 🎉 DEMO ORGANIZATION FULLY SEEDED!');
+
+    return Response.json({
+      success: true,
+      message: `Demo organization "${organization_name}" created and seeded successfully!`,
+      organization_id: demoOrg.id,
+      organization_name: demoOrg.organization_name,
+      demo_view_mode: demo_view_mode,
+      data_created: {
+        proposals: createdProposals.length,
+        past_performance: pastPerformanceProjects.length,
+        key_personnel: keyPersonnel.length,
+        teaming_partners: partners.length,
+        clients: mockClients.length,
+        resources: mockResources.length,
+        boards: 2
+      }
+    });
+
+  } catch (error) {
+    console.error('[CreateDemoOrg] Error:', error);
+    return Response.json({ 
+      success: false,
+      error: error.message 
+    }, { status: 500 });
+  }
+});
