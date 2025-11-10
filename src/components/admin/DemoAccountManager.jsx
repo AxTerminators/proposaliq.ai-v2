@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +32,8 @@ import {
   Users,
   Briefcase,
   ExternalLink,
-  Zap
+  Zap,
+  Key
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -40,7 +42,8 @@ export default function DemoAccountManager({ currentUser }) {
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [creatingDemo, setCreatingDemo] = useState(false);
-  
+  const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
+
   const [demoFormData, setDemoFormData] = useState({
     owner_email: '',
     organization_name: '',
@@ -72,7 +75,7 @@ export default function DemoAccountManager({ currentUser }) {
         organization_name: '',
         demo_view_mode: 'corporate'
       });
-      
+
       alert(`✅ ${data.message}\n\n📊 Data Created:\n` +
         `• ${data.data_created.proposals} Proposals\n` +
         `• ${data.data_created.past_performance} Past Performance\n` +
@@ -102,7 +105,7 @@ export default function DemoAccountManager({ currentUser }) {
       await base44.entities.Folder.bulkDelete({ organization_id: orgId });
       await base44.entities.KanbanConfig.bulkDelete({ organization_id: orgId });
       await base44.entities.Subscription.bulkDelete({ organization_id: orgId });
-      
+
       // Finally delete the organization
       return base44.entities.Organization.delete(orgId);
     },
@@ -114,6 +117,29 @@ export default function DemoAccountManager({ currentUser }) {
       alert('Error deleting demo account: ' + error.message);
     }
   });
+
+  const handleGenerateAllClientTokens = async () => {
+    if (!confirm('🔑 Generate access tokens for ALL clients across ALL demo accounts?\n\nThis will:\n• Find all clients missing access tokens\n• Generate secure tokens for client portal access\n• Set token expiration to 1 year from now\n\nProceed?')) {
+      return;
+    }
+
+    setIsGeneratingTokens(true);
+    try {
+      const response = await base44.functions.invoke('generateClientTokens', {});
+
+      if (response.data.success) {
+        alert(`✅ ${response.data.message}\n\n🔑 Tokens Generated:\n${response.data.updated_count} clients now have portal access\n\nUpdated Clients:\n${response.data.updated_clients.map(c => `• ${c.client_name}`).join('\n')}`);
+        queryClient.invalidateQueries({ queryKey: ['demo-organizations'] });
+      } else {
+        alert(`❌ Error: ${response.data.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating tokens:', error);
+      alert(`❌ Error generating tokens: ${error.message}`);
+    } finally {
+      setIsGeneratingTokens(false);
+    }
+  };
 
   const handleCreateDemo = async () => {
     if (!demoFormData.owner_email.trim() || !demoFormData.organization_name.trim()) {
@@ -153,14 +179,56 @@ export default function DemoAccountManager({ currentUser }) {
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Demo Accounts</h2>
           <p className="text-slate-600">Create and manage demo accounts for sales and testing</p>
         </div>
-        <Button 
-          onClick={() => setShowCreateDialog(true)}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Demo Account
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleGenerateAllClientTokens}
+            disabled={isGeneratingTokens}
+            className="border-2 border-green-300 hover:bg-green-50"
+          >
+            {isGeneratingTokens ? (
+              <>
+                <div className="animate-spin mr-2">⏳</div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <Key className="w-4 h-4 mr-2" />
+                Generate Client Tokens
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Demo Account
+          </Button>
+        </div>
       </div>
+
+      {/* Token Generation Info Card */}
+      <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-green-900 text-base">
+            <Key className="w-5 h-5" />
+            Client Portal Access Tokens
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-green-800">
+          <p className="mb-2">
+            Demo clients need access tokens to use the client portal. If you see the error
+            <span className="font-mono bg-green-100 px-2 py-0.5 rounded mx-1">
+              "No access token provided"
+            </span>
+            click the button above to generate tokens for all clients.
+          </p>
+          <p className="text-xs text-green-700">
+            💡 New clients automatically get tokens, but demo/sample clients may need manual generation.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Quick Create Templates */}
       <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
