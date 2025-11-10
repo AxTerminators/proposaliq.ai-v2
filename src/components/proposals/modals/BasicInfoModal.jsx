@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Save, Calendar } from "lucide-react";
-import { syncProposalToCalendar } from "@/utils/proposalCalendarSync";
 
 const PROJECT_TYPES = [
   { value: 'RFP', label: 'RFP - Request for Proposal' },
@@ -101,17 +101,11 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
         contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null
       };
 
-      const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
-
-      // 🔄 SYNC TO CALENDAR
-      if (organizationId) {
-        await syncProposalToCalendar(updatedProposal, organizationId);
-      }
+      await base44.entities.Proposal.update(proposalId, updateData);
 
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       
-      console.log('[BasicInfoModal] ✅ Proposal basic info saved and synced to calendar');
+      console.log('[BasicInfoModal] ✅ Proposal basic info saved');
       onClose();
     } catch (error) {
       console.error('[BasicInfoModal] Error saving proposal:', error);

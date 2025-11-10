@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -13,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, File, X, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { syncProposalToCalendar } from "@/utils/proposalCalendarSync";
 
 export default function SolicitationUploadModal({ isOpen, onClose, proposalId }) {
   const [loading, setLoading] = useState(true);
@@ -138,12 +138,7 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
       if (aiResult.project_title) updateData.project_title = aiResult.project_title;
 
       if (Object.keys(updateData).length > 0) {
-        const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
-        
-        // 🔄 SYNC TO CALENDAR
-        if (organizationId) {
-          await syncProposalToCalendar(updatedProposal, organizationId);
-        }
+        await base44.entities.Proposal.update(proposalId, updateData);
         
         setProposalData(prev => ({ ...prev, ...updateData }));
         alert('✓ AI extracted key details from solicitation document');
@@ -174,14 +169,9 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
         contract_value: proposalData.contract_value ? parseFloat(proposalData.contract_value) : null
       };
 
-      const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
+      await base44.entities.Proposal.update(proposalId, updateData);
 
-      // 🔄 SYNC TO CALENDAR
-      if (organizationId) {
-        await syncProposalToCalendar(updatedProposal, organizationId);
-      }
-
-      console.log('[SolicitationUploadModal] ✅ Proposal info saved and synced to calendar');
+      console.log('[SolicitationUploadModal] ✅ Proposal info saved');
       onClose();
     } catch (error) {
       console.error("Error saving:", error);
