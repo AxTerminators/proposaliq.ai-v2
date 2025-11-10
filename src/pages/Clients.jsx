@@ -43,6 +43,7 @@ import ClientNotificationPreferences from "../components/client/ClientNotificati
 import ReviewWorkflowBuilder from "../components/client/ReviewWorkflowBuilder";
 import ClientReportingDashboard from "../components/client/ClientReportingDashboard";
 import EnhancedClientHealthMonitor from "../components/client/EnhancedClientHealthMonitor";
+import { useOrganization } from "../components/layout/OrganizationContext";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -74,6 +75,7 @@ async function getUserActiveOrganization(user) {
 export default function Clients() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { organization: contextOrg } = useOrganization(); // Use context organization
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,16 +103,21 @@ export default function Clients() {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
 
-        const org = await getUserActiveOrganization(currentUser);
-        if (org) {
-          setOrganization(org);
+        // Prefer context organization if available
+        if (contextOrg) {
+          setOrganization(contextOrg);
+        } else {
+          const org = await getUserActiveOrganization(currentUser);
+          if (org) {
+            setOrganization(org);
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
       }
     };
     loadData();
-  }, []);
+  }, [contextOrg]);
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['clients', organization?.id],
@@ -205,7 +212,12 @@ export default function Clients() {
     );
   }
 
-  const isConsultancy = organization.organization_type === 'consultancy';
+  // **UPDATED: Check demo_view_mode for demo accounts**
+  const effectiveOrgType = organization.organization_type === 'demo'
+    ? organization.demo_view_mode
+    : organization.organization_type;
+
+  const isConsultancy = effectiveOrgType === 'consultancy';
 
   if (!isConsultancy) {
     return (
@@ -217,6 +229,11 @@ export default function Clients() {
             <p className="text-slate-600">
               Client management is only available for consultancy accounts.
             </p>
+            {organization.organization_type === 'demo' && (
+              <p className="text-sm text-purple-600 mt-2">
+                💡 Switch to "Consultant View" using the demo view switcher in the sidebar to access client features.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
