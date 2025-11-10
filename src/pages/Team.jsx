@@ -77,6 +77,7 @@ export default function Team() {
     const colors = {
       organization_owner: "bg-purple-100 text-purple-800",
       proposal_manager: "bg-blue-100 text-blue-800",
+      capture_manager: "bg-blue-100 text-blue-800",
       writer: "bg-green-100 text-green-800",
       reviewer: "bg-amber-100 text-amber-800",
       guest: "bg-slate-100 text-slate-800",

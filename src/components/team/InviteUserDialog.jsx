@@ -88,6 +88,7 @@ export default function InviteUserDialog({ organization, onClose, onSuccess }) {
               <SelectContent>
                 <SelectItem value="organization_owner">Organization Owner</SelectItem>
                 <SelectItem value="proposal_manager">Proposal Manager</SelectItem>
+                <SelectItem value="capture_manager">Capture Manager</SelectItem>
                 <SelectItem value="writer">Writer</SelectItem>
                 <SelectItem value="reviewer">Reviewer</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
@@ -96,6 +97,7 @@ export default function InviteUserDialog({ organization, onClose, onSuccess }) {
             <p className="text-xs text-slate-500 mt-1">
               {role === "organization_owner" && "Full access to all features and settings"}
               {role === "proposal_manager" && "Can create and manage proposals"}
+              {role === "capture_manager" && "Can create and manage proposals (sales/demo role)"}
               {role === "writer" && "Can edit proposals and content"}
               {role === "reviewer" && "Can review and comment on proposals"}
               {role === "viewer" && "Read-only access to proposals"}
