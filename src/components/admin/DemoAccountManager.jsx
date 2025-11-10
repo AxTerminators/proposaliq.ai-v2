@@ -96,15 +96,50 @@ export default function DemoAccountManager({ currentUser }) {
   const deleteDemoMutation = useMutation({
     mutationFn: async (orgId) => {
       // Delete all related data first
-      await base44.entities.Proposal.bulkDelete({ organization_id: orgId });
-      await base44.entities.PastPerformance.bulkDelete({ organization_id: orgId });
-      await base44.entities.KeyPersonnel.bulkDelete({ organization_id: orgId });
-      await base44.entities.TeamingPartner.bulkDelete({ organization_id: orgId });
-      await base44.entities.Client.bulkDelete({ organization_id: orgId });
-      await base44.entities.ProposalResource.bulkDelete({ organization_id: orgId });
-      await base44.entities.Folder.bulkDelete({ organization_id: orgId });
-      await base44.entities.KanbanConfig.bulkDelete({ organization_id: orgId });
-      await base44.entities.Subscription.bulkDelete({ organization_id: orgId });
+      const proposals = await base44.entities.Proposal.filter({ organization_id: orgId });
+      for (const p of proposals) {
+        await base44.entities.Proposal.delete(p.id);
+      }
+      
+      const pastPerf = await base44.entities.PastPerformance.filter({ organization_id: orgId });
+      for (const p of pastPerf) {
+        await base44.entities.PastPerformance.delete(p.id);
+      }
+      
+      const personnel = await base44.entities.KeyPersonnel.filter({ organization_id: orgId });
+      for (const p of personnel) {
+        await base44.entities.KeyPersonnel.delete(p.id);
+      }
+      
+      const partners = await base44.entities.TeamingPartner.filter({ organization_id: orgId });
+      for (const p of partners) {
+        await base44.entities.TeamingPartner.delete(p.id);
+      }
+      
+      const clients = await base44.entities.Client.filter({ organization_id: orgId });
+      for (const c of clients) {
+        await base44.entities.Client.delete(c.id);
+      }
+      
+      const resources = await base44.entities.ProposalResource.filter({ organization_id: orgId });
+      for (const r of resources) {
+        await base44.entities.ProposalResource.delete(r.id);
+      }
+      
+      const folders = await base44.entities.Folder.filter({ organization_id: orgId });
+      for (const f of folders) {
+        await base44.entities.Folder.delete(f.id);
+      }
+      
+      const boards = await base44.entities.KanbanConfig.filter({ organization_id: orgId });
+      for (const b of boards) {
+        await base44.entities.KanbanConfig.delete(b.id);
+      }
+      
+      const subs = await base44.entities.Subscription.filter({ organization_id: orgId });
+      for (const s of subs) {
+        await base44.entities.Subscription.delete(s.id);
+      }
 
       // Finally delete the organization
       return base44.entities.Organization.delete(orgId);
