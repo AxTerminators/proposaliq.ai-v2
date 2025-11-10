@@ -88,6 +88,9 @@ export default function ClientDashboard({ client, currentMember }) {
     }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
+  // FIXED: Create proper link with token
+  const viewAllProposalsUrl = `${createPageUrl('ClientPortal')}?token=${client.access_token}`;
+
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
@@ -150,14 +153,15 @@ export default function ClientDashboard({ client, currentMember }) {
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-3 gap-4">
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex-col gap-2"
-              onClick={() => window.location.href = createPageUrl('ClientPortal')}
-            >
-              <FileText className="w-6 h-6 text-blue-600" />
-              <span>View All Proposals</span>
-            </Button>
+            <Link to={viewAllProposalsUrl}>
+              <Button
+                variant="outline"
+                className="h-auto py-4 flex-col gap-2 w-full"
+              >
+                <FileText className="w-6 h-6 text-blue-600" />
+                <span>View All Proposals</span>
+              </Button>
+            </Link>
             <Button
               variant="outline"
               className="h-auto py-4 flex-col gap-2"
