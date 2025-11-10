@@ -1,3 +1,4 @@
+
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -295,6 +296,99 @@ export default function ClientDashboard({ client, currentMember }) {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// Proposals View Component
+function ProposalsView({ client, currentMember }) {
+  const { data: proposals, isLoading } = useQuery({
+    queryKey: ['client-proposals', client.id],
+    queryFn: async () => {
+      const allProposals = await base44.entities.Proposal.list();
+      return allProposals.filter(p =>
+        p.shared_with_client_ids?.includes(client.id) && p.client_view_enabled
+      );
+    },
+    initialData: []
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-12">Loading proposals...</div>;
+  }
+
+  if (proposals.length === 0) {
+    return (
+      <Card className="border-none shadow-lg">
+        <CardContent className="p-12 text-center">
+          <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+          <p className="text-lg font-medium text-slate-900 mb-2">No Proposals Yet</p>
+          <p className="text-slate-600">Your consultant hasn't shared any proposals with you yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {proposals.map((proposal) => {
+        const statusColors = {
+          client_review: "bg-amber-100 text-amber-700",
+          client_accepted: "bg-green-100 text-green-700",
+          client_rejected: "bg-red-100 text-red-700",
+          in_progress: "bg-blue-100 text-blue-700"
+        };
+
+        return (
+          <Card key={proposal.id} className="border-none shadow-lg hover:shadow-xl transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xl font-semibold text-slate-900">{proposal.proposal_name}</h3>
+                    <Badge className={statusColors[proposal.status] || "bg-slate-100 text-slate-700"}>
+                      {proposal.status?.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+
+                  {proposal.project_title && (
+                    <p className="text-slate-600 mb-2">{proposal.project_title}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+                    {proposal.agency_name && (
+                      <span>Agency: {proposal.agency_name}</span>
+                    )}
+                    {proposal.due_date && (
+                      <span>Due: {moment(proposal.due_date).format('MMM D, YYYY')}</span>
+                    )}
+                    {proposal.client_feedback_count > 0 && (
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="w-4 h-4" />
+                        {proposal.client_feedback_count} comment{proposal.client_feedback_count > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {proposal.client_last_viewed && (
+                    <p className="text-xs text-slate-500 mt-2">
+                      Last viewed: {moment(proposal.client_last_viewed).fromNow()}
+                    </p>
+                  )}
+                </div>
+
+                {/* FIXED: Include token in the URL */}
+                <Link to={`${createPageUrl('ClientProposalView')}?token=${client.access_token}&proposal=${proposal.id}`}>
+                  <Button>
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Proposal
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
