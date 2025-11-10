@@ -541,7 +541,7 @@ Deno.serve(async (req) => {
         address: '900 Cyber Way, Fairfax, VA 22030',
         industry: 'Cybersecurity',
         relationship_status: 'inactive',
-        portal_access_enabled: false,
+        portal_access_enabled: true,
         notes: 'Previously active client. Lost contact after key POC left company. Worth re-engaging with new leadership.',
         tags: ['cybersecurity', 'inactive', 're-engage'],
         total_proposals_shared: 2,
