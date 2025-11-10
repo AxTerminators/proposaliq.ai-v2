@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -247,12 +248,9 @@ export default function QuickCreateProposal({
       onClose();
       
       if (onSuccess) {
-        // For 15-column workflow, signal to open BasicInfoModal
-        if (proposal.proposal_type_category === 'RFP_15_COLUMN') {
-          onSuccess(proposal, 'BasicInfoModal', targetBoard);
-        } else {
-          onSuccess(proposal, null, targetBoard);
-        }
+        // FIXED: Don't auto-open modals - just go to the board
+        console.log('[QuickCreate] 📞 Calling onSuccess - NO MODAL');
+        onSuccess(proposal, null, targetBoard);
       }
     },
     onError: (error) => {
