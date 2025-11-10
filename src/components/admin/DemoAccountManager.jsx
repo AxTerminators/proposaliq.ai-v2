@@ -126,16 +126,23 @@ export default function DemoAccountManager({ currentUser }) {
     setIsGeneratingTokens(true);
     try {
       const response = await base44.functions.invoke('generateClientTokens', {});
-
+      
+      console.log('Token generation response:', response.data);
+      
       if (response.data.success) {
-        alert(`✅ ${response.data.message}\n\n🔑 Tokens Generated:\n${response.data.updated_count} clients now have portal access\n\nUpdated Clients:\n${response.data.updated_clients.map(c => `• ${c.client_name}`).join('\n')}`);
+        const updatedClients = response.data.updated_clients || [];
+        const clientsList = updatedClients.length > 0 
+          ? '\n\nUpdated Clients:\n' + updatedClients.map(c => `• ${c.client_name}`).join('\n')
+          : '\n\n(All clients already had tokens)';
+        
+        alert(`✅ ${response.data.message}\n\n🔑 Tokens Generated:\n${response.data.updated_count} client(s) now have portal access${clientsList}`);
         queryClient.invalidateQueries({ queryKey: ['demo-organizations'] });
       } else {
-        alert(`❌ Error: ${response.data.error}`);
+        alert(`❌ Error: ${response.data.error || 'Unknown error occurred'}`);
       }
     } catch (error) {
       console.error('Error generating tokens:', error);
-      alert(`❌ Error generating tokens: ${error.message}`);
+      alert(`❌ Error generating tokens: ${error.message || 'Unknown error'}`);
     } finally {
       setIsGeneratingTokens(false);
     }
