@@ -53,7 +53,9 @@ import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
-import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync.js";
+
+// Remove calendar sync import since functionality is not used
+// import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync.js";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -643,9 +645,7 @@ export default function Pipeline() {
 
   const deleteProposalMutation = useMutation({
     mutationFn: async (id) => {
-      // 🔄 DELETE CALENDAR EVENTS FIRST
-      await deleteProposalCalendarEvents(id);
-      
+      // Delete proposal directly - calendar sync not implemented yet
       return base44.entities.Proposal.delete(id);
     },
     onSuccess: () => {
