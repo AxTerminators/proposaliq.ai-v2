@@ -1,3 +1,4 @@
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
 
 /**
@@ -446,7 +447,12 @@ Deno.serve(async (req) => {
         industry: 'Government Contracting',
         relationship_status: 'active',
         portal_access_enabled: true,
+        notes: 'Key client with strong track record. Interested in expanding into cybersecurity space. Regular monthly check-ins scheduled.',
+        tags: ['federal', 'prime-contractor', 'strategic'],
         total_proposals_shared: 5,
+        engagement_score: 87,
+        last_engagement_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+        avg_response_time_hours: 24,
         is_sample_data: true
       },
       {
@@ -456,21 +462,198 @@ Deno.serve(async (req) => {
         contact_phone: '(703) 555-0500',
         client_organization: 'TechGov Innovations Inc',
         client_title: 'Director of Proposals',
+        address: '250 Innovation Drive, Arlington, VA 22201',
+        industry: 'IT Consulting',
         relationship_status: 'active',
         portal_access_enabled: true,
+        notes: 'Fast-growing company focusing on DoD contracts. Very responsive and collaborative. Interested in teaming opportunities.',
+        tags: ['it-services', 'dod', 'fast-response'],
         total_proposals_shared: 3,
+        engagement_score: 92,
+        last_engagement_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+        avg_response_time_hours: 12,
+        is_sample_data: true
+      },
+      {
+        client_name: 'Quantum Defense Solutions',
+        contact_name: 'Dr. Lisa Chang',
+        contact_email: 'l.chang@quantumdefense.example.com',
+        contact_phone: '(571) 555-0600',
+        client_organization: 'Quantum Defense Solutions Corp',
+        client_title: 'Chief Operating Officer',
+        address: '500 Defense Boulevard, McLean, VA 22102',
+        industry: 'Defense Technology',
+        relationship_status: 'prospect',
+        portal_access_enabled: true,
+        notes: 'High-value prospect specializing in AI/ML defense applications. Initial meeting went very well. Follow-up scheduled for next week.',
+        tags: ['ai-ml', 'defense', 'high-value'],
+        total_proposals_shared: 1,
+        engagement_score: 78,
+        last_engagement_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+        avg_response_time_hours: 48,
+        is_sample_data: true
+      },
+      {
+        client_name: 'HealthTech Federal Services',
+        contact_name: 'Marcus Johnson',
+        contact_email: 'm.johnson@healthtechfed.example.com',
+        contact_phone: '(240) 555-0700',
+        client_organization: 'HealthTech Federal Services LLC',
+        client_title: 'Senior Capture Manager',
+        address: '150 Healthcare Way, Bethesda, MD 20814',
+        industry: 'Healthcare IT',
+        relationship_status: 'active',
+        portal_access_enabled: true,
+        notes: 'Specialized in VA and HHS contracts. Excellent partner for healthcare IT opportunities. Strong past performance in EHR systems.',
+        tags: ['healthcare', 'va', 'hhs', 'ehr'],
+        total_proposals_shared: 4,
+        engagement_score: 85,
+        last_engagement_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+        avg_response_time_hours: 18,
+        is_sample_data: true
+      },
+      {
+        client_name: 'CloudFirst Government',
+        contact_name: 'Amanda Peterson',
+        contact_email: 'a.peterson@cloudfirstgov.example.com',
+        contact_phone: '(202) 555-0800',
+        client_organization: 'CloudFirst Government Inc',
+        client_title: 'Business Development Director',
+        address: '800 Cloud Circle, Washington, DC 20001',
+        industry: 'Cloud Services',
+        relationship_status: 'active',
+        portal_access_enabled: true,
+        notes: 'FedRAMP authorized provider. Ideal partner for cloud modernization projects. Recently won major GSA contract.',
+        tags: ['cloud', 'fedramp', 'gsa-schedule'],
+        total_proposals_shared: 6,
+        engagement_score: 94,
+        last_engagement_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+        avg_response_time_hours: 8,
+        is_sample_data: true
+      },
+      {
+        client_name: 'SecureNet Systems',
+        contact_name: 'David Kim',
+        contact_email: 'd.kim@securenet.example.com',
+        contact_phone: '(703) 555-0900',
+        client_organization: 'SecureNet Systems LLC',
+        client_title: 'VP of Federal Sales',
+        address: '900 Cyber Way, Fairfax, VA 22030',
+        industry: 'Cybersecurity',
+        relationship_status: 'inactive',
+        portal_access_enabled: false,
+        notes: 'Previously active client. Lost contact after key POC left company. Worth re-engaging with new leadership.',
+        tags: ['cybersecurity', 'inactive', 're-engage'],
+        total_proposals_shared: 2,
+        engagement_score: 45,
+        last_engagement_date: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days ago
+        avg_response_time_hours: 72,
         is_sample_data: true
       }
     ];
 
+    const createdClients = [];
     for (const client of mockClients) {
-      await base44.asServiceRole.entities.Client.create({
+      // Generate secure access token
+      const token = crypto.randomUUID() + '-' + Date.now();
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+      const createdClient = await base44.asServiceRole.entities.Client.create({
         ...client,
-        organization_id: demoOrg.id
+        organization_id: demoOrg.id,
+        access_token: token,
+        token_expires_at: expiresAt.toISOString(),
+        email_notifications: {
+          enabled: true,
+          proposal_shared: true,
+          status_changes: true,
+          new_comments: true,
+          documents_uploaded: true,
+          deadline_reminders: true,
+          frequency: 'immediate'
+        }
       });
+      createdClients.push(createdClient);
     }
 
-    console.log('[CreateDemoOrg] ✅ Mock clients created');
+    console.log('[CreateDemoOrg] ✅ Mock clients created with access tokens:', createdClients.length);
+
+    // 10b. Create Client Team Members for some clients
+    if (createdClients.length > 0) {
+      const mainClient = createdClients[0]; // Acme Federal
+      
+      const teamMembers = [
+        {
+          member_name: 'Sarah Mitchell',
+          member_email: 's.mitchell@acmefederal.example.com',
+          member_title: 'Proposal Coordinator',
+          team_role: 'reviewer',
+          permissions: {
+            can_approve: false,
+            can_comment: true,
+            can_upload_files: true,
+            can_invite_others: false,
+            can_see_internal_comments: false
+          },
+          invitation_status: 'accepted',
+          is_active: true
+        },
+        {
+          member_name: 'Tom Bradley',
+          member_email: 't.bradley@acmefederal.example.com',
+          member_title: 'Contracts Manager',
+          team_role: 'approver',
+          permissions: {
+            can_approve: true,
+            can_comment: true,
+            can_upload_files: true,
+            can_invite_others: true,
+            can_see_internal_comments: true
+          },
+          invitation_status: 'accepted',
+          is_active: true
+        }
+      ];
+
+      for (const member of teamMembers) {
+        const memberToken = crypto.randomUUID() + '-' + Date.now();
+        const memberExpiresAt = new Date();
+        memberExpiresAt.setFullYear(memberExpiresAt.getFullYear() + 1);
+
+        await base44.asServiceRole.entities.ClientTeamMember.create({
+          ...member,
+          client_id: mainClient.id,
+          access_token: memberToken,
+          token_expires_at: memberExpiresAt.toISOString()
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Client team members created');
+    }
+
+    // 10c. Share proposals with clients
+    if (createdProposals.length > 0 && createdClients.length > 0) {
+      const inProgressProposal = createdProposals.find(p => p.status === 'in_progress');
+      const draftProposal = createdProposals.find(p => p.status === 'draft');
+      
+      if (inProgressProposal) {
+        await base44.asServiceRole.entities.Proposal.update(inProgressProposal.id, {
+          shared_with_client_ids: [createdClients[0].id, createdClients[1].id],
+          client_view_enabled: true,
+          status: 'client_review'
+        });
+      }
+      
+      if (draftProposal) {
+        await base44.asServiceRole.entities.Proposal.update(draftProposal.id, {
+          shared_with_client_ids: [createdClients[2].id],
+          client_view_enabled: true
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Proposals shared with clients');
+    }
 
     // 11. Create Mock Resources (Boilerplate)
     const mockResources = [
@@ -505,7 +688,7 @@ Deno.serve(async (req) => {
     console.log('[CreateDemoOrg] ✅ Mock resources created');
 
     // 12. Create Sample Tasks for In-Progress Proposal
-    const inProgressProposal = createdProposals.find(p => p.status === 'in_progress');
+    const inProgressProposal = createdProposals.find(p => p.status === 'in_progress' || p.status === 'client_review'); // Check for updated status
     if (inProgressProposal) {
       const sampleTasks = [
         {
@@ -589,7 +772,8 @@ Deno.serve(async (req) => {
         past_performance: pastPerformanceProjects.length,
         key_personnel: keyPersonnel.length,
         teaming_partners: partners.length,
-        clients: mockClients.length,
+        clients: createdClients.length,
+        client_team_members: createdClients.length > 0 ? 2 : 0, // Assuming 2 members are created if clients exist
         resources: mockResources.length,
         boards: 2
       }
