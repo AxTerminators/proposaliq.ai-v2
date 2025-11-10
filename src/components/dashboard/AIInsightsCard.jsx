@@ -193,7 +193,7 @@ export default function AIInsightsCard({ proposals = [], opportunities = [], use
     setLoading(false);
   }, [proposals, opportunities]);
 
-  // FIXED: Remove generateBasicInsights from dependency array to prevent infinite loop
+  // FIXED: Stabilize the effect to prevent infinite loops
   useEffect(() => {
     if (proposals.length > 0 || opportunities.length > 0) {
       generateBasicInsights();
@@ -209,8 +209,7 @@ export default function AIInsightsCard({ proposals = [], opportunities = [], use
         priority: "low"
       }]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposals, opportunities]); // Only depend on props, not the callback itself
+  }, [proposals.length, opportunities.length, generateBasicInsights]); // Only re-run when array lengths change
 
   const runAIInsightAnalysis = async () => {
     if (proposals.length < 3) {
