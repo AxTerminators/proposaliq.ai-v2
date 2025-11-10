@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,14 +28,12 @@ import {
   TrendingUp,
   Clock,
   GitCompare,
-  BarChart3 // Added for Reports tab
+  BarChart3
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 import ProposalComparisonTool from "../components/proposals/ProposalComparisonTool";
-
-// New imports for client detail sub-components
 import ClientPermissionsManager from "../components/client/ClientPermissionsManager";
 import DocumentVersionControl from "../components/client/DocumentVersionControl";
 import ClientNotificationPreferences from "../components/client/ClientNotificationPreferences";
@@ -45,7 +42,6 @@ import ClientReportingDashboard from "../components/client/ClientReportingDashbo
 import EnhancedClientHealthMonitor from "../components/client/EnhancedClientHealthMonitor";
 import { useOrganization } from "../components/layout/OrganizationContext";
 
-// Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
   if (!user) return null;
   let orgId = null;
@@ -75,7 +71,7 @@ async function getUserActiveOrganization(user) {
 export default function Clients() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { organization: contextOrg } = useOrganization(); // Use context organization
+  const { organization: contextOrg } = useOrganization();
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,7 +99,6 @@ export default function Clients() {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
 
-        // Prefer context organization if available
         if (contextOrg) {
           setOrganization(contextOrg);
         } else {
@@ -207,7 +202,6 @@ export default function Clients() {
   const handleViewPortal = (client, e) => {
     e.stopPropagation();
     
-    // Use the client's access token to navigate to their portal
     if (client.access_token) {
       navigate(createPageUrl(`ClientPortal?token=${client.access_token}`));
     } else {
@@ -223,7 +217,6 @@ export default function Clients() {
     );
   }
 
-  // **UPDATED: Check demo_view_mode for demo accounts**
   const effectiveOrgType = organization.organization_type === 'demo'
     ? organization.demo_view_mode
     : organization.organization_type;
@@ -251,7 +244,6 @@ export default function Clients() {
     );
   }
 
-  // If a specific client is selected, show detailed view
   if (selectedClient) {
     return (
       <div className="p-6 lg:p-8 space-y-6">
@@ -547,7 +539,6 @@ export default function Clients() {
                   onChange={(e) => setClientData({ ...clientData, notes: e.target.value })}
                   placeholder="Internal notes about this client"
                   rows={3}
-                }
                 />
               </div>
             </div>
@@ -624,12 +615,7 @@ function ClientProposals({ client, organization }) {
   const { data: proposals = [] } = useQuery({
     queryKey: ['client-proposals', client.id],
     queryFn: async () => {
-      // Assuming a method to get proposals related to a client, e.g., by client_id in the proposal entity
-      // Or by filtering all proposals if shared_with_client_ids is a list of client IDs
-      const allProposals = await base44.entities.Proposal.list(); // Or base44.entities.Proposal.filter({ client_id: client.id }) if such a field exists
-
-      // Filter proposals that are explicitly shared with this client ID
-      // This assumes 'shared_with_client_ids' is an array field on the Proposal entity
+      const allProposals = await base44.entities.Proposal.list();
       return allProposals.filter(p =>
         p.shared_with_client_ids && p.shared_with_client_ids.includes(client.id)
       );
