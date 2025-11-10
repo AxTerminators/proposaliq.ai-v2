@@ -61,6 +61,11 @@ export default function TaskManager({ user, organization, proposalId = null, emb
     initialData: []
   });
 
+  // Get the current proposal object
+  const currentProposal = proposalId 
+    ? proposals.find(p => p.id === proposalId) || { id: proposalId, proposal_name: 'Current Proposal' }
+    : null;
+
   const createTaskMutation = useMutation({
     mutationFn: (taskData) => base44.entities.ProposalTask.create(taskData),
     onSuccess: () => {
@@ -107,12 +112,10 @@ export default function TaskManager({ user, organization, proposalId = null, emb
     }
   });
 
-  const handleTaskSubmit = (taskData) => {
-    if (editingTask) {
-      updateTaskMutation.mutate({ id: editingTask.id, data: taskData });
-    } else {
-      createTaskMutation.mutate(taskData);
-    }
+  const handleTaskSave = () => {
+    queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+    setShowTaskForm(false);
+    setEditingTask(null);
   };
 
   const handleEditTask = (task) => {
@@ -179,16 +182,15 @@ export default function TaskManager({ user, organization, proposalId = null, emb
           embedded={true}
         />
 
-        {showTaskForm && (
-          <TaskForm
-            task={editingTask}
-            proposals={proposalId ? [{ id: proposalId }] : proposals}
-            onSubmit={handleTaskSubmit}
-            onCancel={handleCloseTaskForm}
-            organization={organization}
-            defaultProposalId={proposalId}
-          />
-        )}
+        <TaskForm
+          open={showTaskForm}
+          onOpenChange={setShowTaskForm}
+          proposal={currentProposal}
+          task={editingTask}
+          onSave={handleTaskSave}
+          user={user}
+          organization={organization}
+        />
       </div>
     );
   }
@@ -245,15 +247,15 @@ export default function TaskManager({ user, organization, proposalId = null, emb
         </TabsContent>
       </Tabs>
 
-      {showTaskForm && (
-        <TaskForm
-          task={editingTask}
-          proposals={proposals}
-          onSubmit={handleTaskSubmit}
-          onCancel={handleCloseTaskForm}
-          organization={organization}
-        />
-      )}
+      <TaskForm
+        open={showTaskForm}
+        onOpenChange={setShowTaskForm}
+        proposal={currentProposal}
+        task={editingTask}
+        onSave={handleTaskSave}
+        user={user}
+        organization={organization}
+      />
     </div>
   );
 }
