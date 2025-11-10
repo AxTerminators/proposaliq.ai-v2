@@ -1,3 +1,4 @@
+
 import React, { useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,40 +25,52 @@ import moment from "moment";
 export default function EnhancedClientHealthMonitor({ client, organization }) {
   const queryClient = useQueryClient();
 
-  // Fetch all relevant data
+  // FIXED: Add error handling and safer queries
   const { data: proposals = [] } = useQuery({
-    queryKey: ['health-proposals', client.id],
+    queryKey: ['health-proposals', client.id, organization?.id],
     queryFn: async () => {
-      const allProposals = await base44.entities.Proposal.list();
+      if (!organization?.id) return [];
+      const allProposals = await base44.entities.Proposal.filter({ organization_id: organization.id });
       return allProposals.filter(p => 
-        p.shared_with_client_ids?.includes(client.id)
+        p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) && p.shared_with_client_ids.includes(client.id)
       );
     },
-    initialData: []
+    enabled: !!organization?.id,
+    initialData: [],
+    retry: 1
   });
 
   const { data: engagementMetrics = [] } = useQuery({
-    queryKey: ['health-engagement', client.id],
+    queryKey: ['health-engagement', client.id, organization?.id],
     queryFn: () => base44.entities.ClientEngagementMetric.filter({
-      client_id: client.id
+      client_id: client.id,
+      organization_id: organization.id
     }, '-created_date', 500),
-    initialData: []
+    enabled: !!organization?.id,
+    initialData: [],
+    retry: 1
   });
 
   const { data: meetings = [] } = useQuery({
-    queryKey: ['health-meetings', client.id],
+    queryKey: ['health-meetings', client.id, organization?.id],
     queryFn: () => base44.entities.ClientMeeting.filter({
-      client_id: client.id
+      client_id: client.id,
+      organization_id: organization.id
     }),
-    initialData: []
+    enabled: !!organization?.id,
+    initialData: [],
+    retry: 1
   });
 
   const { data: feedbacks = [] } = useQuery({
-    queryKey: ['health-feedback', client.id],
+    queryKey: ['health-feedback', client.id, organization?.id],
     queryFn: () => base44.entities.Feedback.filter({
-      client_id: client.id
+      client_id: client.id,
+      organization_id: organization.id
     }),
-    initialData: []
+    enabled: !!organization?.id,
+    initialData: [],
+    retry: 1
   });
 
   // Calculate comprehensive health metrics

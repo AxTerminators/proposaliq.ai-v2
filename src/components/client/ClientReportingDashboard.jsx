@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -50,46 +51,75 @@ export default function ClientReportingDashboard({ client, currentMember }) {
   const { data: proposals = [] } = useQuery({
     queryKey: ['client-reporting-proposals', client.id],
     queryFn: async () => {
-      const allProposals = await base44.entities.Proposal.list();
-      return allProposals.filter(p => 
-        p.shared_with_client_ids?.includes(client.id) && p.client_view_enabled
-      );
+      try {
+        const allProposals = await base44.entities.Proposal.list();
+        return (allProposals || []).filter(p => 
+          p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) && 
+          p.shared_with_client_ids.includes(client.id) && p.client_view_enabled
+        );
+      } catch (error) {
+        console.error('Error fetching proposals:', error);
+        return [];
+      }
     },
-    initialData: []
+    initialData: [],
+    retry: 1
   });
 
   // Fetch engagement metrics
   const { data: engagementMetrics = [] } = useQuery({
     queryKey: ['client-reporting-engagement', client.id, timeRange],
     queryFn: async () => {
-      const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-      const startDate = moment().subtract(daysBack, 'days').toISOString();
-      
-      const allMetrics = await base44.entities.ClientEngagementMetric.filter({
-        client_id: client.id
-      }, '-created_date', 1000);
-      
-      return allMetrics.filter(m => moment(m.created_date).isAfter(startDate));
+      try {
+        const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+        const startDate = moment().subtract(daysBack, 'days').toISOString();
+        
+        const allMetrics = await base44.entities.ClientEngagementMetric.filter({
+          client_id: client.id
+        }, '-created_date', 1000);
+        
+        return (allMetrics || []).filter(m => m && moment(m.created_date).isAfter(startDate));
+      } catch (error) {
+        console.error('Error fetching engagement metrics:', error);
+        return [];
+      }
     },
-    initialData: []
+    initialData: [],
+    retry: 1
   });
 
   // Fetch meetings
   const { data: meetings = [] } = useQuery({
     queryKey: ['client-reporting-meetings', client.id],
-    queryFn: () => base44.entities.ClientMeeting.filter({
-      client_id: client.id
-    }, '-scheduled_date', 100),
-    initialData: []
+    queryFn: async () => {
+      try {
+        return await base44.entities.ClientMeeting.filter({
+          client_id: client.id
+        }, '-scheduled_date', 100);
+      } catch (error) {
+        console.error('Error fetching meetings:', error);
+        return [];
+      }
+    },
+    initialData: [],
+    retry: 1
   });
 
   // Fetch uploaded files
   const { data: uploadedFiles = [] } = useQuery({
     queryKey: ['client-reporting-files', client.id],
-    queryFn: () => base44.entities.ClientUploadedFile.filter({
-      client_id: client.id
-    }),
-    initialData: []
+    queryFn: async () => {
+      try {
+        return await base44.entities.ClientUploadedFile.filter({
+          client_id: client.id
+        });
+      } catch (error) {
+        console.error('Error fetching files:', error);
+        return [];
+      }
+    },
+    initialData: [],
+    retry: 1
   });
 
   // Calculate summary metrics
@@ -103,12 +133,13 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       sum + (m.time_spent_seconds || 0), 0
     );
     
-    const avgResponseTime = proposals
-      .filter(p => p.client_last_viewed && p.updated_date)
-      .reduce((sum, p) => {
+    const validProposalsForResponseTime = proposals.filter(p => p.client_last_viewed && p.updated_date);
+    const avgResponseTime = validProposalsForResponseTime.length > 0
+      ? validProposalsForResponseTime.reduce((sum, p) => {
         const responseTime = moment(p.client_last_viewed).diff(moment(p.updated_date), 'hours');
         return sum + responseTime;
-      }, 0) / (proposals.filter(p => p.client_last_viewed).length || 1);
+      }, 0) / validProposalsForResponseTime.length
+      : 0;
 
     return {
       totalProposals,
@@ -132,11 +163,13 @@ export default function ClientReportingDashboard({ client, currentMember }) {
       statuses[status] = (statuses[status] || 0) + 1;
     });
     
-    return Object.entries(statuses).map(([status, count]) => ({
+    const data = Object.entries(statuses).map(([status, count]) => ({
       name: status.replace(/_/g, ' ').toUpperCase(),
       value: count,
       percentage: (count / proposals.length) * 100
     }));
+
+    return data.filter(item => item.value > 0); // Filter out statuses with 0 count
   }, [proposals]);
 
   // Engagement over time
@@ -183,7 +216,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
     return proposals
       .filter(p => p.client_last_viewed && p.updated_date)
       .map(p => ({
-        proposal: p.proposal_name.substring(0, 20) + '...',
+        proposal: p.proposal_name ? (p.proposal_name.length > 20 ? p.proposal_name.substring(0, 17) + '...' : p.proposal_name) : 'Untitled Proposal',
         responseHours: moment(p.client_last_viewed).diff(moment(p.updated_date), 'hours')
       }))
       .slice(0, 10);
@@ -316,6 +349,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -336,9 +370,9 @@ export default function ClientReportingDashboard({ client, currentMember }) {
               <CardContent>
                 {responseTimeTrends.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={responseTimeTrends}>
+                    <BarChart data={responseTimeTrends} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="proposal" angle={-45} textAnchor="end" height={100} />
+                      <XAxis dataKey="proposal" angle={-45} textAnchor="end" interval={0} height={100} />
                       <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
                       <Tooltip />
                       <Bar dataKey="responseHours" fill="#3b82f6" name="Response Time (hours)" />
@@ -360,24 +394,32 @@ export default function ClientReportingDashboard({ client, currentMember }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {proposals.map((proposal) => (
-                  <div key={proposal.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border hover:border-blue-300 transition-all">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-slate-900">{proposal.proposal_name}</h4>
-                      <div className="flex items-center gap-3 mt-1 text-sm text-slate-600">
-                        <Badge className="capitalize">
-                          {proposal.status?.replace(/_/g, ' ')}
-                        </Badge>
-                        {proposal.contract_value && (
-                          <span>${(proposal.contract_value / 1000).toFixed(0)}K</span>
-                        )}
-                        {proposal.client_last_viewed && (
-                          <span>Last viewed {moment(proposal.client_last_viewed).fromNow()}</span>
-                        )}
+                {proposals.length > 0 ? (
+                  proposals.map((proposal) => (
+                    <div key={proposal.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border hover:border-blue-300 transition-all">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-slate-900">{proposal.proposal_name || 'Untitled Proposal'}</h4>
+                        <div className="flex items-center gap-3 mt-1 text-sm text-slate-600">
+                          {proposal.status && (
+                            <Badge className="capitalize">
+                              {proposal.status.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                          {proposal.contract_value && (
+                            <span>${(proposal.contract_value / 1000).toFixed(0)}K</span>
+                          )}
+                          {proposal.client_last_viewed && (
+                            <span>Last viewed {moment(proposal.client_last_viewed).fromNow()}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    No proposals found.
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -441,7 +483,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                   <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
                     <span className="text-sm font-medium text-slate-700">Avg Session (min)</span>
                     <span className="text-2xl font-bold text-amber-600">
-                      {(summaryMetrics.totalEngagementHours * 60 / (engagementMetrics.length || 1)).toFixed(1)}
+                      {engagementMetrics.length > 0 ? (summaryMetrics.totalEngagementHours * 60 / engagementMetrics.length).toFixed(1) : 0}
                     </span>
                   </div>
                 </div>
@@ -458,7 +500,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'Views', value: engagementMetrics.filter(m => m.event_type === 'page_view').length },
+                          { name: 'Views', value: engagementMetrics.filter(m => m.event_type === 'page_view' || m.event_type === 'section_view').length },
                           { name: 'Comments', value: engagementMetrics.filter(m => m.event_type === 'comment_added').length },
                           { name: 'Annotations', value: engagementMetrics.filter(m => m.event_type === 'annotation_created').length },
                           { name: 'File Uploads', value: engagementMetrics.filter(m => m.event_type === 'file_uploaded').length }
@@ -475,6 +517,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -516,6 +559,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -537,7 +581,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                     .slice(0, 5)
                     .map((meeting) => (
                       <div key={meeting.id} className="p-3 bg-slate-50 rounded-lg border">
-                        <h4 className="font-medium text-slate-900">{meeting.meeting_title}</h4>
+                        <h4 className="font-medium text-slate-900">{meeting.meeting_title || 'Untitled Meeting'}</h4>
                         <p className="text-sm text-slate-600 mt-1">
                           {moment(meeting.scheduled_date).format('MMM D, YYYY [at] h:mm A')}
                         </p>
@@ -569,7 +613,7 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                   {uploadedFiles.map((file) => (
                     <div key={file.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border">
                       <div className="flex-1">
-                        <h4 className="font-medium text-slate-900">{file.file_name}</h4>
+                        <h4 className="font-medium text-slate-900">{file.file_name || 'Untitled File'}</h4>
                         <div className="flex items-center gap-3 mt-1 text-sm text-slate-600">
                           <span>{(file.file_size / 1024).toFixed(1)} KB</span>
                           <span>•</span>
@@ -582,13 +626,15 @@ export default function ClientReportingDashboard({ client, currentMember }) {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(file.file_url, '_blank')}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
+                      {file.file_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(file.file_url, '_blank')}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -129,7 +130,8 @@ export default function Clients() {
     enabled: !!organization?.id,
   });
 
-  const { data: clientMetrics = {}, isError: isMetricsError } = useQuery({
+  // FIXED: Safer queries with organization_id filters
+  const { data: clientMetrics = {} } = useQuery({
     queryKey: ['client-metrics', organization?.id, clients.map(c => c?.id).filter(Boolean).join(',')],
     queryFn: async () => {
       if (!organization?.id || clients.length === 0) return {};
@@ -137,14 +139,14 @@ export default function Clients() {
       try {
         const metrics = {};
         const clientIds = clients.map(c => c?.id).filter(Boolean);
-
         if (clientIds.length === 0) return {};
 
+        // FIXED: Add organization_id filter to all queries
         const [allProposals, allFeedback, allMeetings, allFiles] = await Promise.all([
-          base44.entities.Proposal.list().catch(() => []),
-          base44.entities.Feedback.filter({ organization_id: organization.id }).catch(() => []),
-          base44.entities.ClientMeeting.list().catch(() => []),
-          base44.entities.ClientUploadedFile.list().catch(() => [])
+          base44.entities.Proposal.filter({ organization_id: organization.id }).catch(() => []),
+          base44.entities.Feedback.filter({ client_id: { $in: clientIds } }).catch(() => []),
+          base44.entities.ClientMeeting.filter({ client_id: { $in: clientIds } }).catch(() => []),
+          base44.entities.ClientUploadedFile.filter({ organization_id: organization.id }).catch(() => [])
         ]);
 
         clientIds.forEach(clientId => {
@@ -748,7 +750,10 @@ function ClientProposals({ client, organization }) {
   const { data: proposals = [] } = useQuery({
     queryKey: ['client-proposals', client.id],
     queryFn: async () => {
-      const allProposals = await base44.entities.Proposal.list();
+      // It's good practice to filter proposals by organization_id if possible
+      // Assuming 'base44.entities.Proposal.list()' fetches all and then we filter.
+      // If the API supports organization_id filtering directly, that would be more efficient.
+      const allProposals = await base44.entities.Proposal.filter({ organization_id: organization.id });
       return allProposals.filter(p =>
         p.shared_with_client_ids && p.shared_with_client_ids.includes(client.id)
       );
@@ -806,7 +811,8 @@ function ClientWorkflows({ client }) {
   const { data: proposals = [] } = useQuery({
     queryKey: ['client-workflow-proposals', client.id],
     queryFn: async () => {
-      const allProposals = await base44.entities.Proposal.list();
+      // Same note as above regarding organization_id filtering for proposals
+      const allProposals = await base44.entities.Proposal.filter({ organization_id: client.organization_id });
       return allProposals.filter(p =>
         p.shared_with_client_ids?.includes(client.id)
       );
