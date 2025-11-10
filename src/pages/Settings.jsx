@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Bell, Save } from "lucide-react";
+import { Building2, User, Bell, Save, FolderTree, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -60,8 +62,12 @@ export default function Settings() {
     phone: ""
   });
 
+  const [isCreatingFolders, setIsCreatingFolders] = useState(false);
+  const [foldersCreated, setFoldersCreated] = useState(false);
+
   useEffect(() => {
     loadData();
+    checkFolderStatus();
   }, []);
 
   const loadData = async () => {
@@ -93,6 +99,53 @@ export default function Settings() {
       }
     } catch (error) {
       console.error("Error loading data:", error);
+    }
+  };
+
+  const checkFolderStatus = async () => {
+    try {
+      const currentUser = await base44.auth.me();
+      const org = await getUserActiveOrganization(currentUser);
+      
+      if (org) {
+        const folders = await base44.entities.Folder.filter({
+          organization_id: org.id,
+          purpose: 'content_library',
+          is_system_folder: true
+        });
+        
+        setFoldersCreated(folders.length > 0);
+      }
+    } catch (error) {
+      console.error("Error checking folder status:", error);
+    }
+  };
+
+  const handleCreateDefaultFolders = async () => {
+    if (!organization) {
+      alert('No organization found');
+      return;
+    }
+
+    setIsCreatingFolders(true);
+    
+    try {
+      const response = await base44.functions.invoke('createDefaultContentLibraryFolders', {
+        organization_id: organization.id
+      });
+
+      if (response.data.success) {
+        alert(`✅ ${response.data.message}\n\n📁 Created ${response.data.folder_count} folders`);
+        setFoldersCreated(true);
+        await checkFolderStatus(); // Re-check status to confirm
+      } else {
+        alert(`⚠️ ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('Error creating folders:', error);
+      alert('❌ Error creating default folders: ' + error.message);
+    } finally {
+      setIsCreatingFolders(false);
     }
   };
 
@@ -152,6 +205,10 @@ export default function Settings() {
           <TabsTrigger value="profile">
             <User className="w-4 h-4 mr-2" />
             Profile
+          </TabsTrigger>
+          <TabsTrigger value="content-library">
+            <FolderTree className="w-4 h-4 mr-2" />
+            Content Library
           </TabsTrigger>
           <TabsTrigger value="notifications">
             <Bell className="w-4 h-4 mr-2" />
@@ -313,6 +370,78 @@ export default function Settings() {
                   <Save className="w-4 h-4 mr-2" />
                   {saving ? "Saving..." : "Save Changes"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="content-library">
+          <Card className="border-none shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderTree className="w-5 h-5 text-blue-600" />
+                Content Library Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-slate-900 mb-2">Default Folder Structure</h3>
+                    <p className="text-sm text-slate-700 mb-4">
+                      Create a comprehensive, industry-neutral folder system for organizing your reusable content. This includes:
+                    </p>
+                    <ul className="text-sm text-slate-700 space-y-1 mb-4">
+                      <li>🏢 Company Information (with Capability Statements)</li>
+                      <li>📋 Proposal Sections (Technical Approaches, Management Plans, etc.)</li>
+                      <li>🏆 Past Performance & Case Studies</li>
+                      <li>🧑‍💼 Key Personnel</li>
+                      <li>🤝 Teaming Partners</li>
+                      <li>⚖️ Admin & Compliance</li>
+                      <li>📈 Marketing & Sales Collateral</li>
+                      <li>📦 General Boilerplate</li>
+                    </ul>
+                    
+                    {foldersCreated ? (
+                      <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <Badge className="bg-green-600">
+                          ✓ Folders Created
+                        </Badge>
+                        <p className="text-sm text-green-800">
+                          Your default folder structure is ready! Visit the Content Library to see it.
+                        </p>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleCreateDefaultFolders}
+                        disabled={isCreatingFolders}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      >
+                        {isCreatingFolders ? (
+                          <>
+                            <div className="animate-spin mr-2">⏳</div>
+                            Creating Folders...
+                          </>
+                        ) : (
+                          <>
+                            <FolderTree className="w-4 h-4 mr-2" />
+                            Create Default Folder Structure
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h4 className="font-semibold text-slate-900 mb-2">💡 Pro Tip</h4>
+                <p className="text-sm text-slate-600">
+                  After creating the folder structure, you can customize it by adding, renaming, or reorganizing folders in the Content Library page. The structure we create is just a starting point!
+                </p>
               </div>
             </CardContent>
           </Card>

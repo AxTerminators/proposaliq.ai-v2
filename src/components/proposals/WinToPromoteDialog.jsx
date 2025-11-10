@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea"; // NEW
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +25,11 @@ import {
   ChevronRight,
   ChevronDown,
   Folder as FolderIcon,
-  Tag
+  Tag,
+  Eye,      // NEW
+  EyeOff,   // NEW
+  Star,     // NEW
+  Edit2     // NEW
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +51,8 @@ export default function WinToPromoteDialog({
   const [sectionMetadata, setSectionMetadata] = useState({});
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [isPromoting, setIsPromoting] = useState(false);
+  const [expandedSections, setExpandedSections] = useState(new Set()); // NEW: Track which sections are expanded
+  const [markAsFavorite, setMarkAsFavorite] = useState({}); // NEW: Track favorite status per section
 
   // Fetch proposal sections
   const { data: sections = [], isLoading: isLoadingSections } = useQuery({
@@ -78,22 +86,26 @@ export default function WinToPromoteDialog({
     if (sections.length > 0) {
       const initialMetadata = {};
       const initialSelection = {};
+      const initialFavorites = {}; // NEW
       
       sections.forEach(section => {
         // Pre-select high-value sections
         const isHighValue = ['executive_summary', 'technical_approach', 'management_plan'].includes(section.section_type);
         initialSelection[section.id] = isHighValue;
+        initialFavorites[section.id] = isHighValue; // NEW: Mark high-value as favorites
         
         initialMetadata[section.id] = {
           title: section.section_name || 'Untitled Section',
           folder_id: null,
           category: mapSectionTypeToCategory(section.section_type),
-          tags: ''
+          tags: '',
+          description: '' // NEW: Add description field
         };
       });
       
       setSelectedSections(initialSelection);
       setSectionMetadata(initialMetadata);
+      setMarkAsFavorite(initialFavorites); // NEW
     }
   }, [sections]);
 
@@ -125,6 +137,27 @@ export default function WinToPromoteDialog({
         ...prev[sectionId],
         [field]: value
       }
+    }));
+  };
+
+  // NEW: Toggle section expansion
+  const toggleSectionExpansion = (sectionId) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      return newSet;
+    });
+  };
+
+  // NEW: Toggle favorite status
+  const toggleFavorite = (sectionId) => {
+    setMarkAsFavorite(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
     }));
   };
 
@@ -207,6 +240,13 @@ export default function WinToPromoteDialog({
       return;
     }
 
+    // NEW: Validate that all selected sections have titles
+    const missingTitles = selectedIds.filter(id => !sectionMetadata[id]?.title?.trim());
+    if (missingTitles.length > 0) {
+      alert('Please provide titles for all selected sections');
+      return;
+    }
+
     setIsPromoting(true);
 
     try {
@@ -225,12 +265,13 @@ export default function WinToPromoteDialog({
           resource_type: 'boilerplate_text',
           content_category: metadata.category,
           title: metadata.title,
-          description: `From winning proposal: ${proposal.proposal_name}`,
+          description: metadata.description || `From winning proposal: ${proposal.proposal_name}`, // NEW: Use custom description
           boilerplate_content: section.content,
           tags: tagsArray,
           word_count: section.word_count || section.content?.split(/\s+/).length || 0,
           usage_count: 0,
-          linked_proposal_ids: [proposal.id]
+          linked_proposal_ids: [proposal.id],
+          is_favorite: markAsFavorite[sectionId] || false // NEW: Set favorite status
         });
       });
 
@@ -293,12 +334,51 @@ export default function WinToPromoteDialog({
               </CardContent>
             </Card>
 
+            {/* NEW: Quick Actions */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const newSelection = {};
+                  sections.forEach(s => newSelection[s.id] = true);
+                  setSelectedSections(newSelection);
+                }}
+              >
+                Select All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const newSelection = {};
+                  sections.forEach(s => newSelection[s.id] = false);
+                  setSelectedSections(newSelection);
+                }}
+              >
+                Deselect All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const newExpanded = new Set();
+                  Object.keys(selectedSections).filter(id => selectedSections[id]).forEach(id => newExpanded.add(id));
+                  setExpandedSections(newExpanded);
+                }}
+              >
+                Expand Selected
+              </Button>
+            </div>
+
             {/* Sections List */}
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {sections.map(section => {
                 const isSelected = selectedSections[section.id];
                 const metadata = sectionMetadata[section.id] || {};
                 const selectedFolder = folders.find(f => f.id === metadata.folder_id);
+                const isExpanded = expandedSections.has(section.id); // NEW
+                const isFavorite = markAsFavorite[section.id]; // NEW
 
                 return (
                   <Card 
@@ -318,15 +398,59 @@ export default function WinToPromoteDialog({
                         
                         <div className="flex-1 space-y-3">
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-slate-900">{section.section_name}</h4>
-                              <Badge variant="outline" className="text-xs">
-                                {section.word_count || section.content?.split(/\s+/).length || 0} words
-                              </Badge>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2 flex-1">
+                                <h4 className="font-semibold text-slate-900">{section.section_name}</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {section.word_count || section.content?.split(/\s+/).length || 0} words
+                                </Badge>
+                                {/* NEW: Favorite star */}
+                                {isSelected && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => toggleFavorite(section.id)}
+                                  >
+                                    <Star className={cn(
+                                      "w-4 h-4",
+                                      isFavorite ? "text-amber-500 fill-amber-500" : "text-slate-400"
+                                    )} />
+                                  </Button>
+                                )}
+                              </div>
+                              {/* NEW: Expand/Collapse button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleSectionExpansion(section.id)}
+                                className="h-7 px-2"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <EyeOff className="w-3 h-3 mr-1" />
+                                    Hide
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    Preview
+                                  </>
+                                )}
+                              </Button>
                             </div>
-                            <p className="text-sm text-slate-600 line-clamp-2">
-                              {section.content?.substring(0, 200)}...
-                            </p>
+                            
+                            {/* NEW: Content preview - only show when expanded */}
+                            {isExpanded ? (
+                              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-700 max-h-40 overflow-y-auto">
+                                {section.content?.substring(0, 500)}
+                                {section.content?.length > 500 && '...'}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-600 line-clamp-2">
+                                {section.content?.substring(0, 200)}...
+                              </p>
+                            )}
                           </div>
 
                           {isSelected && (
@@ -339,6 +463,19 @@ export default function WinToPromoteDialog({
                                   onChange={(e) => updateSectionMetadata(section.id, 'title', e.target.value)}
                                   placeholder="e.g., Standard Technical Approach"
                                   className="text-sm"
+                                />
+                              </div>
+
+                              {/* NEW: Description field */}
+                              <div className="space-y-2">
+                                <Label htmlFor={`description-${section.id}`} className="text-xs">Description (Optional)</Label>
+                                <Textarea
+                                  id={`description-${section.id}`}
+                                  value={metadata.description}
+                                  onChange={(e) => updateSectionMetadata(section.id, 'description', e.target.value)}
+                                  placeholder="When to use this content, what makes it effective..."
+                                  className="text-sm"
+                                  rows={2}
                                 />
                               </div>
 
@@ -401,6 +538,19 @@ export default function WinToPromoteDialog({
                                     className="text-sm"
                                   />
                                 </div>
+                              </div>
+
+                              {/* NEW: Favorite toggle */}
+                              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                                <Checkbox
+                                  id={`favorite-${section.id}`}
+                                  checked={isFavorite}
+                                  onCheckedChange={() => toggleFavorite(section.id)}
+                                />
+                                <Label htmlFor={`favorite-${section.id}`} className="text-sm cursor-pointer flex items-center gap-2">
+                                  <Star className={cn("w-4 h-4", isFavorite && "fill-amber-500 text-amber-500")} />
+                                  Mark as favorite for quick access
+                                </Label>
                               </div>
                             </div>
                           )}

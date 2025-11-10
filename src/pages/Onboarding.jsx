@@ -130,6 +130,17 @@ export default function Onboarding() {
         organization_id: createdOrg.id
       });
 
+      // NEW: Create default Content Library folders
+      try {
+        await base44.functions.invoke('createDefaultContentLibraryFolders', {
+          organization_id: createdOrg.id
+        });
+        console.log('[Onboarding] ✅ Default Content Library folders created');
+      } catch (error) {
+        console.error('[Onboarding] Error creating default folders:', error);
+        // Don't fail the whole onboarding if folder creation fails
+      }
+
       // Update user flags to indicate they've created their real organization
       await base44.auth.updateMe({
         has_created_real_organization: true,

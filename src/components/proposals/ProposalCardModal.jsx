@@ -52,6 +52,7 @@ import EvaluationModal from "./modals/EvaluationModal";
 import WinStrategyModal from "./modals/WinStrategyModal";
 import ContentPlanningModal from "./modals/ContentPlanningModal";
 import PricingReviewModal from "./modals/PricingReviewModal";
+import WinToPromoteDialog from "./WinToPromoteDialog";
 
 import {
   Select,
@@ -68,6 +69,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const [activeTab, setActiveTab] = useState("checklist");
   const [user, setUser] = useState(null);
   const [activeModalName, setActiveModalName] = useState(null);
+  const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
+  const [previousStatus, setPreviousStatus] = useState(null);
 
   // Map modal component names to actual components
   const MODAL_COMPONENTS = {
@@ -180,6 +183,13 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     console.log('[ProposalCardModal] 🎭 activeModalName changed to:', activeModalName);
   }, [activeModalName]);
 
+  // Track status changes to detect "won" transitions
+  useEffect(() => {
+    if (isOpen && proposal) {
+      setPreviousStatus(proposal.status);
+    }
+  }, [isOpen, proposal?.id, proposal?.status]); // Added proposal?.status to dependency array to ensure it tracks changes
+
   // Fetch all boards for reassignment
   const { data: allBoards = [] } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
@@ -212,8 +222,22 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     mutationFn: async (updates) => {
       return base44.entities.Proposal.update(proposal.id, updates);
     },
-    onSuccess: () => {
+    onSuccess: (updatedProposal) => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      
+      // NEW: Check if status changed to "won"
+      const statusChangedToWon = previousStatus !== 'won' && updatedProposal.status === 'won';
+      
+      if (statusChangedToWon) {
+        console.log('[ProposalCardModal] 🎉 Status changed to won! Showing promote dialog...');
+        // Small delay to ensure UI updates
+        setTimeout(() => {
+          setShowWinPromoteDialog(true);
+        }, 500);
+      }
+      
+      // Update previous status tracker
+      setPreviousStatus(updatedProposal.status);
     }
   });
 
@@ -949,6 +973,16 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       </Dialog>
 
       {renderActiveModal()}
+      
+      {/* NEW: Win to Promote Dialog for manual status changes */}
+      {showWinPromoteDialog && (
+        <WinToPromoteDialog
+          isOpen={showWinPromoteDialog}
+          onClose={() => setShowWinPromoteDialog(false)}
+          proposal={proposal}
+          organization={organization}
+        />
+      )}
     </>
   );
 }
