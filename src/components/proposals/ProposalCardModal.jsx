@@ -158,6 +158,21 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     loadUser();
   }, []);
 
+  // NEW: Fetch shared clients for this proposal
+  const { data: sharedClients = [] } = useQuery({
+    queryKey: ['proposal-modal-shared-clients', proposal.id],
+    queryFn: async () => {
+      if (!proposal.shared_with_client_ids || proposal.shared_with_client_ids.length === 0) {
+        return [];
+      }
+      
+      const allClients = await base44.entities.Client.list();
+      return allClients.filter(c => proposal.shared_with_client_ids.includes(c.id));
+    },
+    enabled: !!proposal.shared_with_client_ids && proposal.shared_with_client_ids.length > 0 && isOpen,
+    staleTime: 60000
+  });
+
   // Auto-open the initial modal if specified
   useEffect(() => {
     if (isOpen && initialModalToOpen) {
@@ -608,6 +623,39 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                     </div>
                   )}
                 </div>
+
+                {/* NEW: Shared Clients Section */}
+                {sharedClients.length > 0 && (
+                  <div className="mt-3 p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="w-4 h-4 text-purple-700" />
+                      <span className="text-sm font-semibold text-purple-900">
+                        Shared with {sharedClients.length} client{sharedClients.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {sharedClients.map(client => (
+                        <div 
+                          key={client.id}
+                          className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-purple-200"
+                        >
+                          <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                            {client.client_name?.charAt(0) || 'C'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{client.client_name}</p>
+                            <p className="text-xs text-slate-500">{client.contact_email}</p>
+                          </div>
+                          {client.engagement_score && (
+                            <Badge className="bg-purple-100 text-purple-700 text-xs ml-2">
+                              {client.engagement_score}% engaged
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {allBoards.length > 1 && (
                   <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">

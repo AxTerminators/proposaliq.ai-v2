@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -13,7 +12,8 @@ import {
   TrendingUp,
   Clock,
   Target,
-  Check
+  Check,
+  Building2
 } from "lucide-react";
 import moment from "moment";
 
@@ -36,6 +36,21 @@ export default function KanbanCard({
       });
     },
     staleTime: 30000
+  });
+
+  // NEW: Fetch shared clients for this proposal
+  const { data: sharedClients = [] } = useQuery({
+    queryKey: ['proposal-shared-clients', proposal.id],
+    queryFn: async () => {
+      if (!proposal.shared_with_client_ids || proposal.shared_with_client_ids.length === 0) {
+        return [];
+      }
+      
+      const allClients = await base44.entities.Client.list();
+      return allClients.filter(c => proposal.shared_with_client_ids.includes(c.id));
+    },
+    enabled: !!proposal.shared_with_client_ids && proposal.shared_with_client_ids.length > 0,
+    staleTime: 60000
   });
 
   // Calculate completion
@@ -133,6 +148,29 @@ export default function KanbanCard({
 
       {/* Stats Row */}
       <div className="space-y-2">
+        {/* NEW: Shared Clients */}
+        {sharedClients.length > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <Building2 className="w-3 h-3 text-purple-600" />
+            <div className="flex items-center gap-1 flex-wrap">
+              {sharedClients.slice(0, 2).map((client, idx) => (
+                <Badge 
+                  key={client.id} 
+                  className="bg-purple-100 text-purple-700 text-xs h-5"
+                  title={client.client_name}
+                >
+                  {client.client_name}
+                </Badge>
+              ))}
+              {sharedClients.length > 2 && (
+                <Badge className="bg-purple-100 text-purple-700 text-xs h-5">
+                  +{sharedClients.length - 2} more
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Due Date */}
         {proposal.due_date && (
           <div className={cn(
