@@ -52,6 +52,7 @@ import {
 import AdvancedFilterPanel from "./AdvancedFilterPanel";
 import GlobalSearch from "./GlobalSearch";
 import BulkActionsPanel from "./BulkActionsPanel";
+import WinToPromoteDialog from "./WinToPromoteDialog";
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -92,6 +93,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [advancedFilteredProposals, setAdvancedFilteredProposals] = useState(null);
   const [selectedProposalIds, setSelectedProposalIds] = useState([]);
+  const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
+  const [winningProposal, setWinningProposal] = useState(null);
 
   // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
@@ -555,6 +558,21 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       const otherUpdatesInDestColumn = batchOrderUpdates.filter(u => u.proposalId !== proposal.id);
       if (otherUpdatesInDestColumn.length > 0) {
         await Promise.all(otherUpdatesInDestColumn.map(item => updateProposalMutation.mutateAsync(item)));
+      }
+
+      // **NEW: Check if moved from submitted to won - trigger promote dialog**
+      const isMovingToWon = (
+        (sourceColumn.default_status_mapping === 'submitted' || sourceColumn.status_mapping?.includes('submitted')) &&
+        (destinationColumn.default_status_mapping === 'won' || destinationColumn.status_mapping?.includes('won'))
+      );
+
+      if (isMovingToWon) {
+        console.log('[Kanban] 🎉 Proposal won! Showing promote dialog...');
+        // Small delay to ensure UI updates, then show dialog
+        setTimeout(() => {
+          setWinningProposal(proposal);
+          setShowWinPromoteDialog(true);
+        }, 500);
       }
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
@@ -1327,6 +1345,19 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         organization={organization}
         preselectedType={kanbanConfig?.applies_to_proposal_types?.[0] || null}
       />
+
+      {/* **NEW: Win to Promote Dialog** */}
+      {showWinPromoteDialog && winningProposal && (
+        <WinToPromoteDialog
+          isOpen={showWinPromoteDialog}
+          onClose={() => {
+            setShowWinPromoteDialog(false);
+            setWinningProposal(null);
+          }}
+          proposal={winningProposal}
+          organization={organization}
+        />
+      )}
     </div>
   );
 }
