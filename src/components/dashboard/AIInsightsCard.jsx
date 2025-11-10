@@ -193,7 +193,7 @@ export default function AIInsightsCard({ proposals = [], opportunities = [], use
     setLoading(false);
   }, [proposals, opportunities]);
 
-  // FIXED: Stabilize the effect to prevent infinite loops
+  // FIXED: Remove generateBasicInsights from dependency array to prevent infinite loop
   useEffect(() => {
     if (proposals.length > 0 || opportunities.length > 0) {
       generateBasicInsights();
@@ -209,7 +209,7 @@ export default function AIInsightsCard({ proposals = [], opportunities = [], use
         priority: "low"
       }]);
     }
-  }, [proposals.length, opportunities.length, generateBasicInsights]); // Only re-run when array lengths change
+  }, [proposals.length, opportunities.length]); // Removed generateBasicInsights from dependencies
 
   const runAIInsightAnalysis = async () => {
     if (proposals.length < 3) {
