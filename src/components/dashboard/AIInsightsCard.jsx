@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,24 +35,7 @@ export default function AIInsightsCard({ proposals = [], opportunities = [], use
   const [aiInsights, setAiInsights] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (proposals.length > 0 || opportunities.length > 0) {
-      generateBasicInsights();
-    } else {
-      setInsights([{
-        type: "info",
-        icon: Sparkles,
-        title: "No Data Yet",
-        description: "Start adding proposals to see AI insights.",
-        actionText: "Get Started",
-        actionUrl: createPageUrl("Dashboard"),
-        color: "blue",
-        priority: "low"
-      }]);
-    }
-  }, [proposals, opportunities]);
-
-  const generateBasicInsights = () => {
+  const generateBasicInsights = useCallback(() => {
     setLoading(true);
     const newInsights = [];
 
@@ -208,7 +191,24 @@ export default function AIInsightsCard({ proposals = [], opportunities = [], use
 
     setInsights(newInsights.slice(0, 3));
     setLoading(false);
-  };
+  }, [proposals, opportunities]);
+
+  useEffect(() => {
+    if (proposals.length > 0 || opportunities.length > 0) {
+      generateBasicInsights();
+    } else {
+      setInsights([{
+        type: "info",
+        icon: Sparkles,
+        title: "No Data Yet",
+        description: "Start adding proposals to see AI insights.",
+        actionText: "Get Started",
+        actionUrl: createPageUrl("Dashboard"),
+        color: "blue",
+        priority: "low"
+      }]);
+    }
+  }, [proposals, opportunities, generateBasicInsights]);
 
   const runAIInsightAnalysis = async () => {
     if (proposals.length < 3) {
