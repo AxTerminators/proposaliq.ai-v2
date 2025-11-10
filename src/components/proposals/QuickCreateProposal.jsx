@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -96,6 +95,19 @@ const PROPOSAL_TYPES = [
     avgDuration: '30-60 days',
     complexity: 'Variable'
   }
+];
+
+// Standard proposal sections that will be created as placeholders
+const DEFAULT_PROPOSAL_SECTIONS = [
+  { id: "executive_summary", name: "Executive Summary", section_type: "executive_summary", order: 0 },
+  { id: "technical_approach", name: "Technical Approach", section_type: "technical_approach", order: 1 },
+  { id: "management_plan", name: "Management Plan", section_type: "management_plan", order: 2 },
+  { id: "past_performance", name: "Past Performance", section_type: "past_performance", order: 3 },
+  { id: "key_personnel", name: "Key Personnel", section_type: "key_personnel", order: 4 },
+  { id: "corporate_experience", name: "Corporate Experience", section_type: "corporate_experience", order: 5 },
+  { id: "quality_assurance", name: "Quality Assurance", section_type: "quality_assurance", order: 6 },
+  { id: "transition_plan", name: "Transition Plan", section_type: "transition_plan", order: 7 },
+  { id: "pricing", name: "Pricing", section_type: "pricing", order: 8 }
 ];
 
 export default function QuickCreateProposal({ 
@@ -234,11 +246,30 @@ export default function QuickCreateProposal({
       
       console.log('[QuickCreate] ✅ Proposal created:', proposal.id);
 
+      // **NEW: Auto-generate placeholder sections for this proposal**
+      console.log('[QuickCreate] 📝 Auto-generating placeholder sections...');
+      
+      const sectionsToCreate = DEFAULT_PROPOSAL_SECTIONS.map(section => ({
+        proposal_id: proposal.id,
+        section_name: section.name,
+        section_type: section.section_type,
+        content: '', // Empty placeholder
+        word_count: 0,
+        order: section.order,
+        status: 'draft'
+      }));
+
+      // Bulk create all sections at once
+      await base44.entities.ProposalSection.bulkCreate(sectionsToCreate);
+      
+      console.log('[QuickCreate] ✅ Created', sectionsToCreate.length, 'placeholder sections');
+
       return { proposal, targetBoard };
     },
     onSuccess: async ({ proposal, targetBoard }) => {
       await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      await queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposal.id] }); // NEW: Invalidate sections cache
       
       await queryClient.refetchQueries({ 
         queryKey: ['all-kanban-boards'],
@@ -371,6 +402,7 @@ export default function QuickCreateProposal({
                 <p className="font-semibold mb-1">What happens next?</p>
                 <ul className="space-y-1 text-xs">
                   <li>✓ Your proposal will be created and added to the appropriate board</li>
+                  <li>✓ Standard sections will be auto-generated as placeholders</li>
                   <li>✓ You'll be taken to the Pipeline where you can see it</li>
                   <li>✓ You can add more details anytime by opening the proposal card</li>
                   <li>✓ The board will guide you through your workflow automatically</li>
