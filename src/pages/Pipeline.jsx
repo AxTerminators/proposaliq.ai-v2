@@ -19,6 +19,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter, // Added DialogFooter import
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -1238,7 +1239,7 @@ export default function Pipeline() {
             ))}
           </div>
 
-          <div className="flex justify-end pt-4 border-t">
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setShowCreateBoardDialog(false)}>
               Cancel
             </Button>
