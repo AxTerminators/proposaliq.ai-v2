@@ -44,6 +44,30 @@ import ClientReportingDashboard from "../components/client/ClientReportingDashbo
 import EnhancedClientHealthMonitor from "../components/client/EnhancedClientHealthMonitor";
 import { useOrganization } from "../components/layout/OrganizationContext";
 
+// Placeholder import - this component was mentioned in ClientWorkflows but not provided.
+// It's crucial for the code to compile, so adding a basic placeholder.
+// In a real application, you'd replace this with the actual component.
+function ReviewWorkflowBuilder({ proposal, client, teamMembers }) {
+  if (!proposal) return null;
+  return (
+    <Card className="border-none shadow-lg">
+      <CardHeader>
+        <CardTitle>Review Workflow for {proposal.proposal_name}</CardTitle>
+        <DialogDescription>
+          Build and manage the approval workflow for this proposal.
+        </DialogDescription>
+      </CardHeader>
+      <CardContent className="text-center py-8 text-slate-500">
+        <p>Review Workflow Builder functionality goes here.</p>
+        <p>Proposal: {proposal.proposal_name}</p>
+        <p>Client: {client.client_name}</p>
+        <p>Team Members: {teamMembers.length}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 async function getUserActiveOrganization(user) {
   if (!user) return null;
   let orgId = null;
@@ -130,54 +154,62 @@ export default function Clients() {
   });
 
   // NEW: Fetch aggregated data for client cards
-  const { data: clientMetrics = {} } = useQuery({
-    queryKey: ['client-metrics', organization?.id, clients.map(c => c.id).join(',')],
+  const { data: clientMetrics = {}, isError: isMetricsError } = useQuery({
+    queryKey: ['client-metrics', organization?.id, clients.map(c => c?.id).filter(Boolean).join(',')],
     queryFn: async () => {
       if (!organization?.id || clients.length === 0) return {};
-      
-      const metrics = {};
-      const clientIds = clients.map(c => c.id);
-      
-      // Fetch all data in parallel
-      const [allProposals, allFeedback, allMeetings, allFiles] = await Promise.all([
-        base44.entities.Proposal.list(),
-        base44.entities.Feedback.filter({ organization_id: organization.id }),
-        base44.entities.ClientMeeting.list(),
-        base44.entities.ClientUploadedFile.list()
-      ]);
-      
-      // Calculate metrics for each client
-      clientIds.forEach(clientId => {
-        const sharedProposals = allProposals.filter(p => 
-          p.shared_with_client_ids && p.shared_with_client_ids.includes(clientId)
-        );
-        const clientFeedback = allFeedback.filter(f => f.client_id === clientId);
-        const clientMeetings = allMeetings.filter(m => m.client_id === clientId);
-        const clientFiles = allFiles.filter(f => f.client_id === clientId);
-        
-        const unresolvedFeedback = clientFeedback.filter(f => 
-          !['resolved', 'closed'].includes(f.status)
-        );
-        
-        const upcomingMeetings = clientMeetings.filter(m => 
-          m.status === 'scheduled' && new Date(m.scheduled_date) > new Date()
-        );
-        
-        const unreviewedFiles = clientFiles.filter(f => !f.viewed_by_consultant);
-        
-        metrics[clientId] = {
-          proposalsCount: sharedProposals.length,
-          unresolvedFeedbackCount: unresolvedFeedback.length,
-          upcomingMeetingsCount: upcomingMeetings.length,
-          unreviewedFilesCount: unreviewedFiles.length,
-          totalFilesCount: clientFiles.length
-        };
-      });
-      
-      return metrics;
+
+      try {
+        const metrics = {};
+        const clientIds = clients.map(c => c?.id).filter(Boolean);
+
+        if (clientIds.length === 0) return {};
+
+        // Fetch all data in parallel with error handling
+        const [allProposals, allFeedback, allMeetings, allFiles] = await Promise.all([
+          base44.entities.Proposal.list().catch(() => []),
+          base44.entities.Feedback.filter({ organization_id: organization.id }).catch(() => []),
+          base44.entities.ClientMeeting.list().catch(() => []),
+          base44.entities.ClientUploadedFile.list().catch(() => [])
+        ]);
+
+        // Calculate metrics for each client
+        clientIds.forEach(clientId => {
+          const sharedProposals = (allProposals || []).filter(p =>
+            p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) && p.shared_with_client_ids.includes(clientId)
+          );
+          const clientFeedback = (allFeedback || []).filter(f => f?.client_id === clientId);
+          const clientMeetings = (allMeetings || []).filter(m => m?.client_id === clientId);
+          const clientFiles = (allFiles || []).filter(f => f?.client_id === clientId);
+
+          const unresolvedFeedback = clientFeedback.filter(f =>
+            f && !['resolved', 'closed'].includes(f.status)
+          );
+
+          const upcomingMeetings = clientMeetings.filter(m =>
+            m && m.status === 'scheduled' && new Date(m.scheduled_date) > new Date()
+          );
+
+          const unreviewedFiles = clientFiles.filter(f => f && !f.viewed_by_consultant);
+
+          metrics[clientId] = {
+            proposalsCount: sharedProposals.length,
+            unresolvedFeedbackCount: unresolvedFeedback.length,
+            upcomingMeetingsCount: upcomingMeetings.length,
+            unreviewedFilesCount: unreviewedFiles.length,
+            totalFilesCount: clientFiles.length
+          };
+        });
+
+        return metrics;
+      } catch (error) {
+        console.error('Error calculating client metrics:', error);
+        return {};
+      }
     },
     enabled: !!organization?.id && clients.length > 0,
-    staleTime: 30000
+    staleTime: 30000,
+    retry: 1
   });
 
   const createClientMutation = useMutation({
@@ -256,7 +288,7 @@ export default function Clients() {
 
   const handleViewPortal = (client, e) => {
     e.stopPropagation();
-    
+
     if (client.access_token) {
       navigate(createPageUrl(`ClientPortal?token=${client.access_token}`));
     } else {
@@ -421,7 +453,7 @@ export default function Clients() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClients.map((client) => {
             const metrics = clientMetrics[client.id] || {};
-            
+
             return (
               <Card
                 key={client.id}
@@ -725,7 +757,7 @@ function ClientOverview({ client, onEdit, metrics = {} }) {
               <div className="text-sm text-orange-700">Open Feedback</div>
             </div>
           </div>
-          
+
           {metrics.unreviewedFilesCount > 0 && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <div className="flex items-center gap-2 text-amber-900">

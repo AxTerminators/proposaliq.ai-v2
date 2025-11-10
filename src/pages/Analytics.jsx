@@ -5,8 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, DollarSign, Target, Award, Calendar, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button"; // New import
-import { Badge } from "@/components/ui/badge"; // New import
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import RevenueChart from "../components/dashboard/RevenueChart";
 
 // Helper function to get user's active organization
@@ -71,6 +71,12 @@ export default function Analytics() {
     enabled: !!organization?.id,
   });
 
+  // FIXED: Check demo_view_mode for demo accounts
+  const effectiveOrgType = organization?.organization_type === 'demo'
+    ? organization?.demo_view_mode
+    : organization?.organization_type;
+  const isConsultancy = effectiveOrgType === 'consultancy';
+
   // NEW: Fetch clients for consultant analytics
   const { data: allClients = [] } = useQuery({
     queryKey: ['analytics-clients', organization?.id],
@@ -78,7 +84,7 @@ export default function Analytics() {
       if (!organization?.id) return [];
       return base44.entities.Client.filter({ organization_id: organization.id });
     },
-    enabled: !!organization?.id && organization?.organization_type === 'consultancy',
+    enabled: !!organization?.id && isConsultancy,
     staleTime: 60000
   });
 
@@ -150,11 +156,6 @@ export default function Analytics() {
       </div>
     );
   }
-
-  const effectiveOrgType = organization.organization_type === 'demo'
-    ? organization.demo_view_mode
-    : organization.organization_type;
-  const isConsultancy = effectiveOrgType === 'consultancy';
 
   return (
     <div className="p-6 lg:p-8 space-y-6">

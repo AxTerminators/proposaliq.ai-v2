@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -14,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label"; // Ensure Label is imported if used
+import { Label } from "@/components/ui/label";
 import {
   X,
   Edit2,
@@ -83,39 +82,46 @@ export default function LibraryItemDetailView({
     }
   }, [item, isOpen]);
 
-  // NEW: Fetch usage data - which proposals and clients used this content
+  // FIXED: Only query if item actually has linked_proposal_ids (ProposalResource only)
   const { data: usageData = { proposals: [], clients: [] } } = useQuery({
     queryKey: ['library-item-usage', item?.id, item?._entityType],
     queryFn: async () => {
-      if (!item || !item.linked_proposal_ids || item.linked_proposal_ids.length === 0) {
+      // Only ProposalResource has linked_proposal_ids
+      if (!item || item._entityType !== 'ProposalResource' || !item.linked_proposal_ids || item.linked_proposal_ids.length === 0) {
         return { proposals: [], clients: [] };
       }
       
-      // Fetch proposals where this was used
-      const allProposals = await base44.entities.Proposal.list();
-      const linkedProposals = allProposals.filter(p => 
-        item.linked_proposal_ids.includes(p.id)
-      );
-      
-      // Extract unique client IDs from those proposals
-      const clientIdsSet = new Set();
-      linkedProposals.forEach(p => {
-        if (p.shared_with_client_ids) {
-          p.shared_with_client_ids.forEach(cid => clientIdsSet.add(cid));
+      try {
+        // Fetch proposals where this was used
+        const allProposals = await base44.entities.Proposal.list();
+        const linkedProposals = allProposals.filter(p => 
+          item.linked_proposal_ids.includes(p.id)
+        );
+        
+        // Extract unique client IDs from those proposals
+        const clientIdsSet = new Set();
+        linkedProposals.forEach(p => {
+          if (p.shared_with_client_ids && Array.isArray(p.shared_with_client_ids)) {
+            p.shared_with_client_ids.forEach(cid => clientIdsSet.add(cid));
+          }
+        });
+        
+        // Fetch client data
+        let clients = [];
+        if (clientIdsSet.size > 0) {
+          const allClients = await base44.entities.Client.list();
+          clients = allClients.filter(c => clientIdsSet.has(c.id));
         }
-      });
-      
-      // Fetch client data
-      let clients = [];
-      if (clientIdsSet.size > 0) {
-        const allClients = await base44.entities.Client.list();
-        clients = allClients.filter(c => clientIdsSet.has(c.id));
+        
+        return { proposals: linkedProposals, clients };
+      } catch (error) {
+        console.error('Error fetching usage data:', error);
+        return { proposals: [], clients: [] };
       }
-      
-      return { proposals: linkedProposals, clients };
     },
-    enabled: isOpen && !!item && !!item.linked_proposal_ids && item.linked_proposal_ids.length > 0,
-    staleTime: 30000
+    enabled: isOpen && !!item && item._entityType === 'ProposalResource',
+    staleTime: 30000,
+    retry: 1
   });
 
   const updateItemMutation = useMutation({
@@ -162,8 +168,7 @@ export default function LibraryItemDetailView({
       description: editedDescription
     };
 
-    // Only update fields that exist on this entity type
-    if (item._entityType === 'ProposalResource' && item.boilerplate_content !== undefined) { // Check for undefined to ensure field exists
+    if (item._entityType === 'ProposalResource' && item.boilerplate_content !== undefined) {
       updateData.boilerplate_content = editedContent;
       updateData.word_count = editedContent.split(/\s+/).length;
     }
@@ -242,7 +247,7 @@ export default function LibraryItemDetailView({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 space-y-4 py-4"> {/* Removed overflow-y-auto from here */}
+        <div className="flex-1 space-y-4 py-4">
           {/* Metadata */}
           <div className="grid grid-cols-3 gap-4">
             <Card className="border-none bg-slate-50">
@@ -361,66 +366,66 @@ export default function LibraryItemDetailView({
               )}
             </div>
           )}
-        </div>
 
-        {/* NEW: Usage Information Section */}
-        {item && item.usage_count > 0 && (
-          <div className="mt-6 pt-6 border-t">
-            <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-              Usage Statistics
-            </h4>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-blue-50 p-3 rounded-lg text-center">
-                <div className="text-2xl font-bold text-blue-900">{item.usage_count || 0}</div>
-                <div className="text-xs text-blue-700">Times Used</div>
+          {/* FIXED: Only show usage stats for ProposalResource with actual usage */}
+          {item._entityType === 'ProposalResource' && item.usage_count > 0 && (
+            <div className="mt-6 pt-6 border-t">
+              <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                Usage Statistics
+              </h4>
+              
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-blue-50 p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-blue-900">{item.usage_count || 0}</div>
+                  <div className="text-xs text-blue-700">Times Used</div>
+                </div>
+                <div className="bg-purple-50 p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-purple-900">{usageData?.proposals?.length || 0}</div>
+                  <div className="text-xs text-purple-700">Proposals</div>
+                </div>
+                <div className="bg-pink-50 p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-pink-900">{usageData?.clients?.length || 0}</div>
+                  <div className="text-xs text-pink-700">Clients</div>
+                </div>
               </div>
-              <div className="bg-purple-50 p-3 rounded-lg text-center">
-                <div className="text-2xl font-bold text-purple-900">{usageData.proposals.length}</div>
-                <div className="text-xs text-purple-700">Proposals</div>
-              </div>
-              <div className="bg-pink-50 p-3 rounded-lg text-center">
-                <div className="text-2xl font-bold text-pink-900">{usageData.clients.length}</div>
-                <div className="text-xs text-pink-700">Clients</div>
-              </div>
+
+              {/* Client List */}
+              {usageData?.clients?.length > 0 && (
+                <div className="mt-4">
+                  <h5 className="text-sm font-medium text-slate-700 mb-2">Shared with Clients:</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {usageData.clients.map(client => (
+                      <Badge key={client.id} className="bg-purple-100 text-purple-700">
+                        {client.client_name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Proposal List */}
+              {usageData?.proposals?.length > 0 && (
+                <div className="mt-4">
+                  <h5 className="text-sm font-medium text-slate-700 mb-2">Used in Proposals:</h5>
+                  <div className="space-y-2">
+                    {usageData.proposals.slice(0, 5).map(proposal => (
+                      <div key={proposal.id} className="text-sm text-slate-600 flex items-center gap-2">
+                        <FileText className="w-3 h-3" />
+                        {proposal.proposal_name}
+                      </div>
+                    ))}
+                    {usageData.proposals.length > 5 && (
+                      <div className="text-xs text-slate-500">
+                        +{usageData.proposals.length - 5} more proposals
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Client List */}
-            {usageData.clients.length > 0 && (
-              <div className="mt-4">
-                <h5 className="text-sm font-medium text-slate-700 mb-2">Shared with Clients:</h5>
-                <div className="flex flex-wrap gap-2">
-                  {usageData.clients.map(client => (
-                    <Badge key={client.id} className="bg-purple-100 text-purple-700">
-                      {client.client_name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Proposal List */}
-            {usageData.proposals.length > 0 && (
-              <div className="mt-4">
-                <h5 className="text-sm font-medium text-slate-700 mb-2">Used in Proposals:</h5>
-                <div className="space-y-2">
-                  {usageData.proposals.slice(0, 5).map(proposal => (
-                    <div key={proposal.id} className="text-sm text-slate-600 flex items-center gap-2">
-                      <FileText className="w-3 h-3" />
-                      {proposal.proposal_name}
-                    </div>
-                  ))}
-                  {usageData.proposals.length > 5 && (
-                    <div className="text-xs text-slate-500">
-                      +{usageData.proposals.length - 5} more proposals
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="flex gap-2">
