@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -107,7 +108,8 @@ const DEFAULT_PROPOSAL_SECTIONS = [
   { id: "corporate_experience", name: "Corporate Experience", section_type: "corporate_experience", order: 5 },
   { id: "quality_assurance", name: "Quality Assurance", section_type: "quality_assurance", order: 6 },
   { id: "transition_plan", name: "Transition Plan", section_type: "transition_plan", order: 7 },
-  { id: "pricing", name: "Pricing", section_type: "pricing", order: 8 }
+  { id: "pricing", name: "Pricing", section_type: "pricing", order: 8 },
+  { id: "other", name: "Other", section_type: "other", order: 9 }
 ];
 
 export default function QuickCreateProposal({ 
