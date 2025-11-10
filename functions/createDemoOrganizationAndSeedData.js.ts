@@ -655,6 +655,393 @@ Deno.serve(async (req) => {
       console.log('[CreateDemoOrg] ✅ Proposals shared with clients');
     }
 
+    // 10d. Create Client Engagement Metrics
+    if (createdProposals.length > 0 && createdClients.length > 0) {
+      const activeClients = createdClients.filter(c => c.relationship_status === 'active');
+      
+      for (const client of activeClients) {
+        const clientProposals = createdProposals.slice(0, 2); // First 2 proposals
+        
+        for (const proposal of clientProposals) {
+          // Create various engagement events
+          const engagementEvents = [
+            {
+              event_type: 'page_view',
+              time_spent_seconds: 180,
+              session_id: crypto.randomUUID()
+            },
+            {
+              event_type: 'section_view',
+              section_name: 'Executive Summary',
+              time_spent_seconds: 120,
+              scroll_depth_percent: 100,
+              session_id: crypto.randomUUID()
+            },
+            {
+              event_type: 'section_view',
+              section_name: 'Technical Approach',
+              time_spent_seconds: 240,
+              scroll_depth_percent: 85,
+              session_id: crypto.randomUUID()
+            },
+            {
+              event_type: 'comment_added',
+              session_id: crypto.randomUUID()
+            },
+            {
+              event_type: 'annotation_created',
+              session_id: crypto.randomUUID()
+            }
+          ];
+
+          for (const event of engagementEvents) {
+            await base44.asServiceRole.entities.ClientEngagementMetric.create({
+              client_id: client.id,
+              proposal_id: proposal.id,
+              organization_id: demoOrg.id,
+              ...event,
+              device_type: 'desktop',
+              browser: 'Chrome',
+              is_first_visit: false
+            });
+          }
+        }
+      }
+
+      console.log('[CreateDemoOrg] ✅ Client engagement metrics created');
+    }
+
+    // 10e. Create Client Meetings
+    if (createdClients.length > 0) {
+      const mainClient = createdClients[0];
+      
+      const meetings = [
+        {
+          meeting_title: 'Proposal Kickoff Meeting',
+          meeting_type: 'kickoff',
+          scheduled_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          duration_minutes: 60,
+          meeting_link: 'https://zoom.us/j/123456789',
+          agenda: 'Review proposal scope, timeline, and team roles. Discuss win themes and competitive positioning.',
+          organized_by: owner_email,
+          status: 'scheduled',
+          attendees: [
+            {
+              name: mainClient.contact_name,
+              email: mainClient.contact_email,
+              role: 'Client Lead',
+              is_required: true,
+              rsvp_status: 'accepted'
+            },
+            {
+              name: 'Demo User',
+              email: owner_email,
+              role: 'Consultant',
+              is_required: true,
+              rsvp_status: 'accepted'
+            }
+          ]
+        },
+        {
+          meeting_title: 'Technical Approach Review',
+          meeting_type: 'review',
+          scheduled_date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days ago
+          duration_minutes: 90,
+          organized_by: owner_email,
+          status: 'completed',
+          attendees: [
+            {
+              name: mainClient.contact_name,
+              email: mainClient.contact_email,
+              role: 'Client Lead',
+              rsvp_status: 'accepted'
+            }
+          ],
+          has_notes: true,
+          action_items_count: 3
+        },
+        {
+          meeting_title: 'Q&A Session - Pricing Discussion',
+          meeting_type: 'q_and_a',
+          scheduled_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+          duration_minutes: 45,
+          meeting_link: 'https://teams.microsoft.com/l/meetup-join/example',
+          organized_by: owner_email,
+          status: 'completed',
+          attendees: [
+            {
+              name: mainClient.contact_name,
+              email: mainClient.contact_email,
+              role: 'Client Lead',
+              rsvp_status: 'accepted'
+            }
+          ],
+          has_notes: true
+        }
+      ];
+
+      for (const meeting of meetings) {
+        await base44.asServiceRole.entities.ClientMeeting.create({
+          ...meeting,
+          client_id: mainClient.id,
+          organization_id: demoOrg.id,
+          proposal_id: createdProposals[0]?.id
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Client meetings created');
+    }
+
+    // 10f. Create Client Uploaded Files
+    if (createdClients.length > 0 && createdProposals.length > 0) {
+      const mainClient = createdClients[0];
+      const mainProposal = createdProposals[0];
+      
+      const uploadedFiles = [
+        {
+          file_name: 'Requirements_Document_v2.pdf',
+          file_url: 'https://placehold.co/600x400/png?text=Requirements+Doc',
+          file_size: 2457600, // 2.4 MB
+          file_type: 'application/pdf',
+          file_category: 'requirement',
+          description: 'Updated requirements document with clarifications from stakeholder meeting',
+          uploaded_by_name: mainClient.contact_name,
+          uploaded_by_email: mainClient.contact_email,
+          viewed_by_consultant: true,
+          viewed_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          tags: ['requirements', 'v2', 'approved']
+        },
+        {
+          file_name: 'Past_Performance_References.docx',
+          file_url: 'https://placehold.co/600x400/png?text=Past+Performance',
+          file_size: 1048576, // 1 MB
+          file_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          file_category: 'reference',
+          description: 'Three past performance references for similar projects',
+          uploaded_by_name: mainClient.contact_name,
+          uploaded_by_email: mainClient.contact_email,
+          viewed_by_consultant: true,
+          viewed_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          tags: ['references', 'past-performance']
+        },
+        {
+          file_name: 'Technical_Questions.xlsx',
+          file_url: 'https://placehold.co/600x400/png?text=Tech+Questions',
+          file_size: 524288, // 512 KB
+          file_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          file_category: 'other',
+          description: 'List of technical questions that need addressing in the proposal',
+          uploaded_by_name: mainClient.contact_name,
+          uploaded_by_email: mainClient.contact_email,
+          viewed_by_consultant: false,
+          tags: ['questions', 'technical', 'urgent']
+        }
+      ];
+
+      for (const file of uploadedFiles) {
+        await base44.asServiceRole.entities.ClientUploadedFile.create({
+          ...file,
+          client_id: mainClient.id,
+          proposal_id: mainProposal.id,
+          organization_id: demoOrg.id,
+          version_number: 1,
+          is_latest_version: true
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Client uploaded files created');
+    }
+
+    // 10g. Create Client Notifications
+    if (createdClients.length > 0 && createdProposals.length > 0) {
+      const activeClients = createdClients.filter(c => c.relationship_status === 'active').slice(0, 2);
+      
+      for (const client of activeClients) {
+        const notifications = [
+          {
+            notification_type: 'proposal_shared',
+            title: 'New Proposal Shared With You',
+            message: `${createdProposals[0]?.proposal_name || 'A new proposal'} has been shared with you for review`,
+            action_url: `/ClientPortal?token=${client.access_token}&proposal=${createdProposals[0]?.id}`,
+            is_read: true,
+            read_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            from_consultant_email: owner_email,
+            from_consultant_name: 'Demo User',
+            priority: 'high'
+          },
+          {
+            notification_type: 'new_comment',
+            title: 'New Comment on Proposal',
+            message: 'Demo User commented on the Technical Approach section',
+            is_read: true,
+            read_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            from_consultant_email: owner_email,
+            from_consultant_name: 'Demo User',
+            priority: 'normal'
+          },
+          {
+            notification_type: 'status_change',
+            title: 'Proposal Status Updated',
+            message: 'The proposal status has been changed to "Client Review"',
+            is_read: false,
+            from_consultant_email: owner_email,
+            from_consultant_name: 'Demo User',
+            priority: 'normal'
+          },
+          {
+            notification_type: 'awaiting_review',
+            title: 'Action Required: Review Needed',
+            message: 'Your review is needed on the pricing section before we can finalize',
+            is_read: false,
+            from_consultant_email: owner_email,
+            from_consultant_name: 'Demo User',
+            priority: 'urgent'
+          }
+        ];
+
+        for (const notification of notifications) {
+          await base44.asServiceRole.entities.ClientNotification.create({
+            ...notification,
+            client_id: client.id,
+            proposal_id: createdProposals[0]?.id
+          });
+        }
+      }
+
+      console.log('[CreateDemoOrg] ✅ Client notifications created');
+    }
+
+    // 10h. Create Client Feedback
+    if (createdClients.length > 0) {
+      const mainClient = createdClients[0];
+      
+      const feedback = [
+        {
+          issue_type: 'improvement',
+          priority: 'medium',
+          title: 'Suggestion: Add Cost Breakdown Section',
+          description: 'It would be helpful to have a more detailed cost breakdown by phase in the pricing section. This would help us better understand resource allocation.',
+          expected_behavior: 'Detailed cost breakdown by project phase',
+          status: 'resolved',
+          public_response: 'Great suggestion! We\'ve added a detailed cost breakdown table in Section 7.2 that shows costs by phase and resource type.',
+          consultant_response_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          resolved_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+          user_satisfaction_rating: 5,
+          user_satisfaction_comment: 'Perfect! Exactly what we needed.'
+        },
+        {
+          issue_type: 'question',
+          priority: 'high',
+          title: 'Question: Team Availability Dates',
+          description: 'Can you confirm the availability dates for the key personnel listed in Section 5? We need to ensure they align with our project timeline.',
+          status: 'resolved',
+          public_response: 'All key personnel listed are confirmed available for the proposed timeline. We\'ve added specific availability dates in the updated personnel bios.',
+          consultant_response_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          resolved_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          user_satisfaction_rating: 4
+        },
+        {
+          issue_type: 'feature_request',
+          priority: 'low',
+          title: 'Feature Request: Mobile App for Portal',
+          description: 'Would be great to have a mobile app version of the client portal for on-the-go reviews.',
+          status: 'new',
+          public_response: 'Thank you for the feedback! We\'ve added this to our product roadmap.'
+        }
+      ];
+
+      for (const fb of feedback) {
+        await base44.asServiceRole.entities.Feedback.create({
+          ...fb,
+          organization_id: demoOrg.id,
+          client_id: mainClient.id,
+          proposal_id: createdProposals[0]?.id,
+          reporter_email: mainClient.contact_email,
+          reporter_name: mainClient.contact_name,
+          browser_info: 'Chrome 120.0.0 / Windows 10'
+        });
+      }
+
+      console.log('[CreateDemoOrg] ✅ Client feedback created');
+    }
+
+    // 10i. Create Proposal Annotations (Client Comments)
+    if (createdProposals.length > 0 && createdClients.length > 0 && wonProposal) {
+      const mainClient = createdClients[0];
+      
+      // Get sections from won proposal
+      const sections = await base44.asServiceRole.entities.ProposalSection.filter({
+        proposal_id: wonProposal.id
+      });
+
+      if (sections.length > 0) {
+        const annotations = [
+          {
+            section_id: sections[0]?.id,
+            annotation_type: 'comment',
+            content: 'Excellent executive summary! Very clear value proposition.',
+            text_selection: {
+              start_offset: 0,
+              end_offset: 50,
+              selected_text: 'Our team brings unparalleled expertise in healthcare IT'
+            },
+            color: '#10b981',
+            is_resolved: true,
+            resolved_by: owner_email,
+            resolved_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+            priority: 'low',
+            visible_to_consultant: true
+          },
+          {
+            section_id: sections[1]?.id,
+            annotation_type: 'question',
+            content: 'Can you provide more details on the zero-downtime deployment strategy?',
+            text_selection: {
+              start_offset: 100,
+              end_offset: 150,
+              selected_text: 'zero-downtime deployment'
+            },
+            color: '#f59e0b',
+            is_resolved: true,
+            resolved_by: owner_email,
+            resolved_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            priority: 'high',
+            visible_to_consultant: true,
+            replies: [
+              {
+                author_name: 'Demo User',
+                author_email: owner_email,
+                content: 'Great question! We use blue-green deployment methodology. I\'ve added a detailed explanation in paragraph 3.',
+                created_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+              }
+            ]
+          },
+          {
+            section_id: sections[1]?.id,
+            annotation_type: 'issue',
+            content: 'This section needs to address the NIST 800-171 requirement mentioned in the RFP.',
+            color: '#ef4444',
+            is_resolved: false,
+            priority: 'critical',
+            visible_to_consultant: true
+          }
+        ];
+
+        for (const annotation of annotations) {
+          await base44.asServiceRole.entities.ProposalAnnotation.create({
+            ...annotation,
+            proposal_id: wonProposal.id,
+            client_id: mainClient.id,
+            team_member_id: 'primary',
+            author_name: mainClient.contact_name,
+            author_email: mainClient.contact_email
+          });
+        }
+
+        console.log('[CreateDemoOrg] ✅ Proposal annotations created');
+      }
+    }
+
     // 11. Create Mock Resources (Boilerplate)
     const mockResources = [
       {
