@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -15,21 +14,18 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Upload, File, X, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { syncProposalToCalendar } from "@/utils/proposalCalendarSync";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function SolicitationUploadModal({ isOpen, onClose, proposalId }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [organization, setOrganization] = useState(null);
+  const [organizationId, setOrganizationId] = useState(null);
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [proposalData, setProposalData] = useState({
     due_date: "",
     contract_value: null,
   });
-  const [isSaving, setIsSaving] = useState(false);
-
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (isOpen && proposalId) {
@@ -50,6 +46,7 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
       if (orgs.length > 0) {
         const org = orgs[0];
         setOrganization(org);
+        setOrganizationId(org.id);
 
         const proposals = await base44.entities.Proposal.filter({ id: proposalId });
         if (proposals.length > 0) {
@@ -110,7 +107,6 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
     try {
       setExtracting(true);
       
-      // Use the first uploaded document for extraction
       const doc = uploadedDocs[0];
       
       const extractionSchema = {
@@ -135,7 +131,6 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
 
       const aiResult = extractionResult.output || {};
       
-      // Update proposal with extracted data
       const updateData = {};
       if (aiResult.due_date) updateData.due_date = aiResult.due_date;
       if (aiResult.contract_value) updateData.contract_value = aiResult.contract_value;
@@ -143,7 +138,13 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
       if (aiResult.project_title) updateData.project_title = aiResult.project_title;
 
       if (Object.keys(updateData).length > 0) {
-        await base44.entities.Proposal.update(proposalId, updateData);
+        const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
+        
+        // 🔄 SYNC TO CALENDAR
+        if (organizationId) {
+          await syncProposalToCalendar(updatedProposal, organizationId);
+        }
+        
         setProposalData(prev => ({ ...prev, ...updateData }));
         alert('✓ AI extracted key details from solicitation document');
       }
@@ -167,7 +168,6 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
     try {
       const updateData = {
         due_date: proposalData.due_date || null,
@@ -177,20 +177,15 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
       const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
 
       // 🔄 SYNC TO CALENDAR
-      if (organization && organization.id) {
-        await syncProposalToCalendar(updatedProposal, organization.id);
+      if (organizationId) {
+        await syncProposalToCalendar(updatedProposal, organizationId);
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      
       console.log('[SolicitationUploadModal] ✅ Proposal info saved and synced to calendar');
       onClose();
     } catch (error) {
-      console.error('[SolicitationUploadModal] Error saving:', error);
-      alert('Failed to save. Please try again.');
-    } finally {
-      setIsSaving(false);
+      console.error("Error saving:", error);
+      alert("Error saving. Please try again.");
     }
   };
 
@@ -320,6 +315,9 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
                     value={proposalData.due_date || ""}
                     onChange={(e) => setProposalData({ ...proposalData, due_date: e.target.value })}
                   />
+                  <p className="text-xs text-slate-500">
+                    📅 Auto-syncs to your master calendar
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="contract_value">Contract Value (USD)</Label>
@@ -340,15 +338,8 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading || isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save'
-            )}
+          <Button onClick={handleSave} disabled={loading}>
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

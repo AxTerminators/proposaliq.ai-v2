@@ -52,6 +52,7 @@ import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
+import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -88,6 +89,7 @@ export default function Pipeline() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [initialModalToOpen, setInitialModalToOpen] = useState(null);
   const [pendingProposalModal, setPendingProposalModal] = useState(null);
+  const [proposalToDelete, setProposalToDelete] = useState(null); // Added this state for proposal deletion
 
   useEffect(() => {
     const checkMobile = () => {
@@ -636,6 +638,20 @@ export default function Pipeline() {
     onError: (error) => {
       alert(`Error deleting board: ${error.message}`);
     }
+  });
+
+  const deleteProposalMutation = useMutation({
+    mutationFn: async (id) => {
+      // 🔄 DELETE CALENDAR EVENTS FIRST
+      await deleteProposalCalendarEvents(id);
+      
+      return base44.entities.Proposal.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      setProposalToDelete(null);
+    },
   });
 
   const handleDeleteBoard = (board) => {
