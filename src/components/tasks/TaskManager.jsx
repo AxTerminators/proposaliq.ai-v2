@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, List, LayoutGrid } from "lucide-react";
+import { Plus, List, LayoutGrid, Briefcase, ListTodo } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
 import TaskBoard from "./TaskBoard";
@@ -18,6 +19,7 @@ export default function TaskManager({ user, organization, proposalId = null, emb
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterTaskType, setFilterTaskType] = useState("all"); // NEW: Filter for general vs proposal tasks
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['proposal-tasks', organization?.id, proposalId],
@@ -69,6 +71,18 @@ export default function TaskManager({ user, organization, proposalId = null, emb
     }
     return null;
   }, [proposalId, proposals]);
+
+  // NEW: Filter tasks by type
+  const filteredTasks = React.useMemo(() => {
+    if (filterTaskType === "all") return tasks;
+    if (filterTaskType === "general") return tasks.filter(t => t.is_general_task === true);
+    if (filterTaskType === "proposal") return tasks.filter(t => t.is_general_task !== true);
+    return tasks;
+  }, [tasks, filterTaskType]);
+
+  // NEW: Calculate stats
+  const generalTasksCount = tasks.filter(t => t.is_general_task === true).length;
+  const proposalTasksCount = tasks.filter(t => t.is_general_task !== true).length;
 
   const createTaskMutation = useMutation({
     mutationFn: (taskData) => base44.entities.ProposalTask.create(taskData),
@@ -204,13 +218,58 @@ export default function TaskManager({ user, organization, proposalId = null, emb
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Tasks</h1>
-          <p className="text-slate-600">Manage your proposal tasks and assignments</p>
+          <p className="text-slate-600">Manage your proposal tasks and general to-dos</p>
+          
+          {/* NEW: Task type stats */}
+          {!proposalId && (
+            <div className="flex gap-2 mt-3">
+              <Badge variant="outline" className="gap-1">
+                <Briefcase className="w-3 h-3" />
+                {proposalTasksCount} Proposal Tasks
+              </Badge>
+              <Badge variant="outline" className="gap-1">
+                <ListTodo className="w-3 h-3" />
+                {generalTasksCount} General Tasks
+              </Badge>
+            </div>
+          )}
         </div>
         <Button onClick={() => setShowTaskForm(true)}>
           <Plus className="w-5 h-5 mr-2" />
           Create Task
         </Button>
       </div>
+
+      {/* NEW: Task Type Filter (only on standalone page) */}
+      {!proposalId && (
+        <div className="flex gap-2">
+          <Button
+            variant={filterTaskType === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterTaskType("all")}
+          >
+            All Tasks ({tasks.length})
+          </Button>
+          <Button
+            variant={filterTaskType === "proposal" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterTaskType("proposal")}
+            className="gap-1"
+          >
+            <Briefcase className="w-4 h-4" />
+            Proposal ({proposalTasksCount})
+          </Button>
+          <Button
+            variant={filterTaskType === "general" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterTaskType("general")}
+            className="gap-1"
+          >
+            <ListTodo className="w-4 h-4" />
+            General ({generalTasksCount})
+          </Button>
+        </div>
+      )}
 
       <Tabs value={viewMode} onValueChange={setViewMode}>
         <TabsList>
@@ -226,7 +285,7 @@ export default function TaskManager({ user, organization, proposalId = null, emb
 
         <TabsContent value="list" className="mt-6">
           <TaskList
-            tasks={tasks}
+            tasks={filteredTasks}
             subtasks={subtasks}
             proposals={proposals}
             onEditTask={handleEditTask}
@@ -240,7 +299,7 @@ export default function TaskManager({ user, organization, proposalId = null, emb
 
         <TabsContent value="board" className="mt-6">
           <TaskBoard
-            tasks={tasks}
+            tasks={filteredTasks}
             subtasks={subtasks}
             proposals={proposals}
             onEditTask={handleEditTask}

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-export default function TaskList({ tasks, onTaskClick, onTaskEdit, onTaskDelete, onTaskStatusChange, currentUser }) {
+export default function TaskList({ tasks, subtasks = [], proposals = [], onEditTask, onEditSubtask, onDeleteTask, onDeleteSubtask, onStatusChange, onSubtaskStatusChange, embedded = false }) {
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "urgent": return "bg-red-100 text-red-700 border-red-300";
@@ -54,12 +55,6 @@ export default function TaskList({ tasks, onTaskClick, onTaskEdit, onTaskDelete,
     return new Date(dueDate).toDateString() === new Date().toDateString();
   };
 
-  const handleToggleComplete = (task, e) => {
-    e.stopPropagation();
-    const newStatus = task.status === "completed" ? "todo" : "completed";
-    onTaskStatusChange(task, newStatus);
-  };
-
   if (tasks.length === 0) {
     return (
       <div className="text-center py-12 text-slate-500">
@@ -76,6 +71,8 @@ export default function TaskList({ tasks, onTaskClick, onTaskEdit, onTaskDelete,
         const overdue = isOverdue(task.due_date);
         const dueToday = isDueToday(task.due_date);
         const isCompleted = task.status === "completed";
+        const isGeneralTask = task.is_general_task === true;
+        const taskProposal = task.proposal_id ? proposals.find(p => p.id === task.proposal_id) : null;
 
         return (
           <Card
@@ -83,27 +80,47 @@ export default function TaskList({ tasks, onTaskClick, onTaskEdit, onTaskDelete,
             className={cn(
               "border hover:shadow-md transition-all cursor-pointer",
               isCompleted && "opacity-60",
-              overdue && !isCompleted && "border-l-4 border-l-red-500"
+              overdue && !isCompleted && "border-l-4 border-l-red-500",
+              isGeneralTask && "border-l-4 border-l-purple-500"
             )}
-            onClick={() => onTaskClick(task)}
+            onClick={() => onEditTask(task)}
           >
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <Checkbox
                   checked={isCompleted}
-                  onCheckedChange={(e) => handleToggleComplete(task, e)}
+                  onCheckedChange={() => {
+                    const newStatus = task.status === "completed" ? "todo" : "completed";
+                    onStatusChange(task.id, newStatus);
+                  }}
                   className="mt-1"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => e?.stopPropagation?.()}
                 />
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className={cn(
-                      "font-semibold text-slate-900",
-                      isCompleted && "line-through text-slate-500"
-                    )}>
-                      {task.title}
-                    </h4>
+                    <div className="flex-1">
+                      <h4 className={cn(
+                        "font-semibold text-slate-900",
+                        isCompleted && "line-through text-slate-500"
+                      )}>
+                        {task.title}
+                      </h4>
+                      
+                      {/* NEW: Show category badge for general tasks */}
+                      {isGeneralTask && task.task_category && (
+                        <Badge className="bg-purple-100 text-purple-700 text-xs mt-1">
+                          {task.task_category}
+                        </Badge>
+                      )}
+                      
+                      {/* Show proposal name for proposal tasks */}
+                      {taskProposal && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          📋 {taskProposal.proposal_name}
+                        </p>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       {task.priority && (
                         <Badge variant="outline" className={getPriorityColor(task.priority)}>
@@ -112,18 +129,18 @@ export default function TaskList({ tasks, onTaskClick, onTaskEdit, onTaskDelete,
                         </Badge>
                       )}
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuTrigger asChild onClick={(e) => e?.stopPropagation?.()}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTaskEdit(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e?.stopPropagation?.(); onEditTask(task); }}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Edit Task
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={(e) => { e.stopPropagation(); onTaskDelete(task); }}
+                            onClick={(e) => { e?.stopPropagation?.(); onDeleteTask(task.id); }}
                             className="text-red-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />

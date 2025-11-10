@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -10,11 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Briefcase, ListTodo } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskComments from "../collaboration/TaskComments";
+import { Badge } from "@/components/ui/badge";
 
 export default function TaskForm({ open, onOpenChange, proposal, task, onSave, user, organization }) {
   const [formData, setFormData] = useState({
@@ -27,19 +27,21 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     due_date: null,
     section_id: "",
     estimated_hours: "",
-    proposal_id: "" // Added proposal_id to formData
+    proposal_id: "",
+    is_general_task: false,
+    task_category: "proposal"
   });
 
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch all proposals if no proposal is pre-selected (i.e., 'proposal' prop is null/undefined)
+  // Fetch all proposals if no proposal is pre-selected
   const { data: allProposals = [] } = useQuery({
     queryKey: ['all-proposals-for-task', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
       return base44.entities.Proposal.filter({ organization_id: organization.id }, '-created_date');
     },
-    enabled: !!organization?.id && !proposal, // Only fetch if no specific proposal is passed
+    enabled: !!organization?.id && !proposal,
     initialData: []
   });
 
@@ -55,7 +57,9 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         due_date: task.due_date ? new Date(task.due_date) : null,
         section_id: task.section_id || "",
         estimated_hours: task.estimated_hours || "",
-        proposal_id: task.proposal_id || "" // Initialize from task if editing
+        proposal_id: task.proposal_id || "",
+        is_general_task: task.is_general_task || false,
+        task_category: task.task_category || "proposal"
       });
     } else {
       setFormData({
@@ -68,10 +72,12 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         due_date: null,
         section_id: "",
         estimated_hours: "",
-        proposal_id: proposal?.id || "" // Initialize from prop if available for new task
+        proposal_id: proposal?.id || "",
+        is_general_task: !proposal,
+        task_category: proposal ? "proposal" : "administrative"
       });
     }
-  }, [task, user, open, proposal]); // Added 'proposal' to dependency array
+  }, [task, user, open, proposal]);
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members', organization?.id],
@@ -86,25 +92,22 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     enabled: !!organization?.id
   });
 
-  // Determine the proposal ID to use for fetching sections and saving the task
+  // Get the selected proposal (either pre-selected or from dropdown)
   const selectedProposalId = proposal?.id || formData.proposal_id;
-  // Determine the proposal object to pass to TaskComments (if task exists)
   const selectedProposal = proposal || allProposals.find(p => p.id === formData.proposal_id);
 
-
   const { data: sections = [] } = useQuery({
-    queryKey: ['proposal-sections', selectedProposalId], // Use selectedProposalId
+    queryKey: ['proposal-sections', selectedProposalId],
     queryFn: async () => {
       if (!selectedProposalId) return [];
       return base44.entities.ProposalSection.filter({ proposal_id: selectedProposalId });
     },
-    enabled: !!selectedProposalId // Enable if a proposal ID is selected
+    enabled: !!selectedProposalId
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // FIXED: Validation before saving
     if (!formData.title?.trim()) {
       alert("Please enter a task title");
       return;
@@ -115,18 +118,13 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
       return;
     }
     
-    // Use the dynamically selected proposal ID
-    const targetProposalId = proposal?.id || formData.proposal_id;
-    if (!targetProposalId) {
-      alert("Please select a proposal for this task");
-      return;
-    }
-    
     setIsSaving(true);
 
     try {
+      const targetProposalId = proposal?.id || formData.proposal_id;
+      const isGeneralTask = formData.is_general_task || !targetProposalId;
+
       const taskData = {
-        proposal_id: targetProposalId, // Use targetProposalId
         title: formData.title.trim(),
         description: formData.description?.trim() || "",
         assigned_to_email: formData.assigned_to_email,
@@ -136,9 +134,16 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         priority: formData.priority,
         status: formData.status,
         due_date: formData.due_date ? format(formData.due_date, 'yyyy-MM-dd') : null,
-        section_id: formData.section_id || null,
-        estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : null
+        estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : null,
+        is_general_task: isGeneralTask,
+        task_category: formData.task_category
       };
+
+      // Only add proposal-specific fields if it's not a general task
+      if (!isGeneralTask && targetProposalId) {
+        taskData.proposal_id = targetProposalId;
+        taskData.section_id = formData.section_id || null;
+      }
 
       if (task) {
         await base44.entities.ProposalTask.update(task.id, taskData);
@@ -154,14 +159,13 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
             notification_type: "task_assigned",
             title: "New Task Assigned",
             message: `You've been assigned: ${formData.title}`,
-            related_proposal_id: targetProposalId, // Use targetProposalId for notification
+            related_proposal_id: targetProposalId || null,
             from_user_email: user.email,
             from_user_name: user.full_name,
-            action_url: `/app/ProposalBuilder?id=${targetProposalId}` // Use targetProposalId
+            action_url: targetProposalId ? `/app/ProposalBuilder?id=${targetProposalId}` : '/app/Tasks'
           });
         } catch (notifError) {
           console.warn("Failed to create notification:", notifError);
-          // Don't fail the whole operation if notification fails
         }
       }
 
@@ -184,13 +188,62 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     });
   };
 
+  const handleTaskTypeToggle = (isGeneral) => {
+    setFormData({
+      ...formData,
+      is_general_task: isGeneral,
+      proposal_id: isGeneral ? "" : (proposal?.id || ""),
+      section_id: isGeneral ? "" : formData.section_id,
+      task_category: isGeneral ? "administrative" : "proposal"
+    });
+  };
+
   const taskFormFields = (
     <>
-      {/* NEW: Proposal Dropdown (only shown when no proposal is pre-selected) */}
-      {!proposal && ( // Only render this dropdown if the 'proposal' prop is not provided
+      {/* NEW: Task Type Toggle (only shown when no proposal is pre-selected) */}
+      {!proposal && (
+        <div className="space-y-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+          <Label className="text-sm font-semibold text-slate-900">Task Type</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant={!formData.is_general_task ? "default" : "outline"}
+              className={cn(
+                "h-auto py-4 flex flex-col items-center gap-2",
+                !formData.is_general_task && "bg-blue-600 hover:bg-blue-700"
+              )}
+              onClick={() => handleTaskTypeToggle(false)}
+            >
+              <Briefcase className="w-6 h-6" />
+              <div>
+                <div className="font-semibold">Proposal Task</div>
+                <div className="text-xs opacity-80">Tied to a proposal</div>
+              </div>
+            </Button>
+            <Button
+              type="button"
+              variant={formData.is_general_task ? "default" : "outline"}
+              className={cn(
+                "h-auto py-4 flex flex-col items-center gap-2",
+                formData.is_general_task && "bg-purple-600 hover:bg-purple-700"
+              )}
+              onClick={() => handleTaskTypeToggle(true)}
+            >
+              <ListTodo className="w-6 h-6" />
+              <div>
+                <div className="font-semibold">General Task</div>
+                <div className="text-xs opacity-80">No proposal needed</div>
+              </div>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Proposal Dropdown (only shown for proposal tasks when no proposal is pre-selected) */}
+      {!proposal && !formData.is_general_task && (
         <div className="space-y-2">
           <Label htmlFor="proposal">Proposal *</Label>
-          <Select value={formData.proposal_id} onValueChange={(value) => setFormData({ ...formData, proposal_id: value, section_id: "" })}> {/* Reset section_id when proposal changes */}
+          <Select value={formData.proposal_id} onValueChange={(value) => setFormData({ ...formData, proposal_id: value })}>
             <SelectTrigger id="proposal">
               <SelectValue placeholder="Select a proposal" />
             </SelectTrigger>
@@ -200,6 +253,25 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
                   {p.proposal_name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Task Category (only for general tasks) */}
+      {formData.is_general_task && (
+        <div className="space-y-2">
+          <Label htmlFor="category">Category</Label>
+          <Select value={formData.task_category} onValueChange={(value) => setFormData({ ...formData, task_category: value })}>
+            <SelectTrigger id="category">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="administrative">Administrative</SelectItem>
+              <SelectItem value="personal">Personal</SelectItem>
+              <SelectItem value="meeting">Meeting</SelectItem>
+              <SelectItem value="research">Research</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -246,22 +318,25 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="section">Related Section (Optional)</Label>
-          <Select value={formData.section_id} onValueChange={(value) => setFormData({ ...formData, section_id: value })}>
-            <SelectTrigger id="section" disabled={!selectedProposalId}> {/* Disable if no proposal is selected yet */}
-              <SelectValue placeholder="None" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={null}>None</SelectItem> {/* Changed null to empty string for consistency with select value type */}
-              {sections.map(section => (
-                <SelectItem key={section.id} value={section.id}>
-                  {section.section_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Only show section selector for proposal tasks */}
+        {!formData.is_general_task && (
+          <div className="space-y-2">
+            <Label htmlFor="section">Related Section (Optional)</Label>
+            <Select value={formData.section_id} onValueChange={(value) => setFormData({ ...formData, section_id: value })}>
+              <SelectTrigger id="section">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>None</SelectItem>
+                {sections.map(section => (
+                  <SelectItem key={section.id} value={section.id}>
+                    {section.section_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
@@ -340,7 +415,12 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         </Button>
         <Button 
           type="submit" 
-          disabled={isSaving || !formData.title || !formData.assigned_to_email || (!proposal && !formData.proposal_id)} // Added proposal_id check
+          disabled={
+            isSaving || 
+            !formData.title || 
+            !formData.assigned_to_email || 
+            (!proposal && !formData.is_general_task && !formData.proposal_id)
+          }
         >
           {isSaving ? (
             <>
@@ -361,7 +441,7 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         <DialogHeader>
           <DialogTitle>{task ? "Edit Task" : "Create New Task"}</DialogTitle>
           <DialogDescription>
-            {task ? "Update task details and assignment" : "Add a new task to a proposal"} {/* Updated description */}
+            {task ? "Update task details and assignment" : "Add a new task - can be tied to a proposal or standalone"}
           </DialogDescription>
         </DialogHeader>
 
@@ -380,7 +460,7 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
 
             <TabsContent value="comments">
               <TaskComments
-                proposal={selectedProposal} // Pass selectedProposal here
+                proposal={selectedProposal}
                 task={task}
                 user={user}
               />
