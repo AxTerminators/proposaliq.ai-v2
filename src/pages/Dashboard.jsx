@@ -15,6 +15,7 @@ import RevenueChart from "../components/dashboard/RevenueChart";
 import MobileDashboard from "../components/mobile/MobileDashboard";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
+import { Badge } from "@/components/ui/badge"; // Added Badge import
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ export default function Dashboard() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
+
+  const isDemoAccount = organization?.organization_type === 'demo';
 
   useEffect(() => {
     const checkMobile = () => {
@@ -141,6 +144,27 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      {/* **NEW: Demo Account Banner** */}
+      {isDemoAccount && (
+        <div className="bg-gradient-to-r from-purple-100 via-pink-100 to-orange-100 border-2 border-purple-300 rounded-xl p-4 shadow-lg mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-purple-900 text-lg">🎭 Demo Account Active</h3>
+              <p className="text-sm text-purple-800">
+                This is a demo environment with pre-populated data. You can add, edit, and delete content freely. 
+                Use the view switcher in the sidebar to test Corporate vs Consultant features.
+              </p>
+            </div>
+            <Badge className="bg-purple-600 text-white text-sm px-3 py-1">
+              Demo Mode
+            </Badge>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between dashboard-overview">

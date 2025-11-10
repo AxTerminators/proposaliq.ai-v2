@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createPageUrl } from "@/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { cn } from "@/lib/utils"; // Assuming cn utility is available here
+import { cn } from "@/lib/utils";
 import {
   Shield,
   Users,
@@ -26,7 +26,8 @@ import {
   Calendar,
   ExternalLink,
   Layers,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
 
 import SubscribersModule from "../components/admin/SubscribersModule";
@@ -49,6 +50,7 @@ import EnhancedEmailTemplateModule from "../components/admin/EnhancedEmailTempla
 import GlobalReportingModule from "../components/admin/GlobalReportingModule";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import ErrorMonitoringDashboard from "./ErrorMonitoringDashboard";
+import DemoAccountManager from "../components/admin/DemoAccountManager";
 
 export default function AdminPortal() {
   const queryClient = useQueryClient();
@@ -108,6 +110,7 @@ export default function AdminPortal() {
 
   const modules = [
     { id: "admin-pages", label: "Admin Pages", icon: Layers, category: "navigation", component: null },
+    { id: "demo-accounts", label: "Demo Accounts", icon: Sparkles, category: "management", component: DemoAccountManager, superAdminOnly: true },
     { id: "analytics", label: "Analytics", icon: Activity, category: "analytics", component: AnalyticsDashboard },
     { id: "error-monitoring", label: "Error Monitor", icon: TrendingUp, category: "analytics", component: ErrorMonitoringDashboard },
     { id: "overview", label: "Overview", icon: BarChart3, category: "analytics", component: GlobalReportingModule },
@@ -276,19 +279,21 @@ export default function AdminPortal() {
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Navigation</p>
                 <div className="overflow-x-auto">
                   <TabsList className="flex flex-wrap gap-1 bg-transparent h-auto justify-start">
-                    {modules.map((module) => {
-                      const Icon = module.icon;
-                      return (
-                        <TabsTrigger
-                          key={module.id}
-                          value={module.id}
-                          className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-sm px-3 py-2"
-                        >
-                          <Icon className="w-4 h-4" />
-                          <span className="hidden sm:inline">{module.label}</span>
-                        </TabsTrigger>
-                      );
-                    })}
+                    {modules
+                      .filter(module => !module.superAdminOnly || isSuperAdmin)
+                      .map((module) => {
+                        const Icon = module.icon;
+                        return (
+                          <TabsTrigger
+                            key={module.id}
+                            value={module.id}
+                            className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-sm px-3 py-2"
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="hidden sm:inline">{module.label}</span>
+                          </TabsTrigger>
+                        );
+                      })}
                   </TabsList>
                 </div>
               </div>
@@ -404,16 +409,18 @@ export default function AdminPortal() {
                 </div>
               </TabsContent>
 
-              {modules.map((module) => {
-                // If a module doesn't have a component (like "admin-pages"), don't render a TabsContent for it here.
-                if (!module.component) return null;
-                const Component = module.component;
-                return (
-                  <TabsContent key={module.id} value={module.id} className="mt-0">
-                    <Component currentUser={currentUser} />
-                  </TabsContent>
-                );
-              })}
+              {modules
+                .filter(module => !module.superAdminOnly || isSuperAdmin)
+                .map((module) => {
+                  // If a module doesn't have a component (like "admin-pages"), don't render a TabsContent for it here.
+                  if (!module.component) return null;
+                  const Component = module.component;
+                  return (
+                    <TabsContent key={module.id} value={module.id} className="mt-0">
+                      <Component currentUser={currentUser} />
+                    </TabsContent>
+                  );
+                })}
             </div>
           </Tabs>
         </Card>
@@ -423,7 +430,7 @@ export default function AdminPortal() {
             <p className="text-sm font-semibold text-slate-700 mb-3">Module Categories:</p>
             <div className="flex flex-wrap gap-2">
               {categories.map(cat => {
-                const categoryModules = modules.filter(m => m.category === cat.id);
+                const categoryModules = modules.filter(m => m.category === cat.id && (!m.superAdminOnly || isSuperAdmin));
                 return (
                   <Badge
                     key={cat.id}

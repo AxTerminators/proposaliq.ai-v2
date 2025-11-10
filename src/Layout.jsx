@@ -36,7 +36,9 @@ import {
   Search,
   BookOpen,
   Layers,
-  FolderOpen
+  FolderOpen,
+  Building2,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,14 @@ import NotificationCenter from "./components/collaboration/NotificationCenter";
 import MobileNavigation from "./components/mobile/MobileNavigation";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label"; // Assuming Label is available from ui/label
 
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
@@ -97,12 +107,13 @@ const adminItems = [
 
 function LayoutContent({ children }) {
   const location = useLocation();
-  const { user, organization, subscription } = useOrganization();
+  const { user, organization, subscription, refetch } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [toolsOpen, setToolsOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [demoViewMode, setDemoViewMode] = React.useState(null);
 
   React.useEffect(() => {
     setMobileMenuOpen(false);
@@ -140,8 +151,37 @@ function LayoutContent({ children }) {
     }
   }, [location.pathname]);
 
+  // NEW: Load demo view mode from organization
+  React.useEffect(() => {
+    if (organization?.organization_type === 'demo') {
+      setDemoViewMode(organization.demo_view_mode || 'corporate');
+    } else {
+      setDemoViewMode(null);
+    }
+  }, [organization]);
+
   const handleLogout = () => {
     base44.auth.logout();
+  };
+
+  // NEW: Handle demo view mode switching
+  const handleDemoViewModeChange = async (newMode) => {
+    if (!organization || organization.organization_type !== 'demo') return;
+
+    try {
+      await base44.entities.Organization.update(organization.id, {
+        demo_view_mode: newMode
+      });
+      
+      setDemoViewMode(newMode);
+      await refetch(); // Refresh organization data
+      
+      // Show success message
+      alert(`✅ Demo view switched to ${newMode === 'consultancy' ? 'Consultant' : 'Corporate'} mode!\n\nThe navigation will update to show ${newMode === 'consultancy' ? 'client management features' : 'corporate features'}.`);
+    } catch (error) {
+      console.error('Error switching demo view mode:', error);
+      alert('Error switching view mode: ' + error.message);
+    }
   };
 
   const tokenPercentage = subscription
@@ -154,7 +194,12 @@ function LayoutContent({ children }) {
   const navigationItems = React.useMemo(() => {
     if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");
     
-    const isConsultant = organization?.organization_type === 'consultancy';
+    // NEW: For demo accounts, use demo_view_mode instead of organization_type
+    const effectiveOrgType = organization.organization_type === 'demo' 
+      ? demoViewMode 
+      : organization.organization_type;
+    
+    const isConsultant = effectiveOrgType === 'consultancy';
     
     return ALL_NAVIGATION_ITEMS.filter(item => {
       if (item.superAdminOnly && !userIsSuperAdmin) return false;
@@ -163,7 +208,7 @@ function LayoutContent({ children }) {
       if (item.showFor === "corporate" && isConsultant) return false;
       return true;
     });
-  }, [organization, userIsSuperAdmin, userIsAdmin]);
+  }, [organization, userIsSuperAdmin, userIsAdmin, demoViewMode]);
 
   return (
     <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
@@ -202,13 +247,53 @@ function LayoutContent({ children }) {
                   {organization.organization_type && (
                     <Badge className={cn(
                       "text-xs mt-1",
-                      organization.organization_type === 'consultancy' 
-                        ? 'bg-purple-100 text-purple-700' 
-                        : 'bg-blue-100 text-blue-700'
+                      organization.organization_type === 'demo' 
+                        ? 'bg-purple-100 text-purple-700'
+                        : organization.organization_type === 'consultancy' 
+                          ? 'bg-purple-100 text-purple-700' 
+                          : 'bg-blue-100 text-blue-700'
                     )}>
-                      {organization.organization_type === 'consultancy' ? 'Consultant' : 'Corporate'}
+                      {organization.organization_type === 'demo' 
+                        ? '🎭 Demo Account' 
+                        : organization.organization_type === 'consultancy' 
+                          ? 'Consultant' 
+                          : 'Corporate'}
                     </Badge>
                   )}
+                </div>
+              )}
+
+              {/* NEW: Demo View Mode Switcher */}
+              {organization?.organization_type === 'demo' && demoViewMode && (
+                <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg">
+                  <Label className="text-xs font-semibold text-purple-900 mb-2 block">
+                    🎭 Demo View Mode
+                  </Label>
+                  <Select
+                    value={demoViewMode}
+                    onValueChange={handleDemoViewModeChange}
+                  >
+                    <SelectTrigger className="w-full h-9 bg-white border-2 border-purple-300 hover:border-purple-400">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="corporate">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-blue-600" />
+                          <span>Corporate View</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="consultancy">
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="w-4 h-4 text-purple-600" />
+                          <span>Consultant View</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-purple-700 mt-2">
+                    Switch to test different features
+                  </p>
                 </div>
               )}
             </>
@@ -456,11 +541,17 @@ function LayoutContent({ children }) {
               {organization.organization_type && (
                 <Badge className={cn(
                   "text-xs mt-1",
-                  organization.organization_type === 'consultancy' 
-                    ? 'bg-purple-100 text-purple-700' 
-                    : 'bg-blue-100 text-blue-700'
+                  organization.organization_type === 'demo' 
+                    ? 'bg-purple-100 text-purple-700'
+                    : organization.organization_type === 'consultancy' 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-blue-100 text-blue-700'
                 )}>
-                  {organization.organization_type === 'consultancy' ? 'Consultant' : 'Corporate'}
+                  {organization.organization_type === 'demo' 
+                    ? '🎭 Demo Account' 
+                    : organization.organization_type === 'consultancy' 
+                      ? 'Consultant' 
+                      : 'Corporate'}
                 </Badge>
               )}
             </div>
