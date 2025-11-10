@@ -204,6 +204,17 @@ export default function Clients() {
     return colors[status] || colors.active;
   };
 
+  const handleViewPortal = (client, e) => {
+    e.stopPropagation();
+    
+    // Use the client's access token to navigate to their portal
+    if (client.access_token) {
+      navigate(createPageUrl(`ClientPortal?token=${client.access_token}`));
+    } else {
+      alert("❌ This client doesn't have an access token yet. The token is auto-generated when a client is created, but may be missing for older clients. Please edit and re-save this client to generate a token.");
+    }
+  };
+
   if (!organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -448,10 +459,7 @@ export default function Clients() {
                       size="sm"
                       variant="outline"
                       className="w-full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(createPageUrl(`ClientPortal?clientId=${client.id}`));
-                      }}
+                      onClick={(e) => handleViewPortal(client, e)}
                     >
                       <ExternalLink className="w-3 h-3 mr-2" />
                       View Portal
@@ -539,6 +547,7 @@ export default function Clients() {
                   onChange={(e) => setClientData({ ...clientData, notes: e.target.value })}
                   placeholder="Internal notes about this client"
                   rows={3}
+                }
                 />
               </div>
             </div>
