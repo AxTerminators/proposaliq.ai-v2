@@ -52,7 +52,7 @@ import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
-import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync";
+import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync.jsx";
 
 export default function Pipeline() {
   const navigate = useNavigate();
