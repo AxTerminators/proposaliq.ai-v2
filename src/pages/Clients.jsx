@@ -30,7 +30,8 @@ import {
   Clock,
   GitCompare,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  AlertCircle // NEW: Added AlertCircle import
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,7 +40,6 @@ import ProposalComparisonTool from "../components/proposals/ProposalComparisonTo
 import ClientPermissionsManager from "../components/client/ClientPermissionsManager";
 import DocumentVersionControl from "../components/client/DocumentVersionControl";
 import ClientNotificationPreferences from "../components/client/ClientNotificationPreferences";
-import ReviewWorkflowBuilder from "../components/client/ReviewWorkflowBuilder";
 import ClientReportingDashboard from "../components/client/ClientReportingDashboard";
 import EnhancedClientHealthMonitor from "../components/client/EnhancedClientHealthMonitor";
 import { useOrganization } from "../components/layout/OrganizationContext";
@@ -129,6 +129,57 @@ export default function Clients() {
     enabled: !!organization?.id,
   });
 
+  // NEW: Fetch aggregated data for client cards
+  const { data: clientMetrics = {} } = useQuery({
+    queryKey: ['client-metrics', organization?.id, clients.map(c => c.id).join(',')],
+    queryFn: async () => {
+      if (!organization?.id || clients.length === 0) return {};
+      
+      const metrics = {};
+      const clientIds = clients.map(c => c.id);
+      
+      // Fetch all data in parallel
+      const [allProposals, allFeedback, allMeetings, allFiles] = await Promise.all([
+        base44.entities.Proposal.list(),
+        base44.entities.Feedback.filter({ organization_id: organization.id }),
+        base44.entities.ClientMeeting.list(),
+        base44.entities.ClientUploadedFile.list()
+      ]);
+      
+      // Calculate metrics for each client
+      clientIds.forEach(clientId => {
+        const sharedProposals = allProposals.filter(p => 
+          p.shared_with_client_ids && p.shared_with_client_ids.includes(clientId)
+        );
+        const clientFeedback = allFeedback.filter(f => f.client_id === clientId);
+        const clientMeetings = allMeetings.filter(m => m.client_id === clientId);
+        const clientFiles = allFiles.filter(f => f.client_id === clientId);
+        
+        const unresolvedFeedback = clientFeedback.filter(f => 
+          !['resolved', 'closed'].includes(f.status)
+        );
+        
+        const upcomingMeetings = clientMeetings.filter(m => 
+          m.status === 'scheduled' && new Date(m.scheduled_date) > new Date()
+        );
+        
+        const unreviewedFiles = clientFiles.filter(f => !f.viewed_by_consultant);
+        
+        metrics[clientId] = {
+          proposalsCount: sharedProposals.length,
+          unresolvedFeedbackCount: unresolvedFeedback.length,
+          upcomingMeetingsCount: upcomingMeetings.length,
+          unreviewedFilesCount: unreviewedFiles.length,
+          totalFilesCount: clientFiles.length
+        };
+      });
+      
+      return metrics;
+    },
+    enabled: !!organization?.id && clients.length > 0,
+    staleTime: 30000
+  });
+
   const createClientMutation = useMutation({
     mutationFn: async (data) => {
       if (editingClient) {
@@ -142,6 +193,7 @@ export default function Clients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client-metrics'] }); // Invalidate metrics on client update/creation
       setShowDialog(false);
       setEditingClient(null);
       resetForm();
@@ -154,6 +206,7 @@ export default function Clients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client-metrics'] }); // Invalidate metrics on client deletion
     },
   });
 
@@ -282,7 +335,7 @@ export default function Clients() {
           </TabsList>
 
           <TabsContent value="overview">
-            <ClientOverview client={selectedClient} onEdit={handleEdit} />
+            <ClientOverview client={selectedClient} onEdit={handleEdit} metrics={clientMetrics[selectedClient.id]} />
           </TabsContent>
 
           <TabsContent value="health">
@@ -366,103 +419,139 @@ export default function Clients() {
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClients.map((client) => (
-            <Card
-              key={client.id}
-              className="border-none shadow-lg hover:shadow-xl transition-all cursor-pointer"
-              onClick={() => setSelectedClient(client)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-2">{client.client_name}</CardTitle>
-                    <Badge className={getStatusColor(client.relationship_status)}>
-                      {client.relationship_status}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => { e.stopPropagation(); handleEdit(client); }}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm('Delete this client?')) {
-                          deleteClientMutation.mutate(client.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {client.contact_name && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-slate-400" />
-                    <span>{client.contact_name}</span>
-                  </div>
-                )}
-                {client.contact_email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <a href={`mailto:${client.contact_email}`} className="text-blue-600 hover:underline truncate" onClick={(e) => e.stopPropagation()}>
-                      {client.contact_email}
-                    </a>
-                  </div>
-                )}
-                {client.contact_phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="w-4 h-4 text-slate-400" />
-                    <span>{client.contact_phone}</span>
-                  </div>
-                )}
-
-                {client.engagement_score && (
-                  <div className="pt-3 border-t">
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="text-slate-500">Engagement</span>
-                      <span className="font-medium text-slate-900">{client.engagement_score}/100</span>
+          {filteredClients.map((client) => {
+            const metrics = clientMetrics[client.id] || {};
+            
+            return (
+              <Card
+                key={client.id}
+                className="border-none shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                onClick={() => setSelectedClient(client)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg mb-2">{client.client_name}</CardTitle>
+                      <Badge className={getStatusColor(client.relationship_status)}>
+                        {client.relationship_status}
+                      </Badge>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all"
-                        style={{ width: `${client.engagement_score}%` }}
-                      />
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => { e.stopPropagation(); handleEdit(client); }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Delete this client?')) {
+                            deleteClientMutation.mutate(client.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
                     </div>
                   </div>
-                )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {client.contact_name && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="w-4 h-4 text-slate-400" />
+                      <span>{client.contact_name}</span>
+                    </div>
+                  )}
+                  {client.contact_email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="w-4 h-4 text-slate-400" />
+                      <a href={`mailto:${client.contact_email}`} className="text-blue-600 hover:underline truncate" onClick={(e) => e.stopPropagation()}>
+                        {client.contact_email}
+                      </a>
+                    </div>
+                  )}
+                  {client.contact_phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="w-4 h-4 text-slate-400" />
+                      <span>{client.contact_phone}</span>
+                    </div>
+                  )}
 
-                {client.last_engagement_date && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Clock className="w-3 h-3" />
-                    <span>Last active {moment(client.last_engagement_date).fromNow()}</span>
+                  {/* NEW: Activity Metrics */}
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t">
+                    <div className="bg-blue-50 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-blue-900">
+                        {metrics.proposalsCount || 0}
+                      </div>
+                      <div className="text-xs text-blue-700">Proposals</div>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-purple-900">
+                        {metrics.upcomingMeetingsCount || 0}
+                      </div>
+                      <div className="text-xs text-purple-700">Meetings</div>
+                    </div>
                   </div>
-                )}
 
-                {client.portal_access_enabled && (
-                  <div className="pt-3 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={(e) => handleViewPortal(client, e)}
-                    >
-                      <ExternalLink className="w-3 h-3 mr-2" />
-                      View Portal
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {/* NEW: Alert Badges */}
+                  {(metrics.unresolvedFeedbackCount > 0 || metrics.unreviewedFilesCount > 0) && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {metrics.unresolvedFeedbackCount > 0 && (
+                        <Badge className="bg-orange-100 text-orange-700 text-xs">
+                          {metrics.unresolvedFeedbackCount} unresolved feedback
+                        </Badge>
+                      )}
+                      {metrics.unreviewedFilesCount > 0 && (
+                        <Badge className="bg-amber-100 text-amber-700 text-xs">
+                          {metrics.unreviewedFilesCount} new file{metrics.unreviewedFilesCount !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {client.engagement_score && (
+                    <div className="pt-3 border-t">
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-slate-500">Engagement</span>
+                        <span className="font-medium text-slate-900">{client.engagement_score}/100</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full transition-all"
+                          style={{ width: `${client.engagement_score}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {client.last_engagement_date && (
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <Clock className="w-3 h-3" />
+                      <span>Last active {moment(client.last_engagement_date).fromNow()}</span>
+                    </div>
+                  )}
+
+                  {client.portal_access_enabled && (
+                    <div className="pt-3 border-t">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={(e) => handleViewPortal(client, e)}
+                      >
+                        <ExternalLink className="w-3 h-3 mr-2" />
+                        View Portal
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -563,53 +652,93 @@ export default function Clients() {
   );
 }
 
-function ClientOverview({ client, onEdit }) {
+function ClientOverview({ client, onEdit, metrics = {} }) {
   return (
-    <Card className="border-none shadow-lg">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Client Information</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => onEdit(client)}>
-            <Edit className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid md:grid-cols-2 gap-4">
-          {client.contact_name && (
-            <div>
-              <label className="text-sm text-slate-500">Contact Name</label>
-              <p className="font-medium">{client.contact_name}</p>
-            </div>
-          )}
-          {client.contact_email && (
-            <div>
-              <label className="text-sm text-slate-500">Email</label>
-              <p className="font-medium">{client.contact_email}</p>
-            </div>
-          )}
-          {client.contact_phone && (
-            <div>
-              <label className="text-sm text-slate-500">Phone</label>
-              <p className="font-medium">{client.contact_phone}</p>
-            </div>
-          )}
-          {client.industry && (
-            <div>
-              <label className="text-sm text-slate-500">Industry</label>
-              <p className="font-medium">{client.industry}</p>
-            </div>
-          )}
-        </div>
-        {client.notes && (
-          <div>
-            <label className="text-sm text-slate-500">Notes</label>
-            <p className="text-sm text-slate-700 mt-1">{client.notes}</p>
+    <div className="grid md:grid-cols-2 gap-6">
+      <Card className="border-none shadow-lg">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Client Information</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => onEdit(client)}>
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            {client.contact_name && (
+              <div>
+                <label className="text-sm text-slate-500">Contact Name</label>
+                <p className="font-medium">{client.contact_name}</p>
+              </div>
+            )}
+            {client.contact_email && (
+              <div>
+                <label className="text-sm text-slate-500">Email</label>
+                <p className="font-medium">{client.contact_email}</p>
+              </div>
+            )}
+            {client.contact_phone && (
+              <div>
+                <label className="text-sm text-slate-500">Phone</label>
+                <p className="font-medium">{client.contact_phone}</p>
+              </div>
+            )}
+            {client.industry && (
+              <div>
+                <label className="text-sm text-slate-500">Industry</label>
+                <p className="font-medium">{client.industry}</p>
+              </div>
+            )}
+          </div>
+          {client.notes && (
+            <div>
+              <label className="text-sm text-slate-500">Notes</label>
+              <p className="text-sm text-slate-700 mt-1">{client.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* NEW: Activity Summary Card */}
+      <Card className="border-none shadow-lg">
+        <CardHeader>
+          <CardTitle>Activity Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-3xl font-bold text-blue-900">{metrics.proposalsCount || 0}</div>
+              <div className="text-sm text-blue-700">Shared Proposals</div>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <div className="text-3xl font-bold text-purple-900">{metrics.upcomingMeetingsCount || 0}</div>
+              <div className="text-sm text-purple-700">Upcoming Meetings</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-3xl font-bold text-green-900">{metrics.totalFilesCount || 0}</div>
+              <div className="text-sm text-green-700">Total Files</div>
+            </div>
+            <div className="text-center p-4 bg-orange-50 rounded-lg">
+              <div className="text-3xl font-bold text-orange-900">{metrics.unresolvedFeedbackCount || 0}</div>
+              <div className="text-sm text-orange-700">Open Feedback</div>
+            </div>
+          </div>
+          
+          {metrics.unreviewedFilesCount > 0 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-900">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {metrics.unreviewedFilesCount} new file{metrics.unreviewedFilesCount !== 1 ? 's' : ''} need{metrics.unreviewedFilesCount === 1 ? 's' : ''} review
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

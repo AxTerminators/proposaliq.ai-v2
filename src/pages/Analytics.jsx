@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, Target, Award, Calendar } from "lucide-react";
+import { TrendingUp, DollarSign, Target, Award, Calendar, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button"; // New import
+import { Badge } from "@/components/ui/badge"; // New import
 import RevenueChart from "../components/dashboard/RevenueChart";
 
 // Helper function to get user's active organization
@@ -36,6 +39,7 @@ async function getUserActiveOrganization(user) {
 export default function Analytics() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
+  const [showClientBreakdown, setShowClientBreakdown] = useState(false); // NEW
 
   useEffect(() => {
     const loadData = async () => {
@@ -66,6 +70,47 @@ export default function Analytics() {
     initialData: [],
     enabled: !!organization?.id,
   });
+
+  // NEW: Fetch clients for consultant analytics
+  const { data: allClients = [] } = useQuery({
+    queryKey: ['analytics-clients', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Client.filter({ organization_id: organization.id });
+    },
+    enabled: !!organization?.id && organization?.organization_type === 'consultancy',
+    staleTime: 60000
+  });
+
+  // NEW: Calculate client-specific metrics
+  const clientMetrics = useMemo(() => {
+    if (allClients.length === 0) return [];
+    
+    return allClients.map(client => {
+      const clientProposals = proposals.filter(p => 
+        p.shared_with_client_ids?.includes(client.id)
+      );
+      const wonProposals = clientProposals.filter(p => p.status === 'won');
+      const submittedProposals = clientProposals.filter(p => 
+        ['submitted', 'won', 'lost'].includes(p.status)
+      );
+      
+      const totalValue = clientProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+      const wonValue = wonProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+      const winRate = submittedProposals.length > 0 
+        ? Math.round((wonProposals.length / submittedProposals.length) * 100)
+        : 0;
+      
+      return {
+        client,
+        proposalsCount: clientProposals.length,
+        wonCount: wonProposals.length,
+        totalValue,
+        wonValue,
+        winRate
+      };
+    }).sort((a, b) => b.totalValue - a.totalValue); // Sort by value
+  }, [allClients, proposals]);
 
   const calculateStats = () => {
     const totalProposals = proposals.length;
@@ -106,11 +151,28 @@ export default function Analytics() {
     );
   }
 
+  const effectiveOrgType = organization.organization_type === 'demo'
+    ? organization.demo_view_mode
+    : organization.organization_type;
+  const isConsultancy = effectiveOrgType === 'consultancy';
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Analytics</h1>
-        <p className="text-slate-600">Track your performance and metrics</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Analytics</h1>
+          <p className="text-slate-600">Track your performance and metrics</p>
+        </div>
+        {/* NEW: Client breakdown toggle for consultants */}
+        {isConsultancy && allClients.length > 0 && (
+          <Button
+            variant={showClientBreakdown ? "default" : "outline"}
+            onClick={() => setShowClientBreakdown(!showClientBreakdown)}
+          >
+            <Building2 className="w-4 h-4 mr-2" />
+            Client Breakdown
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -225,6 +287,65 @@ export default function Analytics() {
               </CardContent>
             </Card>
           </div>
+
+          {/* NEW: Client Performance Breakdown */}
+          {isConsultancy && showClientBreakdown && allClients.length > 0 && (
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-purple-600" />
+                  Performance by Client
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {clientMetrics.map(({ client, proposalsCount, wonCount, totalValue, wonValue, winRate }) => (
+                    <div key={client.id} className="p-4 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+                            {client.client_name?.charAt(0) || 'C'}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-slate-900">{client.client_name}</h4>
+                            <p className="text-xs text-slate-500">{client.contact_email}</p>
+                          </div>
+                        </div>
+                        <Badge className={
+                          client.relationship_status === 'active' ? 'bg-green-100 text-green-700 hover:bg-green-100' : // Add hover:bg-green-100 to prevent change on hover
+                          client.relationship_status === 'prospect' ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' :
+                          'bg-slate-100 text-slate-700 hover:bg-slate-100'
+                        }>
+                          {client.relationship_status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-slate-900">{proposalsCount}</div>
+                          <div className="text-xs text-slate-600">Proposals</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-green-700">{wonCount}</div>
+                          <div className="text-xs text-slate-600">Won</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-purple-700">
+                            ${totalValue >= 1000000 ? `${(totalValue / 1000000).toFixed(1)}M` : `${(totalValue / 1000).toFixed(0)}K`}
+                          </div>
+                          <div className="text-xs text-slate-600">Total Value</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-blue-700">{winRate}%</div>
+                          <div className="text-xs text-slate-600">Win Rate</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

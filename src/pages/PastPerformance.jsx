@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +77,28 @@ export default function PastPerformance() {
     initialData: [],
     enabled: !!organization?.id,
   });
+
+  // NEW: Fetch clients to link projects
+  const { data: allClients = [] } = useQuery({
+    queryKey: ['past-perf-clients', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Client.filter({ organization_id: organization.id });
+    },
+    enabled: !!organization?.id,
+    staleTime: 60000
+  });
+
+  // NEW: Create a mapping of client_name to Client entity
+  const clientNameToEntity = useMemo(() => {
+    const mapping = {};
+    allClients.forEach(client => {
+      if (client.client_name) { // Ensure client_name exists
+        mapping[client.client_name.toLowerCase()] = client;
+      }
+    });
+    return mapping;
+  }, [allClients]);
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (id) => {
@@ -196,78 +218,119 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <Card key={project.id} className="border-none shadow-lg hover:shadow-xl transition-all">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <CardTitle className="text-lg mb-2 line-clamp-2">
-                      {project.project_title}
-                    </CardTitle>
-                    <Badge variant="secondary" className="capitalize">
-                      {project.contract_type}
-                    </Badge>
+          {filteredProjects.map((project) => {
+            // NEW: Find matching client entity
+            const linkedClient = project.client_name ? clientNameToEntity[project.client_name.toLowerCase()] : null;
+            
+            return (
+              <Card key={project.id} className="border-none shadow-lg hover:shadow-xl transition-all">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <CardTitle className="text-lg mb-2 line-clamp-2">
+                        {project.project_title}
+                      </CardTitle>
+                      <Badge variant="secondary" className="capitalize">
+                        {project.contract_type}
+                      </Badge>
+                      {/* NEW: Client badge if linked */}
+                      {linkedClient && (
+                        <Badge className="ml-2 bg-purple-100 text-purple-700">
+                          Client: {linkedClient.client_name}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(project)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          if (confirm('Delete this project?')) {
+                            deleteProjectMutation.mutate(project.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(project)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => {
-                        if (confirm('Delete this project?')) {
-                          deleteProjectMutation.mutate(project.id);
-                        }
-                      }}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {project.client_name && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Building2 className="w-4 h-4 text-slate-400" />
+                      <span>{project.client_name}</span>
+                    </div>
+                  )}
+                  
+                  {project.contract_value && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="w-4 h-4 text-slate-400" />
+                      <span>${(project.contract_value / 1000000).toFixed(1)}M</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <span>
+                      {new Date(project.project_start_date).getFullYear()} - {new Date(project.project_end_date).getFullYear()}
+                    </span>
+                  </div>
+
+                  {/* NEW: Client engagement indicator */}
+                  {linkedClient && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Client Status</span>
+                        <Badge className={
+                          linkedClient.relationship_status === 'active' ? 'bg-green-100 text-green-700' :
+                          linkedClient.relationship_status === 'prospect' ? 'bg-blue-100 text-blue-700' :
+                          'bg-slate-100 text-slate-700'
+                        }>
+                          {linkedClient.relationship_status}
+                        </Badge>
+                      </div>
+                      {linkedClient.engagement_score && (
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-slate-500">Engagement</span>
+                            <span className="font-medium">{linkedClient.engagement_score}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5">
+                            <div
+                              className="bg-purple-500 h-1.5 rounded-full"
+                              style={{ width: `${linkedClient.engagement_score}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {project.project_description && (
+                    <p className="text-sm text-slate-600 line-clamp-3 pt-2 border-t">
+                      {project.project_description}
+                    </p>
+                  )}
+
+                  <div className="pt-2 border-t">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePromoteToLibrary(project)}
+                      className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
                     >
-                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <Library className="w-4 h-4 mr-2 text-green-600" />
+                      Add to Content Library
                     </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {project.client_name && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Building2 className="w-4 h-4 text-slate-400" />
-                    <span>{project.client_name}</span>
-                  </div>
-                )}
-                
-                {project.contract_value && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <DollarSign className="w-4 h-4 text-slate-400" />
-                    <span>${(project.contract_value / 1000000).toFixed(1)}M</span>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <span>
-                    {new Date(project.project_start_date).getFullYear()} - {new Date(project.project_end_date).getFullYear()}
-                  </span>
-                </div>
-
-                {project.project_description && (
-                  <p className="text-sm text-slate-600 line-clamp-3 pt-2 border-t">
-                    {project.project_description}
-                  </p>
-                )}
-
-                <div className="pt-2 border-t">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handlePromoteToLibrary(project)}
-                    className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
-                  >
-                    <Library className="w-4 h-4 mr-2 text-green-600" />
-                    Add to Content Library
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
