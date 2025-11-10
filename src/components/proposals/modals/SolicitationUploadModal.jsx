@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -13,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, File, X, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { syncProposalToCalendar } from "@/utils/proposalCalendarSync";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function SolicitationUploadModal({ isOpen, onClose, proposalId }) {
   const [loading, setLoading] = useState(true);
@@ -24,6 +27,9 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
     due_date: "",
     contract_value: null,
   });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (isOpen && proposalId) {
@@ -161,15 +167,30 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
   };
 
   const handleSave = async () => {
+    setIsSaving(true);
     try {
-      await base44.entities.Proposal.update(proposalId, {
-        due_date: proposalData.due_date,
-        contract_value: proposalData.contract_value,
-      });
+      const updateData = {
+        due_date: proposalData.due_date || null,
+        contract_value: proposalData.contract_value ? parseFloat(proposalData.contract_value) : null
+      };
+
+      const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
+
+      // 🔄 SYNC TO CALENDAR
+      if (organization && organization.id) {
+        await syncProposalToCalendar(updatedProposal, organization.id);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      
+      console.log('[SolicitationUploadModal] ✅ Proposal info saved and synced to calendar');
       onClose();
     } catch (error) {
-      console.error("Error saving:", error);
-      alert("Error saving. Please try again.");
+      console.error('[SolicitationUploadModal] Error saving:', error);
+      alert('Failed to save. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -319,8 +340,15 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            Save
+          <Button onClick={handleSave} disabled={loading || isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

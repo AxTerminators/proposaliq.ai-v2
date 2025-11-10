@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Calendar } from "lucide-react";
+import { syncProposalToCalendar } from "@/utils/proposalCalendarSync";
 
 const PROJECT_TYPES = [
   { value: 'RFP', label: 'RFP - Request for Proposal' },
@@ -32,13 +33,16 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [organizationId, setOrganizationId] = useState(null);
   
   const [formData, setFormData] = useState({
     proposal_name: '',
     solicitation_number: '',
     project_type: 'RFP',
     agency_name: '',
-    project_title: ''
+    project_title: '',
+    due_date: '',
+    contract_value: ''
   });
 
   useEffect(() => {
@@ -53,12 +57,15 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
         const proposals = await base44.entities.Proposal.filter({ id: proposalId });
         if (proposals.length > 0) {
           const proposal = proposals[0];
+          setOrganizationId(proposal.organization_id);
           setFormData({
             proposal_name: proposal.proposal_name || '',
             solicitation_number: proposal.solicitation_number || '',
             project_type: proposal.project_type || 'RFP',
             agency_name: proposal.agency_name || '',
-            project_title: proposal.project_title || ''
+            project_title: proposal.project_title || '',
+            due_date: proposal.due_date || '',
+            contract_value: proposal.contract_value || ''
           });
         }
       } catch (error) {
@@ -84,18 +91,28 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
 
     setIsSaving(true);
     try {
-      await base44.entities.Proposal.update(proposalId, {
+      const updateData = {
         proposal_name: formData.proposal_name,
         solicitation_number: formData.solicitation_number,
         project_type: formData.project_type,
         agency_name: formData.agency_name,
-        project_title: formData.project_title
-      });
+        project_title: formData.project_title,
+        due_date: formData.due_date || null,
+        contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null
+      };
+
+      const updatedProposal = await base44.entities.Proposal.update(proposalId, updateData);
+
+      // 🔄 SYNC TO CALENDAR
+      if (organizationId) {
+        await syncProposalToCalendar(updatedProposal, organizationId);
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       
-      console.log('[BasicInfoModal] ✅ Proposal basic info saved successfully');
-      onClose(); // This will trigger handleModalClose in ProposalCardModal with checklist completion
+      console.log('[BasicInfoModal] ✅ Proposal basic info saved and synced to calendar');
+      onClose();
     } catch (error) {
       console.error('[BasicInfoModal] Error saving proposal:', error);
       alert('Failed to save proposal information. Please try again.');
@@ -189,6 +206,41 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
                 onChange={(e) => setFormData({...formData, project_title: e.target.value})}
                 placeholder="e.g., IT Support Services for DoD"
               />
+            </div>
+
+            {/* NEW: Due Date and Contract Value */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="due_date" className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  Due Date
+                </Label>
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({...formData, due_date: e.target.value})}
+                />
+                <p className="text-xs text-slate-500">
+                  📅 This will automatically appear on your master calendar
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contract_value">
+                  Estimated Contract Value
+                </Label>
+                <Input
+                  id="contract_value"
+                  type="number"
+                  value={formData.contract_value}
+                  onChange={(e) => setFormData({...formData, contract_value: e.target.value})}
+                  placeholder="e.g., 5000000"
+                />
+                <p className="text-xs text-slate-500">
+                  Enter amount in dollars (e.g., 5000000 for $5M)
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-4 border-t">
