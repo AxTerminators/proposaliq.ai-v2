@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -332,7 +333,7 @@ export default function BoardManagement() {
         }}
       />
 
-      {/* Config Dialog */}
+      {/* FIXED: Config Dialog - prevent navigation by keeping dialog open */}
       {showConfigDialog && editingBoard && (
         <BoardConfigDialog
           isOpen={showConfigDialog}
@@ -344,8 +345,8 @@ export default function BoardManagement() {
           organization={organization}
           onSave={async () => {
             await refetch();
-            setShowConfigDialog(false);
-            setEditingBoard(null);
+            // Don't close dialog or reset state - just refetch
+            alert('✅ Board configuration saved!');
           }}
         />
       )}
