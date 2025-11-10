@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +30,7 @@ import {
   GitCompare,
   BarChart3,
   RefreshCw,
-  AlertCircle // NEW: Added AlertCircle import
+  AlertCircle
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,31 +41,8 @@ import DocumentVersionControl from "../components/client/DocumentVersionControl"
 import ClientNotificationPreferences from "../components/client/ClientNotificationPreferences";
 import ClientReportingDashboard from "../components/client/ClientReportingDashboard";
 import EnhancedClientHealthMonitor from "../components/client/EnhancedClientHealthMonitor";
+import ReviewWorkflowBuilder from "../components/client/ReviewWorkflowBuilder";
 import { useOrganization } from "../components/layout/OrganizationContext";
-
-// Placeholder import - this component was mentioned in ClientWorkflows but not provided.
-// It's crucial for the code to compile, so adding a basic placeholder.
-// In a real application, you'd replace this with the actual component.
-function ReviewWorkflowBuilder({ proposal, client, teamMembers }) {
-  if (!proposal) return null;
-  return (
-    <Card className="border-none shadow-lg">
-      <CardHeader>
-        <CardTitle>Review Workflow for {proposal.proposal_name}</CardTitle>
-        <DialogDescription>
-          Build and manage the approval workflow for this proposal.
-        </DialogDescription>
-      </CardHeader>
-      <CardContent className="text-center py-8 text-slate-500">
-        <p>Review Workflow Builder functionality goes here.</p>
-        <p>Proposal: {proposal.proposal_name}</p>
-        <p>Client: {client.client_name}</p>
-        <p>Team Members: {teamMembers.length}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
 
 async function getUserActiveOrganization(user) {
   if (!user) return null;
@@ -153,7 +129,6 @@ export default function Clients() {
     enabled: !!organization?.id,
   });
 
-  // NEW: Fetch aggregated data for client cards
   const { data: clientMetrics = {}, isError: isMetricsError } = useQuery({
     queryKey: ['client-metrics', organization?.id, clients.map(c => c?.id).filter(Boolean).join(',')],
     queryFn: async () => {
@@ -165,7 +140,6 @@ export default function Clients() {
 
         if (clientIds.length === 0) return {};
 
-        // Fetch all data in parallel with error handling
         const [allProposals, allFeedback, allMeetings, allFiles] = await Promise.all([
           base44.entities.Proposal.list().catch(() => []),
           base44.entities.Feedback.filter({ organization_id: organization.id }).catch(() => []),
@@ -173,7 +147,6 @@ export default function Clients() {
           base44.entities.ClientUploadedFile.list().catch(() => [])
         ]);
 
-        // Calculate metrics for each client
         clientIds.forEach(clientId => {
           const sharedProposals = (allProposals || []).filter(p =>
             p?.shared_with_client_ids && Array.isArray(p.shared_with_client_ids) && p.shared_with_client_ids.includes(clientId)
@@ -225,7 +198,7 @@ export default function Clients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['client-metrics'] }); // Invalidate metrics on client update/creation
+      queryClient.invalidateQueries({ queryKey: ['client-metrics'] });
       setShowDialog(false);
       setEditingClient(null);
       resetForm();
@@ -238,7 +211,7 @@ export default function Clients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['client-metrics'] }); // Invalidate metrics on client deletion
+      queryClient.invalidateQueries({ queryKey: ['client-metrics'] });
     },
   });
 
@@ -513,7 +486,6 @@ export default function Clients() {
                     </div>
                   )}
 
-                  {/* NEW: Activity Metrics */}
                   <div className="grid grid-cols-2 gap-2 pt-3 border-t">
                     <div className="bg-blue-50 rounded-lg p-2 text-center">
                       <div className="text-lg font-bold text-blue-900">
@@ -529,7 +501,6 @@ export default function Clients() {
                     </div>
                   </div>
 
-                  {/* NEW: Alert Badges */}
                   {(metrics.unresolvedFeedbackCount > 0 || metrics.unreviewedFilesCount > 0) && (
                     <div className="flex flex-wrap gap-2 pt-2">
                       {metrics.unresolvedFeedbackCount > 0 && (
@@ -733,7 +704,6 @@ function ClientOverview({ client, onEdit, metrics = {} }) {
         </CardContent>
       </Card>
 
-      {/* NEW: Activity Summary Card */}
       <Card className="border-none shadow-lg">
         <CardHeader>
           <CardTitle>Activity Summary</CardTitle>
