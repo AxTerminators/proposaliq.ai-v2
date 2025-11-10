@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,9 +60,10 @@ const TOUR_STEPS = [
   }
 ];
 
-export default function KanbanOnboardingTour({ isOpen, onClose, onComplete }) {
+export default function KanbanOnboardingTour({ isOpen, onClose, onComplete, user, organization }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const currentStepData = TOUR_STEPS[currentStep];
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
@@ -82,19 +84,102 @@ export default function KanbanOnboardingTour({ isOpen, onClose, onComplete }) {
     }
   };
 
-  const handleComplete = () => {
-    if (dontShowAgain) {
+  const handleComplete = async () => {
+    if (!user || !organization) {
+      // Fallback to localStorage if no user/org available
       localStorage.setItem('kanban_tour_completed', 'true');
+      if (onComplete) onComplete();
+      onClose();
+      return;
     }
-    if (onComplete) {
-      onComplete();
+
+    setIsSaving(true);
+
+    try {
+      // Check if preference already exists
+      const existingPrefs = await base44.entities.UserPreference.filter({
+        user_email: user.email,
+        organization_id: organization.id,
+        preference_type: "onboarding_status",
+        preference_name: "kanban_board_onboarding_completed"
+      });
+
+      if (existingPrefs.length > 0) {
+        // Update existing
+        await base44.entities.UserPreference.update(existingPrefs[0].id, {
+          preference_data: JSON.stringify({ completed: true, completed_date: new Date().toISOString() })
+        });
+      } else {
+        // Create new
+        await base44.entities.UserPreference.create({
+          user_email: user.email,
+          organization_id: organization.id,
+          preference_type: "onboarding_status",
+          preference_name: "kanban_board_onboarding_completed",
+          preference_data: JSON.stringify({ completed: true, completed_date: new Date().toISOString() }),
+          is_default: false
+        });
+      }
+
+      // Also set localStorage as backup
+      localStorage.setItem('kanban_tour_completed', 'true');
+
+      if (onComplete) {
+        onComplete();
+      }
+      onClose();
+    } catch (error) {
+      console.error('[KanbanOnboarding] Error saving preference:', error);
+      // Still close the tour even if saving fails
+      localStorage.setItem('kanban_tour_completed', 'true');
+      if (onComplete) onComplete();
+      onClose();
+    } finally {
+      setIsSaving(false);
     }
-    onClose();
   };
 
-  const handleSkip = () => {
-    localStorage.setItem('kanban_tour_completed', 'true');
-    onClose();
+  const handleSkip = async () => {
+    if (!user || !organization) {
+      localStorage.setItem('kanban_tour_completed', 'true');
+      onClose();
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const existingPrefs = await base44.entities.UserPreference.filter({
+        user_email: user.email,
+        organization_id: organization.id,
+        preference_type: "onboarding_status",
+        preference_name: "kanban_board_onboarding_completed"
+      });
+
+      if (existingPrefs.length > 0) {
+        await base44.entities.UserPreference.update(existingPrefs[0].id, {
+          preference_data: JSON.stringify({ completed: true, skipped: true, completed_date: new Date().toISOString() })
+        });
+      } else {
+        await base44.entities.UserPreference.create({
+          user_email: user.email,
+          organization_id: organization.id,
+          preference_type: "onboarding_status",
+          preference_name: "kanban_board_onboarding_completed",
+          preference_data: JSON.stringify({ completed: true, skipped: true, completed_date: new Date().toISOString() }),
+          is_default: false
+        });
+      }
+
+      localStorage.setItem('kanban_tour_completed', 'true');
+      onClose();
+    } catch (error) {
+      console.error('[KanbanOnboarding] Error saving skip preference:', error);
+      localStorage.setItem('kanban_tour_completed', 'true');
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -162,6 +247,7 @@ export default function KanbanOnboardingTour({ isOpen, onClose, onComplete }) {
                   variant="ghost"
                   onClick={handleBack}
                   className="gap-2"
+                  disabled={isSaving}
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back
@@ -171,8 +257,9 @@ export default function KanbanOnboardingTour({ isOpen, onClose, onComplete }) {
                 <Button
                   variant="ghost"
                   onClick={handleSkip}
+                  disabled={isSaving}
                 >
-                  Skip Tour
+                  {isSaving ? 'Saving...' : 'Skip Tour'}
                 </Button>
               )}
             </div>
@@ -185,6 +272,7 @@ export default function KanbanOnboardingTour({ isOpen, onClose, onComplete }) {
                     checked={dontShowAgain}
                     onChange={(e) => setDontShowAgain(e.target.checked)}
                     className="rounded"
+                    disabled={isSaving}
                   />
                   Don't show again
                 </label>
@@ -193,8 +281,11 @@ export default function KanbanOnboardingTour({ isOpen, onClose, onComplete }) {
               <Button
                 onClick={handleNext}
                 className="bg-blue-600 hover:bg-blue-700 gap-2"
+                disabled={isSaving}
               >
-                {isLastStep ? (
+                {isSaving ? (
+                  'Saving...'
+                ) : isLastStep ? (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
                     Get Started

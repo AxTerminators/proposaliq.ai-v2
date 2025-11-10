@@ -169,22 +169,76 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       : [...currentCollapsed, columnId];
 
     await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      collapsed_column_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
+      collapsed_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
     });
 
     queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
   };
 
+  // UPDATED: Check UserPreference instead of just localStorage
   useEffect(() => {
-    if (hasKanbanConfig && !isLoadingConfig) {
-      const tourCompleted = localStorage.getItem('kanban_tour_completed');
-      if (!tourCompleted) {
+    const checkOnboardingStatus = async () => {
+      if (!hasKanbanConfig || isLoadingConfig || !user || !organization) {
+        return;
+      }
+
+      try {
+        // Check UserPreference first
+        const prefs = await base44.entities.UserPreference.filter({
+          user_email: user.email,
+          organization_id: organization.id,
+          preference_type: "onboarding_status",
+          preference_name: "kanban_board_onboarding_completed"
+        });
+
+        if (prefs.length > 0) {
+          // User has completed onboarding, don't show tour
+          console.log('[KanbanOnboarding] User has completed tour previously');
+          return;
+        }
+
+        // Fallback check to localStorage (for backwards compatibility)
+        const tourCompleted = localStorage.getItem('kanban_tour_completed');
+        if (tourCompleted) {
+          // Migrate localStorage flag to UserPreference
+          try {
+            await base44.entities.UserPreference.create({
+              user_email: user.email,
+              organization_id: organization.id,
+              preference_type: "onboarding_status",
+              preference_name: "kanban_board_onboarding_completed",
+              preference_data: JSON.stringify({ 
+                completed: true, 
+                migrated_from_localStorage: true,
+                completed_date: new Date().toISOString() 
+              }),
+              is_default: false
+            });
+            console.log('[KanbanOnboarding] Migrated localStorage flag to UserPreference');
+          } catch (e) {
+            console.warn('[KanbanOnboarding] Could not migrate localStorage flag:', e);
+          }
+          return;
+        }
+
+        // Show the tour
         setTimeout(() => {
           setShowOnboardingTour(true);
         }, 1000);
+      } catch (error) {
+        console.error('[KanbanOnboarding] Error checking onboarding status:', error);
+        // Fallback to localStorage check only
+        const tourCompleted = localStorage.getItem('kanban_tour_completed');
+        if (!tourCompleted) {
+          setTimeout(() => {
+            setShowOnboardingTour(true);
+          }, 1000);
+        }
       }
-    }
-  }, [hasKanbanConfig, isLoadingConfig]);
+    };
+
+    checkOnboardingStatus();
+  }, [hasKanbanConfig, isLoadingConfig, user, organization]);
 
   // NEW: Fetch all clients for filter
   const { data: allClients = [] } = useQuery({
@@ -1358,10 +1412,28 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       <KanbanOnboardingTour
         isOpen={showOnboardingTour}
         onClose={() => setShowOnboardingTour(false)}
-        onComplete={() => {
-          localStorage.setItem('kanban_tour_completed', 'true');
+        onComplete={async () => {
+          if (user && organization) {
+            try {
+              await base44.entities.UserPreference.create({
+                user_email: user.email,
+                organization_id: organization.id,
+                preference_type: "onboarding_status",
+                preference_name: "kanban_board_onboarding_completed",
+                preference_data: JSON.stringify({ completed: true, completed_date: new Date().toISOString() }),
+                is_default: false
+              });
+              console.log('[KanbanOnboarding] Kanban tour completion recorded in UserPreference.');
+            } catch (e) {
+              console.error('[KanbanOnboarding] Failed to record tour completion in UserPreference:', e);
+            }
+          } else {
+            console.warn('[KanbanOnboarding] User or organization not available to record tour completion.');
+          }
           setShowOnboardingTour(false);
         }}
+        user={user}
+        organization={organization}
       />
 
       <KanbanHelpPanel
