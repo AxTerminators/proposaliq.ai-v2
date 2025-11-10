@@ -1266,7 +1266,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       {/* UPDATED: Board container - scrollbar adjusts to tallest column */}
       <div className="flex-1 overflow-y-auto bg-slate-100">
-        <div ref={boardRef} className="overflow-x-auto p-4 min-h-full">
+        <div ref={boardRef} className="overflow-x-auto pt-4 px-4 min-h-full">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
