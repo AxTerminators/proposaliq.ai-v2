@@ -464,7 +464,7 @@ export default function Pipeline() {
     const freshBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]) || [];
     console.log('[Pipeline] 📋 Fresh boards from cache:', freshBoards.map(b => ({ id: b.id, type: b.board_type, name: b.board_name })));
 
-    // Find the correct board
+    // Find the correct board - FIXED: Prioritize boardConfig if provided
     let matchingBoard = null;
     
     if (boardConfig) {
@@ -472,6 +472,8 @@ export default function Pipeline() {
       matchingBoard = freshBoards.find(b => b.id === boardConfig.id);
       if (!matchingBoard) {
         console.error('[Pipeline] ❌ Provided board not found in fresh boards! ID:', boardConfig.id);
+      } else {
+        console.log('[Pipeline] ✅ Successfully found provided board in fresh data');
       }
     }
     
@@ -489,38 +491,44 @@ export default function Pipeline() {
 
     if (matchingBoard) {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[Pipeline] 🔄 BOARD FOUND - PROCESSING');
+      console.log('[Pipeline] ✅ SWITCHING TO BOARD');
       console.log('[Pipeline] Board name:', matchingBoard.board_name);
       console.log('[Pipeline] Board ID:', matchingBoard.id);
-      console.log('[Pipeline] Should open modal?', !!openModal);
+      console.log('[Pipeline] Board type:', matchingBoard.board_type);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      // For 15-column workflow with modal, set up pending state
-      if (proposalType === 'RFP_15_COLUMN' && openModal) {
-        console.log('[Pipeline] 🎯 Setting up pending modal for 15-column workflow');
-        console.log('[Pipeline] Modal name:', openModal);
-        
-        setPendingProposalModal({
-          proposal: createdProposal,
-          initialModal: openModal,
-          targetBoardType: 'rfp_15_column',
-          targetBoardId: matchingBoard.id
-        });
-        
-        console.log('[Pipeline] 🔀 Switching to board:', matchingBoard.id);
-        setSelectedBoardId(matchingBoard.id);
-      } else {
-        // For other types, just switch the board
-        console.log('[Pipeline] 🔀 Switching to board (no modal)');
-        setSelectedBoardId(matchingBoard.id);
+      // CRITICAL FIX: Force board selection immediately
+      setSelectedBoardId(matchingBoard.id);
+      
+      // If there's an `openModal` and we found a matching board, open the modal directly.
+      if (openModal) {
+        setSelectedProposalToOpen(createdProposal);
+        setInitialModalToOpen(openModal);
+        setShowProposalModal(true);
+        setPendingProposalModal(null); // Clear pending state if it was set elsewhere, ensures clean slate.
       }
+      
+      // Wait a bit longer for the board to render
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      console.log('[Pipeline] ✅ Board switch initiated, view should now show:', matchingBoard.board_name);
     } else {
       console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.error('[Pipeline] ❌ NO MATCHING BOARD FOUND!');
       console.error('[Pipeline] This is a critical error');
       console.error('[Pipeline] Proposal type:', proposalType);
       console.error('[Pipeline] Available boards:', freshBoards.length);
+      console.error('[Pipeline] Board types available:', freshBoards.map(b => b.board_type));
       console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      // Show helpful error message
+      alert(
+        `⚠️ Board Not Found\n\n` +
+        `Could not find the "${proposalType}" board.\n\n` +
+        `Available boards:\n` +
+        freshBoards.map(b => `• ${b.board_name} (${b.board_type})`).join('\n') +
+        `\n\nThe proposal was created but is only visible on the Master Board.`
+      );
     }
   };
 
