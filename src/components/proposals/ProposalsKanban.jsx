@@ -1264,9 +1264,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* UPDATED: Board container - scrollbar adjusts to tallest column */}
+      {/* FIXED: Removed min-h-full and all bottom padding to eliminate gap */}
       <div className="flex-1 overflow-y-auto bg-slate-100">
-        <div ref={boardRef} className="overflow-x-auto px-4 min-h-full">
+        <div ref={boardRef} className="overflow-x-auto px-4">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
@@ -1279,11 +1279,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-4 py-4"
+                  className="flex gap-4 pt-4"
                   style={{
                     minWidth: 'min-content',
-                    alignItems: 'flex-start',
-                    minHeight: 'fit-content'
+                    alignItems: 'flex-start'
                   }}
                 >
                   {validColumns.map((column, index) => {
