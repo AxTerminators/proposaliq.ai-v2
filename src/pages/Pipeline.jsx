@@ -52,7 +52,7 @@ import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
-import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync.jsx";
+import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -1242,7 +1242,7 @@ export default function Pipeline() {
             <Button variant="ghost" onClick={() => setShowCreateBoardDialog(false)}>
               Cancel
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
