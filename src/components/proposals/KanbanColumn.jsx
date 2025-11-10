@@ -283,12 +283,9 @@ export default function KanbanColumn({
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]",
+          "flex-1 p-3 space-y-3 min-h-[120px]",
           snapshot.isDraggingOver && "bg-blue-50/50"
         )}
-        style={{
-          maxHeight: 'calc(100vh - 280px)'
-        }}
       >
         {/* Warning Messages */}
         {!canDragToHere && proposalCount > 0 && (
