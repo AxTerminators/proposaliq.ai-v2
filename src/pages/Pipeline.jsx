@@ -282,6 +282,11 @@ export default function Pipeline() {
       return proposals;
     }
 
+    // FIXED: Also check board_type for special boards like rfp_15_column
+    if (selectedBoard.board_type === 'rfp_15_column') {
+      return proposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
+    }
+
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
       return proposals.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
@@ -1272,6 +1277,7 @@ export default function Pipeline() {
               const icon = getBoardIcon(board.board_type, board.is_master_board);
               const boardProposalCount = proposals.filter(p => {
                 if (board.is_master_board) return true;
+                if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN'; // Added this line
                 if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
                     return board.applies_to_proposal_types.includes(p.proposal_type_category);
                 }

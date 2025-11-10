@@ -1,3 +1,4 @@
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
 
 Deno.serve(async (req) => {
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
       board_type: 'rfp_15_column',
       board_name: 'RFP Workflow (15-Column)',
       is_master_board: false,
-      applies_to_proposal_types: ['RFP'],
+      applies_to_proposal_types: ['RFP_15_COLUMN'],
       simplified_workflow: false,
       columns: [
         // Column 1: Initiate
