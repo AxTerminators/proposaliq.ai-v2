@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -25,10 +26,22 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     status: "todo",
     due_date: null,
     section_id: "",
-    estimated_hours: ""
+    estimated_hours: "",
+    proposal_id: "" // Added proposal_id to formData
   });
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch all proposals if no proposal is pre-selected (i.e., 'proposal' prop is null/undefined)
+  const { data: allProposals = [] } = useQuery({
+    queryKey: ['all-proposals-for-task', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Proposal.filter({ organization_id: organization.id }, '-created_date');
+    },
+    enabled: !!organization?.id && !proposal, // Only fetch if no specific proposal is passed
+    initialData: []
+  });
 
   useEffect(() => {
     if (task) {
@@ -41,7 +54,8 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         status: task.status || "todo",
         due_date: task.due_date ? new Date(task.due_date) : null,
         section_id: task.section_id || "",
-        estimated_hours: task.estimated_hours || ""
+        estimated_hours: task.estimated_hours || "",
+        proposal_id: task.proposal_id || "" // Initialize from task if editing
       });
     } else {
       setFormData({
@@ -53,10 +67,11 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         status: "todo",
         due_date: null,
         section_id: "",
-        estimated_hours: ""
+        estimated_hours: "",
+        proposal_id: proposal?.id || "" // Initialize from prop if available for new task
       });
     }
-  }, [task, user, open]);
+  }, [task, user, open, proposal]); // Added 'proposal' to dependency array
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members', organization?.id],
@@ -71,13 +86,19 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
     enabled: !!organization?.id
   });
 
+  // Determine the proposal ID to use for fetching sections and saving the task
+  const selectedProposalId = proposal?.id || formData.proposal_id;
+  // Determine the proposal object to pass to TaskComments (if task exists)
+  const selectedProposal = proposal || allProposals.find(p => p.id === formData.proposal_id);
+
+
   const { data: sections = [] } = useQuery({
-    queryKey: ['proposal-sections', proposal?.id],
+    queryKey: ['proposal-sections', selectedProposalId], // Use selectedProposalId
     queryFn: async () => {
-      if (!proposal?.id) return [];
-      return base44.entities.ProposalSection.filter({ proposal_id: proposal.id });
+      if (!selectedProposalId) return [];
+      return base44.entities.ProposalSection.filter({ proposal_id: selectedProposalId });
     },
-    enabled: !!proposal?.id
+    enabled: !!selectedProposalId // Enable if a proposal ID is selected
   });
 
   const handleSubmit = async (e) => {
@@ -94,8 +115,10 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
       return;
     }
     
-    if (!proposal?.id) {
-      alert("No proposal selected. Please select a proposal first.");
+    // Use the dynamically selected proposal ID
+    const targetProposalId = proposal?.id || formData.proposal_id;
+    if (!targetProposalId) {
+      alert("Please select a proposal for this task");
       return;
     }
     
@@ -103,7 +126,7 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
 
     try {
       const taskData = {
-        proposal_id: proposal.id,
+        proposal_id: targetProposalId, // Use targetProposalId
         title: formData.title.trim(),
         description: formData.description?.trim() || "",
         assigned_to_email: formData.assigned_to_email,
@@ -131,10 +154,10 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
             notification_type: "task_assigned",
             title: "New Task Assigned",
             message: `You've been assigned: ${formData.title}`,
-            related_proposal_id: proposal.id,
+            related_proposal_id: targetProposalId, // Use targetProposalId for notification
             from_user_email: user.email,
             from_user_name: user.full_name,
-            action_url: `/app/ProposalBuilder?id=${proposal.id}`
+            action_url: `/app/ProposalBuilder?id=${targetProposalId}` // Use targetProposalId
           });
         } catch (notifError) {
           console.warn("Failed to create notification:", notifError);
@@ -163,6 +186,25 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
 
   const taskFormFields = (
     <>
+      {/* NEW: Proposal Dropdown (only shown when no proposal is pre-selected) */}
+      {!proposal && ( // Only render this dropdown if the 'proposal' prop is not provided
+        <div className="space-y-2">
+          <Label htmlFor="proposal">Proposal *</Label>
+          <Select value={formData.proposal_id} onValueChange={(value) => setFormData({ ...formData, proposal_id: value, section_id: "" })}> {/* Reset section_id when proposal changes */}
+            <SelectTrigger id="proposal">
+              <SelectValue placeholder="Select a proposal" />
+            </SelectTrigger>
+            <SelectContent>
+              {allProposals.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.proposal_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="title">Task Title *</Label>
         <Input
@@ -207,11 +249,11 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         <div className="space-y-2">
           <Label htmlFor="section">Related Section (Optional)</Label>
           <Select value={formData.section_id} onValueChange={(value) => setFormData({ ...formData, section_id: value })}>
-            <SelectTrigger id="section">
+            <SelectTrigger id="section" disabled={!selectedProposalId}> {/* Disable if no proposal is selected yet */}
               <SelectValue placeholder="None" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={null}>None</SelectItem>
+              <SelectItem value={null}>None</SelectItem> {/* Changed null to empty string for consistency with select value type */}
               {sections.map(section => (
                 <SelectItem key={section.id} value={section.id}>
                   {section.section_name}
@@ -296,7 +338,10 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSaving || !formData.title || !formData.assigned_to_email}>
+        <Button 
+          type="submit" 
+          disabled={isSaving || !formData.title || !formData.assigned_to_email || (!proposal && !formData.proposal_id)} // Added proposal_id check
+        >
           {isSaving ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -316,7 +361,7 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
         <DialogHeader>
           <DialogTitle>{task ? "Edit Task" : "Create New Task"}</DialogTitle>
           <DialogDescription>
-            {task ? "Update task details and assignment" : "Add a new task to this proposal"}
+            {task ? "Update task details and assignment" : "Add a new task to a proposal"} {/* Updated description */}
           </DialogDescription>
         </DialogHeader>
 
@@ -335,7 +380,7 @@ export default function TaskForm({ open, onOpenChange, proposal, task, onSave, u
 
             <TabsContent value="comments">
               <TaskComments
-                proposal={proposal}
+                proposal={selectedProposal} // Pass selectedProposal here
                 task={task}
                 user={user}
               />
