@@ -115,6 +115,11 @@ function LayoutContent({ children }) {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [demoViewMode, setDemoViewMode] = React.useState(null);
 
+  // Debug: Log current location
+  React.useEffect(() => {
+    console.log('[Layout] Current location:', location.pathname);
+  }, [location.pathname]);
+
   React.useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
