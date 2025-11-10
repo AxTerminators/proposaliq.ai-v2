@@ -1,3 +1,4 @@
+
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -93,10 +94,10 @@ export default function KanbanCard({
       {...provided.dragHandleProps}
       onClick={(e) => {
         if (selectionMode) {
-          e.stopPropagation();
+          e?.stopPropagation?.();
           onToggleSelection?.(proposal.id);
         } else {
-          onClick(proposal);
+          onClick?.(proposal);
         }
       }}
       className={cn(
@@ -113,11 +114,11 @@ export default function KanbanCard({
             type="checkbox"
             checked={isSelected}
             onChange={(e) => {
-              e.stopPropagation();
+              e?.stopPropagation?.();
               onToggleSelection?.(proposal.id);
             }}
             className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e?.stopPropagation?.()}
           />
         </div>
       )}

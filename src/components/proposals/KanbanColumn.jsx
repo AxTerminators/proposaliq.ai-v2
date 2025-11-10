@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -86,7 +87,7 @@ export default function KanbanColumn({
   const isNearWipLimit = wipLimit > 0 && proposalCount >= wipLimit * 0.8 && proposalCount < wipLimit;
 
   const handleNameClick = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation?.();
     if (!column.is_locked) {
       setIsEditingName(true);
       setEditedName(column.label);
@@ -136,8 +137,8 @@ export default function KanbanColumn({
               variant="ghost"
               size="icon"
               onClick={(e) => {
-                e.stopPropagation();
-                onToggleCollapse(column.id);
+                e?.stopPropagation?.();
+                onToggleCollapse?.(column.id);
               }}
               className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
               title="Collapse column"
@@ -263,7 +264,10 @@ export default function KanbanColumn({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={onConfigureColumn}>
+                  <DropdownMenuItem onClick={(e) => {
+                    e?.stopPropagation?.();
+                    onConfigureColumn?.();
+                  }}>
                     <Settings className="w-4 h-4 mr-2" />
                     Configure Column
                   </DropdownMenuItem>
