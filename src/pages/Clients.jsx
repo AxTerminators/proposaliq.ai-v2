@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,8 @@ import {
   TrendingUp,
   Clock,
   GitCompare,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,6 +80,7 @@ export default function Clients() {
   const [showDialog, setShowDialog] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
 
   const [clientData, setClientData] = useState({
     client_name: "",
@@ -209,6 +212,29 @@ export default function Clients() {
     }
   };
 
+  const handleGenerateAllTokens = async () => {
+    if (!confirm('Generate access tokens for all clients that are missing them?\n\nThis will allow them to access their client portals.')) {
+      return;
+    }
+
+    setIsGeneratingTokens(true);
+    try {
+      const response = await base44.functions.invoke('generateClientTokens', {});
+      
+      if (response.data.success) {
+        alert(`✅ ${response.data.message}\n\n${response.data.updated_count} clients updated.`);
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
+      } else {
+        alert(`❌ Error: ${response.data.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating tokens:', error);
+      alert(`❌ Error generating tokens: ${error.message}`);
+    } finally {
+      setIsGeneratingTokens(false);
+    }
+  };
+
   if (!organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -326,10 +352,29 @@ export default function Clients() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Clients</h1>
           <p className="text-slate-600">Manage your client relationships and portal access</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowDialog(true); }}>
-          <Plus className="w-5 h-5 mr-2" />
-          Add Client
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleGenerateAllTokens}
+            disabled={isGeneratingTokens}
+          >
+            {isGeneratingTokens ? (
+              <>
+                <div className="animate-spin mr-2">⏳</div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Generate Tokens
+              </>
+            )}
+          </Button>
+          <Button onClick={() => { resetForm(); setShowDialog(true); }}>
+            <Plus className="w-5 h-5 mr-2" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
