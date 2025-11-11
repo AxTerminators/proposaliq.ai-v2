@@ -959,11 +959,11 @@ export default function Pipeline() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowQuickBoardCreate(true)}
-                  className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                   title="Create a new board from templates"
                 >
-                  <Zap className="w-4 h-4 text-blue-600" />
-                  <Plus className="w-3 h-3 text-blue-600" />
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Board
                 </Button>
               </div>
             )}
