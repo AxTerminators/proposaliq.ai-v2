@@ -537,32 +537,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              {comments.length > 0 && (
-                <ScrollArea className="h-[300px] mb-4">
-                  <div className="space-y-4">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
-                        <Avatar className="w-10 h-10 flex-shrink-0">
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-                            {comment.author_name?.[0]?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-slate-900">{comment.author_name}</span>
-                            <span className="text-xs text-slate-500">
-                              {moment(comment.created_date).fromNow()}
-                            </span>
-                          </div>
-                          <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
-
-              <div className="space-y-3">
+              <div className="space-y-3 mb-4">
                 <div className="relative">
                   <Textarea
                     ref={textareaRef}
@@ -663,6 +638,31 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                   </Button>
                 </div>
               </div>
+
+              {comments.length > 0 && (
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-4">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
+                        <Avatar className="w-10 h-10 flex-shrink-0">
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                            {comment.author_name?.[0]?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-slate-900">{comment.author_name}</span>
+                            <span className="text-xs text-slate-500">
+                              {moment(comment.created_date).fromNow()}
+                            </span>
+                          </div>
+                          <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
             </CardContent>
           </Card>
         ) : (
