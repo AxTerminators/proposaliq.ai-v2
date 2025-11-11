@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -95,101 +94,106 @@ export default function ProposalsTable({ proposals, organization, groupBy = 'non
     );
   }
 
+  const renderTableContent = (items) => (
+    <div className="border rounded-lg overflow-hidden bg-white">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-slate-50">
+            <TableHead>Proposal Name</TableHead>
+            <TableHead>Agency</TableHead>
+            <TableHead>Due Date</TableHead>
+            <TableHead>Value</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Score</TableHead>
+            <TableHead>Type</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((proposal) => {
+            const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-100' };
+            
+            return (
+              <TableRow
+                key={proposal.id}
+                className="cursor-pointer hover:bg-blue-50 transition-colors"
+                onClick={() => handleRowClick(proposal)}
+              >
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {proposal.proposal_name}
+                    {proposal.is_sample_data && (
+                      <Badge className="bg-amber-500 text-white text-xs">SAMPLE</Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>{proposal.agency_name || 'N/A'}</TableCell>
+                <TableCell>
+                  {proposal.due_date 
+                    ? moment(proposal.due_date).format('MMM D, YYYY')
+                    : 'N/A'
+                  }
+                </TableCell>
+                <TableCell className="font-semibold text-green-700">
+                  {formatCurrency(proposal.contract_value)}
+                </TableCell>
+                <TableCell>
+                  <Badge className={statusConfig.color}>
+                    {statusConfig.label}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {proposal.match_score > 0 ? (
+                    <Badge variant="outline">{proposal.match_score}%</Badge>
+                  ) : (
+                    'N/A'
+                  )}
+                </TableCell>
+                <TableCell>
+                  {proposal.proposal_type_category && (
+                    <Badge className="bg-purple-100 text-purple-700">
+                      {TYPE_EMOJIS[proposal.proposal_type_category]} {proposal.proposal_type_category}
+                    </Badge>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {Object.entries(groupedProposals).map(([group, items]) => {
-        const GroupWrapper = groupBy !== 'none' ? Collapsible : React.Fragment;
-        const groupProps = groupBy !== 'none' ? { defaultOpen: true } : {};
+        // If no grouping, render table directly without Collapsible
+        if (groupBy === 'none') {
+          return <div key={group}>{renderTableContent(items)}</div>;
+        }
 
+        // If grouping is enabled, wrap in Collapsible
         return (
-          <GroupWrapper key={group} {...groupProps}>
-            {groupBy !== 'none' && (
-              <div className="mb-3">
-                <CollapsibleTrigger asChild>
-                  <div className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
-                    <ChevronRight className="w-5 h-5 text-slate-600 transition-transform [[data-state=open]>&]:rotate-90" />
-                    <h3 className="text-lg font-bold text-slate-900">
-                      {groupBy === 'type' && `${TYPE_EMOJIS[group] || '📊'} ${group} Proposals`}
-                      {groupBy === 'status' && `${STATUS_CONFIG[group]?.label || group}`}
-                      {groupBy === 'agency' && group}
-                    </h3>
-                    <Badge variant="secondary" className="ml-2">
-                      {items.length}
-                    </Badge>
-                  </div>
-                </CollapsibleTrigger>
-              </div>
-            )}
+          <Collapsible key={group} defaultOpen={true}>
+            <div className="mb-3">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
+                  <ChevronRight className="w-5 h-5 text-slate-600 transition-transform group-data-[state=open]:rotate-90" />
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {groupBy === 'type' && `${TYPE_EMOJIS[group] || '📊'} ${group} Proposals`}
+                    {groupBy === 'status' && `${STATUS_CONFIG[group]?.label || group}`}
+                    {groupBy === 'agency' && group}
+                  </h3>
+                  <Badge variant="secondary" className="ml-2">
+                    {items.length}
+                  </Badge>
+                </div>
+              </CollapsibleTrigger>
+            </div>
             
             <CollapsibleContent>
-              <div className="border rounded-lg overflow-hidden bg-white">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead>Proposal Name</TableHead>
-                      <TableHead>Agency</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Value</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Type</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((proposal) => {
-                      const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-100' };
-                      
-                      return (
-                        <TableRow
-                          key={proposal.id}
-                          className="cursor-pointer hover:bg-blue-50 transition-colors"
-                          onClick={() => handleRowClick(proposal)}
-                        >
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {proposal.proposal_name}
-                              {proposal.is_sample_data && (
-                                <Badge className="bg-amber-500 text-white text-xs">SAMPLE</Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>{proposal.agency_name || 'N/A'}</TableCell>
-                          <TableCell>
-                            {proposal.due_date 
-                              ? moment(proposal.due_date).format('MMM D, YYYY')
-                              : 'N/A'
-                            }
-                          </TableCell>
-                          <TableCell className="font-semibold text-green-700">
-                            {formatCurrency(proposal.contract_value)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={statusConfig.color}>
-                              {statusConfig.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {proposal.match_score > 0 ? (
-                              <Badge variant="outline">{proposal.match_score}%</Badge>
-                            ) : (
-                              'N/A'
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {proposal.proposal_type_category && (
-                              <Badge className="bg-purple-100 text-purple-700">
-                                {TYPE_EMOJIS[proposal.proposal_type_category]} {proposal.proposal_type_category}
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              {renderTableContent(items)}
             </CollapsibleContent>
-          </GroupWrapper>
+          </Collapsible>
         );
       })}
     </div>
