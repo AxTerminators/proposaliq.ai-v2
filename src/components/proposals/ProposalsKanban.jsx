@@ -98,6 +98,30 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [winningProposal, setWinningProposal] = useState(null);
 
+  // Track which columns are currently in transition state
+  const [columnsInTransition, setColumnsInTransition] = useState(new Set());
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const proposalIdFromUrl = urlParams.get("id");
+  const boardTypeFromUrl = urlParams.get("boardType");
+
+  const [proposalData, setProposalData] = useState({
+    proposal_name: "",
+    organization_id: "",
+    prime_contractor_id: "",
+    prime_contractor_name: "",
+    project_type: "",
+    solicitation_number: "",
+    agency_name: "",
+    project_title: "",
+    due_date: "",
+    contract_value: "",
+    teaming_partner_ids: [],
+    current_phase: "phase1",
+    status: "evaluating",
+    proposal_type_category: boardTypeFromUrl || "",
+  });
+
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -168,6 +192,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       return;
     }
 
+    // Mark column as in transition
+    setColumnsInTransition(prev => new Set(prev).add(columnId));
     collapseUpdateInProgress.current = true;
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
@@ -207,6 +233,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     } finally {
       setTimeout(() => {
         collapseUpdateInProgress.current = false;
+        setColumnsInTransition(prev => {
+          const next = new Set(prev);
+          next.delete(columnId);
+          return next;
+        });
         console.log('[Kanban] 🔓 Update lock released');
       }, 300);
     }
@@ -1322,6 +1353,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
                     const columnProposals = getProposalsForColumn(column);
+                    const isInTransition = columnsInTransition.has(column.id);
 
                     return (
                       <Draggable
@@ -1329,7 +1361,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                         draggableId={column.id}
                         index={index}
                         type="column"
-                        isDragDisabled={column.is_locked}
+                        isDragDisabled={column.is_locked || isInTransition}
                       >
                         {(providedDraggable, snapshotDraggable) => (
                           <div 
@@ -1337,7 +1369,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             {...providedDraggable.draggableProps}
                             className={cn(
                               "transition-opacity h-full flex flex-col",
-                              snapshotDraggable.isDragging && "opacity-70"
+                              snapshotDraggable.isDragging && "opacity-70",
+                              isInTransition && "pointer-events-none opacity-50"
                             )}
                           >
                             {isCollapsed ? (
@@ -1364,11 +1397,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log('[Kanban] 🖱️ Expand button clicked for column:', column.id);
-                                    toggleColumnCollapse(column.id);
+                                    if (!isInTransition) {
+                                      console.log('[Kanban] 🖱️ Expand button clicked for column:', column.id);
+                                      toggleColumnCollapse(column.id);
+                                    }
                                   }}
-                                  className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-                                  title="Click to expand"
+                                  disabled={isInTransition}
+                                  className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={isInTransition ? "Please wait..." : "Click to expand"}
                                 >
                                   <div
                                     className="text-xs font-semibold text-slate-700 whitespace-nowrap pointer-events-none"
@@ -1383,42 +1419,36 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                 </button>
                               </div>
                             ) : (
-                              <Droppable droppableId={column.id} type="card">
-                                {(providedDroppable, snapshotDroppable) => {
-                                  // CRITICAL: Safety check before rendering KanbanColumn
-                                  if (!providedDroppable) {
-                                    console.error('[Kanban] providedDroppable is undefined for column:', column.id);
-                                    return (
-                                      <div className="w-80 bg-red-50 border-2 border-red-300 rounded-xl p-4 h-full flex items-center justify-center">
-                                        <div className="text-center">
-                                          <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                                          <p className="text-sm text-red-800 font-semibold">Error loading column</p>
-                                          <p className="text-xs text-red-600 mt-1">Please refresh the page</p>
-                                        </div>
-                                      </div>
-                                    );
-                                  }
+                              !isInTransition && (
+                                <Droppable droppableId={column.id} type="card">
+                                  {(providedDroppable, snapshotDroppable) => {
+                                    // DOUBLE SAFETY CHECK: Skip rendering if provided is undefined
+                                    if (!providedDroppable || !providedDroppable.innerRef) {
+                                      console.error('[Kanban] 🚫 Skipping render - providedDroppable invalid for column:', column.id);
+                                      return null;
+                                    }
 
-                                  return (
-                                    <KanbanColumn
-                                      column={column}
-                                      proposals={columnProposals}
-                                      provided={providedDroppable}
-                                      snapshot={snapshotDroppable}
-                                      onCardClick={handleCardClick}
-                                      onToggleCollapse={toggleColumnCollapse}
-                                      organization={organization}
-                                      onRenameColumn={handleRenameColumn}
-                                      onConfigureColumn={handleConfigureColumn}
-                                      user={user}
-                                      dragHandleProps={providedDraggable.dragHandleProps}
-                                      onCreateProposal={handleCreateProposalInColumn}
-                                      selectedProposalIds={selectedProposalIds}
-                                      onToggleProposalSelection={handleToggleProposalSelection}
-                                    />
-                                  );
-                                }}
-                              </Droppable>
+                                    return (
+                                      <KanbanColumn
+                                        column={column}
+                                        proposals={columnProposals}
+                                        provided={providedDroppable}
+                                        snapshot={snapshotDroppable}
+                                        onCardClick={handleCardClick}
+                                        onToggleCollapse={toggleColumnCollapse}
+                                        organization={organization}
+                                        onRenameColumn={handleRenameColumn}
+                                        onConfigureColumn={handleConfigureColumn}
+                                        user={user}
+                                        dragHandleProps={providedDraggable.dragHandleProps}
+                                        onCreateProposal={handleCreateProposalInColumn}
+                                        selectedProposalIds={selectedProposalIds}
+                                        onToggleProposalSelection={handleToggleProposalSelection}
+                                      />
+                                    );
+                                  }}
+                                </Droppable>
+                              )
                             )}
                           </div>
                         )}
