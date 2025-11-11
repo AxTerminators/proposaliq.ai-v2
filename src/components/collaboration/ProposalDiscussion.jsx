@@ -46,7 +46,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
-  const [cursorPosition, setCursorPosition] = useState(0);
   const textareaRef = useRef(null);
 
   const { data: discussions, isLoading } = useQuery({
@@ -79,91 +78,85 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     enabled: !!selectedDiscussion?.id,
   });
 
-  // FIXED: Better team members fetching - include all users in organization
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members-for-mentions', organization.id],
     queryFn: async () => {
-      console.log('[Mentions] Fetching team members for org:', organization.id);
-      
-      // Get all users
+      console.log('[Mentions] 🔍 Fetching team members for org:', organization.id);
       const allUsers = await base44.entities.User.list();
-      console.log('[Mentions] Total users in system:', allUsers.length);
+      console.log('[Mentions] 📊 Total users in system:', allUsers.length);
       
-      // Filter to users in this organization
       const orgUsers = allUsers.filter(u => {
         const accesses = u.client_accesses || [];
         return accesses.some(a => a.organization_id === organization.id);
       });
       
-      console.log('[Mentions] Users in this organization:', orgUsers.length);
-      console.log('[Mentions] Team members:', orgUsers.map(u => ({ name: u.full_name, email: u.email })));
+      console.log('[Mentions] ✅ Users in this organization:', orgUsers.length);
+      orgUsers.forEach(u => console.log('[Mentions]   -', u.full_name, '(', u.email, ')'));
       
       return orgUsers;
     },
     initialData: [],
-    staleTime: 300000, // Cache for 5 minutes
+    staleTime: 300000,
   });
 
-  // FIXED: Better @ mention detection with debugging
-  useEffect(() => {
-    const text = newComment;
-    const cursorPos = cursorPosition;
+  const checkForMentions = (text) => {
+    if (!textareaRef.current) return;
     
-    console.log('[Mentions] Text:', text);
-    console.log('[Mentions] Cursor position:', cursorPos);
-    console.log('[Mentions] Team members available:', teamMembers.length);
-    
-    // Find the last @ before cursor
+    const cursorPos = textareaRef.current.selectionStart;
     const textBeforeCursor = text.substring(0, cursorPos);
+    
+    console.log('[Mentions] 🔍 Checking text:', text);
+    console.log('[Mentions] 📍 Cursor at:', cursorPos);
+    console.log('[Mentions] 📝 Text before cursor:', textBeforeCursor);
+    
+    // Find last @ symbol
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    console.log('[Mentions] 🎯 Last @ at index:', lastAtIndex);
     
-    console.log('[Mentions] Last @ index:', lastAtIndex);
-    
-    if (lastAtIndex !== -1) {
-      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-      
-      console.log('[Mentions] Text after @:', textAfterAt);
-      
-      // Check if there's a space after the @, if yes, don't show dropdown
-      if (textAfterAt.includes(' ')) {
-        console.log('[Mentions] Space found after @, hiding dropdown');
-        setShowMentionDropdown(false);
-        setMentionFilter("");
-        return;
-      }
-      
-      console.log('[Mentions] ✅ Showing dropdown with filter:', textAfterAt);
-      setMentionFilter(textAfterAt);
-      setShowMentionDropdown(true);
-    } else {
-      console.log('[Mentions] No @ found, hiding dropdown');
+    if (lastAtIndex === -1) {
+      console.log('[Mentions] ❌ No @ found');
       setShowMentionDropdown(false);
       setMentionFilter("");
+      return;
     }
-  }, [newComment, cursorPosition, teamMembers.length]);
+    
+    // Get text after the @
+    const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+    console.log('[Mentions] 📄 Text after @:', textAfterAt);
+    
+    // If there's a space, we're past the mention
+    if (textAfterAt.includes(' ')) {
+      console.log('[Mentions] ❌ Space found, closing dropdown');
+      setShowMentionDropdown(false);
+      setMentionFilter("");
+      return;
+    }
+    
+    // Show dropdown!
+    console.log('[Mentions] ✅ SHOWING DROPDOWN!');
+    console.log('[Mentions] 🔎 Filter text:', textAfterAt);
+    console.log('[Mentions] 👥 Available members:', teamMembers.length);
+    setMentionFilter(textAfterAt);
+    setShowMentionDropdown(true);
+  };
 
   const handleTextareaChange = (e) => {
-    console.log('[Mentions] Textarea changed, new value:', e.target.value);
-    setNewComment(e.target.value);
-    setCursorPosition(e.target.selectionStart);
+    const newValue = e.target.value;
+    setNewComment(newValue);
+    checkForMentions(newValue);
   };
 
-  const handleTextareaKeyUp = (e) => {
-    console.log('[Mentions] Key up, cursor at:', e.target.selectionStart);
-    setCursorPosition(e.target.selectionStart);
-  };
-
-  const handleTextareaClick = (e) => {
-    console.log('[Mentions] Clicked, cursor at:', e.target.selectionStart);
-    setCursorPosition(e.target.selectionStart);
+  const handleTextareaInput = (e) => {
+    checkForMentions(e.target.value);
   };
 
   const handleMentionSelect = (member) => {
-    console.log('[Mentions] Member selected:', member.email);
-    const text = newComment;
-    const cursorPos = cursorPosition;
+    console.log('[Mentions] 🎯 Selecting member:', member.email);
     
-    // Find the last @ before cursor
+    if (!textareaRef.current) return;
+    
+    const text = newComment;
+    const cursorPos = textareaRef.current.selectionStart;
     const textBeforeCursor = text.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
@@ -172,20 +165,20 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       const afterCursor = text.substring(cursorPos);
       
       const newText = beforeAt + '@' + member.email + ' ' + afterCursor;
-      console.log('[Mentions] New text:', newText);
+      console.log('[Mentions] ✅ New text:', newText);
+      
       setNewComment(newText);
       setShowMentionDropdown(false);
       setMentionFilter("");
       
-      // Focus textarea
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        const newCursorPos = beforeAt.length + member.email.length + 2;
-        setTimeout(() => {
+      // Focus and position cursor
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          const newCursorPos = beforeAt.length + member.email.length + 2;
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-          setCursorPosition(newCursorPos);
-        }, 0);
-      }
+        }
+      }, 0);
     }
   };
 
@@ -194,9 +187,18 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       member.email.toLowerCase().includes(mentionFilter.toLowerCase()) ||
       (member.full_name && member.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))
     );
-    console.log('[Mentions] Filtered team members:', filtered.length, 'Filter:', mentionFilter);
+    console.log('[Mentions] 🔍 Filtered members:', filtered.length, '(filter:', mentionFilter, ')');
     return filtered;
   }, [teamMembers, mentionFilter]);
+
+  useEffect(() => {
+    console.log('[Mentions] 🎭 Dropdown state changed:', {
+      showMentionDropdown,
+      mentionFilter,
+      filteredCount: filteredTeamMembers.length,
+      totalMembers: teamMembers.length
+    });
+  }, [showMentionDropdown, mentionFilter, filteredTeamMembers.length, teamMembers.length]);
 
   const createDiscussionMutation = useMutation({
     mutationFn: async (data) => {
@@ -261,7 +263,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       queryClient.invalidateQueries({ queryKey: ['discussion-comments'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-discussions'] });
       setNewComment("");
-      setCursorPosition(0);
     },
   });
 
@@ -291,9 +292,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       </div>
     );
   }
-
-  // DEBUG: Log current state
-  console.log('[Mentions] Component render - showMentionDropdown:', showMentionDropdown, 'filteredCount:', filteredTeamMembers.length);
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -445,7 +443,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              {/* Comments list - only show if there are comments */}
               {comments.length > 0 && (
                 <ScrollArea className="h-[300px] mb-4">
                   <div className="space-y-4">
@@ -471,7 +468,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                 </ScrollArea>
               )}
 
-              {/* FIXED: Comment input - always visible, no extra container */}
               <div className="space-y-3">
                 <div className="relative">
                   <Textarea
@@ -479,16 +475,22 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                     placeholder="Share your thoughts... (Type @ to mention someone)"
                     value={newComment}
                     onChange={handleTextareaChange}
-                    onKeyUp={handleTextareaKeyUp}
-                    onClick={handleTextareaClick}
+                    onInput={handleTextareaInput}
+                    onKeyUp={(e) => checkForMentions(e.target.value)}
+                    onClick={(e) => checkForMentions(e.target.value)}
                     rows={3}
                     className="resize-none"
                   />
                   
-                  {/* Mention dropdown */}
+                  {showMentionDropdown && (
+                    <div className="absolute -top-8 left-0 text-xs bg-green-500 text-white px-2 py-1 rounded">
+                      Dropdown should be visible! Members: {filteredTeamMembers.length}
+                    </div>
+                  )}
+                  
                   {showMentionDropdown && filteredTeamMembers.length > 0 && (
-                    <Card className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto z-50 shadow-2xl border-2 border-blue-400">
-                      <CardContent className="p-2">
+                    <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border-2 border-blue-500 rounded-lg shadow-2xl max-h-64 overflow-y-auto z-[9999]">
+                      <div className="p-2">
                         <div className="text-xs text-blue-700 font-semibold px-2 py-1.5 flex items-center gap-1 bg-blue-50 rounded mb-1">
                           <AtSign className="w-3 h-3" />
                           Select team member ({filteredTeamMembers.length} found)
@@ -497,8 +499,12 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                           <button
                             key={member.email}
                             type="button"
-                            onClick={() => handleMentionSelect(member)}
-                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleMentionSelect(member);
+                            }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0"
                           >
                             <Avatar className="w-8 h-8 flex-shrink-0">
                               <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm">
@@ -513,8 +519,8 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                             </div>
                           </button>
                         ))}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   )}
                 </div>
                 
@@ -525,6 +531,10 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                       <p className="font-semibold mb-1">💡 Mention team members</p>
                       <p className="text-blue-700">
                         Type <strong>@</strong> to see a list of team members - they'll be notified!
+                        <br />
+                        <span className="text-xs opacity-75">
+                          (Available members: {teamMembers.length})
+                        </span>
                       </p>
                     </div>
                   </div>
