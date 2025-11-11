@@ -1128,7 +1128,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             </p>
             <Button onClick={() => setShowBoardConfig(true)} className="bg-blue-600 hover:bg-blue-700">
               <Settings className="w-4 h-4 mr-2" />
-              Configure Board
+              Configure
             </Button>
           </CardContent>
         </Card>
@@ -1153,21 +1153,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 </Badge>
               )}
             </div>
-            <div className="flex gap-2">
-              <AdvancedFilterPanel
-                proposals={proposals}
-                onFilterChange={handleAdvancedFilterChange}
-                teamMembers={uniqueTeamMembers}
-              />
-              <Button
-                onClick={() => setShowBoardConfig(true)}
-                variant="outline"
-                size="sm"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Configure
-              </Button>
-            </div>
+            {/* Removed AdvancedFilterPanel and Configure button from here */}
           </div>
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1211,6 +1197,19 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             </div>
 
             <div className="flex items-center gap-2">
+              <AdvancedFilterPanel
+                proposals={proposals}
+                onFilterChange={handleAdvancedFilterChange}
+                teamMembers={uniqueTeamMembers}
+              />
+              <Button
+                onClick={() => setShowBoardConfig(true)}
+                variant="outline"
+                size="sm"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Configure
+              </Button>
               <Button
                 variant={showFilters ? "default" : "outline"}
                 size="sm"
