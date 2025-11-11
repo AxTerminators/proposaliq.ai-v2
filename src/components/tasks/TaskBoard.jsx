@@ -1,11 +1,13 @@
 
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Flag, MoreVertical, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { Calendar, Clock, Flag, MoreVertical, Pencil, Trash2, AlertCircle, ExternalLink } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +18,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function TaskBoard({ tasks, subtasks = [], proposals = [], onEditTask, onDeleteTask, onStatusChange, onSubtaskStatusChange }) {
+  const navigate = useNavigate();
+
   const columns = [
     { id: "todo", label: "To Do", color: "bg-slate-50" },
     { id: "in_progress", label: "In Progress", color: "bg-blue-50" },
@@ -100,23 +104,9 @@ export default function TaskBoard({ tasks, subtasks = [], proposals = [], onEdit
                               <CardContent className="p-3">
                                 <div className="space-y-2">
                                   <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-sm line-clamp-2">
-                                        {task.title}
-                                      </h4>
-                                      
-                                      {/* NEW: Show category for general tasks or proposal name for proposal tasks */}
-                                      {isGeneralTask && task.task_category && (
-                                        <Badge className="bg-purple-100 text-purple-700 text-xs mt-1">
-                                          {task.task_category}
-                                        </Badge>
-                                      )}
-                                      {taskProposal && (
-                                        <p className="text-xs text-blue-600 mt-1 truncate">
-                                          📋 {taskProposal.proposal_name}
-                                        </p>
-                                      )}
-                                    </div>
+                                    <h4 className="font-semibold text-sm line-clamp-2 flex-1">
+                                      {task.title}
+                                    </h4>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild onClick={(e) => e?.stopPropagation?.()}>
                                         <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
@@ -138,6 +128,35 @@ export default function TaskBoard({ tasks, subtasks = [], proposals = [], onEdit
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   </div>
+
+                                  {/* Category or Proposal Info */}
+                                  {isGeneralTask && task.task_category && (
+                                    <Badge className="bg-purple-100 text-purple-700 text-xs">
+                                      {task.task_category}
+                                    </Badge>
+                                  )}
+                                  
+                                  {/* Proposal link with Go to Proposal button */}
+                                  {taskProposal && (
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-xs text-blue-600 truncate">
+                                        📋 {taskProposal.proposal_name}
+                                      </p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`${createPageUrl("ProposalBuilder")}?id=${taskProposal.id}`);
+                                        }}
+                                        className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                                        title="Open this proposal"
+                                      >
+                                        <ExternalLink className="w-3 h-3 mr-1" />
+                                        Go
+                                      </Button>
+                                    </div>
+                                  )}
 
                                   {task.description && (
                                     <p className="text-xs text-slate-600 line-clamp-2">

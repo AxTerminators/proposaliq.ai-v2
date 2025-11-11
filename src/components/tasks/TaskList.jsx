@@ -1,5 +1,7 @@
 
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Added import
+import { createPageUrl } from "@/utils"; // Added import
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,8 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Flag
+  Flag,
+  ExternalLink // Added icon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +28,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function TaskList({ tasks, subtasks = [], proposals = [], onEditTask, onEditSubtask, onDeleteTask, onDeleteSubtask, onStatusChange, onSubtaskStatusChange, embedded = false }) {
+  const navigate = useNavigate(); // Added hook
+
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "urgent": return "bg-red-100 text-red-700 border-red-300";
@@ -107,7 +112,7 @@ export default function TaskList({ tasks, subtasks = [], proposals = [], onEditT
                         {task.title}
                       </h4>
                       
-                      {/* NEW: Show category badge for general tasks */}
+                      {/* Show category badge for general tasks */}
                       {isGeneralTask && task.task_category && (
                         <Badge className="bg-purple-100 text-purple-700 text-xs mt-1">
                           {task.task_category}
@@ -116,9 +121,25 @@ export default function TaskList({ tasks, subtasks = [], proposals = [], onEditT
                       
                       {/* Show proposal name for proposal tasks */}
                       {taskProposal && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          📋 {taskProposal.proposal_name}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-blue-600 truncate">
+                            📋 {taskProposal.proposal_name}
+                          </p>
+                          {/* NEW: Go to Proposal button */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`${createPageUrl("ProposalBuilder")}?id=${taskProposal.id}`);
+                            }}
+                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="Open this proposal"
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            Go to Proposal
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
