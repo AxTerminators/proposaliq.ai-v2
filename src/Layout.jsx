@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl } from "./utils";
 import {
   LayoutDashboard,
   FileText,
@@ -45,7 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import MobileNavigation from "./components/mobile/MobileNavigation";
-import GlobalSearch from "@/components/GlobalSearch"; // Added GlobalSearch import
+import GlobalSearch from "./components/proposals/GlobalSearch"; // Updated import path for GlobalSearch
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import {
@@ -737,12 +737,14 @@ function LayoutContent({ children }) {
               </div>
             </div>
 
-            {/* NEW: Global Search Bar (centered on desktop) */}
+            {/* Global Search Bar (centered on desktop) */}
             <div className="hidden lg:flex flex-1 max-w-2xl mx-auto">
-              <GlobalSearch
-                organization={organization}
-                isInline={true}
-              />
+              {organization && (
+                <GlobalSearch
+                  organization={organization}
+                  isInline={true}
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-3">
