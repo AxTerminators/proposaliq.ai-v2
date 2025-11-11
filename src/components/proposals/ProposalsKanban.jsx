@@ -160,7 +160,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const columns = kanbanConfig?.columns || [];
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
-  const toggleColumnCollapse = async (columnId) => {
+  // OPTIMIZED: Faster collapse toggle with optimistic UI update
+  const toggleColumnCollapse = useCallback(async (columnId) => {
     if (!kanbanConfig) return;
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
@@ -168,12 +169,26 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       ? currentCollapsed.filter(id => id !== columnId)
       : [...currentCollapsed, columnId];
 
-    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      collapsed_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
+    // Optimistically update the UI immediately
+    queryClient.setQueryData(['kanban-config', organization?.id], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        collapsed_column_ids: newCollapsed
+      };
     });
 
-    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-  };
+    // Then update the backend
+    try {
+      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        collapsed_column_ids: newCollapsed
+      });
+    } catch (error) {
+      console.error('[Kanban] Error updating collapsed columns:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    }
+  }, [kanbanConfig, queryClient, organization?.id]);
 
   // UPDATED: Check UserPreference instead of just localStorage
   useEffect(() => {
@@ -1355,10 +1370,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             )}
                           >
                             {isCollapsed ? (
-                              <div
-                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => toggleColumnCollapse(column.id)}
-                                {...providedDraggable.dragHandleProps}
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleColumnCollapse(column.id);
+                                }}
+                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
+                                type="button"
                               >
                                 <div className="p-3 flex flex-col items-center gap-3 h-full">
                                   <div
@@ -1370,9 +1389,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
-                                  <ChevronsRight className="w-4 h-4 mr-2" />
+                                  <ChevronsRight className="w-5 h-5 text-blue-600" />
                                 </div>
-                              </div>
+                              </button>
                             ) : (
                               <Droppable droppableId={column.id} type="card">
                                 {(providedDroppable, snapshotDroppable) => (
@@ -1389,8 +1408,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     user={user}
                                     dragHandleProps={providedDraggable.dragHandleProps}
                                     onCreateProposal={handleCreateProposalInColumn}
-                                    selectedProposalIds={selectedProposalIds} // Pass new prop
-                                    onToggleProposalSelection={handleToggleProposalSelection} // Pass new prop
+                                    selectedProposalIds={selectedProposalIds}
+                                    onToggleProposalSelection={handleToggleProposalSelection}
                                   />
                                 )}
                               </Droppable>
