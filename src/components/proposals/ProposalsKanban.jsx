@@ -1370,11 +1370,18 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             )}
                           >
                             {isCollapsed ? (
-                              <div
-                                {...providedDraggable.dragHandleProps}
-                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow"
-                              >
-                                <div className="p-3 flex flex-col items-center gap-3 h-full">
+                              <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                                {/* Dedicated Drag Handle - Separate from expand button */}
+                                <div 
+                                  {...providedDraggable.dragHandleProps}
+                                  className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors"
+                                  title="Drag to reorder column"
+                                >
+                                  <LayoutGrid className="w-3.5 h-3.5 text-slate-400" />
+                                </div>
+
+                                {/* Column Content - Independent of drag handle */}
+                                <div className="p-3 flex flex-col items-center gap-3">
                                   <div
                                     className="text-xs font-semibold text-slate-700 whitespace-nowrap"
                                     style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
@@ -1384,6 +1391,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
+                                  
+                                  {/* Expand Button - No drag handle props, purely for expanding */}
                                   <button
                                     onClick={(e) => {
                                       e.preventDefault();
