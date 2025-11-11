@@ -1327,9 +1327,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* FIXED: Removed min-h-full and all bottom padding to eliminate gap */}
-      <div className="flex-1 overflow-y-auto bg-slate-100">
-        <div ref={boardRef} className="overflow-x-auto px-4">
+      <div className="flex-1 bg-slate-100 overflow-hidden">
+        <div ref={boardRef} className="h-full overflow-x-auto px-4">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
@@ -1342,7 +1341,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-4 pt-4"
+                  className="flex gap-4 pt-4 h-full"
                   style={{
                     minWidth: 'min-content',
                     alignItems: 'flex-start'
@@ -1365,12 +1364,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
                             className={cn(
-                              "transition-opacity",
+                              "transition-opacity h-full",
                               snapshotDraggable.isDragging && "opacity-70"
                             )}
                           >
                             {isCollapsed ? (
-                              <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col">
+                              <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
                                 {/* Dedicated small drag handle at the very top */}
                                 <div 
                                   {...providedDraggable.dragHandleProps}
