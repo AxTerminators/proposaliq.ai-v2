@@ -72,6 +72,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
+  const collapseUpdateInProgress = useRef(false); // NEW: Guard against concurrent updates
 
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,14 +161,22 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const columns = kanbanConfig?.columns || [];
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
-  // OPTIMIZED: Faster collapse toggle with optimistic UI update
+  // OPTIMIZED: Faster collapse toggle with optimistic UI update and race condition guard
   const toggleColumnCollapse = useCallback(async (columnId) => {
     console.log('[Kanban] 🔄 Toggle collapse called for column:', columnId);
+    
+    // Guard against concurrent updates
+    if (collapseUpdateInProgress.current) {
+      console.log('[Kanban] ⏸️ Update already in progress, skipping...');
+      return;
+    }
     
     if (!kanbanConfig) {
       console.error('[Kanban] ❌ No kanbanConfig found');
       return;
     }
+
+    collapseUpdateInProgress.current = true;
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
     const newCollapsed = currentCollapsed.includes(columnId)
@@ -206,6 +215,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       
       alert(`Failed to update column state: ${error.message}`);
+    } finally {
+      // Release the lock after a short delay to prevent rapid double-clicks
+      setTimeout(() => {
+        collapseUpdateInProgress.current = false;
+        console.log('[Kanban] 🔓 Update lock released');
+      }, 300);
     }
   }, [kanbanConfig, queryClient, organization?.id]);
 
