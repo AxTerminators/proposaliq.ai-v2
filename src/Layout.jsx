@@ -43,11 +43,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import NotificationCenter from "./components/collaboration/NotificationCenter";
-import MobileNavigation from "./components/mobile/MobileNavigation";
-import GlobalSearch from "./components/proposals/GlobalSearch"; // Updated import path for GlobalSearch
+import NotificationCenter from "@/components/collaboration/NotificationCenter";
+import MobileNavigation from "@/components/mobile/MobileNavigation";
+import GlobalSearch from "@/components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
-import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
+import { OrganizationProvider, useOrganization } from "@/components/layout/OrganizationContext";
 import {
   Select,
   SelectContent,
@@ -737,7 +737,7 @@ function LayoutContent({ children }) {
               </div>
             </div>
 
-            {/* Global Search Bar (centered on desktop) */}
+            {/* NEW: Global Search Bar (centered on desktop) */}
             <div className="hidden lg:flex flex-1 max-w-2xl mx-auto">
               {organization && (
                 <GlobalSearch
