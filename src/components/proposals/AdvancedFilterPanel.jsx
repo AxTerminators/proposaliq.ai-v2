@@ -19,22 +19,12 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import {
-  Filter,
   Plus,
   X,
   Calendar as CalendarIcon,
-  DollarSign,
-  Target,
   Zap,
   SlidersHorizontal
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const FILTER_FIELDS = [
@@ -133,7 +123,7 @@ export default function AdvancedFilterPanel({
 
         // Reset operator and values when field changes
         if (field === 'field') {
-          const fieldConfig = FILTER_FIELDS.find(ff => ff.value === value);
+          // const fieldConfig = FILTER_FIELDS.find(ff => ff.value === value); // Not currently used
           updatedFilter.operator = '';
           updatedFilter.value = '';
           updatedFilter.value2 = '';
@@ -167,46 +157,77 @@ export default function AdvancedFilterPanel({
         }
 
         // Text operators
-        if (filter.operator === 'contains') {
-          return fieldValue?.toString().toLowerCase().includes(filter.value.toLowerCase());
+        if (filter.field && getFieldType(filter.field) === 'text') {
+          if (filter.operator === 'contains') {
+            return fieldValue?.toString().toLowerCase().includes(filter.value.toLowerCase());
+          }
+          if (filter.operator === 'equals') {
+            return fieldValue?.toString().toLowerCase() === filter.value.toLowerCase();
+          }
+          if (filter.operator === 'not_equals') {
+            return fieldValue?.toString().toLowerCase() !== filter.value.toLowerCase();
+          }
+          if (filter.operator === 'starts_with') {
+            return fieldValue?.toString().toLowerCase().startsWith(filter.value.toLowerCase());
+          }
         }
-        if (filter.operator === 'equals') {
-          return fieldValue?.toString().toLowerCase() === filter.value.toLowerCase();
-        }
-        if (filter.operator === 'not_equals') {
-          return fieldValue?.toString().toLowerCase() !== filter.value.toLowerCase();
-        }
-        if (filter.operator === 'starts_with') {
-          return fieldValue?.toString().toLowerCase().startsWith(filter.value.toLowerCase());
-        }
+
 
         // Number operators
-        if (filter.operator === 'greater_than') {
-          return parseFloat(fieldValue) > parseFloat(filter.value);
+        if (filter.field && getFieldType(filter.field) === 'number') {
+          const numValue = parseFloat(fieldValue);
+          const filterValue = parseFloat(filter.value);
+          const filterValue2 = parseFloat(filter.value2);
+
+          if (isNaN(numValue)) return false; // If proposal field is not a number, it can't match number operators
+
+          if (filter.operator === 'equals') {
+            return numValue === filterValue;
+          }
+          if (filter.operator === 'greater_than') {
+            return numValue > filterValue;
+          }
+          if (filter.operator === 'less_than') {
+            return numValue < filterValue;
+          }
+          if (filter.operator === 'between') {
+            return numValue >= filterValue && numValue <= filterValue2;
+          }
         }
-        if (filter.operator === 'less_than') {
-          return parseFloat(fieldValue) < parseFloat(filter.value);
-        }
+
 
         // Date operators
-        if (filter.operator === 'before') {
-          return new Date(fieldValue) < new Date(filter.value);
-        }
-        if (filter.operator === 'after') {
-          return new Date(fieldValue) > new Date(filter.value);
-        }
-        if (filter.operator === 'is' && filter.field.includes('date')) {
-          return new Date(fieldValue).toDateString() === new Date(filter.value).toDateString();
+        if (filter.field && getFieldType(filter.field) === 'date') {
+          const date = new Date(fieldValue);
+          const filterDate = new Date(filter.value);
+          const filterDate2 = new Date(filter.value2);
+
+          if (isNaN(date.getTime())) return false; // If proposal field is not a valid date
+
+          if (filter.operator === 'before') {
+            return date < filterDate;
+          }
+          if (filter.operator === 'after') {
+            return date > filterDate;
+          }
+          if (filter.operator === 'is') {
+            return date.toDateString() === filterDate.toDateString();
+          }
+          if (filter.operator === 'between') {
+            // Ensure filterDate and filterDate2 are valid before comparison
+            if (isNaN(filterDate.getTime()) || isNaN(filterDate2.getTime())) return false;
+            // For 'between', we consider dates inclusive
+            return date >= filterDate && date <= filterDate2;
+          }
         }
 
-        // Between operators
-        if (filter.operator === 'between') {
-          if (filter.field.includes('date')) {
-            const date = new Date(fieldValue);
-            return date >= new Date(filter.value) && date <= new Date(filter.value2);
-          } else {
-            const num = parseFloat(fieldValue);
-            return num >= parseFloat(filter.value) && num <= parseFloat(filter.value2);
+        // Select operators
+        if (filter.field && getFieldType(filter.field) === 'select') {
+          if (filter.operator === 'equals') {
+            return fieldValue === filter.value;
+          }
+          if (filter.operator === 'not_equals') {
+            return fieldValue !== filter.value;
           }
         }
 
@@ -265,7 +286,7 @@ export default function AdvancedFilterPanel({
               <Calendar
                 mode="single"
                 selected={filter.value ? new Date(filter.value) : undefined}
-                onSelect={(date) => handleFilterChange(filter.id, 'value', date)}
+                onSelect={(date) => handleFilterChange(filter.id, 'value', date ? format(date, 'yyyy-MM-dd') : '')}
               />
             </PopoverContent>
           </Popover>
@@ -288,7 +309,7 @@ export default function AdvancedFilterPanel({
                 <Calendar
                   mode="single"
                   selected={filter.value2 ? new Date(filter.value2) : undefined}
-                  onSelect={(date) => handleFilterChange(filter.id, 'value2', date)}
+                  onSelect={(date) => handleFilterChange(filter.id, 'value2', date ? format(date, 'yyyy-MM-dd') : '')}
                 />
               </PopoverContent>
             </Popover>
@@ -362,9 +383,8 @@ export default function AdvancedFilterPanel({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Filter className="w-4 h-4" />
-          Advanced Filters
+        <Button variant="outline" size="sm" className="gap-2" title="Advanced Filters">
+          <SlidersHorizontal className="w-4 h-4" />
           {validFiltersCount > 0 && (
             <Badge className="bg-blue-600 text-white h-5 w-5 p-0 flex items-center justify-center">
               {validFiltersCount}
@@ -376,7 +396,7 @@ export default function AdvancedFilterPanel({
         <div className="p-4 border-b bg-slate-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-blue-600" />
+              <SlidersHorizontal className="w-4 h-4 text-blue-600" />
               <h3 className="font-semibold text-slate-900">Advanced Filters</h3>
             </div>
             {validFiltersCount > 0 && (

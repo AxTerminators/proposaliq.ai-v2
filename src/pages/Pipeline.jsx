@@ -961,16 +961,24 @@ export default function Pipeline() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            <Button
-              onClick={handleCreateProposal}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Proposal
-            </Button>
-            
             {!isMobile && (
               <>
+                <Button
+                  variant={showBoardManager ? "default" : "outline"}
+                  onClick={() => setShowBoardManager(!showBoardManager)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Boards
+                </Button>
+                <Button
+                  onClick={handleCreateProposal}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Proposal
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowGlobalSearch(true)}
