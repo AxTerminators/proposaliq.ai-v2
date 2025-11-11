@@ -992,6 +992,10 @@ export default function Pipeline() {
                   </DropdownMenuItem>
                 )}
                 {/* Add other menu items here if needed */}
+                <DropdownMenuItem onClick={() => setShowBoardManager(true)}>
+                  <Database className="mr-2 h-4 w-4" />
+                  <span>Manage Boards</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
