@@ -163,16 +163,35 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const toggleColumnCollapse = async (columnId) => {
     if (!kanbanConfig) return;
 
+    console.log('[Kanban] 🔄 Toggling collapse for column:', columnId);
+    console.log('[Kanban] Current collapsed columns:', kanbanConfig.collapsed_column_ids);
+
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
     const newCollapsed = currentCollapsed.includes(columnId)
       ? currentCollapsed.filter(id => id !== columnId)
       : [...currentCollapsed, columnId];
 
-    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      collapsed_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
-    });
+    console.log('[Kanban] New collapsed columns:', newCollapsed);
 
-    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    try {
+      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        collapsed_column_ids: newCollapsed
+      });
+
+      console.log('[Kanban] ✅ Database updated successfully');
+
+      // CRITICAL FIX: Invalidate BOTH query keys to ensure all components refresh
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      
+      // ADDITIONAL: Force refetch to get immediate update
+      await queryClient.refetchQueries({ queryKey: ['all-kanban-boards', organization?.id] });
+      
+      console.log('[Kanban] ✅ Cache invalidated and refetched');
+    } catch (error) {
+      console.error('[Kanban] ❌ Error updating collapse state:', error);
+      alert('Failed to update column collapse state. Please try again.');
+    }
   };
 
   // UPDATED: Check UserPreference instead of just localStorage
