@@ -1372,30 +1372,31 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             {isCollapsed ? (
                               <div
                                 {...providedDraggable.dragHandleProps}
-                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-300 transition-all"
+                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow"
                               >
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    toggleColumnCollapse(column.id);
-                                  }}
-                                  className="w-full h-full cursor-pointer"
-                                  type="button"
-                                >
-                                  <div className="p-3 flex flex-col items-center gap-3 h-full">
-                                    <div
-                                      className="text-xs font-semibold text-slate-700 whitespace-nowrap"
-                                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                                    >
-                                      {column.label}
-                                    </div>
-                                    <Badge variant="secondary" className="text-xs">
-                                      {columnProposals.length}
-                                    </Badge>
-                                    <ChevronsRight className="w-5 h-5 text-blue-600" />
+                                <div className="p-3 flex flex-col items-center gap-3 h-full">
+                                  <div
+                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                  >
+                                    {column.label}
                                   </div>
-                                </button>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {columnProposals.length}
+                                  </Badge>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      toggleColumnCollapse(column.id);
+                                    }}
+                                    className="p-1.5 rounded-md hover:bg-blue-100 transition-colors cursor-pointer"
+                                    type="button"
+                                    title="Expand column"
+                                  >
+                                    <ChevronsRight className="w-5 h-5 text-blue-600" />
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <Droppable droppableId={column.id} type="card">
