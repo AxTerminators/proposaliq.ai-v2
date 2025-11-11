@@ -31,7 +31,7 @@ import KanbanCard from "./KanbanCard";
 export default function KanbanColumn({
   column,
   proposals,
-  provided, // This can be undefined when column is collapsed
+  provided,
   snapshot,
   onCardClick,
   onToggleCollapse,
@@ -44,6 +44,12 @@ export default function KanbanColumn({
   selectedProposalIds = [],
   onToggleProposalSelection
 }) {
+  // CRITICAL: Add defensive check for provided prop
+  if (!provided) {
+    console.error('[KanbanColumn] ERROR: "provided" prop is undefined for column:', column?.id);
+    return null;
+  }
+
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(column.label);
   const [sortBy, setSortBy] = useState(null);
@@ -189,10 +195,10 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      {/* FIXED: Cards area - only use provided when it exists */}
+      {/* Cards area - safely use provided */}
       <div
-        ref={provided?.innerRef}
-        {...(provided?.droppableProps || {})}
+        ref={provided.innerRef}
+        {...provided.droppableProps}
         className={cn(
           "flex-1 rounded-b-xl bg-white shadow-lg",
           "overflow-y-auto overflow-x-hidden",
@@ -229,7 +235,7 @@ export default function KanbanColumn({
             />
           ))
         )}
-        {provided?.placeholder}
+        {provided.placeholder}
       </div>
     </div>
   );
