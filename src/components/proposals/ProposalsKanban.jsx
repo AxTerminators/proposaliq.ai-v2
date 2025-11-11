@@ -98,9 +98,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [winningProposal, setWinningProposal] = useState(null);
 
-  // Track which columns are currently in transition state
-  const [columnsInTransition, setColumnsInTransition] = useState(new Set());
-
   const urlParams = new URLSearchParams(window.location.search);
   const proposalIdFromUrl = urlParams.get("id");
   const boardTypeFromUrl = urlParams.get("boardType");
@@ -192,8 +189,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       return;
     }
 
-    // Mark column as in transition
-    setColumnsInTransition(prev => new Set(prev).add(columnId));
     collapseUpdateInProgress.current = true;
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
@@ -233,11 +228,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     } finally {
       setTimeout(() => {
         collapseUpdateInProgress.current = false;
-        setColumnsInTransition(prev => {
-          const next = new Set(prev);
-          next.delete(columnId);
-          return next;
-        });
         console.log('[Kanban] 🔓 Update lock released');
       }, 300);
     }
@@ -776,7 +766,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         alert(`🔒 Cannot drag from "${sourceColumn.label}"\n\n` +
               `Required roles: ${sourceColumn.can_drag_from_here_roles.join(', ')}\n` +
               `Your role: ${userRole}\n\n` +
-              `FIX: Go to Configure → Edit "${sourceColumn.label}" → Update "Can Drag To Here Roles"`);
+              `FIX: Go to Configure → Edit "${sourceColumn.label}" → Update "Can Drag From Here Roles"`);
         return;
       }
     } else {
@@ -1331,7 +1321,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* Board area - with safe Droppable rendering */}
+      {/* Board area - ALWAYS render Droppable, just change content based on collapsed state */}
       <div className="flex-1 bg-slate-100 overflow-hidden">
         <div className="h-full overflow-x-auto overflow-y-hidden px-4">
           <DragDropContext
@@ -1353,7 +1343,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
                     const columnProposals = getProposalsForColumn(column);
-                    const isInTransition = columnsInTransition.has(column.id);
 
                     return (
                       <Draggable
@@ -1361,7 +1350,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                         draggableId={column.id}
                         index={index}
                         type="column"
-                        isDragDisabled={column.is_locked || isInTransition}
+                        isDragDisabled={column.is_locked}
                       >
                         {(providedDraggable, snapshotDraggable) => (
                           <div 
@@ -1369,87 +1358,86 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             {...providedDraggable.draggableProps}
                             className={cn(
                               "transition-opacity h-full flex flex-col",
-                              snapshotDraggable.isDragging && "opacity-70",
-                              isInTransition && "pointer-events-none opacity-50"
+                              snapshotDraggable.isDragging && "opacity-70"
                             )}
                           >
-                            {isCollapsed ? (
-                              <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
-                                <div 
-                                  {...providedDraggable.dragHandleProps}
-                                  className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-gradient-to-r from-slate-200 to-slate-300 border-b-2 border-slate-400 hover:from-slate-300 hover:to-slate-400 transition-colors flex-shrink-0"
-                                  title="Drag to reorder"
-                                >
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex gap-0.5">
-                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                    </div>
-                                    <div className="flex gap-0.5">
-                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                    </div>
-                                  </div>
-                                </div>
+                            {/* ALWAYS render Droppable to keep React DnD state consistent */}
+                            <Droppable droppableId={column.id} type="card">
+                              {(providedDroppable, snapshotDroppable) => {
+                                // If collapsed, render collapsed view
+                                if (isCollapsed) {
+                                  return (
+                                    <div 
+                                      ref={providedDroppable.innerRef}
+                                      {...providedDroppable.droppableProps}
+                                      className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full"
+                                    >
+                                      <div 
+                                        {...providedDraggable.dragHandleProps}
+                                        className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-gradient-to-r from-slate-200 to-slate-300 border-b-2 border-slate-400 hover:from-slate-300 hover:to-slate-400 transition-colors flex-shrink-0"
+                                        title="Drag to reorder"
+                                      >
+                                        <div className="flex flex-col gap-0.5">
+                                          <div className="flex gap-0.5">
+                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                          </div>
+                                          <div className="flex gap-0.5">
+                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                          </div>
+                                        </div>
+                                      </div>
 
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (!isInTransition) {
-                                      console.log('[Kanban] 🖱️ Expand button clicked for column:', column.id);
-                                      toggleColumnCollapse(column.id);
-                                    }
-                                  }}
-                                  disabled={isInTransition}
-                                  className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={isInTransition ? "Please wait..." : "Click to expand"}
-                                >
-                                  <div
-                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap pointer-events-none"
-                                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                                  >
-                                    {column.label}
-                                  </div>
-                                  <Badge variant="secondary" className="text-xs pointer-events-none">
-                                    {columnProposals.length}
-                                  </Badge>
-                                  <ChevronsRight className="w-5 h-5 text-blue-600 pointer-events-none" />
-                                </button>
-                              </div>
-                            ) : (
-                              !isInTransition && (
-                                <Droppable droppableId={column.id} type="card">
-                                  {(providedDroppable, snapshotDroppable) => {
-                                    // DOUBLE SAFETY CHECK: Skip rendering if provided is undefined
-                                    if (!providedDroppable || !providedDroppable.innerRef) {
-                                      console.error('[Kanban] 🚫 Skipping render - providedDroppable invalid for column:', column.id);
-                                      return null;
-                                    }
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          console.log('[Kanban] 🖱️ Expand button clicked for column:', column.id);
+                                          toggleColumnCollapse(column.id);
+                                        }}
+                                        disabled={collapseUpdateInProgress.current} // Disable if an update is in progress
+                                        className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={collapseUpdateInProgress.current ? "Please wait..." : "Click to expand"}
+                                      >
+                                        <div
+                                          className="text-xs font-semibold text-slate-700 whitespace-nowrap pointer-events-none"
+                                          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                        >
+                                          {column.label}
+                                        </div>
+                                        <Badge variant="secondary" className="text-xs pointer-events-none">
+                                          {columnProposals.length}
+                                        </Badge>
+                                        <ChevronsRight className="w-5 h-5 text-blue-600 pointer-events-none" />
+                                      </button>
+                                      {providedDroppable.placeholder}
+                                    </div>
+                                  );
+                                }
 
-                                    return (
-                                      <KanbanColumn
-                                        column={column}
-                                        proposals={columnProposals}
-                                        provided={providedDroppable}
-                                        snapshot={snapshotDroppable}
-                                        onCardClick={handleCardClick}
-                                        onToggleCollapse={toggleColumnCollapse}
-                                        organization={organization}
-                                        onRenameColumn={handleRenameColumn}
-                                        onConfigureColumn={handleConfigureColumn}
-                                        user={user}
-                                        dragHandleProps={providedDraggable.dragHandleProps}
-                                        onCreateProposal={handleCreateProposalInColumn}
-                                        selectedProposalIds={selectedProposalIds}
-                                        onToggleProposalSelection={handleToggleProposalSelection}
-                                      />
-                                    );
-                                  }}
-                                </Droppable>
-                              )
-                            )}
+                                // Expanded view - render full KanbanColumn
+                                return (
+                                  <KanbanColumn
+                                    column={column}
+                                    proposals={columnProposals}
+                                    provided={providedDroppable}
+                                    snapshot={snapshotDroppable}
+                                    onCardClick={handleCardClick}
+                                    onToggleCollapse={toggleColumnCollapse}
+                                    organization={organization}
+                                    onRenameColumn={handleRenameColumn}
+                                    onConfigureColumn={handleConfigureColumn}
+                                    user={user}
+                                    dragHandleProps={providedDraggable.dragHandleProps}
+                                    onCreateProposal={handleCreateProposalInColumn}
+                                    selectedProposalIds={selectedProposalIds}
+                                    onToggleProposalSelection={handleToggleProposalSelection}
+                                  />
+                                );
+                              }}
+                            </Droppable>
                           </div>
                         )}
                       </Draggable>
