@@ -27,7 +27,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Star // Added Star icon
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -72,13 +72,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
-  const collapseUpdateInProgress = useRef(false); // NEW: Guard against concurrent updates
+  const collapseUpdateInProgress = useRef(false);
 
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterClient, setFilterClient] = useState("all"); // NEW: Client filter
+  const [filterClient, setFilterClient] = useState("all");
   const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
@@ -1008,8 +1008,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
-    setFilterClient("all"); // NEW
-    setAdvancedFilteredProposals(null); // Clear advanced filters too
+    setFilterClient("all");
+    setAdvancedFilteredProposals(null);
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -1017,12 +1017,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (searchQuery) count++;
     if (filterAgency !== "all") count++;
     if (filterAssignee !== "all") count++;
-    if (filterClient !== "all") count++; // NEW
-    if (advancedFilteredProposals !== null) count++; // Count advanced filters as one active filter
+    if (filterClient !== "all") count++;
+    if (advancedFilteredProposals !== null) count++;
     return count;
   }, [searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
 
-  if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
+  if (isLoadingConfig && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1040,7 +1040,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (configError && !propKanbanConfig) { // Check propKanbanConfig here
+  if (configError && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1062,7 +1062,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
+  if (isLegacyConfig && !isLoadingConfig) {
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1096,7 +1096,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (!hasKanbanConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching
+  if (!hasKanbanConfig && !isLoadingConfig) {
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1132,7 +1132,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) { // isLoadingConfig check is only relevant if we are fetching
+  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1155,8 +1155,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header with filters and stats */}
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Header with filters and stats - FIXED: No vertical scroll here */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
           {/* First Row: Board Name and Action Buttons */}
@@ -1361,6 +1361,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
+      {/* FIXED: Main board area - only horizontal scroll, no vertical scroll */}
       <div className="flex-1 bg-slate-100 overflow-hidden">
         <div ref={boardRef} className="h-full overflow-x-auto px-4">
           <DragDropContext
@@ -1375,10 +1376,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-4 pt-4 h-full"
+                  className="flex gap-4 pt-4 pb-4 h-full"
                   style={{
                     minWidth: 'min-content',
-                    alignItems: 'flex-start'
+                    alignItems: 'stretch'
                   }}
                 >
                   {validColumns.map((column, index) => {
@@ -1398,7 +1399,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
                             className={cn(
-                              "transition-opacity h-full",
+                              "transition-opacity",
+                              "h-full flex flex-col",
                               snapshotDraggable.isDragging && "opacity-70"
                             )}
                           >
