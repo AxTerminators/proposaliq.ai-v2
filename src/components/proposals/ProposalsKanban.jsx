@@ -1370,18 +1370,26 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             )}
                           >
                             {isCollapsed ? (
-                              <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                                {/* Dedicated Drag Handle - Separate from expand button */}
+                              <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col">
+                                {/* Dedicated small drag handle at the very top */}
                                 <div 
                                   {...providedDraggable.dragHandleProps}
-                                  className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors"
-                                  title="Drag to reorder column"
+                                  className="w-full h-6 flex items-center justify-center cursor-grab active:cursor-grabbing bg-slate-100 border-b border-slate-300 hover:bg-slate-200 transition-colors flex-shrink-0"
+                                  title="Drag to reorder"
                                 >
-                                  <LayoutGrid className="w-3.5 h-3.5 text-slate-400" />
+                                  <div className="flex gap-0.5">
+                                    <div className="w-1 h-1 rounded-full bg-slate-400"></div>
+                                    <div className="w-1 h-1 rounded-full bg-slate-400"></div>
+                                    <div className="w-1 h-1 rounded-full bg-slate-400"></div>
+                                  </div>
                                 </div>
 
-                                {/* Column Content - Independent of drag handle */}
-                                <div className="p-3 flex flex-col items-center gap-3">
+                                {/* Rest of collapsed column - clickable to expand */}
+                                <div 
+                                  onClick={() => toggleColumnCollapse(column.id)}
+                                  className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                                  title="Click to expand"
+                                >
                                   <div
                                     className="text-xs font-semibold text-slate-700 whitespace-nowrap"
                                     style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
@@ -1391,20 +1399,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
-                                  
-                                  {/* Expand Button - No drag handle props, purely for expanding */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      toggleColumnCollapse(column.id);
-                                    }}
-                                    className="p-1.5 rounded-md hover:bg-blue-100 transition-colors cursor-pointer"
-                                    type="button"
-                                    title="Expand column"
-                                  >
-                                    <ChevronsRight className="w-5 h-5 text-blue-600" />
-                                  </button>
+                                  <ChevronsRight className="w-5 h-5 text-blue-600" />
                                 </div>
                               </div>
                             ) : (
