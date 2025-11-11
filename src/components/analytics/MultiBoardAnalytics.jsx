@@ -1,3 +1,4 @@
+
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,11 +72,11 @@ export default function MultiBoardAnalytics({ proposals, allBoardConfigs, organi
   // Overall portfolio metrics
   const portfolioMetrics = useMemo(() => {
     const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-    const wonProposals = proposals.filter(p => p.status === 'won');
-    const wonValue = wonProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+    const allWonProposals = proposals.filter(p => p.status === 'won');
+    const wonValue = allWonProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
     const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status));
     const overallWinRate = submittedProposals.length > 0 
-      ? Math.round((wonProposals.length / submittedProposals.length) * 100)
+      ? Math.round((allWonProposals.length / submittedProposals.length) * 100)
       : 0;
     const activeProposals = proposals.filter(p => !['won', 'lost', 'archived'].includes(p.status)).length;
     
@@ -85,7 +86,7 @@ export default function MultiBoardAnalytics({ proposals, allBoardConfigs, organi
       overallWinRate,
       totalProposals: proposals.length,
       activeProposals,
-      wonCount: wonProposals.length,
+      wonCount: allWonProposals.length,
       submittedCount: submittedProposals.length
     };
   }, [proposals]);
