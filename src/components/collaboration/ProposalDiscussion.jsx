@@ -78,62 +78,83 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     enabled: !!selectedDiscussion?.id,
   });
 
-  // COMPLETELY REWRITTEN: More inclusive team member fetching
-  const { data: teamMembers = [] } = useQuery({
+  // FIXED: Simpler approach - always include current user + fetch others
+  const { data: fetchedTeamMembers = [] } = useQuery({
     queryKey: ['team-members-for-mentions', organization.id],
     queryFn: async () => {
-      console.log('[Mentions] 🔍 Fetching ALL users...');
+      console.log('[Mentions] 🔍 Starting user fetch...');
+      console.log('[Mentions] Current user:', user.email);
+      console.log('[Mentions] Current org:', organization.id);
       
       try {
-        // Get ALL users - we'll be inclusive
         const allUsers = await base44.entities.User.list();
-        console.log('[Mentions] 📊 Fetched users:', allUsers.length);
+        console.log('[Mentions] ✅ User.list() returned:', allUsers.length, 'users');
         
-        // Log each user for debugging
+        if (allUsers.length === 0) {
+          console.error('[Mentions] ❌ CRITICAL: User.list() returned 0 users!');
+          return [];
+        }
+        
+        // Log all users
         allUsers.forEach((u, idx) => {
-          console.log(`[Mentions]   ${idx + 1}. ${u.full_name} (${u.email}) - accesses:`, u.client_accesses);
+          console.log(`[Mentions] User ${idx + 1}:`, {
+            name: u.full_name,
+            email: u.email,
+            accesses: u.client_accesses
+          });
         });
         
-        // OPTION 1: Try to filter by organization
+        // Filter by organization
         const orgUsers = allUsers.filter(u => {
           const accesses = u.client_accesses || [];
           const hasAccess = accesses.some(a => a.organization_id === organization.id);
-          
-          if (hasAccess) {
-            console.log('[Mentions] ✅ User has access:', u.email);
-          }
-          
           return hasAccess;
         });
         
-        console.log('[Mentions] 📋 Org-filtered users:', orgUsers.length);
+        console.log('[Mentions] ✅ Filtered to org users:', orgUsers.length);
         
-        // OPTION 2: If no org users found, just return ALL users (better than nothing!)
-        if (orgUsers.length === 0) {
-          console.log('[Mentions] ⚠️ No org-specific users found, returning ALL users');
-          return allUsers;
-        }
-        
-        return orgUsers;
+        // If no org users, return all (better than nothing)
+        return orgUsers.length > 0 ? orgUsers : allUsers;
       } catch (error) {
-        console.error('[Mentions] ❌ Error fetching users:', error);
-        // Fallback: at least include current user
-        return user ? [user] : [];
+        console.error('[Mentions] ❌ Error in query:', error);
+        return [];
       }
     },
-    initialData: [],
     staleTime: 300000,
   });
 
-  // Log team members whenever they change
-  useEffect(() => {
-    console.log('[Mentions] 👥 Team members updated:', teamMembers.length);
-    if (teamMembers.length > 0) {
-      console.log('[Mentions] Members list:', teamMembers.map(m => m.email).join(', '));
+  // CRITICAL FIX: Always include current user as fallback
+  const teamMembers = useMemo(() => {
+    console.log('[Mentions] 🔧 Building final team members list...');
+    console.log('[Mentions] Fetched members:', fetchedTeamMembers.length);
+    console.log('[Mentions] Current user:', user.email);
+    
+    // Always include current user
+    const members = [...fetchedTeamMembers];
+    
+    // Check if current user is already in the list
+    const currentUserExists = members.some(m => m.email === user.email);
+    
+    if (!currentUserExists) {
+      console.log('[Mentions] ➕ Adding current user to list');
+      members.push({
+        email: user.email,
+        full_name: user.full_name,
+        id: user.id
+      });
     } else {
-      console.log('[Mentions] ⚠️ WARNING: No team members available!');
+      console.log('[Mentions] ✓ Current user already in list');
     }
-  }, [teamMembers]);
+    
+    console.log('[Mentions] 📋 Final team members:', members.length);
+    members.forEach(m => console.log('[Mentions]   -', m.full_name, '(', m.email, ')'));
+    
+    // Ensure uniqueness, e.g., if current user was added because they weren't in fetchedTeamMembers,
+    // but another fetch later might include them, or if the initial fetch already had them
+    const uniqueMembers = Array.from(new Map(members.map(item => [item.email, item])).values());
+    
+    return uniqueMembers;
+  }, [fetchedTeamMembers, user]);
 
   const checkForMentions = (text) => {
     if (!textareaRef.current) {
