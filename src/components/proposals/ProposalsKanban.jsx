@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1299,7 +1300,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* FIXED: Board area with ONLY horizontal scroll */}
+      {/* FIXED: Board area - ONLY horizontal scroll, each column handles its own vertical scroll */}
       <div className="flex-1 bg-slate-100 overflow-hidden">
         <div className="h-full overflow-x-auto overflow-y-hidden px-4">
           <DragDropContext
@@ -1340,6 +1341,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             )}
                           >
                             {isCollapsed ? (
+                              // COLLAPSED STATE: Don't render KanbanColumn, render collapsed UI inline
                               <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
                                 <div 
                                   {...providedDraggable.dragHandleProps}
@@ -1382,25 +1384,34 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                 </button>
                               </div>
                             ) : (
+                              // EXPANDED STATE: Wrap in Droppable and render KanbanColumn
                               <Droppable droppableId={column.id} type="card">
-                                {(providedDroppable, snapshotDroppable) => (
-                                  <KanbanColumn
-                                    column={column}
-                                    proposals={columnProposals}
-                                    provided={providedDroppable}
-                                    snapshot={snapshotDroppable}
-                                    onCardClick={handleCardClick}
-                                    onToggleCollapse={toggleColumnCollapse}
-                                    organization={organization}
-                                    onRenameColumn={handleRenameColumn}
-                                    onConfigureColumn={handleConfigureColumn}
-                                    user={user}
-                                    dragHandleProps={providedDraggable.dragHandleProps}
-                                    onCreateProposal={handleCreateProposalInColumn}
-                                    selectedProposalIds={selectedProposalIds}
-                                    onToggleProposalSelection={handleToggleProposalSelection}
-                                  />
-                                )}
+                                {(providedDroppable, snapshotDroppable) => {
+                                  // Safety check - ensure providedDroppable exists
+                                  if (!providedDroppable) {
+                                    console.error('[Kanban] ❌ providedDroppable is undefined for column:', column.id);
+                                    return null;
+                                  }
+                                  
+                                  return (
+                                    <KanbanColumn
+                                      column={column}
+                                      proposals={columnProposals}
+                                      provided={providedDroppable}
+                                      snapshot={snapshotDroppable}
+                                      onCardClick={handleCardClick}
+                                      onToggleCollapse={toggleColumnCollapse}
+                                      organization={organization}
+                                      onRenameColumn={handleRenameColumn}
+                                      onConfigureColumn={handleConfigureColumn}
+                                      user={user}
+                                      dragHandleProps={providedDraggable.dragHandleProps}
+                                      onCreateProposal={handleCreateProposalInColumn}
+                                      selectedProposalIds={selectedProposalIds}
+                                      onToggleProposalSelection={handleToggleProposalSelection}
+                                    />
+                                  );
+                                }}
                               </Droppable>
                             )}
                           </div>
