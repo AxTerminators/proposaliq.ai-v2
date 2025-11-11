@@ -31,7 +31,7 @@ import KanbanCard from "./KanbanCard";
 export default function KanbanColumn({
   column,
   proposals,
-  provided,
+  provided, // This can be undefined when column is collapsed
   snapshot,
   onCardClick,
   onToggleCollapse,
@@ -83,7 +83,7 @@ export default function KanbanColumn({
 
   return (
     <div className="flex flex-col h-full w-80 flex-shrink-0">
-      {/* FIXED: Column header - no scroll */}
+      {/* Column header - no scroll */}
       <div className={cn(
         "rounded-t-xl shadow-lg overflow-hidden flex-shrink-0",
         `bg-gradient-to-r ${column.color}`
@@ -189,15 +189,15 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      {/* FIXED: Cards area - ONLY vertical scroll, no horizontal scroll */}
+      {/* FIXED: Cards area - only use provided when it exists */}
       <div
-        ref={provided.innerRef}
-        {...provided.droppableProps}
+        ref={provided?.innerRef}
+        {...(provided?.droppableProps || {})}
         className={cn(
           "flex-1 rounded-b-xl bg-white shadow-lg",
           "overflow-y-auto overflow-x-hidden",
           "p-3 space-y-3",
-          snapshot.isDraggingOver && "bg-blue-50 ring-2 ring-blue-400"
+          snapshot?.isDraggingOver && "bg-blue-50 ring-2 ring-blue-400"
         )}
         style={{
           minHeight: '200px'
@@ -229,7 +229,7 @@ export default function KanbanColumn({
             />
           ))
         )}
-        {provided.placeholder}
+        {provided?.placeholder}
       </div>
     </div>
   );
