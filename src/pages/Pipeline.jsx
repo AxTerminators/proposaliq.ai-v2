@@ -970,17 +970,7 @@ export default function Pipeline() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            {/* SavedViews component remains outside the main dropdown for now due to its own dropdown */}
-            {!isMobile && (
-              <SavedViews
-                organization={organization}
-                user={user}
-                currentFilters={savedFilters}
-                onApplyView={handleApplySavedView}
-              />
-            )}
-
-            {/* Main actions dropdown */}
+            {/* New DropdownMenu for consolidated actions */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9">
@@ -995,51 +985,71 @@ export default function Pipeline() {
                   <Plus className="mr-2 h-4 w-4" />
                   <span>New Proposal</span>
                 </DropdownMenuItem>
-
-                {!isMobile && (
-                  <>
-                    <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
-                      <SearchIcon className="mr-2 h-4 w-4" />
-                      <span>Global Search</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>Views & Tools</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => setShowActivityFeed(!showActivityFeed)}>
-                        <Activity className="mr-2 h-4 w-4" />
-                        <span>Activity Feed</span>
-                        {showActivityFeed && <Badge variant="secondary" className="ml-auto">On</Badge>}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowBoardAnalytics(!showBoardAnalytics)}>
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        <span>Board Stats</span>
-                        {showBoardAnalytics && <Badge variant="secondary" className="ml-auto">On</Badge>}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}>
-                        <Layers className="mr-2 h-4 w-4" />
-                        <span>Portfolio Analytics</span>
-                        {showMultiBoardAnalytics && <Badge variant="secondary" className="ml-auto">On</Badge>}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowAutomation(!showAutomation)}>
-                        <Zap className="mr-2 h-4 w-4" />
-                        <span>Automation</span>
-                        {showAutomation && <Badge variant="secondary" className="ml-auto">On</Badge>}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowAnalytics(!showAnalytics)}>
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        <span>Pipeline Analytics</span>
-                        {showAnalytics && <Badge variant="secondary" className="ml-auto">On</Badge>}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowBoardManager(true)}>
-                        <Database className="mr-2 h-4 w-4" />
-                        <span>Manage Boards</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
+                {!isMobile && ( // Preserve original conditional rendering for Search
+                  <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
+                    <SearchIcon className="mr-2 h-4 w-4" />
+                    <span>Global Search</span>
+                  </DropdownMenuItem>
                 )}
+                {/* Add other menu items here if needed */}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {!isMobile && (
+              <>
+                <SavedViews
+                  organization={organization}
+                  user={user}
+                  currentFilters={savedFilters}
+                  onApplyView={handleApplySavedView}
+                />
+                <Button
+                  variant={showActivityFeed ? "default" : "outline"}
+                  onClick={() => setShowActivityFeed(!showActivityFeed)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  Activity
+                </Button>
+                <Button
+                  variant={showBoardAnalytics ? "default" : "outline"}
+                  onClick={() => setShowBoardAnalytics(!showBoardAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Stats
+                </Button>
+                <Button
+                  variant={showMultiBoardAnalytics ? "default" : "outline"}
+                  onClick={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  Portfolio
+                </Button>
+                <Button
+                  variant={showAutomation ? "default" : "outline"}
+                  onClick={() => setShowAutomation(!showAutomation)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Automation
+                </Button>
+                <Button
+                  variant={showAnalytics ? "default" : "outline"}
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Analytics
+                </Button>
+              </>
+            )}
 
             <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
               <Button
