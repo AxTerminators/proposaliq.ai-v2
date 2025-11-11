@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +25,16 @@ import {
   Calendar as CalendarIcon,
   DollarSign,
   Target,
-  Zap
+  Zap,
+  SlidersHorizontal
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const FILTER_FIELDS = [
@@ -68,7 +77,7 @@ const OPERATORS = {
 };
 
 const STATUS_OPTIONS = [
-  'evaluating', 'watch_list', 'draft', 'in_progress', 
+  'evaluating', 'watch_list', 'draft', 'in_progress',
   'submitted', 'won', 'lost', 'archived'
 ];
 
@@ -81,14 +90,14 @@ const PROJECT_TYPE_OPTIONS = [
 ];
 
 const PHASE_OPTIONS = [
-  'phase1', 'phase2', 'phase3', 'phase4', 
+  'phase1', 'phase2', 'phase3', 'phase4',
   'phase5', 'phase6', 'phase7', 'phase8'
 ];
 
-export default function AdvancedFilterPanel({ 
-  proposals, 
-  onFilterChange, 
-  teamMembers = [] 
+export default function AdvancedFilterPanel({
+  proposals,
+  onFilterChange,
+  teamMembers = []
 }) {
   const [filters, setFilters] = useState([
     {
@@ -121,7 +130,7 @@ export default function AdvancedFilterPanel({
     setFilters(filters.map(f => {
       if (f.id === filterId) {
         const updatedFilter = { ...f, [field]: value };
-        
+
         // Reset operator and values when field changes
         if (field === 'field') {
           const fieldConfig = FILTER_FIELDS.find(ff => ff.value === value);
@@ -129,7 +138,7 @@ export default function AdvancedFilterPanel({
           updatedFilter.value = '';
           updatedFilter.value2 = '';
         }
-        
+
         return updatedFilter;
       }
       return f;
@@ -138,7 +147,7 @@ export default function AdvancedFilterPanel({
 
   const handleApplyFilters = () => {
     // Validate filters
-    const validFilters = filters.filter(f => 
+    const validFilters = filters.filter(f =>
       f.field && f.operator && (f.value || f.operator === 'is_empty')
     );
 
@@ -151,7 +160,7 @@ export default function AdvancedFilterPanel({
     const filtered = proposals.filter(proposal => {
       return validFilters.every(filter => {
         const fieldValue = proposal[filter.field];
-        
+
         // Handle empty checks
         if (filter.operator === 'is_empty') {
           return !fieldValue || fieldValue === '';
@@ -231,7 +240,7 @@ export default function AdvancedFilterPanel({
 
   const renderValueInput = (filter) => {
     const fieldType = getFieldType(filter.field);
-    
+
     if (filter.operator === 'is_empty') {
       return null;
     }
@@ -260,7 +269,7 @@ export default function AdvancedFilterPanel({
               />
             </PopoverContent>
           </Popover>
-          
+
           {filter.operator === 'between' && (
             <Popover>
               <PopoverTrigger asChild>
@@ -290,13 +299,13 @@ export default function AdvancedFilterPanel({
 
     if (fieldType === 'select') {
       let options = [];
-      
+
       if (filter.field === 'status') options = STATUS_OPTIONS;
       else if (filter.field === 'proposal_type_category') options = PROPOSAL_TYPE_OPTIONS;
       else if (filter.field === 'current_phase') options = PHASE_OPTIONS;
       else if (filter.field === 'project_type') options = PROJECT_TYPE_OPTIONS;
       else if (filter.field === 'lead_writer_email') options = teamMembers;
-      
+
       return (
         <Select
           value={filter.value}
@@ -346,7 +355,7 @@ export default function AdvancedFilterPanel({
     );
   };
 
-  const validFiltersCount = filters.filter(f => 
+  const validFiltersCount = filters.filter(f =>
     f.field && f.operator && (f.value || f.operator === 'is_empty')
   ).length;
 

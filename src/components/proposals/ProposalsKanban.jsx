@@ -1107,9 +1107,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header with filters */}
+      {/* Header with filters and stats */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
+          {/* First Row: Board Name and Action Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-slate-900">
@@ -1127,9 +1128,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 onClick={() => setShowGlobalSearch(true)}
                 variant="outline"
                 size="sm"
+                title="Global Search"
               >
-                <Search className="w-4 h-4 mr-2" />
-                Search
+                <Search className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => setShowFilters(!showFilters)}
+                variant={showFilters ? "default" : "outline"}
+                size="sm"
+                title="Quick Filters"
+              >
+                <Filter className="w-4 h-4" />
               </Button>
               <AdvancedFilterPanel
                 proposals={proposals}
@@ -1140,13 +1149,22 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 onClick={() => setShowBoardConfig(true)}
                 variant="outline"
                 size="sm"
+                title="Configure"
               >
-                <Settings className="w-4 h-4 mr-2" />
-                Configure
+                <Settings className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => setShowHelpPanel(true)}
+                variant="outline"
+                size="sm"
+                title="Help"
+              >
+                <HelpCircle className="w-4 h-4" />
               </Button>
             </div>
           </div>
 
+          {/* Second Row: Stats in middle, New Proposal button on left */}
           <div className="flex items-center justify-between gap-4">
             <Button
               onClick={handleCreateProposal}
@@ -1157,30 +1175,60 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
               New Proposal
             </Button>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Quick Filters
-                {activeFiltersCount > 0 && (
-                  <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center bg-white text-blue-600 hover:bg-white">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
+            {/* Pipeline Stats - Centered */}
+            <div className="flex items-center gap-4 text-sm">
+              {filteredProposals.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-green-600">💰</span>
+                    <span className="font-semibold text-green-900">
+                      {(() => {
+                        const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+                        return totalValue >= 1000000
+                          ? `$${(totalValue / 1000000).toFixed(1)}M`
+                          : totalValue >= 1000
+                          ? `$${(totalValue / 1000).toFixed(0)}K`
+                          : `$${totalValue.toLocaleString()}`;
+                      })()}
+                    </span>
+                    <span className="text-green-700">Pipeline Value</span>
+                  </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowHelpPanel(true)}
-              >
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Help
-              </Button>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                    <span className="text-blue-600">📈</span>
+                    <span className="font-semibold text-blue-900">
+                      {(() => {
+                        const wonProposals = proposals.filter(p => p.status === 'won').length;
+                        const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+                        const winRate = submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
+                        return winRate;
+                      })()}%
+                    </span>
+                    <span className="text-blue-700">Win Rate</span>
+                  </div>
+
+                  {(() => {
+                    const today = new Date();
+                    const urgentProposals = filteredProposals.filter(p => {
+                      if (!p.due_date) return false;
+                      const dueDate = new Date(p.due_date);
+                      const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                      return daysUntil >= 0 && daysUntil <= 7;
+                    }).length;
+                    
+                    return urgentProposals > 0 ? (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-lg">
+                        <span className="text-orange-600">⚠️</span>
+                        <span className="font-semibold text-orange-900">{urgentProposals}</span>
+                        <span className="text-orange-700">Due This Week</span>
+                      </div>
+                    ) : null;
+                  })()}
+                </>
+              )}
             </div>
+
+            <div className="w-[140px]"></div> {/* Spacer to balance layout */}
           </div>
 
           {showFilters && (
