@@ -114,6 +114,14 @@ export default function KanbanColumn({
     }
   };
 
+  const handleCollapseClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onToggleCollapse) {
+      onToggleCollapse(column.id);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -133,18 +141,14 @@ export default function KanbanColumn({
         <div className="p-3 h-full flex items-center">
           <div className="flex items-center gap-2 w-full">
             {/* Collapse Button - Far Left */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e?.stopPropagation?.();
-                onToggleCollapse?.(column.id);
-              }}
-              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
+            <button
+              onClick={handleCollapseClick}
+              className="h-7 w-7 rounded-md hover:bg-white/20 text-white flex-shrink-0 flex items-center justify-center transition-colors cursor-pointer"
               title="Collapse column"
+              type="button"
             >
-              <ChevronLeft className="w-4 h-4" title="Collapse" />
-            </Button>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
             {/* Column Name - Truncated with tooltip */}
             <div className="flex-1 min-w-0 mr-1">
