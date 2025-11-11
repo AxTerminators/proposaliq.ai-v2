@@ -162,12 +162,20 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   // OPTIMIZED: Faster collapse toggle with optimistic UI update
   const toggleColumnCollapse = useCallback(async (columnId) => {
-    if (!kanbanConfig) return;
+    console.log('[Kanban] 🔄 Toggle collapse called for column:', columnId);
+    
+    if (!kanbanConfig) {
+      console.error('[Kanban] ❌ No kanbanConfig found');
+      return;
+    }
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
     const newCollapsed = currentCollapsed.includes(columnId)
       ? currentCollapsed.filter(id => id !== columnId)
       : [...currentCollapsed, columnId];
+
+    console.log('[Kanban] Current collapsed:', currentCollapsed);
+    console.log('[Kanban] New collapsed:', newCollapsed);
 
     // Optimistically update the UI immediately
     queryClient.setQueryData(['kanban-config', organization?.id], (old) => {
@@ -180,13 +188,24 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     // Then update the backend
     try {
-      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+      console.log('[Kanban] 📡 Sending update to backend...', {
+        configId: kanbanConfig.id,
         collapsed_column_ids: newCollapsed
       });
+      
+      const result = await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        collapsed_column_ids: newCollapsed
+      });
+      
+      console.log('[Kanban] ✅ Backend update successful:', result);
     } catch (error) {
-      console.error('[Kanban] Error updating collapsed columns:', error);
+      console.error('[Kanban] ❌ Error updating collapsed columns:', error);
+      console.error('[Kanban] Error details:', error.message, error.response?.data);
+      
       // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      
+      alert(`Failed to update column state: ${error.message}`);
     }
   }, [kanbanConfig, queryClient, organization?.id]);
 
@@ -1370,36 +1389,50 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                           >
                             {isCollapsed ? (
                               <div className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full">
-                                {/* Dedicated small drag handle at the very top */}
+                                {/* Dedicated drag handle at top - very clear visual */}
                                 <div 
                                   {...providedDraggable.dragHandleProps}
-                                  className="w-full h-6 flex items-center justify-center cursor-grab active:cursor-grabbing bg-slate-100 border-b border-slate-300 hover:bg-slate-200 transition-colors flex-shrink-0"
+                                  className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-gradient-to-r from-slate-200 to-slate-300 border-b-2 border-slate-400 hover:from-slate-300 hover:to-slate-400 transition-colors flex-shrink-0"
                                   title="Drag to reorder"
+                                  onMouseDown={(e) => {
+                                    console.log('[Kanban] 🖱️ Drag handle mousedown');
+                                  }}
                                 >
-                                  <div className="flex gap-0.5">
-                                    <div className="w-1 h-1 rounded-full bg-slate-400"></div>
-                                    <div className="w-1 h-1 rounded-full bg-slate-400"></div>
-                                    <div className="w-1 h-1 rounded-full bg-slate-400"></div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex gap-0.5">
+                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                    </div>
+                                    <div className="flex gap-0.5">
+                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                      <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+                                    </div>
                                   </div>
                                 </div>
 
-                                {/* Rest of collapsed column - clickable to expand */}
-                                <div 
-                                  onClick={() => toggleColumnCollapse(column.id)}
-                                  className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                                {/* Expand button - completely separate from drag handle */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('[Kanban] 🖱️ Expand button clicked for column:', column.id);
+                                    toggleColumnCollapse(column.id);
+                                  }}
+                                  className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                                   title="Click to expand"
                                 >
                                   <div
-                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap pointer-events-none"
                                     style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                                   >
                                     {column.label}
                                   </div>
-                                  <Badge variant="secondary" className="text-xs">
+                                  <Badge variant="secondary" className="text-xs pointer-events-none">
                                     {columnProposals.length}
                                   </Badge>
-                                  <ChevronsRight className="w-5 h-5 text-blue-600" />
-                                </div>
+                                  <ChevronsRight className="w-5 h-5 text-blue-600 pointer-events-none" />
+                                </button>
                               </div>
                             ) : (
                               <Droppable droppableId={column.id} type="card">
