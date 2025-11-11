@@ -927,8 +927,7 @@ export default function Pipeline() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
-              <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Proposal Board</h1>
             </div>
 
             {allBoards.length > 0 && (
