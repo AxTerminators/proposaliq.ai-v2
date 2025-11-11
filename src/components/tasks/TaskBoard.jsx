@@ -136,7 +136,7 @@ export default function TaskBoard({ tasks, subtasks = [], proposals = [], onEdit
                                     </Badge>
                                   )}
                                   
-                                  {/* Proposal link with Go to Proposal button */}
+                                  {/* UPDATED: Proposal link with Go to Proposal button */}
                                   {taskProposal && (
                                     <div className="flex items-center justify-between gap-2">
                                       <p className="text-xs text-blue-600 truncate">
@@ -147,10 +147,10 @@ export default function TaskBoard({ tasks, subtasks = [], proposals = [], onEdit
                                         size="sm"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          navigate(`${createPageUrl("ProposalBuilder")}?id=${taskProposal.id}`);
+                                          navigate(`${createPageUrl("Pipeline")}?proposalId=${taskProposal.id}`);
                                         }}
                                         className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
-                                        title="Open this proposal"
+                                        title="View this proposal on the Kanban board"
                                       >
                                         <ExternalLink className="w-3 h-3 mr-1" />
                                         Go
@@ -218,3 +218,4 @@ export default function TaskBoard({ tasks, subtasks = [], proposals = [], onEdit
     </DragDropContext>
   );
 }
+

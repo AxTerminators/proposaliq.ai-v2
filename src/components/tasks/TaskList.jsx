@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // Added import
-import { createPageUrl } from "@/utils"; // Added import
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -125,16 +125,16 @@ export default function TaskList({ tasks, subtasks = [], proposals = [], onEditT
                           <p className="text-xs text-blue-600 truncate">
                             📋 {taskProposal.proposal_name}
                           </p>
-                          {/* NEW: Go to Proposal button */}
+                          {/* UPDATED: Go to Proposal button - navigates to Pipeline with proposalId */}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`${createPageUrl("ProposalBuilder")}?id=${taskProposal.id}`);
+                              navigate(`${createPageUrl("Pipeline")}?proposalId=${taskProposal.id}`);
                             }}
                             className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            title="Open this proposal"
+                            title="View this proposal on the Kanban board"
                           >
                             <ExternalLink className="w-3 h-3 mr-1" />
                             Go to Proposal

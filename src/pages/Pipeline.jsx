@@ -275,6 +275,33 @@ export default function Pipeline() {
     initialData: [],
   });
 
+  // NEW: Read proposalId from URL parameter on load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const proposalIdFromUrl = urlParams.get('proposalId');
+    
+    // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
+    if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
+      console.log('[Pipeline] 🔗 Found proposalId in URL:', proposalIdFromUrl);
+      
+      // Find the proposal
+      const proposal = proposals.find(p => p.id === proposalIdFromUrl);
+      
+      if (proposal) {
+        console.log('[Pipeline] ✅ Found proposal:', proposal.proposal_name);
+        
+        // Auto-open the modal
+        setSelectedProposalToOpen(proposal);
+        setShowProposalModal(true);
+        
+        // Clear the URL parameter to avoid reopening on refresh
+        window.history.replaceState({}, '', createPageUrl("Pipeline"));
+      } else {
+        console.warn('[Pipeline] ⚠️ Proposal not found for ID:', proposalIdFromUrl);
+      }
+    }
+  }, [proposals, showProposalModal]); // Depend on proposals to ensure they're loaded, and showProposalModal to prevent re-triggering if already open.
+
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
 
