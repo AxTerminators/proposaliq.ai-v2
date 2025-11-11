@@ -27,7 +27,9 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Star // Added Star icon
+  Star, // Added Star icon
+  DollarSign, // Added DollarSign icon
+  TrendingUp // Added TrendingUp icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -1165,6 +1167,36 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 <Settings className="w-4 h-4 mr-2" />
                 Configure
               </Button>
+            </div>
+          </div>
+
+          {/* NEW: Pipeline Stats in Lower Banner */}
+          <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              <span className="font-semibold text-green-900">
+                {(() => {
+                  const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+                  return totalValue >= 1000000
+                    ? `$${(totalValue / 1000000).toFixed(1)}M`
+                    : totalValue >= 1000
+                    ? `$${(totalValue / 1000).toFixed(0)}K`
+                    : `$${totalValue.toLocaleString()}`;
+                })()}
+              </span>
+              <span className="text-green-700">Pipeline Value</span>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+              <span className="font-semibold text-blue-900">
+                {(() => {
+                  const wonProposals = proposals.filter(p => p.status === 'won').length;
+                  const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+                  return submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
+                })()}%
+              </span>
+              <span className="text-blue-700">Win Rate</span>
             </div>
           </div>
 
