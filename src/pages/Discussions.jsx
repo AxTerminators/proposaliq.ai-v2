@@ -20,10 +20,21 @@ import {
   Pin,
   AtSign,
   ExternalLink,
-  FileText
+  FileText,
+  Trash2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import moment from "moment";
 
 export default function Discussions() {
@@ -37,6 +48,7 @@ export default function Discussions() {
   const [newComment, setNewComment] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const textareaRef = useRef(null);
   
   const [newDiscussion, setNewDiscussion] = useState({
@@ -228,6 +240,28 @@ export default function Discussions() {
     enabled: !!selectedDiscussion?.proposal_id,
   });
 
+  const deleteDiscussionMutation = useMutation({
+    mutationFn: async (discussionId) => {
+      // First delete all comments
+      const commentsToDelete = await base44.entities.DiscussionComment.filter({
+        discussion_id: discussionId,
+        organization_id: organization.id
+      });
+      
+      for (const comment of commentsToDelete) {
+        await base44.entities.DiscussionComment.delete(comment.id);
+      }
+      
+      // Then delete the discussion
+      return base44.entities.Discussion.delete(discussionId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      setSelectedDiscussion(null);
+      setShowDeleteDialog(false);
+    },
+  });
+
   const createDiscussionMutation = useMutation({
     mutationFn: async (data) => {
       return base44.entities.Discussion.create({
@@ -355,6 +389,23 @@ export default function Discussions() {
         content: newComment
       });
     }
+  };
+
+  const handleDeleteDiscussion = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedDiscussion) {
+      deleteDiscussionMutation.mutate(selectedDiscussion.id);
+    }
+  };
+
+  const canDeleteDiscussion = () => {
+    if (!user || !selectedDiscussion) return false;
+    // Allow deletion if current user is the author OR current user has an 'admin' role.
+    const isAdmin = user.client_accesses?.some(access => access.organization_id === organization?.id && access.role === 'admin');
+    return user.email === selectedDiscussion.author_email || isAdmin;
   };
 
   const filteredDiscussions = discussions.filter(d => 
@@ -522,7 +573,7 @@ export default function Discussions() {
                       <CardTitle>{selectedDiscussion.title}</CardTitle>
                     </div>
                     <p className="text-sm text-slate-600 mb-3">{selectedDiscussion.content}</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <Badge className={getCategoryColor(selectedDiscussion.category)}>
                         {selectedDiscussion.category}
                       </Badge>
@@ -539,11 +590,23 @@ export default function Discussions() {
                           variant="outline"
                           size="sm"
                           onClick={() => navigate(`${createPageUrl("Pipeline")}?proposalId=${linkedProposal.id}&tab=discussions`)}
-                          className="ml-auto gap-2"
+                          className="gap-2"
                         >
                           <FileText className="w-4 h-4" />
                           View Proposal
                           <ExternalLink className="w-3 h-3" />
+                        </Button>
+                      )}
+                      
+                      {canDeleteDiscussion() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDeleteDiscussion}
+                          className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
                         </Button>
                       )}
                     </div>
@@ -662,6 +725,39 @@ export default function Discussions() {
           )}
         </div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Discussion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedDiscussion?.title}"? This will permanently delete the discussion and all its comments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDiscussionMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteDiscussionMutation.isPending}
+            >
+              {deleteDiscussionMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Discussion
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
