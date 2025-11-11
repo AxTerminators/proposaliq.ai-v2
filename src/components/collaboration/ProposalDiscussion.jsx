@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,52 +79,87 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     enabled: !!selectedDiscussion?.id,
   });
 
-  const { data: teamMembers } = useQuery({
-    queryKey: ['team-members', organization.id],
+  // FIXED: Better team members fetching - include all users in organization
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['team-members-for-mentions', organization.id],
     queryFn: async () => {
+      console.log('[Mentions] Fetching team members for org:', organization.id);
+      
+      // Get all users
       const allUsers = await base44.entities.User.list();
-      return allUsers.filter(u => {
+      console.log('[Mentions] Total users in system:', allUsers.length);
+      
+      // Filter to users in this organization
+      const orgUsers = allUsers.filter(u => {
         const accesses = u.client_accesses || [];
         return accesses.some(a => a.organization_id === organization.id);
       });
+      
+      console.log('[Mentions] Users in this organization:', orgUsers.length);
+      console.log('[Mentions] Team members:', orgUsers.map(u => ({ name: u.full_name, email: u.email })));
+      
+      return orgUsers;
     },
     initialData: [],
+    staleTime: 300000, // Cache for 5 minutes
   });
 
-  // FIXED: Improved @ mention detection
+  // FIXED: Better @ mention detection with debugging
   useEffect(() => {
     const text = newComment;
     const cursorPos = cursorPosition;
+    
+    console.log('[Mentions] Text:', text);
+    console.log('[Mentions] Cursor position:', cursorPos);
+    console.log('[Mentions] Team members available:', teamMembers.length);
     
     // Find the last @ before cursor
     const textBeforeCursor = text.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
+    console.log('[Mentions] Last @ index:', lastAtIndex);
+    
     if (lastAtIndex !== -1) {
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
       
+      console.log('[Mentions] Text after @:', textAfterAt);
+      
       // Check if there's a space after the @, if yes, don't show dropdown
       if (textAfterAt.includes(' ')) {
+        console.log('[Mentions] Space found after @, hiding dropdown');
         setShowMentionDropdown(false);
-        setMentionFilter(""); // Clear filter when dropdown is hidden
+        setMentionFilter("");
         return;
       }
       
-      console.log('[Mentions] Showing dropdown with filter:', textAfterAt);
+      console.log('[Mentions] ✅ Showing dropdown with filter:', textAfterAt);
       setMentionFilter(textAfterAt);
       setShowMentionDropdown(true);
     } else {
+      console.log('[Mentions] No @ found, hiding dropdown');
       setShowMentionDropdown(false);
-      setMentionFilter(""); // Clear filter when dropdown is hidden
+      setMentionFilter("");
     }
-  }, [newComment, cursorPosition]);
+  }, [newComment, cursorPosition, teamMembers.length]);
 
   const handleTextareaChange = (e) => {
+    console.log('[Mentions] Textarea changed, new value:', e.target.value);
     setNewComment(e.target.value);
     setCursorPosition(e.target.selectionStart);
   };
 
+  const handleTextareaKeyUp = (e) => {
+    console.log('[Mentions] Key up, cursor at:', e.target.selectionStart);
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleTextareaClick = (e) => {
+    console.log('[Mentions] Clicked, cursor at:', e.target.selectionStart);
+    setCursorPosition(e.target.selectionStart);
+  };
+
   const handleMentionSelect = (member) => {
+    console.log('[Mentions] Member selected:', member.email);
     const text = newComment;
     const cursorPos = cursorPosition;
     
@@ -137,9 +172,10 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       const afterCursor = text.substring(cursorPos);
       
       const newText = beforeAt + '@' + member.email + ' ' + afterCursor;
+      console.log('[Mentions] New text:', newText);
       setNewComment(newText);
       setShowMentionDropdown(false);
-      setMentionFilter(""); // Clear filter after selection
+      setMentionFilter("");
       
       // Focus textarea
       if (textareaRef.current) {
@@ -147,16 +183,20 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
         const newCursorPos = beforeAt.length + member.email.length + 2;
         setTimeout(() => {
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-          setCursorPosition(newCursorPos); // Update cursor position state
+          setCursorPosition(newCursorPos);
         }, 0);
       }
     }
   };
 
-  const filteredTeamMembers = teamMembers.filter(member => 
-    member.email.toLowerCase().includes(mentionFilter.toLowerCase()) ||
-    (member.full_name && member.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))
-  );
+  const filteredTeamMembers = useMemo(() => {
+    const filtered = teamMembers.filter(member => 
+      member.email.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+      (member.full_name && member.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))
+    );
+    console.log('[Mentions] Filtered team members:', filtered.length, 'Filter:', mentionFilter);
+    return filtered;
+  }, [teamMembers, mentionFilter]);
 
   const createDiscussionMutation = useMutation({
     mutationFn: async (data) => {
@@ -221,6 +261,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       queryClient.invalidateQueries({ queryKey: ['discussion-comments'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-discussions'] });
       setNewComment("");
+      setCursorPosition(0);
     },
   });
 
@@ -250,6 +291,9 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       </div>
     );
   }
+
+  // DEBUG: Log current state
+  console.log('[Mentions] Component render - showMentionDropdown:', showMentionDropdown, 'filteredCount:', filteredTeamMembers.length);
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -401,9 +445,9 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              {/* FIXED: Only show ScrollArea if there are comments */}
+              {/* Comments list - only show if there are comments */}
               {comments.length > 0 && (
-                <ScrollArea className="h-[300px] mb-6">
+                <ScrollArea className="h-[300px] mb-4">
                   <div className="space-y-4">
                     {comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
@@ -427,84 +471,82 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                 </ScrollArea>
               )}
 
-              {/* Comment input section - no border-t if there are no comments yet */}
-              <div className={comments.length > 0 ? "border-t pt-4" : ""}>
-                <div className="space-y-3 relative">
-                  <div className="relative">
-                    <Textarea
-                      ref={textareaRef}
-                      placeholder="Share your thoughts... (Type @ to mention someone)"
-                      value={newComment}
-                      onChange={handleTextareaChange}
-                      onKeyUp={(e) => setCursorPosition(e.target.selectionStart)}
-                      onClick={(e) => setCursorPosition(e.target.selectionStart)}
-                      onSelect={(e) => setCursorPosition(e.target.selectionStart)} // Added onSelect
-                      rows={3}
-                      className="resize-none"
-                    />
-                    
-                    {/* FIXED: Improved mention dropdown positioning and visibility */}
-                    {showMentionDropdown && filteredTeamMembers.length > 0 && (
-                      <Card className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto z-50 shadow-2xl border-2 border-blue-400">
-                        <CardContent className="p-2">
-                          <div className="text-xs text-blue-700 font-semibold px-2 py-1.5 flex items-center gap-1 bg-blue-50 rounded mb-1">
-                            <AtSign className="w-3 h-3" />
-                            Select team member ({filteredTeamMembers.length} found)
-                          </div>
-                          {filteredTeamMembers.slice(0, 8).map((member) => (
-                            <button
-                              key={member.email}
-                              onClick={() => handleMentionSelect(member)}
-                              className="w-full text-left px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0"
-                            >
-                              <Avatar className="w-8 h-8 flex-shrink-0">
-                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm">
-                                  {member.full_name?.[0]?.toUpperCase() || 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {member.full_name || 'User'}
-                                </p>
-                                <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
+              {/* FIXED: Comment input - always visible, no extra container */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <Textarea
+                    ref={textareaRef}
+                    placeholder="Share your thoughts... (Type @ to mention someone)"
+                    value={newComment}
+                    onChange={handleTextareaChange}
+                    onKeyUp={handleTextareaKeyUp}
+                    onClick={handleTextareaClick}
+                    rows={3}
+                    className="resize-none"
+                  />
                   
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-start gap-2 text-xs text-blue-900">
-                      <AtSign className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold mb-1">💡 Mention team members</p>
-                        <p className="text-blue-700">
-                          Type <strong>@</strong> to see a list of team members - they'll be notified!
-                        </p>
-                      </div>
+                  {/* Mention dropdown */}
+                  {showMentionDropdown && filteredTeamMembers.length > 0 && (
+                    <Card className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto z-50 shadow-2xl border-2 border-blue-400">
+                      <CardContent className="p-2">
+                        <div className="text-xs text-blue-700 font-semibold px-2 py-1.5 flex items-center gap-1 bg-blue-50 rounded mb-1">
+                          <AtSign className="w-3 h-3" />
+                          Select team member ({filteredTeamMembers.length} found)
+                        </div>
+                        {filteredTeamMembers.slice(0, 8).map((member) => (
+                          <button
+                            key={member.email}
+                            type="button"
+                            onClick={() => handleMentionSelect(member)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0"
+                          >
+                            <Avatar className="w-8 h-8 flex-shrink-0">
+                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm">
+                                {member.full_name?.[0]?.toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">
+                                {member.full_name || 'User'}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2 text-xs text-blue-900">
+                    <AtSign className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold mb-1">💡 Mention team members</p>
+                      <p className="text-blue-700">
+                        Type <strong>@</strong> to see a list of team members - they'll be notified!
+                      </p>
                     </div>
                   </div>
-                  
-                  <div className="flex justify-end">
-                    <Button 
-                      onClick={handleAddComment}
-                      disabled={!newComment.trim() || createCommentMutation.isPending}
-                    >
-                      {createCommentMutation.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4 mr-2" />
-                          Send Comment
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleAddComment}
+                    disabled={!newComment.trim() || createCommentMutation.isPending}
+                  >
+                    {createCommentMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Comment
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </CardContent>
