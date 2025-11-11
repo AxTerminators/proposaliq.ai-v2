@@ -146,6 +146,18 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     'open_pricing_review_modal': 'PricingReviewModal',
   };
 
+  // NEW: Check for tab parameter in sessionStorage when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const tabToOpen = sessionStorage.getItem('openProposalTab');
+      if (tabToOpen) {
+        console.log('[ProposalCardModal] 📑 Opening tab from deep link:', tabToOpen);
+        setActiveTab(tabToOpen);
+        sessionStorage.removeItem('openProposalTab'); // Clear after use
+      }
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const loadUser = async () => {
       try {

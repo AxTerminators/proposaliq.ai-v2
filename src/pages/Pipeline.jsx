@@ -310,14 +310,16 @@ export default function Pipeline() {
     initialData: [],
   });
 
-  // NEW: Read proposalId from URL parameter on load
+  // NEW: Read proposalId and tab from URL parameter on load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const proposalIdFromUrl = urlParams.get('proposalId');
+    const openTab = urlParams.get('tab'); // NEW: Also read tab parameter
     
     // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
     if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
       console.log('[Pipeline] 🔗 Found proposalId in URL:', proposalIdFromUrl);
+      console.log('[Pipeline] 📑 Tab to open:', openTab || 'default');
       
       // Find the proposal
       const proposal = proposals.find(p => p.id === proposalIdFromUrl);
@@ -329,8 +331,14 @@ export default function Pipeline() {
         setSelectedProposalToOpen(proposal);
         setShowProposalModal(true);
         
+        // Store the tab to open if specified
+        if (openTab) {
+          sessionStorage.setItem('openProposalTab', openTab);
+        }
+        
         // Clear the URL parameter to avoid reopening on refresh, preserve other params
         urlParams.delete('proposalId');
+        urlParams.delete('tab');
         const newUrl = urlParams.toString() 
           ? `${createPageUrl("Pipeline")}?${urlParams.toString()}`
           : createPageUrl("Pipeline");
@@ -339,7 +347,7 @@ export default function Pipeline() {
         console.warn('[Pipeline] ⚠️ Proposal not found for ID:', proposalIdFromUrl);
       }
     }
-  }, [proposals, showProposalModal]); // Depend on proposals to ensure they're loaded, and showProposalModal to prevent re-triggering if already open.
+  }, [proposals, showProposalModal]);
 
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
