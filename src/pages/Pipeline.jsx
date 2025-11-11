@@ -1169,7 +1169,7 @@ export default function Pipeline() {
             )}
           </div>
 
-          {/* View Mode Toggles & More Actions Dropdown */}
+          {/* View Mode Toggles & Board Action Icons - MOVED HERE */}
           <div className="flex items-center gap-3">
             <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
               <Button
@@ -1179,7 +1179,7 @@ export default function Pipeline() {
                 onClick={() => setViewMode("kanban")}
                 title="Kanban View"
               >
-                <LayoutGrid className="w-4 h-4" />
+                <LayoutGrid className="w-6 h-6" />
               </Button>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -1188,7 +1188,7 @@ export default function Pipeline() {
                 onClick={() => setViewMode("list")}
                 title="List View"
               >
-                <List className="w-4 h-4" />
+                <List className="w-6 h-6" />
               </Button>
               <Button
                 variant={viewMode === "table" ? "secondary" : "ghost"}
@@ -1197,9 +1197,74 @@ export default function Pipeline() {
                 onClick={() => setViewMode("table")}
                 title="Table View"
               >
-                <Table className="w-4 h-4" />
+                <Table className="w-6 h-6" />
               </Button>
             </div>
+
+            {/* Board Action Icons */}
+            <Button
+              variant={showFilters ? "default" : "outline"}
+              size="icon"
+              onClick={() => setShowFilters(!showFilters)}
+              className="h-9 w-9 relative group"
+              title="Quick Filters"
+            >
+              <Filter className="w-4 h-4" />
+              {activeFiltersCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs">
+                  {activeFiltersCount}
+                </Badge>
+              )}
+              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                Quick Filters
+              </span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowGlobalSearch(true)}
+              className="h-9 w-9 relative group"
+              title="Global Search"
+            >
+              <SearchIcon className="w-4 h-4" />
+              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                Global Search
+              </span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowBoardConfig(true)}
+              className="h-9 w-9 relative group"
+              title="Configure Board"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                Configure Board
+              </span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowHelpPanel(true)}
+              className="h-9 w-9 relative group"
+              title="Help"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                Help
+              </span>
+            </Button>
+
+            <AdvancedFilterPanel
+              proposals={proposals}
+              onFilterChange={handleAdvancedFilterChange}
+              teamMembers={uniqueTeamMembers}
+              iconOnly={true}
+            />
 
             {/* More Actions Dropdown */}
             {!isMobile && (
@@ -1262,7 +1327,6 @@ export default function Pipeline() {
               </Select>
             )}
 
-            {/* Saved Views - kept separate as it has its own dropdown UI */}
             <SavedViews
               organization={organization}
               user={user}
@@ -1273,7 +1337,7 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* LOWER BANNER: Contextual Overview & Board Actions */}
+      {/* LOWER BANNER: Contextual Overview & New Proposal Button */}
       <div className="flex-shrink-0 px-4 lg:px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-blue-50">
         {/* Board Info & Stats */}
         {selectedBoard && (
@@ -1317,80 +1381,8 @@ export default function Pipeline() {
           </div>
         )}
 
-        {/* Board Actions - Icon Only with Hover */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {/* Quick Filters - Funnel Icon */}
-            <Button
-              variant={showFilters ? "default" : "outline"}
-              size="icon"
-              onClick={() => setShowFilters(!showFilters)}
-              className="h-9 w-9 relative group"
-              title="Quick Filters"
-            >
-              <Filter className="w-4 h-4" />
-              {activeFiltersCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Quick Filters
-              </span>
-            </Button>
-
-            {/* Global Search - Search Icon */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowGlobalSearch(true)}
-              className="h-9 w-9 relative group"
-              title="Global Search"
-            >
-              <SearchIcon className="w-4 h-4" />
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Global Search
-              </span>
-            </Button>
-
-            {/* Configure - Settings Icon */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowBoardConfig(true)} // This would open a board config modal
-              className="h-9 w-9 relative group"
-              title="Configure Board"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Configure Board
-              </span>
-            </Button>
-
-            {/* Help - HelpCircle Icon */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowHelpPanel(true)} // This would open a help panel/modal
-              className="h-9 w-9 relative group"
-              title="Help"
-            >
-              <HelpCircle className="w-4 h-4" />
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Help
-              </span>
-            </Button>
-
-            {/* Advanced Filters - SlidersHorizontal Icon */}
-            <AdvancedFilterPanel
-              proposals={proposals}
-              onFilterChange={handleAdvancedFilterChange}
-              teamMembers={uniqueTeamMembers}
-              iconOnly={true}
-            />
-          </div>
-
-          {/* New Proposal Button - Prominent on the right */}
+        {/* New Proposal Button - Now standalone on the right */}
+        <div className="flex items-center justify-end">
           <Button
             onClick={handleCreateProposal}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
