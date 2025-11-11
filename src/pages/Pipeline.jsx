@@ -974,7 +974,6 @@ export default function Pipeline() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            {/* Action buttons (New Proposal, Manage Boards) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9">
@@ -1087,87 +1086,84 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Wrapper div for stats and analytics sections below the main header */}
-      <div className="flex flex-col flex-shrink-0"> 
-        {filteredProposals.length > 0 && (
-          <div className="flex-shrink-0 flex flex-wrap gap-4 text-sm px-4 lg:px-6 py-4 bg-white border-b">
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <DollarSign className="w-4 h-4 text-green-600" />
-              <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
-              <span className="text-green-700">Pipeline Value</span>
+      {filteredProposals.length > 0 && (
+        <div className="flex flex-wrap gap-4 text-sm mx-6 mt-6">
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+            <DollarSign className="w-4 h-4 text-green-600" />
+            <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
+            <span className="text-green-700">Pipeline Value</span>
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
+            <span className="text-blue-700">Win Rate</span>
+          </div>
+
+          {pipelineStats.urgentCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-orange-600" />
+              <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
+              <span className="text-orange-700">Due This Week</span>
             </div>
+          )}
+        </div>
+      )}
 
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-              <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
-              <span className="text-blue-700">Win Rate</span>
+      {showHealthDashboard && (
+        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 mx-6 mt-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-6 h-6 text-purple-600" />
+                Predictive Health Analysis
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowHealthDashboard(null)}
+              >
+                <X className="w-5 h-5" />
+              </Button>
             </div>
-
-            {pipelineStats.urgentCount > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-orange-600" />
-                <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
-                <span className="text-orange-700">Due This Week</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {showHealthDashboard && (
-          <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-6 h-6 text-purple-600" />
-                  Predictive Health Analysis
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowHealthDashboard(null)}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <PredictiveHealthDashboard
-                proposal={showHealthDashboard}
-                organization={organization}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {showBoardAnalytics && selectedBoard && (
-          <div className="flex-shrink-0 mx-6 mt-6">
-            <BoardAnalytics
-              board={selectedBoard}
-              proposals={proposals}
+          </CardHeader>
+          <CardContent>
+            <PredictiveHealthDashboard
+              proposal={showHealthDashboard}
               organization={organization}
             />
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        {showMultiBoardAnalytics && (
-          <div className="flex-shrink-0 mx-6 mt-6">
-            <MultiBoardAnalytics
-              proposals={proposals}
-              allBoardConfigs={allBoards}
-              organization={organization}
-            />
-          </div>
-        )}
+      {showBoardAnalytics && selectedBoard && (
+        <div className="flex-shrink-0 mx-6 mt-6">
+          <BoardAnalytics
+            board={selectedBoard}
+            proposals={proposals}
+            organization={organization}
+          />
+        </div>
+      )}
 
-        {showActivityFeed && (
-          <div className="flex-shrink-0 mx-6 mt-6">
-            <BoardActivityFeed
-              organization={organization}
-              boardId={selectedBoardId}
-            />
-          </div>
-        )}
-      </div> {/* CLOSES the new wrapper div */}
+      {showMultiBoardAnalytics && (
+        <div className="flex-shrink-0 mx-6 mt-6">
+          <MultiBoardAnalytics
+            proposals={proposals}
+            allBoardConfigs={allBoards}
+            organization={organization}
+          />
+        </div>
+      )}
+
+      {showActivityFeed && (
+        <div className="flex-shrink-0 mx-6 mt-6">
+          <BoardActivityFeed
+            organization={organization}
+            boardId={selectedBoardId}
+          />
+        </div>
+      )}
 
       <div className="flex-1 min-h-0">
         {isLoadingProposals || isLoadingBoards ? (
@@ -1377,7 +1373,7 @@ export default function Pipeline() {
               const icon = getBoardIcon(board.board_type, board.is_master_board);
               const boardProposalCount = proposals.filter(p => {
                 if (board.is_master_board) return true;
-                if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN'; // Added this line
+                if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN';
                 if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
                     return board.applies_to_proposal_types.includes(p.proposal_type_category);
                 }
