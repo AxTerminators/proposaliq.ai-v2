@@ -81,6 +81,20 @@ export default function KanbanColumn({
 
   const isWIPLimitExceeded = column.wip_limit > 0 && proposals.length > column.wip_limit;
 
+  // DEFENSIVE: If no provided prop, render a fallback (shouldn't happen with parent safety check, but defensive)
+  if (!provided) {
+    console.error('[KanbanColumn] CRITICAL: provided prop is undefined for column:', column.id);
+    return (
+      <div className="w-80 bg-red-50 border-2 border-red-300 rounded-xl p-6 h-full flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+          <p className="text-sm text-red-800 font-semibold">Column Error</p>
+          <p className="text-xs text-red-600 mt-1">Please refresh page</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full w-80 flex-shrink-0">
       {/* Column header */}
@@ -189,7 +203,7 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      {/* Cards area */}
+      {/* Cards area - now safe with early return above */}
       <div
         ref={provided.innerRef}
         {...provided.droppableProps}
