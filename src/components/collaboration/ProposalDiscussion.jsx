@@ -18,8 +18,19 @@ import {
   Pin,
   ArrowLeft,
   Loader2,
-  AtSign
+  AtSign,
+  Trash2
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import moment from "moment";
 
 export default function ProposalDiscussion({ proposal, user, organization }) {
@@ -46,6 +57,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false); // NEW STATE
   const textareaRef = useRef(null);
 
   const { data: discussions, isLoading } = useQuery({
@@ -245,6 +257,28 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     return filtered;
   }, [teamMembers, mentionFilter]);
 
+  const deleteDiscussionMutation = useMutation({
+    mutationFn: async (discussionId) => {
+      // First delete all comments
+      const commentsToDelete = await base44.entities.DiscussionComment.filter({
+        discussion_id: discussionId,
+        organization_id: organization.id
+      });
+      
+      for (const comment of commentsToDelete) {
+        await base44.entities.DiscussionComment.delete(comment.id);
+      }
+      
+      // Then delete the discussion
+      return base44.entities.Discussion.delete(discussionId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-discussions'] });
+      setSelectedDiscussion(null);
+      setShowDeleteDialog(false);
+    },
+  });
+
   const createDiscussionMutation = useMutation({
     mutationFn: async (data) => {
       return base44.entities.Discussion.create({
@@ -378,6 +412,22 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     }
   };
 
+  const handleDeleteDiscussion = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedDiscussion) {
+      deleteDiscussionMutation.mutate(selectedDiscussion.id);
+    }
+  };
+
+  const canDeleteDiscussion = () => {
+    if (!user || !selectedDiscussion) return false;
+    // Allow discussion author or admin to delete
+    return user.email === selectedDiscussion.author_email || user.role === 'admin';
+  };
+
   if (isLoading) {
     return (
       <div className="text-center py-12">
@@ -388,279 +438,326 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   }
 
   return (
-    <div className="grid lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-1 space-y-4">
-        <Card className="border-none shadow-lg">
-          <CardHeader className="border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Discussions</CardTitle>
-              <Button 
-                size="sm" 
-                onClick={() => setShowNewDiscussion(!showNewDiscussion)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[500px]">
-              {showNewDiscussion && (
-                <div className="p-4 border-b bg-blue-50">
-                  <Input
-                    placeholder="Discussion title"
-                    value={newDiscussionTitle}
-                    onChange={(e) => setNewDiscussionTitle(e.target.value)}
-                    className="mb-2"
-                  />
-                  <Textarea
-                    placeholder="What would you like to discuss?"
-                    value={newDiscussionContent}
-                    onChange={(e) => setNewDiscussionContent(e.target.value)}
-                    rows={3}
-                    className="mb-2"
-                  />
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={handleCreateDiscussion}
-                      disabled={!newDiscussionTitle.trim() || !newDiscussionContent.trim() || createDiscussionMutation.isPending}
-                    >
-                      {createDiscussionMutation.isPending ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        'Create'
-                      )}
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => {
-                        setShowNewDiscussion(false);
-                        setNewDiscussionTitle("");
-                        setNewDiscussionContent("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {discussions.length === 0 && !showNewDiscussion ? (
-                <div className="text-center py-8 text-slate-500 px-4">
-                  <MessageCircle className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm">No discussions yet</p>
-                </div>
-              ) : (
-                <div>
-                  {discussions.map((discussion) => (
-                    <div
-                      key={discussion.id}
-                      onClick={() => setSelectedDiscussion(discussion)}
-                      className={`p-4 border-b cursor-pointer transition-all ${
-                        selectedDiscussion?.id === discussion.id
-                          ? 'bg-blue-50 border-l-4 border-l-blue-600'
-                          : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-semibold text-slate-900 line-clamp-2 flex-1">
-                          {discussion.title}
-                        </h4>
-                        {discussion.is_pinned && (
-                          <Pin className="w-4 h-4 text-amber-500 flex-shrink-0 ml-2" />
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-600 line-clamp-2 mb-3">{discussion.content}</p>
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <div className="flex items-center gap-2">
-                          <span className="flex items-center gap-1">
-                            <MessageCircle className="w-3 h-3" />
-                            {discussion.comment_count || 0}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {discussion.author_name}
-                          </span>
-                        </div>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {moment(discussion.last_activity || discussion.created_date).fromNow()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="lg:col-span-2">
-        {selectedDiscussion ? (
+    <>
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-4">
           <Card className="border-none shadow-lg">
             <CardHeader className="border-b">
-              <div className="flex items-start gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSelectedDiscussion(null)}
-                  className="lg:hidden"
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Discussions</CardTitle>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowNewDiscussion(!showNewDiscussion)}
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <Plus className="w-4 h-4 mr-2" />
+                  New
                 </Button>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    {selectedDiscussion.is_pinned && (
-                      <Pin className="w-4 h-4 text-amber-500" />
-                    )}
-                    <CardTitle className="text-xl">{selectedDiscussion.title}</CardTitle>
-                  </div>
-                  <p className="text-sm text-slate-600 mb-3">{selectedDiscussion.content}</p>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      Started by {selectedDiscussion.author_name}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {moment(selectedDiscussion.created_date).fromNow()}
-                    </span>
-                  </div>
-                </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-3 mb-4">
-                <div className="relative">
-                  <Textarea
-                    ref={textareaRef}
-                    placeholder="Share your thoughts... (Type @ to mention someone)"
-                    value={newComment}
-                    onChange={handleTextareaChange}
-                    onKeyUp={(e) => checkForMentions(e.target.value)}
-                    onClick={(e) => checkForMentions(e.target.value)}
-                    rows={3}
-                    className="resize-none"
-                  />
-                  
-                  {/* Enhanced debug indicator */}
-                  {showMentionDropdown && (
-                    <div className="absolute -top-10 left-0 text-xs bg-green-500 text-white px-3 py-1 rounded shadow-lg z-[10000]">
-                      ✓ Dropdown active! Total: {teamMembers.length} | Filtered: {filteredTeamMembers.length}
-                    </div>
-                  )}
-                  
-                  {/* IMPROVED: Always show dropdown if @ is typed, even with 0 results */}
-                  {showMentionDropdown && (
-                    <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border-4 border-green-500 rounded-lg shadow-2xl max-h-80 overflow-y-auto z-[9999]">
-                      <div className="p-3">
-                        <div className="text-sm text-green-700 font-bold px-2 py-2 flex items-center gap-2 bg-green-50 rounded mb-2">
-                          <AtSign className="w-4 h-4" />
-                          🎉 Mention Dropdown (Filter: "{mentionFilter || '(empty)'}") 
-                        </div>
-                        
-                        {filteredTeamMembers.length === 0 ? (
-                          <div className="text-center py-6 text-slate-500">
-                            <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">No team members found</p>
-                            <p className="text-xs mt-1">Total members available: {teamMembers.length}</p>
-                          </div>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[500px]">
+                {showNewDiscussion && (
+                  <div className="p-4 border-b bg-blue-50">
+                    <Input
+                      placeholder="Discussion title"
+                      value={newDiscussionTitle}
+                      onChange={(e) => setNewDiscussionTitle(e.target.value)}
+                      className="mb-2"
+                    />
+                    <Textarea
+                      placeholder="What would you like to discuss?"
+                      value={newDiscussionContent}
+                      onChange={(e) => setNewDiscussionContent(e.target.value)}
+                      rows={3}
+                      className="mb-2"
+                    />
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        onClick={handleCreateDiscussion}
+                        disabled={!newDiscussionTitle.trim() || !newDiscussionContent.trim() || createDiscussionMutation.isPending}
+                      >
+                        {createDiscussionMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                            Creating...
+                          </>
                         ) : (
-                          filteredTeamMembers.map((member) => (
-                            <button
-                              key={member.email}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleMentionSelect(member);
-                              }}
-                              className="w-full text-left px-3 py-3 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0 cursor-pointer"
-                            >
-                              <Avatar className="w-10 h-10 flex-shrink-0">
-                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-                                  {member.full_name?.[0]?.toUpperCase() || 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {member.full_name || 'User'}
-                                </p>
-                                <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                              </div>
-                            </button>
-                          ))
+                          'Create'
                         )}
-                      </div>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowNewDiscussion(false);
+                          setNewDiscussionTitle("");
+                          setNewDiscussionContent("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
-                  )}
-                </div>
-                
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim() || createCommentMutation.isPending}
-                  >
-                    {createCommentMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Send Comment
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
+                  </div>
+                )}
 
-              {comments.length > 0 && (
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-4">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
-                        <Avatar className="w-10 h-10 flex-shrink-0">
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-                            {comment.author_name?.[0]?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-slate-900">{comment.author_name}</span>
-                            <span className="text-xs text-slate-500">
-                              {moment(comment.created_date).fromNow()}
+                {discussions.length === 0 && !showNewDiscussion ? (
+                  <div className="text-center py-8 text-slate-500 px-4">
+                    <MessageCircle className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                    <p className="text-sm">No discussions yet</p>
+                  </div>
+                ) : (
+                  <div>
+                    {discussions.map((discussion) => (
+                      <div
+                        key={discussion.id}
+                        onClick={() => setSelectedDiscussion(discussion)}
+                        className={`p-4 border-b cursor-pointer transition-all ${
+                          selectedDiscussion?.id === discussion.id
+                            ? 'bg-blue-50 border-l-4 border-l-blue-600'
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-slate-900 line-clamp-2 flex-1">
+                            {discussion.title}
+                          </h4>
+                          {discussion.is_pinned && (
+                            <Pin className="w-4 h-4 text-amber-500 flex-shrink-0 ml-2" />
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-600 line-clamp-2 mb-3">{discussion.content}</p>
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3" />
+                              {discussion.comment_count || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {discussion.author_name}
                             </span>
                           </div>
-                          <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {moment(discussion.last_activity || discussion.created_date).fromNow()}
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
-              )}
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
-        ) : (
-          <Card className="border-none shadow-lg h-full flex items-center justify-center min-h-[400px]">
-            <CardContent className="text-center py-8">
-              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-              <h3 className="text-base font-semibold text-slate-900 mb-1">Select a Discussion</h3>
-              <p className="text-sm text-slate-600">
-                Choose from the list or create a new one
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        </div>
+
+        <div className="lg:col-span-2">
+          {selectedDiscussion ? (
+            <Card className="border-none shadow-lg">
+              <CardHeader className="border-b">
+                <div className="flex items-start gap-4">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedDiscussion(null)}
+                    className="lg:hidden"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      {selectedDiscussion.is_pinned && (
+                        <Pin className="w-4 h-4 text-amber-500" />
+                      )}
+                      <CardTitle className="text-xl">{selectedDiscussion.title}</CardTitle>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-3">{selectedDiscussion.content}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        Started by {selectedDiscussion.author_name}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {moment(selectedDiscussion.created_date).fromNow()}
+                      </span>
+                      
+                      {canDeleteDiscussion() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDeleteDiscussion}
+                          className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3 mb-4">
+                  <div className="relative">
+                    <Textarea
+                      ref={textareaRef}
+                      placeholder="Share your thoughts... (Type @ to mention someone)"
+                      value={newComment}
+                      onChange={handleTextareaChange}
+                      onKeyUp={(e) => checkForMentions(e.target.value)}
+                      onClick={(e) => checkForMentions(e.target.value)}
+                      rows={3}
+                      className="resize-none"
+                    />
+                    
+                    {/* Enhanced debug indicator */}
+                    {showMentionDropdown && (
+                      <div className="absolute -top-10 left-0 text-xs bg-green-500 text-white px-3 py-1 rounded shadow-lg z-[10000]">
+                        ✓ Dropdown active! Total: {teamMembers.length} | Filtered: {filteredTeamMembers.length}
+                      </div>
+                    )}
+                    
+                    {/* IMPROVED: Always show dropdown if @ is typed, even with 0 results */}
+                    {showMentionDropdown && (
+                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border-4 border-green-500 rounded-lg shadow-2xl max-h-80 overflow-y-auto z-[9999]">
+                        <div className="p-3">
+                          <div className="text-sm text-green-700 font-bold px-2 py-2 flex items-center gap-2 bg-green-50 rounded mb-2">
+                            <AtSign className="w-4 h-4" />
+                            🎉 Mention Dropdown (Filter: "{mentionFilter || '(empty)'}") 
+                          </div>
+                          
+                          {filteredTeamMembers.length === 0 ? (
+                            <div className="text-center py-6 text-slate-500">
+                              <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">No team members found</p>
+                              <p className="text-xs mt-1">Total members available: {teamMembers.length}</p>
+                            </div>
+                          ) : (
+                            filteredTeamMembers.map((member) => (
+                              <button
+                                key={member.email}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleMentionSelect(member);
+                                }}
+                                className="w-full text-left px-3 py-3 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0 cursor-pointer"
+                              >
+                                <Avatar className="w-10 h-10 flex-shrink-0">
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                                    {member.full_name?.[0]?.toUpperCase() || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">
+                                    {member.full_name || 'User'}
+                                  </p>
+                                  <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim() || createCommentMutation.isPending}
+                    >
+                      {createCommentMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Send Comment
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {comments.length > 0 && (
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
+                          <Avatar className="w-10 h-10 flex-shrink-0">
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                              {comment.author_name?.[0]?.toUpperCase() || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-semibold text-slate-900">{comment.author_name}</span>
+                              <span className="text-xs text-slate-500">
+                                {moment(comment.created_date).fromNow()}
+                              </span>
+                            </div>
+                            <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-none shadow-lg h-full flex items-center justify-center min-h-[400px]">
+              <CardContent className="text-center py-8">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <h3 className="text-base font-semibold text-slate-900 mb-1">Select a Discussion</h3>
+                <p className="text-sm text-slate-600">
+                  Choose from the list or create a new one
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Discussion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedDiscussion?.title}"? This will permanently delete the discussion and all its comments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDiscussionMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteDiscussionMutation.isPending}
+            >
+              {deleteDiscussionMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Discussion
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
