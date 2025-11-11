@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,13 +16,12 @@ import {
   Clock,
   Pin,
   ArrowLeft,
-  Loader2
+  Loader2,
+  AtSign
 } from "lucide-react";
-import MentionHelper from "./MentionHelper";
 import moment from "moment";
 
 export default function ProposalDiscussion({ proposal, user, organization }) {
-  // Guard clause
   if (!proposal || !user || !organization) {
     return (
       <Card className="border-none shadow-lg">
@@ -44,6 +43,10 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   const [newDiscussionContent, setNewDiscussionContent] = useState("");
   const [newComment, setNewComment] = useState("");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const textareaRef = useRef(null);
 
   const { data: discussions, isLoading } = useQuery({
     queryKey: ['proposal-discussions', proposal.id, organization.id],
@@ -87,6 +90,68 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     initialData: [],
   });
 
+  // Handle @ mention detection
+  useEffect(() => {
+    const text = newComment;
+    const cursorPos = cursorPosition;
+    
+    // Find the last @ before cursor
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      
+      // Check if there's a space after the @, if yes, don't show dropdown
+      if (textAfterAt.includes(' ')) {
+        setShowMentionDropdown(false);
+        return;
+      }
+      
+      setMentionFilter(textAfterAt);
+      setShowMentionDropdown(true);
+    } else {
+      setShowMentionDropdown(false);
+    }
+  }, [newComment, cursorPosition]);
+
+  const handleTextareaChange = (e) => {
+    setNewComment(e.target.value);
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleMentionSelect = (member) => {
+    const text = newComment;
+    const cursorPos = cursorPosition;
+    
+    // Find the last @ before cursor
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const beforeAt = text.substring(0, lastAtIndex);
+      const afterCursor = text.substring(cursorPos);
+      
+      const newText = beforeAt + '@' + member.email + ' ' + afterCursor;
+      setNewComment(newText);
+      setShowMentionDropdown(false);
+      
+      // Focus textarea
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newCursorPos = beforeAt.length + member.email.length + 2;
+        setTimeout(() => {
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+      }
+    }
+  };
+
+  const filteredTeamMembers = teamMembers.filter(member => 
+    member.email.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+    member.full_name.toLowerCase().includes(mentionFilter.toLowerCase())
+  );
+
   const createDiscussionMutation = useMutation({
     mutationFn: async (data) => {
       return base44.entities.Discussion.create({
@@ -110,7 +175,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
 
   const createCommentMutation = useMutation({
     mutationFn: async ({ discussionId, content }) => {
-      // Extract mentions from content
       const mentionRegex = /@([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
       const mentions = [...content.matchAll(mentionRegex)].map(match => match[1]);
 
@@ -123,13 +187,11 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
         mentions: mentions
       });
 
-      // Update discussion activity
       await base44.entities.Discussion.update(discussionId, {
         last_activity: new Date().toISOString(),
         comment_count: (selectedDiscussion.comment_count || 0) + 1
       });
 
-      // Create notifications for mentions
       for (const mentionedEmail of mentions) {
         if (mentionedEmail !== user.email) {
           await base44.entities.Notification.create({
@@ -185,7 +247,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
-      {/* Left Column - Discussion List */}
       <div className="lg:col-span-1 space-y-4">
         <Card className="border-none shadow-lg">
           <CardHeader className="border-b">
@@ -202,7 +263,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="h-[500px]">
               {showNewDiscussion && (
                 <div className="p-4 border-b bg-blue-50">
                   <Input
@@ -249,10 +310,9 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
               )}
 
               {discussions.length === 0 && !showNewDiscussion ? (
-                <div className="text-center py-12 text-slate-500">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <div className="text-center py-8 text-slate-500 px-4">
+                  <MessageCircle className="w-10 h-10 mx-auto mb-2 text-slate-300" />
                   <p className="text-sm">No discussions yet</p>
-                  <p className="text-xs mt-1">Start a new discussion to get started</p>
                 </div>
               ) : (
                 <div>
@@ -300,7 +360,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
         </Card>
       </div>
 
-      {/* Right Column - Discussion Detail */}
       <div className="lg:col-span-2">
         {selectedDiscussion ? (
           <Card className="border-none shadow-lg">
@@ -336,46 +395,86 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <ScrollArea className="h-[400px] mb-6">
-                {comments.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500">
-                    <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                    <p className="text-sm">No comments yet</p>
-                    <p className="text-xs mt-1">Be the first to share your thoughts</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
-                        <Avatar className="w-10 h-10 flex-shrink-0">
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-                            {comment.author_name?.[0]?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-slate-900">{comment.author_name}</span>
-                            <span className="text-xs text-slate-500">
-                              {moment(comment.created_date).fromNow()}
-                            </span>
-                          </div>
-                          <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
+              <ScrollArea className="h-[300px] mb-6">
+                <div className="space-y-4">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
+                      <Avatar className="w-10 h-10 flex-shrink-0">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                          {comment.author_name?.[0]?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-slate-900">{comment.author_name}</span>
+                          <span className="text-xs text-slate-500">
+                            {moment(comment.created_date).fromNow()}
+                          </span>
                         </div>
+                        <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </ScrollArea>
 
               <div className="border-t pt-4">
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Share your thoughts... (Use @email to mention someone)"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    rows={3}
-                  />
-                  <MentionHelper />
+                <div className="space-y-3 relative">
+                  <div className="relative">
+                    <Textarea
+                      ref={textareaRef}
+                      placeholder="Share your thoughts... (Use @email to mention someone)"
+                      value={newComment}
+                      onChange={handleTextareaChange}
+                      onKeyUp={(e) => setCursorPosition(e.target.selectionStart)}
+                      onClick={(e) => setCursorPosition(e.target.selectionStart)}
+                      rows={3}
+                      className="resize-none"
+                    />
+                    
+                    {showMentionDropdown && filteredTeamMembers.length > 0 && (
+                      <Card className="absolute bottom-full mb-2 w-full max-h-48 overflow-y-auto z-50 shadow-xl border-2 border-blue-300">
+                        <CardContent className="p-2">
+                          <div className="text-xs text-slate-500 px-2 py-1 flex items-center gap-1">
+                            <AtSign className="w-3 h-3" />
+                            Select a team member to mention
+                          </div>
+                          {filteredTeamMembers.slice(0, 5).map((member) => (
+                            <button
+                              key={member.email}
+                              onClick={() => handleMentionSelect(member)}
+                              className="w-full text-left px-3 py-2 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-2"
+                            >
+                              <Avatar className="w-6 h-6">
+                                <AvatarFallback className="bg-blue-500 text-white text-xs">
+                                  {member.full_name?.[0]?.toUpperCase() || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">
+                                  {member.full_name}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2 text-xs text-blue-900">
+                      <AtSign className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold mb-1">💡 Mention team members</p>
+                        <p className="text-blue-700">
+                          Type <strong>@</strong> to see a list of team members you can mention - they'll be notified!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="flex justify-end">
                     <Button 
                       onClick={handleAddComment}
@@ -399,12 +498,12 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-none shadow-lg h-full flex items-center justify-center">
-            <CardContent className="text-center py-12">
-              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Select a Discussion</h3>
+          <Card className="border-none shadow-lg h-full flex items-center justify-center min-h-[400px]">
+            <CardContent className="text-center py-8">
+              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+              <h3 className="text-base font-semibold text-slate-900 mb-1">Select a Discussion</h3>
               <p className="text-sm text-slate-600">
-                Choose a discussion from the list to view and participate
+                Choose from the list or create a new one
               </p>
             </CardContent>
           </Card>
