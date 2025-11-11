@@ -745,7 +745,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         alert(`🔒 Cannot drag from "${sourceColumn.label}"\n\n` +
               `Required roles: ${sourceColumn.can_drag_from_here_roles.join(', ')}\n` +
               `Your role: ${userRole}\n\n` +
-              `FIX: Go to Configure → Edit "${sourceColumn.label}" → Update "Can Drag From Here Roles"`);
+              `FIX: Go to Configure → Edit "${sourceColumn.label}" → Update "Can Drag To Here Roles"`);
         return;
       }
     } else {
@@ -1198,9 +1198,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                     <span className="text-blue-600">📈</span>
                     <span className="font-semibold text-blue-900">
                       {(() => {
-                        const wonProposals = proposals.filter(p => p.status === 'won').length;
-                        const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
-                        const winRate = submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
+                        const allWonProposals = proposals.filter(p => p.status === 'won').length;
+                        const allSubmittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+                        const winRate = allSubmittedProposals > 0 ? Math.round((allWonProposals / allSubmittedProposals) * 100) : 0;
                         return winRate;
                       })()}%
                     </span>
