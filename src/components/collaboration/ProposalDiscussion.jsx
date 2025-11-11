@@ -299,7 +299,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
             related_entity_type: "comment",
             from_user_email: user.email,
             from_user_name: user.full_name,
-            action_url: `/app/ProposalBuilder?id=${proposal.id}`
+            action_url: `/app/Pipeline?proposalId=${proposal.id}` // Updated line
           });
 
           // NEW: Send email notification
@@ -328,7 +328,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                     </div>
                     
                     <div style="text-align: center; margin-top: 30px;">
-                      <a href="${window.location.origin}/app/ProposalBuilder?id=${proposal.id}" 
+                      <a href="${window.location.origin}/app/Pipeline?proposalId=${proposal.id}" 
                          style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                         View Discussion →
                       </a>
