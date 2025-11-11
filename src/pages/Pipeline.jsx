@@ -92,7 +92,7 @@ export default function Pipeline() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [initialModalToOpen, setInitialModalToOpen] = useState(null);
   const [pendingProposalModal, setPendingProposalModal] = useState(null);
-  const [proposalToDelete, setProposalToDelete] = useState(null); // Added this state for proposal deletion
+  const [proposalToDelete, setProposalToDelete] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -189,16 +189,50 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
+  // NEW: Read boardId from URL on mount and whenever allBoards updates
   useEffect(() => {
-    if (allBoards.length > 0 && !selectedBoardId) {
+    if (allBoards.length === 0) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const boardIdFromUrl = urlParams.get('boardId');
+
+    if (boardIdFromUrl) {
+      // Try to find this board in allBoards
+      const boardExists = allBoards.find(b => b.id === boardIdFromUrl);
+      if (boardExists) {
+        console.log('[Pipeline] Restoring board from URL:', boardExists.board_name);
+        setSelectedBoardId(boardIdFromUrl);
+        return;
+      }
+    }
+
+    // Only auto-select if no boardId is currently selected
+    if (!selectedBoardId) {
       const masterBoard = allBoards.find(b => b.is_master_board === true);
       const boardToSelect = masterBoard || allBoards[0];
       console.log('[Pipeline] Auto-selecting board:', boardToSelect?.board_name);
       setSelectedBoardId(boardToSelect?.id);
-    } else if (allBoards.length === 0 && selectedBoardId) {
-      setSelectedBoardId(null);
     }
   }, [allBoards, selectedBoardId]);
+
+  // NEW: Update URL whenever selectedBoardId changes
+  useEffect(() => {
+    if (!selectedBoardId) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentBoardIdInUrl = urlParams.get('boardId');
+
+    if (currentBoardIdInUrl !== selectedBoardId) {
+      // Preserve other URL params (like proposalId)
+      urlParams.set('boardId', selectedBoardId);
+      
+      // Update URL without reloading page
+      const newUrl = `${createPageUrl("Pipeline")}?${urlParams.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+      
+      console.log('[Pipeline] Updated URL with boardId:', selectedBoardId);
+    }
+  }, [selectedBoardId]);
 
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
 
@@ -294,8 +328,12 @@ export default function Pipeline() {
         setSelectedProposalToOpen(proposal);
         setShowProposalModal(true);
         
-        // Clear the URL parameter to avoid reopening on refresh
-        window.history.replaceState({}, '', createPageUrl("Pipeline"));
+        // Clear the URL parameter to avoid reopening on refresh, preserve other params
+        urlParams.delete('proposalId');
+        const newUrl = urlParams.toString() 
+          ? `${createPageUrl("Pipeline")}?${urlParams.toString()}`
+          : createPageUrl("Pipeline");
+        window.history.replaceState({}, '', newUrl);
       } else {
         console.warn('[Pipeline] ⚠️ Proposal not found for ID:', proposalIdFromUrl);
       }
