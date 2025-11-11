@@ -918,8 +918,7 @@ export default function Pipeline() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
-              <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Proposal Board</h1>
             </div>
 
             {allBoards.length > 0 && (
@@ -963,31 +962,6 @@ export default function Pipeline() {
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
             {!isMobile && (
               <>
-                <Button
-                  variant={showBoardManager ? "default" : "outline"}
-                  onClick={() => setShowBoardManager(!showBoardManager)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Boards
-                </Button>
-                <Button
-                  onClick={handleCreateProposal}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Proposal
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowGlobalSearch(true)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <SearchIcon className="w-4 h-4 mr-2" />
-                  Search
-                </Button>
                 <SavedViews
                   organization={organization}
                   user={user}
