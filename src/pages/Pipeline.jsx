@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter, // Added DialogFooter import
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -54,9 +54,6 @@ import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 
-// Remove calendar sync import since functionality is not used
-// import { syncProposalToCalendar, deleteProposalCalendarEvents } from "@/utils/proposalCalendarSync.js";
-
 export default function Pipeline() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -67,6 +64,7 @@ export default function Pipeline() {
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
+  const isRestoringFromUrl = useRef(false); // NEW: Track if we're restoring from URL
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
@@ -189,44 +187,47 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // NEW: Read boardId from URL on mount and whenever allBoards updates
+  // FIXED: Read boardId from URL ONCE on mount and when boards change
   useEffect(() => {
     if (allBoards.length === 0) return;
+    if (selectedBoardId) return; // Don't override if already selected by manual click
 
     const urlParams = new URLSearchParams(window.location.search);
     const boardIdFromUrl = urlParams.get('boardId');
 
     if (boardIdFromUrl) {
-      // Try to find this board in allBoards
       const boardExists = allBoards.find(b => b.id === boardIdFromUrl);
       if (boardExists) {
         console.log('[Pipeline] Restoring board from URL:', boardExists.board_name);
+        isRestoringFromUrl.current = true; // Mark that we're restoring
         setSelectedBoardId(boardIdFromUrl);
         return;
       }
     }
 
-    // Only auto-select if no boardId is currently selected
-    if (!selectedBoardId) {
-      const masterBoard = allBoards.find(b => b.is_master_board === true);
-      const boardToSelect = masterBoard || allBoards[0];
-      console.log('[Pipeline] Auto-selecting board:', boardToSelect?.board_name);
-      setSelectedBoardId(boardToSelect?.id);
-    }
-  }, [allBoards, selectedBoardId]);
+    // Auto-select default board if no boardId in URL and no board is selected
+    const masterBoard = allBoards.find(b => b.is_master_board === true);
+    const boardToSelect = masterBoard || allBoards[0];
+    console.log('[Pipeline] Auto-selecting board:', boardToSelect?.board_name);
+    setSelectedBoardId(boardToSelect?.id);
+  }, [allBoards.length]);
 
-  // NEW: Update URL whenever selectedBoardId changes
+  // FIXED: Update URL only when user manually changes board (not when restoring from URL)
   useEffect(() => {
     if (!selectedBoardId) return;
+
+    // Skip URL update if we're currently restoring from URL
+    if (isRestoringFromUrl.current) {
+      isRestoringFromUrl.current = false; // Reset the flag
+      return;
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const currentBoardIdInUrl = urlParams.get('boardId');
 
     if (currentBoardIdInUrl !== selectedBoardId) {
-      // Preserve other URL params (like proposalId)
       urlParams.set('boardId', selectedBoardId);
       
-      // Update URL without reloading page
       const newUrl = `${createPageUrl("Pipeline")}?${urlParams.toString()}`;
       window.history.replaceState({}, '', newUrl);
       
@@ -658,7 +659,7 @@ export default function Pipeline() {
         await refetchProposals();
       }
     } catch (error) {
-      console.error('Error migrating proposals:', error);
+      console.error('Error during migration:', error);
       alert('Error during migration: ' + error.message);
     } finally {
       setIsMigrating(false);
