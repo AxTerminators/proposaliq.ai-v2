@@ -11,14 +11,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-export default function TaskForm({ task, onSubmit, onCancel, proposalId, organizationId }) {
+export default function TaskForm({ open, onOpenChange, task, proposal, onSave, user, organization }) {
+  const proposalId = proposal?.id;
+  const organizationId = organization?.id;
+  
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -36,6 +45,40 @@ export default function TaskForm({ task, onSubmit, onCancel, proposalId, organiz
 
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [otherSectionName, setOtherSectionName] = useState("");
+
+  // Reset form when task changes
+  useEffect(() => {
+    if (task) {
+      setFormData({
+        title: "",
+        description: "",
+        assigned_to_email: "",
+        assigned_to_name: "",
+        status: "todo",
+        priority: "medium",
+        due_date: null,
+        section_id: "",
+        proposal_id: proposalId || "",
+        task_category: "proposal",
+        is_general_task: !proposalId,
+        ...task
+      });
+    } else {
+      setFormData({
+        title: "",
+        description: "",
+        assigned_to_email: "",
+        assigned_to_name: "",
+        status: "todo",
+        priority: "medium",
+        due_date: null,
+        section_id: "",
+        proposal_id: proposalId || "",
+        task_category: "proposal",
+        is_general_task: !proposalId,
+      });
+    }
+  }, [task, proposalId]);
 
   // Fetch available sections for this proposal
   const { data: sections = [] } = useQuery({
@@ -83,19 +126,27 @@ export default function TaskForm({ task, onSubmit, onCancel, proposalId, organiz
     if (showOtherInput && otherSectionName.trim()) {
       const otherSection = sections.find(s => s.section_type === 'other');
       if (otherSection && otherSection.section_name === 'Other') {
-        // Update the section name to the custom value
         await base44.entities.ProposalSection.update(otherSection.id, {
           section_name: otherSectionName.trim()
         });
       }
     }
     
-    onSubmit(formData);
+    onSave(formData);
   };
 
   return (
-    <Card className="border-2">
-      <CardContent className="pt-6">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {task ? 'Edit Task' : 'Create New Task'}
+          </DialogTitle>
+          <DialogDescription>
+            {proposal ? `Task for ${proposal.proposal_name}` : 'General task'}
+          </DialogDescription>
+        </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Task Title */}
           <div className="space-y-2">
@@ -268,7 +319,7 @@ export default function TaskForm({ task, onSubmit, onCancel, proposalId, organiz
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
@@ -276,7 +327,7 @@ export default function TaskForm({ task, onSubmit, onCancel, proposalId, organiz
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

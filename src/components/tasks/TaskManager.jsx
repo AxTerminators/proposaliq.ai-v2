@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -87,18 +88,14 @@ export default function TaskManager({ user, organization, proposalId = null, emb
   const createTaskMutation = useMutation({
     mutationFn: (taskData) => base44.entities.ProposalTask.create(taskData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
-      setShowTaskForm(false);
-      setEditingTask(null);
+      // Invalidation handled by handleTaskSave now for unified approach
     }
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ProposalTask.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
-      setShowTaskForm(false);
-      setEditingTask(null);
+      // Invalidation handled by handleTaskSave now for unified approach
     }
   });
 
@@ -130,10 +127,20 @@ export default function TaskManager({ user, organization, proposalId = null, emb
     }
   });
 
-  const handleTaskSave = () => {
-    queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
-    setShowTaskForm(false);
-    setEditingTask(null);
+  const handleTaskSave = async (taskData) => {
+    try {
+      if (editingTask) {
+        await updateTaskMutation.mutateAsync({ id: editingTask.id, data: taskData });
+      } else {
+        await createTaskMutation.mutateAsync(taskData);
+      }
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks'] });
+      setShowTaskForm(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error("Error saving task:", error);
+      alert("Failed to save task: " + error.message);
+    }
   };
 
   const handleEditTask = (task) => {
