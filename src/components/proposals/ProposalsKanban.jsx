@@ -1170,51 +1170,52 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             </div>
           </div>
 
-          {/* NEW: Pipeline Stats in Lower Banner */}
-          <div className="flex flex-wrap gap-3 text-sm">
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <DollarSign className="w-4 h-4 text-green-600" />
-              <span className="font-semibold text-green-900">
-                {(() => {
-                  const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-                  return totalValue >= 1000000
-                    ? `$${(totalValue / 1000000).toFixed(1)}M`
-                    : totalValue >= 1000
-                    ? `$${(totalValue / 1000).toFixed(0)}K`
-                    : `$${totalValue.toLocaleString()}`;
-                })()}
-              </span>
-              <span className="text-green-700">Pipeline Value</span>
-            </div>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                onClick={handleCreateProposal}
+                className="bg-blue-600 hover:bg-blue-700 h-9"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Proposal
+              </Button>
 
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-              <span className="font-semibold text-blue-900">
-                {(() => {
-                  const wonProposals = proposals.filter(p => p.status === 'won').length;
-                  const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
-                  return submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
-                })()}%
-              </span>
-              <span className="text-blue-700">Win Rate</span>
-            </div>
-          </div>
+              {/* Pipeline Stats - Moved here and styled to match button height */}
+              <div className="flex items-center gap-2 px-3 h-9 bg-green-50 border border-green-200 rounded-lg">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <span className="font-semibold text-green-900 text-sm">
+                  {(() => {
+                    const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+                    return totalValue >= 1000000
+                      ? `$${(totalValue / 1000000).toFixed(1)}M`
+                      : totalValue >= 1000
+                      ? `$${(totalValue / 1000).toFixed(0)}K`
+                      : `$${totalValue.toLocaleString()}`;
+                  })()}
+                </span>
+                <span className="text-green-700 text-sm">Pipeline Value</span>
+              </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <Button
-              onClick={handleCreateProposal}
-              className="bg-blue-600 hover:bg-blue-700"
-              size="sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Proposal
-            </Button>
+              <div className="flex items-center gap-2 px-3 h-9 bg-blue-50 border border-blue-200 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                <span className="font-semibold text-blue-900 text-sm">
+                  {(() => {
+                    const wonProposals = proposals.filter(p => p.status === 'won').length;
+                    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+                    return submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
+                  })()}%
+                </span>
+                <span className="text-blue-700 text-sm">Win Rate</span>
+              </div>
+            </div>
 
             <div className="flex items-center gap-2">
               <Button
                 variant={showFilters ? "default" : "outline"}
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
+                className="h-9"
               >
                 <Filter className="w-4 h-4 mr-2" />
                 Quick Filters
@@ -1229,6 +1230,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 variant="outline"
                 size="sm"
                 onClick={() => setShowHelpPanel(true)}
+                className="h-9"
               >
                 <HelpCircle className="w-4 h-4 mr-2" />
                 Help
