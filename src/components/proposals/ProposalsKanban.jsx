@@ -27,7 +27,9 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Star,
+  Star, // Added Star icon
+  DollarSign, // Added DollarSign icon
+  TrendingUp // Added TrendingUp icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -1151,6 +1153,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 </Badge>
               )}
             </div>
+            {/* Removed AdvancedFilterPanel and Configure button from here */}
           </div>
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1163,6 +1166,34 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 <Plus className="w-4 h-4 mr-2" />
                 New Proposal
               </Button>
+
+              {/* Pipeline Stats - Moved here and styled to match button height */}
+              <div className="flex items-center gap-2 px-3 h-9 bg-green-50 border border-green-200 rounded-lg">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <span className="font-semibold text-green-900 text-sm">
+                  {(() => {
+                    const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+                    return totalValue >= 1000000
+                      ? `$${(totalValue / 1000000).toFixed(1)}M`
+                      : totalValue >= 1000
+                      ? `$${(totalValue / 1000).toFixed(0)}K`
+                      : `$${totalValue.toLocaleString()}`;
+                  })()}
+                </span>
+                <span className="text-green-700 text-sm">Pipeline Value</span>
+              </div>
+
+              <div className="flex items-center gap-2 px-3 h-9 bg-blue-50 border border-blue-200 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                <span className="font-semibold text-blue-900 text-sm">
+                  {(() => {
+                    const wonProposals = proposals.filter(p => p.status === 'won').length;
+                    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+                    return submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
+                  })()}%
+                </span>
+                <span className="text-blue-700 text-sm">Win Rate</span>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
