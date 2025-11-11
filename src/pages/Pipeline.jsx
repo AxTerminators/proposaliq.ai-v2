@@ -970,6 +970,7 @@ export default function Pipeline() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+            {/* New DropdownMenu for consolidated actions */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9">
@@ -984,19 +985,13 @@ export default function Pipeline() {
                   <Plus className="mr-2 h-4 w-4" />
                   <span>New Proposal</span>
                 </DropdownMenuItem>
-                {!isMobile && (
+                {!isMobile && ( // Preserve original conditional rendering for Search
                   <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
                     <SearchIcon className="mr-2 h-4 w-4" />
                     <span>Global Search</span>
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => setShowBoardManager(true)}>
-                    <Layers className="mr-2 h-4 w-4" />
-                    <span>Manage Boards</span>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
+                {/* Add other menu items here if needed */}
               </DropdownMenuContent>
             </DropdownMenu>
 
