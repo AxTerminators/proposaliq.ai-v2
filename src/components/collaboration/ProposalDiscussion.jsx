@@ -603,22 +603,6 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                   )}
                 </div>
                 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2 text-xs text-blue-900">
-                    <AtSign className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold mb-1">💡 Mention team members</p>
-                      <p className="text-blue-700">
-                        Type <strong>@</strong> to see a list of team members - they'll be notified!
-                        <br />
-                        <span className="text-xs opacity-75">
-                          (Available: {teamMembers.length} members)
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
                 <div className="flex justify-end">
                   <Button 
                     onClick={handleAddComment}
