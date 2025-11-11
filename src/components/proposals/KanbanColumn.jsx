@@ -44,12 +44,6 @@ export default function KanbanColumn({
   selectedProposalIds = [],
   onToggleProposalSelection
 }) {
-  // CRITICAL: Add defensive check for provided prop
-  if (!provided) {
-    console.error('[KanbanColumn] ERROR: "provided" prop is undefined for column:', column?.id);
-    return null;
-  }
-
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(column.label);
   const [sortBy, setSortBy] = useState(null);
@@ -89,7 +83,7 @@ export default function KanbanColumn({
 
   return (
     <div className="flex flex-col h-full w-80 flex-shrink-0">
-      {/* Column header - no scroll */}
+      {/* Column header */}
       <div className={cn(
         "rounded-t-xl shadow-lg overflow-hidden flex-shrink-0",
         `bg-gradient-to-r ${column.color}`
@@ -195,7 +189,7 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      {/* Cards area - safely use provided */}
+      {/* Cards area */}
       <div
         ref={provided.innerRef}
         {...provided.droppableProps}
