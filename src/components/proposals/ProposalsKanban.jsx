@@ -1386,32 +1386,24 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             ) : (
                               // EXPANDED STATE: Wrap in Droppable and render KanbanColumn
                               <Droppable droppableId={column.id} type="card">
-                                {(providedDroppable, snapshotDroppable) => {
-                                  // Safety check - ensure providedDroppable exists
-                                  if (!providedDroppable) {
-                                    console.error('[Kanban] ❌ providedDroppable is undefined for column:', column.id);
-                                    return null;
-                                  }
-                                  
-                                  return (
-                                    <KanbanColumn
-                                      column={column}
-                                      proposals={columnProposals}
-                                      provided={providedDroppable}
-                                      snapshot={snapshotDroppable}
-                                      onCardClick={handleCardClick}
-                                      onToggleCollapse={toggleColumnCollapse}
-                                      organization={organization}
-                                      onRenameColumn={handleRenameColumn}
-                                      onConfigureColumn={handleConfigureColumn}
-                                      user={user}
-                                      dragHandleProps={providedDraggable.dragHandleProps}
-                                      onCreateProposal={handleCreateProposalInColumn}
-                                      selectedProposalIds={selectedProposalIds}
-                                      onToggleProposalSelection={handleToggleProposalSelection}
-                                    />
-                                  );
-                                }}
+                                {(providedDroppable, snapshotDroppable) => (
+                                  <KanbanColumn
+                                    column={column}
+                                    proposals={columnProposals}
+                                    provided={providedDroppable}
+                                    snapshot={snapshotDroppable}
+                                    onCardClick={handleCardClick}
+                                    onToggleCollapse={toggleColumnCollapse}
+                                    organization={organization}
+                                    onRenameColumn={handleRenameColumn}
+                                    onConfigureColumn={handleConfigureColumn}
+                                    user={user}
+                                    dragHandleProps={providedDraggable.dragHandleProps}
+                                    onCreateProposal={handleCreateProposalInColumn}
+                                    selectedProposalIds={selectedProposalIds}
+                                    onToggleProposalSelection={handleToggleProposalSelection}
+                                  />
+                                )}
                               </Droppable>
                             )}
                           </div>
