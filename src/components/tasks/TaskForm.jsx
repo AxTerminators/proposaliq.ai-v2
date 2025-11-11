@@ -67,8 +67,8 @@ export default function TaskForm({ open, onOpenChange, task, proposal, onSave, u
       setFormData({
         title: "",
         description: "",
-        assigned_to_email: "",
-        assigned_to_name: "",
+        assigned_to_email: user?.email || "",
+        assigned_to_name: user?.full_name || "",
         status: "todo",
         priority: "medium",
         due_date: null,
@@ -78,7 +78,7 @@ export default function TaskForm({ open, onOpenChange, task, proposal, onSave, u
         is_general_task: !proposalId,
       });
     }
-  }, [task, proposalId]);
+  }, [task, proposalId, user]);
 
   // Fetch available sections for this proposal
   const { data: sections = [] } = useQuery({
@@ -93,18 +93,35 @@ export default function TaskForm({ open, onOpenChange, task, proposal, onSave, u
     enabled: !!proposalId
   });
 
-  // Fetch team members for assignment
+  // Fetch team members for assignment - IMPROVED to always include current user
   const { data: teamMembers = [] } = useQuery({
-    queryKey: ['team-members', organizationId],
+    queryKey: ['team-members', organizationId, user?.email],
     queryFn: async () => {
-      if (!organizationId) return [];
-      const allUsers = await base44.entities.User.list();
-      return allUsers.filter(u => {
-        const accesses = u.client_accesses || [];
-        return accesses.some(a => a.organization_id === organizationId);
-      });
+      if (!organizationId) {
+        // Even without org, return current user
+        return user ? [user] : [];
+      }
+      
+      try {
+        const allUsers = await base44.entities.User.list();
+        const orgUsers = allUsers.filter(u => {
+          const accesses = u.client_accesses || [];
+          return accesses.some(a => a.organization_id === organizationId);
+        });
+        
+        // Always ensure current user is included
+        if (user && !orgUsers.find(u => u.email === user.email)) {
+          orgUsers.unshift(user);
+        }
+        
+        return orgUsers;
+      } catch (error) {
+        console.error('Error fetching team members:', error);
+        // Fallback to at least current user
+        return user ? [user] : [];
+      }
     },
-    enabled: !!organizationId
+    enabled: !!organizationId || !!user
   });
 
   // Check if "Other" section is selected
@@ -232,11 +249,17 @@ export default function TaskForm({ open, onOpenChange, task, proposal, onSave, u
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
               <SelectContent>
-                {teamMembers.map((member) => (
-                  <SelectItem key={member.email} value={member.email}>
-                    {member.full_name} ({member.email})
+                {teamMembers.length === 0 ? (
+                  <SelectItem value="no-users" disabled>
+                    No team members found
                   </SelectItem>
-                ))}
+                ) : (
+                  teamMembers.map((member) => (
+                    <SelectItem key={member.email} value={member.email}>
+                      {member.full_name || member.email} {member.email === user?.email ? '(You)' : ''}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
