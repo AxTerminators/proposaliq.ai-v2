@@ -985,13 +985,7 @@ export default function Pipeline() {
                   <Plus className="mr-2 h-4 w-4" />
                   <span>New Proposal</span>
                 </DropdownMenuItem>
-                {!isMobile && ( // Preserve original conditional rendering for Search
-                  <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
-                    <SearchIcon className="mr-2 h-4 w-4" />
-                    <span>Global Search</span>
-                  </DropdownMenuItem>
-                )}
-                {/* Add other menu items here if needed */}
+                {/* Global Search is now a standalone button */}
                 <DropdownMenuItem onClick={() => setShowBoardManager(true)}>
                   <Database className="mr-2 h-4 w-4" />
                   <span>Manage Boards</span>
@@ -1007,6 +1001,16 @@ export default function Pipeline() {
                   currentFilters={savedFilters}
                   onApplyView={handleApplySavedView}
                 />
+                <Button
+                  variant={showGlobalSearch ? "default" : "outline"}
+                  onClick={() => setShowGlobalSearch(true)}
+                  size="sm"
+                  className="h-9"
+                  title="Search proposals"
+                >
+                  <SearchIcon className="w-4 h-4" />
+                  <span className="sr-only lg:not-sr-only lg:ml-2">Search</span>
+                </Button>
                 <Button
                   variant={showActivityFeed ? "default" : "outline"}
                   onClick={() => setShowActivityFeed(!showActivityFeed)}
