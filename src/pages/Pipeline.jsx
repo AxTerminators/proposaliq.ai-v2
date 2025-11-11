@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -64,7 +63,7 @@ export default function Pipeline() {
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
-  const isRestoringFromUrl = useRef(false); // NEW: Track if we're restoring from URL
+  const isRestoringFromUrl = useRef(false);
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
@@ -187,10 +186,9 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // FIXED: Read boardId from URL ONCE on mount and when boards change
   useEffect(() => {
     if (allBoards.length === 0) return;
-    if (selectedBoardId) return; // Don't override if already selected by manual click
+    if (selectedBoardId) return;
 
     const urlParams = new URLSearchParams(window.location.search);
     const boardIdFromUrl = urlParams.get('boardId');
@@ -199,26 +197,23 @@ export default function Pipeline() {
       const boardExists = allBoards.find(b => b.id === boardIdFromUrl);
       if (boardExists) {
         console.log('[Pipeline] Restoring board from URL:', boardExists.board_name);
-        isRestoringFromUrl.current = true; // Mark that we're restoring
+        isRestoringFromUrl.current = true;
         setSelectedBoardId(boardIdFromUrl);
         return;
       }
     }
 
-    // Auto-select default board if no boardId in URL and no board is selected
     const masterBoard = allBoards.find(b => b.is_master_board === true);
     const boardToSelect = masterBoard || allBoards[0];
     console.log('[Pipeline] Auto-selecting board:', boardToSelect?.board_name);
     setSelectedBoardId(boardToSelect?.id);
   }, [allBoards.length]);
 
-  // FIXED: Update URL only when user manually changes board (not when restoring from URL)
   useEffect(() => {
     if (!selectedBoardId) return;
 
-    // Skip URL update if we're currently restoring from URL
     if (isRestoringFromUrl.current) {
-      isRestoringFromUrl.current = false; // Reset the flag
+      isRestoringFromUrl.current = false;
       return;
     }
 
@@ -237,7 +232,6 @@ export default function Pipeline() {
 
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
 
-  // Effect to handle pending proposal modal after board switch
   useEffect(() => {
     if (!pendingProposalModal) return;
     
@@ -252,7 +246,6 @@ export default function Pipeline() {
     console.log('[Pipeline] Current board type:', selectedBoard?.board_type);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Check if the currently selected board matches the target
     let isCorrectBoard = false;
     
     if (targetBoardId) {
@@ -273,7 +266,6 @@ export default function Pipeline() {
       console.log('[Pipeline] Modal to open:', initialModal);
       console.log('[Pipeline] Setting state...');
       
-      // CRITICAL: Use setTimeout to ensure state updates don't conflict
       setTimeout(() => {
         console.log('[Pipeline] 🎭 Setting modal state...');
         setSelectedProposalToOpen(proposal);
@@ -310,33 +302,27 @@ export default function Pipeline() {
     initialData: [],
   });
 
-  // NEW: Read proposalId and tab from URL parameter on load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const proposalIdFromUrl = urlParams.get('proposalId');
-    const openTab = urlParams.get('tab'); // NEW: Also read tab parameter
+    const openTab = urlParams.get('tab');
     
-    // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
     if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
       console.log('[Pipeline] 🔗 Found proposalId in URL:', proposalIdFromUrl);
       console.log('[Pipeline] 📑 Tab to open:', openTab || 'default');
       
-      // Find the proposal
       const proposal = proposals.find(p => p.id === proposalIdFromUrl);
       
       if (proposal) {
         console.log('[Pipeline] ✅ Found proposal:', proposal.proposal_name);
         
-        // Auto-open the modal
         setSelectedProposalToOpen(proposal);
         setShowProposalModal(true);
         
-        // Store the tab to open if specified
         if (openTab) {
           sessionStorage.setItem('openProposalTab', openTab);
         }
         
-        // Clear the URL parameter to avoid reopening on refresh, preserve other params
         urlParams.delete('proposalId');
         urlParams.delete('tab');
         const newUrl = urlParams.toString() 
@@ -356,7 +342,6 @@ export default function Pipeline() {
       return proposals;
     }
 
-    // FIXED: Also check board_type for special boards like rfp_15_column
     if (selectedBoard.board_type === 'rfp_15_column') {
       return proposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
     }
@@ -369,33 +354,6 @@ export default function Pipeline() {
 
     return proposals;
   }, [proposals, selectedBoard]);
-
-  const pipelineStats = useMemo(() => {
-    const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-    const formattedValue = totalValue >= 1000000
-      ? `$${(totalValue / 1000000).toFixed(1)}M`
-      : totalValue >= 1000
-      ? `$${(totalValue / 1000).toFixed(0)}K`
-      : `$${totalValue.toLocaleString()}`;
-
-    const wonProposals = proposals.filter(p => p.status === 'won').length;
-    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
-    const winRate = submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
-
-    const today = new Date();
-    const urgentProposals = filteredProposals.filter(p => {
-      if (!p.due_date) return false;
-      const dueDate = new Date(p.due_date);
-      const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return daysUntil >= 0 && daysUntil <= 7;
-    }).length;
-
-    return {
-      totalValue: formattedValue,
-      winRate,
-      urgentCount: urgentProposals
-    };
-  }, [filteredProposals, proposals]);
 
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
@@ -519,12 +477,10 @@ export default function Pipeline() {
     }
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // Refetch proposals
     console.log('[Pipeline] 🔄 Refetching proposals...');
     await refetchProposals();
     console.log('[Pipeline] ✅ Proposals refetched');
     
-    // CRITICAL: Refetch boards to ensure we have the latest
     console.log('[Pipeline] 🔄 Refetching boards...');
     const boardsRefetchResult = await refetchBoards();
     console.log('[Pipeline] ✅ Boards refetched, count:', boardsRefetchResult?.data?.length || 'unknown');
@@ -536,14 +492,11 @@ export default function Pipeline() {
       return;
     }
 
-    // Wait for state to update
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Get fresh boards from query cache
     const freshBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]) || [];
     console.log('[Pipeline] 📋 Fresh boards from cache:', freshBoards.map(b => ({ id: b.id, type: b.board_type, name: b.board_name })));
 
-    // Find the correct board - FIXED: Prioritize boardConfig if provided
     let matchingBoard = null;
     
     if (boardConfig) {
@@ -576,18 +529,15 @@ export default function Pipeline() {
       console.log('[Pipeline] Board type:', matchingBoard.board_type);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      // CRITICAL FIX: Force board selection immediately
       setSelectedBoardId(matchingBoard.id);
       
-      // If there's an `openModal` and we found a matching board, open the modal directly.
       if (openModal) {
         setSelectedProposalToOpen(createdProposal);
         setInitialModalToOpen(openModal);
         setShowProposalModal(true);
-        setPendingProposalModal(null); // Clear pending state if it was set elsewhere, ensures clean slate.
+        setPendingProposalModal(null);
       }
       
-      // Wait a bit longer for the board to render
       await new Promise(resolve => setTimeout(resolve, 300));
       
       console.log('[Pipeline] ✅ Board switch initiated, view should now show:', matchingBoard.board_name);
@@ -600,7 +550,6 @@ export default function Pipeline() {
       console.error('[Pipeline] Board types available:', freshBoards.map(b => b.board_type));
       console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      // Show helpful error message
       alert(
         `⚠️ Board Not Found\n\n` +
         `Could not find the "${proposalType}" board.\n\n` +
@@ -732,7 +681,6 @@ export default function Pipeline() {
 
   const deleteProposalMutation = useMutation({
     mutationFn: async (id) => {
-      // Delete proposal directly - calendar sync not implemented yet
       return base44.entities.Proposal.delete(id);
     },
     onSuccess: () => {
@@ -758,14 +706,12 @@ export default function Pipeline() {
     
     const proposalType = selectedProposalToOpen.proposal_type_category;
     
-    // For 15-column proposals, explicitly find that board
     if (proposalType === 'RFP_15_COLUMN') {
       const rfp15Board = allBoards.find(board => board.board_type === 'rfp_15_column');
       console.log('[Pipeline] Modal board config for 15-column:', rfp15Board ? 'FOUND' : 'FALLBACK TO SELECTED');
       return rfp15Board || selectedBoard;
     }
     
-    // For other types, find by applies_to_proposal_types
     const typeBoard = allBoards.find(board =>
       board.applies_to_proposal_types?.includes(proposalType)
     );
@@ -773,7 +719,6 @@ export default function Pipeline() {
     return typeBoard || selectedBoard;
   };
 
-  // Debug logging for modal state
   useEffect(() => {
     console.log('[Pipeline] 🎬 Modal State Update:', {
       showProposalModal,
@@ -784,7 +729,6 @@ export default function Pipeline() {
     });
   }, [showProposalModal, selectedProposalToOpen, initialModalToOpen, pendingProposalModal]);
 
-  // DEBUG: Log when showNewProposalDialog changes
   useEffect(() => {
     console.log('[Pipeline] 🎭 QuickCreate Dialog State:', {
       isOpen: showNewProposalDialog,
@@ -1044,30 +988,6 @@ export default function Pipeline() {
             </div>
           </div>
         </div>
-
-        {filteredProposals.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <DollarSign className="w-4 h-4 text-green-600" />
-              <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
-              <span className="text-green-700">Pipeline Value</span>
-            </div>
-
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-              <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
-              <span className="text-blue-700">Win Rate</span>
-            </div>
-
-            {pipelineStats.urgentCount > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-orange-600" />
-                <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
-                <span className="text-orange-700">Due This Week</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {showHealthDashboard && (
@@ -1333,7 +1253,7 @@ export default function Pipeline() {
               const icon = getBoardIcon(board.board_type, board.is_master_board);
               const boardProposalCount = proposals.filter(p => {
                 if (board.is_master_board) return true;
-                if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN'; // Added this line
+                if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN';
                 if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
                     return board.applies_to_proposal_types.includes(p.proposal_type_category);
                 }
