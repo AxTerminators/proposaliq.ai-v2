@@ -1166,7 +1166,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 <Plus className="w-4 h-4 mr-2" />
                 New Proposal
               </Button>
+            </div>
 
+            <div className="flex items-center gap-2">
               {/* Pipeline Stats - Moved here and styled to match button height */}
               <div className="flex items-center gap-2 px-3 h-9 bg-green-50 border border-green-200 rounded-lg">
                 <DollarSign className="w-4 h-4 text-green-600" />
@@ -1194,9 +1196,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 </span>
                 <span className="text-blue-700 text-sm">Win Rate</span>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
               <AdvancedFilterPanel
                 proposals={proposals}
                 onFilterChange={handleAdvancedFilterChange}
