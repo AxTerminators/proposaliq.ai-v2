@@ -926,8 +926,14 @@ export default function Pipeline() {
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex items-center gap-4 flex-wrap">
-            <div>
+            <div className="flex items-center">
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Proposal Board</h1>
+              {selectedBoard && (
+                <Badge variant="secondary" className="ml-3 text-base px-3 py-1.5 flex items-center gap-1">
+                  {getBoardIcon(selectedBoard.board_type, selectedBoard.is_master_board)}
+                  {selectedBoard.board_name}
+                </Badge>
+              )}
             </div>
 
             {allBoards.length > 0 && (
