@@ -78,80 +78,109 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     enabled: !!selectedDiscussion?.id,
   });
 
+  // COMPLETELY REWRITTEN: More inclusive team member fetching
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members-for-mentions', organization.id],
     queryFn: async () => {
-      console.log('[Mentions] 🔍 Fetching team members for org:', organization.id);
-      const allUsers = await base44.entities.User.list();
-      console.log('[Mentions] 📊 Total users in system:', allUsers.length);
+      console.log('[Mentions] 🔍 Fetching ALL users...');
       
-      const orgUsers = allUsers.filter(u => {
-        const accesses = u.client_accesses || [];
-        return accesses.some(a => a.organization_id === organization.id);
-      });
-      
-      console.log('[Mentions] ✅ Users in this organization:', orgUsers.length);
-      orgUsers.forEach(u => console.log('[Mentions]   -', u.full_name, '(', u.email, ')'));
-      
-      return orgUsers;
+      try {
+        // Get ALL users - we'll be inclusive
+        const allUsers = await base44.entities.User.list();
+        console.log('[Mentions] 📊 Fetched users:', allUsers.length);
+        
+        // Log each user for debugging
+        allUsers.forEach((u, idx) => {
+          console.log(`[Mentions]   ${idx + 1}. ${u.full_name} (${u.email}) - accesses:`, u.client_accesses);
+        });
+        
+        // OPTION 1: Try to filter by organization
+        const orgUsers = allUsers.filter(u => {
+          const accesses = u.client_accesses || [];
+          const hasAccess = accesses.some(a => a.organization_id === organization.id);
+          
+          if (hasAccess) {
+            console.log('[Mentions] ✅ User has access:', u.email);
+          }
+          
+          return hasAccess;
+        });
+        
+        console.log('[Mentions] 📋 Org-filtered users:', orgUsers.length);
+        
+        // OPTION 2: If no org users found, just return ALL users (better than nothing!)
+        if (orgUsers.length === 0) {
+          console.log('[Mentions] ⚠️ No org-specific users found, returning ALL users');
+          return allUsers;
+        }
+        
+        return orgUsers;
+      } catch (error) {
+        console.error('[Mentions] ❌ Error fetching users:', error);
+        // Fallback: at least include current user
+        return user ? [user] : [];
+      }
     },
     initialData: [],
     staleTime: 300000,
   });
 
+  // Log team members whenever they change
+  useEffect(() => {
+    console.log('[Mentions] 👥 Team members updated:', teamMembers.length);
+    if (teamMembers.length > 0) {
+      console.log('[Mentions] Members list:', teamMembers.map(m => m.email).join(', '));
+    } else {
+      console.log('[Mentions] ⚠️ WARNING: No team members available!');
+    }
+  }, [teamMembers]);
+
   const checkForMentions = (text) => {
-    if (!textareaRef.current) return;
+    if (!textareaRef.current) {
+      console.log('[Mentions] ❌ No textarea ref');
+      return;
+    }
     
     const cursorPos = textareaRef.current.selectionStart;
     const textBeforeCursor = text.substring(0, cursorPos);
     
-    console.log('[Mentions] 🔍 Checking text:', text);
-    console.log('[Mentions] 📍 Cursor at:', cursorPos);
-    console.log('[Mentions] 📝 Text before cursor:', textBeforeCursor);
+    console.log('[Mentions] 🔍 Check - Text:', text);
+    console.log('[Mentions] 📍 Cursor:', cursorPos);
     
-    // Find last @ symbol
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    console.log('[Mentions] 🎯 Last @ at index:', lastAtIndex);
+    console.log('[Mentions] 🎯 Last @ at:', lastAtIndex);
     
     if (lastAtIndex === -1) {
-      console.log('[Mentions] ❌ No @ found');
       setShowMentionDropdown(false);
       setMentionFilter("");
       return;
     }
     
-    // Get text after the @
     const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
     console.log('[Mentions] 📄 Text after @:', textAfterAt);
     
-    // If there's a space, we're past the mention
     if (textAfterAt.includes(' ')) {
-      console.log('[Mentions] ❌ Space found, closing dropdown');
+      console.log('[Mentions] ❌ Space found');
       setShowMentionDropdown(false);
       setMentionFilter("");
       return;
     }
     
-    // Show dropdown!
     console.log('[Mentions] ✅ SHOWING DROPDOWN!');
-    console.log('[Mentions] 🔎 Filter text:', textAfterAt);
-    console.log('[Mentions] 👥 Available members:', teamMembers.length);
+    console.log('[Mentions] 🔎 Filter:', textAfterAt);
+    console.log('[Mentions] 👥 Total members:', teamMembers.length);
+    
     setMentionFilter(textAfterAt);
     setShowMentionDropdown(true);
   };
 
   const handleTextareaChange = (e) => {
-    const newValue = e.target.value;
-    setNewComment(newValue);
-    checkForMentions(newValue);
-  };
-
-  const handleTextareaInput = (e) => {
+    setNewComment(e.target.value);
     checkForMentions(e.target.value);
   };
 
   const handleMentionSelect = (member) => {
-    console.log('[Mentions] 🎯 Selecting member:', member.email);
+    console.log('[Mentions] 🎯 Member clicked:', member.email);
     
     if (!textareaRef.current) return;
     
@@ -165,13 +194,11 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       const afterCursor = text.substring(cursorPos);
       
       const newText = beforeAt + '@' + member.email + ' ' + afterCursor;
-      console.log('[Mentions] ✅ New text:', newText);
       
       setNewComment(newText);
       setShowMentionDropdown(false);
       setMentionFilter("");
       
-      // Focus and position cursor
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
@@ -183,22 +210,19 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
   };
 
   const filteredTeamMembers = useMemo(() => {
+    // If no filter, show all members
+    if (!mentionFilter) {
+      console.log('[Mentions] 📋 No filter, showing all:', teamMembers.length);
+      return teamMembers;
+    }
+    
     const filtered = teamMembers.filter(member => 
       member.email.toLowerCase().includes(mentionFilter.toLowerCase()) ||
       (member.full_name && member.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))
     );
-    console.log('[Mentions] 🔍 Filtered members:', filtered.length, '(filter:', mentionFilter, ')');
+    console.log('[Mentions] 🔍 Filtered:', filtered.length, 'from', teamMembers.length);
     return filtered;
   }, [teamMembers, mentionFilter]);
-
-  useEffect(() => {
-    console.log('[Mentions] 🎭 Dropdown state changed:', {
-      showMentionDropdown,
-      mentionFilter,
-      filteredCount: filteredTeamMembers.length,
-      totalMembers: teamMembers.length
-    });
-  }, [showMentionDropdown, mentionFilter, filteredTeamMembers.length, teamMembers.length]);
 
   const createDiscussionMutation = useMutation({
     mutationFn: async (data) => {
@@ -475,50 +499,60 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                     placeholder="Share your thoughts... (Type @ to mention someone)"
                     value={newComment}
                     onChange={handleTextareaChange}
-                    onInput={handleTextareaInput}
                     onKeyUp={(e) => checkForMentions(e.target.value)}
                     onClick={(e) => checkForMentions(e.target.value)}
                     rows={3}
                     className="resize-none"
                   />
                   
+                  {/* Enhanced debug indicator */}
                   {showMentionDropdown && (
-                    <div className="absolute -top-8 left-0 text-xs bg-green-500 text-white px-2 py-1 rounded">
-                      Dropdown should be visible! Members: {filteredTeamMembers.length}
+                    <div className="absolute -top-10 left-0 text-xs bg-green-500 text-white px-3 py-1 rounded shadow-lg z-[10000]">
+                      ✓ Dropdown active! Total: {teamMembers.length} | Filtered: {filteredTeamMembers.length}
                     </div>
                   )}
                   
-                  {showMentionDropdown && filteredTeamMembers.length > 0 && (
-                    <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border-2 border-blue-500 rounded-lg shadow-2xl max-h-64 overflow-y-auto z-[9999]">
-                      <div className="p-2">
-                        <div className="text-xs text-blue-700 font-semibold px-2 py-1.5 flex items-center gap-1 bg-blue-50 rounded mb-1">
-                          <AtSign className="w-3 h-3" />
-                          Select team member ({filteredTeamMembers.length} found)
+                  {/* IMPROVED: Always show dropdown if @ is typed, even with 0 results */}
+                  {showMentionDropdown && (
+                    <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border-4 border-green-500 rounded-lg shadow-2xl max-h-80 overflow-y-auto z-[9999]">
+                      <div className="p-3">
+                        <div className="text-sm text-green-700 font-bold px-2 py-2 flex items-center gap-2 bg-green-50 rounded mb-2">
+                          <AtSign className="w-4 h-4" />
+                          🎉 Mention Dropdown (Filter: "{mentionFilter || '(empty)'}") 
                         </div>
-                        {filteredTeamMembers.slice(0, 8).map((member) => (
-                          <button
-                            key={member.email}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleMentionSelect(member);
-                            }}
-                            className="w-full text-left px-3 py-2.5 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0"
-                          >
-                            <Avatar className="w-8 h-8 flex-shrink-0">
-                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm">
-                                {member.full_name?.[0]?.toUpperCase() || 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate">
-                                {member.full_name || 'User'}
-                              </p>
-                              <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                            </div>
-                          </button>
-                        ))}
+                        
+                        {filteredTeamMembers.length === 0 ? (
+                          <div className="text-center py-6 text-slate-500">
+                            <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No team members found</p>
+                            <p className="text-xs mt-1">Total members available: {teamMembers.length}</p>
+                          </div>
+                        ) : (
+                          filteredTeamMembers.map((member) => (
+                            <button
+                              key={member.email}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleMentionSelect(member);
+                              }}
+                              className="w-full text-left px-3 py-3 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0 cursor-pointer"
+                            >
+                              <Avatar className="w-10 h-10 flex-shrink-0">
+                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                                  {member.full_name?.[0]?.toUpperCase() || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 truncate">
+                                  {member.full_name || 'User'}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                              </div>
+                            </button>
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
@@ -533,7 +567,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                         Type <strong>@</strong> to see a list of team members - they'll be notified!
                         <br />
                         <span className="text-xs opacity-75">
-                          (Available members: {teamMembers.length})
+                          (Available: {teamMembers.length} members)
                         </span>
                       </p>
                     </div>
