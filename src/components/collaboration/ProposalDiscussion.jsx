@@ -285,8 +285,10 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
         comment_count: (selectedDiscussion.comment_count || 0) + 1
       });
 
+      // Send notifications AND emails to mentioned users
       for (const mentionedEmail of mentions) {
         if (mentionedEmail !== user.email) {
+          // Create in-app notification
           await base44.entities.Notification.create({
             user_email: mentionedEmail,
             notification_type: "mention",
@@ -299,6 +301,53 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
             from_user_name: user.full_name,
             action_url: `/app/ProposalBuilder?id=${proposal.id}`
           });
+
+          // NEW: Send email notification
+          try {
+            await base44.integrations.Core.SendEmail({
+              to: mentionedEmail,
+              subject: `${user.full_name} mentioned you in "${selectedDiscussion.title}"`,
+              body: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1 style="color: white; margin: 0; font-size: 24px;">💬 You were mentioned!</h1>
+                  </div>
+                  
+                  <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+                    <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+                      <strong>${user.full_name}</strong> mentioned you in a discussion:
+                    </p>
+                    
+                    <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                      <h2 style="font-size: 18px; color: #1f2937; margin: 0 0 10px 0;">
+                        "${selectedDiscussion.title}"
+                      </h2>
+                      <p style="color: #6b7280; font-size: 14px; margin: 0; white-space: pre-wrap;">
+                        ${content.substring(0, 300)}${content.length > 300 ? '...' : ''}
+                      </p>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 30px;">
+                      <a href="${window.location.origin}/app/ProposalBuilder?id=${proposal.id}" 
+                         style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                        View Discussion →
+                      </a>
+                    </div>
+                    
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+                      <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                        Proposal: ${proposal.proposal_name}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              `
+            });
+            console.log('[Mentions] ✅ Email sent to:', mentionedEmail);
+          } catch (emailError) {
+            console.error('[Mentions] ❌ Failed to send email to:', mentionedEmail, emailError);
+            // Don't fail the whole operation if email fails
+          }
         }
       }
 
