@@ -217,15 +217,17 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
   }, [isOpen, proposal?.id, proposal?.status]); // Added proposal?.status to dependency array to ensure it tracks changes
 
-  // Fetch all boards for reassignment
+  // Fetch all boards for reassignment - FILTER OUT MASTER BOARD
   const { data: allBoards = [] } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      return base44.entities.KanbanConfig.filter(
+      const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         'board_type'
       );
+      // CRITICAL: Filter out master board from assignment options
+      return boards.filter(b => !b.is_master_board);
     },
     enabled: !!organization?.id && isOpen,
   });
@@ -284,8 +286,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       return typeBoard.id;
     }
 
-    const masterBoard = allBoards.find(b => b.is_master_board);
-    return masterBoard?.id || '';
+    // Fallback if no specific board is found, or if it's currently on a master board
+    // We should not select a master board as a "target" for reassignment in the dropdown
+    // So if the proposal is currently associated with a master board or no specific board,
+    // we return an empty string to indicate no selection or to allow the user to pick one.
+    return '';
   };
 
   const handleBoardReassignment = async (newBoardId) => {
@@ -297,9 +302,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     try {
       let newProposalType;
       
-      if (newBoard.is_master_board) {
-        newProposalType = proposal.proposal_type_category;
-      } else if (newBoard.board_type === 'rfp_15_column') {
+      // Removed the is_master_board check because master boards are filtered out from allBoards
+      // and should not be target for direct assignment.
+      if (newBoard.board_type === 'rfp_15_column') {
         newProposalType = 'RFP_15_COLUMN';
       } else {
         newProposalType = newBoard.applies_to_proposal_types?.[0] || 'OTHER';
@@ -336,7 +341,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         updates.status = firstColumn.default_status_mapping;
         updates.current_phase = null;
         updates.custom_workflow_stage_id = null;
-      } else if (firstColumn.type === 'master_status') {
+      } else if (firstColumn.type === 'master_status') { // This case might still apply if the source board was a master status and we're moving to a specific board type.
         updates.status = firstColumn.status_mapping?.[0] || 'evaluating';
         updates.current_phase = null;
         updates.custom_workflow_stage_id = null;
@@ -372,7 +377,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const getBoardIcon = (boardType, isMaster) => {
-    if (isMaster) return "⭐";
+    if (isMaster) return "⭐"; // This case should now be rare for displayed options
     switch (boardType) {
       case 'rfp': return "📋";
       case 'rfp_15_column': return "🎯";
@@ -669,7 +674,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   </div>
                 )}
 
-                {allBoards.length > 1 && (
+                {/* Board Assignment Section - UPDATED */}
+                {allBoards.length > 0 && (
                   <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0">
@@ -704,7 +710,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                         </Select>
                         <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
                           <span>💡</span>
-                          <span><strong>Move this proposal</strong> to a different workflow board</span>
+                          <span><strong>Move this proposal</strong> to a different workflow board (Master board shows all automatically)</span>
                         </p>
                       </div>
                     </div>
