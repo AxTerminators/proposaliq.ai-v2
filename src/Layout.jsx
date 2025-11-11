@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { createPageUrl } from "./utils";
+import { createPageUrl } from "@/utils";
 import {
   LayoutDashboard,
   FileText,
@@ -43,11 +43,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import NotificationCenter from "@/components/collaboration/NotificationCenter";
-import MobileNavigation from "@/components/mobile/MobileNavigation";
-import GlobalSearch from "@/components/proposals/GlobalSearch";
+import NotificationCenter from "./components/collaboration/NotificationCenter";
+import MobileNavigation from "./components/mobile/MobileNavigation";
 import { cn } from "@/lib/utils";
-import { OrganizationProvider, useOrganization } from "@/components/layout/OrganizationContext";
+import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import {
   Select,
   SelectContent,
@@ -736,20 +735,7 @@ function LayoutContent({ children }) {
                 <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
               </div>
             </div>
-
-            {/* NEW: Global Search Bar (centered on desktop) */}
-            <div className="hidden lg:flex flex-1 max-w-2xl mx-auto">
-              {organization && (
-                <GlobalSearch
-                  organization={organization}
-                  isInline={true}
-                />
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              {user && <NotificationCenter user={user} />}
-            </div>
+            {user && <NotificationCenter user={user} />}
           </div>
         </header>
 

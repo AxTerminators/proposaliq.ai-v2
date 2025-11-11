@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon, Settings, Trash2, Filter, HelpCircle, SlidersHorizontal, MoreVertical, Star, FileText } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon, Settings, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,7 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input"; // Added for quick filter search input
 import { cn } from "@/lib/utils";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
@@ -54,101 +53,6 @@ import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
-
-// Dummy AdvancedFilterPanel for compilation
-// In a real application, this would be a separate, full-fledged component
-const AdvancedFilterPanel = ({ onFilterChange, proposals, teamMembers, iconOnly }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  // Example state for advanced filters
-  const [filterState, setFilterState] = useState({
-    minContractValue: '',
-    maxContractValue: '',
-    status: 'all',
-    assignee: 'all',
-  });
-
-  const handleApplyFilters = () => {
-    // Dummy logic for filtering
-    console.log("Applying advanced filters:", filterState);
-    const filtered = proposals.filter(p => {
-      let matches = true;
-      if (filterState.minContractValue && p.contract_value < parseFloat(filterState.minContractValue)) {
-        matches = false;
-      }
-      if (filterState.maxContractValue && p.contract_value > parseFloat(filterState.maxContractValue)) {
-        matches = false;
-      }
-      if (filterState.status !== 'all' && p.status !== filterState.status) {
-        matches = false;
-      }
-      // More complex assignee logic here
-      return matches;
-    });
-    onFilterChange(filtered);
-    setIsOpen(false);
-  };
-
-  const handleClearFilters = () => {
-    setFilterState({ minContractValue: '', maxContractValue: '', status: 'all', assignee: 'all' });
-    onFilterChange(null); // Clear external advanced filters
-    setIsOpen(false);
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setIsOpen(true)}
-        className="h-9 w-9 relative group"
-        title="Advanced Filters"
-      >
-        <SlidersHorizontal className="w-4 h-4" />
-        <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-          Advanced Filters
-        </span>
-      </Button>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Advanced Filters</DialogTitle>
-          <DialogDescription>Apply more specific filters to your proposals.</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <label htmlFor="min-value" className="text-right">Min Value</label>
-            <Input id="min-value" type="number" className="col-span-3" value={filterState.minContractValue} onChange={(e) => setFilterState({...filterState, minContractValue: e.target.value})} />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <label htmlFor="max-value" className="text-right">Max Value</label>
-            <Input id="max-value" type="number" className="col-span-3" value={filterState.maxContractValue} onChange={(e) => setFilterState({...filterState, maxContractValue: e.target.value})} />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <label htmlFor="status" className="text-right">Status</label>
-            <Select value={filterState.status} onValueChange={(val) => setFilterState({...filterState, status: val})}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="submitted">Submitted</SelectItem>
-                <SelectItem value="won">Won</SelectItem>
-                <SelectItem value="lost">Lost</SelectItem>
-                {/* Add more statuses as needed */}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* You can add assignee filter here too */}
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={handleClearFilters}>Clear</Button>
-          <Button onClick={handleApplyFilters}>Apply Filters</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -187,26 +91,6 @@ export default function Pipeline() {
   const [initialModalToOpen, setInitialModalToOpen] = useState(null);
   const [pendingProposalModal, setPendingProposalModal] = useState(null);
   const [proposalToDelete, setProposalToDelete] = useState(null);
-
-  // New states for the Quick Filters and Board Actions
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterClient, setFilterClient] = useState('all');
-  const [showBoardConfig, setShowBoardConfig] = useState(false); // For future board config modal
-  const [showHelpPanel, setShowHelpPanel] = useState(false); // For future help panel/modal
-  const [advancedFilteredProposals, setAdvancedFilteredProposals] = useState(null); // When advanced filters are active, this holds the filtered list
-
-  // Quick filter local state
-  const [searchQuery, setSearchQuery] = useState(savedFilters.searchQuery);
-  const [filterAgency, setFilterAgency] = useState(savedFilters.filterAgency);
-  const [filterAssignee, setFilterAssignee] = useState(savedFilters.filterAssignee);
-
-  // Sync quick filter local state with savedFilters
-  useEffect(() => {
-    setSearchQuery(savedFilters.searchQuery);
-    setFilterAgency(savedFilters.filterAgency);
-    setFilterAssignee(savedFilters.filterAssignee);
-  }, [savedFilters]);
-
 
   useEffect(() => {
     const checkMobile = () => {
@@ -262,22 +146,6 @@ export default function Pipeline() {
     enabled: !!user,
     staleTime: 300000,
     retry: 1
-  });
-
-  const { data: allClients = [], isLoading: isLoadingClients } = useQuery({
-    queryKey: ['organization-clients', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return [];
-      const clients = await base44.entities.OrganizationClient.filter(
-        { organization_id: organization.id },
-        'client_name'
-      );
-      return clients;
-    },
-    enabled: !!organization?.id,
-    staleTime: 300000,
-    retry: 1,
-    initialData: [],
   });
 
   const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
@@ -481,95 +349,26 @@ export default function Pipeline() {
     }
   }, [proposals, showProposalModal]);
 
-  const uniqueAgencies = useMemo(() => {
-    const agencies = proposals.map(p => p.agency_name).filter(Boolean);
-    return [...new Set(agencies)];
-  }, [proposals]);
-
-  const uniqueAssignees = useMemo(() => {
-    const assignees = proposals.flatMap(p => p.assignees ? p.assignees.map(a => a.email) : []).filter(Boolean);
-    return [...new Set(assignees)];
-  }, [proposals]);
-
-  // Combined team members for advanced filters (might include more than just current assignees)
-  const uniqueTeamMembers = useMemo(() => {
-    const teamEmails = new Set();
-    proposals.forEach(p => {
-      if (p.assignees) {
-        p.assignees.forEach(a => teamEmails.add(a.email));
-      }
-    });
-    if (user?.email) {
-      teamEmails.add(user.email);
-    }
-    return [...teamEmails];
-  }, [proposals, user]);
-
-  const handleAdvancedFilterChange = (filteredList) => {
-    setAdvancedFilteredProposals(filteredList);
-  };
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFilterAgency("all");
-    setFilterAssignee("all");
-    setFilterClient("all");
-    setAdvancedFilteredProposals(null); // Clear advanced filters too
-  };
-
   const filteredProposals = useMemo(() => {
-    let currentProposals = advancedFilteredProposals || proposals;
-
-    if (!selectedBoard || !currentProposals) return currentProposals;
+    if (!selectedBoard || !proposals) return proposals;
 
     if (selectedBoard.is_master_board) {
-      // Apply quick filters to master board
-      return currentProposals.filter(p => {
-        const matchesSearch = searchQuery === "" ||
-                              p.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              p.agency_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesAgency = filterAgency === "all" || p.agency_name === filterAgency;
-        const matchesAssignee = filterAssignee === "all" || p.assignees?.some(a => a.email === filterAssignee);
-        const matchesClient = filterClient === "all" || p.client_id === filterClient;
-        return matchesSearch && matchesAgency && matchesAssignee && matchesClient;
-      });
+      return proposals;
     }
 
-    // Apply board-specific filters first
-    let boardFilteredProposals = currentProposals;
+    // FIXED: Also check board_type for special boards like rfp_15_column
     if (selectedBoard.board_type === 'rfp_15_column') {
-      boardFilteredProposals = currentProposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
-    } else if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
-      boardFilteredProposals = currentProposals.filter(p =>
+      return proposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
+    }
+
+    if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
+      return proposals.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
       );
     }
-    
-    // Then apply quick filters to the board-filtered list
-    return boardFilteredProposals.filter(p => {
-      const matchesSearch = searchQuery === "" ||
-                            p.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            p.agency_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            p.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesAgency = filterAgency === "all" || p.agency_name === filterAgency;
-      const matchesAssignee = filterAssignee === "all" || p.assignees?.some(a => a.email === filterAssignee);
-      const matchesClient = filterClient === "all" || p.client_id === filterClient;
-      return matchesSearch && matchesAgency && matchesAssignee && matchesClient;
-    });
 
-  }, [proposals, selectedBoard, searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
-
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (searchQuery !== "") count++;
-    if (filterAgency !== "all") count++;
-    if (filterAssignee !== "all") count++;
-    if (filterClient !== "all") count++;
-    if (advancedFilteredProposals !== null) count++;
-    return count;
-  }, [searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
-
+    return proposals;
+  }, [proposals, selectedBoard]);
 
   const pipelineStats = useMemo(() => {
     const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
@@ -883,11 +682,6 @@ export default function Pipeline() {
 
   const handleApplySavedView = (filters) => {
     setSavedFilters(filters);
-    // Also apply to local quick filters for immediate display
-    setSearchQuery(filters.searchQuery);
-    setFilterAgency(filters.filterAgency);
-    setFilterAssignee(filters.filterAssignee);
-    // Assuming filterClient is not part of savedViews yet, or needs to be added
   };
 
   const getBoardIcon = (boardType, isMaster) => {
@@ -1120,352 +914,174 @@ export default function Pipeline() {
         automationRules={automationRules}
       />
 
-      {/* MID BANNER: Primary Action Bar */}
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          {/* Board Selector & Create Board */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Boards</h1>
-              <p className="text-sm lg:text-base text-slate-600">Switch between different proposal views or create new ones</p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1 lg:mb-2">Proposal Board</h1>
+              <p className="text-sm lg:text-base text-slate-600">Manage your active proposals</p>
             </div>
+
             {allBoards.length > 0 && (
-              <>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {allBoards.map(board => {
-                    const isSelected = selectedBoardId === board.id;
-                    const icon = getBoardIcon(board.board_type, board.is_master_board);
+              <div className="flex items-center gap-2 flex-wrap">
+                {allBoards.map(board => {
+                  const isSelected = selectedBoardId === board.id;
+                  const icon = getBoardIcon(board.board_type, board.is_master_board);
 
-                    return (
-                      <Button
-                        key={board.id}
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedBoardId(board.id)}
-                        className={cn(
-                          "gap-2 transition-all",
-                          isSelected && "ring-2 ring-blue-400"
-                        )}
-                        title={board.board_name}
-                      >
-                        <span className="text-lg">{icon}</span>
-                        <span className="hidden sm:inline">{board.board_name}</span>
-                      </Button>
-                    );
-                  })}
+                  return (
+                    <Button
+                      key={board.id}
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedBoardId(board.id)}
+                      className={cn(
+                        "gap-2 transition-all",
+                        isSelected && "ring-2 ring-blue-400"
+                      )}
+                      title={board.board_name}
+                    >
+                      <span className="text-lg">{icon}</span>
+                      <span className="hidden sm:inline">{board.board_name}</span>
+                    </Button>
+                  );
+                })}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowQuickBoardCreate(true)}
-                    className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
-                    title="Create a new board from templates"
-                  >
-                    <Zap className="w-4 h-4 text-blue-600" />
-                    <Plus className="w-3 h-3 text-blue-600" />
-                  </Button>
-                </div>
-              </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQuickBoardCreate(true)}
+                  className="gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-300"
+                  title="Create a new board from templates"
+                >
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <Plus className="w-3 h-3 text-blue-600" />
+                </Button>
+              </div>
             )}
           </div>
 
-          {/* View Mode Toggles & Board Action Icons - MOVED HERE */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
+            <Button
+              onClick={handleCreateProposal}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Proposal
+            </Button>
+            
+            {!isMobile && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowGlobalSearch(true)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <SearchIcon className="w-4 h-4 mr-2" />
+                  Search
+                </Button>
+                <SavedViews
+                  organization={organization}
+                  user={user}
+                  currentFilters={savedFilters}
+                  onApplyView={handleApplySavedView}
+                />
+                <Button
+                  variant={showActivityFeed ? "default" : "outline"}
+                  onClick={() => setShowActivityFeed(!showActivityFeed)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  Activity
+                </Button>
+                <Button
+                  variant={showBoardAnalytics ? "default" : "outline"}
+                  onClick={() => setShowBoardAnalytics(!showBoardAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Stats
+                </Button>
+                <Button
+                  variant={showMultiBoardAnalytics ? "default" : "outline"}
+                  onClick={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  Portfolio
+                </Button>
+                <Button
+                  variant={showAutomation ? "default" : "outline"}
+                  onClick={() => setShowAutomation(!showAutomation)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Automation
+                </Button>
+                <Button
+                  variant={showAnalytics ? "default" : "outline"}
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  size="sm"
+                  className="h-9"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Analytics
+                </Button>
+              </>
+            )}
+
             <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
               <Button
                 variant={viewMode === "kanban" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-8"
                 onClick={() => setViewMode("kanban")}
-                title="Kanban View"
               >
-                <LayoutGrid className="w-6 h-6" />
+                <LayoutGrid className="w-4 h-4" />
               </Button>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-8"
                 onClick={() => setViewMode("list")}
-                title="List View"
               >
-                <List className="w-6 h-6" />
+                <List className="w-4 h-4" />
               </Button>
               <Button
                 variant={viewMode === "table" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-8"
                 onClick={() => setViewMode("table")}
-                title="Table View"
               >
-                <Table className="w-6 h-6" />
+                <Table className="w-4 h-4" />
               </Button>
             </div>
-
-            {/* Board Action Icons */}
-            <Button
-              variant={showFilters ? "default" : "outline"}
-              size="icon"
-              onClick={() => setShowFilters(!showFilters)}
-              className="h-9 w-9 relative group"
-              title="Quick Filters"
-            >
-              <Filter className="w-4 h-4" />
-              {activeFiltersCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Quick Filters
-              </span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowGlobalSearch(true)}
-              className="h-9 w-9 relative group"
-              title="Global Search"
-            >
-              <SearchIcon className="w-4 h-4" />
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Global Search
-              </span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowBoardConfig(true)}
-              className="h-9 w-9 relative group"
-              title="Configure Board"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Configure Board
-              </span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowHelpPanel(true)}
-              className="h-9 w-9 relative group"
-              title="Help"
-            >
-              <HelpCircle className="w-4 h-4" />
-              <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Help
-              </span>
-            </Button>
-
-            <AdvancedFilterPanel
-              proposals={proposals}
-              onFilterChange={handleAdvancedFilterChange}
-              teamMembers={uniqueTeamMembers}
-              iconOnly={true}
-            />
-
-            {/* More Actions Dropdown */}
-            {!isMobile && (
-              <Select onValueChange={(action) => {
-                if (action === "activity") {
-                  setShowActivityFeed(!showActivityFeed);
-                } else if (action === "board_stats") {
-                  setShowBoardAnalytics(!showBoardAnalytics);
-                } else if (action === "portfolio") {
-                  setShowMultiBoardAnalytics(!showMultiBoardAnalytics);
-                } else if (action === "analytics") {
-                  setShowAnalytics(!showAnalytics);
-                } else if (action === "automation") {
-                  setShowAutomation(!showAutomation);
-                } else if (action === "board_manager") {
-                  setShowBoardManager(true);
-                }
-              }}>
-                <SelectTrigger className="w-10 h-9 border-slate-300">
-                  <MoreVertical className="w-4 h-4" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="activity">
-                    <div className="flex items-center gap-2">
-                      <Activity className="w-4 h-4" />
-                      <span>Board Activity</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="board_stats">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      <span>Current Board Stats</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="portfolio">
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4" />
-                      <span>Multi-Board Portfolio</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="analytics">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" />
-                      <span>Pipeline Analytics & Snapshots</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="automation">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      <span>Automation Rules</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="board_manager">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      <span>Manage Boards</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-
-            <SavedViews
-              organization={organization}
-              user={user}
-              currentFilters={savedFilters}
-              onApplyView={handleApplySavedView}
-            />
           </div>
         </div>
-      </div>
 
-      {/* LOWER BANNER: Contextual Overview & New Proposal Button */}
-      <div className="flex-shrink-0 px-4 lg:px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-blue-50">
-        {/* Board Info & Stats */}
-        {selectedBoard && (
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-semibold text-slate-700">Current Board:</span>
-              <span className="text-lg">{getBoardIcon(selectedBoard.board_type, selectedBoard.is_master_board)}</span>
-              <span className="font-bold text-slate-900">{selectedBoard.board_name}</span>
-              {selectedBoard.is_master_board && (
-                <Badge className="bg-amber-100 text-amber-700">
-                  <Star className="w-3 h-3 mr-1 fill-amber-700" />
-                  Master Board
-                </Badge>
-              )}
+        {filteredProposals.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
+              <span className="text-green-700">Pipeline Value</span>
             </div>
 
-            {/* Pipeline Stats */}
-            {filteredProposals.length > 0 && (
-              <div className="flex flex-wrap gap-3 text-sm">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                  <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
-                  <span className="text-green-700">Pipeline Value</span>
-                </div>
-
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-                  <TrendingUp className="w-4 h-4 text-blue-600" />
-                  <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
-                  <span className="text-blue-700">Win Rate</span>
-                </div>
-
-                {pipelineStats.urgentCount > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-orange-600" />
-                    <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
-                    <span className="text-orange-700">Due This Week</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* New Proposal Button - Now standalone on the right */}
-        <div className="flex items-center justify-end">
-          <Button
-            onClick={handleCreateProposal}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Proposal
-          </Button>
-        </div>
-
-        {/* Quick Filters Panel (collapsible) */}
-        {showFilters && (
-          <div className="bg-white border border-slate-200 rounded-lg p-4 mt-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900 text-sm">Quick Filters</h3>
-              {activeFiltersCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8">
-                  <X className="w-4 h-4 mr-1" />
-                  Clear All
-                </Button>
-              )}
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+              <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
+              <span className="text-blue-700">Win Rate</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Search proposals..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-
-              <Select value={filterAgency} onValueChange={setFilterAgency}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Agencies" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Agencies</SelectItem>
-                  {uniqueAgencies.map(agency => (
-                    <SelectItem key={agency} value={agency}>{agency}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Team Members" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Team Members</SelectItem>
-                  {uniqueAssignees.map(email => (
-                    <SelectItem key={email} value={email}>{email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filterClient} onValueChange={setFilterClient}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Clients" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {allClients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>{client.client_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {advancedFilteredProposals !== null && (
-              <div className="mt-3 flex items-center gap-2">
-                <Badge className="bg-blue-600 text-white">
-                  Advanced filters active: {advancedFilteredProposals.length} results
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAdvancedFilteredProposals(null)}
-                  className="h-7"
-                >
-                  <X className="w-3 h-3" />
-                </Button>
+            {pipelineStats.urgentCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-orange-600" />
+                <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
+                <span className="text-orange-700">Due This Week</span>
               </div>
             )}
           </div>

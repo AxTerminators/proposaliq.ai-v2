@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,17 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Popover, // Keep Popover import as it might be used elsewhere, though not in the main AdvancedFilterPanel body after this change
+  Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"; // New Dialog imports
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import {
@@ -32,8 +24,7 @@ import {
   Calendar as CalendarIcon,
   DollarSign,
   Target,
-  Zap,
-  SlidersHorizontal // New import
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +68,7 @@ const OPERATORS = {
 };
 
 const STATUS_OPTIONS = [
-  'evaluating', 'watch_list', 'draft', 'in_progress',
+  'evaluating', 'watch_list', 'draft', 'in_progress', 
   'submitted', 'won', 'lost', 'archived'
 ];
 
@@ -90,15 +81,14 @@ const PROJECT_TYPE_OPTIONS = [
 ];
 
 const PHASE_OPTIONS = [
-  'phase1', 'phase2', 'phase3', 'phase4',
+  'phase1', 'phase2', 'phase3', 'phase4', 
   'phase5', 'phase6', 'phase7', 'phase8'
 ];
 
-export default function AdvancedFilterPanel({
-  proposals,
-  onFilterChange,
-  teamMembers = [],
-  iconOnly = false // New prop
+export default function AdvancedFilterPanel({ 
+  proposals, 
+  onFilterChange, 
+  teamMembers = [] 
 }) {
   const [filters, setFilters] = useState([
     {
@@ -109,7 +99,6 @@ export default function AdvancedFilterPanel({
       value2: '', // For 'between' operators
     }
   ]);
-  const [showPanel, setShowPanel] = useState(false); // New state for controlling Dialog visibility
 
   const handleAddFilter = () => {
     setFilters([
@@ -132,16 +121,15 @@ export default function AdvancedFilterPanel({
     setFilters(filters.map(f => {
       if (f.id === filterId) {
         const updatedFilter = { ...f, [field]: value };
-
+        
         // Reset operator and values when field changes
         if (field === 'field') {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const fieldConfig = FILTER_FIELDS.find(ff => ff.value === value); // Kept for potential future use
+          const fieldConfig = FILTER_FIELDS.find(ff => ff.value === value);
           updatedFilter.operator = '';
           updatedFilter.value = '';
           updatedFilter.value2 = '';
         }
-
+        
         return updatedFilter;
       }
       return f;
@@ -150,13 +138,12 @@ export default function AdvancedFilterPanel({
 
   const handleApplyFilters = () => {
     // Validate filters
-    const validFilters = filters.filter(f =>
+    const validFilters = filters.filter(f => 
       f.field && f.operator && (f.value || f.operator === 'is_empty')
     );
 
     if (validFilters.length === 0) {
       onFilterChange([]);
-      setShowPanel(false); // Close dialog
       return;
     }
 
@@ -164,7 +151,7 @@ export default function AdvancedFilterPanel({
     const filtered = proposals.filter(proposal => {
       return validFilters.every(filter => {
         const fieldValue = proposal[filter.field];
-
+        
         // Handle empty checks
         if (filter.operator === 'is_empty') {
           return !fieldValue || fieldValue === '';
@@ -191,10 +178,6 @@ export default function AdvancedFilterPanel({
         if (filter.operator === 'less_than') {
           return parseFloat(fieldValue) < parseFloat(filter.value);
         }
-        if (filter.operator === 'equals' && typeof fieldValue === 'number') {
-          return parseFloat(fieldValue) === parseFloat(filter.value);
-        }
-
 
         // Date operators
         if (filter.operator === 'before') {
@@ -223,7 +206,6 @@ export default function AdvancedFilterPanel({
     });
 
     onFilterChange(filtered);
-    setShowPanel(false); // Close dialog after applying filters
   };
 
   const handleClearFilters = () => {
@@ -235,7 +217,6 @@ export default function AdvancedFilterPanel({
       value2: '',
     }]);
     onFilterChange([]);
-    setShowPanel(false); // Close dialog after clearing filters
   };
 
   const getFieldType = (fieldValue) => {
@@ -250,7 +231,7 @@ export default function AdvancedFilterPanel({
 
   const renderValueInput = (filter) => {
     const fieldType = getFieldType(filter.field);
-
+    
     if (filter.operator === 'is_empty') {
       return null;
     }
@@ -275,11 +256,11 @@ export default function AdvancedFilterPanel({
               <Calendar
                 mode="single"
                 selected={filter.value ? new Date(filter.value) : undefined}
-                onSelect={(date) => handleFilterChange(filter.id, 'value', date ? date.toISOString() : '')}
+                onSelect={(date) => handleFilterChange(filter.id, 'value', date)}
               />
             </PopoverContent>
           </Popover>
-
+          
           {filter.operator === 'between' && (
             <Popover>
               <PopoverTrigger asChild>
@@ -298,7 +279,7 @@ export default function AdvancedFilterPanel({
                 <Calendar
                   mode="single"
                   selected={filter.value2 ? new Date(filter.value2) : undefined}
-                  onSelect={(date) => handleFilterChange(filter.id, 'value2', date ? date.toISOString() : '')}
+                  onSelect={(date) => handleFilterChange(filter.id, 'value2', date)}
                 />
               </PopoverContent>
             </Popover>
@@ -309,13 +290,13 @@ export default function AdvancedFilterPanel({
 
     if (fieldType === 'select') {
       let options = [];
-
+      
       if (filter.field === 'status') options = STATUS_OPTIONS;
       else if (filter.field === 'proposal_type_category') options = PROPOSAL_TYPE_OPTIONS;
       else if (filter.field === 'current_phase') options = PHASE_OPTIONS;
       else if (filter.field === 'project_type') options = PROJECT_TYPE_OPTIONS;
       else if (filter.field === 'lead_writer_email') options = teamMembers;
-
+      
       return (
         <Select
           value={filter.value}
@@ -365,52 +346,29 @@ export default function AdvancedFilterPanel({
     );
   };
 
-  const validFiltersCount = filters.filter(f =>
+  const validFiltersCount = filters.filter(f => 
     f.field && f.operator && (f.value || f.operator === 'is_empty')
   ).length;
 
   return (
-    <Dialog open={showPanel} onOpenChange={setShowPanel}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size={iconOnly ? "icon" : "sm"}
-          className={cn(
-            "flex items-center",
-            iconOnly ? "h-9 w-9 relative group" : "gap-2"
-          )}
-          title={iconOnly ? "Advanced Filters" : undefined}
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          {!iconOnly && (
-            <>
-              <span>Advanced Filters</span>
-              {validFiltersCount > 0 && (
-                <Badge className="h-5 w-5 p-0 flex items-center justify-center bg-blue-600 text-white">
-                  {validFiltersCount}
-                </Badge>
-              )}
-            </>
-          )}
-          {iconOnly && validFiltersCount > 0 && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-blue-600 text-white text-xs">
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Filter className="w-4 h-4" />
+          Advanced Filters
+          {validFiltersCount > 0 && (
+            <Badge className="bg-blue-600 text-white h-5 w-5 p-0 flex items-center justify-center">
               {validFiltersCount}
             </Badge>
           )}
-          {iconOnly && (
-            <span className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-              Advanced Filters
-            </span>
-          )}
         </Button>
-      </DialogTrigger>
-
-      <DialogContent className="sm:max-w-[500px] p-0">
-        <DialogHeader className="p-4 border-b bg-slate-50">
+      </PopoverTrigger>
+      <PopoverContent className="w-[500px] p-0" align="end">
+        <div className="p-4 border-b bg-slate-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-blue-600" />
-              <DialogTitle className="font-semibold text-slate-900 m-0 text-base">Advanced Filters</DialogTitle> {/* Added text-base for consistency */}
+              <h3 className="font-semibold text-slate-900">Advanced Filters</h3>
             </div>
             {validFiltersCount > 0 && (
               <Button
@@ -423,7 +381,7 @@ export default function AdvancedFilterPanel({
               </Button>
             )}
           </div>
-        </DialogHeader>
+        </div>
 
         <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
           {filters.map((filter, index) => (
@@ -519,7 +477,7 @@ export default function AdvancedFilterPanel({
             Apply Filters ({validFiltersCount})
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </PopoverContent>
+    </Popover>
   );
 }
