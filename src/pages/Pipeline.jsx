@@ -669,8 +669,8 @@ export default function Pipeline() {
           `✅ Categorization Complete!\n\n` +
           `Total Proposals: ${total_proposals}\n` +
           `Already Categorized: ${already_categorized}\n` +
-          `Newly Categorized: ${newly_categorized}\n\n` +
-          `Your proposals are now organized by type.`
+          `Newly Categorized: ${newly_categorized}\n` +
+          `\nYour proposals are now organized by type.`
         );
 
         await refetchProposals();
