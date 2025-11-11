@@ -1370,28 +1370,33 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             )}
                           >
                             {isCollapsed ? (
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  toggleColumnCollapse(column.id);
-                                }}
-                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
-                                type="button"
+                              <div
+                                {...providedDraggable.dragHandleProps}
+                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-300 transition-all"
                               >
-                                <div className="p-3 flex flex-col items-center gap-3 h-full">
-                                  <div
-                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap"
-                                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                                  >
-                                    {column.label}
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    toggleColumnCollapse(column.id);
+                                  }}
+                                  className="w-full h-full cursor-pointer"
+                                  type="button"
+                                >
+                                  <div className="p-3 flex flex-col items-center gap-3 h-full">
+                                    <div
+                                      className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                    >
+                                      {column.label}
+                                    </div>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {columnProposals.length}
+                                    </Badge>
+                                    <ChevronsRight className="w-5 h-5 text-blue-600" />
                                   </div>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {columnProposals.length}
-                                  </Badge>
-                                  <ChevronsRight className="w-5 h-5 text-blue-600" />
-                                </div>
-                              </button>
+                                </button>
+                              </div>
                             ) : (
                               <Droppable droppableId={column.id} type="card">
                                 {(providedDroppable, snapshotDroppable) => (
