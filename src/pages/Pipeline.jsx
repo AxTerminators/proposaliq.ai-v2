@@ -970,7 +970,7 @@ export default function Pipeline() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            {/* New DropdownMenu for consolidated actions */}
+            {/* Action buttons (New Proposal, Manage Boards) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9">
@@ -985,10 +985,13 @@ export default function Pipeline() {
                   <Plus className="mr-2 h-4 w-4" />
                   <span>New Proposal</span>
                 </DropdownMenuItem>
-                {/* Global Search is now a standalone button */}
                 <DropdownMenuItem onClick={() => setShowBoardManager(true)}>
                   <Database className="mr-2 h-4 w-4" />
                   <span>Manage Boards</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
+                  <SearchIcon className="mr-2 h-4 w-4" />
+                  <span>Global Search</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1001,16 +1004,7 @@ export default function Pipeline() {
                   currentFilters={savedFilters}
                   onApplyView={handleApplySavedView}
                 />
-                <Button
-                  variant={showGlobalSearch ? "default" : "outline"}
-                  onClick={() => setShowGlobalSearch(true)}
-                  size="sm"
-                  className="h-9"
-                  title="Search proposals"
-                >
-                  <SearchIcon className="w-4 h-4" />
-                  <span className="sr-only lg:not-sr-only lg:ml-2">Search</span>
-                </Button>
+                
                 <Button
                   variant={showActivityFeed ? "default" : "outline"}
                   onClick={() => setShowActivityFeed(!showActivityFeed)}
