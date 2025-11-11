@@ -45,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import MobileNavigation from "./components/mobile/MobileNavigation";
+import GlobalSearch from "./components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import {
@@ -114,6 +115,7 @@ function LayoutContent({ children }) {
   const [toolsOpen, setToolsOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [demoViewMode, setDemoViewMode] = React.useState(null);
+  const [showGlobalSearch, setShowGlobalSearch] = React.useState(false);
 
   // Debug: Log current location
   React.useEffect(() => {
@@ -735,7 +737,31 @@ function LayoutContent({ children }) {
                 <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
               </div>
             </div>
-            {user && <NotificationCenter user={user} />}
+
+            {/* Global Search Bar - Centered */}
+            <div className="hidden md:flex flex-1 justify-center max-w-2xl mx-auto">
+              <Button
+                variant="outline"
+                onClick={() => setShowGlobalSearch(true)}
+                className="w-full max-w-md h-10 justify-start text-slate-500 hover:text-slate-900 hover:border-blue-300"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search proposals, tasks, files...
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Mobile Search Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowGlobalSearch(true)}
+                className="md:hidden"
+              >
+                <Search className="w-5 h-5" />
+              </Button>
+              {user && <NotificationCenter user={user} />}
+            </div>
           </div>
         </header>
 
@@ -745,6 +771,15 @@ function LayoutContent({ children }) {
       </main>
 
       <MobileNavigation user={user} organization={organization} />
+
+      {/* Global Search Modal */}
+      {organization && (
+        <GlobalSearch
+          organization={organization}
+          isOpen={showGlobalSearch}
+          onClose={() => setShowGlobalSearch(false)}
+        />
+      )}
     </div>
   );
 }

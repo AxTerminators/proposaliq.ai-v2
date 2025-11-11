@@ -1152,14 +1152,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
               )}
             </div>
             <div className="flex gap-2">
-              <Button
-                onClick={() => setShowGlobalSearch(true)}
-                variant="outline"
-                size="sm"
-              >
-                <Search className="w-4 h-4 mr-2" />
-                Search
-              </Button>
               <AdvancedFilterPanel
                 proposals={proposals}
                 onFilterChange={handleAdvancedFilterChange}

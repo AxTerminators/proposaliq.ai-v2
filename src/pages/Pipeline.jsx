@@ -31,6 +31,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import ProposalsKanban from "@/components/proposals/ProposalsKanban";
 import ProposalsList from "@/components/proposals/ProposalsList";
@@ -961,25 +970,33 @@ export default function Pipeline() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            <Button
-              onClick={handleCreateProposal}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-9"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Proposal
-            </Button>
-            
+            {/* New DropdownMenu for consolidated actions */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  <Settings className="w-4 h-4" />
+                  <span className="sr-only">More actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCreateProposal}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span>New Proposal</span>
+                </DropdownMenuItem>
+                {!isMobile && ( // Preserve original conditional rendering for Search
+                  <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
+                    <SearchIcon className="mr-2 h-4 w-4" />
+                    <span>Global Search</span>
+                  </DropdownMenuItem>
+                )}
+                {/* Add other menu items here if needed */}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {!isMobile && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowGlobalSearch(true)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <SearchIcon className="w-4 h-4 mr-2" />
-                  Search
-                </Button>
                 <SavedViews
                   organization={organization}
                   user={user}
