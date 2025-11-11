@@ -117,15 +117,15 @@ export default function KanbanColumn({
   return (
     <div
       className={cn(
-        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all flex flex-col",
-        snapshot.isDraggingOver && "border-blue-400 bg-blue-50"
+        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
       )}
     >
       {/* Column Header - Single Row Layout with Consistent Height */}
       <div
         {...(dragHandleProps || {})}
         className={cn(
-          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px]",
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px] transition-all duration-200",
           column.color || "from-slate-400 to-slate-600",
           !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
@@ -140,7 +140,7 @@ export default function KanbanColumn({
                 e?.stopPropagation?.();
                 onToggleCollapse?.(column.id);
               }}
-              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0"
+              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
               title="Collapse column"
             >
               <ChevronLeft className="w-4 h-4" title="Collapse" />
@@ -283,7 +283,7 @@ export default function KanbanColumn({
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 p-3 space-y-3 min-h-[120px]",
+          "flex-1 p-3 space-y-3 min-h-[120px] transition-all duration-200",
           snapshot.isDraggingOver && "bg-blue-50/50"
         )}
       >

@@ -164,7 +164,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (!kanbanConfig) return;
 
     console.log('[Kanban] 🔄 Toggling collapse for column:', columnId);
-    console.log('[Kanban] Current collapsed columns:', kanbanConfig.collapsed_column_ids);
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
     const newCollapsed = currentCollapsed.includes(columnId)
@@ -173,23 +172,34 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     console.log('[Kanban] New collapsed columns:', newCollapsed);
 
+    // OPTIMISTIC UPDATE: Update the cache immediately for instant UI response
+    queryClient.setQueryData(['all-kanban-boards', organization?.id], (oldBoards) => {
+      if (!oldBoards) return oldBoards;
+      return oldBoards.map(board => 
+        board.id === kanbanConfig.id 
+          ? { ...board, collapsed_column_ids: newCollapsed }
+          : board
+      );
+    });
+
+    if (!propKanbanConfig) {
+      queryClient.setQueryData(['kanban-config', organization?.id], (oldConfig) => {
+        if (!oldConfig) return oldConfig;
+        return { ...oldConfig, collapsed_column_ids: newCollapsed };
+      });
+    }
+
     try {
       await base44.entities.KanbanConfig.update(kanbanConfig.id, {
         collapsed_column_ids: newCollapsed
       });
 
       console.log('[Kanban] ✅ Database updated successfully');
-
-      // CRITICAL FIX: Invalidate BOTH query keys to ensure all components refresh
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
-      
-      // ADDITIONAL: Force refetch to get immediate update
-      await queryClient.refetchQueries({ queryKey: ['all-kanban-boards', organization?.id] });
-      
-      console.log('[Kanban] ✅ Cache invalidated and refetched');
     } catch (error) {
       console.error('[Kanban] ❌ Error updating collapse state:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       alert('Failed to update column collapse state. Please try again.');
     }
   };
@@ -1321,13 +1331,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
                             className={cn(
-                              "transition-opacity",
-                              snapshotDraggable.isDragging && "opacity-70"
+                              "transition-all duration-200 ease-out",
+                              snapshotDraggable.isDragging && "opacity-70 scale-105"
                             )}
+                            style={{
+                              ...providedDraggable.draggableProps.style,
+                              transition: 'all 0.2s ease-out'
+                            }}
                           >
                             {isCollapsed ? (
                               <div
-                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200 cursor-pointer"
                                 onClick={() => toggleColumnCollapse(column.id)}
                                 {...providedDraggable.dragHandleProps}
                               >
@@ -1341,7 +1355,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                   <Badge variant="secondary" className="text-xs">
                                     {columnProposals.length}
                                   </Badge>
-                                  <ChevronsRight className="w-4 h-4 mr-2" />
+                                  <ChevronsRight className="w-4 h-4 text-slate-600" />
                                 </div>
                               </div>
                             ) : (
@@ -1360,8 +1374,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     user={user}
                                     dragHandleProps={providedDraggable.dragHandleProps}
                                     onCreateProposal={handleCreateProposalInColumn}
-                                    selectedProposalIds={selectedProposalIds} // Pass new prop
-                                    onToggleProposalSelection={handleToggleProposalSelection} // Pass new prop
+                                    selectedProposalIds={selectedProposalIds}
+                                    onToggleProposalSelection={handleToggleProposalSelection}
                                   />
                                 )}
                               </Droppable>
