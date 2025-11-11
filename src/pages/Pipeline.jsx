@@ -1106,7 +1106,7 @@ export default function Pipeline() {
       )}
 
       {showHealthDashboard && (
-        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 mx-6 mt-6">
+        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
