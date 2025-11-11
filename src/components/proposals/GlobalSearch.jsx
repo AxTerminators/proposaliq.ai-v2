@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -19,12 +20,14 @@ import {
   Users,
   ArrowRight,
   Clock,
-  Target
+  Target,
+  Loader2 // NEW: Import Loader2 for inline search loading state
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import moment from "moment";
+import { ScrollArea } from "@/components/ui/scroll-area"; // NEW: Import ScrollArea for inline results
 
 const SEARCH_TYPES = {
   proposals: { icon: Target, label: 'Proposals', color: 'text-blue-600 bg-blue-100' },
@@ -34,11 +37,12 @@ const SEARCH_TYPES = {
   discussions: { icon: MessageSquare, label: 'Discussions', color: 'text-pink-600 bg-pink-100' },
 };
 
-export default function GlobalSearch({ organization, isOpen, onClose }) {
+export default function GlobalSearch({ organization, isOpen, onClose, isInline = false }) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false); // NEW: State for inline search focus/visibility
 
   // Debounce search query
   useEffect(() => {
@@ -49,10 +53,23 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Reset states when dialog closes (for dialog mode) or when inline search is not active
+  useEffect(() => {
+    if (!isOpen && !isInline) { // Only reset if dialog closes
+      setSearchQuery("");
+      setDebouncedQuery("");
+      setSelectedType("all");
+    }
+  }, [isOpen, isInline]);
+
+
   // Fetch search results
   const { data: searchResults, isLoading } = useQuery({
-    queryKey: ['global-search', organization?.id, debouncedQuery, selectedType],
+    queryKey: ['global-search', organization?.id, debouncedQuery, selectedType, isInline], // Added isInline to queryKey to differentiate cache if needed, though selectedType handles it for dialog
     queryFn: async () => {
+      // In inline mode, we always want to search 'all' types for the results dropdown
+      const currentSelectedType = isInline ? 'all' : selectedType;
+
       if (!organization?.id || !debouncedQuery || debouncedQuery.length < 2) {
         return { proposals: [], sections: [], resources: [], personnel: [], discussions: [] };
       }
@@ -61,7 +78,7 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
       const results = {};
 
       // Search proposals
-      if (selectedType === 'all' || selectedType === 'proposals') {
+      if (currentSelectedType === 'all' || currentSelectedType === 'proposals') {
         const proposals = await base44.entities.Proposal.filter({
           organization_id: organization.id
         });
@@ -74,7 +91,7 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
       }
 
       // Search sections
-      if (selectedType === 'all' || selectedType === 'sections') {
+      if (currentSelectedType === 'all' || currentSelectedType === 'sections') {
         const sections = await base44.entities.ProposalSection.filter({});
         const orgProposals = await base44.entities.Proposal.filter({
           organization_id: organization.id
@@ -85,11 +102,11 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
           orgProposalIds.includes(s.proposal_id) &&
           (s.section_name?.toLowerCase().includes(query) ||
            s.content?.toLowerCase().includes(query))
-        ).slice(0, 20);
+        ).slice(0, 20); // Limit for performance/display
       }
 
       // Search resources
-      if (selectedType === 'all' || selectedType === 'resources') {
+      if (currentSelectedType === 'all' || currentSelectedType === 'resources') {
         const resources = await base44.entities.ProposalResource.filter({
           organization_id: organization.id
         });
@@ -102,7 +119,7 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
       }
 
       // Search key personnel
-      if (selectedType === 'all' || selectedType === 'personnel') {
+      if (currentSelectedType === 'all' || currentSelectedType === 'personnel') {
         const personnel = await base44.entities.KeyPersonnel.filter({
           organization_id: organization.id
         });
@@ -114,7 +131,7 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
       }
 
       // Search discussions
-      if (selectedType === 'all' || selectedType === 'discussions') {
+      if (currentSelectedType === 'all' || currentSelectedType === 'discussions') {
         const discussions = await base44.entities.Discussion.filter({
           organization_id: organization.id
         });
@@ -132,6 +149,8 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
 
   const totalResults = useMemo(() => {
     if (!searchResults) return 0;
+    // Sum all results for the total count, regardless of the 'selectedType' filter for display
+    // This allows the 'All Results' badge to show the true total.
     return Object.values(searchResults).reduce((sum, arr) => sum + (arr?.length || 0), 0);
   }, [searchResults]);
 
@@ -147,13 +166,21 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
     } else if (type === 'discussions') {
       navigate(createPageUrl("Discussions"));
     }
-    onClose();
+
+    // Always reset search state upon result click, regardless of mode
+    setSearchQuery("");
+    setDebouncedQuery("");
+    setSelectedType("all"); // Reset type filter for dialog
+    setIsSearching(false); // Reset inline search visibility
+    onClose(); // Close the dialog (if open)
   };
 
   const highlightMatch = (text, query) => {
     if (!text || !query) return text;
     
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    // Escape special characters in query to prevent regex errors
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
     return parts.map((part, i) => 
       part.toLowerCase() === query.toLowerCase() 
         ? <mark key={i} className="bg-yellow-200 font-semibold">{part}</mark>
@@ -161,6 +188,192 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
     );
   };
 
+  // NEW: If inline mode, render as a search bar instead of dialog
+  if (isInline) {
+    // Determine which types to display results for in inline mode. Always 'all' for inline display.
+    const inlineDisplayTypes = Object.keys(SEARCH_TYPES);
+
+    // Conditions for rendering messages within the inline dropdown
+    const showInitialMessage = !searchQuery || searchQuery.length < 2;
+    const showNoResultsMessage = !showInitialMessage && !isLoading && totalResults === 0 && debouncedQuery.length >=2; // Only show if query is long enough
+
+    return (
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input
+          placeholder="Search proposals, sections, resources..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => setIsSearching(true)}
+          className="pl-10 bg-slate-50 border-slate-200 focus:bg-white"
+        />
+        
+        {/* Search Results Dropdown */}
+        {isSearching && (searchQuery.length >= 2 || (debouncedQuery.length >= 2 && isLoading) || showNoResultsMessage) && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => {
+                setIsSearching(false);
+                setSearchQuery("");
+                setDebouncedQuery("");
+              }}
+            />
+            
+            {/* Results Panel */}
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-slate-200 rounded-lg shadow-2xl z-50 max-h-[500px] overflow-hidden">
+              {isLoading && debouncedQuery.length >= 2 ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-blue-600" />
+                  <p className="text-sm text-slate-600">Searching...</p>
+                </div>
+              ) : showInitialMessage ? (
+                 <div className="p-8 text-center text-slate-500">
+                  <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Type at least 2 characters to search</p>
+                </div>
+              ) : showNoResultsMessage ? (
+                <div className="p-8 text-center text-slate-500">
+                  <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No results found for "{searchQuery}"</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[450px]">
+                  <div className="p-4 space-y-4">
+                    {/* Render results for all types */}
+                    {inlineDisplayTypes.map(type => {
+                      const typeConfig = SEARCH_TYPES[type];
+                      const typeResults = searchResults?.[type] || [];
+                      const Icon = typeConfig.icon;
+
+                      if (typeResults.length === 0) return null; // Only render sections with results
+
+                      return (
+                        <div key={type}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Icon className={cn("w-4 h-4", typeConfig.color.split(' ')[0])} />
+                            <h4 className="font-semibold text-slate-900">{typeConfig.label}</h4>
+                            <Badge variant="outline">{typeResults.length}</Badge>
+                          </div>
+                          <div className="space-y-2">
+                            {typeResults.slice(0, 5).map(item => { // Limit results per type for inline view
+                              // Render logic depends on the type, adapting existing dialog result structure
+                              if (type === 'proposals') {
+                                return (
+                                  <Card
+                                    key={item.id}
+                                    className="cursor-pointer hover:shadow-md transition-shadow"
+                                    onClick={() => handleResultClick('proposals', item)}
+                                  >
+                                    <CardContent className="p-3">
+                                      <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-semibold text-slate-900 text-sm">
+                                            {highlightMatch(item.proposal_name, debouncedQuery)}
+                                          </p>
+                                          {item.agency_name && (
+                                            <p className="text-xs text-slate-600">
+                                              {highlightMatch(item.agency_name, debouncedQuery)}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <ArrowRight className="w-3 h-3 text-slate-400 flex-shrink-0 mt-1" />
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              } else if (type === 'sections') {
+                                return (
+                                  <Card
+                                    key={item.id}
+                                    className="cursor-pointer hover:shadow-md transition-shadow"
+                                    onClick={() => handleResultClick('sections', item)}
+                                  >
+                                    <CardContent className="p-3">
+                                      <p className="font-semibold text-slate-900 text-sm">
+                                        {highlightMatch(item.section_name, debouncedQuery)}
+                                      </p>
+                                      {item.content && (
+                                        <p className="text-xs text-slate-600 line-clamp-1">
+                                          {item.content.substring(0, 100)}...
+                                        </p>
+                                      )}
+                                    </CardContent>
+                                  </Card>
+                                );
+                              } else if (type === 'resources') {
+                                return (
+                                  <Card
+                                    key={item.id}
+                                    className="cursor-pointer hover:shadow-md transition-shadow"
+                                    onClick={() => handleResultClick('resources', item)}
+                                  >
+                                    <CardContent className="p-3">
+                                      <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-semibold text-slate-900 text-sm">
+                                            {highlightMatch(item.title || item.file_name, debouncedQuery)}
+                                          </p>
+                                          <Badge variant="outline" className="text-xs">
+                                            {item.resource_type}
+                                          </Badge>
+                                        </div>
+                                        <ArrowRight className="w-3 h-3 text-slate-400 flex-shrink-0 mt-1" />
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              } else if (type === 'personnel') {
+                                return (
+                                  <Card
+                                    key={item.id}
+                                    className="cursor-pointer hover:shadow-md transition-shadow"
+                                    onClick={() => handleResultClick('personnel', item)}
+                                  >
+                                    <CardContent className="p-3">
+                                      <p className="font-semibold text-slate-900 text-sm">
+                                        {highlightMatch(item.full_name, debouncedQuery)}
+                                      </p>
+                                      <p className="text-xs text-slate-600">{item.title}</p>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              } else if (type === 'discussions') {
+                                return (
+                                  <Card
+                                    key={item.id}
+                                    className="cursor-pointer hover:shadow-md transition-shadow"
+                                    onClick={() => handleResultClick('discussions', item)}
+                                  >
+                                    <CardContent className="p-3">
+                                      <p className="font-semibold text-slate-900 text-sm">
+                                        {highlightMatch(item.title, debouncedQuery)}
+                                      </p>
+                                      <p className="text-xs text-slate-600 line-clamp-1">
+                                        {item.content?.substring(0, 80)}...
+                                      </p>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // --- keep existing code (dialog mode rendering) ---
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -220,7 +433,7 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto mt-4">
-          {isLoading ? (
+          {isLoading && debouncedQuery.length >= 2 ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
               <p className="text-slate-600">Searching...</p>

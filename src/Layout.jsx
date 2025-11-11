@@ -45,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import NotificationCenter from "./components/collaboration/NotificationCenter";
 import MobileNavigation from "./components/mobile/MobileNavigation";
+import GlobalSearch from "@/components/GlobalSearch"; // Added GlobalSearch import
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import {
@@ -735,7 +736,18 @@ function LayoutContent({ children }) {
                 <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
               </div>
             </div>
-            {user && <NotificationCenter user={user} />}
+
+            {/* NEW: Global Search Bar (centered on desktop) */}
+            <div className="hidden lg:flex flex-1 max-w-2xl mx-auto">
+              <GlobalSearch
+                organization={organization}
+                isInline={true}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              {user && <NotificationCenter user={user} />}
+            </div>
           </div>
         </header>
 
