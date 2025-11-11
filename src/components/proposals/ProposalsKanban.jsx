@@ -27,7 +27,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Star
+  Star // Added Star icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -72,13 +72,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
-  const collapseUpdateInProgress = useRef(false);
 
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterClient, setFilterClient] = useState("all");
+  const [filterClient, setFilterClient] = useState("all"); // NEW: Client filter
   const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
@@ -98,27 +97,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [winningProposal, setWinningProposal] = useState(null);
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const proposalIdFromUrl = urlParams.get("id");
-  const boardTypeFromUrl = urlParams.get("boardType");
-
-  const [proposalData, setProposalData] = useState({
-    proposal_name: "",
-    organization_id: "",
-    prime_contractor_id: "",
-    prime_contractor_name: "",
-    project_type: "",
-    solicitation_number: "",
-    agency_name: "",
-    project_title: "",
-    due_date: "",
-    contract_value: "",
-    teaming_partner_ids: [],
-    current_phase: "phase1",
-    status: "evaluating",
-    proposal_type_category: boardTypeFromUrl || "",
-  });
-
+  // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -138,6 +117,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     staleTime: 30000,
   });
 
+  // Use provided config or fetched config
   const kanbanConfig = propKanbanConfig || fetchedKanbanConfig;
 
   useEffect(() => {
@@ -155,13 +135,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
 
+  // IMPROVED: More explicit legacy detection - only flag boards that are truly legacy
   const isLegacyConfig = useMemo(() => {
     if (!kanbanConfig?.columns) return false;
     
+    // NEW BOARDS: If board has board_type or is_master_board flag, it's NOT legacy
     if (kanbanConfig.board_type || kanbanConfig.is_master_board === true || kanbanConfig.is_master_board === false) {
       return false;
     }
     
+    // LEGACY DETECTION: Old boards that lack the new metadata
     const hasOldColumns = kanbanConfig.columns.some(col => 
       ['new', 'evaluate', 'qualify', 'gather', 'analyze', 'strategy', 'outline', 'drafting', 'review', 'final', 'submitted', 'won', 'lost', 'archived'].includes(col.id)
     );
@@ -170,69 +153,29 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       ['initiate', 'team', 'resources', 'solicit'].includes(col.id)
     );
     
+    // Only flag as legacy if it has old columns, no new columns, and lacks new board metadata
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
   }, [kanbanConfig]);
 
   const columns = kanbanConfig?.columns || [];
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
-  const toggleColumnCollapse = useCallback(async (columnId) => {
-    console.log('[Kanban] 🔄 Toggle collapse called for column:', columnId);
-    
-    if (collapseUpdateInProgress.current) {
-      console.log('[Kanban] ⏸️ Update already in progress, skipping...');
-      return;
-    }
-    
-    if (!kanbanConfig) {
-      console.error('[Kanban] ❌ No kanbanConfig found');
-      return;
-    }
-
-    collapseUpdateInProgress.current = true;
+  const toggleColumnCollapse = async (columnId) => {
+    if (!kanbanConfig) return;
 
     const currentCollapsed = kanbanConfig.collapsed_column_ids || [];
     const newCollapsed = currentCollapsed.includes(columnId)
       ? currentCollapsed.filter(id => id !== columnId)
       : [...currentCollapsed, columnId];
 
-    console.log('[Kanban] Current collapsed:', currentCollapsed);
-    console.log('[Kanban] New collapsed:', newCollapsed);
-
-    queryClient.setQueryData(['kanban-config', organization?.id], (old) => {
-      if (!old) return old;
-      return {
-        ...old,
-        collapsed_column_ids: newCollapsed
-      };
+    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+      collapsed_column_ids: newCollapsed // Corrected field name based on typical usage, original might have been a typo
     });
 
-    try {
-      console.log('[Kanban] 📡 Sending update to backend...', {
-        configId: kanbanConfig.id,
-        collapsed_column_ids: newCollapsed
-      });
-      
-      const result = await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-        collapsed_column_ids: newCollapsed
-      });
-      
-      console.log('[Kanban] ✅ Backend update successful:', result);
-    } catch (error) {
-      console.error('[Kanban] ❌ Error updating collapsed columns:', error);
-      console.error('[Kanban] Error details:', error.message, error.response?.data);
-      
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
-      
-      alert(`Failed to update column state: ${error.message}`);
-    } finally {
-      setTimeout(() => {
-        collapseUpdateInProgress.current = false;
-        console.log('[Kanban] 🔓 Update lock released');
-      }, 300);
-    }
-  }, [kanbanConfig, queryClient, organization?.id]);
+    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+  };
 
+  // UPDATED: Check UserPreference instead of just localStorage
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       if (!hasKanbanConfig || isLoadingConfig || !user || !organization) {
@@ -240,6 +183,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
 
       try {
+        // Check UserPreference first
         const prefs = await base44.entities.UserPreference.filter({
           user_email: user.email,
           organization_id: organization.id,
@@ -248,12 +192,15 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         });
 
         if (prefs.length > 0) {
+          // User has completed onboarding, don't show tour
           console.log('[KanbanOnboarding] User has completed tour previously');
           return;
         }
 
+        // Fallback check to localStorage (for backwards compatibility)
         const tourCompleted = localStorage.getItem('kanban_tour_completed');
         if (tourCompleted) {
+          // Migrate localStorage flag to UserPreference
           try {
             await base44.entities.UserPreference.create({
               user_email: user.email,
@@ -274,11 +221,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           return;
         }
 
+        // Show the tour
         setTimeout(() => {
           setShowOnboardingTour(true);
         }, 1000);
       } catch (error) {
         console.error('[KanbanOnboarding] Error checking onboarding status:', error);
+        // Fallback to localStorage check only
         const tourCompleted = localStorage.getItem('kanban_tour_completed');
         if (!tourCompleted) {
           setTimeout(() => {
@@ -291,6 +240,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     checkOnboardingStatus();
   }, [hasKanbanConfig, isLoadingConfig, user, organization]);
 
+  // NEW: Fetch all clients for filter
   const { data: allClients = [] } = useQuery({
     queryKey: ['all-clients', organization?.id],
     queryFn: async () => {
@@ -315,6 +265,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return [...new Set(assignees)].sort();
   }, [proposals]);
 
+  // Get unique team members for filters (for AdvancedFilterPanel)
   const uniqueTeamMembers = useMemo(() => {
     const members = new Set();
     proposals.forEach(p => {
@@ -329,10 +280,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   }, [proposals]);
 
   const filteredProposals = useMemo(() => {
+    // If advanced filters are applied, use those results
     if (advancedFilteredProposals !== null) {
       return advancedFilteredProposals;
     }
 
+    // Otherwise use basic filters
     return proposals.filter(proposal => {
       const matchesSearch = !searchQuery ||
         proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -344,6 +297,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       const matchesAssignee = filterAssignee === "all" ||
         (proposal.assigned_team_members || []).includes(filterAssignee);
 
+      // NEW: Client filter
       const matchesClient = filterClient === "all" ||
         (proposal.shared_with_client_ids || []).includes(filterClient);
 
@@ -357,7 +311,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     filteredProposals.forEach(proposal => {
       if (!proposal) return;
       
+      // MASTER BOARD LOGIC - map by status_mapping array
       if (kanbanConfig?.is_master_board) {
+        // Find the master column that includes this proposal's status
         const matchingColumn = columns.find(col => 
           col.type === 'master_status' && 
           col.status_mapping?.includes(proposal.status)
@@ -369,6 +325,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             columnType: 'master_status'
           };
         } else {
+          // Fallback to first column if no match
           console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status, 'assigned to first column.');
           if (columns.length > 0) {
             assignments[proposal.id] = {
@@ -378,13 +335,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           }
         }
       } 
+      // TYPE-SPECIFIC BOARD LOGIC
       else {
+        // Priority 1: Check if in custom workflow stage
         if (proposal.custom_workflow_stage_id) {
           assignments[proposal.id] = {
             columnId: proposal.custom_workflow_stage_id,
             columnType: 'custom_stage'
           };
         } 
+        // Priority 2: Check for terminal status columns (Won, Lost, Archived, Submitted)
         else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
           const matchingTerminalColumn = columns.find(
             col => col.type === 'default_status' && 
@@ -398,6 +358,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
+        // Priority 3: Check for locked phase columns
         else if (proposal.current_phase) {
           const matchingLockedPhaseColumn = columns.find(
             col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
@@ -409,6 +370,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
+        // Priority 4: Fallback to default status mapping
         else {
           const matchingDefaultStatusColumn = columns.find(
             col => col.type === 'default_status' && col.default_status_mapping === proposal.status
@@ -445,13 +407,23 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     let columnProposals;
 
+    // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
     if (column.is_terminal) {
+      // console.log(`[Kanban] Terminal column "${column.label}" - showing ALL proposals with status: ${column.default_status_mapping}`);
       columnProposals = filteredProposals.filter(proposal => {
         if (!proposal) return false;
+        
+        // Match by status for terminal columns
         const statusMatch = proposal.status === column.default_status_mapping;
+        
+        // if (statusMatch) {
+        //   console.log(`[Kanban] ✓ Including ${proposal.proposal_type_category} proposal "${proposal.proposal_name}" in terminal column`);
+        // }
+        
         return statusMatch;
       });
     } 
+    // NON-TERMINAL COLUMNS: Filter by assignment
     else {
       columnProposals = filteredProposals.filter(proposal => {
         if (!proposal) return false;
@@ -463,6 +435,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       });
     }
 
+    // Apply sorting
     const sort = columnSorts[column.id];
     if (sort) {
       columnProposals = [...columnProposals].sort((a, b) => {
@@ -579,6 +552,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
+        // IMPORTANT: Store the specific column ID so we know which locked_phase column
+        // This is critical when multiple columns share the same phase_mapping
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
@@ -589,12 +564,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       } else if (destinationColumn.type === 'master_status') {
+        // For master boards, just update the status to the first mapped status in the destination column
         if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
           updatesForMovedProposal.status = destinationColumn.status_mapping[0];
         }
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       }
+
 
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
@@ -653,6 +630,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         await Promise.all(otherUpdatesInDestColumn.map(item => updateProposalMutation.mutateAsync(item)));
       }
 
+      // **NEW: Check if moved from submitted to won - trigger promote dialog**
       const isMovingToWon = (
         (sourceColumn.default_status_mapping === 'submitted' || sourceColumn.status_mapping?.includes('submitted')) &&
         (destinationColumn.default_status_mapping === 'won' || destinationColumn.status_mapping?.includes('won'))
@@ -660,6 +638,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       if (isMovingToWon) {
         console.log('[Kanban] 🎉 Proposal won! Showing promote dialog...');
+        // Small delay to ensure UI updates, then show dialog
         setTimeout(() => {
           setWinningProposal(proposal);
           setShowWinPromoteDialog(true);
@@ -812,6 +791,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
     }
 
+    // Check if approval is required when exiting source column
+    // Only require approval when moving to terminal/end-state columns
     if (sourceColumn?.requires_approval_to_exit) {
       const terminalColumns = ['submitted', 'won', 'lost', 'archived'];
       const isMovingToTerminalState = terminalColumns.includes(destinationColumn.id) || destinationColumn.is_terminal;
@@ -946,9 +927,15 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const handleCreateProposalWithType = (proposalType) => {
     setShowNewProposalDialog(false);
+    // Don't navigate - dialog will be replaced by QuickCreateProposal
+    // If navigation was needed, it would look like:
+    // navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
   };
 
   const handleAdvancedFilterChange = (filtered) => {
+    // If the filtered array has the same length as the original 'proposals',
+    // it means no actual filtering occurred (or all items match), so treat it as 'null'.
+    // This helps differentiate between 'no filters applied' and 'filters applied, all match'.
     setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
   };
 
@@ -972,8 +959,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
-    setFilterClient("all");
-    setAdvancedFilteredProposals(null);
+    setFilterClient("all"); // NEW
+    setAdvancedFilteredProposals(null); // Clear advanced filters too
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -981,12 +968,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (searchQuery) count++;
     if (filterAgency !== "all") count++;
     if (filterAssignee !== "all") count++;
-    if (filterClient !== "all") count++;
-    if (advancedFilteredProposals !== null) count++;
+    if (filterClient !== "all") count++; // NEW
+    if (advancedFilteredProposals !== null) count++; // Count advanced filters as one active filter
     return count;
   }, [searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
 
-  if (isLoadingConfig && !propKanbanConfig) {
+  if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1004,7 +991,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (configError && !propKanbanConfig) {
+  if (configError && !propKanbanConfig) { // Check propKanbanConfig here
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1026,7 +1013,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (isLegacyConfig && !isLoadingConfig) {
+  if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1060,7 +1047,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (!hasKanbanConfig && !isLoadingConfig) {
+  if (!hasKanbanConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1096,7 +1083,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
+  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1119,8 +1106,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header - No scroll */}
+    <div className="h-full flex flex-col">
+      {/* Header with filters */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
@@ -1140,17 +1127,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 onClick={() => setShowGlobalSearch(true)}
                 variant="outline"
                 size="sm"
-                title="Global Search"
               >
-                <Search className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={() => setShowFilters(!showFilters)}
-                variant={showFilters ? "default" : "outline"}
-                size="sm"
-                title="Quick Filters"
-              >
-                <Filter className="w-4 h-4" />
+                <Search className="w-4 h-4 mr-2" />
+                Search
               </Button>
               <AdvancedFilterPanel
                 proposals={proposals}
@@ -1161,17 +1140,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 onClick={() => setShowBoardConfig(true)}
                 variant="outline"
                 size="sm"
-                title="Configure"
               >
-                <Settings className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={() => setShowHelpPanel(true)}
-                variant="outline"
-                size="sm"
-                title="Help"
-              >
-                <HelpCircle className="w-4 h-4" />
+                <Settings className="w-4 h-4 mr-2" />
+                Configure
               </Button>
             </div>
           </div>
@@ -1186,59 +1157,30 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
               New Proposal
             </Button>
 
-            <div className="flex items-center gap-4 text-sm">
-              {filteredProposals.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-                    <span className="text-green-600">💰</span>
-                    <span className="font-semibold text-green-900">
-                      {(() => {
-                        const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-                        return totalValue >= 1000000
-                          ? `$${(totalValue / 1000000).toFixed(1)}M`
-                          : totalValue >= 1000
-                          ? `$${(totalValue / 1000).toFixed(0)}K`
-                          : `$${totalValue.toLocaleString()}`;
-                      })()}
-                    </span>
-                    <span className="text-green-700">Pipeline Value</span>
-                  </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Quick Filters
+                {activeFiltersCount > 0 && (
+                  <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center bg-white text-blue-600 hover:bg-white">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+              </Button>
 
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-                    <span className="text-blue-600">📈</span>
-                    <span className="font-semibold text-blue-900">
-                      {(() => {
-                        const allWonProposals = proposals.filter(p => p.status === 'won').length;
-                        const allSubmittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
-                        const winRate = allSubmittedProposals > 0 ? Math.round((allWonProposals / allSubmittedProposals) * 100) : 0;
-                        return winRate;
-                      })()}%
-                    </span>
-                    <span className="text-blue-700">Win Rate</span>
-                  </div>
-
-                  {(() => {
-                    const today = new Date();
-                    const urgentProposals = filteredProposals.filter(p => {
-                      if (!p.due_date) return false;
-                      const dueDate = new Date(p.due_date);
-                      const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                      return daysUntil >= 0 && daysUntil <= 7;
-                    }).length;
-                    
-                    return urgentProposals > 0 ? (
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-lg">
-                        <span className="text-orange-600">⚠️</span>
-                        <span className="font-semibold text-orange-900">{urgentProposals}</span>
-                        <span className="text-orange-700">Due This Week</span>
-                      </div>
-                    ) : null;
-                  })()}
-                </>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHelpPanel(true)}
+              >
+                <HelpCircle className="w-4 h-4 mr-2" />
+                Help
+              </Button>
             </div>
-
-            <div className="w-[140px]"></div>
           </div>
 
           {showFilters && (
@@ -1288,6 +1230,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   </SelectContent>
                 </Select>
 
+                {/* NEW: Client Filter */}
                 <Select value={filterClient} onValueChange={setFilterClient}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Clients" />
@@ -1321,23 +1264,25 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* Board area - ALWAYS render Droppable, just change content based on collapsed state */}
-      <div className="flex-1 bg-slate-100 overflow-hidden">
-        <div className="h-full overflow-x-auto overflow-y-hidden px-4">
+      {/* FIXED: Removed min-h-full and all bottom padding to eliminate gap */}
+      <div className="flex-1 overflow-y-auto bg-slate-100">
+        <div ref={boardRef} className="overflow-x-auto px-4">
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
-            onBeforeDragStart={() => setDragInProgress(true)}
+            onBeforeDragStart={() => {
+              setDragInProgress(true);
+            }}
           >
             <Droppable droppableId="all-columns" direction="horizontal" type="column">
               {(providedOuter) => (
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-4 pt-4 pb-4 h-full"
+                  className="flex gap-4 pt-4"
                   style={{
                     minWidth: 'min-content',
-                    alignItems: 'stretch'
+                    alignItems: 'flex-start'
                   }}
                 >
                   {validColumns.map((column, index) => {
@@ -1357,68 +1302,32 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
                             className={cn(
-                              "transition-opacity h-full flex flex-col",
+                              "transition-opacity",
                               snapshotDraggable.isDragging && "opacity-70"
                             )}
                           >
-                            {/* ALWAYS render Droppable to keep React DnD state consistent */}
-                            <Droppable droppableId={column.id} type="card">
-                              {(providedDroppable, snapshotDroppable) => {
-                                // If collapsed, render collapsed view
-                                if (isCollapsed) {
-                                  return (
-                                    <div 
-                                      ref={providedDroppable.innerRef}
-                                      {...providedDroppable.droppableProps}
-                                      className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full"
-                                    >
-                                      <div 
-                                        {...providedDraggable.dragHandleProps}
-                                        className="w-full h-8 flex items-center justify-center cursor-grab active:cursor-grabbing bg-gradient-to-r from-slate-200 to-slate-300 border-b-2 border-slate-400 hover:from-slate-300 hover:to-slate-400 transition-colors flex-shrink-0"
-                                        title="Drag to reorder"
-                                      >
-                                        <div className="flex flex-col gap-0.5">
-                                          <div className="flex gap-0.5">
-                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                          </div>
-                                          <div className="flex gap-0.5">
-                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                            <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          console.log('[Kanban] 🖱️ Expand button clicked for column:', column.id);
-                                          toggleColumnCollapse(column.id);
-                                        }}
-                                        disabled={collapseUpdateInProgress.current} // Disable if an update is in progress
-                                        className="flex-1 p-3 flex flex-col items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title={collapseUpdateInProgress.current ? "Please wait..." : "Click to expand"}
-                                      >
-                                        <div
-                                          className="text-xs font-semibold text-slate-700 whitespace-nowrap pointer-events-none"
-                                          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                                        >
-                                          {column.label}
-                                        </div>
-                                        <Badge variant="secondary" className="text-xs pointer-events-none">
-                                          {columnProposals.length}
-                                        </Badge>
-                                        <ChevronsRight className="w-5 h-5 text-blue-600 pointer-events-none" />
-                                      </button>
-                                      {providedDroppable.placeholder}
-                                    </div>
-                                  );
-                                }
-
-                                // Expanded view - render full KanbanColumn
-                                return (
+                            {isCollapsed ? (
+                              <div
+                                className="w-12 bg-white border-2 border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                onClick={() => toggleColumnCollapse(column.id)}
+                                {...providedDraggable.dragHandleProps}
+                              >
+                                <div className="p-3 flex flex-col items-center gap-3 h-full">
+                                  <div
+                                    className="text-xs font-semibold text-slate-700 whitespace-nowrap"
+                                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                                  >
+                                    {column.label}
+                                  </div>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {columnProposals.length}
+                                  </Badge>
+                                  <ChevronsRight className="w-4 h-4 mr-2" />
+                                </div>
+                              </div>
+                            ) : (
+                              <Droppable droppableId={column.id} type="card">
+                                {(providedDroppable, snapshotDroppable) => (
                                   <KanbanColumn
                                     column={column}
                                     proposals={columnProposals}
@@ -1432,12 +1341,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     user={user}
                                     dragHandleProps={providedDraggable.dragHandleProps}
                                     onCreateProposal={handleCreateProposalInColumn}
-                                    selectedProposalIds={selectedProposalIds}
-                                    onToggleProposalSelection={handleToggleProposalSelection}
+                                    selectedProposalIds={selectedProposalIds} // Pass new prop
+                                    onToggleProposalSelection={handleToggleProposalSelection} // Pass new prop
                                   />
-                                );
-                              }}
-                            </Droppable>
+                                )}
+                              </Droppable>
+                            )}
                           </div>
                         )}
                       </Draggable>
@@ -1534,6 +1443,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         onClose={() => setShowHelpPanel(false)}
       />
 
+      {/* Quick Create Proposal Dialog - Replaces type selection */}
       <QuickCreateProposal
         isOpen={showNewProposalDialog}
         onClose={() => setShowNewProposalDialog(false)}
@@ -1541,6 +1451,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         preselectedType={kanbanConfig?.applies_to_proposal_types?.[0] || null}
       />
 
+      {/* **NEW: Win to Promote Dialog** */}
       {showWinPromoteDialog && winningProposal && (
         <WinToPromoteDialog
           isOpen={showWinPromoteDialog}
