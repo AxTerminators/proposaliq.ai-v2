@@ -1079,31 +1079,31 @@ export default function Pipeline() {
             </div>
           </div>
         </div>
-
-        {filteredProposals.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-              <DollarSign className="w-4 h-4 text-green-600" />
-              <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
-              <span className="text-green-700">Pipeline Value</span>
-            </div>
-
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-blue-600" />
-              <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
-              <span className="text-blue-700">Win Rate</span>
-            </div>
-
-            {pipelineStats.urgentCount > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-orange-600" />
-                <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
-                <span className="text-orange-700">Due This Week</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {filteredProposals.length > 0 && (
+        <div className="flex-shrink-0 flex flex-wrap gap-4 text-sm px-4 lg:px-6 py-4 bg-white border-b">
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+            <DollarSign className="w-4 h-4 text-green-600" />
+            <span className="font-semibold text-green-900">{pipelineStats.totalValue}</span>
+            <span className="text-green-700">Pipeline Value</span>
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <span className="font-semibold text-blue-900">{pipelineStats.winRate}%</span>
+            <span className="text-blue-700">Win Rate</span>
+          </div>
+
+          {pipelineStats.urgentCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-orange-600" />
+              <span className="font-semibold text-orange-900">{pipelineStats.urgentCount}</span>
+              <span className="text-orange-700">Due This Week</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {showHealthDashboard && (
         <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 mx-6 mt-6">
