@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -90,7 +91,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
     initialData: [],
   });
 
-  // Handle @ mention detection
+  // FIXED: Improved @ mention detection
   useEffect(() => {
     const text = newComment;
     const cursorPos = cursorPosition;
@@ -105,13 +106,16 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       // Check if there's a space after the @, if yes, don't show dropdown
       if (textAfterAt.includes(' ')) {
         setShowMentionDropdown(false);
+        setMentionFilter(""); // Clear filter when dropdown is hidden
         return;
       }
       
+      console.log('[Mentions] Showing dropdown with filter:', textAfterAt);
       setMentionFilter(textAfterAt);
       setShowMentionDropdown(true);
     } else {
       setShowMentionDropdown(false);
+      setMentionFilter(""); // Clear filter when dropdown is hidden
     }
   }, [newComment, cursorPosition]);
 
@@ -135,6 +139,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
       const newText = beforeAt + '@' + member.email + ' ' + afterCursor;
       setNewComment(newText);
       setShowMentionDropdown(false);
+      setMentionFilter(""); // Clear filter after selection
       
       // Focus textarea
       if (textareaRef.current) {
@@ -142,6 +147,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
         const newCursorPos = beforeAt.length + member.email.length + 2;
         setTimeout(() => {
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          setCursorPosition(newCursorPos); // Update cursor position state
         }, 0);
       }
     }
@@ -149,7 +155,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
 
   const filteredTeamMembers = teamMembers.filter(member => 
     member.email.toLowerCase().includes(mentionFilter.toLowerCase()) ||
-    member.full_name.toLowerCase().includes(mentionFilter.toLowerCase())
+    (member.full_name && member.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))
   );
 
   const createDiscussionMutation = useMutation({
@@ -395,64 +401,70 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <ScrollArea className="h-[300px] mb-6">
-                <div className="space-y-4">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
-                      <Avatar className="w-10 h-10 flex-shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-                          {comment.author_name?.[0]?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-slate-900">{comment.author_name}</span>
-                          <span className="text-xs text-slate-500">
-                            {moment(comment.created_date).fromNow()}
-                          </span>
+              {/* FIXED: Only show ScrollArea if there are comments */}
+              {comments.length > 0 && (
+                <ScrollArea className="h-[300px] mb-6">
+                  <div className="space-y-4">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3 p-4 bg-slate-50 rounded-lg">
+                        <Avatar className="w-10 h-10 flex-shrink-0">
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+                            {comment.author_name?.[0]?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-slate-900">{comment.author_name}</span>
+                            <span className="text-xs text-slate-500">
+                              {moment(comment.created_date).fromNow()}
+                            </span>
+                          </div>
+                          <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
                         </div>
-                        <p className="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
 
-              <div className="border-t pt-4">
+              {/* Comment input section - no border-t if there are no comments yet */}
+              <div className={comments.length > 0 ? "border-t pt-4" : ""}>
                 <div className="space-y-3 relative">
                   <div className="relative">
                     <Textarea
                       ref={textareaRef}
-                      placeholder="Share your thoughts... (Use @email to mention someone)"
+                      placeholder="Share your thoughts... (Type @ to mention someone)"
                       value={newComment}
                       onChange={handleTextareaChange}
                       onKeyUp={(e) => setCursorPosition(e.target.selectionStart)}
                       onClick={(e) => setCursorPosition(e.target.selectionStart)}
+                      onSelect={(e) => setCursorPosition(e.target.selectionStart)} // Added onSelect
                       rows={3}
                       className="resize-none"
                     />
                     
+                    {/* FIXED: Improved mention dropdown positioning and visibility */}
                     {showMentionDropdown && filteredTeamMembers.length > 0 && (
-                      <Card className="absolute bottom-full mb-2 w-full max-h-48 overflow-y-auto z-50 shadow-xl border-2 border-blue-300">
+                      <Card className="absolute bottom-full left-0 right-0 mb-2 max-h-64 overflow-y-auto z-50 shadow-2xl border-2 border-blue-400">
                         <CardContent className="p-2">
-                          <div className="text-xs text-slate-500 px-2 py-1 flex items-center gap-1">
+                          <div className="text-xs text-blue-700 font-semibold px-2 py-1.5 flex items-center gap-1 bg-blue-50 rounded mb-1">
                             <AtSign className="w-3 h-3" />
-                            Select a team member to mention
+                            Select team member ({filteredTeamMembers.length} found)
                           </div>
-                          {filteredTeamMembers.slice(0, 5).map((member) => (
+                          {filteredTeamMembers.slice(0, 8).map((member) => (
                             <button
                               key={member.email}
                               onClick={() => handleMentionSelect(member)}
-                              className="w-full text-left px-3 py-2 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-2"
+                              className="w-full text-left px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors flex items-center gap-3 border-b border-slate-100 last:border-0"
                             >
-                              <Avatar className="w-6 h-6">
-                                <AvatarFallback className="bg-blue-500 text-white text-xs">
+                              <Avatar className="w-8 h-8 flex-shrink-0">
+                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm">
                                   {member.full_name?.[0]?.toUpperCase() || 'U'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-900 truncate">
-                                  {member.full_name}
+                                <p className="text-sm font-semibold text-slate-900 truncate">
+                                  {member.full_name || 'User'}
                                 </p>
                                 <p className="text-xs text-slate-500 truncate">{member.email}</p>
                               </div>
@@ -469,7 +481,7 @@ function ProposalDiscussionContent({ proposal, user, organization }) {
                       <div>
                         <p className="font-semibold mb-1">💡 Mention team members</p>
                         <p className="text-blue-700">
-                          Type <strong>@</strong> to see a list of team members you can mention - they'll be notified!
+                          Type <strong>@</strong> to see a list of team members - they'll be notified!
                         </p>
                       </div>
                     </div>
