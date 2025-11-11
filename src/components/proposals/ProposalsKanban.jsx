@@ -27,9 +27,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Star, // Added Star icon
-  DollarSign, // Added DollarSign icon - Kept in imports as it's not removed from the original file yet, but will be if its usage is completely removed.
-  TrendingUp // Added TrendingUp icon - Kept in imports
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -1153,7 +1151,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 </Badge>
               )}
             </div>
-            {/* Removed AdvancedFilterPanel and Configure button from here */}
           </div>
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
