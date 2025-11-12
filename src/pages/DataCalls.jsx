@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import DataCallInitiator from "../components/datacalls/DataCallInitiator";
 import DataCallAnalytics from "../components/datacalls/DataCallAnalytics";
 import BulkDataCallActions from "../components/datacalls/BulkDataCallActions";
+import DataCallDetailView from "../components/datacalls/DataCallDetailView";
 
 import DataCallDetailView from "../components/datacalls/DataCallDetailView";
 
