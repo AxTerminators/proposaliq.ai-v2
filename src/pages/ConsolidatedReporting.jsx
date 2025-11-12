@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, BarChart3, TrendingUp } from "lucide-react";
+import { AlertCircle, BarChart3, TrendingUp, Package } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -110,8 +110,8 @@ export default function ConsolidatedReporting() {
             Client Analytics
           </TabsTrigger>
           <TabsTrigger value="resources">
-            <TrendingUp className="w-4 h-4 mr-2" />
-            Resource Distribution
+            <Package className="w-4 h-4 mr-2" />
+            Resource Library
           </TabsTrigger>
           <TabsTrigger value="usage">
             <TrendingUp className="w-4 h-4 mr-2" />
