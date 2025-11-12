@@ -39,6 +39,7 @@ export default function DataCallInitiator({
   const [formData, setFormData] = useState({
     request_title: "",
     request_description: "",
+    overall_status: "draft",
     request_type: proposal ? "proposal_specific" : "general_library",
     recipient_type: "client_organization",
     client_organization_id: "",

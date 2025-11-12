@@ -30,12 +30,16 @@ import DataCallInitiator from "../components/datacalls/DataCallInitiator";
 import DataCallAnalytics from "../components/datacalls/DataCallAnalytics";
 import BulkDataCallActions from "../components/datacalls/BulkDataCallActions";
 
+import DataCallDetailView from "../components/datacalls/DataCallDetailView";
+
 export default function DataCallsPage() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState("active");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedDataCallId, setSelectedDataCallId] = useState(null);
+  const [showDetailView, setShowDetailView] = useState(false);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -139,6 +143,11 @@ export default function DataCallsPage() {
     }
   };
 
+  const openDetailView = (dataCall) => {
+    setSelectedDataCallId(dataCall.id);
+    setShowDetailView(true);
+  };
+
   const renderDataCallCard = (dataCall) => {
     const completedItems = dataCall.checklist_items.filter(item => 
       item.status === 'completed' || item.status === 'not_applicable'
@@ -153,9 +162,15 @@ export default function DataCallsPage() {
     return (
       <Card 
         key={dataCall.id} 
-        className={`border-2 hover:shadow-lg transition-all ${
+        className={`border-2 hover:shadow-lg transition-all cursor-pointer ${
           isSelected ? 'border-blue-500 bg-blue-50' : ''
         }`}
+        onClick={(e) => {
+          // Only open detail if not clicking checkbox or buttons
+          if (!e.target.closest('input') && !e.target.closest('button')) {
+            openDetailView(dataCall);
+          }
+        }}
       >
         <CardHeader>
           <div className="flex items-start justify-between">
@@ -194,7 +209,10 @@ export default function DataCallsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyPortalLink(dataCall)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyPortalLink(dataCall);
+                }}
                 title="Copy portal link"
               >
                 <Copy className="w-4 h-4" />
@@ -202,7 +220,10 @@ export default function DataCallsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => sendReminderEmail(dataCall)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sendReminderEmail(dataCall);
+                }}
                 title="Send reminder"
               >
                 <Mail className="w-4 h-4" />
@@ -539,6 +560,17 @@ export default function DataCallsPage() {
         organization={organization}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
+      />
+
+      <DataCallDetailView
+        dataCallId={selectedDataCallId}
+        isOpen={showDetailView}
+        onClose={() => {
+          setShowDetailView(false);
+          setSelectedDataCallId(null);
+        }}
+        organization={organization}
+        proposals={proposals}
       />
     </div>
   );
