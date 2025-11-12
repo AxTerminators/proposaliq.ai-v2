@@ -35,10 +35,9 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import ConfirmDialog from "../ui/ConfirmDialog";
-import { cn } from "@/lib/utils";
-import OptimizedImage from "../ui/OptimizedImage"; // Added OptimizedImage import
-import { Skeleton } from "@/components/ui/skeleton"; // Added Skeleton import
-import { Label } from "@/components/ui/label"; // Added Label import
+import OptimizedImage from "../ui/OptimizedImage";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 
 const CLIENT_ROLES = [
   {
