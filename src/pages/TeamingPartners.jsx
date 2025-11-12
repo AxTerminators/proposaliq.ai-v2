@@ -15,9 +15,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { 
-  Users, 
-  Plus, 
+import {
+  Users,
+  Plus,
   Search,
   Trash2,
   Edit,
@@ -113,7 +113,7 @@ export default function TeamingPartners() {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        
+
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
@@ -147,7 +147,7 @@ export default function TeamingPartners() {
     return Array.from(tagSet).sort();
   }, [partners]);
 
-  // NEW: Scan for duplicates function
+  // FIXED: Scan for duplicates function
   const scanForDuplicates = async () => {
     if (!organization?.id || partners.length === 0) {
       toast.error("No partners to scan");
@@ -155,76 +155,100 @@ export default function TeamingPartners() {
     }
 
     setScanningDuplicates(true);
-    
+
     try {
       const duplicateGroups = [];
 
-      // Group by UEI (exact match)
-      const ueiGroups = {};
+      console.log('[DuplicateScan] 🔍 Scanning', partners.length, 'partners for duplicates...');
+
+      // FIXED: Group by UEI (exact match) - simpler logic
+      const ueiMap = {};
       partners.forEach(partner => {
         if (partner.uei?.trim()) {
-          const uei = partner.uei.trim();
-          if (!ueiGroups[uei]) {
-            ueiGroups[uei] = [];
+          const uei = partner.uei.trim().toUpperCase();
+          if (!ueiMap[uei]) {
+            ueiMap[uei] = [];
           }
-          ueiGroups[uei].push(partner);
+          ueiMap[uei].push(partner);
         }
       });
 
-      // Add UEI duplicate groups
-      Object.values(ueiGroups).forEach(group => {
+      // Add UEI duplicate groups (only if 2+ partners share same UEI)
+      Object.entries(ueiMap).forEach(([uei, group]) => {
         if (group.length > 1) {
+          console.log(`[DuplicateScan] 🔴 Found ${group.length} partners with UEI: ${uei}`);
           duplicateGroups.push({
             type: 'uei',
-            key: group[0].uei,
+            key: uei,
             partners: group,
             severity: 'high'
           });
         }
       });
 
-      // Group by similar names (fuzzy matching)
-      const nameGroups = [];
-      const processedIds = new Set(duplicateGroups.flatMap(group => group.partners.map(p => p.id))); // Exclude partners already identified by UEI
+      // FIXED: Group by exact and similar names
+      const nameMap = {};
+      const processedForNames = new Set();
 
-      partners.forEach((partner1, idx1) => {
-        if (processedIds.has(partner1.id)) return;
+      partners.forEach(partner1 => {
+        if (processedForNames.has(partner1.id)) return;
+        if (!partner1.partner_name?.trim()) return;
 
-        const similarPartners = [partner1];
-        
-        partners.forEach((partner2, idx2) => {
-          if (idx1 === idx2 || processedIds.has(partner2.id)) return;
+        const matchingPartners = [partner1];
+        const name1Lower = partner1.partner_name.toLowerCase().trim();
+        const clean1 = name1Lower
+          .replace(/\b(inc|llc|corp|corporation|ltd|limited|co)\b\.?/g, '')
+          .replace(/[,.\-]/g, '')
+          .trim();
 
-          const name1 = partner1.partner_name?.toLowerCase().trim() || '';
-          const name2 = partner2.partner_name?.toLowerCase().trim() || '';
+        partners.forEach(partner2 => {
+          if (partner1.id === partner2.id) return;
+          if (processedForNames.has(partner2.id)) return;
+          if (!partner2.partner_name?.trim()) return;
 
-          if (!name1 || !name2) return;
+          const name2Lower = partner2.partner_name.toLowerCase().trim();
 
-          // Remove common suffixes and punctuation for better matching
-          const cleanName = (name) => name.replace(/\b(inc|llc|corp|corporation|ltd|limited|co|company|group|associates)\b\.?/g, '')
-                                          .replace(/['".,-]/g, '').trim();
+          // Exact match
+          if (name1Lower === name2Lower) {
+            matchingPartners.push(partner2);
+            processedForNames.add(partner2.id);
+            return;
+          }
 
-          const clean1 = cleanName(name1);
-          const clean2 = cleanName(name2);
+          // Clean match
+          const clean2 = name2Lower
+            .replace(/\b(inc|llc|corp|corporation|ltd|limited|co)\b\.?/g, '')
+            .replace(/[,.\-]/g, '')
+            .trim();
 
-          // Simple name equality or inclusion for now. More advanced fuzzy matching could be added.
-          if (clean1 === clean2 || clean1.includes(clean2) || clean2.includes(clean1)) {
-            similarPartners.push(partner2);
+          if (clean1 === clean2) {
+            matchingPartners.push(partner2);
+            processedForNames.add(partner2.id);
           }
         });
 
-        if (similarPartners.length > 1) {
-          nameGroups.push({
-            type: 'name',
-            key: partner1.partner_name,
-            partners: similarPartners,
-            severity: 'medium'
-          });
-          similarPartners.forEach(p => processedIds.add(p.id)); // Mark these partners as processed
+        if (matchingPartners.length > 1) {
+          // Only add if not already captured by UEI grouping
+          const alreadyCaptured = duplicateGroups.some(dg =>
+            dg.type === 'uei' &&
+            dg.partners.some(p => matchingPartners.some(mp => mp.id === p.id))
+          );
+
+          if (!alreadyCaptured) {
+            console.log(`[DuplicateScan] ⚠️ Found ${matchingPartners.length} partners with similar name: ${partner1.partner_name}`);
+            duplicateGroups.push({
+              type: 'name',
+              key: partner1.partner_name,
+              partners: matchingPartners,
+              severity: 'medium'
+            });
+          }
+
+          matchingPartners.forEach(p => processedForNames.add(p.id));
         }
       });
 
-      duplicateGroups.push(...nameGroups);
+      console.log('[DuplicateScan] ✅ Scan complete. Found', duplicateGroups.length, 'duplicate groups');
 
       setDetectedDuplicates(duplicateGroups);
       setShowDuplicateManager(true);
@@ -232,12 +256,16 @@ export default function TeamingPartners() {
       if (duplicateGroups.length === 0) {
         toast.success("✅ No duplicates found! Your data is clean.");
       } else {
-        toast.success(`Found ${duplicateGroups.length} duplicate group(s)`);
+        const totalDuplicates = duplicateGroups.reduce((sum, g) => sum + g.partners.length, 0);
+        toast.success(
+          `Found ${duplicateGroups.length} duplicate group(s) with ${totalDuplicates} total records`,
+          { duration: 5000 }
+        );
       }
 
     } catch (error) {
       console.error("[TeamingPartners] Error scanning duplicates:", error);
-      toast.error("Error scanning for duplicates");
+      toast.error("Error scanning for duplicates: " + error.message);
     } finally {
       setScanningDuplicates(false);
     }
@@ -395,7 +423,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
         </div>
         <div className="flex gap-3">
           {/* NEW: Duplicate Management Button */}
-          <Button 
+          <Button
             onClick={scanForDuplicates}
             variant="outline"
             disabled={scanningDuplicates || partners.length === 0}
@@ -413,7 +441,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
               </>
             )}
           </Button>
-          <Button 
+          <Button
             onClick={() => navigate(createPageUrl("AddTeamingPartner") + "?mode=create")}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -547,13 +575,13 @@ ${partner.certifications && partner.certifications.length > 0 ? `
               {partners.length === 0 ? "No Partners Yet" : "No Matching Partners"}
             </h3>
             <p className="text-slate-600 mb-6">
-              {partners.length === 0 
+              {partners.length === 0
                 ? "Build your network by adding teaming partners and subcontractors"
                 : "Try adjusting your search or filters"
               }
             </p>
             {partners.length === 0 && (
-              <Button 
+              <Button
                 onClick={() => navigate(createPageUrl("AddTeamingPartner") + "?mode=create")}
                 className="bg-blue-600 hover:bg-blue-700"
               >
@@ -570,8 +598,8 @@ ${partner.certifications && partner.certifications.length > 0 ? `
             const hasAIData = partner.ai_extracted === true;
 
             return (
-              <Card 
-                key={partner.id} 
+              <Card
+                key={partner.id}
                 className={cn(
                   "border-none shadow-lg hover:shadow-xl transition-all",
                   hasAIData && "ring-2 ring-purple-200"
@@ -598,16 +626,16 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                       </div>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleEdit(partner)}
                         title="Edit partner"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(partner)}
                         title="Delete partner"
@@ -684,8 +712,8 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {partner.tags.slice(0, isExpanded ? undefined : 4).map((tag, idx) => (
-                          <Badge 
-                            key={idx} 
+                          <Badge
+                            key={idx}
                             variant="secondary"
                             className="text-xs bg-slate-200 text-slate-700 hover:bg-slate-300"
                           >
@@ -919,12 +947,12 @@ ${partner.certifications && partner.certifications.length > 0 ? `
               </Card>
             ) : (
               detectedDuplicates.map((group, idx) => (
-                <Card 
+                <Card
                   key={idx}
                   className={cn(
                     "border-2",
-                    group.severity === 'high' 
-                      ? "border-red-300 bg-red-50" 
+                    group.severity === 'high'
+                      ? "border-red-300 bg-red-50"
                       : "border-amber-300 bg-amber-50"
                   )}
                 >
@@ -941,8 +969,8 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                       <Button
                         onClick={() => handleMergeDuplicates(group)}
                         className={cn(
-                          group.severity === 'high' 
-                            ? "bg-red-600 hover:bg-red-700" 
+                          group.severity === 'high'
+                            ? "bg-red-600 hover:bg-red-700"
                             : "bg-amber-600 hover:bg-amber-700"
                         )}
                       >
@@ -954,7 +982,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                   <CardContent>
                     <div className="space-y-2">
                       {group.partners.map((partner, pIdx) => (
-                        <div 
+                        <div
                           key={pIdx}
                           className="bg-white border border-slate-200 rounded-lg p-3"
                         >
@@ -1037,7 +1065,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
           </p>
           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
             <p className="text-sm text-red-800">
-              ⚠️ <strong>Warning:</strong> This will permanently remove this partner from your organization. 
+              ⚠️ <strong>Warning:</strong> This will permanently remove this partner from your organization.
               Any proposals currently using this partner will need to be updated.
             </p>
           </div>
