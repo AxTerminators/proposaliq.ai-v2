@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  FileQuestion,
+  ClipboardList,
   Plus,
   Calendar,
   User,
@@ -42,8 +42,6 @@ import RecurringDataCallManager from "../components/datacalls/RecurringDataCallM
 import DataCallTemplateEditor from "../components/datacalls/DataCallTemplateEditor";
 import EnhancedDataCallAnalytics from "../components/datacalls/EnhancedDataCallAnalytics";
 import DataCallExportDialog from "../components/datacalls/DataCallExportDialog";
-import MobileDataCallCard from "../components/datacalls/MobileDataCallCard";
-import MobileDataCallView from "../components/datacalls/MobileDataCallView";
 import DataCallVersionHistory from "../components/datacalls/DataCallVersionHistory";
 import DataCallEmailTemplateManager from "../components/datacalls/DataCallEmailTemplateManager";
 
@@ -60,7 +58,6 @@ export default function DataCallsPage() {
   const [showBatchExport, setShowBatchExport] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistoryDataCall, setVersionHistoryDataCall] = useState(null);
-  const [isMobileView, setIsMobileView] = useState(false);
   const [showEmailTemplates, setShowEmailTemplates] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
@@ -92,14 +89,6 @@ export default function DataCallsPage() {
       }
     };
     loadData();
-
-    // Detect mobile view
-    const checkMobile = () => {
-      setIsMobileView(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const { data: allDataCalls = [], isLoading } = useQuery({
@@ -127,7 +116,6 @@ export default function DataCallsPage() {
   const filteredDataCalls = React.useMemo(() => {
     let filtered = [...allDataCalls];
 
-    // Search
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(dc =>
@@ -138,22 +126,18 @@ export default function DataCallsPage() {
       );
     }
 
-    // Recipient types
     if (filters.recipientTypes?.length > 0) {
       filtered = filtered.filter(dc => filters.recipientTypes.includes(dc.recipient_type));
     }
 
-    // Statuses
     if (filters.statuses?.length > 0) {
       filtered = filtered.filter(dc => filters.statuses.includes(dc.overall_status));
     }
 
-    // Priorities
     if (filters.priorities?.length > 0) {
       filtered = filtered.filter(dc => filters.priorities.includes(dc.priority));
     }
 
-    // Date range
     if (filters.dateFrom) {
       filtered = filtered.filter(dc => 
         dc.due_date && new Date(dc.due_date) >= filters.dateFrom
@@ -166,7 +150,6 @@ export default function DataCallsPage() {
       );
     }
 
-    // Overdue only
     if (filters.hasOverdue) {
       filtered = filtered.filter(dc =>
         dc.due_date && 
@@ -213,7 +196,6 @@ export default function DataCallsPage() {
       });
       toast.success('Reminder email sent!');
       
-      // Refresh data calls list
       queryClient.invalidateQueries({ queryKey: ['all-data-calls'] });
     } catch (error) {
       toast.error('Failed to send reminder: ' + error.message);
@@ -269,7 +251,6 @@ export default function DataCallsPage() {
           isSelected ? 'border-blue-500 bg-blue-50' : ''
         }`}
         onClick={(e) => {
-          // Only open detail if not clicking checkbox or buttons
           if (!e.target.closest('input') && !e.target.closest('button')) {
             openDetailView(dataCall);
           }
@@ -342,7 +323,7 @@ export default function DataCallsPage() {
 
           {proposalName && (
             <div className="flex items-center gap-2 text-sm">
-              <FileQuestion className="w-4 h-4 text-blue-600" />
+              <ClipboardList className="w-4 h-4 text-blue-600" />
               <span className="text-slate-600">Proposal:</span>
               <span className="font-semibold text-slate-900">{proposalName}</span>
             </div>
@@ -389,7 +370,6 @@ export default function DataCallsPage() {
             </div>
           </div>
 
-          {/* Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-700">
@@ -402,7 +382,6 @@ export default function DataCallsPage() {
             <Progress value={progressPercentage} className="h-2" />
           </div>
 
-          {/* Checklist Summary */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {dataCall.checklist_items.slice(0, 6).map((item) => (
               <div
@@ -452,7 +431,7 @@ export default function DataCallsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <FileQuestion className="w-8 h-8 text-blue-600" />
+              <ClipboardList className="w-8 h-8 text-blue-600" />
               Data Call Requests
             </h1>
             <p className="text-slate-600 mt-2">
@@ -487,7 +466,7 @@ export default function DataCallsPage() {
                   <p className="text-3xl font-bold text-slate-900">{allDataCalls.length}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <FileQuestion className="w-6 h-6 text-blue-600" />
+                  <ClipboardList className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -579,7 +558,7 @@ export default function DataCallsPage() {
             ) : activeDataCalls.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
-                  <FileQuestion className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                  <ClipboardList className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
                     No Active Data Calls
                   </h3>
@@ -623,7 +602,7 @@ export default function DataCallsPage() {
             {completedDataCalls.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
-                  <FileQuestion className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                  <ClipboardList className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                   <p className="text-slate-600">
                     No completed data calls yet
                   </p>
@@ -644,7 +623,7 @@ export default function DataCallsPage() {
             ) : filteredDataCalls.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
-                  <FileQuestion className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                  <ClipboardList className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
                     {allDataCalls.length === 0 ? 'No Data Calls Yet' : 'No Matching Data Calls'}
                   </h3>
@@ -664,7 +643,7 @@ export default function DataCallsPage() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {filteredDataCalls.map(dc => renderDataCallCard(dc))}
+                {filteredDataCalls.map(renderDataCallCard)}
               </div>
             )}
           </TabsContent>
@@ -727,17 +706,6 @@ export default function DataCallsPage() {
           setVersionHistoryDataCall(null);
         }}
       />
-
-      {isMobileView && (
-        <MobileDataCallView
-          dataCallId={selectedDataCallId}
-          isOpen={showDetailView}
-          onClose={() => {
-            setShowDetailView(false);
-            setSelectedDataCallId(null);
-          }}
-        />
-      )}
 
       {/* Email Templates Manager */}
       <Dialog open={showEmailTemplates} onOpenChange={setShowEmailTemplates}>
