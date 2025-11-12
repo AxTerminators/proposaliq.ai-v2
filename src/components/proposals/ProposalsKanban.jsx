@@ -603,11 +603,22 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.custom_workflow_stage_id = null;
       }
 
-
+      // FIXED: Preserve existing checklist data when moving between columns
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
-        updatedChecklistStatus[destinationColumn.id] = {};
+        // Only initialize with empty object if destination column has no previous data
+        if (!updatedChecklistStatus[destinationColumn.id]) {
+          updatedChecklistStatus[destinationColumn.id] = {};
+        }
         updatesForMovedProposal.current_stage_checklist_status = updatedChecklistStatus;
+        
+        console.log('[Kanban] 🔄 Preserving checklist status:', {
+          proposalName: proposal.proposal_name,
+          sourceColumn: sourceColumn.label,
+          destinationColumn: destinationColumn.label,
+          existingChecklistData: updatedChecklistStatus[destinationColumn.id],
+          hasExistingData: Object.keys(updatedChecklistStatus[destinationColumn.id] || {}).length > 0
+        });
       }
 
       const hasRequiredItems = destinationColumn.checklist_items?.some(item => item.required);
