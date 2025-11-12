@@ -54,6 +54,7 @@ import BoardManagement from './pages/BoardManagement';
 import ContentLibrary from './pages/ContentLibrary';
 import AddTeamingPartner from './pages/AddTeamingPartner';
 import ClientOrganizationManager from './pages/ClientOrganizationManager';
+import ConsolidatedReporting from './pages/ConsolidatedReporting';
 import Layout from './Layout.jsx';
 
 
@@ -114,6 +115,7 @@ export const PAGES = {
     "ContentLibrary": ContentLibrary,
     "AddTeamingPartner": AddTeamingPartner,
     "ClientOrganizationManager": ClientOrganizationManager,
+    "ConsolidatedReporting": ConsolidatedReporting,
 }
 
 export const pagesConfig = {

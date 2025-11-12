@@ -105,7 +105,8 @@ const ALL_NAVIGATION_ITEMS = [
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
-  { title: "Clients", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" },
+  { title: "Client Workspaces", url: createPageUrl("ClientOrganizationManager"), icon: Building2, showFor: "consulting_firm" },
+  { title: "Clients (Legacy)", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all", hasSubMenu: true, subMenuItems: SETTINGS_ITEMS },
 ];
 
@@ -184,6 +185,8 @@ function LayoutContent({ children }) {
       : organization.organization_type;
     
     const isConsultant = effectiveOrgType === 'consultancy';
+    const isConsultingFirm = organization.organization_type === 'consulting_firm' || 
+                             (effectiveOrgType === 'consultancy');
     const userIsAdmin = user?.role === 'admin';
     const userIsSuperAdmin = user?.admin_role === 'super_admin';
 
@@ -209,7 +212,9 @@ function LayoutContent({ children }) {
         (!currentPageItem.adminOnly || userIsAdmin) &&
         (currentPageItem.showFor === undefined || currentPageItem.showFor === "all" || 
          (currentPageItem.showFor === "consultant" && isConsultant) ||
-         (currentPageItem.showFor === "corporate" && !isConsultant));
+         (currentPageItem.showFor === "corporate" && !isConsultant) ||
+         (currentPageItem.showFor === "consulting_firm" && isConsultingFirm)
+        );
 
       if (!hasAccess) {
         console.log('[Layout] ⚠️ Page not accessible for current user/organization settings, redirecting to Dashboard');
@@ -264,12 +269,15 @@ function LayoutContent({ children }) {
       : organization.organization_type;
     
     const isConsultant = effectiveOrgType === 'consultancy';
+    const isConsultingFirm = organization.organization_type === 'consulting_firm' || 
+                             (effectiveOrgType === 'consultancy');
     
     return ALL_NAVIGATION_ITEMS.filter(item => {
       if (item.superAdminOnly && !userIsSuperAdmin) return false;
       if (item.adminOnly && !userIsAdmin) return false;
       if (item.showFor === "consultant" && !isConsultant) return false;
       if (item.showFor === "corporate" && isConsultant) return false;
+      if (item.showFor === "consulting_firm" && !isConsultingFirm) return false;
       return true;
     });
   }, [organization, userIsSuperAdmin, userIsAdmin, demoViewMode]);
@@ -321,7 +329,7 @@ function LayoutContent({ children }) {
                         "text-xs mt-1",
                         organization.organization_type === 'demo' 
                           ? 'bg-purple-100 text-purple-700'
-                          : organization.organization_type === 'consultancy' 
+                          : organization.organization_type === 'consultancy' || organization.organization_type === 'consulting_firm'
                             ? 'bg-purple-100 text-purple-700' 
                             : 'bg-blue-100 text-blue-700'
                       )}>
@@ -329,7 +337,9 @@ function LayoutContent({ children }) {
                           ? '🎭 Demo Account' 
                           : organization.organization_type === 'consultancy' 
                             ? 'Consultant' 
-                            : 'Corporate'}
+                            : organization.organization_type === 'consulting_firm'
+                              ? 'Consulting Firm'
+                              : 'Corporate'}
                       </Badge>
                     )}
                   </div>
@@ -685,7 +695,7 @@ function LayoutContent({ children }) {
                     "text-xs mt-1",
                     organization.organization_type === 'demo' 
                       ? 'bg-purple-100 text-purple-700'
-                      : organization.organization_type === 'consultancy' 
+                      : organization.organization_type === 'consultancy' || organization.organization_type === 'consulting_firm'
                         ? 'bg-purple-100 text-purple-700' 
                         : 'bg-blue-100 text-blue-700'
                   )}>
@@ -693,7 +703,9 @@ function LayoutContent({ children }) {
                       ? '🎭 Demo Account' 
                       : organization.organization_type === 'consultancy' 
                         ? 'Consultant' 
-                        : 'Corporate'}
+                        : organization.organization_type === 'consulting_firm'
+                          ? 'Consulting Firm'
+                          : 'Corporate'}
                   </Badge>
                 )}
               </div>
