@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +69,7 @@ export default function ClientOrganizationManager() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [isCreating, setIsCreating] = useState(false);
 
   const [formData, setFormData] = useState({
     organization_name: "",
@@ -151,32 +153,39 @@ export default function ClientOrganizationManager() {
       if (editingClient) {
         return base44.entities.Organization.update(editingClient.id, data);
       } else {
-        const newOrg = await base44.entities.Organization.create({
-          ...data,
-          organization_type: 'client_organization',
-          parent_organization_id: consultingFirm.id,
-          onboarding_completed: false
-        });
-
-        // Also create a relationship record
-        await base44.entities.OrganizationRelationship.create({
+        // NEW: Use backend function for creation
+        const response = await base44.functions.invoke('createClientOrganization', {
           consulting_firm_id: consultingFirm.id,
-          consulting_firm_name: consultingFirm.organization_name,
-          client_organization_id: newOrg.id,
-          client_organization_name: newOrg.organization_name,
-          relationship_status: 'active',
-          start_date: new Date().toISOString().split('T')[0],
+          organization_name: data.organization_name,
+          contact_name: data.contact_name || data.organization_name,
+          contact_email: data.contact_email,
+          address: data.address || '',
+          website_url: data.website_url || '',
+          uei: data.uei || '',
+          cage_code: data.cage_code || '',
+          custom_branding: data.custom_branding,
           primary_consultant_email: user.email,
-          primary_consultant_name: user.full_name
+          consultant_role: 'organization_owner'
         });
 
-        return newOrg;
+        if (!response.data.success) {
+          throw new Error(response.data.error || 'Failed to create client organization');
+        }
+
+        return response.data.organization;
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['client-organizations'] });
       queryClient.invalidateQueries({ queryKey: ['org-relationships'] });
-      toast.success(editingClient ? "Client updated!" : "Client organization created!");
+      queryClient.invalidateQueries({ queryKey: ['accessible-organizations'] });
+      
+      toast.success(
+        editingClient 
+          ? "Client updated!" 
+          : `✅ ${result.organization_name || 'Client'} workspace created with default setup!`
+      );
+      
       setShowCreateDialog(false);
       setEditingClient(null);
       resetForm();
@@ -265,16 +274,18 @@ export default function ClientOrganizationManager() {
     setShowDeleteConfirm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.organization_name?.trim() || !formData.contact_email?.trim()) {
       toast.error("Organization name and contact email are required");
       return;
     }
 
-    createClientOrgMutation.mutate({
-      ...formData,
-      contact_name: formData.contact_name || formData.organization_name
-    });
+    setIsCreating(true);
+    try {
+      await createClientOrgMutation.mutateAsync(formData);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleSwitchToClient = async (clientOrg) => {
@@ -616,7 +627,7 @@ export default function ClientOrganizationManager() {
                 </div>
 
                 <div>
-                  <Label>Primary Contact Name *</Label>
+                  <Label>Primary Contact Name</Label>
                   <Input
                     value={formData.contact_name}
                     onChange={(e) => setFormData({...formData, contact_name: e.target.value})}
@@ -743,13 +754,27 @@ export default function ClientOrganizationManager() {
                 </div>
               </div>
             </div>
+
+            {!editingClient && (
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900">
+                  ℹ️ <strong>Automatic Setup:</strong> This will create a complete workspace with:
+                </p>
+                <ul className="text-sm text-blue-800 mt-2 space-y-1 ml-4">
+                  <li>• Master proposal board with default columns</li>
+                  <li>• Content library folder structure</li>
+                  <li>• User access for you as organization owner</li>
+                  <li>• Relationship tracking for analytics</li>
+                </ul>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button 
               variant="outline" 
               onClick={() => setShowCreateDialog(false)}
-              disabled={createClientOrgMutation.isPending}
+              disabled={isCreating}
             >
               Cancel
             </Button>
@@ -758,14 +783,14 @@ export default function ClientOrganizationManager() {
               disabled={
                 !formData.organization_name?.trim() || 
                 !formData.contact_email?.trim() ||
-                createClientOrgMutation.isPending
+                isCreating
               }
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {createClientOrgMutation.isPending ? (
+              {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {editingClient ? 'Updating...' : 'Creating...'}
+                  {editingClient ? 'Updating...' : 'Creating Workspace...'}
                 </>
               ) : (
                 <>

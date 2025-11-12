@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Mail, Shield, UserPlus, Trash2, Edit } from "lucide-react";
+import { Users, Mail, Shield, UserPlus, Trash2, Edit, Plus } from "lucide-react"; // Added Plus icon
 import { Skeleton } from "@/components/ui/skeleton";
 import InviteUserDialog from "../components/team/InviteUserDialog";
 
@@ -40,13 +41,29 @@ export default function Team() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [targetClientOrgId, setTargetClientOrgId] = useState(null); // New state
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const clientOrgIdFromUrl = urlParams.get('clientOrgId');
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        
+
+        // NEW: If clientOrgId in URL, load that organization instead
+        if (clientOrgIdFromUrl) {
+          const clientOrgs = await base44.entities.Organization.filter({
+            id: clientOrgIdFromUrl
+          });
+          if (clientOrgs.length > 0) {
+            setOrganization(clientOrgs[0]);
+            setTargetClientOrgId(clientOrgIdFromUrl);
+            return; // Exit early as organization is found
+          }
+        }
+
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
@@ -56,43 +73,34 @@ export default function Team() {
       }
     };
     loadData();
-  }, []);
+  }, [clientOrgIdFromUrl]); // Added clientOrgIdFromUrl to dependencies
 
-  const { data: allUsers, isLoading: loadingUsers } = useQuery({
+  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({ // Changed loadingUsers to isLoadingUsers, added = []
     queryKey: ['all-users'],
     queryFn: () => base44.entities.User.list(),
-    initialData: []
+    initialData: [],
   });
 
   // Filter team members who have access to this organization
-  const teamMembers = allUsers.filter(u => {
-    if (!organization?.id) return false;
-    
-    // Check if user has access to this organization via client_accesses
-    const accesses = u.client_accesses || [];
-    return accesses.some(a => a.organization_id === organization.id);
-  });
+  const teamMembers = React.useMemo(() => { // Using React.useMemo
+    if (!organization?.id || !allUsers) return [];
 
-  const getRoleColor = (role) => {
-    const colors = {
-      organization_owner: "bg-purple-100 text-purple-800",
-      proposal_manager: "bg-blue-100 text-blue-800",
-      capture_manager: "bg-blue-100 text-blue-800",
-      writer: "bg-green-100 text-green-800",
-      reviewer: "bg-amber-100 text-amber-800",
-      guest: "bg-slate-100 text-slate-800",
-      viewer: "bg-slate-100 text-slate-800"
-    };
-    return colors[role] || colors.viewer;
-  };
+    return allUsers.filter(u => {
+      // Include if user created the org
+      if (u.email === organization.created_by) return true;
 
-  const getUserRoleInOrg = (user) => {
-    if (!organization?.id) return "viewer";
-    const access = user.client_accesses?.find(a => a.organization_id === organization.id);
-    return access?.role || "viewer";
-  };
+      // Include if user has this org in client_accesses
+      if (u.client_accesses?.some(acc => acc.organization_id === organization.id)) {
+        return true;
+      }
 
-  if (!organization || !user) {
+      return false;
+    });
+  }, [allUsers, organization]); // Dependencies for memoization
+
+  // Removed getRoleColor and getUserRoleInOrg as they are no longer used in the new rendering logic
+
+  if (!organization) { // Simplified condition from (!organization || !user)
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Skeleton className="h-32 w-32 rounded-xl" />
@@ -105,17 +113,27 @@ export default function Team() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Team Members</h1>
-          <p className="text-slate-600">Manage your team and permissions</p>
+          <p className="text-slate-600">
+            {targetClientOrgId
+              ? `Managing users for ${organization.organization_name}`
+              : 'Manage your team members and permissions'
+            }
+          </p>
+          {organization.organization_type === 'client_organization' && (
+            <Badge className="mt-2 bg-blue-100 text-blue-700">
+              Client Workspace
+            </Badge>
+          )}
         </div>
         <Button onClick={() => setShowInviteDialog(true)}>
-          <UserPlus className="w-5 h-5 mr-2" />
-          Invite Member
+          <Plus className="w-5 h-5 mr-2" /> {/* Changed UserPlus to Plus */}
+          Invite User
         </Button>
       </div>
 
-      {loadingUsers ? (
+      {isLoadingUsers ? ( // Changed loadingUsers to isLoadingUsers
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <Skeleton key={i} className="h-48 w-full" />
           ))}
         </div>
@@ -123,75 +141,44 @@ export default function Team() {
         <Card className="border-none shadow-lg">
           <CardContent className="p-12 text-center">
             <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Team Members Yet</h3>
-            <p className="text-slate-600 mb-6">
-              Start building your team by inviting members
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Team Members</h3> {/* Updated text */}
+            <p className="text-slate-600 mb-6">Invite users to collaborate on proposals</p> {/* Updated text */}
             <Button onClick={() => setShowInviteDialog(true)}>
-              <UserPlus className="w-5 h-5 mr-2" />
-              Invite Your First Member
+              <Plus className="w-5 h-5 mr-2" /> {/* Changed UserPlus to Plus */}
+              Invite Your First Team Member
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {teamMembers.map((member) => {
-            const memberRole = getUserRoleInOrg(member);
-            
+            const isOwner = member.email === organization.created_by;
+            const clientAccess = member.client_accesses?.find(acc => acc.organization_id === organization.id);
+            const roleLabel = isOwner ? 'Owner' : clientAccess?.role?.replace('_', ' ') || 'Member'; // Corrected role mapping
+
             return (
               <Card key={member.id} className="border-none shadow-lg hover:shadow-xl transition-all">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                <CardContent className="p-6"> {/* Simplified to single CardContent */}
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-lg">
                         {member.full_name?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-slate-900 truncate">{member.full_name}</h3>
+                      <p className="text-sm text-slate-600 truncate">{member.email}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Badge className={isOwner ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}>
+                          {roleLabel}
+                        </Badge>
+                        {member.role === 'admin' && ( // Moved platform admin check here
+                          <Badge className="bg-red-100 text-red-700">
+                            Admin
+                          </Badge>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base line-clamp-1">{member.full_name || 'User'}</CardTitle>
-                        <p className="text-sm text-slate-500 line-clamp-1">{member.email}</p>
-                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Role</span>
-                    <Badge className={getRoleColor(memberRole)}>
-                      {memberRole?.replace('_', ' ')}
-                    </Badge>
-                  </div>
-
-                  {member.job_title && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">Title</span>
-                      <span className="text-sm font-medium text-slate-900">{member.job_title}</span>
-                    </div>
-                  )}
-
-                  {member.department && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">Department</span>
-                      <span className="text-sm font-medium text-slate-900">{member.department}</span>
-                    </div>
-                  )}
-
-                  {member.role === 'admin' && (
-                    <div className="pt-2 border-t">
-                      <Badge variant="outline" className="bg-red-50 text-red-700">
-                        <Shield className="w-3 h-3 mr-1" />
-                        Platform Admin
-                      </Badge>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t">
-                    <a
-                      href={`mailto:${member.email}`}
-                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
-                    >
-                      <Mail className="w-4 h-4" />
-                      Send Email
-                    </a>
                   </div>
                 </CardContent>
               </Card>
@@ -200,16 +187,16 @@ export default function Team() {
         </div>
       )}
 
-      {showInviteDialog && (
-        <InviteUserDialog
-          organization={organization}
-          onClose={() => setShowInviteDialog(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['all-users'] });
-            setShowInviteDialog(false);
-          }}
-        />
-      )}
+      {/* InviteUserDialog changes */}
+      <InviteUserDialog
+        isOpen={showInviteDialog} // Changed prop name to isOpen
+        onClose={() => {
+          queryClient.invalidateQueries({ queryKey: ['all-users'] }); // Invalidate queries on close (success or cancel)
+          setShowInviteDialog(false);
+        }}
+        organization={organization}
+        // Removed onSuccess prop based on outline
+      />
     </div>
   );
 }
