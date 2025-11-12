@@ -58,7 +58,6 @@ import ConsolidatedReporting from './pages/ConsolidatedReporting';
 import DataMigration from './pages/DataMigration';
 import DataIsolationTest from './pages/DataIsolationTest';
 import ConsultantDashboard from './pages/ConsultantDashboard';
-import DataCallPortal from './pages/DataCallPortal';
 import Layout from './Layout.jsx';
 
 
@@ -123,7 +122,6 @@ export const PAGES = {
     "DataMigration": DataMigration,
     "DataIsolationTest": DataIsolationTest,
     "ConsultantDashboard": ConsultantDashboard,
-    "DataCallPortal": DataCallPortal,
 }
 
 export const pagesConfig = {
