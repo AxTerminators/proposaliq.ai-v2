@@ -55,8 +55,8 @@ import AdvancedFilterPanel from "./AdvancedFilterPanel";
 import GlobalSearch from "./GlobalSearch";
 import BulkActionsPanel from "./BulkActionsPanel";
 import WinToPromoteDialog from "./WinToPromoteDialog";
-import ConfirmDialog from "../ui/ConfirmDialog"; // NEW IMPORT
-import { toast } from 'react-hot-toast'; // Assuming react-hot-toast for toasts
+import ConfirmDialog from "../ui/ConfirmDialog";
+import { toast } from 'sonner';
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -100,8 +100,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [selectedProposalIds, setSelectedProposalIds] = useState([]);
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [winningProposal, setWinningProposal] = useState(null);
-  const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false); // NEW STATE
-  const [columnToDelete, setColumnToDelete] = useState(null); // NEW STATE
+  const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
+  const [columnToDelete, setColumnToDelete] = useState(null);
 
 
   // Use propKanbanConfig if provided, otherwise fetch
@@ -207,7 +207,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
       queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
-      alert('Failed to update column collapse state. Please try again.');
+      toast.error('Failed to update column collapse state. Please try again.');
     }
   };
 
@@ -694,7 +694,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
           if (newColumnProposalsMap[destinationColumn.id].length > destinationColumn.wip_limit) {
-              alert(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
+              toast(`⚠️ Note: "${destinationColumn.label}" has exceeded its WIP limit of ${destinationColumn.wip_limit}. Current count: ${newColumnProposalsMap[destinationColumn.id].length}`);
           }
       }
     } catch (error) {
