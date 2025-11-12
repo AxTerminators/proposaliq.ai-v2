@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, BarChart3, TrendingUp, Package, Activity } from "lucide-react"; // Added Activity
-import { useQuery } from '@tanstack/react-query'; // Added useQuery
+import { AlertCircle, BarChart3, TrendingUp, Package, Activity } from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
 import {
   Tabs,
   TabsContent,
@@ -15,8 +14,8 @@ import {
 import ConsolidatedClientReporting from "../components/clients/ConsolidatedClientReporting";
 import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary";
 import ResourceUsageAnalytics from "../components/clients/ResourceUsageAnalytics";
-import AutomatedHealthMonitor from "../components/clients/AutomatedHealthMonitor"; // New import
-import ClientComparisonMatrix from "../components/clients/ClientComparisonMatrix"; // New import
+import AutomatedHealthMonitor from "../components/clients/AutomatedHealthMonitor";
+import ClientComparisonMatrix from "../components/clients/ClientComparisonMatrix";
 
 async function getUserActiveOrganization(user) {
   if (!user) return null;
@@ -60,18 +59,11 @@ export default function ConsolidatedReporting() {
     loadData();
   }, []);
 
-  if (!organization) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Skeleton className="h-32 w-32 rounded-xl" />
-      </div>
-    );
-  }
+  const isConsultingFirm = organization?.organization_type === 'consulting_firm' || 
+                           organization?.organization_type === 'consultancy' ||
+                           (organization?.organization_type === 'demo' && organization?.demo_view_mode === 'consultancy');
 
-  const isConsultingFirm = organization.organization_type === 'consulting_firm' || 
-                           organization.organization_type === 'consultancy' ||
-                           (organization.organization_type === 'demo' && organization.demo_view_mode === 'consultancy');
-
+  // CRITICAL FIX: Move useQuery BEFORE any early returns
   const { data: clientOrganizations = [], isLoading: loadingClients } = useQuery({
     queryKey: ['consolidated-clients', organization?.id],
     queryFn: async () => {
@@ -84,6 +76,15 @@ export default function ConsolidatedReporting() {
     },
     enabled: !!organization?.id && isConsultingFirm,
   });
+
+  // NOW handle early returns AFTER all hooks
+  if (!organization) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Skeleton className="h-32 w-32 rounded-xl" />
+      </div>
+    );
+  }
 
   if (!isConsultingFirm) {
     return (
