@@ -46,7 +46,8 @@ import {
   CheckCircle2,
   BarChart3,
   FileText,
-  Library // NEW import for Library icon
+  Library, // NEW import for Library icon
+  RefreshCw, // NEW import for RefreshCw icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,8 @@ import moment from "moment";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import ClientUserManagement from "../components/clients/ClientUserManagement"; // NEW component import
 import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary"; // NEW component import
+import ResourceSyncManager from "../components/clients/ResourceSyncManager"; // NEW component import
+import QuickClientActions from "../components/clients/QuickClientActions"; // NEW component import
 import { // NEW imports for Tabs
   Tabs,
   TabsContent,
@@ -367,33 +370,43 @@ export default function ClientOrganizationManager() {
   if (selectedClient) {
     return (
       <div className="p-6 lg:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              onClick={() => setSelectedClient(null)}
-              className="-ml-2"
-            >
-              ← Back to All Clients
-            </Button>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => setSelectedClient(null)}
+          >
+            ← Back to All Clients
+          </Button>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
               <Building2 className="w-8 h-8 text-blue-600" />
               {selectedClient.organization_name}
             </h1>
+            <p className="text-slate-600 mt-1">{selectedClient.contact_email}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-blue-100 text-blue-700">
-              Client Workspace
+          <Badge className="bg-blue-100 text-blue-700">
+            Client Workspace
+          </Badge>
+          {selectedClient.is_archived && (
+            <Badge className="bg-slate-100 text-slate-700 text-xs">
+              <Archive className="w-3 h-3 mr-1" />
+              Archived
             </Badge>
-            {selectedClient.is_archived && (
-              <Badge className="bg-slate-100 text-slate-700 text-xs">
-                <Archive className="w-3 h-3 mr-1" />
-                Archived
-              </Badge>
-            )}
-          </div>
+          )}
         </div>
-        <p className="text-slate-600 mt-1">{selectedClient.contact_email}</p>
+
+        {/* Quick Actions */}
+        <QuickClientActions
+          clientOrganization={selectedClient}
+          onOpenWorkspace={() => handleSwitchToClient(selectedClient)}
+          onManageUsers={() => {}} // Tab is already visible
+          onPushResources={() => {}} // Tab is already visible
+          onViewAnalytics={() => {}} // Future feature
+          onEditSettings={() => handleEdit(selectedClient)}
+          onArchiveToggle={() => archiveClientMutation.mutate(selectedClient)}
+          onDelete={() => handleDelete(selectedClient)}
+          isArchived={selectedClient.is_archived}
+        />
 
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
@@ -404,6 +417,10 @@ export default function ClientOrganizationManager() {
             <TabsTrigger value="resources">
               <Library className="w-4 h-4 mr-2" />
               Push Resources
+            </TabsTrigger>
+            <TabsTrigger value="sync">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Resource Sync
             </TabsTrigger>
             <TabsTrigger value="details">
               <FileText className="w-4 h-4 mr-2" />
@@ -420,13 +437,29 @@ export default function ClientOrganizationManager() {
 
           <TabsContent value="resources">
             <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Library className="w-5 h-5 text-purple-600" />
+                  Push Resources to Client
+                </CardTitle>
+              </CardHeader>
               <CardContent className="p-6">
-                <p className="text-slate-600 mb-4">
-                  Push templates, past performance, key personnel, and other resources from your firm's library to this client workspace
+                <p className="text-slate-600 mb-6">
+                  Share templates, past performance, key personnel, and teaming partners from your firm's library
                 </p>
-                <GlobalResourceLibrary consultingFirm={consultingFirm} />
+                <GlobalResourceLibrary 
+                  consultingFirm={consultingFirm}
+                  targetClients={[selectedClient]}
+                />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="sync">
+            <ResourceSyncManager
+              clientOrganization={selectedClient}
+              consultingFirm={consultingFirm}
+            />
           </TabsContent>
 
           <TabsContent value="details">
@@ -447,19 +480,19 @@ export default function ClientOrganizationManager() {
                 <div className="grid md:grid-cols-2 gap-4">
                   {selectedClient.contact_name && (
                     <div>
-                      <label className="text-sm text-slate-500">Contact Name</label>
+                      <Label className="text-sm text-slate-500">Contact Name</Label>
                       <p className="font-medium">{selectedClient.contact_name}</p>
                     </div>
                   )}
                   {selectedClient.contact_email && (
                     <div>
-                      <label className="text-sm text-slate-500">Email</label>
+                      <Label className="text-sm text-slate-500">Email</Label>
                       <p className="font-medium">{selectedClient.contact_email}</p>
                     </div>
                   )}
                   {selectedClient.website_url && (
                     <div>
-                      <label className="text-sm text-slate-500">Website</label>
+                      <Label className="text-sm text-slate-500">Website</Label>
                       <a 
                         href={selectedClient.website_url} 
                         target="_blank" 
@@ -472,19 +505,19 @@ export default function ClientOrganizationManager() {
                   )}
                   {selectedClient.address && (
                     <div>
-                      <label className="text-sm text-slate-500">Address</label>
+                      <Label className="text-sm text-slate-500">Address</Label>
                       <p className="font-medium">{selectedClient.address}</p>
                     </div>
                   )}
                   {selectedClient.uei && (
                     <div>
-                      <label className="text-sm text-slate-500">UEI</label>
+                      <Label className="text-sm text-slate-500">UEI</Label>
                       <p className="font-medium font-mono">{selectedClient.uei}</p>
                     </div>
                   )}
                   {selectedClient.cage_code && (
                     <div>
-                      <label className="text-sm text-slate-500">CAGE Code</label>
+                      <Label className="text-sm text-slate-500">CAGE Code</Label>
                       <p className="font-medium font-mono">{selectedClient.cage_code}</p>
                     </div>
                   )}
@@ -494,21 +527,6 @@ export default function ClientOrganizationManager() {
                   <div className="pt-4 border-t">
                     <h4 className="font-semibold text-slate-900 mb-3">Custom Branding</h4>
                     <div className="space-y-3">
-                      {selectedClient.custom_branding.logo_url && (
-                        <div>
-                          <label className="text-sm text-slate-500">Logo URL</label>
-                          <p className="text-sm text-slate-700 mt-1">
-                            <a 
-                              href={selectedClient.custom_branding.logo_url}
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline"
-                            >
-                              {selectedClient.custom_branding.logo_url}
-                            </a>
-                          </p>
-                        </div>
-                      )}
                       {selectedClient.custom_branding.primary_color && (
                         <div className="flex items-center gap-2">
                           <div 
@@ -522,7 +540,7 @@ export default function ClientOrganizationManager() {
                       )}
                       {selectedClient.custom_branding.welcome_message && (
                         <div>
-                          <label className="text-sm text-slate-500">Welcome Message</label>
+                          <Label className="text-sm text-slate-500">Welcome Message</Label>
                           <p className="text-sm text-slate-700 mt-1">
                             {selectedClient.custom_branding.welcome_message}
                           </p>

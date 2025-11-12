@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,25 +50,32 @@ const RESOURCE_TYPES = [
  * Global Resource Library
  * Allows consultants to push resources from their firm to client workspaces
  */
-export default function GlobalResourceLibrary({ consultingFirm }) {
+export default function GlobalResourceLibrary({ consultingFirm, targetClients = null }) {
   const queryClient = useQueryClient();
   const [selectedResourceType, setSelectedResourceType] = useState('proposal_resource');
   const [searchQuery, setSearchQuery] = useState("");
   const [showPushDialog, setShowPushDialog] = useState(false);
   const [selectedResources, setSelectedResources] = useState([]);
-  const [targetClients, setTargetClients] = useState([]);
+  const [selectedTargetClients, setSelectedTargetClients] = useState([]); // Renamed from targetClients
 
-  // Fetch client organizations
+  // Pre-select clients if provided via props
+  useEffect(() => {
+    if (targetClients && Array.isArray(targetClients)) {
+      setSelectedTargetClients(targetClients.map(c => c.id));
+    }
+  }, [targetClients]);
+
+  // Fetch client organizations (only if not pre-selected by prop)
   const { data: clientOrganizations = [] } = useQuery({
     queryKey: ['client-organizations-for-push', consultingFirm?.id],
     queryFn: async () => {
-      if (!consultingFirm?.id) return [];
+      if (!consultingFirm?.id || targetClients) return []; // Conditional fetch
       return base44.entities.Organization.filter({
         organization_type: 'client_organization',
         parent_organization_id: consultingFirm.id
       });
     },
-    enabled: !!consultingFirm?.id,
+    enabled: !!consultingFirm?.id && !targetClients, // Only enable if targetClients prop is null
   });
 
   // Fetch resources based on type
@@ -154,7 +161,10 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
 
       setShowPushDialog(false);
       setSelectedResources([]);
-      setTargetClients([]);
+      // Keep targetClients selected if they came from props
+      if (!targetClients) {
+        setSelectedTargetClients([]);
+      }
     },
     onError: (error) => {
       toast.error("Failed to push resources: " + error.message);
@@ -166,14 +176,20 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
       toast.error("Select at least one resource");
       return;
     }
-    if (targetClients.length === 0) {
+    
+    // Determine client IDs based on prop or internal state
+    const clientIds = targetClients 
+      ? targetClients.map(c => c.id)
+      : selectedTargetClients;
+      
+    if (clientIds.length === 0) {
       toast.error("Select at least one client");
       return;
     }
 
     pushResourcesMutation.mutate({
       resourceIds: selectedResources,
-      clientOrgIds: targetClients
+      clientOrgIds: clientIds
     });
   };
 
@@ -186,7 +202,9 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
   };
 
   const toggleClientSelection = (clientId) => {
-    setTargetClients(prev =>
+    // Only allow changing selection if targetClients prop is not provided
+    if (targetClients) return; 
+    setSelectedTargetClients(prev =>
       prev.includes(clientId)
         ? prev.filter(id => id !== clientId)
         : [...prev, clientId]
@@ -228,37 +246,40 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
   };
 
   const currentResourceType = RESOURCE_TYPES.find(rt => rt.value === selectedResourceType);
+  const allClientOrgs = targetClients || clientOrganizations; // Use prop if provided, otherwise fetched data
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                <Library className="w-6 h-6 text-white" />
+      {!targetClients && ( // Only show header if targetClients prop is not provided
+        <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                  <Library className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    Global Resource Library
+                  </h2>
+                  <p className="text-slate-600 text-sm">
+                    Push templates and resources to client workspaces
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Global Resource Library
-                </h2>
-                <p className="text-slate-600 text-sm">
-                  Push templates and resources to client workspaces
-                </p>
-              </div>
+              <Button
+                onClick={() => setShowPushDialog(true)}
+                disabled={selectedResources.length === 0}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Push to Clients ({selectedResources.length})
+              </Button>
             </div>
-            <Button
-              onClick={() => setShowPushDialog(true)}
-              disabled={selectedResources.length === 0}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Push to Clients ({selectedResources.length})
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Resource Type Selector */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -370,12 +391,21 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
               Push Resources to Client Workspaces
             </DialogTitle>
             <DialogDescription>
-              Select which client workspaces should receive these {selectedResources.length} resource(s)
+              {targetClients // Conditional description based on prop
+                ? `Push ${selectedResources.length} resource(s) to ${targetClients.map(c => c.organization_name).join(', ')}`
+                : `Select which client workspaces should receive these ${selectedResources.length} resource(s)`
+              }
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {clientOrganizations.length === 0 ? (
+            {targetClients ? ( // If targetClients prop is provided, show static info
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900">
+                  <strong>Target:</strong> {targetClients.map(c => c.organization_name).join(', ')}
+                </p>
+              </div>
+            ) : allClientOrgs.length === 0 ? ( // If no clients available for selection
               <Card className="border-2 border-amber-200 bg-amber-50">
                 <CardContent className="p-8 text-center">
                   <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
@@ -385,27 +415,32 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
+            ) : ( // Default client selection UI
               <div className="grid gap-3">
-                {clientOrganizations.map(clientOrg => {
-                  const isSelected = targetClients.includes(clientOrg.id);
+                {allClientOrgs.map(clientOrg => {
+                  const isSelected = selectedTargetClients.includes(clientOrg.id);
 
                   return (
                     <Card
                       key={clientOrg.id}
                       className={cn(
-                        "cursor-pointer transition-all border-2",
+                        "transition-all border-2",
                         isSelected
                           ? "border-purple-500 bg-purple-50"
-                          : "border-slate-200 hover:border-purple-300"
+                          : "border-slate-200 hover:border-purple-300",
+                        targetClients ? "cursor-not-allowed opacity-70" : "cursor-pointer" // Disable interaction if targetClients prop is set
                       )}
-                      onClick={() => toggleClientSelection(clientOrg.id)}
+                      onClick={() => !targetClients && toggleClientSelection(clientOrg.id)} // Only allow click if not pre-selected
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
                           <Checkbox
                             checked={isSelected}
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!targetClients) toggleClientSelection(clientOrg.id); // Checkbox also conditional
+                            }}
+                            disabled={!!targetClients} // Disable checkbox if targetClients prop is set
                           />
                           <Building2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
@@ -424,7 +459,8 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
               </div>
             )}
 
-            {targetClients.length > 0 && (
+            {/* Info message about copy, also conditional for targetClients or selectedTargetClients */}
+            {(targetClients || selectedTargetClients.length > 0) && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <p className="text-sm text-purple-900">
                   ℹ️ Resources will be <strong>copied</strong> to each selected client workspace. 
@@ -441,8 +477,8 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
             <Button
               onClick={handlePushResources}
               disabled={
-                targetClients.length === 0 || 
-                selectedResources.length === 0 ||
+                selectedResources.length === 0 || 
+                ((targetClients ? targetClients.length : selectedTargetClients.length) === 0) || // Corrected check for target count
                 pushResourcesMutation.isPending
               }
               className="bg-purple-600 hover:bg-purple-700"
@@ -455,7 +491,7 @@ export default function GlobalResourceLibrary({ consultingFirm }) {
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Push to {targetClients.length} Client{targetClients.length !== 1 ? 's' : ''}
+                  Push to {targetClients ? targetClients.length : selectedTargetClients.length} Client{(targetClients ? targetClients.length : selectedTargetClients.length) !== 1 ? 's' : ''}
                 </>
               )}
             </Button>

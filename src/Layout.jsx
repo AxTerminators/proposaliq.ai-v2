@@ -107,6 +107,7 @@ const ALL_NAVIGATION_ITEMS = [
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
   { title: "Client Workspaces", url: createPageUrl("ClientOrganizationManager"), icon: Building2, showFor: "consulting_firm" },
   { title: "Portfolio Dashboard", url: createPageUrl("ConsolidatedReporting"), icon: BarChart3, showFor: "consulting_firm" },
+  { title: "Data Migration", url: createPageUrl("DataMigration"), icon: RefreshCw, showFor: "consulting_firm" },
   { title: "Clients (Legacy)", url: createPageUrl("Clients"), icon: Users, showFor: "consultant" },
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all", hasSubMenu: true, subMenuItems: SETTINGS_ITEMS },
 ];

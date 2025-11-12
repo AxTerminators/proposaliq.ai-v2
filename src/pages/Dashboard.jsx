@@ -16,6 +16,7 @@ import MobileDashboard from "../components/mobile/MobileDashboard";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import { Badge } from "@/components/ui/badge"; // Added Badge import
+import ClientWorkspaceInitializer from "../components/clients/ClientWorkspaceInitializer";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -143,7 +144,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6 lg:p-8">
       {/* **NEW: Demo Account Banner** */}
       {isDemoAccount && (
         <div className="bg-gradient-to-r from-purple-100 via-pink-100 to-orange-100 border-2 border-purple-300 rounded-xl p-4 shadow-lg mb-6">
@@ -165,9 +166,35 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* NEW: Client Workspace Initializer */}
+      {organization?.organization_type === 'client_organization' && (
+        <ClientWorkspaceInitializer 
+          organization={organization}
+          onComplete={() => window.location.reload()}
+        />
+      )}
+
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-2xl p-8 text-white mb-6">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex-1">
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+              Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
+            </h1>
+            <p className="text-blue-100 text-lg">
+              {organization?.organization_type === 'client_organization' 
+                ? `Managing proposals for ${organization.organization_name}`
+                : 'Ready to create winning proposals?'
+              }
+            </p>
+          </div>
+          <QuickActionsPanel organization={organization} />
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between dashboard-overview">
+        {/* Header - This section is replaced by the new Welcome Section above */}
+        {/* <div className="flex items-center justify-between dashboard-overview">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">
               Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
@@ -183,7 +210,7 @@ export default function Dashboard() {
             <Plus className="w-5 h-5 mr-2" />
             New Proposal
           </Button>
-        </div>
+        </div> */}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -256,8 +283,8 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <QuickActionsPanel user={user} organization={organization} />
+        {/* Quick Actions - Moved inside the Welcome Section */}
+        {/* <QuickActionsPanel user={user} organization={organization} /> */}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
