@@ -22,16 +22,20 @@ import {
   TrendingUp,
   Users
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import moment from "moment";
 import { toast } from "sonner";
 import DataCallInitiator from "../components/datacalls/DataCallInitiator";
+import DataCallAnalytics from "../components/datacalls/DataCallAnalytics";
+import BulkDataCallActions from "../components/datacalls/BulkDataCallActions";
 
 export default function DataCallsPage() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState("active");
+  const [selectedIds, setSelectedIds] = useState([]);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -144,12 +148,30 @@ export default function DataCallsPage() {
     const proposalName = getProposalName(dataCall.proposal_id);
     const recipient = getRecipientDisplay(dataCall);
     const RecipientIcon = recipient.icon;
+    const isSelected = selectedIds.includes(dataCall.id);
 
     return (
-      <Card key={dataCall.id} className="border-2 hover:shadow-lg transition-all">
+      <Card 
+        key={dataCall.id} 
+        className={`border-2 hover:shadow-lg transition-all ${
+          isSelected ? 'border-blue-500 bg-blue-50' : ''
+        }`}
+      >
         <CardHeader>
           <div className="flex items-start justify-between">
-            <div className="flex-1">
+            <div className="flex items-start gap-3 flex-1">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => {
+                  setSelectedIds(prev =>
+                    prev.includes(dataCall.id)
+                      ? prev.filter(id => id !== dataCall.id)
+                      : [...prev, dataCall.id]
+                  );
+                }}
+                className="mt-1"
+              />
+              <div className="flex-1">
               <CardTitle className="text-lg mb-2">
                 {dataCall.request_title}
               </CardTitle>
@@ -382,7 +404,7 @@ export default function DataCallsPage() {
 
         {/* Data Call Lists */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="active">
               Active ({activeDataCalls.length})
             </TabsTrigger>
@@ -394,6 +416,10 @@ export default function DataCallsPage() {
             </TabsTrigger>
             <TabsTrigger value="all">
               All ({allDataCalls.length})
+            </TabsTrigger>
+            <TabsTrigger value="analytics">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Analytics
             </TabsTrigger>
           </TabsList>
 
@@ -489,6 +515,10 @@ export default function DataCallsPage() {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="analytics" className="mt-6">
+            <DataCallAnalytics organization={organization} />
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -498,6 +528,16 @@ export default function DataCallsPage() {
         proposal={null}
         organization={organization}
         user={user}
+      />
+
+      <BulkDataCallActions
+        dataCallsList={selectedTab === 'active' ? activeDataCalls :
+                       selectedTab === 'overdue' ? overdueDataCalls :
+                       selectedTab === 'completed' ? completedDataCalls :
+                       allDataCalls}
+        organization={organization}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
       />
     </div>
   );

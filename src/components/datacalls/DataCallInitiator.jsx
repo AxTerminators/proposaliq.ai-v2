@@ -21,9 +21,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileQuestion, Plus, X, Send, Loader2, Users, Building2, Handshake, Calendar } from "lucide-react";
+import { FileQuestion, Plus, X, Send, Loader2, Users, Building2, Handshake, Calendar, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
+import DataCallTemplateLibrary from "./DataCallTemplateLibrary";
 
 export default function DataCallInitiator({ 
   isOpen, 
@@ -34,6 +35,7 @@ export default function DataCallInitiator({
 }) {
   const queryClient = useQueryClient();
   const [recipientType, setRecipientType] = useState('client_organization');
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [formData, setFormData] = useState({
     request_title: "",
     request_description: "",
@@ -254,6 +256,16 @@ export default function DataCallInitiator({
       checklist_items: []
     });
     setRecipientType('client_organization');
+    setShowTemplateLibrary(false);
+  };
+
+  const handleTemplateSelect = (templateData) => {
+    setFormData({
+      ...formData,
+      request_title: templateData.request_title,
+      request_description: templateData.request_description,
+      checklist_items: templateData.checklist_items
+    });
   };
 
   // Update recipient type when formData changes
@@ -280,8 +292,28 @@ export default function DataCallInitiator({
         </DialogHeader>
 
         <div className="space-y-6 pt-4">
-          {/* Request Type Selection */}
-          <div className="flex gap-3">
+          {showTemplateLibrary ? (
+            <DataCallTemplateLibrary
+              onSelectTemplate={handleTemplateSelect}
+              onClose={() => setShowTemplateLibrary(false)}
+            />
+          ) : (
+            <>
+              {/* Template Library Button */}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTemplateLibrary(true)}
+                  className="border-purple-300 hover:bg-purple-50"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Use Template
+                </Button>
+              </div>
+
+              {/* Request Type Selection */}
+              <div className="flex gap-3">
             <Button
               type="button"
               variant={recipientType === 'client_organization' ? 'default' : 'outline'}
@@ -609,6 +641,8 @@ export default function DataCallInitiator({
               </Button>
             </div>
           </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
