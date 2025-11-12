@@ -172,20 +172,21 @@ export default function DataCallsPage() {
                 className="mt-1"
               />
               <div className="flex-1">
-              <CardTitle className="text-lg mb-2">
-                {dataCall.request_title}
-              </CardTitle>
-              <div className="flex items-center gap-3 flex-wrap">
-                <Badge className={getStatusColor(dataCall.overall_status)}>
-                  {dataCall.overall_status}
-                </Badge>
-                <Badge className={`${dataCall.priority === 'urgent' ? 'bg-red-500' : dataCall.priority === 'high' ? 'bg-orange-500' : 'bg-slate-500'}`}>
-                  {dataCall.priority}
-                </Badge>
-                <span className="text-sm text-slate-600 flex items-center gap-1">
-                  <RecipientIcon className="w-3 h-3" />
-                  {recipient.text}
-                </span>
+                <CardTitle className="text-lg mb-2">
+                  {dataCall.request_title}
+                </CardTitle>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Badge className={getStatusColor(dataCall.overall_status)}>
+                    {dataCall.overall_status}
+                  </Badge>
+                  <Badge className={`${dataCall.priority === 'urgent' ? 'bg-red-500' : dataCall.priority === 'high' ? 'bg-orange-500' : 'bg-slate-500'}`}>
+                    {dataCall.priority}
+                  </Badge>
+                  <span className="text-sm text-slate-600 flex items-center gap-1">
+                    <RecipientIcon className="w-3 h-3" />
+                    {recipient.text}
+                  </span>
+                </div>
               </div>
             </div>
 
