@@ -1,68 +1,82 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Send,
-  UserPlus,
-  FileText,
-  BarChart3,
   Eye,
-  Settings
+  Users, // Replaces UserPlus
+  Package, // Replaces Send
+  BarChart3,
+  Settings,
+  Archive,
+  CheckCircle2,
+  LinkIcon // New icon for portal link
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ClientPortalLinkGenerator from "./ClientPortalLinkGenerator";
 
 /**
  * Quick Actions Panel for Client Organization Management
  * Common shortcuts for managing client workspaces
  */
-export default function QuickClientActions({ 
-  clientOrganization, 
+export default function QuickClientActions({
+  clientOrganization,
   onOpenWorkspace,
   onManageUsers,
   onPushResources,
   onViewAnalytics,
-  onEditSettings
+  onEditSettings,
+  onArchiveToggle,
+  onDelete, // onDelete is declared in props but not used in the outline, so it remains unused.
+  isArchived = false
 }) {
   const actions = [
     {
       icon: Eye,
       label: "Open Workspace",
-      description: "Switch to client view",
-      color: "from-blue-500 to-indigo-600",
+      description: "Switch to this client's workspace",
+      gradient: "from-blue-500 to-indigo-600",
       onClick: onOpenWorkspace
     },
     {
-      icon: UserPlus,
+      icon: Users,
       label: "Manage Users",
-      description: "Control access",
-      color: "from-purple-500 to-pink-600",
+      description: "Add or remove user access",
+      gradient: "from-purple-500 to-pink-600",
       onClick: onManageUsers
     },
     {
-      icon: Send,
+      icon: Package,
       label: "Push Resources",
-      description: "Share templates",
-      color: "from-green-500 to-emerald-600",
+      description: "Share templates and content",
+      gradient: "from-green-500 to-emerald-600",
       onClick: onPushResources
     },
     {
       icon: BarChart3,
       label: "View Analytics",
-      description: "Performance metrics",
-      color: "from-amber-500 to-orange-600",
+      description: "Client performance metrics",
+      gradient: "from-amber-500 to-orange-600",
       onClick: onViewAnalytics
     },
     {
       icon: Settings,
       label: "Edit Settings",
-      description: "Update details",
-      color: "from-slate-500 to-slate-700",
+      description: "Update client details",
+      gradient: "from-slate-500 to-slate-700",
       onClick: onEditSettings
+    },
+    {
+      icon: isArchived ? CheckCircle2 : Archive,
+      label: isArchived ? "Unarchive" : "Archive",
+      description: isArchived ? "Restore to active" : "Archive this client",
+      gradient: "from-slate-400 to-slate-600",
+      onClick: onArchiveToggle
     }
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
       {actions.map((action, idx) => {
         const Icon = action.icon;
         return (
@@ -73,21 +87,35 @@ export default function QuickClientActions({
           >
             <div className={cn(
               "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity",
-              action.color
+              action.gradient
             )} />
-            <Icon className={cn(
-              "w-6 h-6 mb-2 bg-gradient-to-br bg-clip-text",
-              action.color
-            )} />
+            <Icon className="w-6 h-6 text-blue-600 mb-2" />
             <p className="font-semibold text-slate-900 text-sm mb-0.5">
               {action.label}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-600">
               {action.description}
             </p>
           </button>
         );
       })}
+
+      {/* NEW: Generate Portal Link */}
+      <ClientPortalLinkGenerator
+        clientOrganization={clientOrganization}
+        trigger={
+          <button className="group relative overflow-hidden rounded-xl border-2 border-slate-200 bg-white hover:border-purple-300 hover:shadow-lg transition-all p-4 text-left">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-600 opacity-0 group-hover:opacity-10 transition-opacity" />
+            <LinkIcon className="w-6 h-6 text-purple-600 mb-2" />
+            <p className="font-semibold text-slate-900 text-sm mb-0.5">
+              Generate Portal Link
+            </p>
+            <p className="text-xs text-slate-600">
+              Secure client access
+            </p>
+          </button>
+        }
+      />
     </div>
   );
 }
