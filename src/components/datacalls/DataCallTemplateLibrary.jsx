@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileQuestion, CheckSquare, Sparkles, Plus, Edit } from "lucide-react";
+import { ClipboardList, CheckSquare, Sparkles, Plus, Edit } from "lucide-react";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 import DataCallTemplateEditor from "./DataCallTemplateEditor";
