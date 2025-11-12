@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save, Plus, Trash2, GripVertical, Sparkles } from "lucide-react";
+import { Save, Plus, Trash2, GripVertical, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const TEMPLATE_CATEGORIES = [
   { value: 'technical', label: 'Technical Documents' },
