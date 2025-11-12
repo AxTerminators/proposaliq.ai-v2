@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon, Settings, Trash2 } from "lucide-react";
+import { Plus, LayoutGrid, List, Table, BarChart3, Zap, AlertCircle, RefreshCw, Database, Building2, Activity, X, Layers, DollarSign, TrendingUp, Search as SearchIcon, Settings, Trash2, CheckCircle2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -62,6 +62,8 @@ import GlobalSearch from "@/components/proposals/GlobalSearch";
 import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
+import { toast } from "sonner";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -100,6 +102,7 @@ export default function Pipeline() {
   const [initialModalToOpen, setInitialModalToOpen] = useState(null);
   const [pendingProposalModal, setPendingProposalModal] = useState(null);
   const [proposalToDelete, setProposalToDelete] = useState(null);
+  const [showMigrateConfirm, setShowMigrateConfirm] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -663,24 +666,18 @@ export default function Pipeline() {
   };
 
   const handleMigrateProposals = async () => {
+    setShowMigrateConfirm(true);
+  };
+
+  const confirmMigrate = async () => {
     if (!organization?.id) {
-      alert("Organization not found");
+      toast.error("Organization not found");
       return;
     }
 
-    const confirmed = confirm(
-      '📊 Categorize Existing Proposals\n\n' +
-      'This will analyze all your existing proposals and assign them to the appropriate board type (RFP, RFI, SBIR, etc.) based on:\n\n' +
-      '• Project type field\n' +
-      '• Keywords in proposal name/title\n' +
-      '• Agency patterns\n\n' +
-      'Your proposals will NOT be modified except for the category assignment.\n\n' +
-      'Continue?'
-    );
-
-    if (!confirmed) return;
-
+    setShowMigrateConfirm(false);
     setIsMigrating(true);
+    
     try {
       const response = await base44.functions.invoke('categorizeExistingProposals', {
         organization_id: organization.id,
@@ -690,19 +687,19 @@ export default function Pipeline() {
       if (response.data.success) {
         const { newly_categorized, already_categorized, total_proposals } = response.data;
 
-        alert(
-          `✅ Categorization Complete!\n\n` +
-          `Total Proposals: ${total_proposals}\n` +
-          `Already Categorized: ${already_categorized}\n` +
-          `Newly Categorized: ${newly_categorized}\n` +
-          `\nYour proposals are now organized by type.`
+        toast.success(
+          `✅ Categorization Complete!`,
+          {
+            description: `${newly_categorized} proposals categorized, ${already_categorized} already categorized`,
+            duration: 5000,
+          }
         );
 
         await refetchProposals();
       }
     } catch (error) {
       console.error('Error during migration:', error);
-      alert('Error during migration: ' + error.message);
+      toast.error('Error during migration: ' + error.message);
     } finally {
       setIsMigrating(false);
     }
@@ -1020,6 +1017,10 @@ export default function Pipeline() {
                 <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
                   <SearchIcon className="mr-2 h-4 w-4" />
                   <span>Global Search</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleMigrateProposals}>
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  <span>Categorize Proposals</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1473,6 +1474,42 @@ export default function Pipeline() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ConfirmDialog
+        isOpen={showMigrateConfirm}
+        onClose={() => setShowMigrateConfirm(false)}
+        onConfirm={confirmMigrate}
+        title="Categorize Existing Proposals"
+        variant="default"
+        confirmText="Yes, Categorize Now"
+        cancelText="Cancel"
+        isLoading={isMigrating}
+      >
+        <div className="space-y-3">
+          <p className="text-slate-700">
+            This will analyze all your existing proposals and assign them to the appropriate board type based on:
+          </p>
+          <ul className="space-y-2 text-sm text-slate-600">
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600" />
+              <span>Project type field</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600" />
+              <span>Keywords in proposal name/title</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600" />
+              <span>Agency patterns</span>
+            </li>
+          </ul>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-900">
+              ℹ️ Your proposals will NOT be modified except for the category assignment.
+            </p>
+          </div>
+        </div>
+      </ConfirmDialog>
 
       <GlobalSearch
         organization={organization}

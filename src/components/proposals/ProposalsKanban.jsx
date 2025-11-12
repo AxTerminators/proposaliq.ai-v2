@@ -27,9 +27,9 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Star, // Added Star icon
-  DollarSign, // Added DollarSign icon
-  TrendingUp // Added TrendingUp icon
+  Star,
+  DollarSign,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -55,6 +55,8 @@ import AdvancedFilterPanel from "./AdvancedFilterPanel";
 import GlobalSearch from "./GlobalSearch";
 import BulkActionsPanel from "./BulkActionsPanel";
 import WinToPromoteDialog from "./WinToPromoteDialog";
+import ConfirmDialog from "../ui/ConfirmDialog"; // NEW IMPORT
+import { toast } from 'react-hot-toast'; // Assuming react-hot-toast for toasts
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -79,7 +81,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterClient, setFilterClient] = useState("all"); // NEW: Client filter
+  const [filterClient, setFilterClient] = useState("all");
   const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
@@ -98,6 +100,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [selectedProposalIds, setSelectedProposalIds] = useState([]);
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [winningProposal, setWinningProposal] = useState(null);
+  const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false); // NEW STATE
+  const [columnToDelete, setColumnToDelete] = useState(null); // NEW STATE
+
 
   // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
@@ -694,7 +699,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
     } catch (error) {
       console.error("Error moving proposal:", error);
-      alert("Failed to move proposal. Please try again.");
+      toast.error("Failed to move proposal. Please try again.");
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     } finally {
       setDragInProgress(false);
@@ -725,7 +730,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       const [movedColumn] = reorderedColumns.splice(source.index, 1);
       
       if (movedColumn.is_locked) {
-        alert("Cannot reorder locked system columns.");
+        toast.error("Cannot reorder locked system columns.");
         queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
         return;
       }
@@ -736,11 +741,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         col.order = idx;
       });
 
-      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-        columns: reorderedColumns
-      });
-
-      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      try {
+        await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+          columns: reorderedColumns
+        });
+        queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      } catch (error) {
+        console.error("Error reordering columns:", error);
+        toast.error("Failed to reorder columns. Please try again.");
+        queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      }
       return;
     }
 
@@ -784,7 +794,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         console.error('[RBAC] FIX: Go to Configure → Edit \'' + sourceColumn.label + '\' column → Add \'' + userRole + '\' to "Can Drag From Here Roles"');
         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        alert(`🔒 Cannot drag from "${sourceColumn.label}"\n\n` +
+        toast.error(`🔒 Cannot drag from "${sourceColumn.label}"\n\n` +
               `Required roles: ${sourceColumn.can_drag_from_here_roles.join(', ')}\n` +
               `Your role: ${userRole}\n\n` +
               `FIX: Go to Configure → Edit "${sourceColumn.label}" → Update "Can Drag From Here Roles"`);
@@ -811,7 +821,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         console.error('[RBAC] FIX: Go to Configure → Edit \'' + destinationColumn.label + '\' column → Add \'' + userRole + '\' to "Can Drag To Here Roles"');
         console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        alert(`🔒 Cannot drag to "${destinationColumn.label}"\n\n` +
+        toast.error(`🔒 Cannot drag to "${destinationColumn.label}"\n\n` +
               `Required roles: ${destinationColumn.can_drag_to_here_roles.join(', ')}\n` +
               `Your role: ${userRole}\n\n` +
               `FIX: Go to Configure → Edit "${destinationColumn.label}" → Update "Can Drag To Here Roles"`);
@@ -828,7 +838,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     const currentDestProposals = getProposalsForColumn(destinationColumn);
     if (destinationColumn?.wip_limit > 0 && destinationColumn?.wip_limit_type === 'hard') {
       if (source.droppableId !== destination.droppableId && currentDestProposals.length >= destinationColumn.wip_limit) {
-        alert(`Cannot move to "${destinationColumn.label}". WIP limit of ${destinationColumn.wip_limit} has been reached. Please move other proposals out first.`);
+        toast.error(`Cannot move to "${destinationColumn.label}". WIP limit of ${destinationColumn.wip_limit} has been reached. Please move other proposals out first.`);
         return;
       }
     }
@@ -888,7 +898,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const handleAddColumn = async (insertIndex) => {
     if (!kanbanConfig) {
-      alert("Please configure your board first using the 'Configure Board' button");
+      toast.error("Please configure your board first using the 'Configure Board' button");
       return;
     }
 
@@ -909,41 +919,64 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       col.order = idx;
     });
 
-    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      columns: updatedColumns
-    });
-
-    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    try {
+      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        columns: updatedColumns
+      });
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      toast.success("New column added successfully!");
+    } catch (error) {
+      console.error("Error adding column:", error);
+      toast.error("Failed to add new column. Please try again.");
+    }
   };
 
   const handleDeleteColumn = async (columnId) => {
     if (!kanbanConfig) return;
 
-    const columnToDelete = columns.find(c => c.id === columnId);
-    if (!columnToDelete || columnToDelete.is_locked) {
-      alert(`Cannot delete column "${columnToDelete.label}" as it is a locked system column.`);
+    const column = columns.find(c => c.id === columnId);
+    if (!column || column.is_locked) {
+      toast.error(`Cannot delete "${column?.label || 'this column'}" - it is a locked system column`);
       return;
     }
 
     const proposalsInColumn = proposals.filter(p => p.custom_workflow_stage_id === columnId);
 
     if (proposalsInColumn.length > 0) {
-      alert(`Cannot delete column "${columnToDelete.label}" because it contains ${proposalsInColumn.length} proposals. Please move them to another column first.`);
+      toast.error(`Cannot delete "${column.label}" - it contains ${proposalsInColumn.length} proposals. Move them first.`);
       return;
     }
 
-    const updatedColumns = columns.filter(c => c.id !== columnId);
+    setColumnToDelete(column);
+    setShowDeleteColumnConfirm(true);
+  };
+
+  const confirmDeleteColumn = async () => {
+    if (!columnToDelete) return;
+
+    const updatedColumns = columns.filter(c => c.id !== columnToDelete.id);
 
     updatedColumns.forEach((col, idx) => {
       col.order = idx;
     });
 
-    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      columns: updatedColumns
-    });
+    try {
+      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        columns: updatedColumns
+      });
 
-    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      setShowDeleteColumnConfirm(false);
+      setColumnToDelete(null);
+      toast.success(`Column "${columnToDelete.label}" deleted successfully`);
+    } catch (error) {
+      console.error("Error deleting column:", error);
+      toast.error("Failed to delete column. Please try again.");
+      setShowDeleteColumnConfirm(false);
+      setColumnToDelete(null);
+    }
   };
+
 
   const handleRenameColumn = async (columnId, newLabel) => {
     if (!kanbanConfig) return;
@@ -952,11 +985,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       col.id === columnId ? { ...col, label: newLabel } : col
     );
 
-    await base44.entities.KanbanConfig.update(kanbanConfig.id, {
-      columns: updatedColumns
-    });
-
-    queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+    try {
+      await base44.entities.KanbanConfig.update(kanbanConfig.id, {
+        columns: updatedColumns
+      });
+      queryClient.invalidateQueries({ queryKey: ['kanban-config'] });
+      toast.success("Column renamed successfully!");
+    } catch (error) {
+      console.error("Error renaming column:", error);
+      toast.error("Failed to rename column. Please try again.");
+    }
   };
 
   const handleConfigureColumn = () => {
@@ -1447,6 +1485,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           onClose={() => setShowBoardConfig(false)}
           organization={organization}
           currentConfig={kanbanConfig}
+          onAddColumn={handleAddColumn}
+          onDeleteColumn={handleDeleteColumn}
         />
       )}
 
@@ -1531,6 +1571,25 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           organization={organization}
         />
       )}
+
+      {/* **NEW: Delete Column Confirmation** */}
+      <ConfirmDialog
+        isOpen={showDeleteColumnConfirm}
+        onClose={() => {
+          setShowDeleteColumnConfirm(false);
+          setColumnToDelete(null);
+        }}
+        onConfirm={confirmDeleteColumn}
+        title="Delete Column?"
+        variant="danger"
+        confirmText="Yes, Delete Column"
+        cancelText="Cancel"
+      >
+        <p className="text-slate-700">
+          Are you sure you want to delete the column <strong>"{columnToDelete?.label}"</strong>?
+          This action cannot be undone.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

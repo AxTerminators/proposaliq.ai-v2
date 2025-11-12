@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ExportDialog from "../components/export/ExportDialog";
 import BatchExportDialog from "../components/export/BatchExportDialog";
 import moment from "moment";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import { toast } from "sonner";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -44,6 +47,8 @@ export default function ExportCenter() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showBatchDialog, setShowBatchDialog] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState(null);
+  const [showDeleteHistoryConfirm, setShowDeleteHistoryConfirm] = useState(false);
+  const [historyToDelete, setHistoryToDelete] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -108,8 +113,22 @@ export default function ExportCenter() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-history'] });
+      toast.success('Export record deleted successfully');
+      setShowDeleteHistoryConfirm(false);
+      setHistoryToDelete(null);
     },
   });
+
+  const handleDeleteHistory = (history) => {
+    setHistoryToDelete(history);
+    setShowDeleteHistoryConfirm(true);
+  };
+
+  const confirmDeleteHistory = () => {
+    if (historyToDelete) {
+      deleteHistoryMutation.mutate(historyToDelete.id);
+    }
+  };
 
   const handleExportProposal = (proposal) => {
     setSelectedProposal(proposal);
@@ -240,11 +259,7 @@ export default function ExportCenter() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => {
-                          if (confirm('Delete this export record?')) {
-                            deleteHistoryMutation.mutate(history.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteHistory(history)}
                       >
                         <Trash2 className="w-3 h-3 text-red-600" />
                       </Button>
@@ -275,6 +290,24 @@ export default function ExportCenter() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteHistoryConfirm}
+        onClose={() => {
+          setShowDeleteHistoryConfirm(false);
+          setHistoryToDelete(null);
+        }}
+        onConfirm={confirmDeleteHistory}
+        title="Delete Export Record?"
+        variant="danger"
+        confirmText="Yes, Delete"
+        cancelText="Cancel"
+        isLoading={deleteHistoryMutation.isPending}
+      >
+        <p className="text-slate-700">
+          Are you sure you want to delete this export record for <strong>"{historyToDelete?.proposal_name}"</strong>?
+        </p>
+      </ConfirmDialog>
 
       {showExportDialog && selectedProposal && (
         <ExportDialog

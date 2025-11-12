@@ -47,6 +47,7 @@ import TaskManager from "../tasks/TaskManager";
 import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
+import ConfirmDialog from "../ui/ConfirmDialog";
 
 // Import ALL modal components
 import BasicInfoModal from "./modals/BasicInfoModal";
@@ -82,6 +83,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [isMovingStage, setIsMovingStage] = useState(false);
   const [showApprovalGate, setShowApprovalGate] = useState(false);
   const [approvalGateData, setApprovalGateData] = useState(null);
+  const [showIncompleteTasksConfirm, setShowIncompleteTasksConfirm] = useState(false);
+  const [pendingStageMove, setPendingStageMove] = useState(null);
 
   // Map modal component names to actual components
   const MODAL_COMPONENTS = {
@@ -415,7 +418,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
   };
 
-  // **NEW: Handle stage navigation**
+  // **UPDATED: Handle stage navigation with custom dialog**
   const handleMoveToStage = async (targetColumn, direction = 'forward') => {
     if (!targetColumn || !currentColumn) return;
 
@@ -424,16 +427,14 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
       .some(ci => !checklistStatus[ci.id]?.completed);
 
-    // Show confirmation if moving forward with incomplete tasks
+    // Show custom confirmation if moving forward with incomplete tasks
     if (direction === 'forward' && hasIncompleteRequired) {
-      const confirmed = confirm(
-        `⚠️ Some required tasks in "${currentColumn.label}" are incomplete.\n\n` +
-        `Are you sure you want to move to "${targetColumn.label}"?`
-      );
-      if (!confirmed) return;
+      setPendingStageMove({ targetColumn, direction });
+      setShowIncompleteTasksConfirm(true);
+      return;
     }
 
-    // **Check if source column requires approval**
+    // If no incomplete tasks OR moving backward, check for approval gate directly
     if (currentColumn.requires_approval_to_exit && direction === 'forward') {
       console.log('[ProposalCardModal] 🔐 Approval required to exit column:', currentColumn.label);
       setApprovalGateData({
@@ -446,8 +447,33 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return;
     }
 
-    // Proceed with move
+    // Proceed with move if no incomplete tasks and no approval needed (or moving backward)
     await performStageMove(targetColumn);
+  };
+
+  const handleConfirmIncompleteMove = async () => {
+    setShowIncompleteTasksConfirm(false);
+    
+    if (pendingStageMove) {
+      const { targetColumn, direction } = pendingStageMove;
+      
+      // Check if approval is required AFTER user confirmed incomplete tasks
+      if (currentColumn.requires_approval_to_exit && direction === 'forward') {
+        console.log('[ProposalCardModal] 🔐 Approval required to exit column:', currentColumn.label);
+        setApprovalGateData({
+          proposal,
+          sourceColumn: currentColumn,
+          destinationColumn: targetColumn,
+          direction: direction
+        });
+        setShowApprovalGate(true);
+        setPendingStageMove(null);
+        return;
+      }
+      
+      await performStageMove(targetColumn);
+      setPendingStageMove(null);
+    }
   };
 
   const performStageMove = async (targetColumn) => {
@@ -1254,55 +1280,58 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="w-5 h-5" />
-              Delete Proposal?
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-700 mb-3">
-              Are you sure you want to delete <strong>"{proposal.proposal_name}"</strong>?
+      {/* **NEW: Custom Incomplete Tasks Confirmation Dialog** */}
+      <ConfirmDialog
+        isOpen={showIncompleteTasksConfirm}
+        onClose={() => {
+          setShowIncompleteTasksConfirm(false);
+          setPendingStageMove(null);
+        }}
+        onConfirm={handleConfirmIncompleteMove}
+        title="Move with Incomplete Tasks?"
+        variant="warning"
+        confirmText={`Move to ${pendingStageMove?.targetColumn?.label || 'Next Stage'}`}
+        cancelText="Stay Here"
+      >
+        <div className="space-y-3">
+          <p className="text-slate-700">
+            Some required tasks in <strong>"{currentColumn?.label}"</strong> are incomplete.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-sm text-amber-900">
+              ⚠️ Moving without completing all required tasks may affect your workflow.
             </p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-800">
-                ⚠️ <strong>Warning:</strong> This action cannot be undone. All associated tasks, discussions, files, and data will be permanently deleted.
-              </p>
-            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={deleteProposalMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={deleteProposalMutation.isPending}
-            >
-              {deleteProposalMutation.isPending ? (
-                <>
-                  <div className="animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Yes, Delete Proposal
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <p className="text-sm text-slate-600">
+            Are you sure you want to continue to <strong>"{pendingStageMove?.targetColumn?.label}"</strong>?
+          </p>
+        </div>
+      </ConfirmDialog>
 
-      {/* **NEW: Approval Gate Dialog** */}
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Proposal?"
+        variant="danger"
+        confirmText="Yes, Delete Proposal"
+        cancelText="Cancel"
+        isLoading={deleteProposalMutation.isPending}
+      >
+        <div className="space-y-3">
+          <p className="text-slate-700">
+            Are you sure you want to delete <strong>"{proposal.proposal_name}"</strong>?
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              ⚠️ <strong>Warning:</strong> This action cannot be undone. All associated tasks, discussions, files, and data will be permanently deleted.
+            </p>
+          </div>
+        </div>
+      </ConfirmDialog>
+
+      {/* **Approval Gate Dialog** */}
       {showApprovalGate && approvalGateData && (
         <ApprovalGate
           isOpen={showApprovalGate}
