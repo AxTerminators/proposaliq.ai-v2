@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CapabilityStatementUploader from "../components/teamingpartners/CapabilityStatementUploader";
+import DuplicateChecker from "../components/teamingpartners/DuplicateChecker";
 import {
   Select,
   SelectContent,
@@ -100,6 +101,7 @@ export default function AddTeamingPartner() {
   const [savedPartnerId, setSavedPartnerId] = useState(null);
   const [showRoleSelectionDialog, setShowRoleSelectionDialog] = useState(false);
   const [isSavingAndReturning, setIsSavingAndReturning] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null); // NEW
 
   // Tag inputs for various array fields
   const [tagInput, setTagInput] = useState("");
@@ -256,9 +258,21 @@ export default function AddTeamingPartner() {
     );
   };
 
+  // NEW: Handle duplicate detection callback
+  const handleDuplicateFound = (dupeInfo) => {
+    setDuplicateInfo(dupeInfo);
+  };
+
   const handleSaveAndNext = async () => {
     if (!formData.partner_name?.trim()) {
       toast.error("Company name is required");
+      setActiveTab("basic");
+      return;
+    }
+
+    // NEW: Block save if UEI duplicate found
+    if (duplicateInfo?.hasUEIDuplicate) {
+      toast.error("Cannot save - UEI already exists in your organization. Please edit the existing partner or use a different UEI.");
       setActiveTab("basic");
       return;
     }
@@ -295,6 +309,13 @@ export default function AddTeamingPartner() {
   const handleBackToProposal = async () => {
     if (!formData.partner_name?.trim()) {
       toast.error("Company name is required before saving");
+      return;
+    }
+
+    // NEW: Block save if UEI duplicate found
+    if (duplicateInfo?.hasUEIDuplicate) {
+      toast.error("Cannot save - UEI already exists. Please resolve the duplicate first.");
+      setActiveTab("basic");
       return;
     }
 
@@ -514,6 +535,17 @@ export default function AddTeamingPartner() {
             </Card>
           )}
 
+          {/* NEW: Duplicate Checker Component */}
+          {organization && (
+            <DuplicateChecker
+              organizationId={organization.id}
+              uei={formData.uei}
+              companyName={formData.partner_name}
+              currentPartnerId={savedPartnerId || partnerId}
+              onDuplicateFound={handleDuplicateFound}
+            />
+          )}
+
           {/* Main Form */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-6 h-auto">
@@ -681,7 +713,10 @@ export default function AddTeamingPartner() {
                           value={formData.uei}
                           onChange={(e) => updateField('uei', e.target.value)}
                           placeholder="ABCD1234EFGH"
-                          className={cn(isFieldAIExtracted('uei') && "border-purple-300")}
+                          className={cn(
+                            isFieldAIExtracted('uei') && "border-purple-300",
+                            duplicateInfo?.hasUEIDuplicate && "border-red-500 border-2"
+                          )}
                         />
                       </div>
 
@@ -1385,13 +1420,25 @@ export default function AddTeamingPartner() {
                       Company name is required
                     </p>
                   )}
+                  {/* NEW: Show duplicate warning in action bar */}
+                  {duplicateInfo?.hasUEIDuplicate && (
+                    <p className="text-sm text-red-600 flex items-center gap-1 font-semibold">
+                      <AlertCircle className="w-4 h-4" />
+                      UEI Duplicate - Cannot Save
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   {returnTo === 'proposal' && proposalId && (
                     <Button
                       variant="outline"
                       onClick={handleBackToProposal}
-                      disabled={savePartnerMutation.isPending || isSavingAndReturning || !formData.partner_name}
+                      disabled={
+                        savePartnerMutation.isPending || 
+                        isSavingAndReturning || 
+                        !formData.partner_name ||
+                        duplicateInfo?.hasUEIDuplicate // NEW: Disable if UEI duplicate
+                      }
                       className="border-blue-300 text-blue-700 hover:bg-blue-50"
                     >
                       {isSavingAndReturning ? (
@@ -1409,7 +1456,11 @@ export default function AddTeamingPartner() {
                   )}
                   <Button
                     onClick={handleSaveAndNext}
-                    disabled={savePartnerMutation.isPending || !formData.partner_name}
+                    disabled={
+                      savePartnerMutation.isPending || 
+                      !formData.partner_name ||
+                      duplicateInfo?.hasUEIDuplicate // NEW: Disable if UEI duplicate
+                    }
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {savePartnerMutation.isPending ? (

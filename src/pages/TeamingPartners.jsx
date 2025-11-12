@@ -36,12 +36,16 @@ import {
   Star,
   Eye,
   Filter,
-  X
+  X,
+  AlertCircle, // NEW
+  Loader2, // NEW
+  CheckCircle2 // NEW
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import DuplicateMerger from "../components/teamingpartners/DuplicateMerger"; // NEW
 import { toast } from "sonner";
 import {
   Select,
@@ -97,7 +101,12 @@ export default function TeamingPartners() {
   const [filterCertification, setFilterCertification] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
-  const [filterTag, setFilterTag] = useState("all"); // NEW
+  const [filterTag, setFilterTag] = useState("all");
+  const [showDuplicateManager, setShowDuplicateManager] = useState(false); // NEW
+  const [detectedDuplicates, setDetectedDuplicates] = useState([]); // NEW
+  const [selectedDuplicateGroup, setSelectedDuplicateGroup] = useState(null); // NEW
+  const [showMergeDialog, setShowMergeDialog] = useState(false); // NEW
+  const [scanningDuplicates, setScanningDuplicates] = useState(false); // NEW
 
   useEffect(() => {
     const loadData = async () => {
@@ -128,7 +137,6 @@ export default function TeamingPartners() {
     enabled: !!organization?.id,
   });
 
-  // NEW: Extract all unique tags
   const allTags = React.useMemo(() => {
     const tagSet = new Set();
     partners.forEach(p => {
@@ -138,6 +146,108 @@ export default function TeamingPartners() {
     });
     return Array.from(tagSet).sort();
   }, [partners]);
+
+  // NEW: Scan for duplicates function
+  const scanForDuplicates = async () => {
+    if (!organization?.id || partners.length === 0) {
+      toast.error("No partners to scan");
+      return;
+    }
+
+    setScanningDuplicates(true);
+    
+    try {
+      const duplicateGroups = [];
+
+      // Group by UEI (exact match)
+      const ueiGroups = {};
+      partners.forEach(partner => {
+        if (partner.uei?.trim()) {
+          const uei = partner.uei.trim();
+          if (!ueiGroups[uei]) {
+            ueiGroups[uei] = [];
+          }
+          ueiGroups[uei].push(partner);
+        }
+      });
+
+      // Add UEI duplicate groups
+      Object.values(ueiGroups).forEach(group => {
+        if (group.length > 1) {
+          duplicateGroups.push({
+            type: 'uei',
+            key: group[0].uei,
+            partners: group,
+            severity: 'high'
+          });
+        }
+      });
+
+      // Group by similar names (fuzzy matching)
+      const nameGroups = [];
+      const processedIds = new Set(duplicateGroups.flatMap(group => group.partners.map(p => p.id))); // Exclude partners already identified by UEI
+
+      partners.forEach((partner1, idx1) => {
+        if (processedIds.has(partner1.id)) return;
+
+        const similarPartners = [partner1];
+        
+        partners.forEach((partner2, idx2) => {
+          if (idx1 === idx2 || processedIds.has(partner2.id)) return;
+
+          const name1 = partner1.partner_name?.toLowerCase().trim() || '';
+          const name2 = partner2.partner_name?.toLowerCase().trim() || '';
+
+          if (!name1 || !name2) return;
+
+          // Remove common suffixes and punctuation for better matching
+          const cleanName = (name) => name.replace(/\b(inc|llc|corp|corporation|ltd|limited|co|company|group|associates)\b\.?/g, '')
+                                          .replace(/['".,-]/g, '').trim();
+
+          const clean1 = cleanName(name1);
+          const clean2 = cleanName(name2);
+
+          // Simple name equality or inclusion for now. More advanced fuzzy matching could be added.
+          if (clean1 === clean2 || clean1.includes(clean2) || clean2.includes(clean1)) {
+            similarPartners.push(partner2);
+          }
+        });
+
+        if (similarPartners.length > 1) {
+          nameGroups.push({
+            type: 'name',
+            key: partner1.partner_name,
+            partners: similarPartners,
+            severity: 'medium'
+          });
+          similarPartners.forEach(p => processedIds.add(p.id)); // Mark these partners as processed
+        }
+      });
+
+      duplicateGroups.push(...nameGroups);
+
+      setDetectedDuplicates(duplicateGroups);
+      setShowDuplicateManager(true);
+
+      if (duplicateGroups.length === 0) {
+        toast.success("✅ No duplicates found! Your data is clean.");
+      } else {
+        toast.success(`Found ${duplicateGroups.length} duplicate group(s)`);
+      }
+
+    } catch (error) {
+      console.error("[TeamingPartners] Error scanning duplicates:", error);
+      toast.error("Error scanning for duplicates");
+    } finally {
+      setScanningDuplicates(false);
+    }
+  };
+
+  const handleMergeDuplicates = (group) => {
+    setSelectedDuplicateGroup(group.partners);
+    setShowMergeDialog(true);
+    setShowDuplicateManager(false);
+  };
 
   const deletePartnerMutation = useMutation({
     mutationFn: async (id) => {
@@ -223,7 +333,6 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     const matchesType = filterType === "all" ||
       partner.partner_type === filterType;
 
-    // NEW: Tag filter
     const matchesTag = filterTag === "all" ||
       partner.tags?.includes(filterTag);
 
@@ -258,7 +367,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     filterCertification !== "all" ? 1 : 0,
     filterStatus !== "all" ? 1 : 0,
     filterType !== "all" ? 1 : 0,
-    filterTag !== "all" ? 1 : 0  // NEW
+    filterTag !== "all" ? 1 : 0
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => {
@@ -266,7 +375,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     setFilterCertification("all");
     setFilterStatus("all");
     setFilterType("all");
-    setFilterTag("all"); // NEW
+    setFilterTag("all");
   };
 
   if (!organization) {
@@ -284,13 +393,34 @@ ${partner.certifications && partner.certifications.length > 0 ? `
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Teaming Partners</h1>
           <p className="text-slate-600">Manage your network of partners and subcontractors</p>
         </div>
-        <Button 
-          onClick={() => navigate(createPageUrl("AddTeamingPartner") + "?mode=create")}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add New Partner
-        </Button>
+        <div className="flex gap-3">
+          {/* NEW: Duplicate Management Button */}
+          <Button 
+            onClick={scanForDuplicates}
+            variant="outline"
+            disabled={scanningDuplicates || partners.length === 0}
+            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            {scanningDuplicates ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Scanning...
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-5 h-5 mr-2" />
+                Find Duplicates
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl("AddTeamingPartner") + "?mode=create")}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add New Partner
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -759,6 +889,133 @@ ${partner.certifications && partner.certifications.length > 0 ? `
             );
           })}
         </div>
+      )}
+
+      {/* NEW: Duplicate Manager Dialog */}
+      <Dialog open={showDuplicateManager} onOpenChange={setShowDuplicateManager}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <AlertCircle className="w-6 h-6 text-amber-600" />
+              Duplicate Partner Management
+            </DialogTitle>
+            <DialogDescription>
+              Found {detectedDuplicates.length} potential duplicate group(s). Review and merge to clean up your data.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {detectedDuplicates.length === 0 ? (
+              <Card className="border-2 border-green-200 bg-green-50">
+                <CardContent className="p-8 text-center">
+                  <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-green-900 mb-2">
+                    ✅ No Duplicates Found!
+                  </h3>
+                  <p className="text-green-700">
+                    Your teaming partner data is clean and well-organized.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              detectedDuplicates.map((group, idx) => (
+                <Card 
+                  key={idx}
+                  className={cn(
+                    "border-2",
+                    group.severity === 'high' 
+                      ? "border-red-300 bg-red-50" 
+                      : "border-amber-300 bg-amber-50"
+                  )}
+                >
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">
+                          {group.type === 'uei' ? '🔴 UEI Duplicate' : '⚠️ Similar Names'}
+                        </CardTitle>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {group.partners.length} records with {group.type === 'uei' ? 'same UEI' : 'similar names'}
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => handleMergeDuplicates(group)}
+                        className={cn(
+                          group.severity === 'high' 
+                            ? "bg-red-600 hover:bg-red-700" 
+                            : "bg-amber-600 hover:bg-amber-700"
+                        )}
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Merge Group
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {group.partners.map((partner, pIdx) => (
+                        <div 
+                          key={pIdx}
+                          className="bg-white border border-slate-200 rounded-lg p-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-semibold text-slate-900">{partner.partner_name}</p>
+                              <div className="flex gap-2 mt-1 flex-wrap">
+                                {partner.uei && (
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    UEI: {partner.uei}
+                                  </Badge>
+                                )}
+                                {partner.cage_code && (
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    CAGE: {partner.cage_code}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  Created: {new Date(partner.created_date).toLocaleDateString()}
+                                </Badge>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEdit(partner)}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* NEW: Merge Dialog */}
+      {showMergeDialog && selectedDuplicateGroup && (
+        <DuplicateMerger
+          isOpen={showMergeDialog}
+          onClose={() => {
+            setShowMergeDialog(false);
+            setSelectedDuplicateGroup(null);
+            setShowDuplicateManager(true); // Return to duplicate manager
+          }}
+          duplicateGroup={selectedDuplicateGroup}
+          organization={organization}
+          onMergeComplete={() => { // Callback to refresh data after merge
+            queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
+            setShowMergeDialog(false);
+            setSelectedDuplicateGroup(null);
+            setShowDuplicateManager(false); // Close duplicate manager as well, user might want to re-scan
+            toast.success("Partners merged successfully!");
+          }}
+        />
       )}
 
       <ConfirmDialog
