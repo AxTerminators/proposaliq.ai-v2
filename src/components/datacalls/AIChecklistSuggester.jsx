@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, Loader2, CheckCircle2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
+import { cn } from "@/lib/utils";
 
 export default function AIChecklistSuggester({ 
   isOpen, 

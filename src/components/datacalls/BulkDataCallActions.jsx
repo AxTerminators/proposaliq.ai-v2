@@ -21,6 +21,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Trash2, CheckCircle2, X, Loader2, AlertCircle, Download } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function BulkDataCallActions({ 
   dataCallsList, 

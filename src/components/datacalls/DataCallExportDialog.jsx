@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, FileText, Table, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { logDataCallAction, logBulkDataCallAction, DataCallAuditActions } from "./DataCallAuditLogger";
 
 export default function DataCallExportDialog({ 
