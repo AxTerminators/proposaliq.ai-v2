@@ -26,7 +26,7 @@ import {
   Handshake
 } from "lucide-react";
 import { toast } from "sonner";
-import DataCallTemplateEditor from "./DataCallTemplateEditor";
+import DataCallTemplateEditorDialog from "./DataCallTemplateEditorDialog";
 
 const DEFAULT_TEMPLATES = [
   {
@@ -426,7 +426,7 @@ export default function DataCallEmailTemplateManager({ organization }) {
       )}
 
       {/* Template Editor Dialog */}
-      <DataCallTemplateEditor
+      <DataCallTemplateEditorDialog
         isOpen={showEditor}
         onClose={() => {
           setShowEditor(false);

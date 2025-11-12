@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import moment from "moment";
 import { toast } from "sonner";
 import DataCallInitiator from "../components/datacalls/DataCallInitiator";
@@ -662,21 +663,8 @@ export default function DataCallsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className={cn(
-                "space-y-4",
-                isMobileView && "space-y-3"
-              )}>
-                {filteredDataCalls.map(dc => 
-                  isMobileView ? (
-                    <MobileDataCallCard
-                      key={dc.id}
-                      dataCall={dc}
-                      onClick={() => openDetailView(dc)}
-                    />
-                  ) : (
-                    renderDataCallCard(dc)
-                  )
-                )}
+              <div className="space-y-4">
+                {filteredDataCalls.map(dc => renderDataCallCard(dc))}
               </div>
             )}
           </TabsContent>
