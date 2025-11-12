@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +45,7 @@ import { toast } from "sonner";
 import TaskManager from "../tasks/TaskManager";
 import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
+import DataCallManager from "../datacalls/DataCallManager";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
 import ConfirmDialog from "../ui/ConfirmDialog";
 
