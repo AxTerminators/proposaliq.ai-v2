@@ -52,6 +52,7 @@ import TestJourney from './pages/TestJourney';
 import TemplateManager from './pages/TemplateManager';
 import BoardManagement from './pages/BoardManagement';
 import ContentLibrary from './pages/ContentLibrary';
+import AddTeamingPartner from './pages/AddTeamingPartner';
 import Layout from './Layout.jsx';
 
 
@@ -110,6 +111,7 @@ export const PAGES = {
     "TemplateManager": TemplateManager,
     "BoardManagement": BoardManagement,
     "ContentLibrary": ContentLibrary,
+    "AddTeamingPartner": AddTeamingPartner,
 }
 
 export const pagesConfig = {
