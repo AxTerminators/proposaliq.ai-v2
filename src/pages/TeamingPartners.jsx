@@ -37,15 +37,15 @@ import {
   Eye,
   Filter,
   X,
-  AlertCircle, // NEW
-  Loader2, // NEW
-  CheckCircle2 // NEW
+  AlertCircle,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
-import DuplicateMerger from "../components/teamingpartners/DuplicateMerger"; // NEW
+import DuplicateMerger from "../components/teamingpartners/DuplicateMerger";
 import { toast } from "sonner";
 import {
   Select,
@@ -102,11 +102,11 @@ export default function TeamingPartners() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
-  const [showDuplicateManager, setShowDuplicateManager] = useState(false); // NEW
-  const [detectedDuplicates, setDetectedDuplicates] = useState([]); // NEW
-  const [selectedDuplicateGroup, setSelectedDuplicateGroup] = useState(null); // NEW
-  const [showMergeDialog, setShowMergeDialog] = useState(false); // NEW
-  const [scanningDuplicates, setScanningDuplicates] = useState(false); // NEW
+  const [showDuplicateManager, setShowDuplicateManager] = useState(false);
+  const [detectedDuplicates, setDetectedDuplicates] = useState([]);
+  const [selectedDuplicateGroup, setSelectedDuplicateGroup] = useState(null);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [scanningDuplicates, setScanningDuplicates] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -117,6 +117,7 @@ export default function TeamingPartners() {
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
+          console.log('[TeamingPartners] 📍 Active Organization:', org.organization_name, 'ID:', org.id);
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -129,10 +130,13 @@ export default function TeamingPartners() {
     queryKey: ['teaming-partners', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      return base44.entities.TeamingPartner.filter(
+      console.log('[TeamingPartners] 📥 Fetching partners for org:', organization.id);
+      const result = await base44.entities.TeamingPartner.filter(
         { organization_id: organization.id },
         'partner_name'
       );
+      console.log('[TeamingPartners] ✅ Fetched', result.length, 'partners');
+      return result;
     },
     enabled: !!organization?.id,
   });
@@ -147,10 +151,23 @@ export default function TeamingPartners() {
     return Array.from(tagSet).sort();
   }, [partners]);
 
-  // FIXED: Scan for duplicates function
+  // HEAVILY DEBUGGED: Scan for duplicates function
   const scanForDuplicates = async () => {
-    if (!organization?.id || partners.length === 0) {
-      toast.error("No partners to scan");
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[DuplicateScan] 🔍 STARTING DUPLICATE SCAN');
+    console.log('[DuplicateScan] Organization:', organization?.organization_name);
+    console.log('[DuplicateScan] Organization ID:', organization?.id);
+    console.log('[DuplicateScan] Total partners loaded:', partners.length);
+    console.log('[DuplicateScan] Partner IDs:', partners.map(p => p.id));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    if (!organization?.id) {
+      toast.error("No organization selected");
+      return;
+    }
+
+    if (partners.length === 0) {
+      toast.error("No partners found for this organization");
       return;
     }
 
@@ -159,24 +176,38 @@ export default function TeamingPartners() {
     try {
       const duplicateGroups = [];
 
-      console.log('[DuplicateScan] 🔍 Scanning', partners.length, 'partners for duplicates...');
+      // STEP 1: Log all UEIs
+      console.log('[DuplicateScan] 📋 All UEIs in partners:');
+      partners.forEach((p, idx) => {
+        console.log(`  ${idx + 1}. "${p.partner_name}" → UEI: "${p.uei || 'NONE'}" (ID: ${p.id})`);
+      });
 
-      // FIXED: Group by UEI (exact match) - simpler logic
+      // STEP 2: Group by UEI
       const ueiMap = {};
       partners.forEach(partner => {
-        if (partner.uei?.trim()) {
-          const uei = partner.uei.trim().toUpperCase();
+        const uei = partner.uei?.trim().toUpperCase();
+        if (uei) {
           if (!ueiMap[uei]) {
             ueiMap[uei] = [];
           }
           ueiMap[uei].push(partner);
+          console.log(`[DuplicateScan] ➕ Added "${partner.partner_name}" to UEI group: ${uei}`);
+        } else {
+          console.log(`[DuplicateScan] ⊘ Skipping "${partner.partner_name}" - no UEI`);
         }
       });
 
-      // Add UEI duplicate groups (only if 2+ partners share same UEI)
+      console.log('[DuplicateScan] 📊 UEI grouping results:');
+      Object.entries(ueiMap).forEach(([uei, group]) => {
+        console.log(`  UEI ${uei}: ${group.length} partner(s)`);
+        if (group.length > 1) {
+          console.log(`    🔴 DUPLICATE! Partners:`, group.map(p => p.partner_name));
+        }
+      });
+
+      // Add UEI duplicate groups
       Object.entries(ueiMap).forEach(([uei, group]) => {
         if (group.length > 1) {
-          console.log(`[DuplicateScan] 🔴 Found ${group.length} partners with UEI: ${uei}`);
           duplicateGroups.push({
             type: 'uei',
             key: uei,
@@ -186,8 +217,9 @@ export default function TeamingPartners() {
         }
       });
 
-      // FIXED: Group by exact and similar names
-      const nameMap = {};
+      console.log('[DuplicateScan] 🔴 UEI duplicates found:', duplicateGroups.length);
+
+      // STEP 3: Group by similar names
       const processedForNames = new Set();
 
       partners.forEach(partner1 => {
@@ -212,6 +244,7 @@ export default function TeamingPartners() {
           if (name1Lower === name2Lower) {
             matchingPartners.push(partner2);
             processedForNames.add(partner2.id);
+            console.log(`[DuplicateScan] 📝 Exact name match: "${partner1.partner_name}" = "${partner2.partner_name}"`);
             return;
           }
 
@@ -224,18 +257,18 @@ export default function TeamingPartners() {
           if (clean1 === clean2) {
             matchingPartners.push(partner2);
             processedForNames.add(partner2.id);
+            console.log(`[DuplicateScan] 📝 Clean name match: "${clean1}" = "${clean2}"`);
           }
         });
 
         if (matchingPartners.length > 1) {
-          // Only add if not already captured by UEI grouping
-          const alreadyCaptured = duplicateGroups.some(dg =>
+          // Check if already in UEI group
+          const alreadyInUEIGroup = duplicateGroups.some(dg =>
             dg.type === 'uei' &&
             dg.partners.some(p => matchingPartners.some(mp => mp.id === p.id))
           );
 
-          if (!alreadyCaptured) {
-            console.log(`[DuplicateScan] ⚠️ Found ${matchingPartners.length} partners with similar name: ${partner1.partner_name}`);
+          if (!alreadyInUEIGroup) {
             duplicateGroups.push({
               type: 'name',
               key: partner1.partner_name,
@@ -248,7 +281,19 @@ export default function TeamingPartners() {
         }
       });
 
-      console.log('[DuplicateScan] ✅ Scan complete. Found', duplicateGroups.length, 'duplicate groups');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[DuplicateScan] 📊 FINAL RESULTS:');
+      console.log('[DuplicateScan] Total duplicate groups:', duplicateGroups.length);
+      duplicateGroups.forEach((group, idx) => {
+        console.log(`  Group ${idx + 1} (${group.type}):`);
+        console.log(`    Severity: ${group.severity}`);
+        console.log(`    Key: ${group.key}`);
+        console.log(`    Partners: ${group.partners.length}`);
+        group.partners.forEach((p, pIdx) => {
+          console.log(`      ${pIdx + 1}. ${p.partner_name} (ID: ${p.id})`);
+        });
+      });
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       setDetectedDuplicates(duplicateGroups);
       setShowDuplicateManager(true);
@@ -489,7 +534,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                   </Button>
                 )}
               </div>
-              <div className="grid md:grid-cols-4 gap-3"> {/* Changed to md:grid-cols-4 */}
+              <div className="grid md:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Certification</label>
                   <Select value={filterCertification} onValueChange={setFilterCertification}>
