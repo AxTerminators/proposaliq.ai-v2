@@ -252,9 +252,11 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
   const updateProposalMutation = useMutation({
     mutationFn: async (updates) => {
+      console.log('[ProposalCardModal] 💾 Updating proposal with:', updates);
       return base44.entities.Proposal.update(proposal.id, updates);
     },
     onSuccess: (updatedProposal) => {
+      console.log('[ProposalCardModal] ✅ Proposal updated successfully');
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       
       // NEW: Check if status changed to "won"
@@ -468,6 +470,13 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     
     const isCurrentlyCompleted = itemStatus.completed || false;
     
+    console.log('[ProposalCardModal] 🔄 Toggling item:', {
+      itemId: item.id,
+      itemLabel: item.label,
+      currentlyCompleted: isCurrentlyCompleted,
+      newState: !isCurrentlyCompleted
+    });
+
     const updatedColumnStatus = {
       ...columnStatus,
       [item.id]: {
@@ -491,13 +500,22 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         return updatedColumnStatus[ci.id]?.completed || false;
       });
 
+    console.log('[ProposalCardModal] 📊 Checklist update:', {
+      itemId: item.id,
+      completed: !isCurrentlyCompleted,
+      allRequiredComplete,
+      updatedChecklistStatus
+    });
+
     await updateProposalMutation.mutateAsync({
       current_stage_checklist_status: updatedChecklistStatus,
       action_required: !allRequiredComplete
     });
+    
+    console.log('[ProposalCardModal] ✅ Checklist item toggled successfully');
   };
 
-  const handleModalClose = (checklistItemId = null) => {
+  const handleModalClose = async (checklistItemId = null) => {
     console.log('[ProposalCardModal] 🚪 Closing modal, checklist item ID:', checklistItemId || activeChecklistItemId);
     
     setActiveModalName(null);
@@ -507,6 +525,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     
     // If a checklist item ID is available, mark it as complete
     if (itemIdToComplete && currentColumn) {
+      console.log('[ProposalCardModal] ✅ Marking checklist item as complete:', itemIdToComplete);
+
       const currentStatus = proposal.current_stage_checklist_status || {};
       const columnStatus = currentStatus[currentColumn.id] || {};
       
@@ -533,16 +553,26 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
           return updatedColumnStatus[ci.id]?.completed || false;
         });
 
-      updateProposalMutation.mutate({
+      console.log('[ProposalCardModal] 💾 Saving checklist completion:', {
+        itemId: itemIdToComplete,
+        columnId: currentColumn.id,
+        allRequiredComplete,
+        updatedChecklistStatus
+      });
+
+      await updateProposalMutation.mutateAsync({
         current_stage_checklist_status: updatedChecklistStatus,
         action_required: !allRequiredComplete
       });
+      console.log('[ProposalCardModal] ✅ Checklist item marked as complete');
+    } else {
+      console.warn('[ProposalCardModal] ⚠️ No checklist item to complete:', { itemIdToComplete, hasCurrentColumn: !!currentColumn });
     }
     
     // Clear the tracked checklist item
     setActiveChecklistItemId(null);
     
-    queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    await queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
   const renderActiveModal = () => {
