@@ -25,7 +25,6 @@ import {
   Copy,
   CheckCircle2,
   Send,
-  Calendar,
   Loader2,
   ExternalLink
 } from "lucide-react";
@@ -136,9 +135,22 @@ export default function ClientPortalLinkGenerator({ clientOrganization, trigger 
     }
   };
 
+  const handleOpen = () => {
+    setShowDialog(true);
+    setGeneratedLink(null);
+    setCopied(false);
+  };
+
   return (
     <>
-      {React.cloneElement(trigger, { onClick: () => setShowDialog(true) })}
+      {trigger ? (
+        React.cloneElement(trigger, { onClick: handleOpen })
+      ) : (
+        <Button onClick={handleOpen} variant="outline">
+          <LinkIcon className="w-4 h-4 mr-2" />
+          Generate Portal Link
+        </Button>
+      )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl">
