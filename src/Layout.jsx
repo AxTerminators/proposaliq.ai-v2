@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -105,6 +104,7 @@ const ALL_NAVIGATION_ITEMS = [
   { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all", adminOnly: true },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
+  { title: "Data Calls", url: createPageUrl("DataCalls"), icon: FileQuestion, showFor: "all" },
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
   { title: "Client Workspaces", url: createPageUrl("ClientOrganizationManager"), icon: Building2, showFor: "consulting_firm" },
   { title: "Portfolio Dashboard", url: createPageUrl("ConsolidatedReporting"), icon: BarChart3, showFor: "consulting_firm" },

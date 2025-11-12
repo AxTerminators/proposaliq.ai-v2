@@ -54,8 +54,14 @@ export default function DataCallReviewer({ proposal, organization }) {
   };
 
   const sendReminderEmail = async (dataCall) => {
-    // TODO: Implement email sending in future phase
-    toast.info('Reminder email feature coming soon!');
+    try {
+      await base44.functions.invoke('sendDataCallReminder', {
+        data_call_id: dataCall.id
+      });
+      toast.success('Reminder email sent successfully!');
+    } catch (error) {
+      toast.error('Failed to send reminder: ' + error.message);
+    }
   };
 
   const getStatusColor = (status) => {

@@ -187,9 +187,56 @@ export default function DataCallInitiator({
     createDataCallMutation.mutate(formData);
   };
 
-  const handleSendNow = () => {
-    // TODO: In a future phase, this would actually send the email and update status to 'sent'
-    handleSubmit();
+  const handleSendNow = async () => {
+    // Validate first
+    if (!formData.request_title?.trim()) {
+      toast.error('Please enter a request title');
+      return;
+    }
+
+    if (formData.checklist_items.length === 0) {
+      toast.error('Please add at least one checklist item');
+      return;
+    }
+
+    if (recipientType === 'client_organization' && !formData.client_organization_id) {
+      toast.error('Please select a client organization');
+      return;
+    }
+
+    if (recipientType === 'teaming_partner' && !formData.teaming_partner_id) {
+      toast.error('Please select a teaming partner');
+      return;
+    }
+
+    if (!formData.assigned_to_email?.trim()) {
+      toast.error('Please specify who should receive this request');
+      return;
+    }
+
+    const hasEmptyItems = formData.checklist_items.some(item => !item.item_label?.trim());
+    if (hasEmptyItems) {
+      toast.error('All checklist items must have a label');
+      return;
+    }
+
+    // Create the data call first
+    createDataCallMutation.mutate(formData, {
+      onSuccess: async (createdDataCall) => {
+        try {
+          // Send the notification email
+          await base44.functions.invoke('sendDataCallNotification', {
+            data_call_id: createdDataCall.id,
+            notification_type: 'initial'
+          });
+
+          toast.success('✅ Data call sent successfully with email notification!');
+        } catch (emailError) {
+          console.error('Error sending email:', emailError);
+          toast.warning('Data call created but email notification failed. You can resend from the Data Calls page.');
+        }
+      }
+    });
   };
 
   const resetForm = () => {
