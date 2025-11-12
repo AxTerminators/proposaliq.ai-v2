@@ -57,6 +57,7 @@ import BulkActionsPanel from "./BulkActionsPanel";
 import WinToPromoteDialog from "./WinToPromoteDialog";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { toast } from 'sonner';
+import { useLazyLoadColumns } from "./useLazyLoadProposals"; // NEW IMPORT
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -500,6 +501,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     return columnProposals;
   }, [filteredProposals, proposalColumnAssignments, columnSorts, proposals]);
+
+  const validColumns = Array.isArray(columns) ? columns : [];
+
+  // **NEW: Lazy loading for columns**
+  const proposalsByColumn = useMemo(() => {
+    const byColumn = {};
+    
+    validColumns.forEach(column => {
+      byColumn[column.id] = getProposalsForColumn(column);
+    });
+    
+    return byColumn;
+  }, [validColumns, getProposalsForColumn]);
+
+  const {
+    getVisibleProposals,
+    hasMore,
+    loadMore,
+    loadAll,
+    getStats
+  } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
   const handleColumnSortChange = (columnId, sortBy) => {
     setColumnSorts(prev => {
@@ -1161,8 +1183,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  const validColumns = Array.isArray(columns) ? columns : [];
-
   if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) { // isLoadingConfig check is only relevant if we are fetching
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1389,7 +1409,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 >
                   {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
-                    const columnProposals = getProposalsForColumn(column);
+                    const columnProposals = getVisibleProposals(column.id); // **UPDATED: Use lazy loaded**
+                    const stats = getStats(column.id); // **NEW: Get stats**
 
                     return (
                       <Draggable
@@ -1426,7 +1447,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     {column.label}
                                   </div>
                                   <Badge variant="secondary" className="text-xs">
-                                    {columnProposals.length}
+                                    {stats.total}
                                   </Badge>
                                   <ChevronsRight className="w-4 h-4 text-slate-600" />
                                 </div>
@@ -1449,6 +1470,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     onCreateProposal={handleCreateProposalInColumn}
                                     selectedProposalIds={selectedProposalIds}
                                     onToggleProposalSelection={handleToggleProposalSelection}
+                                    // **NEW: Lazy loading props**
+                                    totalCount={stats.total}
+                                    visibleCount={stats.visible}
+                                    hasMore={hasMore(column.id)}
+                                    onLoadMore={() => loadMore(column.id)}
+                                    onLoadAll={() => loadAll(column.id)}
                                   />
                                 )}
                               </Droppable>

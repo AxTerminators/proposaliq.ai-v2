@@ -20,6 +20,7 @@ import {
   CheckCircle,
   FileText,
   DollarSign,
+  ChevronDown, // Added ChevronDown import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -44,7 +45,13 @@ export default function KanbanColumn({
   dragHandleProps,
   onCreateProposal,
   selectedProposalIds = [],
-  onToggleProposalSelection
+  onToggleProposalSelection,
+  // NEW: Lazy loading props
+  totalCount = proposals.length,
+  visibleCount = proposals.length,
+  hasMore = false,
+  onLoadMore,
+  onLoadAll
 }) {
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
@@ -117,9 +124,14 @@ export default function KanbanColumn({
   return (
     <div
       className={cn(
-        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
-        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
+        "w-80 flex-shrink-0 bg-white border-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex flex-col",
+        snapshot?.isDraggingOver && "border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200",
+        !snapshot?.isDraggingOver && "border-slate-200"
       )}
+      style={{
+        minHeight: '600px',
+        maxHeight: 'calc(100vh - 250px)'
+      }}
     >
       {/* Column Header - Single Row Layout with Consistent Height */}
       <div
@@ -283,9 +295,12 @@ export default function KanbanColumn({
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 p-3 space-y-3 min-h-[120px] transition-all duration-200",
+          "flex-1 p-3 space-y-3 overflow-y-auto min-h-[120px] transition-all duration-200",
           snapshot.isDraggingOver && "bg-blue-50/50"
         )}
+        style={{
+          minHeight: '100px'
+        }}
       >
         {/* Warning Messages */}
         {!canDragToHere && proposalCount > 0 && (
@@ -310,36 +325,74 @@ export default function KanbanColumn({
           </div>
         )}
 
-        {proposals.length === 0 ? (
+        {proposals.map((proposal, index) => (
+          <Draggable
+            key={proposal.id}
+            draggableId={proposal.id}
+            index={index}
+            type="card"
+            isDragDisabled={!canDragFromHere}
+          >
+            {(providedCard, snapshotCard) => (
+              <div
+                ref={providedCard.innerRef}
+                {...providedCard.draggableProps}
+                {...providedCard.dragHandleProps}
+                style={{
+                  ...providedCard.draggableProps.style,
+                  transition: 'all 0.2s ease-out'
+                }}
+              >
+                <KanbanCard
+                  proposal={proposal}
+                  onClick={() => onCardClick(proposal)}
+                  isDragging={snapshotCard.isDragging}
+                  organization={organization}
+                  user={user}
+                  column={column}
+                  isSelected={selectedProposalIds.includes(proposal.id)}
+                  onToggleSelection={(e) => {
+                    e.stopPropagation();
+                    onToggleProposalSelection(proposal.id);
+                  }}
+                  selectionMode={selectionMode}
+                />
+              </div>
+            )}
+          </Draggable>
+        ))}
+        {provided.placeholder}
+
+        {/* NEW: Load More Button */}
+        {hasMore && (
+          <div className="py-3 space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onLoadMore}
+              className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400"
+            >
+              <ChevronDown className="w-4 h-4 mr-2" />
+              Load More ({totalCount - visibleCount} remaining)
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLoadAll}
+              className="w-full text-xs text-slate-600 hover:text-blue-600"
+            >
+              Show All {totalCount} Cards
+            </Button>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {proposals.length === 0 && !snapshot?.isDraggingOver && (
           <div className="text-center py-8 text-slate-400">
             <p className="text-sm">No proposals</p>
             <p className="text-xs mt-1">Drag here or create new</p>
           </div>
-        ) : (
-          proposals.map((proposal, index) => (
-            <Draggable
-              key={proposal.id}
-              draggableId={proposal.id}
-              index={index}
-              type="card"
-              isDragDisabled={!canDragFromHere}
-            >
-              {(providedCard, snapshotCard) => (
-                <KanbanCard
-                  proposal={proposal}
-                  provided={providedCard}
-                  snapshot={snapshotCard}
-                  onClick={onCardClick}
-                  organization={organization}
-                  isSelected={selectedProposalIds.includes(proposal.id)}
-                  onToggleSelection={onToggleProposalSelection}
-                  selectionMode={selectionMode}
-                />
-              )}
-            </Draggable>
-          ))
         )}
-        {provided.placeholder}
       </div>
     </div>
   );
