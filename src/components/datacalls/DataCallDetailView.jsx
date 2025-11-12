@@ -30,7 +30,8 @@ import {
   Users,
   ExternalLink,
   RefreshCw,
-  FileText
+  FileText,
+  Shield
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import moment from "moment";
@@ -44,6 +45,8 @@ import DataCallExportDialog from "./DataCallExportDialog";
 import DataCallApprovalWorkflow from "./DataCallApprovalWorkflow";
 import DataCallCalendarIntegration from "./DataCallCalendarIntegration";
 import DataCallTimePrediction from "./DataCallTimePrediction";
+import DataCallAuditTrail from "./DataCallAuditTrail";
+import { logDataCallAction, DataCallAuditActions, isSensitiveDataCall } from "./DataCallAuditLogger";
 
 export default function DataCallDetailView({ 
   dataCallId, 
@@ -58,6 +61,7 @@ export default function DataCallDetailView({
   const [showFilePreview, setShowFilePreview] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -69,7 +73,20 @@ export default function DataCallDetailView({
     queryFn: async () => {
       if (!dataCallId) return null;
       const results = await base44.entities.DataCallRequest.filter({ id: dataCallId });
-      return results[0] || null;
+      const dc = results[0] || null;
+      
+      // Log view action
+      if (dc && user) {
+        const isSensitive = isSensitiveDataCall(dc);
+        await logDataCallAction(
+          isSensitive ? DataCallAuditActions.SENSITIVE_DATA_ACCESSED : DataCallAuditActions.VIEWED,
+          dc,
+          user,
+          { ip_address: 'browser' }
+        );
+      }
+      
+      return dc;
     },
     enabled: !!dataCallId && isOpen
   });
@@ -96,13 +113,18 @@ export default function DataCallDetailView({
     }
   });
 
-  const copyPortalLink = () => {
+  const copyPortalLink = async () => {
     if (!dataCall) return;
     const baseUrl = window.location.origin;
     const portalUrl = `${baseUrl}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`;
     
     navigator.clipboard.writeText(portalUrl);
     toast.success('Portal link copied to clipboard!');
+    
+    // Log audit action
+    if (user) {
+      await logDataCallAction(DataCallAuditActions.PORTAL_LINK_COPIED, dataCall, user);
+    }
   };
 
   const sendReminderEmail = async () => {
@@ -137,6 +159,16 @@ export default function DataCallDetailView({
     }
 
     toast.success('All files downloaded!');
+    
+    // Log audit action
+    if (user && dataCall) {
+      await logDataCallAction(
+        DataCallAuditActions.FILES_DOWNLOADED,
+        dataCall,
+        user,
+        { files_count: uploadedFiles.length }
+      );
+    }
   };
 
   const openFilePreview = (file) => {
@@ -242,6 +274,17 @@ export default function DataCallDetailView({
                   <FileText className="w-4 h-4 mr-2" />
                   Export
                 </Button>
+                {user?.role === 'admin' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAuditTrail(true)}
+                    className="border-red-300 hover:bg-red-50"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Audit
+                  </Button>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -777,6 +820,15 @@ export default function DataCallDetailView({
           organization={organization}
           user={user}
           onApprovalComplete={() => refreshMutation.mutate()}
+        />
+      )}
+
+      {/* Audit Trail */}
+      {dataCall && (
+        <DataCallAuditTrail
+          dataCallId={dataCall.id}
+          isOpen={showAuditTrail}
+          onClose={() => setShowAuditTrail(false)}
         />
       )}
     </>

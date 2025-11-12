@@ -21,8 +21,13 @@ import {
   ExternalLink,
   TrendingUp,
   Users,
-  RefreshCw
+  RefreshCw,
+  Settings
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import moment from "moment";
@@ -39,6 +44,7 @@ import DataCallExportDialog from "../components/datacalls/DataCallExportDialog";
 import MobileDataCallCard from "../components/datacalls/MobileDataCallCard";
 import MobileDataCallView from "../components/datacalls/MobileDataCallView";
 import DataCallVersionHistory from "../components/datacalls/DataCallVersionHistory";
+import DataCallEmailTemplateManager from "../components/datacalls/DataCallEmailTemplateManager";
 
 export default function DataCallsPage() {
   const queryClient = useQueryClient();
@@ -54,6 +60,7 @@ export default function DataCallsPage() {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistoryDataCall, setVersionHistoryDataCall] = useState(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [showEmailTemplates, setShowEmailTemplates] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     recipientTypes: [],
@@ -451,13 +458,22 @@ export default function DataCallsPage() {
               Request and manage information from clients, team members, and partners
             </p>
           </div>
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Data Call
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEmailTemplates(true)}
+            >
+              <Mail className="w-5 h-5 mr-2" />
+              Email Templates
+            </Button>
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              New Data Call
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -734,6 +750,13 @@ export default function DataCallsPage() {
           }}
         />
       )}
+
+      {/* Email Templates Manager */}
+      <Dialog open={showEmailTemplates} onOpenChange={setShowEmailTemplates}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DataCallEmailTemplateManager organization={organization} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
