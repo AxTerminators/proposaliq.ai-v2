@@ -48,6 +48,7 @@ import MobileNavigation from "./components/mobile/MobileNavigation";
 import GlobalSearch from "./components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
+import OrganizationSwitcher from "./components/layout/OrganizationSwitcher";
 import {
   Select,
   SelectContent,
@@ -195,6 +196,12 @@ function LayoutContent({ children }) {
       console.error('Error switching demo view mode:', error);
       alert('Error switching view mode: ' + error.message);
     }
+  };
+
+  // NEW: Handle organization switch
+  const handleOrganizationSwitch = async (newOrgId) => {
+    console.log('[Layout] Organization switched to:', newOrgId);
+    await refetch(); // Refetch organization context after switch
   };
 
   const tokenPercentage = subscription
@@ -835,6 +842,15 @@ function LayoutContent({ children }) {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* NEW: Organization Switcher */}
+                {user && organization && (
+                  <OrganizationSwitcher
+                    user={user}
+                    currentOrganization={organization}
+                    onSwitch={handleOrganizationSwitch}
+                  />
+                )}
+                
                 {/* Mobile Search Button */}
                 <Button
                   variant="ghost"
