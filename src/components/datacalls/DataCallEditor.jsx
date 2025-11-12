@@ -23,7 +23,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Save, Plus, Trash2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
-import { nanoid } from "nanoid";
 
 export default function DataCallEditor({ 
   isOpen, 
@@ -74,12 +73,13 @@ export default function DataCallEditor({
   };
 
   const addChecklistItem = () => {
+    const newId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setFormData({
       ...formData,
       checklist_items: [
         ...formData.checklist_items,
         {
-          id: nanoid(),
+          id: newId,
           item_label: "",
           item_description: "",
           is_required: true,

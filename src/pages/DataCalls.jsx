@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import BulkDataCallActions from "../components/datacalls/BulkDataCallActions";
 import DataCallDetailView from "../components/datacalls/DataCallDetailView";
 
 export default function DataCallsPage() {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -116,6 +117,9 @@ export default function DataCallsPage() {
         data_call_id: dataCall.id
       });
       toast.success('Reminder email sent!');
+      
+      // Refresh data calls list
+      queryClient.invalidateQueries({ queryKey: ['all-data-calls'] });
     } catch (error) {
       toast.error('Failed to send reminder: ' + error.message);
     }
