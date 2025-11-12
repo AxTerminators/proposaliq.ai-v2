@@ -53,6 +53,7 @@ import TemplateManager from './pages/TemplateManager';
 import BoardManagement from './pages/BoardManagement';
 import ContentLibrary from './pages/ContentLibrary';
 import AddTeamingPartner from './pages/AddTeamingPartner';
+import ClientOrganizationManager from './pages/ClientOrganizationManager';
 import Layout from './Layout.jsx';
 
 
@@ -112,6 +113,7 @@ export const PAGES = {
     "BoardManagement": BoardManagement,
     "ContentLibrary": ContentLibrary,
     "AddTeamingPartner": AddTeamingPartner,
+    "ClientOrganizationManager": ClientOrganizationManager,
 }
 
 export const pagesConfig = {
