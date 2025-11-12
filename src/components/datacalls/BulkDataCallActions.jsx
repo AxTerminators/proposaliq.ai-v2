@@ -19,12 +19,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Trash2, CheckCircle2, X, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Trash2, CheckCircle2, X, Loader2, AlertCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BulkDataCallActions({ 
   dataCallsList, 
-  organization 
+  organization,
+  onExport
 }) {
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState([]);
@@ -136,6 +137,17 @@ export default function BulkDataCallActions({
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete
                 </Button>
+
+                {onExport && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onExport}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Selected
+                  </Button>
+                )}
               </div>
 
               <div className="h-6 w-px bg-slate-300" />
