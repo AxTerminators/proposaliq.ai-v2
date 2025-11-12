@@ -73,7 +73,7 @@ export default function Pipeline() {
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
-  const isRestoringFromUrl = useRef(false); // NEW: Track if we're restoring from URL
+  const hasInitialized = useRef(false); // NEW: Track if board selection has been initialized
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
@@ -196,40 +196,41 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // FIXED: Read boardId from URL ONCE on mount and when boards change
+  // FIXED: Initialize board selection from URL or default - runs only once
   useEffect(() => {
-    if (allBoards.length === 0) return;
-    if (selectedBoardId) return; // Don't override if already selected by manual click
+    if (allBoards.length === 0 || hasInitialized.current) return;
 
     const urlParams = new URLSearchParams(window.location.search);
     const boardIdFromUrl = urlParams.get('boardId');
 
+    console.log('[Pipeline] 🔍 Initializing board selection');
+    console.log('[Pipeline] URL boardId:', boardIdFromUrl);
+    console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name })));
+
+    // Priority 1: Try to restore from URL
     if (boardIdFromUrl) {
       const boardExists = allBoards.find(b => b.id === boardIdFromUrl);
       if (boardExists) {
-        console.log('[Pipeline] Restoring board from URL:', boardExists.board_name);
-        isRestoringFromUrl.current = true; // Mark that we're restoring
+        console.log('[Pipeline] ✅ Restored board from URL:', boardExists.board_name);
         setSelectedBoardId(boardIdFromUrl);
+        hasInitialized.current = true;
         return;
+      } else {
+        console.warn('[Pipeline] ⚠️ Board from URL not found, falling back to default');
       }
     }
 
-    // Auto-select default board if no boardId in URL and no board is selected
+    // Priority 2: Auto-select default board
     const masterBoard = allBoards.find(b => b.is_master_board === true);
     const boardToSelect = masterBoard || allBoards[0];
-    console.log('[Pipeline] Auto-selecting board:', boardToSelect?.board_name);
+    console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name);
     setSelectedBoardId(boardToSelect?.id);
-  }, [allBoards.length]);
+    hasInitialized.current = true;
+  }, [allBoards]);
 
-  // FIXED: Update URL only when user manually changes board (not when restoring from URL)
+  // FIXED: Update URL when board changes (only after initialization)
   useEffect(() => {
-    if (!selectedBoardId) return;
-
-    // Skip URL update if we're currently restoring from URL
-    if (isRestoringFromUrl.current) {
-      isRestoringFromUrl.current = false; // Reset the flag
-      return;
-    }
+    if (!selectedBoardId || !hasInitialized.current) return;
 
     const urlParams = new URLSearchParams(window.location.search);
     const currentBoardIdInUrl = urlParams.get('boardId');
@@ -240,7 +241,7 @@ export default function Pipeline() {
       const newUrl = `${createPageUrl("Pipeline")}?${urlParams.toString()}`;
       window.history.replaceState({}, '', newUrl);
       
-      console.log('[Pipeline] Updated URL with boardId:', selectedBoardId);
+      console.log('[Pipeline] 📝 Updated URL with boardId:', selectedBoardId);
     }
   }, [selectedBoardId]);
 
