@@ -22,7 +22,8 @@ import {
   Activity,
   ArrowRight,
   Briefcase,
-  Package
+  Package,
+  FileQuestion
 } from "lucide-react";
 import {
   BarChart,
@@ -150,6 +151,22 @@ export default function ConsultantDashboard() {
     enabled: clientOrgs.length > 0,
   });
 
+  // NEW: Fetch data calls across all client orgs
+  const { data: allDataCalls = [] } = useQuery({
+    queryKey: ['consultant-all-datacalls', clientOrgs.map(c => c.id)],
+    queryFn: async () => {
+      if (clientOrgs.length === 0) return [];
+      
+      const dataCallPromises = clientOrgs.map(org =>
+        base44.entities.DataCallRequest.filter({ organization_id: org.id })
+      );
+
+      const dataCallArrays = await Promise.all(dataCallPromises);
+      return dataCallArrays.flat();
+    },
+    enabled: clientOrgs.length > 0,
+  });
+
   const isLoading = loadingClients || loadingProposals;
 
   // Calculate metrics
@@ -172,6 +189,17 @@ export default function ConsultantDashboard() {
       s.churn_risk === 'high' || s.churn_risk === 'critical'
     ).length;
 
+    // NEW: Data call metrics
+    const activeDataCalls = allDataCalls.filter(dc => 
+      !['completed'].includes(dc.overall_status)
+    ).length;
+
+    const overdueDataCalls = allDataCalls.filter(dc =>
+      dc.due_date && 
+      new Date(dc.due_date) < new Date() &&
+      dc.overall_status !== 'completed'
+    ).length;
+
     return {
       activeClients,
       totalProposals,
@@ -180,9 +208,11 @@ export default function ConsultantDashboard() {
       totalRevenue,
       pipelineValue,
       winRate,
-      atRiskClients
+      atRiskClients,
+      activeDataCalls,
+      overdueDataCalls
     };
-  }, [clientOrgs, allClientProposals, healthScores]);
+  }, [clientOrgs, allClientProposals, healthScores, allDataCalls]);
 
   // Client engagement overview
   const clientEngagement = React.useMemo(() => {
@@ -303,7 +333,7 @@ export default function ConsultantDashboard() {
           ))}
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="border-none shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
@@ -329,6 +359,21 @@ export default function ConsultantDashboard() {
               <p className="text-xs text-purple-200 mt-2">
                 {metrics.totalProposals} total
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <FileQuestion className="w-8 h-8 opacity-80" />
+              </div>
+              <div className="text-3xl font-bold mb-1">{metrics.activeDataCalls}</div>
+              <p className="text-indigo-100 text-sm">Active Data Calls</p>
+              {metrics.overdueDataCalls > 0 && (
+                <p className="text-xs text-indigo-200 mt-2">
+                  ⚠️ {metrics.overdueDataCalls} overdue
+                </p>
+              )}
             </CardContent>
           </Card>
 
