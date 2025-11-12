@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -47,8 +48,10 @@ import {
   FileText,
   Library,
   RefreshCw,
-  Package, // NEW import for Package icon
-  Calendar, // NEW import for Calendar icon
+  Package,
+  Calendar,
+  Activity, // NEW import for Activity icon
+  Send,     // NEW import for Send icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -59,9 +62,12 @@ import ClientUserManagement from "../components/clients/ClientUserManagement";
 import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary";
 import ResourceSyncManager from "../components/clients/ResourceSyncManager";
 import QuickClientActions from "../components/clients/QuickClientActions";
-import ClientHealthIndicator from "../components/clients/ClientHealthIndicator"; // NEW component import
-import ClientEngagementTimeline from "../components/clients/ClientEngagementTimeline"; // NEW component import
-import ClientAnalyticsDashboard from "../components/clients/ClientAnalyticsDashboard"; // NEW component import
+import ClientHealthIndicator from "../components/clients/ClientHealthIndicator";
+import ClientEngagementTimeline from "../components/clients/ClientEngagementTimeline";
+import ClientAnalyticsDashboard from "../components/clients/ClientAnalyticsDashboard";
+import ClientActivityFeed from "../components/clients/ClientActivityFeed"; // NEW component import
+import ProposalSharingWorkflow from "../components/clients/ProposalSharingWorkflow"; // NEW component import
+import BulkClientOperations from "../components/clients/BulkClientOperations"; // NEW component import
 import {
   Tabs,
   TabsContent,
@@ -216,7 +222,6 @@ export default function ClientOrganizationManager() {
         });
       }
 
-
       // Resource shares
       const shares = await base44.entities.ResourceShare.filter({
         target_organization_id: selectedClient.id
@@ -253,6 +258,19 @@ export default function ClientOrganizationManager() {
       });
 
       return events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    },
+    enabled: !!selectedClient?.id,
+  });
+
+  // NEW: Fetch proposals for selected client
+  const { data: selectedClientProposals = [] } = useQuery({
+    queryKey: ['selected-client-proposals', selectedClient?.id],
+    queryFn: async () => {
+      if (!selectedClient?.id) return [];
+      return base44.entities.Proposal.filter(
+        { organization_id: selectedClient.id },
+        '-created_date'
+      );
     },
     enabled: !!selectedClient?.id,
   });
@@ -529,6 +547,10 @@ export default function ClientOrganizationManager() {
               <Users className="w-4 h-4 mr-2" />
               User Access
             </TabsTrigger>
+            <TabsTrigger value="proposals">
+              <FileText className="w-4 h-4 mr-2" />
+              Proposals
+            </TabsTrigger>
             <TabsTrigger value="resources">
               <Package className="w-4 h-4 mr-2" />
               Push Resources
@@ -540,6 +562,10 @@ export default function ClientOrganizationManager() {
             <TabsTrigger value="analytics">
               <BarChart3 className="w-4 h-4 mr-2" />
               Analytics
+            </TabsTrigger>
+            <TabsTrigger value="activity">
+              <Activity className="w-4 h-4 mr-2" />
+              Activity
             </TabsTrigger>
             <TabsTrigger value="timeline">
               <Calendar className="w-4 h-4 mr-2" />
@@ -556,6 +582,82 @@ export default function ClientOrganizationManager() {
               clientOrganization={selectedClient}
               consultingFirm={consultingFirm}
             />
+          </TabsContent>
+
+          <TabsContent value="proposals">
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  Client Proposals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedClientProposals.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    <p>No proposals created yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedClientProposals.map(proposal => (
+                      <div
+                        key={proposal.id}
+                        className="p-4 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="font-semibold text-slate-900">
+                                {proposal.proposal_name}
+                              </p>
+                              <Badge className={cn(
+                                proposal.status === 'won' ? 'bg-green-100 text-green-700' :
+                                proposal.status === 'submitted' ? 'bg-purple-100 text-purple-700' :
+                                'bg-blue-100 text-blue-700'
+                              )}>
+                                {proposal.status.replace('_', ' ')}
+                              </Badge>
+                              {proposal.client_view_enabled && (
+                                <Badge className="bg-indigo-100 text-indigo-700">
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  Shared
+                                </Badge>
+                              )}
+                            </div>
+                            {proposal.project_title && (
+                              <p className="text-sm text-slate-600">
+                                {proposal.project_title}
+                              </p>
+                            )}
+                            {proposal.client_last_viewed && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                Last viewed: {moment(proposal.client_last_viewed).fromNow()}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2">
+                            {!proposal.client_view_enabled && (
+                              <ProposalSharingWorkflow
+                                proposal={proposal}
+                                clientOrganization={selectedClient}
+                                trigger={
+                                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Share
+                                  </Button>
+                                }
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="resources">
@@ -590,6 +692,10 @@ export default function ClientOrganizationManager() {
               clientOrganization={selectedClient}
               consultingFirm={consultingFirm}
             />
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <ClientActivityFeed clientOrganization={selectedClient} maxItems={20} />
           </TabsContent>
 
           <TabsContent value="timeline">
@@ -738,6 +844,14 @@ export default function ClientOrganizationManager() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* NEW: Bulk Operations Panel */}
+      {filteredClients.length > 0 && (
+        <BulkClientOperations
+          clientOrganizations={filteredClients}
+          consultingFirm={consultingFirm}
+        />
+      )}
 
       {/* Client Organizations Grid */}
       {isLoading ? (

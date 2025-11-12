@@ -3,8 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -14,229 +15,287 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Users,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Layers,
   Send,
   Archive,
+  Mail,
   Loader2,
   CheckCircle2,
-  Package,
-  Activity
+  Building2,
+  Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 /**
  * Bulk Client Operations
- * Perform operations on multiple clients at once
+ * Perform actions on multiple clients at once
  */
-export default function BulkClientOperations({ 
-  selectedClients = [], 
-  allClients = [],
-  consultingFirm,
-  onSelectionChange,
-  onComplete 
-}) {
+export default function BulkClientOperations({ clientOrganizations = [], consultingFirm }) {
   const queryClient = useQueryClient();
+  const [selectedClients, setSelectedClients] = useState([]);
   const [showBulkDialog, setShowBulkDialog] = useState(false);
-  const [bulkOperation, setBulkOperation] = useState(null);
+  const [bulkAction, setBulkAction] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const bulkArchiveMutation = useMutation({
-    mutationFn: async (clientIds) => {
-      const results = [];
-      for (const id of clientIds) {
-        const client = allClients.find(c => c.id === id);
-        if (client) {
-          await base44.entities.Organization.update(id, {
-            is_archived: true,
-            archived_date: new Date().toISOString()
-          });
-          results.push({ id, success: true });
-        }
-      }
-      return results;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['client-organizations'] });
-      toast.success(`Archived ${selectedClients.length} client workspace(s)`);
-      if (onComplete) onComplete();
-      setShowBulkDialog(false);
-    },
-    onError: (error) => {
-      toast.error("Bulk archive failed: " + error.message);
-    }
-  });
+  const toggleClient = (clientId) => {
+    setSelectedClients(prev =>
+      prev.includes(clientId)
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
+  };
 
-  const bulkHealthCheckMutation = useMutation({
-    mutationFn: async (clientIds) => {
-      const results = [];
-      for (const id of clientIds) {
-        try {
-          const response = await base44.functions.invoke('calculateClientHealth', {
-            client_organization_id: id
-          });
-          results.push({ 
-            id, 
-            success: response.data.success,
-            health_score: response.data.health_score 
-          });
-        } catch (error) {
-          results.push({ id, success: false, error: error.message });
-        }
-      }
-      return results;
-    },
-    onSuccess: (results) => {
-      queryClient.invalidateQueries({ queryKey: ['client-health-score'] });
-      const successCount = results.filter(r => r.success).length;
-      toast.success(`Updated health scores for ${successCount} of ${results.length} clients`);
-      if (onComplete) onComplete();
-      setShowBulkDialog(false);
-    },
-    onError: (error) => {
-      toast.error("Health check failed: " + error.message);
-    }
-  });
+  const selectAll = () => {
+    setSelectedClients(clientOrganizations.map(c => c.id));
+  };
 
-  const handleBulkOperation = (operation) => {
-    if (selectedClients.length === 0) {
-      toast.error("No clients selected");
+  const deselectAll = () => {
+    setSelectedClients([]);
+  };
+
+  const executeBulkAction = async () => {
+    if (!bulkAction || selectedClients.length === 0) {
+      toast.error('Please select an action and at least one client');
       return;
     }
 
-    setBulkOperation(operation);
-    setShowBulkDialog(true);
-  };
+    setIsProcessing(true);
+    setProgress(0);
 
-  const executeBulkOperation = () => {
-    switch (bulkOperation) {
-      case 'archive':
-        bulkArchiveMutation.mutate(selectedClients);
-        break;
-      case 'health_check':
-        bulkHealthCheckMutation.mutate(selectedClients);
-        break;
-      default:
-        break;
+    try {
+      const total = selectedClients.length;
+      let completed = 0;
+
+      for (const clientId of selectedClients) {
+        switch (bulkAction) {
+          case 'archive':
+            await base44.entities.Organization.update(clientId, {
+              is_archived: true,
+              archived_date: new Date().toISOString()
+            });
+            break;
+
+          case 'unarchive':
+            await base44.entities.Organization.update(clientId, {
+              is_archived: false,
+              archived_date: null
+            });
+            break;
+
+          case 'send_portal_links':
+            const linkResponse = await base44.functions.invoke('generateClientPortalLink', {
+              client_organization_id: clientId,
+              expiration_days: 90
+            });
+
+            if (linkResponse.data.success) {
+              const client = clientOrganizations.find(c => c.id === clientId);
+              await base44.integrations.Core.SendEmail({
+                to: client.contact_email,
+                subject: `Your Secure Proposal Portal Access`,
+                body: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 30px; text-align: center;">
+                      <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Portal Access</h1>
+                    </div>
+                    <div style="background: white; padding: 30px; border: 1px solid #e5e7eb;">
+                      <p style="font-size: 16px; color: #374151;">
+                        Hello ${client.contact_name || 'there'},
+                      </p>
+                      <p style="font-size: 16px; color: #374151; margin: 20px 0;">
+                        Access your secure proposal portal:
+                      </p>
+                      <div style="text-align: center;">
+                        <a href="${linkResponse.data.portal_url}" 
+                           style="background: #3b82f6; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
+                          Access Portal →
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                `
+              });
+            }
+            break;
+        }
+
+        completed++;
+        setProgress((completed / total) * 100);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['client-organizations'] });
+      
+      toast.success(`✅ Completed ${bulkAction} for ${completed} client${completed !== 1 ? 's' : ''}!`);
+      setShowBulkDialog(false);
+      setSelectedClients([]);
+      setBulkAction('');
+
+    } catch (error) {
+      console.error('Error executing bulk action:', error);
+      toast.error('Error: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
     }
   };
-
-  const operations = [
-    {
-      key: 'archive',
-      label: 'Archive Selected',
-      icon: Archive,
-      color: 'from-slate-500 to-slate-700',
-      description: 'Archive multiple client workspaces'
-    },
-    {
-      key: 'health_check',
-      label: 'Update Health Scores',
-      icon: Activity,
-      color: 'from-green-500 to-emerald-600',
-      description: 'Recalculate health metrics'
-    }
-  ];
-
-  const selectedCount = selectedClients.length;
 
   return (
     <>
       <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5 text-purple-600" />
-            Bulk Operations
-            {selectedCount > 0 && (
-              <Badge className="bg-purple-600 text-white ml-2">
-                {selectedCount} selected
-              </Badge>
-            )}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-purple-600" />
+              Bulk Operations
+            </CardTitle>
+            <div className="flex gap-2">
+              {selectedClients.length === 0 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={selectAll}
+                  className="text-purple-700 border-purple-300"
+                >
+                  Select All
+                </Button>
+              ) : (
+                <>
+                  <Badge className="bg-purple-600 text-white px-3 py-1">
+                    {selectedClients.length} selected
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={deselectAll}
+                    className="text-purple-700 border-purple-300"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowBulkDialog(true)}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Layers className="w-4 h-4 mr-2" />
+                    Actions
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {selectedCount === 0 ? (
-            <p className="text-slate-600 text-sm">
-              Select clients from the list to perform bulk operations
-            </p>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-3">
-              {operations.map(op => {
-                const Icon = op.icon;
-                return (
-                  <button
-                    key={op.key}
-                    onClick={() => handleBulkOperation(op.key)}
-                    className="group relative overflow-hidden rounded-xl border-2 border-slate-200 bg-white hover:border-purple-300 hover:shadow-lg transition-all p-4 text-left"
-                  >
-                    <div className={cn(
-                      "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity",
-                      op.color
-                    )} />
-                    <Icon className="w-6 h-6 mb-2 text-purple-600" />
-                    <p className="font-semibold text-slate-900 text-sm mb-0.5">
-                      {op.label}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {clientOrganizations.map(client => {
+              const isSelected = selectedClients.includes(client.id);
+              
+              return (
+                <div
+                  key={client.id}
+                  onClick={() => toggleClient(client.id)}
+                  className={cn(
+                    "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                    isSelected
+                      ? "border-purple-500 bg-purple-100"
+                      : "border-slate-200 hover:border-purple-300 bg-white"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={isSelected}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <Building2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                    <p className="font-medium text-slate-900 text-sm truncate flex-1">
+                      {client.organization_name}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      {op.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Bulk Operation Confirmation Dialog */}
+      {/* Bulk Action Dialog */}
       <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {bulkOperation === 'archive' && <Archive className="w-5 h-5 text-slate-600" />}
-              {bulkOperation === 'health_check' && <Activity className="w-5 h-5 text-green-600" />}
-              Confirm Bulk Operation
+              <Layers className="w-5 h-5 text-purple-600" />
+              Bulk Action
             </DialogTitle>
             <DialogDescription>
-              {bulkOperation === 'archive' && 
-                `Archive ${selectedCount} client workspace${selectedCount !== 1 ? 's' : ''}?`
-              }
-              {bulkOperation === 'health_check' && 
-                `Recalculate health scores for ${selectedCount} client${selectedCount !== 1 ? 's' : ''}?`
-              }
+              Perform action on {selectedClients.length} selected client{selectedClients.length !== 1 ? 's' : ''}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4">
-            <p className="text-sm text-slate-700 mb-3">
-              This will affect the following clients:
-            </p>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {selectedClients.map(id => {
-                const client = allClients.find(c => c.id === id);
-                return (
-                  <div key={id} className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                    <span className="truncate">{client?.organization_name || 'Unknown'}</span>
-                  </div>
-                );
-              })}
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Select Action</Label>
+              <Select value={bulkAction} onValueChange={setBulkAction}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose action..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="send_portal_links">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Send Portal Links
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="archive">
+                    <div className="flex items-center gap-2">
+                      <Archive className="w-4 h-4" />
+                      Archive Clients
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="unarchive">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Unarchive Clients
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {isProcessing && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Processing...</span>
+                  <span className="font-semibold text-slate-900">
+                    {Math.round(progress)}%
+                  </span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDialog(false)}
+              disabled={isProcessing}
+            >
               Cancel
             </Button>
             <Button
-              onClick={executeBulkOperation}
-              disabled={bulkArchiveMutation.isPending || bulkHealthCheckMutation.isPending}
-              className={cn(
-                bulkOperation === 'archive' 
-                  ? "bg-slate-600 hover:bg-slate-700"
-                  : "bg-green-600 hover:bg-green-700"
-              )}
+              onClick={executeBulkAction}
+              disabled={!bulkAction || isProcessing}
+              className="bg-purple-600 hover:bg-purple-700"
             >
-              {(bulkArchiveMutation.isPending || bulkHealthCheckMutation.isPending) ? (
+              {isProcessing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Processing...
@@ -244,7 +303,7 @@ export default function BulkClientOperations({
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Confirm
+                  Execute
                 </>
               )}
             </Button>
