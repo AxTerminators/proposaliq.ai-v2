@@ -45,13 +45,22 @@ import {
   AlertCircle,
   CheckCircle2,
   BarChart3,
-  FileText
+  FileText,
+  Library // NEW import for Library icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import moment from "moment";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import ClientUserManagement from "../components/clients/ClientUserManagement"; // NEW component import
+import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary"; // NEW component import
+import { // NEW imports for Tabs
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 /**
  * Client Organization Manager
@@ -70,6 +79,7 @@ export default function ClientOrganizationManager() {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null); // NEW state for selected client
 
   const [formData, setFormData] = useState({
     organization_name: "",
@@ -189,6 +199,10 @@ export default function ClientOrganizationManager() {
       setShowCreateDialog(false);
       setEditingClient(null);
       resetForm();
+      // If editing, update the selected client's data
+      if (selectedClient && editingClient && selectedClient.id === editingClient.id) {
+        setSelectedClient(result);
+      }
     },
     onError: (error) => {
       toast.error("Failed to save: " + error.message);
@@ -227,6 +241,9 @@ export default function ClientOrganizationManager() {
       toast.success("Client organization deleted");
       setShowDeleteConfirm(false);
       setClientToDelete(null);
+      if (selectedClient?.id === clientToDelete?.id) {
+        setSelectedClient(null); // Deselect if the deleted client was being viewed
+      }
     },
     onError: (error) => {
       toast.error("Failed to delete: " + error.message);
@@ -346,6 +363,182 @@ export default function ClientOrganizationManager() {
     );
   }
 
+  // NEW: If a client is selected, show detailed view
+  if (selectedClient) {
+    return (
+      <div className="p-6 lg:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setSelectedClient(null)}
+              className="-ml-2"
+            >
+              ← Back to All Clients
+            </Button>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <Building2 className="w-8 h-8 text-blue-600" />
+              {selectedClient.organization_name}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-blue-100 text-blue-700">
+              Client Workspace
+            </Badge>
+            {selectedClient.is_archived && (
+              <Badge className="bg-slate-100 text-slate-700 text-xs">
+                <Archive className="w-3 h-3 mr-1" />
+                Archived
+              </Badge>
+            )}
+          </div>
+        </div>
+        <p className="text-slate-600 mt-1">{selectedClient.contact_email}</p>
+
+        <Tabs defaultValue="users" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="users">
+              <Users className="w-4 h-4 mr-2" />
+              User Access
+            </TabsTrigger>
+            <TabsTrigger value="resources">
+              <Library className="w-4 h-4 mr-2" />
+              Push Resources
+            </TabsTrigger>
+            <TabsTrigger value="details">
+              <FileText className="w-4 h-4 mr-2" />
+              Details
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
+            <ClientUserManagement 
+              clientOrganization={selectedClient}
+              consultingFirm={consultingFirm}
+            />
+          </TabsContent>
+
+          <TabsContent value="resources">
+            <Card className="border-none shadow-lg">
+              <CardContent className="p-6">
+                <p className="text-slate-600 mb-4">
+                  Push templates, past performance, key personnel, and other resources from your firm's library to this client workspace
+                </p>
+                <GlobalResourceLibrary consultingFirm={consultingFirm} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="details">
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Organization Details</CardTitle>
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleEdit(selectedClient)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {selectedClient.contact_name && (
+                    <div>
+                      <label className="text-sm text-slate-500">Contact Name</label>
+                      <p className="font-medium">{selectedClient.contact_name}</p>
+                    </div>
+                  )}
+                  {selectedClient.contact_email && (
+                    <div>
+                      <label className="text-sm text-slate-500">Email</label>
+                      <p className="font-medium">{selectedClient.contact_email}</p>
+                    </div>
+                  )}
+                  {selectedClient.website_url && (
+                    <div>
+                      <label className="text-sm text-slate-500">Website</label>
+                      <a 
+                        href={selectedClient.website_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {selectedClient.website_url}
+                      </a>
+                    </div>
+                  )}
+                  {selectedClient.address && (
+                    <div>
+                      <label className="text-sm text-slate-500">Address</label>
+                      <p className="font-medium">{selectedClient.address}</p>
+                    </div>
+                  )}
+                  {selectedClient.uei && (
+                    <div>
+                      <label className="text-sm text-slate-500">UEI</label>
+                      <p className="font-medium font-mono">{selectedClient.uei}</p>
+                    </div>
+                  )}
+                  {selectedClient.cage_code && (
+                    <div>
+                      <label className="text-sm text-slate-500">CAGE Code</label>
+                      <p className="font-medium font-mono">{selectedClient.cage_code}</p>
+                    </div>
+                  )}
+                </div>
+
+                {selectedClient.custom_branding && (
+                  <div className="pt-4 border-t">
+                    <h4 className="font-semibold text-slate-900 mb-3">Custom Branding</h4>
+                    <div className="space-y-3">
+                      {selectedClient.custom_branding.logo_url && (
+                        <div>
+                          <label className="text-sm text-slate-500">Logo URL</label>
+                          <p className="text-sm text-slate-700 mt-1">
+                            <a 
+                              href={selectedClient.custom_branding.logo_url}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {selectedClient.custom_branding.logo_url}
+                            </a>
+                          </p>
+                        </div>
+                      )}
+                      {selectedClient.custom_branding.primary_color && (
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-8 h-8 rounded border"
+                            style={{ backgroundColor: selectedClient.custom_branding.primary_color }}
+                          />
+                          <span className="text-sm text-slate-600">
+                            Brand Color: {selectedClient.custom_branding.primary_color}
+                          </span>
+                        </div>
+                      )}
+                      {selectedClient.custom_branding.welcome_message && (
+                        <div>
+                          <label className="text-sm text-slate-500">Welcome Message</label>
+                          <p className="text-sm text-slate-700 mt-1">
+                            {selectedClient.custom_branding.welcome_message}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
@@ -432,9 +625,10 @@ export default function ClientOrganizationManager() {
               <Card
                 key={clientOrg.id}
                 className={cn(
-                  "border-none shadow-lg hover:shadow-xl transition-all",
+                  "border-none shadow-lg hover:shadow-xl transition-all cursor-pointer",
                   isArchived && "opacity-75"
                 )}
+                onClick={() => setSelectedClient(clientOrg)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
@@ -471,7 +665,10 @@ export default function ClientOrganizationManager() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleEdit(clientOrg)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(clientOrg);
+                        }}
                         title="Edit"
                       >
                         <Edit className="w-4 h-4" />
@@ -479,7 +676,10 @@ export default function ClientOrganizationManager() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(clientOrg)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(clientOrg);
+                        }}
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
@@ -544,7 +744,10 @@ export default function ClientOrganizationManager() {
                     <Button
                       size="sm"
                       className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                      onClick={() => handleSwitchToClient(clientOrg)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchToClient(clientOrg);
+                      }}
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       Open Workspace
@@ -555,15 +758,21 @@ export default function ClientOrganizationManager() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate(`${createPageUrl("Team")}?clientOrgId=${clientOrg.id}`)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedClient(clientOrg);
+                        }}
                       >
                         <UserPlus className="w-4 h-4 mr-1" />
-                        Users
+                        Manage Users
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => archiveClientMutation.mutate(clientOrg)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          archiveClientMutation.mutate(clientOrg);
+                        }}
                         disabled={archiveClientMutation.isPending}
                       >
                         <Archive className="w-4 h-4 mr-1" />

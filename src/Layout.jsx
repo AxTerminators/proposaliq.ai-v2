@@ -181,12 +181,12 @@ function LayoutContent({ children }) {
   React.useEffect(() => {
     if (!organization || !user) return;
 
-    const effectiveOrgType = organization.organization_type === 'demo' 
-      ? demoViewMode 
+    const effectiveOrgType = organization.organization_type === 'demo'
+      ? demoViewMode
       : organization.organization_type;
-    
+
     const isConsultant = effectiveOrgType === 'consultancy';
-    const isConsultingFirm = organization.organization_type === 'consulting_firm' || 
+    const isConsultingFirm = organization.organization_type === 'consulting_firm' ||
                              (effectiveOrgType === 'consultancy');
     const userIsAdmin = user?.role === 'admin';
     const userIsSuperAdmin = user?.admin_role === 'super_admin';
@@ -202,16 +202,16 @@ function LayoutContent({ children }) {
       return item;
     });
 
-    const currentPageItem = allNavigableItems.find(item => 
+    const currentPageItem = allNavigableItems.find(item =>
       location.pathname === item.url
     );
 
     if (currentPageItem) {
       // Check if user has access to this page
-      const hasAccess = 
+      const hasAccess =
         (!currentPageItem.superAdminOnly || userIsSuperAdmin) &&
         (!currentPageItem.adminOnly || userIsAdmin) &&
-        (currentPageItem.showFor === undefined || currentPageItem.showFor === "all" || 
+        (currentPageItem.showFor === undefined || currentPageItem.showFor === "all" ||
          (currentPageItem.showFor === "consultant" && isConsultant) ||
          (currentPageItem.showFor === "corporate" && !isConsultant) ||
          (currentPageItem.showFor === "consulting_firm" && isConsultingFirm)
@@ -236,10 +236,10 @@ function LayoutContent({ children }) {
       await base44.entities.Organization.update(organization.id, {
         demo_view_mode: newMode
       });
-      
+
       setDemoViewMode(newMode);
       await refetch(); // Refresh organization data
-      
+
       // Show success message
       alert(`✅ Demo view switched to ${newMode === 'consultancy' ? 'Consultant' : 'Corporate'} mode!\n\nThe navigation will update to show ${newMode === 'consultancy' ? 'client management features' : 'corporate features'}.`);
     } catch (error) {
@@ -263,16 +263,16 @@ function LayoutContent({ children }) {
 
   const navigationItems = React.useMemo(() => {
     if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");
-    
+
     // NEW: For demo accounts, use demo_view_mode instead of organization_type
-    const effectiveOrgType = organization.organization_type === 'demo' 
-      ? demoViewMode 
+    const effectiveOrgType = organization.organization_type === 'demo'
+      ? demoViewMode
       : organization.organization_type;
-    
+
     const isConsultant = effectiveOrgType === 'consultancy';
-    const isConsultingFirm = organization.organization_type === 'consulting_firm' || 
+    const isConsultingFirm = organization.organization_type === 'consulting_firm' ||
                              (effectiveOrgType === 'consultancy');
-    
+
     return ALL_NAVIGATION_ITEMS.filter(item => {
       if (item.superAdminOnly && !userIsSuperAdmin) return false;
       if (item.adminOnly && !userIsAdmin) return false;
@@ -287,7 +287,7 @@ function LayoutContent({ children }) {
     <TooltipProvider delayDuration={0}>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
         {/* Desktop Sidebar */}
-        <aside 
+        <aside
           className={cn(
             "border-r border-slate-200 bg-white hidden lg:flex flex-col transition-all duration-300 flex-shrink-0",
             sidebarCollapsed ? "w-20" : "w-64"
@@ -328,16 +328,16 @@ function LayoutContent({ children }) {
                     {organization.organization_type && (
                       <Badge className={cn(
                         "text-xs mt-1",
-                        organization.organization_type === 'demo' 
+                        organization.organization_type === 'demo'
                           ? 'bg-purple-100 text-purple-700'
                           : organization.organization_type === 'consultancy' || organization.organization_type === 'consulting_firm'
-                            ? 'bg-purple-100 text-purple-700' 
+                            ? 'bg-purple-100 text-purple-700'
                             : 'bg-blue-100 text-blue-700'
                       )}>
-                        {organization.organization_type === 'demo' 
-                          ? '🎭 Demo Account' 
-                          : organization.organization_type === 'consultancy' 
-                            ? 'Consultant' 
+                        {organization.organization_type === 'demo'
+                          ? '🎭 Demo Account'
+                          : organization.organization_type === 'consultancy'
+                            ? 'Consultant'
                             : organization.organization_type === 'consulting_firm'
                               ? 'Consulting Firm'
                               : 'Corporate'}
@@ -401,14 +401,14 @@ function LayoutContent({ children }) {
               <nav className="space-y-1">
                 {navigationItems.map((item) => {
                   if (item.hasSubMenu) {
-                    const isOpen = item.title === "Workspace" ? workspaceOpen : 
+                    const isOpen = item.title === "Workspace" ? workspaceOpen :
                                    item.title === "Tools" ? toolsOpen :
                                    item.title === "Settings" ? settingsOpen : false;
-                    const setIsOpen = item.title === "Workspace" ? setWorkspaceOpen : 
+                    const setIsOpen = item.title === "Workspace" ? setWorkspaceOpen :
                                      item.title === "Tools" ? setToolsOpen :
                                      item.title === "Settings" ? setSettingsOpen : () => {};
                     const subItems = item.subMenuItems || [];
-                    
+
                     return (
                       <div key={item.title}>
                         {sidebarCollapsed ? (
@@ -454,7 +454,7 @@ function LayoutContent({ children }) {
                             )} />
                           </button>
                         )}
-                        
+
                         {!sidebarCollapsed && isOpen && (
                           <div className="ml-4 pl-3 border-l-2 border-slate-200 space-y-1 py-1">
                             {subItems.map((subItem) => (
@@ -694,16 +694,16 @@ function LayoutContent({ children }) {
                 {organization.organization_type && (
                   <Badge className={cn(
                     "text-xs mt-1",
-                    organization.organization_type === 'demo' 
+                    organization.organization_type === 'demo'
                       ? 'bg-purple-100 text-purple-700'
                       : organization.organization_type === 'consultancy' || organization.organization_type === 'consulting_firm'
-                        ? 'bg-purple-100 text-purple-700' 
+                        ? 'bg-purple-100 text-purple-700'
                         : 'bg-blue-100 text-blue-700'
                   )}>
-                    {organization.organization_type === 'demo' 
-                      ? '🎭 Demo Account' 
-                      : organization.organization_type === 'consultancy' 
-                        ? 'Consultant' 
+                    {organization.organization_type === 'demo'
+                      ? '🎭 Demo Account'
+                      : organization.organization_type === 'consultancy'
+                        ? 'Consultant'
                         : organization.organization_type === 'consulting_firm'
                           ? 'Consulting Firm'
                           : 'Corporate'}
@@ -886,6 +886,19 @@ function LayoutContent({ children }) {
                 </div>
               </div>
 
+              {/* NEW: Client Workspace Indicator */}
+              {organization?.organization_type === 'client_organization' && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <div className="text-sm">
+                    <span className="text-slate-600">Client Workspace:</span>
+                    <span className="font-semibold text-blue-900 ml-1">
+                      {organization.organization_name}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Global Search Bar - Centered */}
               <div className="hidden md:flex flex-1 justify-center max-w-2xl mx-auto">
                 <Button
@@ -907,7 +920,7 @@ function LayoutContent({ children }) {
                     onSwitch={handleOrganizationSwitch}
                   />
                 )}
-                
+
                 {/* Mobile Search Button */}
                 <Button
                   variant="ghost"
