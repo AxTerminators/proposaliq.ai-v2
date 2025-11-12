@@ -21,6 +21,7 @@ import {
   Calendar,
   DollarSign,
   Building2,
+  FileQuestion,
   Sparkles,
   PlayCircle,
   CheckCircle2,
@@ -925,6 +926,13 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                   Tasks
                 </TabsTrigger>
                 <TabsTrigger 
+                  value="data-calls" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
+                >
+                  <FileQuestion className="w-4 h-4" />
+                  Data Calls
+                </TabsTrigger>
+                <TabsTrigger 
                   value="discussions" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
                 >
@@ -1115,6 +1123,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     organization={organization}
                     proposalId={proposal.id}
                     embedded={true}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="data-calls" className="mt-0 p-6">
+                {user && organization && (
+                  <DataCallManager
+                    proposal={proposal}
+                    organization={organization}
+                    user={user}
                   />
                 )}
               </TabsContent>
