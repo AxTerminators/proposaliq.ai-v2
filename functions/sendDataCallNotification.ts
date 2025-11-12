@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data_call_id, notification_type = 'initial' } = await req.json();
+    const { data_call_id, notification_type = 'initial', custom_template_id } = await req.json();
 
     if (!data_call_id) {
       return Response.json({
@@ -36,9 +36,46 @@ Deno.serve(async (req) => {
     const baseUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
     const portalUrl = `${baseUrl}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`;
 
+    // Try to fetch custom email template
+    let emailTemplate = null;
+    if (custom_template_id) {
+      const templates = await base44.asServiceRole.entities.EmailTemplate.filter({
+        id: custom_template_id
+      });
+      emailTemplate = templates[0] || null;
+    }
+
     let subject, emailBody;
 
-    if (notification_type === 'initial') {
+    if (emailTemplate) {
+      // Use custom template with placeholder replacement
+      const completedCount = dataCall.checklist_items.filter(i => i.status === 'completed').length;
+      const totalCount = dataCall.checklist_items.length;
+      
+      const placeholders = {
+        '{{data_call_title}}': dataCall.request_title,
+        '{{recipient_name}}': dataCall.assigned_to_name || 'there',
+        '{{creator_name}}': dataCall.created_by_name || dataCall.created_by_email,
+        '{{organization_name}}': 'ProposalIQ.ai',
+        '{{due_date}}': dataCall.due_date ? new Date(dataCall.due_date).toLocaleDateString() : 'Not specified',
+        '{{portal_link}}': portalUrl,
+        '{{checklist_summary}}': dataCall.checklist_items.map((item, i) => `${i+1}. ${item.item_label}`).join('\\n'),
+        '{{completed_count}}': completedCount.toString(),
+        '{{total_count}}': totalCount.toString(),
+        '{{priority}}': dataCall.priority || 'medium'
+      };
+      
+      subject = emailTemplate.subject;
+      emailBody = emailTemplate.body;
+      
+      Object.entries(placeholders).forEach(([key, value]) => {
+        subject = subject.replace(new RegExp(key.replace(/[{}]/g, '\\\\$&'), 'g'), value);
+        emailBody = emailBody.replace(new RegExp(key.replace(/[{}]/g, '\\\\$&'), 'g'), value);
+      });
+      
+      // Convert to HTML
+      emailBody = `<div style="font-family: Arial, sans-serif; white-space: pre-wrap;">${emailBody}</div>`;
+    } else if (notification_type === 'initial') {
       subject = `New Data Call Request: ${dataCall.request_title}`;
       emailBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

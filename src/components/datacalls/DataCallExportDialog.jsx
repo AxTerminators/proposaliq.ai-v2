@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, FileText, Table, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { logDataCallAction, logBulkDataCallAction, DataCallAuditActions } from "./DataCallAuditLogger";
 
 export default function DataCallExportDialog({ 
   isOpen, 
@@ -34,6 +35,9 @@ export default function DataCallExportDialog({
 
   const exportMutation = useMutation({
     mutationFn: async () => {
+      // Get current user for audit logging
+      const user = await base44.auth.me();
+      
       if (exportFormat === 'pdf') {
         // Generate PDF
         const response = await base44.functions.invoke('exportDataCallToPDF', {
@@ -73,6 +77,23 @@ export default function DataCallExportDialog({
         a.click();
         window.URL.revokeObjectURL(url);
         a.remove();
+        
+        // Log audit action
+        if (isBatchExport) {
+          await logBulkDataCallAction(
+            exportFormat === 'pdf' ? DataCallAuditActions.BATCH_EXPORTED : DataCallAuditActions.BATCH_EXPORTED,
+            selectedDataCalls.map(dc => dc.id),
+            user,
+            { export_format: exportFormat, options }
+          );
+        } else if (dataCall) {
+          await logDataCallAction(
+            exportFormat === 'pdf' ? DataCallAuditActions.EXPORTED_PDF : DataCallAuditActions.EXPORTED_EXCEL,
+            dataCall,
+            user,
+            { options }
+          );
+        }
       }
     },
     onSuccess: () => {

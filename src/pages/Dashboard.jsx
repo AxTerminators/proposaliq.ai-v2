@@ -12,6 +12,7 @@ import AIInsightsCard from "../components/dashboard/AIInsightsCard";
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import RevenueChart from "../components/dashboard/RevenueChart";
 import MobileDashboard from "../components/mobile/MobileDashboard";
+import DataCallSummaryWidget from "../components/dashboard/DataCallSummaryWidget";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import { Badge } from "@/components/ui/badge"; // Added Badge import
@@ -294,6 +295,7 @@ export default function Dashboard() {
 
           <div className="space-y-6">
             <AIInsightsCard proposals={proposals} organization={organization} />
+            <DataCallSummaryWidget organization={organization} />
             <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
           </div>
         </div>
