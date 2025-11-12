@@ -37,6 +37,9 @@ import { toast } from "sonner";
 import DataCallEditor from "./DataCallEditor";
 import FilePreviewModal from "./FilePreviewModal";
 import DataCallStatusWorkflow from "./DataCallStatusWorkflow";
+import DataCallDiscussionPanel from "./DataCallDiscussionPanel";
+import DataCallChecklistComments from "./DataCallChecklistComments";
+import DataCallExportDialog from "./DataCallExportDialog";
 
 export default function DataCallDetailView({ 
   dataCallId, 

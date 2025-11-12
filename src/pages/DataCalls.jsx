@@ -33,6 +33,8 @@ import DataCallDetailView from "../components/datacalls/DataCallDetailView";
 import AdvancedDataCallFilters from "../components/datacalls/AdvancedDataCallFilters";
 import RecurringDataCallManager from "../components/datacalls/RecurringDataCallManager";
 import DataCallTemplateEditor from "../components/datacalls/DataCallTemplateEditor";
+import EnhancedDataCallAnalytics from "../components/datacalls/EnhancedDataCallAnalytics";
+import DataCallExportDialog from "../components/datacalls/DataCallExportDialog";
 
 export default function DataCallsPage() {
   const queryClient = useQueryClient();
@@ -44,6 +46,7 @@ export default function DataCallsPage() {
   const [selectedDataCallId, setSelectedDataCallId] = useState(null);
   const [showDetailView, setShowDetailView] = useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [showBatchExport, setShowBatchExport] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     recipientTypes: [],
@@ -634,7 +637,7 @@ export default function DataCallsPage() {
           </TabsContent>
 
           <TabsContent value="analytics" className="mt-6">
-            <DataCallAnalytics organization={organization} />
+            <EnhancedDataCallAnalytics organization={organization} />
           </TabsContent>
         </Tabs>
       </div>
@@ -672,6 +675,12 @@ export default function DataCallsPage() {
         isOpen={showTemplateEditor}
         onClose={() => setShowTemplateEditor(false)}
         organization={organization}
+      />
+
+      <DataCallExportDialog
+        isOpen={showBatchExport}
+        onClose={() => setShowBatchExport(false)}
+        selectedDataCalls={allDataCalls.filter(dc => selectedIds.includes(dc.id))}
       />
     </div>
   );
