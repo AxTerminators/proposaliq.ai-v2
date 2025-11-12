@@ -31,8 +31,6 @@ import DataCallAnalytics from "../components/datacalls/DataCallAnalytics";
 import BulkDataCallActions from "../components/datacalls/BulkDataCallActions";
 import DataCallDetailView from "../components/datacalls/DataCallDetailView";
 
-import DataCallDetailView from "../components/datacalls/DataCallDetailView";
-
 export default function DataCallsPage() {
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
