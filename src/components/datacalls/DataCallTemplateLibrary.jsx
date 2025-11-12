@@ -1,10 +1,14 @@
 import React from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileQuestion, CheckSquare, Sparkles } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FileQuestion, CheckSquare, Sparkles, Plus, Edit } from "lucide-react";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
+import DataCallTemplateEditor from "./DataCallTemplateEditor";
 
 const TEMPLATES = [
   {
@@ -120,14 +124,61 @@ const TEMPLATES = [
   }
 ];
 
-export default function DataCallTemplateLibrary({ onSelectTemplate, onClose }) {
+export default function DataCallTemplateLibrary({ onSelectTemplate, onClose, organization }) {
   const [selectedCategory, setSelectedCategory] = React.useState('all');
+  const [showTemplateEditor, setShowTemplateEditor] = React.useState(false);
+  const [editingTemplate, setEditingTemplate] = React.useState(null);
 
-  const categories = ['all', ...new Set(TEMPLATES.map(t => t.category))];
+  // Fetch custom templates
+  const { data: customTemplates = [], isLoading } = useQuery({
+    queryKey: ['data-call-templates', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const templates = await base44.entities.ProposalResource.filter({
+        organization_id: organization.id,
+        resource_type: 'template'
+      });
+      return templates.filter(t => t.tags?.includes('data_call_template'));
+    },
+    enabled: !!organization?.id
+  });
+
+  // Parse custom templates
+  const parsedCustomTemplates = customTemplates.map(template => {
+    try {
+      const config = JSON.parse(template.boilerplate_content);
+      return {
+        id: template.id,
+        name: template.title,
+        description: template.description,
+        category: config.template_category || 'Custom',
+        icon: '⭐',
+        items: (config.checklist_items || []).map(item => ({
+          label: item.item_label,
+          description: item.item_description,
+          required: item.is_required
+        })),
+        isCustom: true,
+        rawTemplate: template,
+        config
+      };
+    } catch (error) {
+      console.error('Error parsing template:', error);
+      return null;
+    }
+  }).filter(Boolean);
+
+  const allTemplates = [...TEMPLATES, ...parsedCustomTemplates];
+  const categories = ['all', ...new Set(allTemplates.map(t => t.category))];
 
   const filteredTemplates = selectedCategory === 'all'
-    ? TEMPLATES
-    : TEMPLATES.filter(t => t.category === selectedCategory);
+    ? allTemplates
+    : allTemplates.filter(t => t.category === selectedCategory);
+
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template.rawTemplate);
+    setShowTemplateEditor(true);
+  };
 
   const handleUseTemplate = (template) => {
     const checklistItems = template.items.map(item => ({
@@ -150,16 +201,29 @@ export default function DataCallTemplateLibrary({ onSelectTemplate, onClose }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
-          <Sparkles className="w-6 h-6 text-purple-600" />
-          Data Call Templates
-        </h3>
-        <p className="text-sm text-slate-600">
-          Pre-built checklists for common data requests
-        </p>
-      </div>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
+              <Sparkles className="w-6 h-6 text-purple-600" />
+              Data Call Templates
+            </h3>
+            <p className="text-sm text-slate-600">
+              Pre-built checklists for common data requests
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingTemplate(null);
+              setShowTemplateEditor(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Template
+          </Button>
+        </div>
 
       {/* Category Filter */}
       <div className="flex gap-2 flex-wrap">
@@ -177,29 +241,50 @@ export default function DataCallTemplateLibrary({ onSelectTemplate, onClose }) {
       </div>
 
       {/* Template Grid */}
-      <div className="grid md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto">
-        {filteredTemplates.map(template => (
-          <Card 
-            key={template.id}
-            className="border-2 hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() => handleUseTemplate(template)}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">{template.icon}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {template.category}
-                    </Badge>
+      {isLoading ? (
+        <div className="grid md:grid-cols-2 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-48 w-full" />)}
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto">
+          {filteredTemplates.map(template => (
+            <Card 
+              key={template.id}
+              className="border-2 hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer group"
+              onClick={() => handleUseTemplate(template)}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">{template.icon}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {template.category}
+                      </Badge>
+                      {template.isCustom && (
+                        <Badge className="bg-purple-100 text-purple-700 text-xs">Custom</Badge>
+                      )}
+                    </div>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <p className="text-sm text-slate-600 mt-2">
+                      {template.description}
+                    </p>
                   </div>
-                  <CardTitle className="text-lg">{template.name}</CardTitle>
-                  <p className="text-sm text-slate-600 mt-2">
-                    {template.description}
-                  </p>
+                  {template.isCustom && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditTemplate(template);
+                      }}
+                      className="opacity-0 group-hover:opacity-100"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-slate-700">
@@ -223,14 +308,27 @@ export default function DataCallTemplateLibrary({ onSelectTemplate, onClose }) {
               </Button>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-900">
           💡 <strong>Tip:</strong> Templates provide a starting point. You can customize the checklist items after selecting a template.
         </p>
       </div>
-    </div>
+      </div>
+
+      {/* Template Editor */}
+      <DataCallTemplateEditor
+        isOpen={showTemplateEditor}
+        onClose={() => {
+          setShowTemplateEditor(false);
+          setEditingTemplate(null);
+        }}
+        organization={organization}
+        existingTemplate={editingTemplate}
+      />
+    </>
   );
 }
