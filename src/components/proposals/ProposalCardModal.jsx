@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -495,15 +496,12 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       toast.success(
         `✅ Moved to "${targetColumn.label}"`,
         {
-          description: `Proposal successfully moved to the next stage`,
+          description: `Continue working on the new stage checklist`,
           duration: 3000,
         }
       );
 
-      // Close modal with slight delay for smooth transition
-      setTimeout(() => {
-        onClose();
-      }, 500);
+      // The modal will automatically update to show the new stage's checklist
       
     } catch (error) {
       console.error('[ProposalCardModal] Error moving stage:', error);
