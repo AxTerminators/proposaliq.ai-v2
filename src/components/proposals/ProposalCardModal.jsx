@@ -34,7 +34,8 @@ import {
   Activity,
   Target,
   Upload,
-  Layers
+  Layers,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -71,6 +72,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const [activeModalName, setActiveModalName] = useState(null);
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [previousStatus, setPreviousStatus] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Map modal component names to actual components
   const MODAL_COMPONENTS = {
@@ -269,6 +271,25 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       setPreviousStatus(updatedProposal.status);
     }
   });
+
+  const deleteProposalMutation = useMutation({
+    mutationFn: async () => {
+      return base44.entities.Proposal.delete(proposal.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      setShowDeleteConfirm(false);
+      onClose();
+    },
+  });
+
+  const handleDeleteProposal = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    await deleteProposalMutation.mutateAsync();
+  };
 
   // Determine which board this proposal belongs to
   const getCurrentBoardId = () => {
@@ -717,14 +738,25 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                   </div>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="flex-shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDeleteProposal}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  title="Delete proposal"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="flex-shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
@@ -1034,6 +1066,54 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
                 </div>
               </TabsContent>
             </Tabs>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="w-5 h-5" />
+              Delete Proposal?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-700 mb-3">
+              Are you sure you want to delete <strong>"{proposal.proposal_name}"</strong>?
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800">
+                ⚠️ <strong>Warning:</strong> This action cannot be undone. All associated tasks, discussions, files, and data will be permanently deleted.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteProposalMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteProposalMutation.isPending}
+            >
+              {deleteProposalMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Yes, Delete Proposal
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
