@@ -52,6 +52,12 @@ export default function DataCallDetailView({
   const [showEditor, setShowEditor] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [showFilePreview, setShowFilePreview] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
+  const { data: user } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: () => base44.auth.me()
+  });
 
   const { data: dataCall, isLoading } = useQuery({
     queryKey: ['data-call-detail', dataCallId],
@@ -266,6 +272,14 @@ export default function DataCallDetailView({
                   <Download className="w-4 h-4 mr-2" />
                   Download All Files ({uploadedFiles.length})
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowExportDialog(true)}
+                >
+                  <FileQuestion className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
                 <a
                   href={`${window.location.origin}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`}
                   target="_blank"
@@ -354,7 +368,7 @@ export default function DataCallDetailView({
               </Card>
 
               <Tabs defaultValue="checklist" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="checklist">
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                     Checklist
@@ -362,6 +376,9 @@ export default function DataCallDetailView({
                   <TabsTrigger value="files">
                     <Paperclip className="w-4 h-4 mr-2" />
                     Files ({uploadedFiles.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="discussion">
+                    Discussion
                   </TabsTrigger>
                   <TabsTrigger value="activity">
                     <Activity className="w-4 h-4 mr-2" />
@@ -407,13 +424,22 @@ export default function DataCallDetailView({
                                     <p className="text-sm text-slate-600 mt-1">{item.item_description}</p>
                                   )}
                                 </div>
-                                <Badge className={
-                                  item.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                  item.status === 'not_applicable' ? 'bg-slate-100 text-slate-700' :
-                                  'bg-amber-100 text-amber-700'
-                                }>
-                                  {item.status}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  {user && (
+                                    <DataCallChecklistComments
+                                      dataCall={dataCall}
+                                      checklistItemId={item.id}
+                                      user={user}
+                                    />
+                                  )}
+                                  <Badge className={
+                                    item.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                    item.status === 'not_applicable' ? 'bg-slate-100 text-slate-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  }>
+                                    {item.status}
+                                  </Badge>
+                                </div>
                               </div>
 
                               {item.submitted_notes && (
@@ -517,6 +543,11 @@ export default function DataCallDetailView({
                       ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* Discussion Tab */}
+                <TabsContent value="discussion" className="mt-4">
+                  {user && <DataCallDiscussionPanel dataCall={dataCall} user={user} />}
                 </TabsContent>
 
                 {/* Activity Tab */}
@@ -705,6 +736,15 @@ export default function DataCallDetailView({
             setSelectedFile(null);
           }}
           file={selectedFile}
+        />
+      )}
+
+      {/* Export Dialog */}
+      {dataCall && (
+        <DataCallExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          dataCall={dataCall}
         />
       )}
     </>
