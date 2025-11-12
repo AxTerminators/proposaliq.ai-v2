@@ -24,23 +24,27 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
   /**
    * Handle file upload and AI extraction
    * Extracts client organization data from uploaded documents (company profiles, capability statements, etc.)
+   * NOTE: Only supports PDF, PNG, JPG, JPEG, and CSV files (per Core.ExtractDataFromUploadedFile integration)
    */
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // Validate file type - ONLY types supported by ExtractDataFromUploadedFile integration
     const allowedTypes = [
       'application/pdf',
       'image/png',
       'image/jpeg',
       'image/jpg',
-      'text/csv',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'text/csv'
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Please upload a PDF, image (PNG/JPG), CSV, or DOCX file');
+      toast.error('Please upload a PDF, image (PNG/JPG), or CSV file. DOCX is not currently supported.');
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
@@ -49,6 +53,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
 
     try {
       // Step 1: Upload the file to get a URL
+      toast.info('Uploading file...');
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
       // Step 2: Define the JSON schema for extraction
@@ -118,6 +123,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
       };
 
       // Step 3: Extract data using AI
+      toast.info('AI is extracting data from document...');
       const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url,
         json_schema: extractionSchema
@@ -153,14 +159,16 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
         setFormData(updatedFormData);
         toast.success('✅ Data extracted successfully! Review and adjust as needed.');
       } else {
-        // Extraction failed
-        toast.error('AI extraction failed: ' + (extractionResult.details || 'Unknown error'));
+        // Extraction failed - show detailed error
+        console.error('Extraction failed:', extractionResult);
+        toast.error('AI extraction failed: ' + (extractionResult.details || 'Could not extract data from this file. Try a different format or enter data manually.'));
       }
     } catch (error) {
       console.error('File upload/extraction error:', error);
       toast.error('Failed to process file: ' + error.message);
     } finally {
       setIsExtracting(false);
+      setUploadedFile(null);
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -253,7 +261,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
           </p>
         </div>
         <div className="flex gap-2">
-          {/* NEW: Upload & Extract Button */}
+          {/* Upload & Extract Button */}
           <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={isExtracting}
@@ -275,11 +283,12 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.csv,.docx"
+            accept=".pdf,.png,.jpg,.jpeg,.csv"
             onChange={handleFileUpload}
             className="hidden"
           />
 
+          {/* AI Assist Button */}
           <Button
             onClick={handleAISuggestions}
             disabled={isAIAssisting}
@@ -301,7 +310,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
         </div>
       </div>
 
-      {/* NEW: Upload Instructions */}
+      {/* Upload Instructions */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
           <FileText className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
@@ -313,8 +322,11 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
               Upload the client's company profile, capability statement, annual report, or similar document. 
               Our AI will extract and pre-populate all relevant fields automatically.
             </p>
-            <p className="text-xs text-green-700 mt-2">
-              Supported formats: PDF, PNG, JPG, DOCX, CSV
+            <p className="text-xs text-green-700 mt-2 font-semibold">
+              Supported formats: PDF, PNG, JPG, CSV only
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              ⚠️ Note: Word documents (.docx) are not currently supported. Please convert to PDF first or enter data manually.
             </p>
           </div>
         </div>
@@ -456,7 +468,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
         </div>
       </div>
 
-      {/* NEW: Secondary NAICS Codes */}
+      {/* Secondary NAICS Codes */}
       <div className="pt-4 border-t">
         <Label>Secondary NAICS Codes</Label>
         <div className="flex gap-2 mt-2">
@@ -486,7 +498,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
         </div>
       </div>
 
-      {/* NEW: Certifications */}
+      {/* Certifications */}
       <div>
         <Label>Certifications (Small Business, Quality, etc.)</Label>
         <div className="flex gap-2 mt-2">
@@ -639,7 +651,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
         </div>
       </div>
 
-      {/* NEW: Key Certifications */}
+      {/* Key Certifications */}
       <div className="pt-4 border-t">
         <Label>Key Certifications (ISO, CMMI, etc.)</Label>
         <div className="flex gap-2 mt-2">
