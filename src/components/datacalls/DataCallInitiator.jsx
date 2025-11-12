@@ -25,6 +25,7 @@ import { FileQuestion, Plus, X, Send, Loader2, Users, Building2, Handshake, Cale
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
 import DataCallTemplateLibrary from "./DataCallTemplateLibrary";
+import AIChecklistSuggester from "./AIChecklistSuggester";
 
 export default function DataCallInitiator({ 
   isOpen, 
@@ -36,6 +37,7 @@ export default function DataCallInitiator({
   const queryClient = useQueryClient();
   const [recipientType, setRecipientType] = useState('client_organization');
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [showAISuggester, setShowAISuggester] = useState(false);
   const [formData, setFormData] = useState({
     request_title: "",
     request_description: "",
@@ -274,13 +276,21 @@ export default function DataCallInitiator({
     setFormData(prev => ({ ...prev, recipient_type: recipientType }));
   }, [recipientType]);
 
+  const handleAIItemsGenerated = (items) => {
+    setFormData({
+      ...formData,
+      checklist_items: [...formData.checklist_items, ...items]
+    });
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        onClose();
-        resetForm();
-      }
-    }}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+          resetForm();
+        }
+      }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
@@ -301,8 +311,8 @@ export default function DataCallInitiator({
             />
           ) : (
             <>
-              {/* Template Library Button */}
-              <div className="flex justify-end">
+              {/* Template Library and AI Suggester Buttons */}
+              <div className="flex justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -311,6 +321,15 @@ export default function DataCallInitiator({
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   Use Template
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAISuggester(true)}
+                  className="border-blue-300 hover:bg-blue-50"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Suggest Items
                 </Button>
               </div>
 
@@ -648,5 +667,14 @@ export default function DataCallInitiator({
         </div>
       </DialogContent>
     </Dialog>
+
+    <AIChecklistSuggester
+      isOpen={showAISuggester}
+      onClose={() => setShowAISuggester(false)}
+      dataCall={formData}
+      proposal={proposal}
+      onItemsGenerated={handleAIItemsGenerated}
+    />
+    </>
   );
 }

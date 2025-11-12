@@ -40,6 +40,9 @@ import DataCallStatusWorkflow from "./DataCallStatusWorkflow";
 import DataCallDiscussionPanel from "./DataCallDiscussionPanel";
 import DataCallChecklistComments from "./DataCallChecklistComments";
 import DataCallExportDialog from "./DataCallExportDialog";
+import DataCallApprovalWorkflow from "./DataCallApprovalWorkflow";
+import DataCallCalendarIntegration from "./DataCallCalendarIntegration";
+import DataCallTimePrediction from "./DataCallTimePrediction";
 
 export default function DataCallDetailView({ 
   dataCallId, 
@@ -53,6 +56,7 @@ export default function DataCallDetailView({
   const [selectedFile, setSelectedFile] = useState(null);
   const [showFilePreview, setShowFilePreview] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -347,25 +351,32 @@ export default function DataCallDetailView({
                 </Card>
               </div>
 
-              {/* Progress Overview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Overall Progress</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">
-                        {completedItems} of {totalItems} items completed
-                      </span>
-                      <span className="text-lg font-bold text-blue-600">
-                        {Math.round(progressPercentage)}%
-                      </span>
+              {/* Progress Overview & AI Prediction */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Overall Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-700">
+                          {completedItems} of {totalItems} items completed
+                        </span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {Math.round(progressPercentage)}%
+                        </span>
+                      </div>
+                      <Progress value={progressPercentage} className="h-3" />
                     </div>
-                    <Progress value={progressPercentage} className="h-3" />
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                <DataCallTimePrediction
+                  dataCall={dataCall}
+                  organization={organization}
+                />
+              </div>
 
               <Tabs defaultValue="checklist" className="w-full">
                 <TabsList className="grid w-full grid-cols-5">
@@ -745,6 +756,18 @@ export default function DataCallDetailView({
           isOpen={showExportDialog}
           onClose={() => setShowExportDialog(false)}
           dataCall={dataCall}
+        />
+      )}
+
+      {/* Approval Workflow */}
+      {dataCall && user && organization && (
+        <DataCallApprovalWorkflow
+          isOpen={showApprovalWorkflow}
+          onClose={() => setShowApprovalWorkflow(false)}
+          dataCall={dataCall}
+          organization={organization}
+          user={user}
+          onApprovalComplete={() => refreshMutation.mutate()}
         />
       )}
     </>
