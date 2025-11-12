@@ -57,6 +57,33 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
+// Helper function to get user's active organization
+async function getUserActiveOrganization(user) {
+  if (!user) return null;
+  let orgId = null;
+  if (user.active_client_id) {
+    orgId = user.active_client_id;
+  } else if (user.client_accesses && user.client_accesses.length > 0) {
+    orgId = user.client_accesses[0].organization_id;
+  } else {
+    const orgs = await base44.entities.Organization.filter(
+      { created_by: user.email },
+      '-created_date',
+      1
+    );
+    if (orgs.length > 0) {
+      orgId = orgs[0].id;
+    }
+  }
+  if (orgId) {
+    const orgs = await base44.entities.Organization.filter({ id: orgId });
+    if (orgs.length > 0) {
+      return orgs[0];
+    }
+  }
+  return null;
+}
+
 const CERTIFICATIONS_OPTIONS = [
   "8(a)",
   "HUBZone",
@@ -157,13 +184,11 @@ export default function AddTeamingPartner() {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
 
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setOrganization(orgs[0]);
+        // FIXED: Use same logic as TeamingPartners page
+        const org = await getUserActiveOrganization(currentUser);
+        if (org) {
+          setOrganization(org);
+          console.log('[AddTeamingPartner] 📍 Active Organization:', org.organization_name, 'ID:', org.id);
         }
       } catch (error) {
         console.error("Error loading user/org:", error);
