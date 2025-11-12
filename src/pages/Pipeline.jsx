@@ -73,7 +73,7 @@ export default function Pipeline() {
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
-  const hasInitialized = useRef(false); // NEW: Track if board selection has been initialized
+  const hasInitialized = useRef(false);
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
@@ -196,23 +196,40 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // FIXED: Initialize board selection from URL or default - runs only once
+  // FIXED: Initialize board selection from localStorage, URL, or default - runs only once
   useEffect(() => {
     if (allBoards.length === 0 || hasInitialized.current) return;
 
     const urlParams = new URLSearchParams(window.location.search);
     const boardIdFromUrl = urlParams.get('boardId');
+    const boardIdFromStorage = localStorage.getItem('selectedBoardId');
 
     console.log('[Pipeline] 🔍 Initializing board selection');
     console.log('[Pipeline] URL boardId:', boardIdFromUrl);
+    console.log('[Pipeline] LocalStorage boardId:', boardIdFromStorage);
     console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name })));
 
-    // Priority 1: Try to restore from URL
+    // Priority 1: Try to restore from localStorage
+    if (boardIdFromStorage) {
+      const boardExists = allBoards.find(b => b.id === boardIdFromStorage);
+      if (boardExists) {
+        console.log('[Pipeline] ✅ Restored board from localStorage:', boardExists.board_name);
+        setSelectedBoardId(boardIdFromStorage);
+        hasInitialized.current = true;
+        return;
+      } else {
+        console.warn('[Pipeline] ⚠️ Board from localStorage not found, clearing...');
+        localStorage.removeItem('selectedBoardId');
+      }
+    }
+
+    // Priority 2: Try to restore from URL
     if (boardIdFromUrl) {
       const boardExists = allBoards.find(b => b.id === boardIdFromUrl);
       if (boardExists) {
         console.log('[Pipeline] ✅ Restored board from URL:', boardExists.board_name);
         setSelectedBoardId(boardIdFromUrl);
+        localStorage.setItem('selectedBoardId', boardIdFromUrl);
         hasInitialized.current = true;
         return;
       } else {
@@ -220,18 +237,25 @@ export default function Pipeline() {
       }
     }
 
-    // Priority 2: Auto-select default board
+    // Priority 3: Auto-select default board
     const masterBoard = allBoards.find(b => b.is_master_board === true);
     const boardToSelect = masterBoard || allBoards[0];
     console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name);
     setSelectedBoardId(boardToSelect?.id);
+    if (boardToSelect?.id) {
+      localStorage.setItem('selectedBoardId', boardToSelect.id);
+    }
     hasInitialized.current = true;
   }, [allBoards]);
 
-  // FIXED: Update URL when board changes (only after initialization)
+  // FIXED: Save to localStorage when board changes (only after initialization)
   useEffect(() => {
     if (!selectedBoardId || !hasInitialized.current) return;
 
+    console.log('[Pipeline] 💾 Saving board selection to localStorage:', selectedBoardId);
+    localStorage.setItem('selectedBoardId', selectedBoardId);
+
+    // Also update URL for sharing
     const urlParams = new URLSearchParams(window.location.search);
     const currentBoardIdInUrl = urlParams.get('boardId');
 
