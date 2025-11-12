@@ -70,6 +70,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const [activeTab, setActiveTab] = useState("checklist");
   const [user, setUser] = useState(null);
   const [activeModalName, setActiveModalName] = useState(null);
+  const [activeChecklistItemId, setActiveChecklistItemId] = useState(null); // NEW: Track which item triggered the modal
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [previousStatus, setPreviousStatus] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -442,7 +443,8 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
     
     if (modalName && MODAL_COMPONENTS[modalName]) {
-      console.log('[ProposalCardModal] 🎯 Opening modal:', modalName);
+      console.log('[ProposalCardModal] 🎯 Opening modal:', modalName, 'for checklist item:', item.id);
+      setActiveChecklistItemId(item.id); // NEW: Store which item triggered the modal
       setActiveModalName(modalName);
       return;
     }
@@ -496,18 +498,21 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   };
 
   const handleModalClose = (checklistItemId = null) => {
-    console.log('[ProposalCardModal] 🚪 Closing modal');
-    const closingModalName = activeModalName; // This variable is kept as per outline, though not used below.
+    console.log('[ProposalCardModal] 🚪 Closing modal, checklist item ID:', checklistItemId || activeChecklistItemId);
+    
     setActiveModalName(null);
     
-    // If a checklist item ID is provided, mark it as complete
-    if (checklistItemId && currentColumn) {
+    // Use the provided checklistItemId, or fall back to the tracked activeChecklistItemId
+    const itemIdToComplete = checklistItemId || activeChecklistItemId;
+    
+    // If a checklist item ID is available, mark it as complete
+    if (itemIdToComplete && currentColumn) {
       const currentStatus = proposal.current_stage_checklist_status || {};
       const columnStatus = currentStatus[currentColumn.id] || {};
       
       const updatedColumnStatus = {
         ...columnStatus,
-        [checklistItemId]: {
+        [itemIdToComplete]: {
           completed: true,
           completed_by: user?.email || "system",
           completed_date: new Date().toISOString()
@@ -522,7 +527,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       const allRequiredComplete = currentColumn.checklist_items
         ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
         .every(ci => {
-          if (ci.id === checklistItemId) {
+          if (ci.id === itemIdToComplete) {
             return true;
           }
           return updatedColumnStatus[ci.id]?.completed || false;
@@ -533,6 +538,9 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
         action_required: !allRequiredComplete
       });
     }
+    
+    // Clear the tracked checklist item
+    setActiveChecklistItemId(null);
     
     queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
@@ -551,22 +559,14 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
     }
 
     console.log('[ProposalCardModal] 🎭 Rendering modal component:', activeModalName);
-    
-    // Find the checklist item that opened this modal
-    const checklistItem = currentColumn?.checklist_items?.find(item => {
-      if (!item || !item.associated_action) return false;
-      const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
-      return modalName === activeModalName;
-    });
-    
-    console.log('[ProposalCardModal] 📋 Checklist item for modal:', checklistItem?.label || 'Not found');
+    console.log('[ProposalCardModal] 📋 Active checklist item ID:', activeChecklistItemId);
     
     return (
       <ModalComponent
         isOpen={true}
         onClose={() => {
-          console.log('[ProposalCardModal] 🔙 Modal closing, checklist item:', checklistItem?.id);
-          handleModalClose(checklistItem?.id);
+          console.log('[ProposalCardModal] 🔙 Modal closing, will mark item as complete:', activeChecklistItemId);
+          handleModalClose();
         }}
         proposalId={proposal.id}
       />
