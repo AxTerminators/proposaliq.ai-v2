@@ -56,6 +56,7 @@ import AddTeamingPartner from './pages/AddTeamingPartner';
 import ClientOrganizationManager from './pages/ClientOrganizationManager';
 import ConsolidatedReporting from './pages/ConsolidatedReporting';
 import DataMigration from './pages/DataMigration';
+import DataIsolationTest from './pages/DataIsolationTest';
 import Layout from './Layout.jsx';
 
 
@@ -118,6 +119,7 @@ export const PAGES = {
     "ClientOrganizationManager": ClientOrganizationManager,
     "ConsolidatedReporting": ConsolidatedReporting,
     "DataMigration": DataMigration,
+    "DataIsolationTest": DataIsolationTest,
 }
 
 export const pagesConfig = {
