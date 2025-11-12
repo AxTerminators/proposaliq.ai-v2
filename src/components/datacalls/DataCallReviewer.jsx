@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
-  FileQuestion,
+  ClipboardList,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -99,7 +99,7 @@ export default function DataCallReviewer({ proposal, organization }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <FileQuestion className="w-7 h-7 text-blue-600" />
+            <ClipboardList className="w-7 h-7 text-blue-600" />
             Data Call Requests
           </h2>
           <p className="text-slate-600 mt-1">
@@ -114,7 +114,7 @@ export default function DataCallReviewer({ proposal, organization }) {
       {dataCallRequests.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <FileQuestion className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+            <ClipboardList className="w-16 h-16 mx-auto mb-4 text-slate-300" />
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
               No Data Calls Yet
             </h3>

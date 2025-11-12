@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileQuestion, Plus } from "lucide-react";
+import { ClipboardList, Plus } from "lucide-react";
 import DataCallInitiator from "./DataCallInitiator";
 import DataCallReviewer from "./DataCallReviewer";
 
@@ -45,7 +45,7 @@ export default function DataCallManager({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <FileQuestion className="w-7 h-7 text-blue-600" />
+            <ClipboardList className="w-7 h-7 text-blue-600" />
             Data Call Requests
           </h2>
           <p className="text-slate-600 mt-1">
