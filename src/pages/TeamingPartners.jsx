@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -25,13 +25,30 @@ import {
   Phone,
   Globe,
   Award,
+  Library,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Briefcase,
+  MapPin,
+  Shield,
   Star,
-  StarOff,
-  Library // Added Library icon
+  Eye,
+  Filter,
+  X
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import UniversalAlert from "@/components/ui/UniversalAlert";
-import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog"; // Added PromoteToLibraryDialog import
+import { cn } from "@/lib/utils";
+import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -60,43 +77,25 @@ async function getUserActiveOrganization(user) {
   return null;
 }
 
+const CERTIFICATIONS_OPTIONS = [
+  "8(a)", "HUBZone", "WOSB", "EDWOSB", "SDVOSB", "Small Business"
+];
+
 export default function TeamingPartners() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showDialog, setShowDialog] = useState(false);
-  const [editingPartner, setEditingPartner] = useState(null);
-  // New state for PromoteToLibraryDialog
+  const [expandedPartnerId, setExpandedPartnerId] = useState(null);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [partnerToPromote, setPartnerToPromote] = useState(null);
-  
-  // Universal Alert states
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({
-    type: "info",
-    title: "",
-    description: ""
-  });
-  
-  const [partnerData, setPartnerData] = useState({
-    partner_name: "",
-    partner_type: "teaming_partner",
-    address: "",
-    poc_name: "",
-    poc_email: "",
-    poc_phone: "",
-    uei: "",
-    cage_code: "",
-    website_url: "",
-    core_capabilities: [],
-    certifications: [],
-    tags: [],
-    notes: "",
-    status: "active",
-    differentiators: [], // New field
-    past_performance_summary: "" // New field
-  });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [partnerToDelete, setPartnerToDelete] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterCertification, setFilterCertification] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterType, setFilterType] = useState("all");
 
   useEffect(() => {
     const loadData = async () => {
@@ -115,7 +114,7 @@ export default function TeamingPartners() {
     loadData();
   }, []);
 
-  const { data: partners, isLoading } = useQuery({
+  const { data: partners = [], isLoading } = useQuery({
     queryKey: ['teaming-partners', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -124,50 +123,7 @@ export default function TeamingPartners() {
         'partner_name'
       );
     },
-    initialData: [],
     enabled: !!organization?.id,
-  });
-
-  const createPartnerMutation = useMutation({
-    mutationFn: async (data) => {
-      const dataToSave = {
-        ...data,
-        // Ensure array fields are handled correctly if they come from comma-separated input
-        core_capabilities: Array.isArray(data.core_capabilities) ? data.core_capabilities : data.core_capabilities.split(',').map(item => item.trim()).filter(item => item),
-        certifications: Array.isArray(data.certifications) ? data.certifications : data.certifications.split(',').map(item => item.trim()).filter(item => item),
-        differentiators: Array.isArray(data.differentiators) ? data.differentiators : data.differentiators.split(',').map(item => item.trim()).filter(item => item),
-      };
-
-      if (editingPartner) {
-        return base44.entities.TeamingPartner.update(editingPartner.id, dataToSave);
-      } else {
-        return base44.entities.TeamingPartner.create({
-          ...dataToSave,
-          organization_id: organization.id
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
-      setShowDialog(false);
-      setEditingPartner(null);
-      resetForm();
-      setAlertConfig({
-        type: "success",
-        title: "Success",
-        description: `Partner ${editingPartner ? "updated" : "added"} successfully.`
-      });
-      setShowAlert(true);
-    },
-    onError: (error) => {
-      console.error("Error saving partner:", error);
-      setAlertConfig({
-        type: "error",
-        title: "Error",
-        description: `Failed to save partner: ${error.message}`
-      });
-      setShowAlert(true);
-    }
   });
 
   const deletePartnerMutation = useMutation({
@@ -176,91 +132,31 @@ export default function TeamingPartners() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
-      setAlertConfig({
-        type: "success",
-        title: "Success",
-        description: "Partner deleted successfully."
-      });
-      setShowAlert(true);
+      toast.success("Partner deleted successfully");
+      setShowDeleteConfirm(false);
+      setPartnerToDelete(null);
     },
     onError: (error) => {
-      console.error("Error deleting partner:", error);
-      setAlertConfig({
-        type: "error",
-        title: "Error",
-        description: `Failed to delete partner: ${error.message}`
-      });
-      setShowAlert(true);
+      toast.error("Failed to delete partner: " + error.message);
     }
   });
 
-  const resetForm = () => {
-    setPartnerData({
-      partner_name: "",
-      partner_type: "teaming_partner",
-      address: "",
-      poc_name: "",
-      poc_email: "",
-      poc_phone: "",
-      uei: "",
-      cage_code: "",
-      website_url: "",
-      core_capabilities: [],
-      certifications: [],
-      tags: [],
-      notes: "",
-      status: "active",
-      differentiators: [],
-      past_performance_summary: ""
-    });
-  };
-
   const handleEdit = (partner) => {
-    setEditingPartner(partner);
-    // Ensure array fields are converted to comma-separated string for editing
-    setPartnerData({
-      ...partner,
-      core_capabilities: partner.core_capabilities?.join(', ') || '',
-      certifications: partner.certifications?.join(', ') || '',
-      differentiators: partner.differentiators?.join(', ') || '',
-    });
-    setShowDialog(true);
+    navigate(`${createPageUrl("AddTeamingPartner")}?mode=edit&id=${partner.id}`);
   };
 
-  const handleSave = () => {
-    if (!partnerData.partner_name.trim()) {
-      setAlertConfig({
-        type: "warning",
-        title: "Partner Name Required",
-        description: "Please enter a partner name before saving."
-      });
-      setShowAlert(true);
-      return;
+  const handleDelete = (partner) => {
+    setPartnerToDelete(partner);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (partnerToDelete) {
+      deletePartnerMutation.mutate(partnerToDelete.id);
     }
-    createPartnerMutation.mutate(partnerData);
-  };
-
-  const filteredPartners = partners.filter(p => 
-    p.partner_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.poc_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    p.core_capabilities?.some(cap => cap.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    p.certifications?.some(cert => cert.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const getPartnerTypeColor = (type) => {
-    const colors = {
-      prime: "bg-purple-100 text-purple-800",
-      subcontractor: "bg-blue-100 text-blue-800",
-      teaming_partner: "bg-green-100 text-green-800",
-      consultant: "bg-amber-100 text-amber-800",
-      vendor: "bg-slate-100 text-slate-800"
-    };
-    return colors[type] || colors.teaming_partner;
   };
 
   const handlePromoteToLibrary = (partner) => {
-    // Create formatted partner profile
     const partnerContent = `
 <h3>${partner.partner_name}</h3>
 <p><strong>Type:</strong> ${partner.partner_type?.replace('_', ' ')}</p>
@@ -296,6 +192,64 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     setShowPromoteDialog(true);
   };
 
+  const filteredPartners = partners.filter(partner => {
+    const matchesSearch = !searchQuery ||
+      partner.partner_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      partner.poc_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      partner.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      partner.core_capabilities?.some(cap => cap.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      partner.certifications?.some(cert => cert.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesCertification = filterCertification === "all" ||
+      partner.certifications?.includes(filterCertification);
+
+    const matchesStatus = filterStatus === "all" ||
+      partner.relationship_status === filterStatus ||
+      partner.status === filterStatus;
+
+    const matchesType = filterType === "all" ||
+      partner.partner_type === filterType;
+
+    return matchesSearch && matchesCertification && matchesStatus && matchesType;
+  });
+
+  const getPartnerTypeColor = (type) => {
+    const colors = {
+      prime: "bg-purple-100 text-purple-800",
+      subcontractor: "bg-blue-100 text-blue-800",
+      teaming_partner: "bg-green-100 text-green-800",
+      consultant: "bg-amber-100 text-amber-800",
+      vendor: "bg-slate-100 text-slate-800"
+    };
+    return colors[type] || colors.teaming_partner;
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      potential: "bg-slate-100 text-slate-700",
+      under_review: "bg-amber-100 text-amber-700",
+      active: "bg-green-100 text-green-700",
+      preferred: "bg-blue-100 text-blue-700",
+      inactive: "bg-slate-100 text-slate-500",
+      do_not_use: "bg-red-100 text-red-700"
+    };
+    return colors[status] || colors.active;
+  };
+
+  const activeFiltersCount = [
+    searchQuery ? 1 : 0,
+    filterCertification !== "all" ? 1 : 0,
+    filterStatus !== "all" ? 1 : 0,
+    filterType !== "all" ? 1 : 0
+  ].reduce((a, b) => a + b, 0);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterCertification("all");
+    setFilterStatus("all");
+    setFilterType("all");
+  };
+
   if (!organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -311,336 +265,466 @@ ${partner.certifications && partner.certifications.length > 0 ? `
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Teaming Partners</h1>
           <p className="text-slate-600">Manage your network of partners and subcontractors</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowDialog(true); }}>
+        <Button 
+          onClick={() => navigate(createPageUrl("AddTeamingPartner") + "?mode=create")}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
           <Plus className="w-5 h-5 mr-2" />
-          Add Partner
+          Add New Partner
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-        <Input
-          placeholder="Search partners..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search and Filters */}
+      <div className="space-y-3">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Input
+              placeholder="Search by name, capabilities, certifications, tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showFilters ? "default" : "outline"}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+            {activeFiltersCount > 0 && (
+              <Badge className="ml-2 bg-white text-blue-600">
+                {activeFiltersCount}
+              </Badge>
+            )}
+          </Button>
+        </div>
+
+        {showFilters && (
+          <Card className="border-2 border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-slate-900">Filter Partners</h3>
+                {activeFiltersCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    <X className="w-4 h-4 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
+              <div className="grid md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Certification</label>
+                  <Select value={filterCertification} onValueChange={setFilterCertification}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Certifications</SelectItem>
+                      {CERTIFICATIONS_OPTIONS.map(cert => (
+                        <SelectItem key={cert} value={cert}>{cert}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="potential">Potential</SelectItem>
+                      <SelectItem value="under_review">Under Review</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="preferred">Preferred</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="do_not_use">Do Not Use</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Type</label>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="prime">Prime Contractor</SelectItem>
+                      <SelectItem value="subcontractor">Subcontractor</SelectItem>
+                      <SelectItem value="teaming_partner">Teaming Partner</SelectItem>
+                      <SelectItem value="consultant">Consultant</SelectItem>
+                      <SelectItem value="vendor">Vendor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1,2,3,4,5,6].map(i => (
-            <Skeleton key={i} className="h-64 w-full" />
+            <Skeleton key={i} className="h-80 w-full" />
           ))}
         </div>
       ) : filteredPartners.length === 0 ? (
         <Card className="border-none shadow-lg">
           <CardContent className="p-12 text-center">
             <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Partners Yet</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
+              {partners.length === 0 ? "No Partners Yet" : "No Matching Partners"}
+            </h3>
             <p className="text-slate-600 mb-6">
-              Build your network by adding teaming partners and subcontractors
+              {partners.length === 0 
+                ? "Build your network by adding teaming partners and subcontractors"
+                : "Try adjusting your search or filters"
+              }
             </p>
-            <Button onClick={() => { resetForm(); setShowDialog(true); }}>
-              <Plus className="w-5 h-5 mr-2" />
-              Add Your First Partner
-            </Button>
+            {partners.length === 0 && (
+              <Button 
+                onClick={() => navigate(createPageUrl("AddTeamingPartner") + "?mode=create")}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Add Your First Partner
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPartners.map((partner) => (
-            <Card key={partner.id} className="border-none shadow-lg hover:shadow-xl transition-all">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-2">{partner.partner_name}</CardTitle>
-                    <Badge className={getPartnerTypeColor(partner.partner_type)}>
-                      {partner.partner_type?.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(partner)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete this partner? This action cannot be undone.')) {
-                          deletePartnerMutation.mutate(partner.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {partner.poc_name && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-slate-400" />
-                    <span>{partner.poc_name}</span>
-                  </div>
+          {filteredPartners.map((partner) => {
+            const isExpanded = expandedPartnerId === partner.id;
+            const hasAIData = partner.ai_extracted === true;
+
+            return (
+              <Card 
+                key={partner.id} 
+                className={cn(
+                  "border-none shadow-lg hover:shadow-xl transition-all",
+                  hasAIData && "ring-2 ring-purple-200"
                 )}
-                {partner.poc_email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <a href={`mailto:${partner.poc_email}`} className="text-blue-600 hover:underline">
-                      {partner.poc_email}
-                    </a>
-                  </div>
-                )}
-                {partner.poc_phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="w-4 h-4 text-slate-400" />
-                    <span>{partner.poc_phone}</span>
-                  </div>
-                )}
-                {partner.website_url && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Globe className="w-4 h-4 text-slate-400" />
-                    <a href={partner.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Website
-                    </a>
-                  </div>
-                )}
-                
-                {partner.certifications && partner.certifications.length > 0 && (
-                  <div className="pt-3 border-t">
-                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
-                      <Award className="w-3 h-3" />
-                      <span>Certifications</span>
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CardTitle className="text-lg truncate">{partner.partner_name}</CardTitle>
+                        {hasAIData && (
+                          <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0" title="AI-Extracted Data" />
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className={getPartnerTypeColor(partner.partner_type)}>
+                          {partner.partner_type?.replace('_', ' ')}
+                        </Badge>
+                        {(partner.relationship_status || partner.status) && (
+                          <Badge className={getStatusColor(partner.relationship_status || partner.status)}>
+                            {(partner.relationship_status || partner.status)?.replace('_', ' ')}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-1">
-                      {partner.certifications.slice(0, 3).map((cert, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {cert}
-                        </Badge>
-                      ))}
-                      {partner.certifications.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{partner.certifications.length - 3} more
-                        </Badge>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleEdit(partner)}
+                        title="Edit partner"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleDelete(partner)}
+                        title="Delete partner"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-3 pt-0">
+                  {/* Contact Information */}
+                  {partner.poc_name && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <span className="truncate">{partner.poc_name}</span>
+                      {partner.poc_title && (
+                        <span className="text-slate-500 text-xs truncate">• {partner.poc_title}</span>
                       )}
                     </div>
-                  </div>
-                )}
+                  )}
+                  {partner.poc_email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <a href={`mailto:${partner.poc_email}`} className="text-blue-600 hover:underline truncate">
+                        {partner.poc_email}
+                      </a>
+                    </div>
+                  )}
+                  {partner.poc_phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <span className="truncate">{partner.poc_phone}</span>
+                    </div>
+                  )}
+                  {partner.website_url && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <a href={partner.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                        Visit Website
+                      </a>
+                    </div>
+                  )}
 
-                {partner.last_collaboration_date && (
-                  <div className="pt-2 border-t text-xs text-slate-500">
-                    Last collaboration: {new Date(partner.last_collaboration_date).toLocaleDateString()}
-                  </div>
-                )}
+                  {/* Identifiers */}
+                  {(partner.uei || partner.cage_code || partner.primary_naics) && (
+                    <div className="pt-2 border-t">
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {partner.uei && (
+                          <Badge variant="outline" className="font-mono">
+                            UEI: {partner.uei}
+                          </Badge>
+                        )}
+                        {partner.cage_code && (
+                          <Badge variant="outline" className="font-mono">
+                            CAGE: {partner.cage_code}
+                          </Badge>
+                        )}
+                        {partner.primary_naics && (
+                          <Badge variant="outline" className="font-mono">
+                            NAICS: {partner.primary_naics}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-                <div className="pt-2 border-t">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handlePromoteToLibrary(partner)}
-                    className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
-                  >
-                    <Library className="w-4 h-4 mr-2 text-green-600" />
-                    Add to Content Library
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {/* Certifications */}
+                  {partner.certifications && partner.certifications.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+                        <Award className="w-3 h-3" />
+                        <span>Certifications</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {partner.certifications.slice(0, isExpanded ? undefined : 3).map((cert, idx) => (
+                          <Badge key={idx} className="bg-blue-600 text-white text-xs">
+                            {cert}
+                          </Badge>
+                        ))}
+                        {!isExpanded && partner.certifications.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{partner.certifications.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Core Capabilities */}
+                  {partner.core_capabilities && partner.core_capabilities.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+                        <Briefcase className="w-3 h-3" />
+                        <span>Core Capabilities</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {partner.core_capabilities.slice(0, isExpanded ? undefined : 3).map((cap, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {cap}
+                          </Badge>
+                        ))}
+                        {!isExpanded && partner.core_capabilities.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{partner.core_capabilities.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <div className="pt-3 border-t space-y-3">
+                      {partner.address && (
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                            <MapPin className="w-3 h-3" />
+                            <span>Address</span>
+                          </div>
+                          <p className="text-sm text-slate-700">{partner.address}</p>
+                        </div>
+                      )}
+
+                      {partner.differentiators && partner.differentiators.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                            <Star className="w-3 h-3" />
+                            <span>Differentiators</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {partner.differentiators.map((diff, idx) => (
+                              <Badge key={idx} className="bg-amber-100 text-amber-800 text-xs">
+                                {diff}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {partner.technologies_used && partner.technologies_used.length > 0 && (
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">Technologies</div>
+                          <div className="flex flex-wrap gap-1">
+                            {partner.technologies_used.map((tech, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {tech}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {partner.security_clearances && partner.security_clearances.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                            <Shield className="w-3 h-3" />
+                            <span>Security Clearances</span>
+                          </div>
+                          <p className="text-sm text-slate-700">
+                            {partner.security_clearances.join(', ')}
+                          </p>
+                        </div>
+                      )}
+
+                      {partner.past_performance_summary && (
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">Past Performance</div>
+                          <p className="text-sm text-slate-700 line-clamp-3">
+                            {partner.past_performance_summary}
+                          </p>
+                        </div>
+                      )}
+
+                      {(partner.revenue_range || partner.employee_count || partner.years_in_business) && (
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {partner.revenue_range && (
+                            <Badge variant="outline">💰 {partner.revenue_range}</Badge>
+                          )}
+                          {partner.employee_count && (
+                            <Badge variant="outline">👥 {partner.employee_count} employees</Badge>
+                          )}
+                          {partner.years_in_business && (
+                            <Badge variant="outline">📅 {partner.years_in_business} years</Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {partner.strategic_fit_score !== null && partner.strategic_fit_score !== undefined && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-slate-600">Strategic Fit:</span>
+                          <div className="flex items-center gap-1">
+                            {[...Array(10)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn(
+                                  "w-3 h-3",
+                                  i < partner.strategic_fit_score
+                                    ? "fill-blue-500 text-blue-500"
+                                    : "text-slate-300"
+                                )}
+                              />
+                            ))}
+                            <span className="ml-1 font-semibold text-slate-900">
+                              {partner.strategic_fit_score}/10
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="pt-3 border-t space-y-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setExpandedPartnerId(isExpanded ? null : partner.id)}
+                      className="w-full justify-between"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Eye className="w-4 h-4" />
+                        {isExpanded ? "Show Less" : "View Details"}
+                      </span>
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePromoteToLibrary(partner)}
+                      className="w-full bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300"
+                    >
+                      <Library className="w-4 h-4 mr-2 text-green-600" />
+                      Add to Content Library
+                    </Button>
+                  </div>
+
+                  {/* Footer Stats */}
+                  {(partner.total_collaborations > 0 || partner.last_collaboration_date) && (
+                    <div className="pt-2 border-t text-xs text-slate-500">
+                      {partner.total_collaborations > 0 && (
+                        <span>{partner.total_collaborations} collaboration{partner.total_collaborations !== 1 ? 's' : ''}</span>
+                      )}
+                      {partner.total_collaborations > 0 && partner.last_collaboration_date && <span> • </span>}
+                      {partner.last_collaboration_date && (
+                        <span>Last: {new Date(partner.last_collaboration_date).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      <Dialog open={showDialog} onOpenChange={(open) => { 
-        setShowDialog(open); 
-        if (!open) { 
-          setEditingPartner(null); 
-          resetForm(); 
-        } 
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingPartner ? 'Edit Partner' : 'Add New Partner'}</DialogTitle>
-            <DialogDescription>
-              Add or update teaming partner information
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Partner Name *</label>
-                <Input
-                  value={partnerData.partner_name}
-                  onChange={(e) => setPartnerData({ ...partnerData, partner_name: e.target.value })}
-                  placeholder="Company name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Type</label>
-                <select
-                  className="w-full border rounded-md p-2"
-                  value={partnerData.partner_type}
-                  onChange={(e) => setPartnerData({ ...partnerData, partner_type: e.target.value })}
-                >
-                  <option value="prime">Prime Contractor</option>
-                  <option value="subcontractor">Subcontractor</option>
-                  <option value="teaming_partner">Teaming Partner</option>
-                  <option value="consultant">Consultant</option>
-                  <option value="vendor">Vendor</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Status</label>
-                <select
-                  className="w-full border rounded-md p-2"
-                  value={partnerData.status}
-                  onChange={(e) => setPartnerData({ ...partnerData, status: e.target.value })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="preferred">Preferred</option>
-                  <option value="potential">Potential</option>
-                </select>
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">POC Name</label>
-                <Input
-                  value={partnerData.poc_name}
-                  onChange={(e) => setPartnerData({ ...partnerData, poc_name: e.target.value })}
-                  placeholder="Point of contact"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">POC Email</label>
-                <Input
-                  type="email"
-                  value={partnerData.poc_email}
-                  onChange={(e) => setPartnerData({ ...partnerData, poc_email: e.target.value })}
-                  placeholder="email@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">POC Phone</label>
-                <Input
-                  value={partnerData.poc_phone}
-                  onChange={(e) => setPartnerData({ ...partnerData, poc_phone: e.target.value })}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">UEI</label>
-                <Input
-                  value={partnerData.uei}
-                  onChange={(e) => setPartnerData({ ...partnerData, uei: e.target.value })}
-                  placeholder="Unique Entity Identifier"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">CAGE Code</label>
-                <Input
-                  value={partnerData.cage_code}
-                  onChange={(e) => setPartnerData({ ...partnerData, cage_code: e.target.value })}
-                  placeholder="12345"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Website</label>
-                <Input
-                  value={partnerData.website_url}
-                  onChange={(e) => setPartnerData({ ...partnerData, website_url: e.target.value })}
-                  placeholder="https://example.com"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Address</label>
-                <Textarea
-                  value={partnerData.address}
-                  onChange={(e) => setPartnerData({ ...partnerData, address: e.target.value })}
-                  placeholder="Full address"
-                  rows={2}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Core Capabilities (comma-separated)</label>
-                <Textarea
-                  value={partnerData.core_capabilities}
-                  onChange={(e) => setPartnerData({ ...partnerData, core_capabilities: e.target.value })}
-                  placeholder="e.g., Software Development, Cloud Migration, Cybersecurity"
-                  rows={2}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Certifications (comma-separated)</label>
-                <Textarea
-                  value={partnerData.certifications}
-                  onChange={(e) => setPartnerData({ ...partnerData, certifications: e.target.value })}
-                  placeholder="e.g., ISO 9001, CMMI Level 3, FedRAMP"
-                  rows={2}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Key Differentiators (comma-separated)</label>
-                <Textarea
-                  value={partnerData.differentiators}
-                  onChange={(e) => setPartnerData({ ...partnerData, differentiators: e.target.value })}
-                  placeholder="e.g., Unique Technology, Niche Expertise, Veteran-Owned"
-                  rows={2}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Past Performance Summary</label>
-                <Textarea
-                  value={partnerData.past_performance_summary}
-                  onChange={(e) => setPartnerData({ ...partnerData, past_performance_summary: e.target.value })}
-                  placeholder="Summarize key past performance highlights relevant to future collaborations."
-                  rows={3}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-2">Notes</label>
-                <Textarea
-                  value={partnerData.notes}
-                  onChange={(e) => setPartnerData({ ...partnerData, notes: e.target.value })}
-                  placeholder="Internal notes about this partner"
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={createPartnerMutation.isPending}>
-                {createPartnerMutation.isPending ? 'Saving...' : (editingPartner ? 'Update Partner' : 'Add Partner')}
-              </Button>
-            </div>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPartnerToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete Teaming Partner?"
+        variant="danger"
+        confirmText="Yes, Delete Partner"
+        cancelText="Cancel"
+        isLoading={deletePartnerMutation.isPending}
+      >
+        <div className="space-y-3">
+          <p className="text-slate-700">
+            Are you sure you want to delete <strong>"{partnerToDelete?.partner_name}"</strong>?
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              ⚠️ <strong>Warning:</strong> This will permanently remove this partner from your organization. 
+              Any proposals currently using this partner will need to be updated.
+            </p>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <UniversalAlert
-        isOpen={showAlert}
-        onClose={() => setShowAlert(false)}
-        type={alertConfig.type}
-        title={alertConfig.title}
-        description={alertConfig.description}
-      />
+        </div>
+      </ConfirmDialog>
 
       <PromoteToLibraryDialog
         isOpen={showPromoteDialog}
