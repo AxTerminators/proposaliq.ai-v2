@@ -64,16 +64,29 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
-export default function ProposalCardModal({ proposal, isOpen, onClose, organization, kanbanConfig, initialModalToOpen = null }) {
+export default function ProposalCardModal({ proposal: proposalProp, isOpen, onClose, organization, kanbanConfig, initialModalToOpen = null }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("checklist");
   const [user, setUser] = useState(null);
   const [activeModalName, setActiveModalName] = useState(null);
-  const [activeChecklistItemId, setActiveChecklistItemId] = useState(null); // NEW: Track which item triggered the modal
+  const [activeChecklistItemId, setActiveChecklistItemId] = useState(null);
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [previousStatus, setPreviousStatus] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // NEW: Fetch fresh proposal data within the modal
+  const { data: proposal } = useQuery({
+    queryKey: ['proposal-modal', proposalProp.id],
+    queryFn: async () => {
+      const proposals = await base44.entities.Proposal.filter({ id: proposalProp.id });
+      return proposals[0] || proposalProp;
+    },
+    initialData: proposalProp,
+    enabled: isOpen,
+    staleTime: 0, // Always fetch fresh data
+    refetchInterval: 2000, // Refetch every 2 seconds while modal is open
+  });
 
   // Map modal component names to actual components
   const MODAL_COMPONENTS = {
@@ -184,7 +197,7 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
       const allClients = await base44.entities.Client.list();
       return allClients.filter(c => proposal.shared_with_client_ids.includes(c.id));
     },
-    enabled: !!proposal.shared_with_client_ids && proposal.shared_with_client_ids.length > 0 && isOpen,
+    enabled: !!proposal?.shared_with_client_ids && proposal.shared_with_client_ids.length > 0 && isOpen,
     staleTime: 60000
   });
 
@@ -250,27 +263,41 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
   const checklistItems = currentColumn?.checklist_items || [];
   const checklistStatus = proposal.current_stage_checklist_status?.[currentColumn?.id] || {};
 
+  console.log('[ProposalCardModal] 📊 Current checklist status:', {
+    columnId: currentColumn?.id,
+    columnLabel: currentColumn?.label,
+    checklistStatus,
+    items: checklistItems.map(item => ({
+      id: item.id,
+      label: item.label,
+      completed: checklistStatus[item.id]?.completed || false
+    }))
+  });
+
   const updateProposalMutation = useMutation({
     mutationFn: async (updates) => {
       console.log('[ProposalCardModal] 💾 Updating proposal with:', updates);
       return base44.entities.Proposal.update(proposal.id, updates);
     },
-    onSuccess: (updatedProposal) => {
+    onSuccess: async (updatedProposal) => {
       console.log('[ProposalCardModal] ✅ Proposal updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
       
-      // NEW: Check if status changed to "won"
+      // CRITICAL: Immediately update the query cache with fresh data
+      queryClient.setQueryData(['proposal-modal', proposal.id], updatedProposal);
+      
+      // Invalidate to trigger background refetch
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
+      
       const statusChangedToWon = previousStatus !== 'won' && updatedProposal.status === 'won';
       
       if (statusChangedToWon) {
         console.log('[ProposalCardModal] 🎉 Status changed to won! Showing promote dialog...');
-        // Small delay to ensure UI updates
         setTimeout(() => {
           setShowWinPromoteDialog(true);
         }, 500);
       }
       
-      // Update previous status tracker
       setPreviousStatus(updatedProposal.status);
     }
   });
@@ -652,6 +679,10 @@ export default function ProposalCardModal({ proposal, isOpen, onClose, organizat
 
     return <Circle className="w-6 h-6 text-slate-400" />;
   };
+
+  if (!proposal) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <>
