@@ -34,6 +34,7 @@ import {
   Mail
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const STATUS_FLOW = [
   { value: 'draft', label: 'Draft', icon: FileEdit, color: 'bg-slate-600', description: 'Being prepared, not yet sent' },

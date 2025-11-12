@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, CheckSquare, Sparkles, Plus, Edit } from "lucide-react";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import DataCallTemplateEditor from "./DataCallTemplateEditor";
 
 const TEMPLATES = [
