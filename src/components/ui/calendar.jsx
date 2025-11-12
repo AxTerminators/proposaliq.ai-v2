@@ -1,9 +1,16 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
-
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
+
+// Define buttonVariants locally since we only need outline
+const buttonVariants = ({ variant }) => {
+  const variants = {
+    outline: "border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900",
+    ghost: "hover:bg-slate-100 hover:text-slate-900"
+  }
+  return variants[variant] || variants.ghost
+}
 
 function Calendar({
   className,
