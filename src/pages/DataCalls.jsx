@@ -20,7 +20,8 @@ import {
   Mail,
   ExternalLink,
   TrendingUp,
-  Users
+  Users,
+  RefreshCw
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -654,10 +655,9 @@ export default function DataCallsPage() {
         dataCallsList={selectedTab === 'active' ? activeDataCalls :
                        selectedTab === 'overdue' ? overdueDataCalls :
                        selectedTab === 'completed' ? completedDataCalls :
-                       allDataCalls}
+                       filteredDataCalls}
         organization={organization}
-        selectedIds={selectedIds}
-        onSelectionChange={setSelectedIds}
+        onExport={() => setShowBatchExport(true)}
       />
 
       <DataCallDetailView
