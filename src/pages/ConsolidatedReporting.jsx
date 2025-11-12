@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -10,13 +11,16 @@ import {
   TrendingUp,
   Users,
   Loader2,
-  Download,
+  Download, // Download icon is removed in the new structure but kept in imports as it might be used elsewhere or a leftover. Will remove if strictly not used.
   Calendar,
-  FileText
+  FileText, // FileText icon is replaced by Library in one tab, but might be used elsewhere. Will remove if strictly not used.
+  Library // New import
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ConsolidatedClientReporting from "../components/clients/ConsolidatedClientReporting";
 import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary";
+import ResourceUsageAnalytics from "../components/clients/ResourceUsageAnalytics"; // New import
+import { Badge } from "@/components/ui/badge"; // New import
 
 async function getUserActiveOrganization(user) {
   if (!user) return null;
@@ -67,7 +71,7 @@ export default function ConsolidatedReporting() {
   if (!consultingFirm) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Skeleton className="h-32 w-32 rounded-xl" />
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -99,29 +103,32 @@ export default function ConsolidatedReporting() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-blue-600" />
+            <BarChart3 className="w-8 h-8 text-purple-600" />
             Portfolio Dashboard
           </h1>
           <p className="text-slate-600">
-            Aggregated insights across all your client workspaces
+            Consolidated analytics and insights across all client workspaces
           </p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
-          <Download className="w-4 h-4 mr-2" />
-          Export Report
-        </Button>
+        <Badge className="bg-purple-100 text-purple-700 text-sm px-4 py-2">
+          Consulting Firm View
+        </Badge>
       </div>
 
-      {/* Main Content */}
+      {/* Tabbed Content */}
       <Tabs defaultValue="analytics" className="space-y-6">
         <TabsList>
           <TabsTrigger value="analytics">
             <BarChart3 className="w-4 h-4 mr-2" />
-            Analytics
+            Client Analytics
           </TabsTrigger>
           <TabsTrigger value="resources">
-            <FileText className="w-4 h-4 mr-2" />
+            <Library className="w-4 h-4 mr-2" />
             Resource Library
+          </TabsTrigger>
+          <TabsTrigger value="usage">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Resource Usage
           </TabsTrigger>
         </TabsList>
 
@@ -130,7 +137,24 @@ export default function ConsolidatedReporting() {
         </TabsContent>
 
         <TabsContent value="resources" className="space-y-6">
-          <GlobalResourceLibrary consultingFirm={consultingFirm} />
+          <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Library className="w-5 h-5 text-purple-600" />
+                Global Resource Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600 mb-6">
+                Share templates, past performance, key personnel, and teaming partners across all client workspaces
+              </p>
+              <GlobalResourceLibrary consultingFirm={consultingFirm} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="usage" className="space-y-6">
+          <ResourceUsageAnalytics consultingFirm={consultingFirm} />
         </TabsContent>
       </Tabs>
     </div>
