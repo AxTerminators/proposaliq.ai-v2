@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
   LayoutDashboard,
@@ -115,6 +115,7 @@ const adminItems = [
 
 function LayoutContent({ children }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, organization, subscription, refetch } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -174,6 +175,49 @@ function LayoutContent({ children }) {
     }
   }, [organization]);
 
+  // NEW: Redirect to Dashboard if current page is not accessible for the current organization
+  React.useEffect(() => {
+    if (!organization || !user) return;
+
+    const effectiveOrgType = organization.organization_type === 'demo' 
+      ? demoViewMode 
+      : organization.organization_type;
+    
+    const isConsultant = effectiveOrgType === 'consultancy';
+    const userIsAdmin = user?.role === 'admin';
+    const userIsSuperAdmin = user?.admin_role === 'super_admin';
+
+    // Combine all navigation items for easier checking
+    const allNavigableItems = [
+      ...ALL_NAVIGATION_ITEMS,
+      ...adminItems
+    ].flatMap(item => {
+      if (item.hasSubMenu && item.subMenuItems) {
+        return [item, ...item.subMenuItems];
+      }
+      return item;
+    });
+
+    const currentPageItem = allNavigableItems.find(item => 
+      location.pathname === item.url
+    );
+
+    if (currentPageItem) {
+      // Check if user has access to this page
+      const hasAccess = 
+        (!currentPageItem.superAdminOnly || userIsSuperAdmin) &&
+        (!currentPageItem.adminOnly || userIsAdmin) &&
+        (currentPageItem.showFor === undefined || currentPageItem.showFor === "all" || 
+         (currentPageItem.showFor === "consultant" && isConsultant) ||
+         (currentPageItem.showFor === "corporate" && !isConsultant));
+
+      if (!hasAccess) {
+        console.log('[Layout] ⚠️ Page not accessible for current user/organization settings, redirecting to Dashboard');
+        navigate(createPageUrl("Dashboard"));
+      }
+    }
+  }, [organization, user, location.pathname, demoViewMode, navigate]);
+
   const handleLogout = () => {
     base44.auth.logout();
   };
@@ -201,7 +245,7 @@ function LayoutContent({ children }) {
   // NEW: Handle organization switch
   const handleOrganizationSwitch = async (newOrgId) => {
     console.log('[Layout] Organization switched to:', newOrgId);
-    await refetch(); // Refetch organization context after switch
+    await refetch(); // Refetch organization data
   };
 
   const tokenPercentage = subscription
