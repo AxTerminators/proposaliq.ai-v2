@@ -36,6 +36,9 @@ import RecurringDataCallManager from "../components/datacalls/RecurringDataCallM
 import DataCallTemplateEditor from "../components/datacalls/DataCallTemplateEditor";
 import EnhancedDataCallAnalytics from "../components/datacalls/EnhancedDataCallAnalytics";
 import DataCallExportDialog from "../components/datacalls/DataCallExportDialog";
+import MobileDataCallCard from "../components/datacalls/MobileDataCallCard";
+import MobileDataCallView from "../components/datacalls/MobileDataCallView";
+import DataCallVersionHistory from "../components/datacalls/DataCallVersionHistory";
 
 export default function DataCallsPage() {
   const queryClient = useQueryClient();
@@ -48,6 +51,9 @@ export default function DataCallsPage() {
   const [showDetailView, setShowDetailView] = useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [showBatchExport, setShowBatchExport] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [versionHistoryDataCall, setVersionHistoryDataCall] = useState(null);
+  const [isMobileView, setIsMobileView] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     recipientTypes: [],
@@ -78,6 +84,14 @@ export default function DataCallsPage() {
       }
     };
     loadData();
+
+    // Detect mobile view
+    const checkMobile = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const { data: allDataCalls = [], isLoading } = useQuery({
@@ -222,6 +236,11 @@ export default function DataCallsPage() {
   const openDetailView = (dataCall) => {
     setSelectedDataCallId(dataCall.id);
     setShowDetailView(true);
+  };
+
+  const openVersionHistory = (dataCall) => {
+    setVersionHistoryDataCall(dataCall);
+    setShowVersionHistory(true);
   };
 
   const renderDataCallCard = (dataCall) => {
@@ -627,8 +646,21 @@ export default function DataCallsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
-                {filteredDataCalls.map(renderDataCallCard)}
+              <div className={cn(
+                "space-y-4",
+                isMobileView && "space-y-3"
+              )}>
+                {filteredDataCalls.map(dc => 
+                  isMobileView ? (
+                    <MobileDataCallCard
+                      key={dc.id}
+                      dataCall={dc}
+                      onClick={() => openDetailView(dc)}
+                    />
+                  ) : (
+                    renderDataCallCard(dc)
+                  )
+                )}
               </div>
             )}
           </TabsContent>
@@ -682,6 +714,26 @@ export default function DataCallsPage() {
         onClose={() => setShowBatchExport(false)}
         selectedDataCalls={allDataCalls.filter(dc => selectedIds.includes(dc.id))}
       />
+
+      <DataCallVersionHistory
+        dataCall={versionHistoryDataCall}
+        isOpen={showVersionHistory}
+        onClose={() => {
+          setShowVersionHistory(false);
+          setVersionHistoryDataCall(null);
+        }}
+      />
+
+      {isMobileView && (
+        <MobileDataCallView
+          dataCallId={selectedDataCallId}
+          isOpen={showDetailView}
+          onClose={() => {
+            setShowDetailView(false);
+            setSelectedDataCallId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

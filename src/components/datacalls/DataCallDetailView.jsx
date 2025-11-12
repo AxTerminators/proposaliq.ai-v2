@@ -29,7 +29,8 @@ import {
   Activity,
   Users,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  FileText
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import moment from "moment";
@@ -232,6 +233,14 @@ export default function DataCallDetailView({
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowExportDialog(true)}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export
                 </Button>
               </div>
             </div>
