@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  FileQuestion, 
+  ClipboardList, 
   TrendingUp, 
   AlertCircle, 
   CheckCircle2,
@@ -100,7 +100,7 @@ export default function DataCallSummaryWidget({ organization }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <FileQuestion className="w-5 h-5 text-blue-600" />
+            <ClipboardList className="w-5 h-5 text-blue-600" />
             Data Calls
           </CardTitle>
           <Button
