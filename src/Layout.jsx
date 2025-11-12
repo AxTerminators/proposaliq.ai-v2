@@ -130,6 +130,11 @@ function LayoutContent({ children }) {
   const [demoViewMode, setDemoViewMode] = React.useState(null);
   const [showGlobalSearch, setShowGlobalSearch] = React.useState(false);
 
+  // Scroll to top on route change
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   // Debug: Log current location
   React.useEffect(() => {
     console.log('[Layout] Current location:', location.pathname);
