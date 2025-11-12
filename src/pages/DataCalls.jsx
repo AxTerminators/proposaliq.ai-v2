@@ -30,6 +30,9 @@ import DataCallInitiator from "../components/datacalls/DataCallInitiator";
 import DataCallAnalytics from "../components/datacalls/DataCallAnalytics";
 import BulkDataCallActions from "../components/datacalls/BulkDataCallActions";
 import DataCallDetailView from "../components/datacalls/DataCallDetailView";
+import AdvancedDataCallFilters from "../components/datacalls/AdvancedDataCallFilters";
+import RecurringDataCallManager from "../components/datacalls/RecurringDataCallManager";
+import DataCallTemplateEditor from "../components/datacalls/DataCallTemplateEditor";
 
 export default function DataCallsPage() {
   const queryClient = useQueryClient();
@@ -40,6 +43,17 @@ export default function DataCallsPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedDataCallId, setSelectedDataCallId] = useState(null);
   const [showDetailView, setShowDetailView] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [filters, setFilters] = useState({
+    search: '',
+    recipientTypes: [],
+    statuses: [],
+    priorities: [],
+    dateFrom: null,
+    dateTo: null,
+    hasOverdue: false
+  });
+  const [savedViews, setSavedViews] = useState([]);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -83,17 +97,72 @@ export default function DataCallsPage() {
     enabled: !!organization?.id
   });
 
-  const activeDataCalls = allDataCalls.filter(dc => 
+  // Apply filters
+  const filteredDataCalls = React.useMemo(() => {
+    let filtered = [...allDataCalls];
+
+    // Search
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(dc =>
+        dc.request_title?.toLowerCase().includes(searchLower) ||
+        dc.request_description?.toLowerCase().includes(searchLower) ||
+        dc.assigned_to_name?.toLowerCase().includes(searchLower) ||
+        dc.assigned_to_email?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Recipient types
+    if (filters.recipientTypes?.length > 0) {
+      filtered = filtered.filter(dc => filters.recipientTypes.includes(dc.recipient_type));
+    }
+
+    // Statuses
+    if (filters.statuses?.length > 0) {
+      filtered = filtered.filter(dc => filters.statuses.includes(dc.overall_status));
+    }
+
+    // Priorities
+    if (filters.priorities?.length > 0) {
+      filtered = filtered.filter(dc => filters.priorities.includes(dc.priority));
+    }
+
+    // Date range
+    if (filters.dateFrom) {
+      filtered = filtered.filter(dc => 
+        dc.due_date && new Date(dc.due_date) >= filters.dateFrom
+      );
+    }
+
+    if (filters.dateTo) {
+      filtered = filtered.filter(dc => 
+        dc.due_date && new Date(dc.due_date) <= filters.dateTo
+      );
+    }
+
+    // Overdue only
+    if (filters.hasOverdue) {
+      filtered = filtered.filter(dc =>
+        dc.due_date && 
+        new Date(dc.due_date) < new Date() &&
+        dc.overall_status !== 'completed'
+      );
+    }
+
+    return filtered;
+  }, [allDataCalls, filters]);
+
+  const activeDataCalls = filteredDataCalls.filter(dc => 
     !['completed'].includes(dc.overall_status)
   );
 
-  const overdueDataCalls = allDataCalls.filter(dc =>
+  const overdueDataCalls = filteredDataCalls.filter(dc =>
     dc.due_date && 
     new Date(dc.due_date) < new Date() &&
     dc.overall_status !== 'completed'
   );
 
-  const completedDataCalls = allDataCalls.filter(dc => 
+  const completedDataCalls = filteredDataCalls.filter(dc => 
     dc.overall_status === 'completed'
   );
 
@@ -427,9 +496,19 @@ export default function DataCallsPage() {
           </Card>
         </div>
 
+        {/* Advanced Filters */}
+        <AdvancedDataCallFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          savedViews={savedViews}
+          onSaveView={(view) => setSavedViews([...savedViews, { ...view, id: Date.now().toString() }])}
+          onLoadView={(view) => setFilters(view.filters)}
+          onDeleteView={(id) => setSavedViews(savedViews.filter(v => v.id !== id))}
+        />
+
         {/* Data Call Lists */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="active">
               Active ({activeDataCalls.length})
             </TabsTrigger>
@@ -440,7 +519,11 @@ export default function DataCallsPage() {
               Completed ({completedDataCalls.length})
             </TabsTrigger>
             <TabsTrigger value="all">
-              All ({allDataCalls.length})
+              All ({filteredDataCalls.length})
+            </TabsTrigger>
+            <TabsTrigger value="recurring">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Recurring
             </TabsTrigger>
             <TabsTrigger value="analytics">
               <TrendingUp className="w-4 h-4 mr-2" />
@@ -518,27 +601,36 @@ export default function DataCallsPage() {
               <div className="space-y-4">
                 {[1,2,3].map(i => <Skeleton key={i} className="h-64 w-full" />)}
               </div>
-            ) : allDataCalls.length === 0 ? (
+            ) : filteredDataCalls.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <FileQuestion className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    No Data Calls Yet
+                    {allDataCalls.length === 0 ? 'No Data Calls Yet' : 'No Matching Data Calls'}
                   </h3>
                   <p className="text-slate-600 mb-4">
-                    Create your first data call request
+                    {allDataCalls.length === 0 
+                      ? 'Create your first data call request'
+                      : 'Try adjusting your filters'
+                    }
                   </p>
-                  <Button onClick={() => setShowCreateDialog(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Data Call
-                  </Button>
+                  {allDataCalls.length === 0 && (
+                    <Button onClick={() => setShowCreateDialog(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Data Call
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-4">
-                {allDataCalls.map(renderDataCallCard)}
+                {filteredDataCalls.map(renderDataCallCard)}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="recurring" className="mt-6">
+            <RecurringDataCallManager organization={organization} user={user} />
           </TabsContent>
 
           <TabsContent value="analytics" className="mt-6">
@@ -574,6 +666,12 @@ export default function DataCallsPage() {
         }}
         organization={organization}
         proposals={proposals}
+      />
+
+      <DataCallTemplateEditor
+        isOpen={showTemplateEditor}
+        onClose={() => setShowTemplateEditor(false)}
+        organization={organization}
       />
     </div>
   );

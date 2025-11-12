@@ -297,6 +297,7 @@ export default function DataCallInitiator({
             <DataCallTemplateLibrary
               onSelectTemplate={handleTemplateSelect}
               onClose={() => setShowTemplateLibrary(false)}
+              organization={organization}
             />
           ) : (
             <>
