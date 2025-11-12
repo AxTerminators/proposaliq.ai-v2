@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import {
-  FileQuestion,
+  ClipboardList,
   Calendar,
   User,
   Building2,
@@ -718,7 +719,7 @@ export default function DataCallDetailView({
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center gap-2">
-                          <FileQuestion className="w-5 h-5 text-blue-600" />
+                          <ClipboardList className="w-5 h-5 text-blue-600" />
                           <span className="font-semibold text-slate-900">{proposalName}</span>
                         </div>
                       </CardContent>
