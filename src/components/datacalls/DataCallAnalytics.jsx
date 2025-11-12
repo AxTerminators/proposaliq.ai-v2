@@ -18,7 +18,7 @@ import {
   Legend,
   ResponsiveContainer
 } from "recharts";
-import { TrendingUp, Clock, CheckCircle2, Users, Award } from "lucide-react";
+import { TrendingUp, Clock, CheckCircle2, Users, Award, ClipboardList } from "lucide-react";
 import moment from "moment";
 
 export default function DataCallAnalytics({ organization }) {
@@ -135,7 +135,7 @@ export default function DataCallAnalytics({ organization }) {
                 <p className="text-3xl font-bold text-slate-900">{metrics.total}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <FileQuestion className="w-6 h-6 text-blue-600" />
+                <ClipboardList className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </CardContent>
