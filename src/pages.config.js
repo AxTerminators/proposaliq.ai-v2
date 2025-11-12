@@ -57,7 +57,6 @@ import ClientOrganizationManager from './pages/ClientOrganizationManager';
 import ConsolidatedReporting from './pages/ConsolidatedReporting';
 import DataMigration from './pages/DataMigration';
 import DataIsolationTest from './pages/DataIsolationTest';
-import ClientPortalView from './pages/ClientPortalView';
 import ConsultantDashboard from './pages/ConsultantDashboard';
 import Layout from './Layout.jsx';
 
@@ -122,7 +121,6 @@ export const PAGES = {
     "ConsolidatedReporting": ConsolidatedReporting,
     "DataMigration": DataMigration,
     "DataIsolationTest": DataIsolationTest,
-    "ClientPortalView": ClientPortalView,
     "ConsultantDashboard": ConsultantDashboard,
 }
 

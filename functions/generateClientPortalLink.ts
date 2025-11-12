@@ -1,9 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { nanoid } from 'npm:nanoid@5.0.4';
 
-/**
- * Generate Client Portal Access Link
- * Creates a secure token for client access
- */
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -16,86 +13,57 @@ Deno.serve(async (req) => {
     const { client_organization_id, expiration_days = 90 } = await req.json();
 
     if (!client_organization_id) {
-      return Response.json({
-        success: false,
-        error: 'client_organization_id is required'
+      return Response.json({ 
+        success: false, 
+        error: 'client_organization_id is required' 
       }, { status: 400 });
     }
 
-    // Get client organization
-    const clientOrgs = await base44.asServiceRole.entities.Organization.filter({
-      id: client_organization_id,
-      organization_type: 'client_organization'
+    // Verify the organization exists and is a client_organization
+    const orgs = await base44.asServiceRole.entities.Organization.filter({
+      id: client_organization_id
     });
 
-    if (clientOrgs.length === 0) {
-      return Response.json({
-        success: false,
-        error: 'Client organization not found'
+    if (orgs.length === 0) {
+      return Response.json({ 
+        success: false, 
+        error: 'Organization not found' 
       }, { status: 404 });
     }
 
-    const clientOrg = clientOrgs[0];
+    const clientOrg = orgs[0];
 
-    // Verify user has access to manage this client
-    const consultingFirms = await base44.asServiceRole.entities.Organization.filter({
-      id: clientOrg.parent_organization_id
-    });
+    // Generate secure access token
+    const access_token = nanoid(32);
+    const expires_at = new Date();
+    expires_at.setDate(expires_at.getDate() + expiration_days);
 
-    if (consultingFirms.length === 0) {
-      return Response.json({
-        success: false,
-        error: 'Parent consulting firm not found'
-      }, { status: 404 });
-    }
-
-    const consultingFirm = consultingFirms[0];
-
-    // Check if user has access to the consulting firm
-    const hasAccess = user.client_accesses?.some(
-      acc => acc.organization_id === consultingFirm.id
-    ) || user.email === consultingFirm.created_by;
-
-    if (!hasAccess) {
-      return Response.json({
-        success: false,
-        error: 'You do not have permission to generate links for this client'
-      }, { status: 403 });
-    }
-
-    // Generate secure token
-    const token = crypto.randomUUID();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + expiration_days);
-
-    // Store token in client organization
-    await base44.asServiceRole.entities.Organization.update(clientOrg.id, {
+    // Update organization with new token
+    await base44.asServiceRole.entities.Organization.update(client_organization_id, {
       custom_branding: {
-        ...(clientOrg.custom_branding || {}),
-        portal_access_token: token,
-        token_expires_at: expiresAt.toISOString(),
-        token_created_by: user.email,
-        token_created_date: new Date().toISOString()
+        ...clientOrg.custom_branding,
+        portal_access_token: access_token,
+        portal_token_expires_at: expires_at.toISOString()
       }
     });
 
     // Generate portal URL
-    const baseUrl = req.headers.get('origin') || 'https://app.base44.com';
-    const portalUrl = `${baseUrl}/app/ClientPortalView?token=${token}`;
+    const baseUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
+    const portal_url = `${baseUrl}/client-portal?token=${access_token}&org=${client_organization_id}`;
 
     return Response.json({
       success: true,
-      portal_url: portalUrl,
-      token: token,
-      expires_at: expiresAt.toISOString(),
-      client_organization: clientOrg
+      portal_url,
+      access_token,
+      expires_at: expires_at.toISOString(),
+      organization_name: clientOrg.organization_name
     });
 
   } catch (error) {
-    console.error('[generateClientPortalLink] Error:', error);
-    return Response.json({
-      success: false,
-      error: error.message
+    console.error('Error generating portal link:', error);
+    return Response.json({ 
+      success: false, 
+      error: error.message 
     }, { status: 500 });
   }
 });
