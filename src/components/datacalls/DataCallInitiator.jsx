@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileQuestion, Plus, X, Send, Loader2, Users, Building2, Handshake, Calendar, Sparkles } from "lucide-react";
+import { ClipboardList, Plus, X, Send, Loader2, Users, Building2, Handshake, Calendar, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
 import DataCallTemplateLibrary from "./DataCallTemplateLibrary";
@@ -294,7 +294,7 @@ export default function DataCallInitiator({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
-            <FileQuestion className="w-6 h-6 text-blue-600" />
+            <ClipboardList className="w-6 h-6 text-blue-600" />
             Create Data Call Request
           </DialogTitle>
           <p className="text-sm text-slate-600">
@@ -559,7 +559,7 @@ export default function DataCallInitiator({
               {formData.checklist_items.length === 0 ? (
                 <Card className="border-dashed border-2">
                   <CardContent className="p-6 text-center text-slate-500">
-                    <FileQuestion className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    <ClipboardList className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                     <p>No items added yet. Click "Add Item" to start building your checklist.</p>
                   </CardContent>
                 </Card>
