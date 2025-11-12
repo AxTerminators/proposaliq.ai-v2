@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -37,7 +38,8 @@ import {
   Layers,
   FolderOpen,
   Building2,
-  RefreshCw
+  RefreshCw,
+  ClipboardList // Added ClipboardList icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +106,7 @@ const ALL_NAVIGATION_ITEMS = [
   { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all", adminOnly: true },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
-  { title: "Data Calls", url: createPageUrl("DataCalls"), icon: FileQuestion, showFor: "all" },
+  { title: "Data Calls", url: createPageUrl("DataCalls"), icon: ClipboardList, showFor: "all" }, // Changed icon to ClipboardList
   { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
   { title: "Client Workspaces", url: createPageUrl("ClientOrganizationManager"), icon: Building2, showFor: "consulting_firm" },
   { title: "Portfolio Dashboard", url: createPageUrl("ConsolidatedReporting"), icon: BarChart3, showFor: "consulting_firm" },
