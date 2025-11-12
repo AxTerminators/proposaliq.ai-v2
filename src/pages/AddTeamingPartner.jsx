@@ -184,14 +184,22 @@ export default function AddTeamingPartner() {
     if (existingPartner) {
       setFormData(existingPartner);
       setAiExtractedFields(existingPartner.ai_extracted_fields || []);
+      // CRITICAL FIX: Also set savedPartnerId when editing
+      setSavedPartnerId(existingPartner.id);
     }
   }, [existingPartner]);
 
   const savePartnerMutation = useMutation({
     mutationFn: async (data) => {
-      if (mode === 'edit' && partnerId) {
+      // CRITICAL FIX: Check if we already have a savedPartnerId (from previous save in this session)
+      if (savedPartnerId) {
+        console.log('[AddTeamingPartner] 🔄 Updating existing partner:', savedPartnerId);
+        return base44.entities.TeamingPartner.update(savedPartnerId, data);
+      } else if (mode === 'edit' && partnerId) {
+        console.log('[AddTeamingPartner] 🔄 Updating partner from URL:', partnerId);
         return base44.entities.TeamingPartner.update(partnerId, data);
       } else {
+        console.log('[AddTeamingPartner] ✨ Creating new partner');
         return base44.entities.TeamingPartner.create({
           ...data,
           organization_id: organization.id
@@ -202,7 +210,9 @@ export default function AddTeamingPartner() {
       queryClient.invalidateQueries({ queryKey: ['teaming-partners'] });
       queryClient.invalidateQueries({ queryKey: ['teaming-partner', partnerId] });
       
+      // CRITICAL FIX: Store the ID after first save so subsequent saves UPDATE instead of CREATE
       setSavedPartnerId(savedPartner.id);
+      console.log('[AddTeamingPartner] ✅ Partner saved with ID:', savedPartner.id);
       
       return savedPartner;
     },
@@ -304,7 +314,17 @@ export default function AddTeamingPartner() {
   };
 
   const handleReturnToProposal = async (role) => {
-    if (!proposalId || !savedPartnerId) return;
+    // If no role selected, just navigate back
+    if (role === 'none') {
+      if (proposalId) { // Ensure proposalId exists before navigating
+        navigate(`${createPageUrl("Pipeline")}?proposalId=${proposalId}&tab=checklist`);
+      } else { // If for some reason proposalId is missing, just go to general partners page or home
+        navigate(createPageUrl("TeamingPartners")); // Or a sensible default
+      }
+      return;
+    }
+
+    if (!proposalId || !savedPartnerId) return; // Only proceed with prime/sub if IDs are available
 
     try {
       const proposals = await base44.entities.Proposal.filter({ id: proposalId });
@@ -1464,7 +1484,7 @@ export default function AddTeamingPartner() {
                 </CardContent>
               </Card>
 
-              <Card className="border-2 border-slate-300 hover:shadow-lg transition-all cursor-pointer" onClick={() => navigate(`${createPageUrl("Pipeline")}?proposalId=${proposalId}&tab=checklist`)}>
+              <Card className="border-2 border-slate-300 hover:shadow-lg transition-all cursor-pointer" onClick={() => handleReturnToProposal('none')}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <p className="text-slate-700">Return to proposal without adding this partner</p>
