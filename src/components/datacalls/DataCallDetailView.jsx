@@ -334,7 +334,7 @@ export default function DataCallDetailView({
                   size="sm"
                   onClick={() => setShowExportDialog(true)}
                 >
-                  <FileQuestion className="w-4 h-4 mr-2" />
+                  <ClipboardList className="w-4 h-4 mr-2" />
                   Export
                 </Button>
                 <a
@@ -449,7 +449,7 @@ export default function DataCallDetailView({
                     Activity
                   </TabsTrigger>
                   <TabsTrigger value="details">
-                    <FileQuestion className="w-4 h-4 mr-2" />
+                    <ClipboardList className="w-4 h-4 mr-2" />
                     Details
                   </TabsTrigger>
                 </TabsList>
