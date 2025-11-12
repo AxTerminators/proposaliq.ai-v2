@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,44 +31,47 @@ import {
   AlertCircle,
   Crown,
   Users,
-  Eye
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import ConfirmDialog from "../ui/ConfirmDialog";
+import OptimizedImage from "../ui/OptimizedImage"; // Added OptimizedImage import
+import { Skeleton } from "@/components/ui/skeleton"; // Added Skeleton import
+import { Label } from "@/components/ui/label"; // Added Label import
 
 const CLIENT_ROLES = [
-  { 
-    value: 'organization_owner', 
-    label: 'Organization Owner', 
+  {
+    value: 'organization_owner',
+    label: 'Organization Owner',
     description: 'Full control over workspace',
     color: 'bg-purple-100 text-purple-700',
     icon: Crown
   },
-  { 
-    value: 'organization_admin', 
-    label: 'Organization Admin', 
+  {
+    value: 'organization_admin',
+    label: 'Organization Admin',
     description: 'Manage users and settings',
     color: 'bg-blue-100 text-blue-700',
     icon: Shield
   },
-  { 
-    value: 'proposal_manager', 
-    label: 'Proposal Manager', 
+  {
+    value: 'proposal_manager',
+    label: 'Proposal Manager',
     description: 'Create and manage proposals',
     color: 'bg-green-100 text-green-700',
     icon: Users
   },
-  { 
-    value: 'contributor', 
-    label: 'Contributor', 
+  {
+    value: 'contributor',
+    label: 'Contributor',
     description: 'Edit proposals and content',
     color: 'bg-amber-100 text-amber-700',
     icon: Users
   },
-  { 
-    value: 'viewer', 
-    label: 'Viewer', 
+  {
+    value: 'viewer',
+    label: 'Viewer',
     description: 'View-only access',
     color: 'bg-slate-100 text-slate-700',
     icon: Eye
@@ -91,7 +95,7 @@ export default function ClientUserManagement({ clientOrganization, consultingFir
     queryKey: ['all-users-for-client-org', clientOrganization?.id],
     queryFn: async () => {
       const users = await base44.entities.User.list();
-      return users.filter(u => 
+      return users.filter(u =>
         u.email === clientOrganization?.created_by ||
         u.client_accesses?.some(acc => acc.organization_id === clientOrganization?.id)
       );
@@ -102,14 +106,14 @@ export default function ClientUserManagement({ clientOrganization, consultingFir
   const inviteUserMutation = useMutation({
     mutationFn: async ({ email, role }) => {
       const users = await base44.entities.User.filter({ email });
-      
+
       if (users.length === 0) {
         throw new Error('User not found in platform. Please invite them through main Settings > Team first.');
       }
 
       const existingUser = users[0];
       const currentAccesses = existingUser.client_accesses || [];
-      
+
       if (currentAccesses.some(acc => acc.organization_id === clientOrganization.id)) {
         throw new Error('User already has access to this workspace');
       }
@@ -223,60 +227,73 @@ export default function ClientUserManagement({ clientOrganization, consultingFir
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="border-none shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              User Access ({allUsers.length})
-            </CardTitle>
-            <Button
-              onClick={() => setShowInviteDialog(true)}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Grant Access
-            </Button>
+    <Card className="border-none shadow-lg"> {/* This Card now wraps the entire component content */}
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-600" />
+            User Access ({allUsers.length})
+          </CardTitle>
+          <Button
+            onClick={() => setShowInviteDialog(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Grant Access
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6"> {/* New CardContent wraps the user list and dialogs */}
+        {/* Users List */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-            </div>
-          ) : allUsers.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600">No users have access to this workspace yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {allUsers.map(user => {
-                const userRole = getUserRole(user);
-                const roleInfo = getRoleInfo(userRole);
-                const isOwner = user.email === clientOrganization?.created_by;
-                const RoleIcon = roleInfo.icon;
+        ) : allUsers.length === 0 ? ( // Changed filteredUsers to allUsers
+          <div className="text-center py-8 text-slate-500">
+            <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p>No users have access yet</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {allUsers.map((user) => { // Changed filteredUsers to allUsers
+              const userRole = getUserRole(user);
+              const roleInfo = getRoleInfo(userRole);
+              const Icon = roleInfo.icon; // Using Icon from roleInfo
+              const isOwner = user.email === clientOrganization?.created_by;
 
-                return (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-all"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-semibold">
-                          {user.full_name?.[0]?.toUpperCase() || 'U'}
-                        </span>
-                      </div>
+              return (
+                <Card key={user.id} className="border-2">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      {/* UPDATED: Use OptimizedImage for user avatar if available */}
+                      {user.profile_photo_url ? (
+                        <OptimizedImage
+                          src={user.profile_photo_url}
+                          alt={user.full_name || 'User avatar'}
+                          className="w-12 h-12 rounded-full object-cover"
+                          containerClassName="w-12 h-12 rounded-full flex-shrink-0"
+                          aspectRatio="1/1"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-semibold text-lg">
+                            {user.full_name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* User info (name, email, roles) */}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-900 truncate">
                           {user.full_name || user.email}
                         </p>
                         <p className="text-sm text-slate-600 truncate">{user.email}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge className={roleInfo.color}>
-                            <RoleIcon className="w-3 h-3 mr-1" />
+                          <Badge className={cn(roleInfo.color)}>
+                            <Icon className="w-3 h-3 mr-1" />
                             {roleInfo.label}
                           </Badge>
                           {isOwner && (
@@ -287,153 +304,155 @@ export default function ClientUserManagement({ clientOrganization, consultingFir
                           )}
                         </div>
                       </div>
+
+                      {/* Role selector and revoke button */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!isOwner && (
+                          <>
+                            <Select
+                              value={userRole}
+                              onValueChange={(newRole) => updateRoleMutation.mutate({ user, newRole })}
+                              disabled={updateRoleMutation.isPending}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CLIENT_ROLES.map(role => (
+                                  <SelectItem key={role.value} value={role.value}>
+                                    {role.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRevoke(user)}
+                              title="Revoke access"
+                              disabled={revokeAccessMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {!isOwner && (
-                        <>
-                          <Select
-                            value={userRole}
-                            onValueChange={(newRole) => updateRoleMutation.mutate({ user, newRole })}
-                            disabled={updateRoleMutation.isPending}
-                          >
-                            <SelectTrigger className="w-40">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CLIENT_ROLES.map(role => (
-                                <SelectItem key={role.value} value={role.value}>
-                                  {role.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+        {/* Invite Dialog - Moved inside this CardContent */}
+        <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-blue-600" />
+                Grant Workspace Access
+              </DialogTitle>
+              <DialogDescription>
+                Add a platform user to {clientOrganization?.organization_name}
+              </DialogDescription>
+            </DialogHeader>
 
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRevoke(user)}
-                            title="Revoke access"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Email Address *</Label>
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="mt-1"
+                />
+              </div>
 
-      {/* Invite Dialog */}
-      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-blue-600" />
-              Grant Workspace Access
-            </DialogTitle>
-            <DialogDescription>
-              Add a platform user to {clientOrganization?.organization_name}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Email Address *</Label>
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="user@example.com"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label>Workspace Role *</Label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLIENT_ROLES.map(role => {
-                    const RoleIcon = role.icon;
-                    return (
-                      <SelectItem key={role.value} value={role.value}>
-                        <div className="flex items-start gap-2">
-                          <RoleIcon className="w-4 h-4 mt-0.5" />
-                          <div>
-                            <p className="font-medium">{role.label}</p>
-                            <p className="text-xs text-slate-500">{role.description}</p>
+              <div>
+                <Label>Workspace Role *</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_ROLES.map(role => {
+                      const RoleIcon = role.icon;
+                      return (
+                        <SelectItem key={role.value} value={role.value}>
+                          <div className="flex items-start gap-2">
+                            <RoleIcon className="w-4 h-4 mt-0.5" />
+                            <div>
+                              <p className="font-medium">{role.label}</p>
+                              <p className="text-xs text-slate-500">{role.description}</p>
+                            </div>
                           </div>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900">
+                  ℹ️ User must exist in the platform. New users should be invited through main Settings → Team first.
+                </p>
+              </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-900">
-                ℹ️ User must exist in the platform. New users should be invited through main Settings → Team first.
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleInvite}
+                disabled={!inviteEmail.trim() || inviteUserMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {inviteUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Granting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Grant Access
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Revoke Confirmation - Moved inside this CardContent */}
+        <ConfirmDialog
+          isOpen={showRevokeConfirm}
+          onClose={() => {
+            setShowRevokeConfirm(false);
+            setUserToRevoke(null);
+          }}
+          onConfirm={() => revokeAccessMutation.mutate(userToRevoke)}
+          title="Revoke Workspace Access?"
+          variant="danger"
+          confirmText="Yes, Revoke Access"
+          isLoading={revokeAccessMutation.isPending}
+        >
+          <div className="space-y-3">
+            <p className="text-slate-700">
+              Are you sure you want to revoke access for <strong>{userToRevoke?.full_name || userToRevoke?.email}</strong> from {clientOrganization?.organization_name}?
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-900">
+                ⚠️ They will lose access to all proposals, files, and data within this client workspace.
               </p>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleInvite}
-              disabled={!inviteEmail.trim() || inviteUserMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {inviteUserMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Granting...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Grant Access
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Revoke Confirmation */}
-      <ConfirmDialog
-        isOpen={showRevokeConfirm}
-        onClose={() => {
-          setShowRevokeConfirm(false);
-          setUserToRevoke(null);
-        }}
-        onConfirm={() => revokeAccessMutation.mutate(userToRevoke)}
-        title="Revoke Workspace Access?"
-        variant="danger"
-        confirmText="Yes, Revoke Access"
-        isLoading={revokeAccessMutation.isPending}
-      >
-        <div className="space-y-3">
-          <p className="text-slate-700">
-            Are you sure you want to revoke access for <strong>{userToRevoke?.full_name || userToRevoke?.email}</strong> from {clientOrganization?.organization_name}?
-          </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-sm text-amber-900">
-              ⚠️ They will lose access to all proposals, files, and data within this client workspace.
-            </p>
-          </div>
-        </div>
-      </ConfirmDialog>
-    </div>
+        </ConfirmDialog>
+      </CardContent>
+    </Card>
   );
 }
