@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Sparkles, Loader2, CheckCircle2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
