@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,7 @@ import {
   CheckCircle,
   FileText,
   DollarSign,
-  ChevronDown, // Added ChevronDown import
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -46,7 +45,7 @@ export default function KanbanColumn({
   onCreateProposal,
   selectedProposalIds = [],
   onToggleProposalSelection,
-  // NEW: Lazy loading props
+  // **NEW: Lazy loading props**
   totalCount = proposals.length,
   visibleCount = proposals.length,
   hasMore = false,
@@ -60,7 +59,7 @@ export default function KanbanColumn({
 
   const selectionMode = selectedProposalIds.length > 0;
 
-  // Calculate total dollar value in this column
+  // Calculate total dollar value in this column (using totalCount for accuracy)
   const totalValue = useMemo(() => {
     return proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
   }, [proposals]);
@@ -90,8 +89,8 @@ export default function KanbanColumn({
                           column.can_drag_from_here_roles.includes(currentUserRole);
 
   const wipLimit = column.wip_limit || 0;
-  const isAtWipLimit = wipLimit > 0 && proposalCount >= wipLimit;
-  const isNearWipLimit = wipLimit > 0 && proposalCount >= wipLimit * 0.8 && proposalCount < wipLimit;
+  const isAtWipLimit = wipLimit > 0 && totalCount >= wipLimit; // **UPDATED: Use totalCount**
+  const isNearWipLimit = wipLimit > 0 && totalCount >= wipLimit * 0.8 && totalCount < wipLimit; // **UPDATED**
 
   const handleNameClick = (e) => {
     e?.stopPropagation?.();
@@ -124,14 +123,9 @@ export default function KanbanColumn({
   return (
     <div
       className={cn(
-        "w-80 flex-shrink-0 bg-white border-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex flex-col",
-        snapshot?.isDraggingOver && "border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200",
-        !snapshot?.isDraggingOver && "border-slate-200"
+        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
       )}
-      style={{
-        minHeight: '600px',
-        maxHeight: 'calc(100vh - 250px)'
-      }}
     >
       {/* Column Header - Single Row Layout with Consistent Height */}
       <div
@@ -190,13 +184,16 @@ export default function KanbanColumn({
             {/* Compact Metadata Section - All badges same height for consistency */}
             {!isEditingName && (
               <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-                {/* Proposal Count */}
+                {/* Proposal Count - **UPDATED: Show total/visible if lazy loaded** */}
                 <Badge
                   variant="secondary"
                   className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
-                  title={`${proposalCount} ${proposalCount === 1 ? 'proposal' : 'proposals'}`}
+                  title={hasMore 
+                    ? `Showing ${visibleCount} of ${totalCount} proposals` 
+                    : `${totalCount} ${totalCount === 1 ? 'proposal' : 'proposals'}`
+                  }
                 >
-                  {proposalCount}
+                  {hasMore ? `${visibleCount}/${totalCount}` : totalCount}
                 </Badge>
 
                 {/* Dollar Value */}
@@ -211,7 +208,7 @@ export default function KanbanColumn({
                   </Badge>
                 )}
 
-                {/* WIP Limit Badge */}
+                {/* WIP Limit Badge - **UPDATED: Use totalCount** */}
                 {wipLimit > 0 && (
                   <Badge
                     variant="secondary"
@@ -221,10 +218,10 @@ export default function KanbanColumn({
                       isNearWipLimit ? "bg-yellow-500 text-white hover:bg-yellow-600" :
                       "bg-white/20 text-white hover:bg-white/30 border-white/30"
                     )}
-                    title={`Work in progress limit: ${proposalCount}/${wipLimit} ${column.wip_limit_type === 'hard' ? '(Hard Limit)' : '(Soft Limit)'}`}
+                    title={`Work in progress limit: ${totalCount}/${wipLimit} ${column.wip_limit_type === 'hard' ? '(Hard Limit)' : '(Soft Limit)'}`}
                   >
                     {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" title="Hard limit" />}
-                    {proposalCount}/{wipLimit}
+                    {totalCount}/{wipLimit}
                   </Badge>
                 )}
 
@@ -290,21 +287,18 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      {/* Proposal Cards */}
+      {/* Proposal Cards Container */}
       <div
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 p-3 space-y-3 overflow-y-auto min-h-[120px] transition-all duration-200",
+          "flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] transition-all duration-200",
           snapshot.isDraggingOver && "bg-blue-50/50"
         )}
-        style={{
-          minHeight: '100px'
-        }}
       >
         {/* Warning Messages */}
-        {!canDragToHere && proposalCount > 0 && (
-          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+        {!canDragToHere && totalCount > 0 && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg mb-3">
             <div className="flex items-start gap-2">
               <Shield className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-orange-900">
@@ -315,7 +309,7 @@ export default function KanbanColumn({
         )}
 
         {isAtWipLimit && column.wip_limit_type === 'hard' && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-red-900">
@@ -325,74 +319,70 @@ export default function KanbanColumn({
           </div>
         )}
 
-        {proposals.map((proposal, index) => (
-          <Draggable
-            key={proposal.id}
-            draggableId={proposal.id}
-            index={index}
-            type="card"
-            isDragDisabled={!canDragFromHere}
-          >
-            {(providedCard, snapshotCard) => (
-              <div
-                ref={providedCard.innerRef}
-                {...providedCard.draggableProps}
-                {...providedCard.dragHandleProps}
-                style={{
-                  ...providedCard.draggableProps.style,
-                  transition: 'all 0.2s ease-out'
-                }}
-              >
-                <KanbanCard
-                  proposal={proposal}
-                  onClick={() => onCardClick(proposal)}
-                  isDragging={snapshotCard.isDragging}
-                  organization={organization}
-                  user={user}
-                  column={column}
-                  isSelected={selectedProposalIds.includes(proposal.id)}
-                  onToggleSelection={(e) => {
-                    e.stopPropagation();
-                    onToggleProposalSelection(proposal.id);
-                  }}
-                  selectionMode={selectionMode}
-                />
-              </div>
-            )}
-          </Draggable>
-        ))}
-        {provided.placeholder}
-
-        {/* NEW: Load More Button */}
-        {hasMore && (
-          <div className="py-3 space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onLoadMore}
-              className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400"
-            >
-              <ChevronDown className="w-4 h-4 mr-2" />
-              Load More ({totalCount - visibleCount} remaining)
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLoadAll}
-              className="w-full text-xs text-slate-600 hover:text-blue-600"
-            >
-              Show All {totalCount} Cards
-            </Button>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {proposals.length === 0 && !snapshot?.isDraggingOver && (
+        {/* Proposal Cards */}
+        {proposals.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No proposals</p>
             <p className="text-xs mt-1">Drag here or create new</p>
           </div>
+        ) : (
+          <>
+            {proposals.map((proposal, index) => (
+              <Draggable
+                key={proposal.id}
+                draggableId={proposal.id}
+                index={index}
+                type="card"
+                isDragDisabled={!canDragFromHere}
+              >
+                {(providedCard, snapshotCard) => (
+                  <KanbanCard
+                    proposal={proposal}
+                    provided={providedCard}
+                    snapshot={snapshotCard}
+                    onClick={onCardClick}
+                    organization={organization}
+                    isSelected={selectedProposalIds.includes(proposal.id)}
+                    onToggleSelection={onToggleProposalSelection}
+                    selectionMode={selectionMode}
+                  />
+                )}
+              </Draggable>
+            ))}
+
+            {/* **NEW: Load More Buttons** */}
+            {hasMore && (
+              <div className="pt-2 space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadMore?.();
+                  }}
+                  className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400 h-9"
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Load More ({totalCount - visibleCount})
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadAll?.();
+                  }}
+                  className="w-full text-xs text-slate-600 hover:text-blue-600 h-7"
+                >
+                  Show All {totalCount}
+                </Button>
+              </div>
+            )}
+          </>
         )}
+
+        {provided.placeholder}
       </div>
     </div>
   );
