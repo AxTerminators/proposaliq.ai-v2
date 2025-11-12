@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -23,7 +24,8 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
-  ShieldCheck
+  ShieldCheck,
+  Plus // NEW: Added Plus icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CapabilityStatementUploader from "../components/teamingpartners/CapabilityStatementUploader";
@@ -117,7 +119,8 @@ export default function AddTeamingPartner() {
     ai_extracted: false,
     extraction_date: null,
     extraction_confidence_score: null,
-    ai_extracted_fields: []
+    ai_extracted_fields: [],
+    tags: [] // NEW: Initialize tags array
   });
 
   useEffect(() => {
@@ -281,6 +284,22 @@ export default function AddTeamingPartner() {
       ...prev,
       [field]: prev[field].filter((_, i) => i !== index)
     }));
+  };
+
+  // NEW: Tag management functions
+  const [tagInput, setTagInput] = useState("");
+
+  const handleAddTag = () => {
+    if (!tagInput.trim()) return;
+    addArrayItem('tags', tagInput);
+    setTagInput("");
+  };
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   const isFieldAIExtracted = (fieldName) => {
@@ -1061,6 +1080,53 @@ export default function AddTeamingPartner() {
                     />
                     <p className="text-xs text-slate-500 mt-1">Based on past collaboration experience</p>
                   </div>
+                </div>
+
+                {/* NEW: Tags Section */}
+                <div>
+                  <Label className="mb-2">Internal Tags</Label>
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleTagKeyDown}
+                      placeholder="Add a tag (e.g., 'cybersecurity', 'preferred-vendor', 'east-coast')"
+                      className="flex-1"
+                    />
+                    <Button 
+                      type="button"
+                      onClick={handleAddTag}
+                      variant="outline"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Tag
+                    </Button>
+                  </div>
+                  
+                  {formData.tags && formData.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      {formData.tags.map((tag, idx) => (
+                        <Badge 
+                          key={idx} 
+                          variant="secondary" 
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => removeArrayItem('tags', idx)}
+                            className="ml-1 hover:text-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-slate-500 mt-2">
+                    Use tags for internal organization and quick filtering (e.g., 'high-priority', 'cybersecurity-expert', 'dmv-area')
+                  </p>
                 </div>
 
                 <div>

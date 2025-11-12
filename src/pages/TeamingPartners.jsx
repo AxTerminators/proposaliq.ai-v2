@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -96,6 +97,7 @@ export default function TeamingPartners() {
   const [filterCertification, setFilterCertification] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [filterTag, setFilterTag] = useState("all"); // NEW
 
   useEffect(() => {
     const loadData = async () => {
@@ -125,6 +127,17 @@ export default function TeamingPartners() {
     },
     enabled: !!organization?.id,
   });
+
+  // NEW: Extract all unique tags
+  const allTags = React.useMemo(() => {
+    const tagSet = new Set();
+    partners.forEach(p => {
+      if (p.tags) {
+        p.tags.forEach(tag => tagSet.add(tag));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [partners]);
 
   const deletePartnerMutation = useMutation({
     mutationFn: async (id) => {
@@ -210,7 +223,11 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     const matchesType = filterType === "all" ||
       partner.partner_type === filterType;
 
-    return matchesSearch && matchesCertification && matchesStatus && matchesType;
+    // NEW: Tag filter
+    const matchesTag = filterTag === "all" ||
+      partner.tags?.includes(filterTag);
+
+    return matchesSearch && matchesCertification && matchesStatus && matchesType && matchesTag;
   });
 
   const getPartnerTypeColor = (type) => {
@@ -240,7 +257,8 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     searchQuery ? 1 : 0,
     filterCertification !== "all" ? 1 : 0,
     filterStatus !== "all" ? 1 : 0,
-    filterType !== "all" ? 1 : 0
+    filterType !== "all" ? 1 : 0,
+    filterTag !== "all" ? 1 : 0  // NEW
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => {
@@ -248,6 +266,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
     setFilterCertification("all");
     setFilterStatus("all");
     setFilterType("all");
+    setFilterTag("all"); // NEW
   };
 
   if (!organization) {
@@ -312,7 +331,7 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                   </Button>
                 )}
               </div>
-              <div className="grid md:grid-cols-3 gap-3">
+              <div className="grid md:grid-cols-4 gap-3"> {/* Changed to md:grid-cols-4 */}
                 <div>
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Certification</label>
                   <Select value={filterCertification} onValueChange={setFilterCertification}>
@@ -359,6 +378,22 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                       <SelectItem value="teaming_partner">Teaming Partner</SelectItem>
                       <SelectItem value="consultant">Consultant</SelectItem>
                       <SelectItem value="vendor">Vendor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* NEW: Tag Filter */}
+                <div>
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Tag</label>
+                  <Select value={filterTag} onValueChange={setFilterTag}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tags</SelectItem>
+                      {allTags.map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -504,6 +539,32 @@ ${partner.certifications && partner.certifications.length > 0 ? `
                         {partner.primary_naics && (
                           <Badge variant="outline" className="font-mono">
                             NAICS: {partner.primary_naics}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NEW: Tags Display - Always visible */}
+                  {partner.tags && partner.tags.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+                        <span>🏷️</span>
+                        <span>Tags</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {partner.tags.slice(0, isExpanded ? undefined : 4).map((tag, idx) => (
+                          <Badge 
+                            key={idx} 
+                            variant="secondary"
+                            className="text-xs bg-slate-200 text-slate-700 hover:bg-slate-300"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        {!isExpanded && partner.tags.length > 4 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{partner.tags.length - 4}
                           </Badge>
                         )}
                       </div>
