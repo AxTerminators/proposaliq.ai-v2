@@ -32,15 +32,16 @@ import {
   Award,
   Briefcase,
   Handshake,
-  FileText,
+  FileText, // Added for RESOURCE_TYPES
   Building2,
-  AlertCircle
+  AlertCircle,
+  Package // Added for header icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const RESOURCE_TYPES = [
-  { value: 'proposal_resource', label: 'Resources', icon: Library, color: 'text-blue-600' },
+  { value: 'proposal_resource', label: 'Resources', icon: FileText, color: 'text-blue-600' }, // Changed icon to FileText
   { value: 'past_performance', label: 'Past Performance', icon: Award, color: 'text-green-600' },
   { value: 'key_personnel', label: 'Key Personnel', icon: Users, color: 'text-purple-600' },
   { value: 'teaming_partner', label: 'Teaming Partners', icon: Handshake, color: 'text-amber-600' },
@@ -245,19 +246,27 @@ export default function GlobalResourceLibrary({ consultingFirm, targetClients = 
     }
   };
 
+  const selectAllResources = () => {
+    setSelectedResources(filteredResources.map(r => r.id));
+  };
+
+  const deselectAllResources = () => {
+    setSelectedResources([]);
+  };
+
   const currentResourceType = RESOURCE_TYPES.find(rt => rt.value === selectedResourceType);
   const allClientOrgs = targetClients || clientOrganizations; // Use prop if provided, otherwise fetched data
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      {!targetClients && ( // Only show header if targetClients prop is not provided
+      {/* Header with Bulk Actions */}
+      {!targetClients && (
         <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                  <Library className="w-6 h-6 text-white" />
+                  <Package className="w-6 h-6 text-white" /> {/* Changed icon to Package */}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">
@@ -268,14 +277,34 @@ export default function GlobalResourceLibrary({ consultingFirm, targetClients = 
                   </p>
                 </div>
               </div>
-              <Button
-                onClick={() => setShowPushDialog(true)}
-                disabled={selectedResources.length === 0}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Send className="w-4 h-4 mr-2" />
-                Push to Clients ({selectedResources.length})
-              </Button>
+              <div className="flex gap-2"> {/* Added flex container for new buttons */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllResources}
+                  disabled={filteredResources.length === 0 || selectedResources.length === filteredResources.length}
+                  className="text-purple-700 border-purple-300 hover:bg-purple-100"
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deselectAllResources}
+                  disabled={selectedResources.length === 0}
+                  className="text-purple-700 border-purple-300 hover:bg-purple-100"
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={() => setShowPushDialog(true)}
+                  disabled={selectedResources.length === 0}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Push ({selectedResources.length}) {/* Changed button text */}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

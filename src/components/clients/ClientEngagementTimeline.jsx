@@ -7,7 +7,8 @@ import {
   FileText,
   Users,
   Send,
-  Award
+  Award,
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";

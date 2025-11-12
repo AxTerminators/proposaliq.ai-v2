@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -46,19 +45,24 @@ import {
   CheckCircle2,
   BarChart3,
   FileText,
-  Library, // NEW import for Library icon
-  RefreshCw, // NEW import for RefreshCw icon
+  Library,
+  RefreshCw,
+  Package, // NEW import for Package icon
+  Calendar, // NEW import for Calendar icon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import moment from "moment";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
-import ClientUserManagement from "../components/clients/ClientUserManagement"; // NEW component import
-import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary"; // NEW component import
-import ResourceSyncManager from "../components/clients/ResourceSyncManager"; // NEW component import
-import QuickClientActions from "../components/clients/QuickClientActions"; // NEW component import
-import { // NEW imports for Tabs
+import ClientUserManagement from "../components/clients/ClientUserManagement";
+import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary";
+import ResourceSyncManager from "../components/clients/ResourceSyncManager";
+import QuickClientActions from "../components/clients/QuickClientActions";
+import ClientHealthIndicator from "../components/clients/ClientHealthIndicator"; // NEW component import
+import ClientEngagementTimeline from "../components/clients/ClientEngagementTimeline"; // NEW component import
+import ClientAnalyticsDashboard from "../components/clients/ClientAnalyticsDashboard"; // NEW component import
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -82,7 +86,7 @@ export default function ClientOrganizationManager() {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null); // NEW state for selected client
+  const [selectedClient, setSelectedClient] = useState(null);
 
   const [formData, setFormData] = useState({
     organization_name: "",
@@ -161,6 +165,98 @@ export default function ClientOrganizationManager() {
     enabled: !!consultingFirm?.id,
   });
 
+  // NEW: Fetch health score for selected client
+  const { data: healthScore } = useQuery({
+    queryKey: ['client-health-score', selectedClient?.id],
+    queryFn: async () => {
+      if (!selectedClient?.id) return null;
+      const scores = await base44.entities.ClientHealthScore.filter(
+        { client_id: selectedClient.id },
+        '-calculated_date',
+        1
+      );
+      return scores.length > 0 ? scores[0] : null;
+    },
+    enabled: !!selectedClient?.id,
+  });
+
+  // NEW: Generate timeline events from activity
+  const { data: timelineEvents = [] } = useQuery({
+    queryKey: ['client-timeline', selectedClient?.id],
+    queryFn: async () => {
+      if (!selectedClient?.id) return [];
+
+      const events = [];
+
+      // Workspace creation
+      events.push({
+        type: 'workspace_created',
+        title: 'Client workspace created',
+        description: `${selectedClient.organization_name} workspace initialized`,
+        date: selectedClient.created_date
+      });
+
+      // User additions
+      // Fetch users from the backend as base44.entities.User.list() might not provide client_accesses for all users
+      const usersData = await base44.functions.invoke('getClientUsers', {
+        client_organization_id: selectedClient.id
+      });
+
+      if (usersData?.data?.success) {
+        usersData.data.users.forEach(u => {
+          const access = u.client_accesses?.find(acc => acc.organization_id === selectedClient.id);
+          if (access?.added_date) {
+            events.push({
+              type: 'user_added',
+              title: `${u.full_name || u.email} added`,
+              description: `Granted ${access.role} access`,
+              date: access.added_date
+            });
+          }
+        });
+      }
+
+
+      // Resource shares
+      const shares = await base44.entities.ResourceShare.filter({
+        target_organization_id: selectedClient.id
+      });
+      shares.forEach(share => {
+        events.push({
+          type: 'resource_shared',
+          title: `${share.resource_type.replace('_', ' ')} shared`,
+          description: `By ${share.shared_by_name || share.shared_by_email}`,
+          date: share.created_date
+        });
+      });
+
+      // Proposals
+      const proposals = await base44.entities.Proposal.filter({
+        organization_id: selectedClient.id
+      });
+      proposals.forEach(p => {
+        events.push({
+          type: 'proposal_created',
+          title: `Proposal created: ${p.proposal_name}`,
+          description: p.project_title || '',
+          date: p.created_date
+        });
+
+        if (p.status === 'won') {
+          events.push({
+            type: 'proposal_won',
+            title: `Won: ${p.proposal_name}`,
+            description: p.contract_value ? `$${(p.contract_value / 1000).toFixed(0)}K` : '',
+            date: p.updated_date
+          });
+        }
+      });
+
+      return events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    },
+    enabled: !!selectedClient?.id,
+  });
+
   const createClientOrgMutation = useMutation({
     mutationFn: async (data) => {
       if (editingClient) {
@@ -192,13 +288,13 @@ export default function ClientOrganizationManager() {
       queryClient.invalidateQueries({ queryKey: ['client-organizations'] });
       queryClient.invalidateQueries({ queryKey: ['org-relationships'] });
       queryClient.invalidateQueries({ queryKey: ['accessible-organizations'] });
-      
+
       toast.success(
-        editingClient 
-          ? "Client updated!" 
+        editingClient
+          ? "Client updated!"
           : `✅ ${result.organization_name || 'Client'} workspace created with default setup!`
       );
-      
+
       setShowCreateDialog(false);
       setEditingClient(null);
       resetForm();
@@ -221,6 +317,10 @@ export default function ClientOrganizationManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-organizations'] });
+      // If the selected client is being archived/unarchived, update its state
+      if (selectedClient?.id === clientToDelete?.id) {
+        setSelectedClient(prev => prev ? { ...prev, is_archived: !prev.is_archived } : null);
+      }
       toast.success("Client status updated!");
     },
   });
@@ -231,11 +331,11 @@ export default function ClientOrganizationManager() {
       const rels = await base44.entities.OrganizationRelationship.filter({
         client_organization_id: id
       });
-      
+
       for (const rel of rels) {
         await base44.entities.OrganizationRelationship.delete(rel.id);
       }
-      
+
       return base44.entities.Organization.delete(id);
     },
     onSuccess: () => {
@@ -344,7 +444,7 @@ export default function ClientOrganizationManager() {
   }
 
   // Check if this is a consulting firm
-  const isConsultingFirm = consultingFirm.organization_type === 'consulting_firm' || 
+  const isConsultingFirm = consultingFirm.organization_type === 'consulting_firm' ||
                            consultingFirm.organization_type === 'consultancy' ||
                            (consultingFirm.organization_type === 'demo' && consultingFirm.demo_view_mode === 'consultancy');
 
@@ -371,8 +471,8 @@ export default function ClientOrganizationManager() {
     return (
       <div className="p-6 lg:p-8 space-y-6">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => setSelectedClient(null)}
           >
             ← Back to All Clients
@@ -401,12 +501,27 @@ export default function ClientOrganizationManager() {
           onOpenWorkspace={() => handleSwitchToClient(selectedClient)}
           onManageUsers={() => {}} // Tab is already visible
           onPushResources={() => {}} // Tab is already visible
-          onViewAnalytics={() => {}} // Future feature
+          onViewAnalytics={() => {}} // Tab is already visible
           onEditSettings={() => handleEdit(selectedClient)}
           onArchiveToggle={() => archiveClientMutation.mutate(selectedClient)}
           onDelete={() => handleDelete(selectedClient)}
           isArchived={selectedClient.is_archived}
         />
+
+        {/* Health Indicator */}
+        {healthScore && (
+          <ClientHealthIndicator
+            healthScore={healthScore.overall_score}
+            trend={healthScore.trend}
+            riskLevel={healthScore.churn_risk}
+            metrics={{
+              engagement: healthScore.engagement_score,
+              satisfaction: healthScore.satisfaction_score,
+              activity: healthScore.activity_score,
+              responseTime: healthScore.avg_response_time_hours
+            }}
+          />
+        )}
 
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
@@ -415,12 +530,20 @@ export default function ClientOrganizationManager() {
               User Access
             </TabsTrigger>
             <TabsTrigger value="resources">
-              <Library className="w-4 h-4 mr-2" />
+              <Package className="w-4 h-4 mr-2" />
               Push Resources
             </TabsTrigger>
             <TabsTrigger value="sync">
               <RefreshCw className="w-4 h-4 mr-2" />
               Resource Sync
+            </TabsTrigger>
+            <TabsTrigger value="analytics">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="timeline">
+              <Calendar className="w-4 h-4 mr-2" />
+              Timeline
             </TabsTrigger>
             <TabsTrigger value="details">
               <FileText className="w-4 h-4 mr-2" />
@@ -429,7 +552,7 @@ export default function ClientOrganizationManager() {
           </TabsList>
 
           <TabsContent value="users">
-            <ClientUserManagement 
+            <ClientUserManagement
               clientOrganization={selectedClient}
               consultingFirm={consultingFirm}
             />
@@ -439,7 +562,7 @@ export default function ClientOrganizationManager() {
             <Card className="border-none shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Library className="w-5 h-5 text-purple-600" />
+                  <Package className="w-5 h-5 text-purple-600" />
                   Push Resources to Client
                 </CardTitle>
               </CardHeader>
@@ -447,7 +570,7 @@ export default function ClientOrganizationManager() {
                 <p className="text-slate-600 mb-6">
                   Share templates, past performance, key personnel, and teaming partners from your firm's library
                 </p>
-                <GlobalResourceLibrary 
+                <GlobalResourceLibrary
                   consultingFirm={consultingFirm}
                   targetClients={[selectedClient]}
                 />
@@ -462,12 +585,26 @@ export default function ClientOrganizationManager() {
             />
           </TabsContent>
 
+          <TabsContent value="analytics">
+            <ClientAnalyticsDashboard
+              clientOrganization={selectedClient}
+              consultingFirm={consultingFirm}
+            />
+          </TabsContent>
+
+          <TabsContent value="timeline">
+            <ClientEngagementTimeline
+              clientOrganization={selectedClient}
+              events={timelineEvents}
+            />
+          </TabsContent>
+
           <TabsContent value="details">
             <Card className="border-none shadow-lg">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Organization Details</CardTitle>
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={() => handleEdit(selectedClient)}
                   >
@@ -493,9 +630,9 @@ export default function ClientOrganizationManager() {
                   {selectedClient.website_url && (
                     <div>
                       <Label className="text-sm text-slate-500">Website</Label>
-                      <a 
-                        href={selectedClient.website_url} 
-                        target="_blank" 
+                      <a
+                        href={selectedClient.website_url}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium text-blue-600 hover:underline"
                       >
@@ -529,7 +666,7 @@ export default function ClientOrganizationManager() {
                     <div className="space-y-3">
                       {selectedClient.custom_branding.primary_color && (
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             className="w-8 h-8 rounded border"
                             style={{ backgroundColor: selectedClient.custom_branding.primary_color }}
                           />
@@ -570,7 +707,7 @@ export default function ClientOrganizationManager() {
             Manage dedicated workspaces for each of your clients with complete data isolation
           </p>
         </div>
-        <Button 
+        <Button
           onClick={() => { resetForm(); setShowCreateDialog(true); }}
           className="bg-blue-600 hover:bg-blue-700"
         >
@@ -827,7 +964,7 @@ export default function ClientOrganizationManager() {
               {editingClient ? 'Edit Client Organization' : 'Create Client Workspace'}
             </DialogTitle>
             <DialogDescription>
-              {editingClient 
+              {editingClient
                 ? 'Update client organization details'
                 : 'Create a new dedicated workspace with complete data isolation for your client'
               }
@@ -841,7 +978,7 @@ export default function ClientOrganizationManager() {
                 <FileText className="w-4 h-4 text-blue-600" />
                 Basic Information
               </h3>
-              
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Organization Name *</Label>
@@ -917,7 +1054,7 @@ export default function ClientOrganizationManager() {
                 <BarChart3 className="w-4 h-4 text-blue-600" />
                 Custom Branding (Optional)
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <Label>Logo URL</Label>
@@ -998,8 +1135,8 @@ export default function ClientOrganizationManager() {
           </div>
 
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowCreateDialog(false)}
               disabled={isCreating}
             >
@@ -1008,7 +1145,7 @@ export default function ClientOrganizationManager() {
             <Button
               onClick={handleSave}
               disabled={
-                !formData.organization_name?.trim() || 
+                !formData.organization_name?.trim() ||
                 !formData.contact_email?.trim() ||
                 isCreating
               }
