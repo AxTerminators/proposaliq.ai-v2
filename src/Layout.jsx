@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
@@ -43,8 +43,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import SmartNotificationCenter from "./components/notifications/SmartNotificationCenter";
-import UnifiedGlobalSearch from "./components/search/UnifiedGlobalSearch";
+import NotificationCenter from "./components/collaboration/NotificationCenter";
+import MobileNavigation from "./components/mobile/MobileNavigation";
+import GlobalSearch from "./components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import OrganizationSwitcher from "./components/layout/OrganizationSwitcher";
@@ -100,6 +101,7 @@ const SETTINGS_ITEMS = [
 // All possible navigation items with their visibility rules
 const ALL_NAVIGATION_ITEMS = [
   { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
+  { title: "Consultant Dashboard", url: createPageUrl("ConsultantDashboard"), icon: Briefcase, showFor: "consulting_firm" },
   { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all", adminOnly: true },
   { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
   { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
@@ -119,24 +121,24 @@ function LayoutContent({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, organization, subscription, refetch } = useOrganization();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [demoViewMode, setDemoViewMode] = useState(null);
-  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
+  const [toolsOpen, setToolsOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [demoViewMode, setDemoViewMode] = React.useState(null);
+  const [showGlobalSearch, setShowGlobalSearch] = React.useState(false);
 
   // Debug: Log current location
-  useEffect(() => {
+  React.useEffect(() => {
     console.log('[Layout] Current location:', location.pathname);
   }, [location.pathname]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -147,21 +149,21 @@ function LayoutContent({ children }) {
     };
   }, [mobileMenuOpen]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const isWorkspacePage = WORKSPACE_ITEMS.some(item => location.pathname === item.url);
     if (isWorkspacePage) {
       setWorkspaceOpen(true);
     }
   }, [location.pathname]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const isToolsPage = TOOLS_ITEMS.some(item => location.pathname === item.url);
     if (isToolsPage) {
       setToolsOpen(true);
     }
   }, [location.pathname]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const isSettingsPage = SETTINGS_ITEMS.some(item => location.pathname === item.url);
     if (isSettingsPage) {
       setSettingsOpen(true);
@@ -169,7 +171,7 @@ function LayoutContent({ children }) {
   }, [location.pathname]);
 
   // NEW: Load demo view mode from organization
-  useEffect(() => {
+  React.useEffect(() => {
     if (organization?.organization_type === 'demo') {
       setDemoViewMode(organization.demo_view_mode || 'corporate');
     } else {
@@ -178,7 +180,7 @@ function LayoutContent({ children }) {
   }, [organization]);
 
   // NEW: Redirect to Dashboard if current page is not accessible for the current organization
-  useEffect(() => {
+  React.useEffect(() => {
     if (!organization || !user) return;
 
     const effectiveOrgType = organization.organization_type === 'demo'
@@ -223,19 +225,6 @@ function LayoutContent({ children }) {
       }
     }
   }, [organization, user, location.pathname, demoViewMode, navigate]);
-
-  // NEW: Global keyboard shortcut for search
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowGlobalSearch(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -943,11 +932,7 @@ function LayoutContent({ children }) {
                 >
                   <Search className="w-5 h-5" />
                 </Button>
-                
-                {/* NEW: Smart Notification Center */}
-                {user && organization && (
-                  <SmartNotificationCenter user={user} organization={organization} />
-                )}
+                {user && <NotificationCenter user={user} />}
               </div>
             </div>
           </header>
@@ -959,13 +944,12 @@ function LayoutContent({ children }) {
 
         <MobileNavigation user={user} organization={organization} />
 
-        {/* NEW: Unified Global Search Modal */}
-        {user && organization && (
-          <UnifiedGlobalSearch
+        {/* Global Search Modal */}
+        {organization && (
+          <GlobalSearch
+            organization={organization}
             isOpen={showGlobalSearch}
             onClose={() => setShowGlobalSearch(false)}
-            currentUser={user}
-            activeOrganization={organization}
           />
         )}
       </div>
