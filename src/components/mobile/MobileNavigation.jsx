@@ -6,80 +6,49 @@ import {
   FileText,
   Calendar,
   CheckSquare,
-  Menu,
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
+/**
+ * Mobile Navigation
+ * Fixed bottom navigation bar for mobile devices
+ */
 export default function MobileNavigation({ user, organization }) {
   const location = useLocation();
 
-  const isConsultant = organization?.organization_type === 'consultancy';
-
-  const navigationItems = [
-    { 
-      title: "Dashboard", 
-      url: createPageUrl("Dashboard"), 
-      icon: LayoutDashboard,
-      showFor: "all"
-    },
-    { 
-      title: "Pipeline", 
-      url: createPageUrl("Pipeline"), 
-      icon: FileText,
-      showFor: "all"
-    },
-    { 
-      title: "Calendar", 
-      url: createPageUrl("Calendar"), 
-      icon: Calendar,
-      showFor: "all"
-    },
-    { 
-      title: "Tasks", 
-      url: createPageUrl("Tasks"), 
-      icon: CheckSquare,
-      showFor: "all"
-    },
-    { 
-      title: isConsultant ? "Clients" : "More", 
-      url: isConsultant ? createPageUrl("Clients") : createPageUrl("Settings"), 
-      icon: isConsultant ? Users : Menu,
-      showFor: "all"
-    },
+  const navItems = [
+    { icon: LayoutDashboard, label: "Dashboard", url: createPageUrl("Dashboard") },
+    { icon: FileText, label: "Pipeline", url: createPageUrl("Pipeline") },
+    { icon: Calendar, label: "Calendar", url: createPageUrl("Calendar") },
+    { icon: CheckSquare, label: "Tasks", url: createPageUrl("Tasks") },
+    { icon: Users, label: "Team", url: createPageUrl("Team") },
   ];
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 safe-area-inset-bottom">
-      <div className="grid grid-cols-5 h-16">
-        {navigationItems.map((item) => {
-          const isActive = location.pathname === item.url;
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
+      <div className="flex items-center justify-around px-2 py-2">
+        {navItems.map((item) => {
           const Icon = item.icon;
+          const isActive = location.pathname === item.url;
 
           return (
             <Link
-              key={item.title}
+              key={item.url}
               to={item.url}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 transition-all active:bg-slate-100 touch-manipulation",
-                isActive ? "text-blue-600" : "text-slate-600"
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[64px]",
+                isActive
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-slate-600 active:bg-slate-100"
               )}
             >
-              <Icon className={cn("w-5 h-5", isActive && "scale-110")} />
-              <span className={cn(
-                "text-xs font-medium",
-                isActive && "font-bold"
-              )}>
-                {item.title}
-              </span>
+              <Icon className="w-5 h-5" />
+              <span className="text-xs font-medium">{item.label}</span>
             </Link>
           );
         })}
       </div>
-
-      {/* Safe area padding for devices with notches */}
-      <div className="h-safe-area-inset-bottom bg-white" />
     </nav>
   );
 }
