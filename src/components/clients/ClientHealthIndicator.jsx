@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -7,107 +7,112 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  AlertCircle,
-  CheckCircle2
+  Heart,
+  Zap,
+  MessageSquare,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * Client Health Indicator
- * Visual health score for client relationships
+ * Visual display of client health metrics with scoring breakdown
  */
 export default function ClientHealthIndicator({ 
-  healthScore = 75,
-  trend = 'stable',
+  healthScore = 0, 
+  trend = 'stable', 
   riskLevel = 'low',
   metrics = {}
 }) {
-  const getHealthColor = (score) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-blue-600';
-    if (score >= 40) return 'text-amber-600';
-    return 'text-red-600';
+  const getScoreColor = (score) => {
+    if (score >= 70) return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-300' };
+    if (score >= 50) return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300' };
+    return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-300' };
   };
 
-  const getHealthBg = (score) => {
-    if (score >= 80) return 'from-green-50 to-emerald-50';
-    if (score >= 60) return 'from-blue-50 to-indigo-50';
-    if (score >= 40) return 'from-amber-50 to-orange-50';
-    return 'from-red-50 to-pink-50';
-  };
+  const colors = getScoreColor(healthScore);
 
   const getTrendIcon = () => {
-    if (trend === 'improving') return <TrendingUp className="w-4 h-4 text-green-600" />;
-    if (trend === 'declining') return <TrendingDown className="w-4 h-4 text-red-600" />;
-    return <Minus className="w-4 h-4 text-slate-600" />;
+    if (trend === 'improving') return <TrendingUp className="w-5 h-5 text-green-600" />;
+    if (trend === 'declining') return <TrendingDown className="w-5 h-5 text-red-600" />;
+    return <Minus className="w-5 h-5 text-slate-400" />;
   };
 
   const getRiskBadge = () => {
     const configs = {
-      low: { color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-      medium: { color: 'bg-amber-100 text-amber-700', icon: AlertCircle },
-      high: { color: 'bg-red-100 text-red-700', icon: AlertCircle },
-      critical: { color: 'bg-red-600 text-white', icon: AlertCircle }
+      'low': { bg: 'bg-green-100', text: 'text-green-700', label: 'Low Risk' },
+      'medium': { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Medium Risk' },
+      'high': { bg: 'bg-red-100', text: 'text-red-700', label: 'High Risk' },
+      'critical': { bg: 'bg-red-600', text: 'text-white', label: 'Critical Risk' }
     };
     const config = configs[riskLevel] || configs.low;
-    const Icon = config.icon;
-
+    
     return (
-      <Badge className={config.color}>
-        <Icon className="w-3 h-3 mr-1" />
-        {riskLevel} risk
+      <Badge className={cn(config.bg, config.text)}>
+        {config.label}
       </Badge>
     );
   };
 
   return (
-    <Card className={cn("border-none shadow-lg bg-gradient-to-br", getHealthBg(healthScore))}>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Activity className={cn("w-6 h-6", getHealthColor(healthScore))} />
-            <h3 className="font-semibold text-slate-900">Client Health</h3>
-          </div>
+    <Card className={cn("border-2", colors.border, colors.bg)}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className={cn("w-5 h-5", colors.text)} />
+            Client Health Score
+          </CardTitle>
           <div className="flex items-center gap-2">
             {getTrendIcon()}
             {getRiskBadge()}
           </div>
         </div>
-
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-slate-600">Overall Score</span>
-            <span className={cn("text-2xl font-bold", getHealthColor(healthScore))}>
-              {healthScore}
-            </span>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Overall Score */}
+        <div className="text-center">
+          <div className={cn("text-6xl font-bold mb-2", colors.text)}>
+            {healthScore}
           </div>
-          <Progress value={healthScore} className="h-3" />
+          <p className="text-sm text-slate-600">Overall Health Score</p>
+          <Progress 
+            value={healthScore} 
+            className="h-3 mt-3"
+          />
         </div>
 
+        {/* Metric Breakdown */}
         {metrics && Object.keys(metrics).length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t">
-            {metrics.engagement && (
-              <div>
-                <p className="text-xs text-slate-500">Engagement</p>
-                <p className="font-semibold text-slate-900">{metrics.engagement}%</p>
+          <div className="grid grid-cols-2 gap-3 pt-4 border-t">
+            {metrics.engagement !== undefined && (
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <Zap className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                <div className="font-bold text-slate-900">{metrics.engagement}/100</div>
+                <div className="text-xs text-slate-600">Engagement</div>
               </div>
             )}
-            {metrics.satisfaction && (
-              <div>
-                <p className="text-xs text-slate-500">Satisfaction</p>
-                <p className="font-semibold text-slate-900">{metrics.satisfaction}%</p>
+            
+            {metrics.satisfaction !== undefined && (
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <Heart className="w-5 h-5 text-pink-600 mx-auto mb-1" />
+                <div className="font-bold text-slate-900">{metrics.satisfaction}/100</div>
+                <div className="text-xs text-slate-600">Satisfaction</div>
               </div>
             )}
-            {metrics.activity && (
-              <div>
-                <p className="text-xs text-slate-500">Activity</p>
-                <p className="font-semibold text-slate-900">{metrics.activity}%</p>
+            
+            {metrics.activity !== undefined && (
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <MessageSquare className="w-5 h-5 text-purple-600 mx-auto mb-1" />
+                <div className="font-bold text-slate-900">{metrics.activity}/100</div>
+                <div className="text-xs text-slate-600">Activity</div>
               </div>
             )}
-            {metrics.responseTime && (
-              <div>
-                <p className="text-xs text-slate-500">Response Time</p>
-                <p className="font-semibold text-slate-900">{metrics.responseTime}h</p>
+            
+            {metrics.responseTime !== undefined && (
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <Clock className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                <div className="font-bold text-slate-900">{metrics.responseTime}h</div>
+                <div className="text-xs text-slate-600">Avg Response</div>
               </div>
             )}
           </div>

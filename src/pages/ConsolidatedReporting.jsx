@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, BarChart3, TrendingUp, Package } from "lucide-react";
+import { AlertCircle, BarChart3, TrendingUp, Package, Activity } from "lucide-react"; // Added Activity
+import { useQuery } from '@tanstack/react-query'; // Added useQuery
 import {
   Tabs,
   TabsContent,
@@ -13,6 +15,8 @@ import {
 import ConsolidatedClientReporting from "../components/clients/ConsolidatedClientReporting";
 import GlobalResourceLibrary from "../components/clients/GlobalResourceLibrary";
 import ResourceUsageAnalytics from "../components/clients/ResourceUsageAnalytics";
+import AutomatedHealthMonitor from "../components/clients/AutomatedHealthMonitor"; // New import
+import ClientComparisonMatrix from "../components/clients/ClientComparisonMatrix"; // New import
 
 async function getUserActiveOrganization(user) {
   if (!user) return null;
@@ -68,6 +72,19 @@ export default function ConsolidatedReporting() {
                            organization.organization_type === 'consultancy' ||
                            (organization.organization_type === 'demo' && organization.demo_view_mode === 'consultancy');
 
+  const { data: clientOrganizations = [], isLoading: loadingClients } = useQuery({
+    queryKey: ['consolidated-clients', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.Organization.filter({
+        organization_type: 'client_organization',
+        parent_organization_id: organization.id,
+        is_archived: false
+      }, 'organization_name');
+    },
+    enabled: !!organization?.id && isConsultingFirm,
+  });
+
   if (!isConsultingFirm) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -109,6 +126,14 @@ export default function ConsolidatedReporting() {
             <BarChart3 className="w-4 h-4 mr-2" />
             Client Analytics
           </TabsTrigger>
+          <TabsTrigger value="health">
+            <Activity className="w-4 h-4 mr-2" />
+            Health Monitoring
+          </TabsTrigger>
+          <TabsTrigger value="comparison">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Client Comparison
+          </TabsTrigger>
           <TabsTrigger value="resources">
             <Package className="w-4 h-4 mr-2" />
             Resource Library
@@ -121,6 +146,20 @@ export default function ConsolidatedReporting() {
 
         <TabsContent value="analytics" className="space-y-6">
           <ConsolidatedClientReporting consultingFirm={organization} />
+        </TabsContent>
+
+        <TabsContent value="health" className="space-y-6">
+          <AutomatedHealthMonitor
+            clientOrganizations={clientOrganizations}
+            consultingFirm={organization}
+          />
+        </TabsContent>
+
+        <TabsContent value="comparison" className="space-y-6">
+          <ClientComparisonMatrix
+            clientOrganizations={clientOrganizations}
+            consultingFirm={organization}
+          />
         </TabsContent>
 
         <TabsContent value="resources" className="space-y-6">
