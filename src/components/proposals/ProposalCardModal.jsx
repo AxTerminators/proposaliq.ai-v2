@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,10 +34,14 @@ import {
   Target,
   Upload,
   Layers,
-  Trash2
+  Trash2,
+  ChevronsRight,
+  ChevronsLeft,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
+import { toast } from "sonner";
 import TaskManager from "../tasks/TaskManager";
 import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
@@ -54,6 +57,7 @@ import WinStrategyModal from "./modals/WinStrategyModal";
 import ContentPlanningModal from "./modals/ContentPlanningModal";
 import PricingReviewModal from "./modals/PricingReviewModal";
 import WinToPromoteDialog from "./WinToPromoteDialog";
+import ApprovalGate from "./ApprovalGate";
 
 import {
   Select,
@@ -74,19 +78,9 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [showWinPromoteDialog, setShowWinPromoteDialog] = useState(false);
   const [previousStatus, setPreviousStatus] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // NEW: Fetch fresh proposal data within the modal
-  const { data: proposal } = useQuery({
-    queryKey: ['proposal-modal', proposalProp.id],
-    queryFn: async () => {
-      const proposals = await base44.entities.Proposal.filter({ id: proposalProp.id });
-      return proposals[0] || proposalProp;
-    },
-    initialData: proposalProp,
-    enabled: isOpen,
-    staleTime: 0, // Always fetch fresh data
-    refetchInterval: 2000, // Refetch every 2 seconds while modal is open
-  });
+  const [isMovingStage, setIsMovingStage] = useState(false);
+  const [showApprovalGate, setShowApprovalGate] = useState(false);
+  const [approvalGateData, setApprovalGateData] = useState(null);
 
   // Map modal component names to actual components
   const MODAL_COMPONENTS = {
@@ -102,29 +96,22 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
   // Map action IDs directly to modal names
   const ACTION_TO_MODAL_MAP = {
-    // Phase 1 - Basic Info
     'enter_basic_info': 'BasicInfoModal',
     'select_prime_contractor': 'BasicInfoModal',
     'add_solicitation_number': 'BasicInfoModal',
     'open_basic_info_modal': 'BasicInfoModal',
     'open_modal_phase1': 'BasicInfoModal',
-    
-    // Phase 2 - Team
     'form_team': 'TeamFormationModal',
     'add_teaming_partners': 'TeamFormationModal',
     'define_roles': 'TeamFormationModal',
     'open_team_formation_modal': 'TeamFormationModal',
     'open_modal_phase2': 'TeamFormationModal',
     'open_team_modal': 'TeamFormationModal',
-    
-    // Phase 2 - Resources
     'gather_resources': 'ResourceGatheringModal',
     'link_boilerplate': 'ResourceGatheringModal',
     'link_past_performance': 'ResourceGatheringModal',
     'open_resource_gathering_modal': 'ResourceGatheringModal',
     'open_resources_modal': 'ResourceGatheringModal',
-    
-    // Phase 3 - Solicitation
     'upload_solicitation': 'SolicitationUploadModal',
     'extract_requirements': 'SolicitationUploadModal',
     'set_contract_value': 'SolicitationUploadModal',
@@ -132,16 +119,12 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     'open_modal_phase3': 'SolicitationUploadModal',
     'run_ai_analysis_phase3': 'SolicitationUploadModal',
     'navigate_solicitation_upload': 'SolicitationUploadModal',
-    
-    // Phase 4 - Evaluation
     'run_evaluation': 'EvaluationModal',
     'calculate_confidence_score': 'EvaluationModal',
     'open_evaluation_modal': 'EvaluationModal',
     'open_modal_phase4': 'EvaluationModal',
     'run_evaluation_phase4': 'EvaluationModal',
     'navigate_evaluation': 'EvaluationModal',
-    
-    // Phase 5 - Win Strategy
     'develop_win_strategy': 'WinStrategyModal',
     'generate_win_themes': 'WinStrategyModal',
     'refine_themes': 'WinStrategyModal',
@@ -149,27 +132,34 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     'open_modal_phase5': 'WinStrategyModal',
     'generate_win_themes_phase5': 'WinStrategyModal',
     'navigate_win_strategy': 'WinStrategyModal',
-    
-    // Phase 5 - Content Planning
     'plan_content': 'ContentPlanningModal',
     'select_sections': 'ContentPlanningModal',
     'set_writing_strategy': 'ContentPlanningModal',
     'open_content_planning_modal': 'ContentPlanningModal',
     'navigate_content_planning': 'ContentPlanningModal',
-    
-    // Phase 7 - Pricing
     'review_pricing': 'PricingReviewModal',
     'open_pricing_review_modal': 'PricingReviewModal',
   };
 
-  // NEW: Check for tab parameter in sessionStorage when modal opens
+  const { data: proposal } = useQuery({
+    queryKey: ['proposal-modal', proposalProp.id],
+    queryFn: async () => {
+      const proposals = await base44.entities.Proposal.filter({ id: proposalProp.id });
+      return proposals[0] || proposalProp;
+    },
+    initialData: proposalProp,
+    enabled: isOpen,
+    staleTime: 0,
+    refetchInterval: 2000,
+  });
+
   useEffect(() => {
     if (isOpen) {
       const tabToOpen = sessionStorage.getItem('openProposalTab');
       if (tabToOpen) {
         console.log('[ProposalCardModal] 📑 Opening tab from deep link:', tabToOpen);
         setActiveTab(tabToOpen);
-        sessionStorage.removeItem('openProposalTab'); // Clear after use
+        sessionStorage.removeItem('openProposalTab');
       }
     }
   }, [isOpen]);
@@ -186,7 +176,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     loadUser();
   }, []);
 
-  // NEW: Fetch shared clients for this proposal
   const { data: sharedClients = [] } = useQuery({
     queryKey: ['proposal-modal-shared-clients', proposal.id],
     queryFn: async () => {
@@ -201,39 +190,20 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     staleTime: 60000
   });
 
-  // Auto-open the initial modal if specified
   useEffect(() => {
     if (isOpen && initialModalToOpen) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[ProposalCardModal] 🚀 AUTO-OPENING INITIAL MODAL');
-      console.log('[ProposalCardModal] Modal name:', initialModalToOpen);
-      console.log('[ProposalCardModal] Proposal:', proposal.proposal_name);
-      console.log('[ProposalCardModal] isOpen:', isOpen);
-      console.log('[ProposalCardModal] Available modals:', Object.keys(MODAL_COMPONENTS));
-      console.log('[ProposalCardModal] Modal exists?', !!MODAL_COMPONENTS[initialModalToOpen]);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      // Delay to ensure ProposalCardModal has fully rendered
       setTimeout(() => {
-        console.log('[ProposalCardModal] ⏰ Timeout fired - setting activeModalName to:', initialModalToOpen);
         setActiveModalName(initialModalToOpen);
       }, 200);
     }
   }, [isOpen, initialModalToOpen, proposal.proposal_name]);
 
-  // Debug log whenever activeModalName changes
-  useEffect(() => {
-    console.log('[ProposalCardModal] 🎭 activeModalName changed to:', activeModalName);
-  }, [activeModalName]);
-
-  // Track status changes to detect "won" transitions
   useEffect(() => {
     if (isOpen && proposal) {
       setPreviousStatus(proposal.status);
     }
-  }, [isOpen, proposal?.id, proposal?.status]); // Added proposal?.status to dependency array to ensure it tracks changes
+  }, [isOpen, proposal?.id, proposal?.status]);
 
-  // Fetch all boards for reassignment - FILTER OUT MASTER BOARD
   const { data: allBoards = [] } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
@@ -242,13 +212,11 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         { organization_id: organization.id },
         'board_type'
       );
-      // CRITICAL: Filter out master board from assignment options
       return boards.filter(b => !b.is_master_board);
     },
     enabled: !!organization?.id && isOpen,
   });
 
-  // Get current column configuration
   const currentColumn = kanbanConfig?.columns?.find(col => {
     if (col.type === 'locked_phase') {
       return col.phase_mapping === proposal.current_phase;
@@ -263,16 +231,39 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const checklistItems = currentColumn?.checklist_items || [];
   const checklistStatus = proposal.current_stage_checklist_status?.[currentColumn?.id] || {};
 
-  console.log('[ProposalCardModal] 📊 Current checklist status:', {
-    columnId: currentColumn?.id,
-    columnLabel: currentColumn?.label,
-    checklistStatus,
-    items: checklistItems.map(item => ({
-      id: item.id,
-      label: item.label,
-      completed: checklistStatus[item.id]?.completed || false
-    }))
-  });
+  // **NEW: Calculate stage progress and find next/previous columns**
+  const stageProgress = React.useMemo(() => {
+    if (!kanbanConfig?.columns || !currentColumn) {
+      return { current: 0, total: 0, next: null, previous: null };
+    }
+
+    const sortedColumns = [...kanbanConfig.columns]
+      .filter(col => !col.is_terminal) // Exclude terminal columns from progress
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const currentIndex = sortedColumns.findIndex(col => col.id === currentColumn.id);
+    const nextColumn = currentIndex >= 0 && currentIndex < sortedColumns.length - 1 
+      ? sortedColumns[currentIndex + 1] 
+      : null;
+    const previousColumn = currentIndex > 0 
+      ? sortedColumns[currentIndex - 1] 
+      : null;
+
+    return {
+      current: currentIndex + 1,
+      total: sortedColumns.length,
+      next: nextColumn,
+      previous: previousColumn,
+      isLastStage: currentIndex === sortedColumns.length - 1
+    };
+  }, [kanbanConfig, currentColumn]);
+
+  // **NEW: Check if all required items are complete**
+  const allRequiredComplete = React.useMemo(() => {
+    return currentColumn?.checklist_items
+      ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
+      .every(ci => checklistStatus[ci.id]?.completed || false) || false;
+  }, [currentColumn, checklistStatus]);
 
   const updateProposalMutation = useMutation({
     mutationFn: async (updates) => {
@@ -282,10 +273,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     onSuccess: async (updatedProposal) => {
       console.log('[ProposalCardModal] ✅ Proposal updated successfully');
       
-      // CRITICAL: Immediately update the query cache with fresh data
       queryClient.setQueryData(['proposal-modal', proposal.id], updatedProposal);
       
-      // Invalidate to trigger background refetch
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
       
@@ -321,7 +310,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     await deleteProposalMutation.mutateAsync();
   };
 
-  // Determine which board this proposal belongs to
   const getCurrentBoardId = () => {
     const rfp15Board = allBoards.find(b => b.board_type === 'rfp_15_column');
     if (rfp15Board && proposal.proposal_type_category === 'RFP_15_COLUMN') {
@@ -337,10 +325,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return typeBoard.id;
     }
 
-    // Fallback if no specific board is found, or if it's currently on a master board
-    // We should not select a master board as a "target" for reassignment in the dropdown
-    // So if the proposal is currently associated with a master board or no specific board,
-    // we return an empty string to indicate no selection or to allow the user to pick one.
     return '';
   };
 
@@ -353,8 +337,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     try {
       let newProposalType;
       
-      // Removed the is_master_board check because master boards are filtered out from allBoards
-      // and should not be target for direct assignment.
       if (newBoard.board_type === 'rfp_15_column') {
         newProposalType = 'RFP_15_COLUMN';
       } else {
@@ -368,13 +350,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         alert('❌ Error: New board has no workflow columns.');
         return;
       }
-
-      console.log('[ProposalCardModal] Reassigning proposal:', {
-        proposalName: proposal.proposal_name,
-        toBoard: newBoard.board_name,
-        firstColumn: firstColumn.label,
-        newType: newProposalType
-      });
 
       const updates = {
         proposal_type_category: newProposalType
@@ -392,7 +367,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         updates.status = firstColumn.default_status_mapping;
         updates.current_phase = null;
         updates.custom_workflow_stage_id = null;
-      } else if (firstColumn.type === 'master_status') { // This case might still apply if the source board was a master status and we're moving to a specific board type.
+      } else if (firstColumn.type === 'master_status') {
         updates.status = firstColumn.status_mapping?.[0] || 'evaluating';
         updates.current_phase = null;
         updates.custom_workflow_stage_id = null;
@@ -410,8 +385,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
       updates.manual_order = 0;
 
-      console.log('[ProposalCardModal] Applying updates:', updates);
-
       await updateProposalMutation.mutateAsync(updates);
 
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
@@ -428,7 +401,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const getBoardIcon = (boardType, isMaster) => {
-    if (isMaster) return "⭐"; // This case should now be rare for displayed options
+    if (isMaster) return "⭐";
     switch (boardType) {
       case 'rfp': return "📋";
       case 'rfp_15_column': return "🎯";
@@ -439,6 +412,132 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       case 'state_local': return "🏢";
       default: return "📊";
     }
+  };
+
+  // **NEW: Handle stage navigation**
+  const handleMoveToStage = async (targetColumn, direction = 'forward') => {
+    if (!targetColumn || !currentColumn) return;
+
+    // Check if all required items are complete
+    const hasIncompleteRequired = currentColumn.checklist_items
+      ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
+      .some(ci => !checklistStatus[ci.id]?.completed);
+
+    // Show confirmation if moving forward with incomplete tasks
+    if (direction === 'forward' && hasIncompleteRequired) {
+      const confirmed = confirm(
+        `⚠️ Some required tasks in "${currentColumn.label}" are incomplete.\n\n` +
+        `Are you sure you want to move to "${targetColumn.label}"?`
+      );
+      if (!confirmed) return;
+    }
+
+    // **Check if source column requires approval**
+    if (currentColumn.requires_approval_to_exit && direction === 'forward') {
+      console.log('[ProposalCardModal] 🔐 Approval required to exit column:', currentColumn.label);
+      setApprovalGateData({
+        proposal,
+        sourceColumn: currentColumn,
+        destinationColumn: targetColumn,
+        direction
+      });
+      setShowApprovalGate(true);
+      return;
+    }
+
+    // Proceed with move
+    await performStageMove(targetColumn);
+  };
+
+  const performStageMove = async (targetColumn) => {
+    setIsMovingStage(true);
+    
+    try {
+      const updates = {};
+
+      // Determine updates based on target column type
+      if (targetColumn.type === 'locked_phase') {
+        updates.current_phase = targetColumn.phase_mapping;
+        updates.status = getStatusFromPhase(targetColumn.phase_mapping);
+        updates.custom_workflow_stage_id = targetColumn.id;
+      } else if (targetColumn.type === 'custom_stage') {
+        updates.custom_workflow_stage_id = targetColumn.id;
+        updates.current_phase = null;
+        updates.status = 'in_progress';
+      } else if (targetColumn.type === 'default_status') {
+        updates.status = targetColumn.default_status_mapping;
+        updates.current_phase = null;
+        updates.custom_workflow_stage_id = null;
+      } else if (targetColumn.type === 'master_status') {
+        if (targetColumn.status_mapping && targetColumn.status_mapping.length > 0) {
+          updates.status = targetColumn.status_mapping[0];
+        }
+        updates.current_phase = null;
+        updates.custom_workflow_stage_id = null;
+      }
+
+      // Preserve existing checklist data, only initialize if target column has no data
+      const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
+      if (!updatedChecklistStatus[targetColumn.id]) {
+        updatedChecklistStatus[targetColumn.id] = {};
+      }
+      updates.current_stage_checklist_status = updatedChecklistStatus;
+
+      const hasRequiredItems = targetColumn.checklist_items?.some(item => item.required);
+      updates.action_required = hasRequiredItems;
+      updates.action_required_description = hasRequiredItems 
+        ? `Complete required items in ${targetColumn.label}` 
+        : null;
+
+      await updateProposalMutation.mutateAsync(updates);
+      
+      // Show success toast
+      toast.success(
+        `✅ Moved to "${targetColumn.label}"`,
+        {
+          description: `Proposal successfully moved to the next stage`,
+          duration: 3000,
+        }
+      );
+
+      // Close modal with slight delay for smooth transition
+      setTimeout(() => {
+        onClose();
+      }, 500);
+      
+    } catch (error) {
+      console.error('[ProposalCardModal] Error moving stage:', error);
+      toast.error('Failed to move to next stage. Please try again.');
+    } finally {
+      setIsMovingStage(false);
+    }
+  };
+
+  const getStatusFromPhase = (phase_mapping) => {
+    switch (phase_mapping) {
+      case 'phase1':
+      case 'phase2':
+      case 'phase3':
+      case 'phase4':
+        return 'evaluating';
+      case 'phase5':
+      case 'phase6':
+        return 'draft';
+      case 'phase7':
+        return 'in_progress';
+      default:
+        return 'evaluating';
+    }
+  };
+
+  const handleApprovalComplete = async (approved) => {
+    setShowApprovalGate(false);
+
+    if (approved && approvalGateData) {
+      await performStageMove(approvalGateData.destinationColumn);
+    }
+
+    setApprovalGateData(null);
   };
 
   const handleChecklistItemClick = async (item) => {
@@ -457,35 +556,27 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return;
     }
 
-    console.log('[ProposalCardModal] ✅ Action config found:', actionConfig);
-
-    // Handle navigation actions - CLOSE MODAL and navigate
     if (isNavigateAction(item.associated_action)) {
-      console.log('[ProposalCardModal] 🔗 Navigating to:', actionConfig.path);
       const url = `${createPageUrl(actionConfig.path)}?id=${proposal.id}`;
       navigate(url);
       onClose();
       return;
     }
 
-    // Check if this action maps to a modal
     const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
     
     if (modalName && MODAL_COMPONENTS[modalName]) {
-      console.log('[ProposalCardModal] 🎯 Opening modal:', modalName, 'for checklist item:', item.id);
-      setActiveChecklistItemId(item.id); // NEW: Store which item triggered the modal
+      setActiveChecklistItemId(item.id);
       setActiveModalName(modalName);
       return;
     }
 
-    // Handle system_check or manual_check - toggle completion
     if (item.type === 'system_check' || item.type === 'manual_check') {
       await handleChecklistItemToggle(item);
     }
   };
 
   const handleChecklistItemToggle = async (item) => {
-    // SAFETY CHECK: Ensure item exists
     if (!item || !currentColumn) {
       console.error('[ProposalCardModal] Cannot toggle - invalid item or column');
       return;
@@ -497,13 +588,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     
     const isCurrentlyCompleted = itemStatus.completed || false;
     
-    console.log('[ProposalCardModal] 🔄 Toggling item:', {
-      itemId: item.id,
-      itemLabel: item.label,
-      currentlyCompleted: isCurrentlyCompleted,
-      newState: !isCurrentlyCompleted
-    });
-
     const updatedColumnStatus = {
       ...columnStatus,
       [item.id]: {
@@ -519,7 +603,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     };
     
     const allRequiredComplete = currentColumn?.checklist_items
-      ?.filter(ci => ci && ci.required && ci.type !== 'system_check') // Add ci safety check
+      ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
       .every(ci => {
         if (ci.id === item.id) {
           return !isCurrentlyCompleted;
@@ -527,19 +611,10 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         return updatedColumnStatus[ci.id]?.completed || false;
       });
 
-    console.log('[ProposalCardModal] 📊 Checklist update:', {
-      itemId: item.id,
-      completed: !isCurrentlyCompleted,
-      allRequiredComplete,
-      updatedChecklistStatus
-    });
-
     await updateProposalMutation.mutateAsync({
       current_stage_checklist_status: updatedChecklistStatus,
       action_required: !allRequiredComplete
     });
-    
-    console.log('[ProposalCardModal] ✅ Checklist item toggled successfully');
   };
 
   const handleModalClose = async (checklistItemId = null) => {
@@ -547,13 +622,9 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     
     setActiveModalName(null);
     
-    // Use the provided checklistItemId, or fall back to the tracked activeChecklistItemId
     const itemIdToComplete = checklistItemId || activeChecklistItemId;
     
-    // If a checklist item ID is available, mark it as complete
     if (itemIdToComplete && currentColumn) {
-      console.log('[ProposalCardModal] ✅ Marking checklist item as complete:', itemIdToComplete);
-
       const currentStatus = proposal.current_stage_checklist_status || {};
       const columnStatus = currentStatus[currentColumn.id] || {};
       
@@ -580,23 +651,12 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
           return updatedColumnStatus[ci.id]?.completed || false;
         });
 
-      console.log('[ProposalCardModal] 💾 Saving checklist completion:', {
-        itemId: itemIdToComplete,
-        columnId: currentColumn.id,
-        allRequiredComplete,
-        updatedChecklistStatus
-      });
-
       await updateProposalMutation.mutateAsync({
         current_stage_checklist_status: updatedChecklistStatus,
         action_required: !allRequiredComplete
       });
-      console.log('[ProposalCardModal] ✅ Checklist item marked as complete');
-    } else {
-      console.warn('[ProposalCardModal] ⚠️ No checklist item to complete:', { itemIdToComplete, hasCurrentColumn: !!currentColumn });
     }
     
-    // Clear the tracked checklist item
     setActiveChecklistItemId(null);
     
     await queryClient.invalidateQueries({ queryKey: ['proposals'] });
@@ -604,25 +664,18 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
   const renderActiveModal = () => {
     if (!activeModalName) {
-      console.log('[ProposalCardModal] 🚫 No active modal to render');
       return null;
     }
     
     const ModalComponent = MODAL_COMPONENTS[activeModalName];
     if (!ModalComponent) {
-      console.error('[ProposalCardModal] ❌ Modal component not found for:', activeModalName);
-      console.error('[ProposalCardModal] Available:', Object.keys(MODAL_COMPONENTS));
       return null;
     }
 
-    console.log('[ProposalCardModal] 🎭 Rendering modal component:', activeModalName);
-    console.log('[ProposalCardModal] 📋 Active checklist item ID:', activeChecklistItemId);
-    
     return (
       <ModalComponent
         isOpen={true}
         onClose={() => {
-          console.log('[ProposalCardModal] 🔙 Modal closing, will mark item as complete:', activeChecklistItemId);
           handleModalClose();
         }}
         proposalId={proposal.id}
@@ -631,7 +684,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const systemCheckStatus = (item) => {
-    // SAFETY CHECK: Ensure item exists
     if (!item || !item.id) return false;
 
     switch (item.id) {
@@ -650,7 +702,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const getItemIcon = (item, isCompleted) => {
-    // SAFETY CHECK: Ensure item exists
     if (!item) return <Circle className="w-6 h-6 text-slate-400" />;
 
     if (isCompleted) {
@@ -681,7 +732,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   if (!proposal) {
-    return null; // Or a loading spinner
+    return null;
   }
 
   return (
@@ -691,7 +742,15 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
           <DialogHeader className="border-b p-6 pb-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <DialogTitle className="text-2xl mb-2">{proposal.proposal_name}</DialogTitle>
+                <div className="flex items-center gap-3 mb-2">
+                  <DialogTitle className="text-2xl">{proposal.proposal_name}</DialogTitle>
+                  {/* **NEW: Stage Progress Indicator** */}
+                  {stageProgress.total > 0 && (
+                    <Badge variant="outline" className="text-sm">
+                      Stage {stageProgress.current} of {stageProgress.total}
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 flex-wrap">
                   {proposal.solicitation_number && (
                     <Badge variant="outline" className="font-mono">
@@ -723,7 +782,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                   )}
                 </div>
 
-                {/* NEW: Shared Clients Section */}
                 {sharedClients.length > 0 && (
                   <div className="mt-3 p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
@@ -756,7 +814,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                   </div>
                 )}
 
-                {/* Board Assignment Section - UPDATED */}
                 {allBoards.length > 0 && (
                   <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                     <div className="flex items-start gap-3">
@@ -894,10 +951,10 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     ) : (
                       <div className="space-y-3">
                         {checklistItems
-                          .filter(item => item != null) // Filter out any null/undefined items
+                          .filter(item => item != null)
                           .sort((a, b) => (a.order || 0) - (b.order || 0))
                           .map((item) => {
-                            if (!item) return null; // Extra safety check
+                            if (!item) return null;
 
                             const itemStatus = checklistStatus[item.id] || {};
                             const isCompleted = item.type === 'system_check' 
@@ -993,7 +1050,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                             <p className="text-sm font-medium text-slate-700">Checklist Progress</p>
                             <p className="text-xs text-slate-500">
                               {checklistItems.filter(item => {
-                                if (!item) return false; // Safety check
+                                if (!item) return false;
                                 if (item.type === 'system_check') {
                                   return systemCheckStatus(item);
                                 }
@@ -1128,6 +1185,74 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
               </TabsContent>
             </Tabs>
           </div>
+
+          {/* **NEW: Stage Navigation Buttons at Bottom** */}
+          <div className="border-t bg-slate-50 p-4 flex-shrink-0">
+            <div className="flex items-center justify-between gap-4">
+              {/* Previous Stage Button */}
+              <Button
+                variant="outline"
+                onClick={() => handleMoveToStage(stageProgress.previous, 'backward')}
+                disabled={!stageProgress.previous || isMovingStage}
+                className={cn(
+                  "flex-1 h-12",
+                  !stageProgress.previous && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isMovingStage ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Moving...
+                  </>
+                ) : stageProgress.previous ? (
+                  <>
+                    <ChevronsLeft className="w-5 h-5 mr-2" />
+                    Go Back: {stageProgress.previous.label}
+                  </>
+                ) : (
+                  <>
+                    <ChevronsLeft className="w-5 h-5 mr-2 opacity-50" />
+                    First Stage
+                  </>
+                )}
+              </Button>
+
+              {/* Next Stage Button */}
+              <Button
+                onClick={() => handleMoveToStage(stageProgress.next, 'forward')}
+                disabled={!stageProgress.next || isMovingStage || stageProgress.isLastStage}
+                className={cn(
+                  "flex-1 h-12 font-semibold",
+                  allRequiredComplete && stageProgress.next
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white",
+                  (!stageProgress.next || stageProgress.isLastStage) && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isMovingStage ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Moving...
+                  </>
+                ) : stageProgress.next ? (
+                  <>
+                    Go To: {stageProgress.next.label}
+                    <ChevronsRight className="w-5 h-5 ml-2" />
+                  </>
+                ) : stageProgress.isLastStage ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                    Workflow Complete
+                  </>
+                ) : (
+                  <>
+                    Next Stage
+                    <ChevronsRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1179,9 +1304,26 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         </DialogContent>
       </Dialog>
 
+      {/* **NEW: Approval Gate Dialog** */}
+      {showApprovalGate && approvalGateData && (
+        <ApprovalGate
+          isOpen={showApprovalGate}
+          onClose={() => {
+            setShowApprovalGate(false);
+            setApprovalGateData(null);
+            setIsMovingStage(false);
+          }}
+          proposal={approvalGateData.proposal}
+          sourceColumn={approvalGateData.sourceColumn}
+          destinationColumn={approvalGateData.destinationColumn}
+          onApprovalComplete={handleApprovalComplete}
+          user={user}
+          organization={organization}
+        />
+      )}
+
       {renderActiveModal()}
       
-      {/* NEW: Win to Promote Dialog for manual status changes */}
       {showWinPromoteDialog && (
         <WinToPromoteDialog
           isOpen={showWinPromoteDialog}
