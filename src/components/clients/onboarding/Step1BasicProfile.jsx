@@ -24,24 +24,25 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
   /**
    * Handle file upload and AI extraction
    * Extracts client organization data from uploaded documents (company profiles, capability statements, etc.)
-   * NOTE: Only supports PDF, PNG, JPG, JPEG, and CSV files (per Core.ExtractDataFromUploadedFile integration)
+   * Supports: PDF, PNG, JPG, JPEG, CSV, and DOCX files
    */
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type - ONLY types supported by ExtractDataFromUploadedFile integration
+    // Validate file type - Now includes DOCX support
     const allowedTypes = [
       'application/pdf',
       'image/png',
       'image/jpeg',
       'image/jpg',
-      'text/csv'
+      'text/csv',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+      'application/msword' // DOC (legacy)
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Please upload a PDF, image (PNG/JPG), or CSV file. DOCX is not currently supported.');
-      // Reset file input
+      toast.error('Please upload a PDF, Word document (DOCX), image (PNG/JPG), or CSV file.');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -122,16 +123,30 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
         }
       };
 
-      // Step 3: Extract data using AI
-      toast.info('AI is extracting data from document...');
-      const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
-        json_schema: extractionSchema
-      });
+      // Step 3: Determine extraction method based on file type
+      let extractionResult;
+      
+      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+          file.type === 'application/msword') {
+        // Use custom DOCX parser
+        toast.info('AI is extracting data from Word document...');
+        extractionResult = await base44.functions.invoke('parseDocxFile', {
+          file_url,
+          json_schema: extractionSchema,
+          extract_structured_data: true
+        });
+      } else {
+        // Use built-in extraction for PDF, images, CSV
+        toast.info('AI is extracting data from document...');
+        extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+          file_url,
+          json_schema: extractionSchema
+        });
+      }
 
       // Step 4: Handle extraction results
-      if (extractionResult.status === 'success' && extractionResult.output) {
-        const extracted = extractionResult.output;
+      if (extractionResult.status === 'success' && (extractionResult.output || extractionResult.structured_data)) {
+        const extracted = extractionResult.output || extractionResult.structured_data;
 
         // Merge extracted data with existing form data (prefer existing if already filled)
         const updatedFormData = {
@@ -161,7 +176,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
       } else {
         // Extraction failed - show detailed error
         console.error('Extraction failed:', extractionResult);
-        toast.error('AI extraction failed: ' + (extractionResult.details || 'Could not extract data from this file. Try a different format or enter data manually.'));
+        toast.error('AI extraction failed: ' + (extractionResult.error || 'Could not extract data from this file. Try entering data manually.'));
       }
     } catch (error) {
       console.error('File upload/extraction error:', error);
@@ -169,7 +184,6 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
     } finally {
       setIsExtracting(false);
       setUploadedFile(null);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -283,7 +297,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.csv"
+            accept=".pdf,.png,.jpg,.jpeg,.csv,.docx,.doc"
             onChange={handleFileUpload}
             className="hidden"
           />
@@ -323,10 +337,7 @@ export default function Step1BasicProfile({ formData, setFormData, onNext }) {
               Our AI will extract and pre-populate all relevant fields automatically.
             </p>
             <p className="text-xs text-green-700 mt-2 font-semibold">
-              Supported formats: PDF, PNG, JPG, CSV only
-            </p>
-            <p className="text-xs text-amber-700 mt-1">
-              ⚠️ Note: Word documents (.docx) are not currently supported. Please convert to PDF first or enter data manually.
+              ✅ Supported formats: PDF, Word (DOCX/DOC), PNG, JPG, CSV
             </p>
           </div>
         </div>

@@ -1,168 +1,148 @@
-import React, { useState, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
-import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Upload, 
-  X, 
-  File, 
-  CheckCircle2,
-  Loader2,
-  Image as ImageIcon,
-  FileText
-} from "lucide-react";
-import { toast } from "sonner";
+import { Upload, FileText, X, Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 
+/**
+ * DragDropFileUpload Component
+ * 
+ * Handles file uploads with drag-and-drop functionality for Data Call checklist items.
+ * Supports multiple file types including PDF, DOCX, images, and more.
+ * 
+ * Enhanced to support DOCX parsing for automatic data extraction when needed.
+ */
 export default function DragDropFileUpload({ 
-  dataCallId,
-  checklistItemId,
-  onUploadComplete,
-  maxFiles = 10,
-  maxSizeMB = 50
+  onFilesUploaded, 
+  existingFiles = [],
+  allowMultiple = true,
+  acceptedTypes = ".pdf,.png,.jpg,.jpeg,.csv,.docx,.doc,.xlsx,.xls,.pptx,.ppt",
+  maxSize = 50 * 1024 * 1024, // 50MB default
+  showExtraction = false, // Whether to show AI extraction option for DOCX
+  extractionSchema = null // Schema for AI extraction
 }) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadQueue, setUploadQueue] = useState([]);
-  const [uploadProgress, setUploadProgress] = useState({});
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState([]);
+  const fileInputRef = React.useRef(null);
 
-  const uploadMutation = useMutation({
-    mutationFn: async (file) => {
-      const fileId = file.name + '-' + Date.now();
-      
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => ({
-          ...prev,
-          [fileId]: Math.min((prev[fileId] || 0) + 10, 90)
-        }));
-      }, 200);
-
-      try {
-        // Upload file
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-
-        // Create database record
-        const uploadedFile = await base44.entities.ClientUploadedFile.create({
-          organization_id: 'temp', // Will be set by recipient
-          proposal_id: 'temp',
-          consulting_firm_id: 'temp',
-          data_call_request_id: dataCallId,
-          data_call_item_id: checklistItemId,
-          file_name: file.name,
-          file_url: file_url,
-          file_size: file.size,
-          file_type: file.type,
-          file_category: 'data_call_response',
-          uploaded_by_name: 'User',
-          uploaded_by_email: 'user@example.com'
-        });
-
-        clearInterval(progressInterval);
-        setUploadProgress(prev => ({ ...prev, [fileId]: 100 }));
-
-        return { fileId, uploadedFile };
-      } catch (error) {
-        clearInterval(progressInterval);
-        throw error;
-      }
-    },
-    onSuccess: ({ fileId, uploadedFile }) => {
-      // Remove from queue after successful upload
-      setTimeout(() => {
-        setUploadQueue(prev => prev.filter(f => f.id !== fileId));
-        setUploadProgress(prev => {
-          const updated = { ...prev };
-          delete updated[fileId];
-          return updated;
-        });
-      }, 1500);
-
-      onUploadComplete?.(uploadedFile);
-    },
-    onError: (error, file) => {
-      toast.error(`Failed to upload ${file.name}: ${error.message}`);
-      setUploadQueue(prev => prev.filter(f => f.name !== file.name));
-    }
-  });
-
-  const handleDragEnter = useCallback((e) => {
+  const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-  }, []);
+  };
 
-  const handleDragLeave = useCallback((e) => {
+  const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.currentTarget === e.target) {
-      setIsDragging(false);
-    }
-  }, []);
+    setIsDragging(false);
+  };
 
-  const handleDragOver = useCallback((e) => {
+  const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+  };
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
     const files = Array.from(e.dataTransfer.files);
-    processFiles(files);
-  }, []);
-
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    processFiles(files);
+    handleFiles(files);
   };
 
-  const processFiles = (files) => {
-    // Validate files
-    const validFiles = files.filter(file => {
-      if (file.size > maxSizeMB * 1024 * 1024) {
-        toast.error(`${file.name} exceeds ${maxSizeMB}MB limit`);
-        return false;
-      }
-      return true;
-    });
+  const handleFileInput = (e) => {
+    const files = Array.from(e.target.files);
+    handleFiles(files);
+    // Reset input
+    e.target.value = '';
+  };
 
-    if (uploadQueue.length + validFiles.length > maxFiles) {
-      toast.error(`Maximum ${maxFiles} files allowed`);
+  const handleFiles = async (files) => {
+    if (!files || files.length === 0) return;
+
+    // Validate file count
+    if (!allowMultiple && files.length > 1) {
+      toast.error('Please upload only one file at a time');
       return;
     }
 
-    // Add to queue with IDs
-    const filesWithIds = validFiles.map(file => ({
-      ...file,
-      id: file.name + '-' + Date.now()
-    }));
+    // Validate file sizes
+    const oversizedFiles = files.filter(f => f.size > maxSize);
+    if (oversizedFiles.length > 0) {
+      toast.error(`File(s) too large. Maximum size is ${(maxSize / 1024 / 1024).toFixed(0)}MB`);
+      return;
+    }
 
-    setUploadQueue(prev => [...prev, ...filesWithIds]);
+    setIsUploading(true);
+    const uploadedFiles = [];
 
-    // Start uploading
-    filesWithIds.forEach(file => {
-      uploadMutation.mutate(file);
-    });
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        setUploadProgress(prev => [...prev, { name: file.name, progress: 0 }]);
+
+        // Upload file
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+        // Check if this is a DOCX and extraction is enabled
+        let extractedData = null;
+        if (showExtraction && extractionSchema && 
+            (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+             file.type === 'application/msword')) {
+          
+          toast.info(`Extracting data from ${file.name}...`);
+          
+          try {
+            const extractionResult = await base44.functions.invoke('parseDocxFile', {
+              file_url,
+              json_schema: extractionSchema,
+              extract_structured_data: true
+            });
+
+            if (extractionResult.status === 'success' && extractionResult.structured_data) {
+              extractedData = extractionResult.structured_data;
+              toast.success(`Data extracted from ${file.name}`);
+            }
+          } catch (extractError) {
+            console.error('Extraction failed:', extractError);
+            // Continue with upload even if extraction fails
+          }
+        }
+
+        uploadedFiles.push({
+          file_name: file.name,
+          file_url,
+          file_size: file.size,
+          file_type: file.type,
+          extracted_data: extractedData,
+          uploaded_date: new Date().toISOString()
+        });
+
+        setUploadProgress(prev => 
+          prev.map(p => p.name === file.name ? { ...p, progress: 100 } : p)
+        );
+      }
+
+      // Call the callback with uploaded files
+      onFilesUploaded(uploadedFiles);
+      toast.success(`${files.length} file(s) uploaded successfully`);
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Upload failed: ' + error.message);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress([]);
+    }
   };
 
-  const removeFromQueue = (fileId) => {
-    setUploadQueue(prev => prev.filter(f => f.id !== fileId));
-    setUploadProgress(prev => {
-      const updated = { ...prev };
-      delete updated[fileId];
-      return updated;
-    });
-  };
-
-  const getFileIcon = (fileType) => {
-    if (fileType?.startsWith('image/')) return ImageIcon;
-    if (fileType?.includes('pdf')) return FileText;
-    return File;
+  const removeFile = (fileToRemove) => {
+    const updatedFiles = existingFiles.filter(f => f.file_url !== fileToRemove.file_url);
+    onFilesUploaded(updatedFiles);
   };
 
   return (
@@ -170,111 +150,125 @@ export default function DragDropFileUpload({
       {/* Drop Zone */}
       <div
         onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
         onDrop={handleDrop}
         className={cn(
-          "border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer",
+          "border-2 border-dashed rounded-lg p-8 text-center transition-all",
           isDragging
-            ? "border-blue-500 bg-blue-50 scale-105"
-            : "border-slate-300 hover:border-blue-400 hover:bg-blue-50/50"
+            ? "border-blue-500 bg-blue-50"
+            : "border-slate-300 hover:border-slate-400 hover:bg-slate-50"
         )}
-        onClick={() => document.getElementById('file-input')?.click()}
       >
-        <input
-          id="file-input"
-          type="file"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-          accept="*/*"
-        />
+        <div className="flex flex-col items-center gap-3">
+          <div className={cn(
+            "w-16 h-16 rounded-full flex items-center justify-center",
+            isDragging ? "bg-blue-100" : "bg-slate-100"
+          )}>
+            <Upload className={cn(
+              "w-8 h-8",
+              isDragging ? "text-blue-600" : "text-slate-600"
+            )} />
+          </div>
+          
+          <div>
+            <p className="text-sm font-medium text-slate-900">
+              {isDragging ? "Drop files here" : "Drag & drop files here"}
+            </p>
+            <p className="text-xs text-slate-600 mt-1">
+              or click to browse
+            </p>
+          </div>
 
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Upload className="w-8 h-8 text-white" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">
-            {isDragging ? 'Drop files here' : 'Drag & drop files here'}
-          </h3>
-          <p className="text-sm text-slate-600 mb-4">
-            or click to browse
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            variant="outline"
+            size="sm"
+          >
+            Choose Files
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={acceptedTypes}
+            multiple={allowMultiple}
+            onChange={handleFileInput}
+            className="hidden"
+          />
+
+          <p className="text-xs text-slate-500">
+            Supported: PDF, Word (DOCX/DOC), Excel, PowerPoint, Images, CSV
           </p>
-          <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
-            <span>Max {maxFiles} files</span>
-            <span>•</span>
-            <span>Up to {maxSizeMB}MB each</span>
-          </div>
+          <p className="text-xs text-slate-500">
+            Max size: {(maxSize / 1024 / 1024).toFixed(0)}MB per file
+          </p>
         </div>
       </div>
 
-      {/* Upload Queue */}
-      {uploadQueue.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-slate-900">
-              Uploading {uploadQueue.length} file(s)
-            </h4>
-            <Badge variant="secondary">
-              {uploadQueue.filter(f => uploadProgress[f.id] === 100).length} / {uploadQueue.length} complete
-            </Badge>
-          </div>
+      {/* Upload Progress */}
+      {uploadProgress.length > 0 && (
+        <div className="space-y-2">
+          {uploadProgress.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+              <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-900">{item.name}</p>
+                <div className="w-full bg-blue-200 rounded-full h-1.5 mt-1">
+                  <div
+                    className="bg-blue-600 h-1.5 rounded-full transition-all"
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-          {uploadQueue.map(file => {
-            const progress = uploadProgress[file.id] || 0;
-            const isComplete = progress === 100;
-            const FileIcon = getFileIcon(file.type);
-
-            return (
-              <Card key={file.id} className={cn(
-                "border-2",
-                isComplete ? "border-green-400 bg-green-50" : "border-blue-400 bg-blue-50"
-              )}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center",
-                      isComplete ? "bg-green-100" : "bg-blue-100"
-                    )}>
-                      {isComplete ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-medium text-slate-900 truncate">{file.name}</p>
-                        {!isComplete && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => removeFromQueue(file.id)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-slate-500">
-                          {(file.size / 1024).toFixed(1)} KB
-                        </span>
-                        <span className="text-xs text-slate-400">•</span>
-                        <span className="text-xs text-slate-500">
-                          {isComplete ? 'Complete' : `${progress}%`}
-                        </span>
-                      </div>
-
-                      <Progress value={progress} className="h-1.5" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      {/* Existing Files List */}
+      {existingFiles.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-700">Uploaded Files:</p>
+          {existingFiles.map((file, idx) => (
+            <div key={idx} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
+                    {file.file_name}
+                  </p>
+                  {file.file_size && (
+                    <p className="text-xs text-slate-600">
+                      {(file.file_size / 1024).toFixed(1)} KB
+                    </p>
+                  )}
+                  {file.extracted_data && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      ✨ AI extracted data available
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={file.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  View
+                </a>
+                <button
+                  onClick={() => removeFile(file)}
+                  className="p-1 hover:bg-red-100 rounded transition-colors"
+                >
+                  <X className="w-4 h-4 text-red-600" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
