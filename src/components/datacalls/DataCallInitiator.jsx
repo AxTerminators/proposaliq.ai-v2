@@ -243,34 +243,41 @@ export default function DataCallInitiator({
       
       console.log('[DataCallInitiator] ✅ Data call created:', createdDataCall.id);
       
-      // Attempt to send the notification email
-      try {
-        console.log('[DataCallInitiator] 📧 Sending email notification...');
-        const emailResponse = await base44.functions.invoke('sendDataCallNotification', {
-          data_call_id: createdDataCall.id,
-          notification_type: 'initial'
-        });
+      // Generate the correct portal URL using window.location.origin
+      const portalUrl = `${window.location.origin}/ClientDataCallPortal?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
+      console.log('[DataCallInitiator] 🔗 Generated portal URL:', portalUrl);
+      
+      // Send the notification email with the portal URL
+      console.log('[DataCallInitiator] 📧 Sending email notification...');
+      const emailResponse = await base44.functions.invoke('sendDataCallNotification', {
+        data_call_id: createdDataCall.id,
+        notification_type: 'initial',
+        portal_url: portalUrl
+      });
 
-        console.log('[DataCallInitiator] 📧 Email response:', emailResponse);
+      console.log('[DataCallInitiator] 📧 Email response:', emailResponse);
 
-        if (emailResponse.data?.success) {
-          toast.success('✅ Data call sent successfully with email notification!');
-        } else {
-          toast.warning('Data call created but email notification may have failed. Check the Data Calls page.');
-        }
-      } catch (emailError) {
-        console.error('Error sending email:', emailError);
-        toast.warning('Data call created but email notification failed. You can resend from the Data Calls page.');
+      if (emailResponse.data?.success) {
+        toast.success('✅ Data call sent successfully with email notification!');
+      } else {
+        toast.warning('Data call created but email notification may have failed. Check the Data Calls page.');
       }
-
+      
       // Always close and reset if data call creation was successful
       onClose();
       resetForm();
+
+    } catch (error) {
+      console.error('[DataCallInitiator] Error in handleSendNow:', error);
       
-    } catch (creationError) {
-      // This catch block handles errors that occurred during createDataCallMutation.mutateAsync itself.
-      // The global `onError` for `createDataCallMutation` will already have shown a toast.
-      console.error('[DataCallInitiator] Error during data call creation in handleSendNow:', creationError);
+      // Check if data call was created but email failed
+      // This specifically checks the error from the `base44.functions.invoke` call if `mutateAsync` succeeded
+      // If `mutateAsync` failed, its `onError` will handle the initial toast.
+      if (error.message && error.message.includes('email')) { // Simplified check for email failure specific errors
+        toast.warning('Data call created but email notification failed. You can resend from the Data Calls page.');
+      } else {
+        toast.error('Failed to send data call: ' + error.message);
+      }
     }
   };
 

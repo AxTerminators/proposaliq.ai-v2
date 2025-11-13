@@ -9,12 +9,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data_call_id, notification_type = 'initial', custom_template_id } = await req.json();
+    const { data_call_id, notification_type = 'initial', custom_template_id, portal_url } = await req.json();
 
     if (!data_call_id) {
       return Response.json({
         success: false,
         error: 'data_call_id is required'
+      }, { status: 400 });
+    }
+
+    if (!portal_url) {
+      return Response.json({
+        success: false,
+        error: 'portal_url is required'
       }, { status: 400 });
     }
 
@@ -32,18 +39,7 @@ Deno.serve(async (req) => {
 
     const dataCall = dataCallRequests[0];
 
-    // FIXED: Get base URL from environment or use request origin
-    let baseUrl = Deno.env.get('BASE44_APP_URL');
-    
-    if (!baseUrl) {
-      // Fallback: extract from request URL
-      const requestUrl = new URL(req.url);
-      baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
-      console.log('[sendDataCallNotification] Using request origin as baseUrl:', baseUrl);
-    }
-    
-    const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
-    console.log('[sendDataCallNotification] 🔗 Generated portal URL:', portalUrl);
+    console.log('[sendDataCallNotification] 🔗 Using provided portal URL:', portal_url);
 
     // Try to fetch custom email template
     let emailTemplate = null;
@@ -67,7 +63,7 @@ Deno.serve(async (req) => {
         '{{creator_name}}': dataCall.created_by_name || dataCall.created_by_email,
         '{{organization_name}}': 'ProposalIQ.ai',
         '{{due_date}}': dataCall.due_date ? new Date(dataCall.due_date).toLocaleDateString() : 'Not specified',
-        '{{portal_link}}': portalUrl,
+        '{{portal_link}}': portal_url,
         '{{checklist_summary}}': dataCall.checklist_items.map((item, i) => `${i+1}. ${item.item_label}`).join('\\n'),
         '{{completed_count}}': completedCount.toString(),
         '{{total_count}}': totalCount.toString(),
@@ -124,7 +120,7 @@ Deno.serve(async (req) => {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${portalUrl}" 
+              <a href="${portal_url}" 
                  style="display: inline-block; background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">
                 🚀 Access Secure Portal
               </a>
@@ -174,7 +170,7 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       message: 'Data call notification sent successfully',
-      portal_url: portalUrl
+      portal_url: portal_url
     });
 
   } catch (error) {
