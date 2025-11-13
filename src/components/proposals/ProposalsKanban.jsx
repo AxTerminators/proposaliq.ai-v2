@@ -610,8 +610,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        // IMPORTANT: Store the specific column ID so we know which locked_phase column
-        // This is critical when multiple columns share the same phase_mapping
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
@@ -622,7 +620,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       } else if (destinationColumn.type === 'master_status') {
-        // For master boards, just update the status to the first mapped status in the destination column
         if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
           updatesForMovedProposal.status = destinationColumn.status_mapping[0];
         }
@@ -630,10 +627,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.custom_workflow_stage_id = null;
       }
 
-      // FIXED: Preserve existing checklist data when moving between columns
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
-        // Only initialize with empty object if destination column has no previous data
         if (!updatedChecklistStatus[destinationColumn.id]) {
           updatedChecklistStatus[destinationColumn.id] = {};
         }
@@ -689,6 +684,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updates: updatesForMovedProposal
       });
 
+      // PERFORMANCE FIX: Optimistic update - instantly update UI before server response
+      queryClient.setQueryData(['proposals', organization?.id], (oldProposals) => {
+        if (!oldProposals) return oldProposals;
+        return oldProposals.map(p => 
+          p.id === proposal.id 
+            ? { ...p, ...updatesForMovedProposal }
+            : p
+        );
+      });
+
+      // Update in background without blocking UI
       await updateProposalMutation.mutateAsync({
         proposalId: proposal.id,
         updates: updatesForMovedProposal
@@ -696,6 +702,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       const otherUpdatesInDestColumn = batchOrderUpdates.filter(u => u.proposalId !== proposal.id);
       if (otherUpdatesInDestColumn.length > 0) {
+        // Run these in parallel for better performance
         await Promise.all(otherUpdatesInDestColumn.map(item => updateProposalMutation.mutateAsync(item)));
       }
 
@@ -707,11 +714,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       if (isMovingToWon) {
         console.log('[Kanban] 🎉 Proposal won! Showing promote dialog...');
-        // Small delay to ensure UI updates, then show dialog
         setTimeout(() => {
           setWinningProposal(proposal);
           setShowWinPromoteDialog(true);
-        }, 500);
+        }, 300);
       }
 
       if (destinationColumn.wip_limit > 0 && destinationColumn.wip_limit_type === 'soft') {
@@ -722,9 +728,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     } catch (error) {
       console.error("Error moving proposal:", error);
       toast.error("Failed to move proposal. Please try again.");
+      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     } finally {
       setDragInProgress(false);
+      // Only invalidate after success to get fresh data from server
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     }
   };
