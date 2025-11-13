@@ -118,11 +118,11 @@ export default function DataCallDetailView({
   const copyPortalLink = async () => {
     if (!dataCall) return;
     const baseUrl = window.location.origin;
-    const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
-
+    const portalUrl = `${baseUrl}/PublicDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+    
     navigator.clipboard.writeText(portalUrl);
     toast.success('Portal link copied to clipboard!');
-
+    
     // Log audit action
     if (user) {
       await logDataCallAction(DataCallAuditActions.PORTAL_LINK_COPIED, dataCall, user);
@@ -131,8 +131,8 @@ export default function DataCallDetailView({
 
   const sendReminderEmail = async () => {
     try {
-      const portalUrl = `${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
-
+      const portalUrl = `${window.location.origin}/PublicDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+      
       await base44.functions.invoke('sendDataCallReminder', {
         data_call_id: dataCallId,
         portal_url: portalUrl
@@ -342,7 +342,7 @@ export default function DataCallDetailView({
                   Export
                 </Button>
                 <a
-                  href={`${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`}
+                  href={`${window.location.origin}/PublicDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

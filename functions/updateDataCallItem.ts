@@ -4,7 +4,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     
-    const { token, data_call_id, checklist_items } = await req.json();
+    const { token, data_call_id, checklist_items, mark_completed } = await req.json();
 
     if (!token || !data_call_id || !checklist_items) {
       return Response.json({
@@ -43,10 +43,19 @@ Deno.serve(async (req) => {
       }, { status: 403 });
     }
 
-    // Update the data call request
-    const updated = await base44.asServiceRole.entities.DataCallRequest.update(data_call_id, {
+    // Prepare update data
+    const updateData = {
       checklist_items
-    });
+    };
+
+    // If marking as completed
+    if (mark_completed) {
+      updateData.overall_status = 'completed';
+      updateData.completed_date = new Date().toISOString();
+    }
+
+    // Update the data call request
+    const updated = await base44.asServiceRole.entities.DataCallRequest.update(data_call_id, updateData);
 
     return Response.json({
       success: true,

@@ -184,7 +184,7 @@ export default function DataCallsPage() {
 
   const copyPortalLink = (dataCall) => {
     const baseUrl = window.location.origin;
-    const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+    const portalUrl = `${baseUrl}/PublicDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
     
     navigator.clipboard.writeText(portalUrl);
     toast.success('Portal link copied to clipboard!');
@@ -192,7 +192,7 @@ export default function DataCallsPage() {
 
   const sendReminderEmail = async (dataCall) => {
     try {
-      const portalUrl = `${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+      const portalUrl = `${window.location.origin}/PublicDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
       
       await base44.functions.invoke('sendDataCallReminder', {
         data_call_id: dataCall.id,
@@ -698,7 +698,7 @@ export default function DataCallsPage() {
 
       <DataCallExportDialog
         isOpen={showBatchExport}
-        onClose={() => setShowBatchExport(false)}
+        onClose={() => setShowBatchBatchExport(false)}
         selectedDataCalls={allDataCalls.filter(dc => selectedIds.includes(dc.id))}
       />
 

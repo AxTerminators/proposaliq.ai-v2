@@ -243,8 +243,8 @@ export default function DataCallInitiator({
       
       console.log('[DataCallInitiator] ✅ Data call created:', createdDataCall.id);
       
-      // Generate the correct portal URL using window.location.origin
-      const portalUrl = `${window.location.origin}/ClientDataCallPortal?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
+      // Generate the correct portal URL using the PUBLIC page
+      const portalUrl = `${window.location.origin}/PublicDataCallPortal?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
       console.log('[DataCallInitiator] 🔗 Generated portal URL:', portalUrl);
       
       // Send the notification email with the portal URL
@@ -271,9 +271,7 @@ export default function DataCallInitiator({
       console.error('[DataCallInitiator] Error in handleSendNow:', error);
       
       // Check if data call was created but email failed
-      // This specifically checks the error from the `base44.functions.invoke` call if `mutateAsync` succeeded
-      // If `mutateAsync` failed, its `onError` will handle the initial toast.
-      if (error.message && error.message.includes('email')) { // Simplified check for email failure specific errors
+      if (error.message && error.message.includes('email')) {
         toast.warning('Data call created but email notification failed. You can resend from the Data Calls page.');
       } else {
         toast.error('Failed to send data call: ' + error.message);
@@ -656,7 +654,7 @@ export default function DataCallInitiator({
                                 />
                                 <Label htmlFor={`required-${item.id}`} className="text-sm cursor-pointer">
                                   Required
-                                </Label>
+                                ></Label>
                               </div>
 
                               <Input
