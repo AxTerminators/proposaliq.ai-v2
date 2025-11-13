@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -517,6 +518,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         ? `Complete required items in ${targetColumn.label}` 
         : null;
 
+      updates.manual_order = 0;
+
       await updateProposalMutation.mutateAsync(updates);
       
       // Show success toast
@@ -567,6 +570,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
   const handleChecklistItemClick = async (item) => {
     console.log('[ProposalCardModal] ✨ Checklist item clicked:', item.label, 'Action:', item.associated_action);
+
+    // If already completed, and it's a manual check, toggle it back to incomplete
+    const isCurrentlyCompleted = item.type === 'system_check' 
+      ? systemCheckStatus(item)
+      : checklistStatus[item.id]?.completed || false;
+      
+    if (isCurrentlyCompleted && item.type === 'manual_check' && !item.associated_action) {
+      await handleChecklistItemToggle(item);
+      return;
+    }
 
     if (!item.associated_action) {
       await handleChecklistItemToggle(item);
@@ -993,7 +1006,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                               ? systemCheckStatus(item)
                               : itemStatus.completed || false;
                             
-                            const isClickable = !isCompleted && (item.associated_action || item.type === 'manual_check');
+                            const isClickable = item.associated_action || item.type === 'manual_check';
 
                             return (
                               <Card 
@@ -1048,9 +1061,11 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                                             size="sm"
                                             className={cn(
                                               "flex-shrink-0",
-                                              isModalAction(item.associated_action) ? "bg-indigo-600 hover:bg-indigo-700" :
-                                              isNavigateAction(item.associated_action) ? "bg-blue-600 hover:bg-blue-700" :
-                                              "bg-slate-600 hover:bg-slate-700"
+                                              isCompleted && item.associated_action 
+                                                ? "bg-green-600 hover:bg-green-700" 
+                                                : isModalAction(item.associated_action) ? "bg-indigo-600 hover:bg-indigo-700" :
+                                                  isNavigateAction(item.associated_action) ? "bg-blue-600 hover:bg-blue-700" :
+                                                  "bg-slate-600 hover:bg-slate-700"
                                             )}
                                           >
                                             {isModalAction(item.associated_action) && (
@@ -1062,7 +1077,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                                             {item.type === 'manual_check' && !item.associated_action && (
                                               <Circle className="w-4 h-4 mr-1.5" />
                                             )}
-                                            Click to Start
+                                            {isCompleted && item.associated_action ? 'Click to Edit' : 'Click to Start'}
                                           </Button>
                                         )}
                                       </div>
