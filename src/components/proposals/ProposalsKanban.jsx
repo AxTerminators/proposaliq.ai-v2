@@ -607,6 +607,41 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       const updatesForMovedProposal = {};
 
+      if (sourceColumn.id !== destinationColumn.id) {
+        const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
+        if (!updatedChecklistStatus[destinationColumn.id]) {
+          updatedChecklistStatus[destinationColumn.id] = {};
+        }
+        updatesForMovedProposal.current_stage_checklist_status = updatedChecklistStatus;
+        
+        console.log('[Kanban] 🔄 Preserving checklist status:', {
+          proposalName: proposal.proposal_name,
+          sourceColumn: sourceColumn.label,
+          destinationColumn: destinationColumn.label,
+          existingChecklistData: updatedChecklistStatus[destinationColumn.id],
+          hasExistingData: Object.keys(updatedChecklistStatus[destinationColumn.id] || {}).length > 0
+        });
+      }
+
+      // **FIXED: Check if required items are actually incomplete**
+      const destinationChecklistStatus = proposal.current_stage_checklist_status?.[destinationColumn.id] || {};
+      const hasIncompleteRequiredItems = destinationColumn.checklist_items
+        ?.filter(item => item && item.required && item.type !== 'system_check')
+        .some(item => !destinationChecklistStatus[item.id]?.completed);
+      
+      updatesForMovedProposal.action_required = hasIncompleteRequiredItems || false;
+      updatesForMovedProposal.action_required_description = hasIncompleteRequiredItems 
+        ? `Complete required items in ${destinationColumn.label}` 
+        : null;
+
+      console.log('[Kanban] 📋 Action Required Status:', {
+        destinationColumn: destinationColumn.label,
+        hasRequiredItems: destinationColumn.checklist_items?.some(item => item.required),
+        hasIncompleteRequiredItems,
+        action_required: updatesForMovedProposal.action_required,
+        existingChecklistStatus: destinationChecklistStatus
+      });
+
       if (destinationColumn.type === 'locked_phase') {
         updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
         updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
@@ -626,26 +661,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updatesForMovedProposal.current_phase = null;
         updatesForMovedProposal.custom_workflow_stage_id = null;
       }
-
-      if (sourceColumn.id !== destinationColumn.id) {
-        const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
-        if (!updatedChecklistStatus[destinationColumn.id]) {
-          updatedChecklistStatus[destinationColumn.id] = {};
-        }
-        updatesForMovedProposal.current_stage_checklist_status = updatedChecklistStatus;
-        
-        console.log('[Kanban] 🔄 Preserving checklist status:', {
-          proposalName: proposal.proposal_name,
-          sourceColumn: sourceColumn.label,
-          destinationColumn: destinationColumn.label,
-          existingChecklistData: updatedChecklistStatus[destinationColumn.id],
-          hasExistingData: Object.keys(updatedChecklistStatus[destinationColumn.id] || {}).length > 0
-        });
-      }
-
-      const hasRequiredItems = destinationColumn.checklist_items?.some(item => item.required);
-      updatesForMovedProposal.action_required = hasRequiredItems;
-      updatesForMovedProposal.action_required_description = hasRequiredItems ? `Complete required items in ${destinationColumn.label}` : null;
 
       const newColumnProposalsMap = {};
       columns.forEach(col => {
