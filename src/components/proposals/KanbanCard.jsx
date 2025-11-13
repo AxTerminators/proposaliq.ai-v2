@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -101,11 +100,18 @@ export default function KanbanCard({
         }
       }}
       className={cn(
-        "bg-white rounded-lg shadow-sm border-2 p-4 mb-3 cursor-pointer transition-all hover:shadow-md relative",
-        snapshot.isDragging ? "shadow-xl border-blue-400 rotate-2 scale-105" : "border-slate-200",
+        "bg-white rounded-lg shadow-sm border-2 p-4 mb-3 cursor-pointer transition-shadow hover:shadow-md relative",
+        snapshot.isDragging && "shadow-xl border-blue-400 opacity-90",
         isActionRequired && "ring-2 ring-amber-400 border-amber-400",
         isSelected && "ring-2 ring-blue-500 border-blue-500"
       )}
+      style={{
+        ...provided.draggableProps.style,
+        // CRITICAL FIX: Prevent transform jumping during drag
+        transform: snapshot.isDragging 
+          ? provided.draggableProps.style?.transform 
+          : provided.draggableProps.style?.transform
+      }}
     >
       {/* Selection Checkbox (if in selection mode) */}
       {selectionMode && (
