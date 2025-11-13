@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -63,6 +64,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// NEW: Pages that should not use Layout wrapper (public pages)
+const PUBLIC_PAGES = ['/PublicDataCallPortal'];
+
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
   { title: "Pipeline", url: createPageUrl("Pipeline"), icon: TrendingUp },
@@ -115,9 +119,18 @@ const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
 ];
 
-function LayoutContent({ children }) {
+function LayoutContent({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
+
+  // NEW: Skip Layout completely for public pages
+  const isPublicPage = PUBLIC_PAGES.includes(location.pathname);
+
+  if (isPublicPage) {
+    console.log('[Layout] 🌐 Public page detected, skipping Layout wrapper');
+    return <>{children}</>;
+  }
+
   const { user, organization, subscription, refetch } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -960,10 +973,18 @@ function LayoutContent({ children }) {
   );
 }
 
-export default function Layout({ children }) {
+export default function Layout({ children, currentPageName }) {
+  const location = useLocation();
+  const isPublicPage = PUBLIC_PAGES.includes(location.pathname);
+
+  // NEW: For public pages, render children directly without OrganizationProvider
+  if (isPublicPage) {
+    return <>{children}</>;
+  }
+
   return (
     <OrganizationProvider>
-      <LayoutContent>{children}</LayoutContent>
+      <LayoutContent currentPageName={currentPageName}>{children}</LayoutContent>
     </OrganizationProvider>
   );
 }
