@@ -621,10 +621,13 @@ export default function DataCallInitiator({
 
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
                   {formData.checklist_items.length === 0 ? (
-                    <Card className="border-dashed border-2">
+                    <Card 
+                      className="border-dashed border-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all"
+                      onClick={addChecklistItem}
+                    >
                       <CardContent className="p-6 text-center text-slate-500">
                         <ClipboardList className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                        <p>No items added yet. Click "Add Item" to start building your checklist.</p>
+                        <p>No items added yet. Click here to add your first item.</p>
                       </CardContent>
                     </Card>
                   ) : (
