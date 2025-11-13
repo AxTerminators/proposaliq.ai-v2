@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, FileText, Award, Library } from "lucide-react";
+import { Loader2, FileText, Award, Library, ExternalLink, File } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -82,6 +82,15 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
     );
   };
 
+  const handleResourceClick = (e, resource) => {
+    // Only open file if clicking on the title/file name area, not the checkbox
+    if (e.target.type === 'checkbox') return;
+    
+    if (resource.file_url) {
+      window.open(resource.file_url, '_blank');
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -95,6 +104,13 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
     } finally {
       setSaving(false);
     }
+  };
+
+  // Helper to format resource display name
+  const getResourceDisplayName = (resource) => {
+    if (resource.title) return resource.title;
+    if (resource.file_name) return resource.file_name;
+    return resource.resource_type?.replace('_', ' ') || 'Untitled Resource';
   };
 
   return (
@@ -133,27 +149,67 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {resources.map(resource => (
-                    <div key={resource.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50">
+                    <div 
+                      key={resource.id} 
+                      className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50 transition-colors group"
+                    >
                       <Checkbox
                         id={`resource-${resource.id}`}
                         checked={selectedResourceIds.includes(resource.id)}
                         onCheckedChange={() => handleResourceToggle(resource.id)}
+                        className="mt-1"
                       />
-                      <label htmlFor={`resource-${resource.id}`} className="flex-1 cursor-pointer">
-                        <div className="font-medium text-sm">{resource.title}</div>
-                        <p className="text-xs text-slate-500 mt-1 capitalize">
-                          {resource.resource_type?.replace('_', ' ')} • {resource.content_category?.replace('_', ' ')}
-                        </p>
-                        {resource.tags?.length > 0 && (
-                          <div className="flex gap-1 mt-2">
-                            {resource.tags.slice(0, 3).map((tag, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
+                      <div className="flex-1">
+                        <div 
+                          onClick={(e) => handleResourceClick(e, resource)}
+                          className={resource.file_url ? "cursor-pointer" : ""}
+                        >
+                          <div className="flex items-center gap-2">
+                            {resource.file_url && (
+                              <File className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                            )}
+                            <div className="font-medium text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                              {getResourceDisplayName(resource)}
+                            </div>
+                            {resource.file_url && (
+                              <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
                           </div>
-                        )}
-                      </label>
+                          
+                          {resource.description && (
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                              {resource.description}
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-slate-500 capitalize">
+                              {resource.resource_type?.replace('_', ' ')}
+                              {resource.content_category && ` • ${resource.content_category.replace('_', ' ')}`}
+                            </p>
+                            {resource.file_name && resource.title !== resource.file_name && (
+                              <span className="text-xs text-slate-400">
+                                ({resource.file_name})
+                              </span>
+                            )}
+                          </div>
+                          
+                          {resource.tags?.length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                              {resource.tags.slice(0, 3).map((tag, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {resource.tags.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{resource.tags.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
