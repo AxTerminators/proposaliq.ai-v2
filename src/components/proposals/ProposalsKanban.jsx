@@ -607,6 +607,26 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       const updatesForMovedProposal = {};
 
+      if (destinationColumn.type === 'locked_phase') {
+        updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
+        updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
+        updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
+      } else if (destinationColumn.type === 'custom_stage') {
+        updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.status = 'in_progress';
+      } else if (destinationColumn.type === 'default_status') {
+        updatesForMovedProposal.status = destinationColumn.default_status_mapping;
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null;
+      } else if (destinationColumn.type === 'master_status') {
+        if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
+          updatesForMovedProposal.status = destinationColumn.status_mapping[0];
+        }
+        updatesForMovedProposal.current_phase = null;
+        updatesForMovedProposal.custom_workflow_stage_id = null;
+      }
+
       if (sourceColumn.id !== destinationColumn.id) {
         const updatedChecklistStatus = { ...(proposal.current_stage_checklist_status || {}) };
         if (!updatedChecklistStatus[destinationColumn.id]) {
@@ -641,26 +661,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         action_required: updatesForMovedProposal.action_required,
         existingChecklistStatus: destinationChecklistStatus
       });
-
-      if (destinationColumn.type === 'locked_phase') {
-        updatesForMovedProposal.current_phase = destinationColumn.phase_mapping;
-        updatesForMovedProposal.status = getStatusFromPhase(destinationColumn.phase_mapping);
-        updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
-      } else if (destinationColumn.type === 'custom_stage') {
-        updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
-        updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.status = 'in_progress';
-      } else if (destinationColumn.type === 'default_status') {
-        updatesForMovedProposal.status = destinationColumn.default_status_mapping;
-        updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.custom_workflow_stage_id = null;
-      } else if (destinationColumn.type === 'master_status') {
-        if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
-          updatesForMovedProposal.status = destinationColumn.status_mapping[0];
-        }
-        updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.custom_workflow_stage_id = null;
-      }
 
       const newColumnProposalsMap = {};
       columns.forEach(col => {
