@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -414,8 +415,6 @@ export default function ProposalBuilder() {
 
   const hasClientPortal = subscription?.features_enabled?.client_portal === true;
 
-  const isDataLoaded = proposalId && user && organization;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-32">
       <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAssistant && !assistantMinimized ? 'mr-96' : ''}`}>
@@ -518,203 +517,100 @@ export default function ProposalBuilder() {
           </CardContent>
         </Card>
 
-        {isDataLoaded ? (
-          <Tabs defaultValue="builder" className="mb-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="builder">Builder</TabsTrigger>
-              {hasClientPortal && (
-                <TabsTrigger value="client-sharing">
-                  <Users className="w-4 h-4 mr-2" />
-                  Client Sharing
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="tasks">
-                <CheckSquare className="w-4 h-4 mr-2" />
-                Tasks
-              </TabsTrigger>
-              <TabsTrigger value="discussions">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Discussions
-              </TabsTrigger>
-              <TabsTrigger value="files">
-                <Paperclip className="w-4 h-4 mr-2" />
-                Files
-              </TabsTrigger>
-              <TabsTrigger value="automation">
-                <Zap className="w-4 h-4 mr-2" />
-                Automation
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="builder" className="space-y-6">
-              <div className="mb-6">
-                {currentPhase === "phase1" && (
-                  <Phase1 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase2" && (
-                  <Phase2 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase3" && (
-                  <Phase3 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase4" && (
-                  <Phase4 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase5" && (
-                  <Phase5 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase6" && (
-                  <Phase6 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase7" && (
-                  <Phase7Pricing 
-                    proposalData={proposalData} 
-                    setProposalData={setProposalData} 
-                    proposalId={proposalId}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-                {currentPhase === "phase8" && (
-                  <Phase7
-                    proposal={{ id: proposalId, ...proposalData }}
-                    user={user}
-                    organization={organization}
-                    teamMembers={[]}
-                    onMarkAsSubmitted={markAsSubmitted}
-                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                  />
-                )}
-              </div>
-
-              {currentPhaseIndex !== PHASES.length - 1 && (
-                <div className="flex justify-between max-w-4xl">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevious}
-                    disabled={currentPhaseIndex === 0}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveAndGoToPipeline}
-                    className="bg-white hover:bg-slate-50"
-                  >
-                    Save and Go to Pipeline
-                  </Button>
-                  <Button
-                    onClick={handleNext}
-                    disabled={currentPhaseIndex === PHASES.length - 1}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Next
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-              )}
-
-              {currentPhaseIndex === PHASES.length - 1 && (
-                <div className="flex justify-end max-w-4xl">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevious}
-                    disabled={currentPhaseIndex === 0}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveAndGoToPipeline}
-                    className="ml-auto bg-white hover:bg-slate-50"
-                  >
-                    Save and Go to Pipeline
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-
+        {/* REMOVED isDataLoaded condition - now always shows tabs */}
+        <Tabs defaultValue="builder" className="mb-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="builder">Builder</TabsTrigger>
             {hasClientPortal && (
-              <TabsContent value="client-sharing">
-                <ClientSharingPanel 
-                  proposal={{ id: proposalId, ...proposalData }}
-                  organization={organization}
-                />
-              </TabsContent>
+              <TabsTrigger value="client-sharing">
+                <Users className="w-4 h-4 mr-2" />
+                Client Sharing
+              </TabsTrigger>
             )}
+            <TabsTrigger value="tasks">
+              <CheckSquare className="w-4 h-4 mr-2" />
+              Tasks
+            </TabsTrigger>
+            <TabsTrigger value="discussions">
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Discussions
+            </TabsTrigger>
+            <TabsTrigger value="files">
+              <Paperclip className="w-4 h-4 mr-2" />
+              Files
+            </TabsTrigger>
+            <TabsTrigger value="automation">
+              <Zap className="w-4 h-4 mr-2" />
+              Automation
+            </TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="tasks">
-              <TaskManager 
-                proposal={{ id: proposalId, ...proposalData }}
-                user={user}
-                organization={organization}
-              />
-            </TabsContent>
-
-            <TabsContent value="discussions">
-              <ProposalDiscussion
-                proposal={{ id: proposalId, ...proposalData }}
-                user={user}
-                organization={organization}
-              />
-            </TabsContent>
-
-            <TabsContent value="files">
-              <ProposalFiles
-                proposal={{ id: proposalId, ...proposalData }}
-                user={user}
-                organization={organization}
-              />
-            </TabsContent>
-
-            <TabsContent value="automation">
-              <AutomationHub
-                proposal={{ id: proposalId, ...proposalData }}
-                organization={organization}
-                user={user}
-              />
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <>
+          <TabsContent value="builder" className="space-y-6">
             <div className="mb-6">
               {currentPhase === "phase1" && (
                 <Phase1 
                   proposalData={proposalData} 
                   setProposalData={setProposalData} 
                   proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase2" && (
+                <Phase2 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase3" && (
+                <Phase3 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase4" && (
+                <Phase4 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase5" && (
+                <Phase5 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase6" && (
+                <Phase6 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase7" && (
+                <Phase7Pricing 
+                  proposalData={proposalData} 
+                  setProposalData={setProposalData} 
+                  proposalId={proposalId}
+                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                />
+              )}
+              {currentPhase === "phase8" && (
+                <Phase7
+                  proposal={{ id: proposalId, ...proposalData }}
+                  user={user}
+                  organization={organization}
+                  teamMembers={[]}
+                  onMarkAsSubmitted={markAsSubmitted}
                   onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
                 />
               )}
@@ -767,8 +663,49 @@ export default function ProposalBuilder() {
                 </Button>
               </div>
             )}
-          </>
-        )}
+          </TabsContent>
+
+          {hasClientPortal && (
+            <TabsContent value="client-sharing">
+              <ClientSharingPanel 
+                proposal={{ id: proposalId, ...proposalData }}
+                organization={organization}
+              />
+            </TabsContent>
+          )}
+
+          <TabsContent value="tasks">
+            <TaskManager 
+              proposal={{ id: proposalId, ...proposalData }}
+              user={user}
+              organization={organization}
+            />
+          </TabsContent>
+
+          <TabsContent value="discussions">
+            <ProposalDiscussion
+              proposal={{ id: proposalId, ...proposalData }}
+              user={user}
+              organization={organization}
+            />
+          </TabsContent>
+
+          <TabsContent value="files">
+            <ProposalFiles
+              proposal={{ id: proposalId, ...proposalData }}
+              user={user}
+              organization={organization}
+            />
+          </TabsContent>
+
+          <TabsContent value="automation">
+            <AutomationHub
+              proposal={{ id: proposalId, ...proposalData }}
+              organization={organization}
+              user={user}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {showAssistant && proposalId && (
