@@ -391,7 +391,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
     }
   });
 
-  const createVersionHistory = async (sectionId, content, wordCount, changeType, changeSummary) => {
+  const createVersionHistory = async (sectionId, content, wordCount, changeType, changeSummary, aiMetadata = null) => {
     if (!currentUser || !sectionId) return;
 
     try {
@@ -405,7 +405,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
         ? existingVersions[0].version_number + 1 
         : 1;
 
-      await base44.entities.ProposalSectionHistory.create({
+      const historyData = {
         proposal_section_id: sectionId,
         version_number: nextVersionNumber,
         content,
@@ -414,7 +414,9 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
         change_summary: changeSummary,
         word_count: wordCount,
         change_type: changeType
-      });
+      };
+
+      await base44.entities.ProposalSectionHistory.create(historyData);
     } catch (error) {
       console.error("Error creating version history:", error);
     }
@@ -543,6 +545,82 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       pastPerformanceContext
     };
   };
+
+  /**
+   * Handle AI-generated content insertion from AIWritingAssistant
+   * Now captures and saves RAG metadata for audit trail
+   */
+  const handleAIContentGenerated = async (content, metadata = {}, sectionKey, sectionName) => {
+    if (!content || !content.trim()) {
+      alert("Cannot save empty content");
+      return;
+    }
+
+    setSavingSection(sectionKey);
+    setSaveError(null);
+    
+    try {
+      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+      
+      // Update state
+      setSectionContent(prev => ({
+        ...prev,
+        [sectionKey]: content
+      }));
+
+      const existingSection = sections.find(s => s.section_type === sectionKey);
+
+      // Prepare section data with RAG metadata
+      const sectionData = {
+        content,
+        word_count: wordCount,
+        status: 'ai_generated',
+        ai_prompt_used: metadata.ai_prompt_used || null,
+        ai_reference_sources: metadata.ai_reference_sources || [],
+        ai_context_summary: metadata.ai_context_summary || null,
+        ai_generation_metadata: metadata.ai_generation_metadata || null
+      };
+
+      if (existingSection) {
+        await updateSectionMutation.mutateAsync({
+          id: existingSection.id,
+          data: sectionData
+        });
+        
+        await createVersionHistory(
+          existingSection.id,
+          content,
+          wordCount,
+          'ai_generated',
+          metadata.ai_context_summary || 'AI generated content with RAG context'
+        );
+      } else {
+        const newSection = await createSectionMutation.mutateAsync({
+          proposal_id: proposalId,
+          section_name: sectionName,
+          section_type: sectionKey,
+          ...sectionData,
+          order: sections.length
+        });
+        
+        await createVersionHistory(
+          newSection.id,
+          content,
+          wordCount,
+          'initial_creation',
+          metadata.ai_context_summary || 'Initial AI generation with RAG context'
+        );
+      }
+
+      alert(`✓ Content inserted and saved (${wordCount} words)${metadata.ai_reference_sources?.length ? `\n📚 Referenced ${metadata.ai_reference_sources.length} past proposal(s)` : ''}`);
+    } catch (error) {
+      console.error("Error saving AI-generated section:", error);
+      setSaveError(error);
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
 
   const generateSectionContent = async (sectionConfig, subsectionConfig = null, isRegenerate = false) => {
     if (!proposalId || !organization) {
@@ -918,23 +996,6 @@ The content should be ready to insert into the proposal document. Use HTML forma
     }));
   };
 
-  const handleApplyAISuggestion = (sectionKey, suggestion) => {
-    const currentContent = sectionContent[sectionKey] || '';
-    
-    // Apply suggestion based on type
-    let newContent = currentContent;
-    if (suggestion.type === 'addition' && suggestion.suggested_text) {
-      newContent = currentContent + '\n\n' + suggestion.suggested_text;
-    } else if (suggestion.type === 'improvement' && suggestion.suggested_text) {
-      newContent = currentContent + '\n\n[AI SUGGESTION]: ' + suggestion.suggested_text;
-    }
-    
-    setSectionContent(prev => ({
-      ...prev,
-      [sectionKey]: newContent
-    }));
-  };
-
   const includedSections = getIncludedSections();
   const { winThemes } = contextData; // Destructure winThemes from contextData for AIWritingAssistant prop
 
@@ -1224,11 +1285,21 @@ The content should be ready to insert into the proposal document. Use HTML forma
                         <div className="col-span-1">
                           {showAIAssistant && (
                             <AIWritingAssistant
-                              proposal={{ id: proposalId, ...proposalData }}
-                              currentSection={section}
-                              content={sectionContent[section.id] || ''}
-                              onApplySuggestion={(suggestion) => handleApplyAISuggestion(section.id, suggestion)}
-                              winThemes={winThemes}
+                              proposalId={proposalId}
+                              sectionType={section.id}
+                              contextData={{
+                                proposalName: proposalData.proposal_name,
+                                agencyName: proposalData.agency_name,
+                                projectTitle: proposalData.project_title,
+                                projectType: proposalData.project_type,
+                                solicitationNumber: proposalData.solicitation_number,
+                                primeContractor: proposalData.prime_contractor_name,
+                                winThemes: winThemes
+                              }}
+                              existingContent={sectionContent[section.id] || ''}
+                              onContentGenerated={(content, metadata) => 
+                                handleAIContentGenerated(content, metadata, section.id, section.name)
+                              }
                             />
                           )}
                         </div>
@@ -1400,11 +1471,23 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               <div className="col-span-1">
                                 {showAIAssistant && (
                                   <AIWritingAssistant
-                                    proposal={{ id: proposalId, ...proposalData }}
-                                    currentSection={subsection}
-                                    content={sectionContent[subsectionKey] || ''}
-                                    onApplySuggestion={(suggestion) => handleApplyAISuggestion(subsectionKey, suggestion)}
-                                    winThemes={winThemes}
+                                    proposalId={proposalId}
+                                    sectionType={`${section.id}_${subsection.id}`}
+                                    contextData={{
+                                      proposalName: proposalData.proposal_name,
+                                      agencyName: proposalData.agency_name,
+                                      projectTitle: proposalData.project_title,
+                                      projectType: proposalData.project_type,
+                                      solicitationNumber: proposalData.solicitation_number,
+                                      primeContractor: proposalData.prime_contractor_name,
+                                      winThemes: winThemes,
+                                      parentSection: section.name,
+                                      subsectionName: subsection.name
+                                    }}
+                                    existingContent={sectionContent[subsectionKey] || ''}
+                                    onContentGenerated={(content, metadata) => 
+                                      handleAIContentGenerated(content, metadata, subsectionKey, `${section.name} - ${subsection.name}`)
+                                    }
                                   />
                                 )}
                               </div>
