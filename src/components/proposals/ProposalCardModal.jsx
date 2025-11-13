@@ -853,7 +853,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                             {client.client_name?.charAt(0) || 'C'}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-slate-900}>{client.client_name}</p>
+                            <p className="text-sm font-medium text-slate-900">{client.client_name}</p>
                             <p className="text-xs text-slate-500">{client.contact_email}</p>
                           </div>
                           {client.engagement_score && (
