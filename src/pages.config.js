@@ -22,7 +22,6 @@ import Feedback from './pages/Feedback';
 import RateFeedback from './pages/RateFeedback';
 import ClientPortal from './pages/ClientPortal';
 import ClientProposalView from './pages/ClientProposalView';
-import Clients from './pages/Clients';
 import CostEstimator from './pages/CostEstimator';
 import ClientSatisfactionSurvey from './pages/ClientSatisfactionSurvey';
 import ClientFeedbackForm from './pages/ClientFeedbackForm';
@@ -55,7 +54,6 @@ import ContentLibrary from './pages/ContentLibrary';
 import AddTeamingPartner from './pages/AddTeamingPartner';
 import ClientOrganizationManager from './pages/ClientOrganizationManager';
 import ConsolidatedReporting from './pages/ConsolidatedReporting';
-import DataMigration from './pages/DataMigration';
 import DataIsolationTest from './pages/DataIsolationTest';
 import ConsultantDashboard from './pages/ConsultantDashboard';
 import ClientDataCallPortal from './pages/ClientDataCallPortal';
@@ -89,7 +87,6 @@ export const PAGES = {
     "RateFeedback": RateFeedback,
     "ClientPortal": ClientPortal,
     "ClientProposalView": ClientProposalView,
-    "Clients": Clients,
     "CostEstimator": CostEstimator,
     "ClientSatisfactionSurvey": ClientSatisfactionSurvey,
     "ClientFeedbackForm": ClientFeedbackForm,
@@ -122,7 +119,6 @@ export const PAGES = {
     "AddTeamingPartner": AddTeamingPartner,
     "ClientOrganizationManager": ClientOrganizationManager,
     "ConsolidatedReporting": ConsolidatedReporting,
-    "DataMigration": DataMigration,
     "DataIsolationTest": DataIsolationTest,
     "ConsultantDashboard": ConsultantDashboard,
     "ClientDataCallPortal": ClientDataCallPortal,
