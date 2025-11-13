@@ -50,6 +50,7 @@ import ProposalFiles from "../collaboration/ProposalFiles";
 import DataCallManager from "../datacalls/DataCallManager";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
 import ConfirmDialog from "../ui/ConfirmDialog";
+import ProposalTimelineEditor from "./ProposalTimelineEditor";
 
 // Import ALL modal components
 import BasicInfoModal from "./modals/BasicInfoModal";
@@ -838,7 +839,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                             {client.client_name?.charAt(0) || 'C'}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-slate-900">{client.client_name}</p>
+                            <p className="text-sm font-medium text-slate-900}>{client.client_name}</p>
                             <p className="text-xs text-slate-500">{client.contact_email}</p>
                           </div>
                           {client.engagement_score && (
@@ -929,6 +930,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     <Badge className="ml-2 bg-red-500">
                       {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item?.id]?.completed)).length}
                     </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="timeline" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Timeline
+                  {proposal.timeline_status === 'complete' && (
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
                   )}
                 </TabsTrigger>
                 <TabsTrigger 
@@ -1128,6 +1139,21 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     <p>Unable to determine current stage</p>
                     <p className="text-xs mt-2">The proposal may not be properly assigned to a column</p>
                   </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="timeline" className="mt-0 p-6">
+                {user && organization && (
+                  <ProposalTimelineEditor
+                    proposal={proposal}
+                    onUpdate={async (updatedProposal) => {
+                      // Update the local proposal state in the modal to reflect changes immediately
+                      queryClient.setQueryData(['proposal-modal', proposal.id], updatedProposal);
+                      await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+                      await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
+                    }}
+                    organizationUsers={organization.members || []}
+                  />
                 )}
               </TabsContent>
 
