@@ -1,264 +1,196 @@
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { 
-  Upload, 
-  File, 
-  FileText, 
-  Download,
-  Trash2,
-  Loader2,
-  Paperclip,
-  Image,
-  FileSpreadsheet,
-  FileCode,
-  Eye,
-  EyeOff,
-  Users,
-  CheckSquare
-} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import moment from "moment";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Upload,
+  FileText,
+  Download,
+  Trash2,
+  Eye,
+  Loader2,
+  Plus,
+  FolderOpen,
+  CheckCircle2
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils"; // Assuming cn utility is used for conditional classes, though not explicitly in the outline's JSX
 
-export default function ProposalFiles({ proposal, user, organization }) {
-  // Guard clause
-  if (!proposal || !user || !organization) {
-    return (
-      <Card className="border-none shadow-lg">
-        <CardContent className="p-12 text-center">
-          <Paperclip className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-600">Loading files...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return <ProposalFilesContent proposal={proposal} user={user} organization={organization} />;
-}
-
-function ProposalFilesContent({ proposal, user, organization }) {
+export default function ProposalFiles({ proposal, user }) {
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [selectedFileForUpload, setSelectedFileForUpload] = useState(null); // Changed from 'uploadingFile' for clearer flow
+  const [fileDescription, setFileDescription] = useState("");
+  const [fileCategory, setFileCategory] = useState("other");
+  const [selectedFolder, setSelectedFolder] = useState("");
+  const fileInputRef = useRef(null);
   const queryClient = useQueryClient();
-  const [uploading, setUploading] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [description, setDescription] = useState("");
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
-  const [bulkActionMode, setBulkActionMode] = useState(false);
 
-  const { data: documents, isLoading } = useQuery({
-    queryKey: ['proposal-documents', proposal.id],
+  const { data: solicitationDocs = [], isLoading } = useQuery({
+    queryKey: ['solicitation-docs', proposal?.id],
     queryFn: async () => {
-      return base44.entities.SolicitationDocument.filter(
-        { proposal_id: proposal.id },
-        '-created_date'
-      );
+      if (!proposal?.id) return [];
+      return await base44.entities.SolicitationDocument.filter({
+        proposal_id: proposal.id
+      }, '-created_date'); // Order by created_date desc
     },
-    initialData: [],
+    enabled: !!proposal?.id
   });
 
-  const uploadFileMutation = useMutation({
-    mutationFn: async ({ file, description }) => {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', proposal?.organization_id],
+    queryFn: async () => {
+      if (!proposal?.organization_id) return [];
+      return await base44.entities.Folder.filter({
+        organization_id: proposal.organization_id,
+        purpose: 'project_files' // Assuming this purpose
+      });
+    },
+    enabled: !!proposal?.organization_id
+  });
 
-      const document = await base44.entities.SolicitationDocument.create({
+  const uploadMutation = useMutation({
+    mutationFn: async ({ file, file_url, description, category, folderId }) => {
+      return await base44.entities.SolicitationDocument.create({
         proposal_id: proposal.id,
-        organization_id: organization.id,
-        document_type: "other",
+        organization_id: proposal.organization_id,
+        folder_id: folderId || null, // Ensure null if undefined/empty string
+        document_type: category,
         file_name: file.name,
-        file_url: file_url,
+        file_url,
         file_size: file.size,
         description: description,
+        // Defaulting client visibility to internal only for new uploads
         shared_with_client: false,
-        client_can_download: true
+        client_can_download: false
       });
-
-      await base44.entities.ActivityLog.create({
-        proposal_id: proposal.id,
-        user_email: user.email,
-        user_name: user.full_name,
-        action_type: "file_uploaded",
-        action_description: `uploaded ${file.name}`,
-        related_entity_id: document.id
-      });
-
-      return document;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
-      setShowUploadDialog(false);
-      setSelectedFile(null);
-      setDescription("");
+      queryClient.invalidateQueries({ queryKey: ['solicitation-docs', proposal?.id] });
+      toast.success('File uploaded successfully');
+      setIsUploadDialogOpen(false);
+      setSelectedFileForUpload(null);
+      setFileDescription("");
+      setFileCategory("other");
+      setSelectedFolder("");
     },
+    onError: (error) => {
+      toast.error('Upload failed: ' + error.message);
+    }
   });
 
-  const updateDocumentMutation = useMutation({
-    mutationFn: async ({ documentId, updates }) => {
-      return await base44.entities.SolicitationDocument.update(documentId, updates);
+  const deleteMutation = useMutation({
+    mutationFn: async (docId) => {
+      return await base44.entities.SolicitationDocument.delete(docId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
+      queryClient.invalidateQueries({ queryKey: ['solicitation-docs', proposal?.id] });
+      toast.success('File deleted');
     },
+    onError: (error) => {
+      toast.error('Delete failed: ' + error.message);
+    }
   });
 
-  const bulkUpdateMutation = useMutation({
-    mutationFn: async ({ documentIds, updates }) => {
-      const updatePromises = documentIds.map(docId =>
-        base44.entities.SolicitationDocument.update(docId, updates)
-      );
-      await Promise.all(updatePromises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
-      setSelectedDocuments([]);
-      setBulkActionMode(false);
-    },
-  });
+  /**
+   * Handle file selection from the hidden input.
+   * This function only sets the file in state and opens the dialog.
+   * The actual upload happens when the user confirms in the dialog.
+   */
+  const handleFileInputChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const deleteFileMutation = useMutation({
-    mutationFn: async (documentId) => {
-      await base44.entities.SolicitationDocument.delete(documentId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposal-documents', proposal.id] });
-    },
-  });
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'text/csv',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+      'application/msword', // DOC
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+      'application/vnd.ms-excel', // XLS
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PPTX
+      'text/plain' // TXT
+    ];
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      setShowUploadDialog(true);
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Unsupported file type. Please upload PDF, Word (DOCX), Excel, PowerPoint, images, text, or CSV.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Validate file size (100MB limit)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('File too large. Maximum size is 100MB');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setSelectedFileForUpload(file);
+    // Set a default description from file name (without extension)
+    setFileDescription(file.name.split('.').slice(0, -1).join('.'));
+    setIsUploadDialogOpen(true); // Open dialog if file is successfully selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''; // Clear input for next selection
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-    
-    setUploading(true);
+  /**
+   * Handles the actual upload process after user confirms in the dialog.
+   */
+  const handleConfirmUpload = async () => {
+    if (!selectedFileForUpload) {
+      toast.error('No file selected for upload.');
+      return;
+    }
+
     try {
-      await uploadFileMutation.mutateAsync({ 
-        file: selectedFile, 
-        description: description 
+      toast.info('Initiating file upload...');
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: selectedFileForUpload });
+
+      await uploadMutation.mutateAsync({
+        file: selectedFileForUpload,
+        file_url,
+        description: fileDescription,
+        category: fileCategory,
+        folderId: selectedFolder
       });
+
     } catch (error) {
-      console.error("Error uploading file:", error);
-      alert("Failed to upload file. Please try again.");
-    } finally {
-      setUploading(false);
+      console.error('Upload error:', error);
+      toast.error('Upload failed: ' + error.message);
     }
   };
 
-  const handleDelete = async (document) => {
-    if (confirm(`Delete "${document.file_name}"?`)) {
-      deleteFileMutation.mutate(document.id);
-    }
-  };
-
-  const toggleClientSharing = async (document) => {
-    await updateDocumentMutation.mutateAsync({
-      documentId: document.id,
-      updates: { 
-        shared_with_client: !document.shared_with_client 
-      }
-    });
-  };
-
-  const toggleDownloadPermission = async (document) => {
-    await updateDocumentMutation.mutateAsync({
-      documentId: document.id,
-      updates: { 
-        client_can_download: !document.client_can_download 
-      }
-    });
-  };
-
-  const toggleDocumentSelection = (docId) => {
-    setSelectedDocuments(prev => 
-      prev.includes(docId) 
-        ? prev.filter(id => id !== docId)
-        : [...prev, docId]
-    );
-  };
-
-  const selectAllDocuments = () => {
-    if (selectedDocuments.length === documents.length) {
-      setSelectedDocuments([]);
-    } else {
-      setSelectedDocuments(documents.map(d => d.id));
-    }
-  };
-
-  const handleBulkShare = async () => {
-    if (selectedDocuments.length === 0) return;
-    if (confirm(`Share ${selectedDocuments.length} file(s) with client?`)) {
-      await bulkUpdateMutation.mutateAsync({
-        documentIds: selectedDocuments,
-        updates: { shared_with_client: true }
-      });
-    }
-  };
-
-  const handleBulkUnshare = async () => {
-    if (selectedDocuments.length === 0) return;
-    if (confirm(`Unshare ${selectedDocuments.length} file(s) from client?`)) {
-      await bulkUpdateMutation.mutateAsync({
-        documentIds: selectedDocuments,
-        updates: { shared_with_client: false }
-      });
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedDocuments.length === 0) return;
-    if (confirm(`Delete ${selectedDocuments.length} file(s)? This cannot be undone.`)) {
-      const deletePromises = selectedDocuments.map(docId =>
-        deleteFileMutation.mutateAsync(docId)
-      );
-      await Promise.all(deletePromises);
-      setSelectedDocuments([]);
-      setBulkActionMode(false);
-    }
-  };
-
-  const getFileIcon = (fileName) => {
-    const ext = fileName?.split('.').pop()?.toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return <FileText className="w-8 h-8 text-red-600" />;
-      case 'doc':
-      case 'docx':
-        return <FileText className="w-8 h-8 text-blue-600" />;
-      case 'xls':
-      case 'xlsx':
-        return <FileSpreadsheet className="w-8 h-8 text-green-600" />;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-        return <Image className="w-8 h-8 text-purple-600" />;
-      case 'txt':
-      case 'md':
-        return <FileCode className="w-8 h-8 text-slate-600" />;
-      default:
-        return <File className="w-8 h-8 text-slate-600" />;
+  const handleDelete = async (docId) => {
+    if (confirm('Delete this file? This cannot be undone.')) {
+      await deleteMutation.mutateAsync(docId);
     }
   };
 
@@ -269,447 +201,292 @@ function ProposalFilesContent({ proposal, user, organization }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const sharedDocuments = documents.filter(d => d.shared_with_client);
-  const privateDocuments = documents.filter(d => !d.shared_with_client);
+  const getFileIcon = (fileName) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return '📄';
+      case 'doc':
+      case 'docx':
+        return '📝';
+      case 'xls':
+      case 'xlsx':
+        return '📊';
+      case 'ppt':
+      case 'pptx':
+        return '📽️';
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+      case 'gif':
+        return '🖼️';
+      case 'txt':
+        return '📃';
+      case 'csv':
+        return '📑'; // Another common icon for data files
+      default:
+        return '📎';
+    }
+  };
+
 
   return (
-    <Card className="border-none shadow-lg">
-      <CardHeader className="border-b">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Paperclip className="w-5 h-5" />
-              Proposal Files ({documents.length})
-            </CardTitle>
-            <p className="text-sm text-slate-600 mt-1">
-              {sharedDocuments.length} shared with client • {privateDocuments.length} private
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {!bulkActionMode ? (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => setBulkActionMode(true)}
-                  disabled={documents.length === 0}
-                >
-                  <CheckSquare className="w-4 h-4 mr-2" />
-                  Bulk Actions
-                </Button>
-                <input
-                  type="file"
-                  id="file-upload"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-                <Button asChild>
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload File
-                  </label>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Badge variant="secondary" className="px-3 py-2">
-                  {selectedDocuments.length} selected
-                </Badge>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBulkShare}
-                  disabled={selectedDocuments.length === 0 || bulkUpdateMutation.isPending}
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBulkUnshare}
-                  disabled={selectedDocuments.length === 0 || bulkUpdateMutation.isPending}
-                >
-                  <EyeOff className="w-4 h-4 mr-2" />
-                  Unshare
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  disabled={selectedDocuments.length === 0}
-                  className="text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setBulkActionMode(false);
-                    setSelectedDocuments([]);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </>
-            )}
-          </div>
+    <div className="space-y-4">
+      {/* Upload Area */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">Proposal Files</h3>
+        <Button
+          onClick={() => setIsUploadDialogOpen(true)}
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          Upload File
+        </Button>
+      </div>
+
+      {/* Files List */}
+      {isLoading ? (
+        <div className="text-center py-8">
+          <Loader2 className="w-6 h-6 text-slate-400 animate-spin mx-auto" />
         </div>
-      </CardHeader>
-      <CardContent className="p-6">
-        {isLoading ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-slate-600">Loading files...</p>
-          </div>
-        ) : documents.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            <Paperclip className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <p className="text-lg font-medium mb-2">No files yet</p>
-            <p className="text-sm mb-4">Upload documents, references, or any files related to this proposal</p>
-            <input
-              type="file"
-              id="file-upload-empty"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Button asChild variant="outline">
-              <label htmlFor="file-upload-empty" className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Your First File
-              </label>
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {bulkActionMode && (
-              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <Checkbox
-                  checked={selectedDocuments.length === documents.length && documents.length > 0}
-                  onCheckedChange={selectAllDocuments}
-                  id="select-all"
-                />
-                <Label htmlFor="select-all" className="cursor-pointer font-medium">
-                  Select All Files ({documents.length})
-                </Label>
-              </div>
-            )}
-
-            {/* Shared with Client */}
-            {sharedDocuments.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Shared with Client ({sharedDocuments.length})
-                </h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sharedDocuments.map((doc) => (
-                    <Card key={doc.id} className="hover:shadow-md transition-all border-blue-200 relative">
-                      {bulkActionMode && (
-                        <div className="absolute top-2 left-2 z-10">
-                          <Checkbox
-                            checked={selectedDocuments.includes(doc.id)}
-                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
-                          />
-                        </div>
-                      )}
-                      <CardContent className={`p-4 ${bulkActionMode ? 'pl-10' : ''}`}>
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="flex-shrink-0">
-                            {getFileIcon(doc.file_name)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1">
-                              {doc.file_name}
-                            </h4>
-                            <Badge className="bg-blue-100 text-blue-700 mb-2">
-                              <Eye className="w-3 h-3 mr-1" />
-                              Client Can View
-                            </Badge>
-                            {doc.description && (
-                              <p className="text-xs text-slate-600 line-clamp-2 mb-2">
-                                {doc.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <span>{formatFileSize(doc.file_size)}</span>
-                              <span>•</span>
-                              <span>{moment(doc.created_date).fromNow()}</span>
-                            </div>
-                            {doc.client_downloaded && (
-                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                <Download className="w-3 h-3" />
-                                Downloaded by client
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {!bulkActionMode && (
-                          <div className="flex gap-2 pt-3 border-t">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button size="sm" variant="outline" className="flex-1">
-                                  <Users className="w-3 h-3 mr-1" />
-                                  Permissions
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80">
-                                <div className="space-y-4">
-                                  <h4 className="font-semibold text-sm">Client Permissions</h4>
-                                  
-                                  <div className="flex items-start gap-3">
-                                    <Checkbox
-                                      id={`share-${doc.id}`}
-                                      checked={doc.shared_with_client}
-                                      onCheckedChange={() => toggleClientSharing(doc)}
-                                    />
-                                    <div className="flex-1">
-                                      <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
-                                        Share with client
-                                      </Label>
-                                      <p className="text-xs text-slate-500">
-                                        Client can see this file in their portal
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-start gap-3">
-                                    <Checkbox
-                                      id={`download-${doc.id}`}
-                                      checked={doc.client_can_download}
-                                      onCheckedChange={() => toggleDownloadPermission(doc)}
-                                      disabled={!doc.shared_with_client}
-                                    />
-                                    <div className="flex-1">
-                                      <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
-                                        Allow download
-                                      </Label>
-                                      <p className="text-xs text-slate-500">
-                                        Client can download this file
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                            >
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </Button>
-                            
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(doc)}
-                              disabled={deleteFileMutation.isPending}
-                            >
-                              <Trash2 className="w-3 h-3 text-red-600" />
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+      ) : solicitationDocs.length > 0 ? (
+        <div className="space-y-2">
+          {solicitationDocs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-blue-300 transition-colors"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-2xl">{getFileIcon(doc.file_name)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
+                    {doc.file_name}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {doc.document_type && (
+                      <Badge variant="secondary" className="text-xs">
+                        {doc.document_type}
+                      </Badge>
+                    )}
+                    {doc.folder_id && folders.find(f => f.id === doc.folder_id) && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                        <FolderOpen className="w-3 h-3" />
+                        {folders.find(f => f.id === doc.folder_id)?.folder_name}
+                      </Badge>
+                    )}
+                    {doc.file_size && (
+                      <span className="text-xs text-slate-500">
+                        {formatFileSize(doc.file_size)}
+                      </span>
+                    )}
+                  </div>
+                  {doc.description && (
+                    <p className="text-xs text-slate-600 mt-1 truncate">
+                      {doc.description}
+                    </p>
+                  )}
+                  {doc.shared_with_client && (
+                    <Badge className="bg-blue-100 text-blue-700 mt-1 flex items-center gap-1 w-fit">
+                      <Eye className="w-3 h-3" />
+                      Client Shared
+                    </Badge>
+                  )}
                 </div>
               </div>
-            )}
-
-            {/* Private Files */}
-            {privateDocuments.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                  <EyeOff className="w-4 h-4" />
-                  Private Files ({privateDocuments.length})
-                </h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {privateDocuments.map((doc) => (
-                    <Card key={doc.id} className="hover:shadow-md transition-all relative">
-                      {bulkActionMode && (
-                        <div className="absolute top-2 left-2 z-10">
-                          <Checkbox
-                            checked={selectedDocuments.includes(doc.id)}
-                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
-                          />
-                        </div>
-                      )}
-                      <CardContent className={`p-4 ${bulkActionMode ? 'pl-10' : ''}`}>
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="flex-shrink-0">
-                            {getFileIcon(doc.file_name)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1">
-                              {doc.file_name}
-                            </h4>
-                            <Badge variant="outline" className="mb-2">
-                              <EyeOff className="w-3 h-3 mr-1" />
-                              Private
-                            </Badge>
-                            {doc.description && (
-                              <p className="text-xs text-slate-600 line-clamp-2 mb-2">
-                                {doc.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <span>{formatFileSize(doc.file_size)}</span>
-                              <span>•</span>
-                              <span>{moment(doc.created_date).fromNow()}</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {!bulkActionMode && (
-                          <div className="flex gap-2 pt-3 border-t">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button size="sm" variant="outline" className="flex-1">
-                                  <Users className="w-3 h-3 mr-1" />
-                                  Share
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80">
-                                <div className="space-y-4">
-                                  <h4 className="font-semibold text-sm">Client Permissions</h4>
-                                  
-                                  <div className="flex items-start gap-3">
-                                    <Checkbox
-                                      id={`share-${doc.id}`}
-                                      checked={doc.shared_with_client}
-                                      onCheckedChange={() => toggleClientSharing(doc)}
-                                    />
-                                    <div className="flex-1">
-                                      <Label htmlFor={`share-${doc.id}`} className="cursor-pointer">
-                                        Share with client
-                                      </Label>
-                                      <p className="text-xs text-slate-500">
-                                        Client can see this file in their portal
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-start gap-3">
-                                    <Checkbox
-                                      id={`download-${doc.id}`}
-                                      checked={doc.client_can_download}
-                                      onCheckedChange={() => toggleDownloadPermission(doc)}
-                                      disabled={!doc.shared_with_client}
-                                    />
-                                    <div className="flex-1">
-                                      <Label htmlFor={`download-${doc.id}`} className="cursor-pointer">
-                                        Allow download
-                                      </Label>
-                                      <p className="text-xs text-slate-500">
-                                        Client can download this file
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                            >
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </Button>
-                            
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(doc)}
-                              disabled={deleteFileMutation.isPending}
-                            >
-                              <Trash2 className="w-3 h-3 text-red-600" />
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-blue-50 rounded transition-colors"
+                  title="View file"
+                >
+                  <Eye className="w-4 h-4 text-blue-600" />
+                </a>
+                <a
+                  href={doc.file_url}
+                  download
+                  className="p-2 hover:bg-green-50 rounded transition-colors"
+                  title="Download file"
+                >
+                  <Download className="w-4 h-4 text-green-600" />
+                </a>
+                <button
+                  onClick={() => handleDelete(doc.id)}
+                  className="p-2 hover:bg-red-50 rounded transition-colors"
+                  title="Delete file"
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 className="w-4 h-4 text-red-600" />
+                </button>
               </div>
-            )}
-          </div>
-        )}
-      </CardContent>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 border-2 border-dashed border-slate-300 rounded-lg">
+          <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <p className="text-sm text-slate-600 mb-2">No files uploaded yet</p>
+          <Button
+            onClick={() => setIsUploadDialogOpen(true)}
+            variant="outline"
+            size="sm"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload First File
+          </Button>
+        </div>
+      )}
 
       {/* Upload Dialog */}
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Upload File</DialogTitle>
             <DialogDescription>
-              Add a file to this proposal
+              Upload documents related to this proposal
             </DialogDescription>
           </DialogHeader>
-          
-          {selectedFile && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                {getFileIcon(selectedFile.name)}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-slate-900 truncate">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {formatFileSize(selectedFile.size)}
+
+          <div className="space-y-4">
+            {/* File Type Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-blue-900 mb-1">
+                ✅ Supported File Types
+              </p>
+              <p className="text-xs text-blue-800">
+                PDF, Word (DOCX/DOC), Excel (XLSX/XLS), PowerPoint (PPTX), Images (PNG/JPG), Text, CSV
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Maximum file size: 100MB
+              </p>
+            </div>
+
+            {/* File Selection */}
+            {!selectedFileForUpload ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+              >
+                <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-sm font-medium text-slate-700">
+                  Click to select a file
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  or drag and drop
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{selectedFileForUpload.name}</p>
+                  <p className="text-xs text-slate-600">
+                    {formatFileSize(selectedFileForUpload.size)}
                   </p>
                 </div>
               </div>
+            )}
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Description (Optional)</label>
-                <Input
-                  placeholder="What is this file for?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.csv,.txt"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
 
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowUploadDialog(false);
-                    setSelectedFile(null);
-                    setDescription("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload
-                    </>
-                  )}
-                </Button>
+            {/* Folder Selection */}
+            {folders.length > 0 && (
+              <div>
+                <Label>Folder (Optional)</Label>
+                <Select value={selectedFolder} onValueChange={setSelectedFolder}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select folder..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>No folder</SelectItem> {/* Use empty string or null */}
+                    {folders.map((folder) => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4" />
+                          {folder.folder_name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
+
+            {/* Category Selection */}
+            <div>
+              <Label>Document Category</Label>
+              <Select value={fileCategory} onValueChange={setFileCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rfp">RFP</SelectItem>
+                  <SelectItem value="rfq">RFQ</SelectItem>
+                  <SelectItem value="rfi">RFI</SelectItem>
+                  <SelectItem value="sow">Statement of Work</SelectItem>
+                  <SelectItem value="pws">Performance Work Statement</SelectItem>
+                  <SelectItem value="pricing_sheet">Pricing Sheet</SelectItem>
+                  <SelectItem value="reference">Reference Material</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+
+            {/* Description */}
+            <div>
+              <Label>Description (Optional)</Label>
+              <Textarea
+                value={fileDescription}
+                onChange={(e) => setFileDescription(e.target.value)}
+                placeholder="Brief description of this file..."
+                rows={2}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  setIsUploadDialogOpen(false);
+                  setSelectedFileForUpload(null);
+                  setFileDescription("");
+                  setFileCategory("other");
+                  setSelectedFolder("");
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmUpload}
+                disabled={uploadMutation.isPending || !selectedFileForUpload}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {uploadMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }

@@ -1,286 +1,274 @@
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import React from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Upload, X, File, Loader2, Plus, Tag } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Upload, Loader2, FileText, CheckCircle2, X } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
+/**
+ * FileUploadDialog Component
+ * 
+ * Generic file upload dialog with optional AI extraction capabilities.
+ * Used across the application for consistent file upload UX.
+ * 
+ * Enhanced to support DOCX parsing and data extraction.
+ * 
+ * @param {boolean} isOpen - Whether dialog is open
+ * @param {function} onClose - Close handler
+ * @param {function} onUploadComplete - Callback with uploaded file data
+ * @param {string} title - Dialog title
+ * @param {string} description - Dialog description
+ * @param {boolean} allowAIExtraction - Whether to show AI extraction option
+ * @param {object} extractionSchema - JSON schema for AI extraction
+ * @param {string} acceptedTypes - Accepted file types (default includes DOCX)
+ */
 export default function FileUploadDialog({
-  open,
-  onOpenChange,
-  onUpload,
-  title = "Upload Files",
-  description = "Upload and categorize your files",
-  categoryOptions = [],
-  categoryLabel = "Category",
-  acceptedFileTypes = "*",
-  multiple = true,
-  showTags = true,
-  showDescription = true,
-  uploading = false
+  isOpen,
+  onClose,
+  onUploadComplete,
+  title = "Upload File",
+  description = "Upload a document to the system",
+  allowAIExtraction = false,
+  extractionSchema = null,
+  acceptedTypes = ".pdf,.docx,.doc,.png,.jpg,.jpeg,.csv,.xlsx,.xls,.pptx,.txt",
+  maxSizeMB = 50
 }) {
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [category, setCategory] = useState("");
-  const [fileDescription, setFileDescription] = useState("");
-  const [tags, setTags] = useState([]);
-  const [currentTag, setCurrentTag] = useState("");
+  const [file, setFile] = React.useState(null);
+  const [fileDescription, setFileDescription] = React.useState("");
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [enableExtraction, setEnableExtraction] = React.useState(allowAIExtraction);
+  const fileInputRef = React.useRef(null);
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
-  };
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
 
-  const handleRemoveFile = (index) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleAddTag = () => {
-    const trimmedTag = currentTag.trim();
-    if (trimmedTag && !tags.includes(trimmedTag)) {
-      setTags([...tags, trimmedTag]);
-      setCurrentTag("");
+    // Validate file size
+    const maxSize = maxSizeMB * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
+      return;
     }
-  };
 
-  const handleRemoveTag = (index) => {
-    setTags(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddTag();
-    }
+    setFile(selectedFile);
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) {
-      alert("Please select at least one file");
+    if (!file) {
+      toast.error('Please select a file first');
       return;
     }
 
-    if (categoryOptions.length > 0 && !category) {
-      alert("Please select a category");
-      return;
+    setIsUploading(true);
+
+    try {
+      // Step 1: Upload file
+      toast.info('Uploading file...');
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+      let extractedData = null;
+
+      // Step 2: Extract data if enabled and schema provided
+      if (enableExtraction && extractionSchema && 
+          (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+           file.type === 'application/msword')) {
+        
+        toast.info('AI is extracting data from document...');
+        
+        try {
+          const extractionResult = await base44.functions.invoke('parseDocxFile', {
+            file_url,
+            json_schema: extractionSchema,
+            extract_structured_data: true
+          });
+
+          if (extractionResult.status === 'success' && extractionResult.structured_data) {
+            extractedData = extractionResult.structured_data;
+            toast.success('Data extracted successfully!');
+          }
+        } catch (extractError) {
+          console.error('Extraction failed:', extractError);
+          toast.warning('File uploaded but data extraction failed');
+        }
+      } else if (enableExtraction && extractionSchema && 
+                 file.type === 'application/pdf') {
+        // Use built-in extraction for PDF
+        try {
+          toast.info('AI is extracting data from PDF...');
+          const extractionResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+            file_url,
+            json_schema: extractionSchema
+          });
+
+          if (extractionResult.status === 'success' && extractionResult.output) {
+            extractedData = extractionResult.output;
+            toast.success('Data extracted successfully!');
+          }
+        } catch (extractError) {
+          console.error('Extraction failed:', extractError);
+          toast.warning('File uploaded but data extraction failed');
+        }
+      }
+
+      // Return upload result
+      const uploadResult = {
+        file_name: file.name,
+        file_url,
+        file_size: file.size,
+        file_type: file.type,
+        description: fileDescription,
+        extracted_data: extractedData,
+        uploaded_date: new Date().toISOString()
+      };
+
+      onUploadComplete(uploadResult);
+      toast.success('File uploaded successfully!');
+      
+      // Reset and close
+      setFile(null);
+      setFileDescription("");
+      onClose();
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Upload failed: ' + error.message);
+    } finally {
+      setIsUploading(false);
     }
-
-    const metadata = {
-      category,
-      description: fileDescription.trim(),
-      tags
-    };
-
-    await onUpload(selectedFiles, metadata);
-    
-    // Reset form
-    setSelectedFiles([]);
-    setCategory("");
-    setFileDescription("");
-    setTags([]);
-    setCurrentTag("");
-  };
-
-  const handleCancel = () => {
-    setSelectedFiles([]);
-    setCategory("");
-    setFileDescription("");
-    setTags([]);
-    setCurrentTag("");
-    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-4">
           {/* File Selection */}
-          <div className="space-y-3">
-            <Label>Select Files</Label>
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-slate-50">
-              <input
-                type="file"
-                multiple={multiple}
-                accept={acceptedFileTypes}
-                onChange={handleFileSelect}
-                className="hidden"
-                id="file-upload-input"
-                disabled={uploading}
-              />
-              <label htmlFor="file-upload-input" className="cursor-pointer">
-                <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                <p className="text-slate-700 font-medium mb-1">
-                  Click to select {multiple ? 'files' : 'file'}
-                </p>
-                <p className="text-sm text-slate-500">
-                  {acceptedFileTypes === ".pdf" ? "PDF files only" : 
-                   acceptedFileTypes === "*" ? "Any file type" : 
-                   `Accepted: ${acceptedFileTypes}`}
-                </p>
-              </label>
-            </div>
-
-            {/* Selected Files Preview */}
-            {selectedFiles.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Selected Files ({selectedFiles.length})</Label>
-                {selectedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <File className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{file.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemoveFile(index)}
-                      disabled={uploading}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Category Selection */}
-          {categoryOptions.length > 0 && (
-            <div className="space-y-2">
-              <Label>{categoryLabel} <span className="text-red-500">*</span></Label>
-              <Select value={category} onValueChange={setCategory} disabled={uploading}>
-                <SelectTrigger>
-                  <SelectValue placeholder={`Select ${categoryLabel.toLowerCase()}...`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Tags Input */}
-          {showTags && (
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                Tags (Optional)
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  value={currentTag}
-                  onChange={(e) => setCurrentTag(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Add tags for better searchability..."
-                  disabled={uploading}
-                />
-                <Button
-                  type="button"
-                  onClick={handleAddTag}
-                  disabled={!currentTag.trim() || uploading}
-                  variant="outline"
+          <div>
+            <Label>Select File</Label>
+            <div className="mt-2">
+              {!file ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all",
+                    "hover:border-blue-400 hover:bg-blue-50"
+                  )}
                 >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border">
-                  {tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="gap-1 pr-1">
-                      <Tag className="w-3 h-3" />
-                      {tag}
-                      <button
-                        onClick={() => handleRemoveTag(index)}
-                        className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
-                        disabled={uploading}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
+                  <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-slate-700">
+                    Click to select a file
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    PDF, Word (DOCX), Excel, Images, CSV
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Max {maxSizeMB}MB
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{file.name}</p>
+                      <p className="text-xs text-slate-600">
+                        {(file.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFile(null)}
+                    className="p-1 hover:bg-red-100 rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-red-600" />
+                  </button>
                 </div>
               )}
-              <p className="text-xs text-slate-500">
-                💡 Add keywords like: "technical", "financial", "DoD", "2024", etc.
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={acceptedTypes}
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+          </div>
+
+          {/* Optional Description */}
+          <div>
+            <Label>Description (Optional)</Label>
+            <Textarea
+              value={fileDescription}
+              onChange={(e) => setFileDescription(e.target.value)}
+              placeholder="Add a brief description of this file..."
+              rows={2}
+            />
+          </div>
+
+          {/* AI Extraction Option */}
+          {allowAIExtraction && extractionSchema && file && (
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enable-extraction"
+                  checked={enableExtraction}
+                  onChange={(e) => setEnableExtraction(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="enable-extraction" className="text-sm font-medium text-purple-900 cursor-pointer">
+                  ✨ Extract data with AI
+                </label>
+              </div>
+              <p className="text-xs text-purple-700 mt-1 ml-6">
+                AI will automatically extract structured data from your document
               </p>
             </div>
           )}
 
-          {/* Description */}
-          {showDescription && (
-            <div className="space-y-2">
-              <Label>Description (Optional)</Label>
-              <Textarea
-                value={fileDescription}
-                onChange={(e) => setFileDescription(e.target.value)}
-                placeholder="Brief description of the file content..."
-                rows={3}
-                disabled={uploading}
-              />
-            </div>
-          )}
-
-          {/* Info Alert */}
-          <Alert className="bg-blue-50 border-blue-200">
-            <AlertDescription className="text-sm text-blue-800">
-              <strong>📋 Organizing your files:</strong> Proper categorization and tags make it easier 
-              to find documents later and help AI understand the context better.
-            </AlertDescription>
-          </Alert>
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={onClose}
+              variant="outline"
+              className="flex-1"
+              disabled={isUploading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={!file || isUploading}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Upload
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel} disabled={uploading}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleUpload} 
-            disabled={selectedFiles.length === 0 || uploading || (categoryOptions.length > 0 && !category)}
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload {selectedFiles.length > 0 ? `${selectedFiles.length} File${selectedFiles.length !== 1 ? 's' : ''}` : 'Files'}
-              </>
-            )}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
