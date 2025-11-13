@@ -32,6 +32,53 @@ export default function ResumeBioGenerator({ personnel, onBiosGenerated, onPerso
   const fileInputRef = React.useRef(null);
 
   /**
+   * Generate all bio variations from extracted resume data
+   */
+  const generateBiosFromData = async (data) => {
+    setIsGenerating(true);
+    
+    try {
+      const bioPrompt = `Generate professional bios for ${data.full_name || 'this person'} based on the following resume data:
+
+${JSON.stringify(data, null, 2)}
+
+Generate 5 different bio variations:
+1. SHORT (150 words): Brief professional summary
+2. MEDIUM (300 words): Comprehensive overview with key achievements
+3. LONG (500+ words): Detailed bio with extensive background
+4. EXECUTIVE SUMMARY: C-suite focused, emphasizing leadership and strategic impact
+5. TECHNICAL: Detailed technical expertise and project experience
+
+Each bio should be professional, compelling, and tailored to government proposals.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: bioPrompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            bio_short: { type: "string" },
+            bio_medium: { type: "string" },
+            bio_long: { type: "string" },
+            bio_executive_summary: { type: "string" },
+            bio_technical: { type: "string" }
+          }
+        }
+      });
+
+      setBios(result);
+      if (onBiosGenerated) {
+        onBiosGenerated(result);
+      }
+      toast.success('All bio variations generated successfully!');
+    } catch (error) {
+      console.error('Bio generation error:', error);
+      toast.error('Failed to generate bios: ' + error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  /**
    * Handle resume upload with AI extraction
    * Supports PDF, DOCX, and image formats
    */
@@ -187,53 +234,6 @@ export default function ResumeBioGenerator({ personnel, onBiosGenerated, onPerso
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    }
-  };
-
-  /**
-   * Generate all bio variations from extracted resume data
-   */
-  const generateBiosFromData = async (data) => {
-    setIsGenerating(true);
-    
-    try {
-      const bioPrompt = `Generate professional bios for ${data.full_name || 'this person'} based on the following resume data:
-
-${JSON.stringify(data, null, 2)}
-
-Generate 5 different bio variations:
-1. SHORT (150 words): Brief professional summary
-2. MEDIUM (300 words): Comprehensive overview with key achievements
-3. LONG (500+ words): Detailed bio with extensive background
-4. EXECUTIVE SUMMARY: C-suite focused, emphasizing leadership and strategic impact
-5. TECHNICAL: Detailed technical expertise and project experience
-
-Each bio should be professional, compelling, and tailored to government proposals.`;
-
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: bioPrompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            bio_short: { type: "string" },
-            bio_medium: { type: "string" },
-            bio_long: { type: "string" },
-            bio_executive_summary: { type: "string" },
-            bio_technical: { type: "string" }
-          }
-        }
-      });
-
-      setBios(result);
-      if (onBiosGenerated) {
-        onBiosGenerated(result);
-      }
-      toast.success('All bio variations generated successfully!');
-    } catch (error) {
-      console.error('Bio generation error:', error);
-      toast.error('Failed to generate bios: ' + error.message);
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -409,9 +409,4 @@ Each bio should be professional, compelling, and tailored to government proposal
       </CardContent>
     </Card>
   );
-
-  function copyBio(bioType) {
-    navigator.clipboard.writeText(bios[bioType]);
-    toast.success('Bio copied to clipboard');
-  }
 }
