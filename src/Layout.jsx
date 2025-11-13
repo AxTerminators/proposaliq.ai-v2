@@ -63,9 +63,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// CRITICAL: Pages that should NOT use Layout (public pages for external users)
-const PUBLIC_PAGES = ['/PublicDataCallPortal'];
-
 // Workspace sub-menu items
 const WORKSPACE_ITEMS = [
   { title: "Pipeline", url: createPageUrl("Pipeline"), icon: TrendingUp },
@@ -122,14 +119,6 @@ function LayoutContent({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // CRITICAL: Check if this is a public page BEFORE using useOrganization
-  const isPublicPage = PUBLIC_PAGES.includes(location.pathname);
-  
-  if (isPublicPage) {
-    console.log('[Layout] 🌐 Public page detected, rendering without Layout wrapper');
-    return <>{children}</>;
-  }
-
   const { user, organization, subscription, refetch } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -142,11 +131,6 @@ function LayoutContent({ children, currentPageName }) {
   // Scroll to top on route change
   React.useEffect(() => {
     window.scrollTo(0, 0);
-  }, [location.pathname]);
-
-  // Debug: Log current location
-  React.useEffect(() => {
-    console.log('[Layout] Current location:', location.pathname);
   }, [location.pathname]);
 
   React.useEffect(() => {
@@ -185,7 +169,7 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [location.pathname]);
 
-  // NEW: Load demo view mode from organization
+  // Load demo view mode from organization
   React.useEffect(() => {
     if (organization?.organization_type === 'demo') {
       setDemoViewMode(organization.demo_view_mode || 'corporate');
@@ -194,7 +178,7 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [organization]);
 
-  // NEW: Redirect to Dashboard if current page is not accessible for the current organization
+  // Redirect to Dashboard if current page is not accessible for the current organization
   React.useEffect(() => {
     if (!organization || !user) return;
 
@@ -245,7 +229,7 @@ function LayoutContent({ children, currentPageName }) {
     base44.auth.logout();
   };
 
-  // NEW: Handle demo view mode switching
+  // Handle demo view mode switching
   const handleDemoViewModeChange = async (newMode) => {
     if (!organization || organization.organization_type !== 'demo') return;
 
@@ -265,7 +249,7 @@ function LayoutContent({ children, currentPageName }) {
     }
   };
 
-  // NEW: Handle organization switch
+  // Handle organization switch
   const handleOrganizationSwitch = async (newOrgId) => {
     console.log('[Layout] Organization switched to:', newOrgId);
     await refetch(); // Refetch organization data
@@ -281,7 +265,6 @@ function LayoutContent({ children, currentPageName }) {
   const navigationItems = React.useMemo(() => {
     if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");
 
-    // NEW: For demo accounts, use demo_view_mode instead of organization_type
     const effectiveOrgType = organization.organization_type === 'demo'
       ? demoViewMode
       : organization.organization_type;
@@ -363,7 +346,7 @@ function LayoutContent({ children, currentPageName }) {
                   </div>
                 )}
 
-                {/* NEW: Demo View Mode Switcher */}
+                {/* Demo View Mode Switcher */}
                 {organization?.organization_type === 'demo' && demoViewMode && (
                   <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg">
                     <Label className="text-xs font-semibold text-purple-900 mb-2 block">
@@ -903,7 +886,7 @@ function LayoutContent({ children, currentPageName }) {
                 </div>
               </div>
 
-              {/* NEW: Client Workspace Indicator */}
+              {/* Client Workspace Indicator */}
               {organization?.organization_type === 'client_organization' && (
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg">
                   <Building2 className="w-4 h-4 text-blue-600" />
@@ -929,7 +912,7 @@ function LayoutContent({ children, currentPageName }) {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* NEW: Organization Switcher */}
+                {/* Organization Switcher */}
                 {user && organization && (
                   <OrganizationSwitcher
                     user={user}
@@ -973,21 +956,6 @@ function LayoutContent({ children, currentPageName }) {
 }
 
 export default function Layout({ children, currentPageName }) {
-  const location = useLocation();
-  
-  // CRITICAL: Check if this is a public page BEFORE wrapping in OrganizationProvider
-  const isPublicPage = PUBLIC_PAGES.includes(location.pathname);
-
-  console.log('[Layout Root] Current path:', location.pathname);
-  console.log('[Layout Root] Is public page?', isPublicPage);
-
-  // For public pages, render children directly without any wrapper
-  if (isPublicPage) {
-    console.log('[Layout Root] ✅ Bypassing all wrappers for public page');
-    return <>{children}</>;
-  }
-
-  // For authenticated pages, wrap with OrganizationProvider
   return (
     <OrganizationProvider>
       <LayoutContent currentPageName={currentPageName}>{children}</LayoutContent>
