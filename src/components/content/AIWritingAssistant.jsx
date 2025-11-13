@@ -231,7 +231,7 @@ Generate the content now:`;
         
         // Store metadata for later use when inserting content
         setGeneratedContent(result);
-        (window as any).__lastAIMetadata = metadata;
+        window.__lastAIMetadata = metadata;
       }
       
       toast.success('Content generated successfully!');
@@ -253,7 +253,7 @@ Generate the content now:`;
   const handleInsertContent = () => {
     // Pass content and metadata to parent
     if (typeof onContentGenerated === 'function') {
-      const metadata = (window as any).__lastAIMetadata || {};
+      const metadata = window.__lastAIMetadata || {};
       onContentGenerated(generatedContent, metadata);
     } else {
       onContentGenerated(generatedContent);
@@ -264,7 +264,7 @@ Generate the content now:`;
     setPrompt("");
     
     // Clear metadata
-    delete (window as any).__lastAIMetadata;
+    delete window.__lastAIMetadata;
   };
 
   const handleRegenerate = () => {
@@ -452,7 +452,7 @@ Generate the content now:`;
                 onClick={() => {
                   setGeneratedContent("");
                   setPrompt("");
-                  delete (window as any).__lastAIMetadata;
+                  delete window.__lastAIMetadata;
                 }}
                 variant="outline"
               >
