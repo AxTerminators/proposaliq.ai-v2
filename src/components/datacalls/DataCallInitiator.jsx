@@ -107,18 +107,15 @@ export default function DataCallInitiator({
         proposal_id: proposal?.id || null,
         created_by_email: user.email,
         created_by_name: user.full_name,
-        overall_status: 'draft',
+        overall_status: 'draft', // Data calls are initially created as draft, then can be sent
         access_token,
         token_expires_at: token_expires_at.toISOString()
       });
 
       return created;
     },
-    onSuccess: (result) => {
+    onSuccess: () => { // Removed specific toast/close/reset from here, handled by calling functions
       queryClient.invalidateQueries({ queryKey: ['data-call-requests'] });
-      toast.success('Data call request created successfully!');
-      onClose();
-      resetForm();
     },
     onError: (error) => {
       toast.error('Failed to create data call: ' + error.message);
@@ -194,7 +191,13 @@ export default function DataCallInitiator({
       return;
     }
 
-    createDataCallMutation.mutate(formData);
+    createDataCallMutation.mutate(formData, {
+      onSuccess: () => {
+        toast.success('Data call request saved as draft successfully!');
+        onClose();
+        resetForm();
+      }
+    });
   };
 
   const handleSendNow = async () => {
@@ -234,23 +237,41 @@ export default function DataCallInitiator({
       return;
     }
 
-    // Create the data call first
-    createDataCallMutation.mutate(formData, {
-      onSuccess: async (createdDataCall) => {
-        try {
-          // Send the notification email
-          await base44.functions.invoke('sendDataCallNotification', {
-            data_call_id: createdDataCall.id,
-            notification_type: 'initial'
-          });
+    try {
+      // Create the data call first
+      const createdDataCall = await createDataCallMutation.mutateAsync(formData);
+      
+      console.log('[DataCallInitiator] ✅ Data call created:', createdDataCall.id);
+      
+      // Attempt to send the notification email
+      try {
+        console.log('[DataCallInitiator] 📧 Sending email notification...');
+        const emailResponse = await base44.functions.invoke('sendDataCallNotification', {
+          data_call_id: createdDataCall.id,
+          notification_type: 'initial'
+        });
 
+        console.log('[DataCallInitiator] 📧 Email response:', emailResponse);
+
+        if (emailResponse.data?.success) {
           toast.success('✅ Data call sent successfully with email notification!');
-        } catch (emailError) {
-          console.error('Error sending email:', emailError);
-          toast.warning('Data call created but email notification failed. You can resend from the Data Calls page.');
+        } else {
+          toast.warning('Data call created but email notification may have failed. Check the Data Calls page.');
         }
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+        toast.warning('Data call created but email notification failed. You can resend from the Data Calls page.');
       }
-    });
+
+      // Always close and reset if data call creation was successful
+      onClose();
+      resetForm();
+      
+    } catch (creationError) {
+      // This catch block handles errors that occurred during createDataCallMutation.mutateAsync itself.
+      // The global `onError` for `createDataCallMutation` will already have shown a toast.
+      console.error('[DataCallInitiator] Error during data call creation in handleSendNow:', creationError);
+    }
   };
 
   const resetForm = () => {
