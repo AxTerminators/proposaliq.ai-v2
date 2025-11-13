@@ -32,9 +32,18 @@ Deno.serve(async (req) => {
 
     const dataCall = dataCallRequests[0];
 
-    // Generate portal URL - FIXED: Use correct page name
-    const baseUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
+    // FIXED: Get base URL from environment or use request origin
+    let baseUrl = Deno.env.get('BASE44_APP_URL');
+    
+    if (!baseUrl) {
+      // Fallback: extract from request URL
+      const requestUrl = new URL(req.url);
+      baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+      console.log('[sendDataCallNotification] Using request origin as baseUrl:', baseUrl);
+    }
+    
     const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+    console.log('[sendDataCallNotification] 🔗 Generated portal URL:', portalUrl);
 
     // Try to fetch custom email template
     let emailTemplate = null;
