@@ -32,9 +32,9 @@ Deno.serve(async (req) => {
 
     const dataCall = dataCallRequests[0];
 
-    // Generate portal URL
+    // Generate portal URL - FIXED: Use correct page name
     const baseUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
-    const portalUrl = `${baseUrl}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`;
+    const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
 
     // Try to fetch custom email template
     let emailTemplate = null;
@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
     }
 
     // Send email
+    console.log('[sendDataCallNotification] 📧 Sending email to:', dataCall.assigned_to_email);
     await base44.asServiceRole.integrations.Core.SendEmail({
       to: dataCall.assigned_to_email,
       subject,
@@ -151,11 +152,15 @@ Deno.serve(async (req) => {
       from_name: dataCall.created_by_name || 'ProposalIQ.ai'
     });
 
+    console.log('[sendDataCallNotification] ✅ Email sent successfully');
+
     // Update sent status
     await base44.asServiceRole.entities.DataCallRequest.update(data_call_id, {
       overall_status: 'sent',
       sent_date: new Date().toISOString()
     });
+
+    console.log('[sendDataCallNotification] ✅ Data call status updated to sent');
 
     return Response.json({
       success: true,
@@ -164,7 +169,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error sending data call notification:', error);
+    console.error('[sendDataCallNotification] ❌ Error:', error);
     return Response.json({
       success: false,
       error: error.message
