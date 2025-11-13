@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { createPageUrl } from "@/utils";
+import { Link } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -9,11 +11,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, FileText, Award, Library, ExternalLink, File } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, FileText, Award, Library, ExternalLink, File, Upload, Plus, Filter, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import QuickResourceUpload from "./QuickResourceUpload";
 
 export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) {
   const [loading, setLoading] = useState(true);
@@ -24,6 +35,14 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
   const [pastPerformance, setPastPerformance] = useState([]);
   const [selectedResourceIds, setSelectedResourceIds] = useState([]);
   const [selectedPPIds, setSelectedPPIds] = useState([]);
+
+  // Upload modal state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterResourceType, setFilterResourceType] = useState('all');
+  const [filterContentCategory, setFilterContentCategory] = useState('all');
 
   useEffect(() => {
     if (isOpen && proposalId) {
@@ -113,170 +132,292 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
     return resource.resource_type?.replace('_', ' ') || 'Untitled Resource';
   };
 
+  // Filter resources based on search and filters
+  const filteredResources = resources.filter(resource => {
+    // Search filter
+    const matchesSearch = !searchQuery || 
+      getResourceDisplayName(resource).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    // Resource type filter
+    const matchesType = filterResourceType === 'all' || resource.resource_type === filterResourceType;
+
+    // Content category filter
+    const matchesCategory = filterContentCategory === 'all' || resource.content_category === filterContentCategory;
+
+    return matchesSearch && matchesType && matchesCategory;
+  });
+
+  // Handle successful upload
+  const handleUploadSuccess = () => {
+    console.log('[ResourceGatheringModal] Resource uploaded successfully, reloading...');
+    loadData(); // Refresh the resources list
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Gather Resources</DialogTitle>
-          <DialogDescription>
-            Link boilerplate content, capability statements, and past performance to this proposal
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle>Gather Resources</DialogTitle>
+                <DialogDescription>
+                  Link boilerplate content, capability statements, and past performance to this proposal
+                </DialogDescription>
+              </div>
+              <Link to={createPageUrl("ContentLibrary")}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Library className="w-4 h-4" />
+                  Manage Library
+                </Button>
+              </Link>
+            </div>
+          </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
-        ) : (
-          <Tabs defaultValue="resources" className="py-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="resources">
-                <Library className="w-4 h-4 mr-2" />
-                Resources ({resources.length})
-              </TabsTrigger>
-              <TabsTrigger value="past-performance">
-                <Award className="w-4 h-4 mr-2" />
-                Past Performance ({pastPerformance.length})
-              </TabsTrigger>
-            </TabsList>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <Tabs defaultValue="resources" className="py-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="resources">
+                  <Library className="w-4 h-4 mr-2" />
+                  Resources ({filteredResources.length})
+                </TabsTrigger>
+                <TabsTrigger value="past-performance">
+                  <Award className="w-4 h-4 mr-2" />
+                  Past Performance ({pastPerformance.length})
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="resources" className="space-y-3">
-              {resources.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <Library className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <p>No resources found. Add resources in the Resources page.</p>
+              <TabsContent value="resources" className="space-y-3">
+                {/* Search and Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-3 pb-3 border-b">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      placeholder="Search resources..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  
+                  <Select value={filterResourceType} onValueChange={setFilterResourceType}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <Filter className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Resource Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="capability_statement">Capability Statement</SelectItem>
+                      <SelectItem value="marketing_collateral">Marketing Collateral</SelectItem>
+                      <SelectItem value="past_proposal">Past Proposal</SelectItem>
+                      <SelectItem value="boilerplate_text">Boilerplate Text</SelectItem>
+                      <SelectItem value="template">Template</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterContentCategory} onValueChange={setFilterContentCategory}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <Filter className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="company_overview">Company Overview</SelectItem>
+                      <SelectItem value="past_performance">Past Performance</SelectItem>
+                      <SelectItem value="technical_approach">Technical Approach</SelectItem>
+                      <SelectItem value="quality_assurance">Quality Assurance</SelectItem>
+                      <SelectItem value="key_personnel">Key Personnel</SelectItem>
+                      <SelectItem value="management">Management</SelectItem>
+                      <SelectItem value="transition_plan">Transition Plan</SelectItem>
+                      <SelectItem value="security">Security</SelectItem>
+                      <SelectItem value="pricing">Pricing</SelectItem>
+                      <SelectItem value="general">General</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {resources.map(resource => (
-                    <div 
-                      key={resource.id} 
-                      className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50 transition-colors group"
-                    >
-                      <Checkbox
-                        id={`resource-${resource.id}`}
-                        checked={selectedResourceIds.includes(resource.id)}
-                        onCheckedChange={() => handleResourceToggle(resource.id)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div 
-                          onClick={(e) => handleResourceClick(e, resource)}
-                          className={resource.file_url ? "cursor-pointer" : ""}
-                        >
-                          <div className="flex items-center gap-2">
-                            {resource.file_url && (
-                              <File className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                            )}
-                            <div className="font-medium text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                              {getResourceDisplayName(resource)}
-                            </div>
-                            {resource.file_url && (
-                              <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                          
-                          {resource.description && (
-                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">
-                              {resource.description}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-slate-500 capitalize">
-                              {resource.resource_type?.replace('_', ' ')}
-                              {resource.content_category && ` • ${resource.content_category.replace('_', ' ')}`}
-                            </p>
-                            {resource.file_name && resource.title !== resource.file_name && (
-                              <span className="text-xs text-slate-400">
-                                ({resource.file_name})
-                              </span>
-                            )}
-                          </div>
-                          
-                          {resource.tags?.length > 0 && (
-                            <div className="flex gap-1 mt-2">
-                              {resource.tags.slice(0, 3).map((tag, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {resource.tags.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{resource.tags.length - 3}
-                                </Badge>
+
+                {/* Upload Button */}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => setShowUploadModal(true)}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Upload New Resource
+                  </Button>
+                </div>
+
+                {/* Resources List */}
+                {filteredResources.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <Library className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    {resources.length === 0 ? (
+                      <>
+                        <p className="mb-3">No resources found in your library.</p>
+                        <Button onClick={() => setShowUploadModal(true)} size="sm" className="gap-2">
+                          <Upload className="w-4 h-4" />
+                          Upload Your First Resource
+                        </Button>
+                      </>
+                    ) : (
+                      <p>No resources match your search criteria.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {filteredResources.map(resource => (
+                      <div 
+                        key={resource.id} 
+                        className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50 transition-colors group"
+                      >
+                        <Checkbox
+                          id={`resource-${resource.id}`}
+                          checked={selectedResourceIds.includes(resource.id)}
+                          onCheckedChange={() => handleResourceToggle(resource.id)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <div 
+                            onClick={(e) => handleResourceClick(e, resource)}
+                            className={resource.file_url ? "cursor-pointer" : ""}
+                          >
+                            <div className="flex items-center gap-2">
+                              {resource.file_url && (
+                                <File className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                              )}
+                              <div className="font-medium text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                                {getResourceDisplayName(resource)}
+                              </div>
+                              {resource.file_url && (
+                                <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                               )}
                             </div>
-                          )}
+                            
+                            {resource.description && (
+                              <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                                {resource.description}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-slate-500 capitalize">
+                                {resource.resource_type?.replace('_', ' ')}
+                                {resource.content_category && ` • ${resource.content_category.replace('_', ' ')}`}
+                              </p>
+                              {resource.file_name && resource.title !== resource.file_name && (
+                                <span className="text-xs text-slate-400">
+                                  ({resource.file_name})
+                                </span>
+                              )}
+                            </div>
+                            
+                            {resource.tags?.length > 0 && (
+                              <div className="flex gap-1 mt-2">
+                                {resource.tags.slice(0, 3).map((tag, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {resource.tags.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{resource.tags.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="past-performance" className="space-y-3">
-              {pastPerformance.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <Award className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <p>No past performance found. Add projects in the Past Performance page.</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {pastPerformance.map(pp => (
-                    <div key={pp.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50">
-                      <Checkbox
-                        id={`pp-${pp.id}`}
-                        checked={selectedPPIds.includes(pp.id)}
-                        onCheckedChange={() => handlePPToggle(pp.id)}
-                      />
-                      <label htmlFor={`pp-${pp.id}`} className="flex-1 cursor-pointer">
-                        <div className="font-medium text-sm">{pp.project_name}</div>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {pp.client_name} • ${(pp.contract_value || 0).toLocaleString()}
-                        </p>
-                        {pp.services_provided?.length > 0 && (
-                          <div className="flex gap-1 mt-2">
-                            {pp.services_provided.slice(0, 2).map((service, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {service}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        )}
-
-        <DialogFooter>
-          <div className="flex items-center justify-between w-full">
-            <p className="text-sm text-slate-600">
-              {selectedResourceIds.length} resources, {selectedPPIds.length} past performance selected
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose} disabled={saving}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={saving || loading}>
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Link Resources"
+                    ))}
+                  </div>
                 )}
-              </Button>
+
+                {/* Results count */}
+                {(searchQuery || filterResourceType !== 'all' || filterContentCategory !== 'all') && (
+                  <p className="text-xs text-slate-500 text-center pt-2">
+                    Showing {filteredResources.length} of {resources.length} resources
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="past-performance" className="space-y-3">
+                {pastPerformance.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <Award className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    <p>No past performance found. Add projects in the Past Performance page.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {pastPerformance.map(pp => (
+                      <div key={pp.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50">
+                        <Checkbox
+                          id={`pp-${pp.id}`}
+                          checked={selectedPPIds.includes(pp.id)}
+                          onCheckedChange={() => handlePPToggle(pp.id)}
+                        />
+                        <label htmlFor={`pp-${pp.id}`} className="flex-1 cursor-pointer">
+                          <div className="font-medium text-sm">{pp.project_name}</div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {pp.client_name} • ${(pp.contract_value || 0).toLocaleString()}
+                          </p>
+                          {pp.services_provided?.length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                              {pp.services_provided.slice(0, 2).map((service, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {service}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+
+          <DialogFooter>
+            <div className="flex items-center justify-between w-full">
+              <p className="text-sm text-slate-600">
+                {selectedResourceIds.length} resources, {selectedPPIds.length} past performance selected
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving || loading}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Link Resources"
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Upload Modal */}
+      <QuickResourceUpload
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        organizationId={organization?.id}
+        onSuccess={handleUploadSuccess}
+      />
+    </>
   );
 }
