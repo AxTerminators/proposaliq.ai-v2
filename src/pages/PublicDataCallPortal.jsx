@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,9 +18,11 @@ import {
 import { toast } from "sonner";
 import moment from "moment";
 
-// CRITICAL: This page MUST NOT use Layout - it's for external/unauthenticated access
-export const config = {
-  skipLayout: true
+// CRITICAL: Get function base URL from environment
+const getFunctionUrl = (functionName) => {
+  // Use the current origin to build function URLs
+  const origin = window.location.origin;
+  return `${origin}/api/functions/${functionName}`;
 };
 
 export default function PublicDataCallPortal() {
@@ -56,18 +57,26 @@ export default function PublicDataCallPortal() {
       setIsLoading(true);
       console.log('[PublicDataCallPortal] Validating token...', { accessToken, requestId });
       
-      const response = await base44.functions.invoke('validateDataCallToken', {
-        token: accessToken,
-        data_call_id: requestId
+      // CRITICAL: Use direct fetch instead of base44.functions.invoke to avoid auth
+      const response = await fetch(getFunctionUrl('validateDataCallToken'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: accessToken,
+          data_call_id: requestId
+        })
       });
 
-      console.log('[PublicDataCallPortal] Validation response:', response.data);
+      const result = await response.json();
+      console.log('[PublicDataCallPortal] Validation response:', result);
 
-      if (!response.data.success) {
-        throw new Error(response.data.error);
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
-      const dataCall = response.data.data_call;
+      const dataCall = result.data_call;
       setDataCallRequest(dataCall);
 
       // Initialize notes
@@ -92,15 +101,22 @@ export default function PublicDataCallPortal() {
 
     setUploadingItemId(itemId);
     try {
-      const response = await base44.functions.invoke('uploadDataCallFile', {
-        token,
-        data_call_id: dataCallRequestId,
-        item_id: itemId,
-        file: file
+      // Use FormData for file upload with direct fetch
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('data_call_id', dataCallRequestId);
+      formData.append('item_id', itemId);
+      formData.append('file', file);
+
+      const response = await fetch(getFunctionUrl('uploadDataCallFile'), {
+        method: 'POST',
+        body: formData
       });
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Upload failed');
+      const result = await response.json();
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'Upload failed');
       }
 
       // Reload data call to get updated state
@@ -129,14 +145,22 @@ export default function PublicDataCallPortal() {
     });
 
     try {
-      const response = await base44.functions.invoke('updateDataCallItem', {
-        token,
-        data_call_id: dataCallRequestId,
-        checklist_items: updatedItems
+      const response = await fetch(getFunctionUrl('updateDataCallItem'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          data_call_id: dataCallRequestId,
+          checklist_items: updatedItems
+        })
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.error);
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       await loadDataCall(token, dataCallRequestId);
@@ -158,14 +182,22 @@ export default function PublicDataCallPortal() {
     });
 
     try {
-      const response = await base44.functions.invoke('updateDataCallItem', {
-        token,
-        data_call_id: dataCallRequestId,
-        checklist_items: updatedItems
+      const response = await fetch(getFunctionUrl('updateDataCallItem'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          data_call_id: dataCallRequestId,
+          checklist_items: updatedItems
+        })
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.error);
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       await loadDataCall(token, dataCallRequestId);
@@ -187,16 +219,23 @@ export default function PublicDataCallPortal() {
     }
 
     try {
-      // Update to completed using backend function
-      const response = await base44.functions.invoke('updateDataCallItem', {
-        token,
-        data_call_id: dataCallRequestId,
-        checklist_items: dataCallRequest.checklist_items,
-        mark_completed: true
+      const response = await fetch(getFunctionUrl('updateDataCallItem'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          data_call_id: dataCallRequestId,
+          checklist_items: dataCallRequest.checklist_items,
+          mark_completed: true
+        })
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.error);
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       await loadDataCall(token, dataCallRequestId);
