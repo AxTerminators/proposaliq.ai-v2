@@ -29,33 +29,20 @@ export default function ClientDataCallPortal({ token, dataCallRequestId }) {
   const [uploadingItemId, setUploadingItemId] = useState(null);
   const [itemNotes, setItemNotes] = useState({});
 
+  // Fetch data call using backend function (no auth required)
   const { data: dataCallRequest, isLoading, error } = useQuery({
-    queryKey: ['data-call-request', dataCallRequestId],
+    queryKey: ['data-call-request-public', dataCallRequestId, token],
     queryFn: async () => {
-      const requests = await base44.entities.DataCallRequest.filter({ id: dataCallRequestId });
-      if (requests.length === 0) {
-        throw new Error('Data call request not found');
-      }
-      
-      const request = requests[0];
-      
-      // Validate token
-      if (request.access_token !== token) {
-        throw new Error('Invalid access token');
-      }
-
-      // Check expiration
-      if (request.token_expires_at && new Date(request.token_expires_at) < new Date()) {
-        throw new Error('Access token has expired');
-      }
-
-      // Track access
-      await base44.entities.DataCallRequest.update(request.id, {
-        portal_accessed_count: (request.portal_accessed_count || 0) + 1,
-        last_portal_access: new Date().toISOString()
+      const response = await base44.functions.invoke('validateDataCallToken', {
+        token,
+        data_call_id: dataCallRequestId
       });
 
-      return request;
+      if (!response.data.success) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data.data_call;
     },
     enabled: !!token && !!dataCallRequestId,
     retry: false
@@ -79,43 +66,26 @@ export default function ClientDataCallPortal({ token, dataCallRequestId }) {
 
     setUploadingItemId(itemId);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      // Create FormData
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('data_call_id', dataCallRequestId);
+      formData.append('item_id', itemId);
+      formData.append('file', file);
 
-      // Create ClientUploadedFile record
-      const uploadedFile = await base44.entities.ClientUploadedFile.create({
-        organization_id: dataCallRequest.client_organization_id || dataCallRequest.organization_id,
-        proposal_id: dataCallRequest.proposal_id,
-        consulting_firm_id: dataCallRequest.organization_id,
-        data_call_request_id: dataCallRequest.id,
-        data_call_item_id: itemId,
-        file_name: file.name,
-        file_url,
-        file_size: file.size,
-        file_type: file.type,
-        file_category: "data_call_response",
-        uploaded_by_email: dataCallRequest.assigned_to_email,
-        uploaded_by_name: dataCallRequest.assigned_to_name
+      // Upload via backend function
+      const response = await fetch('/api/functions/uploadDataCallFile', {
+        method: 'POST',
+        body: formData
       });
 
-      // Update checklist item with uploaded file
-      const updatedItems = dataCallRequest.checklist_items.map(item => {
-        if (item.id === itemId) {
-          return {
-            ...item,
-            uploaded_files: [...(item.uploaded_files || []), uploadedFile.id],
-            status: 'completed',
-            completed_date: new Date().toISOString(),
-            completed_by: dataCallRequest.assigned_to_email
-          };
-        }
-        return item;
-      });
+      const result = await response.json();
 
-      await base44.entities.DataCallRequest.update(dataCallRequest.id, {
-        checklist_items: updatedItems
-      });
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
-      queryClient.invalidateQueries({ queryKey: ['data-call-request'] });
+      queryClient.invalidateQueries({ queryKey: ['data-call-request-public'] });
       toast.success('File uploaded successfully!');
     } catch (error) {
       toast.error('Upload failed: ' + error.message);
@@ -139,11 +109,17 @@ export default function ClientDataCallPortal({ token, dataCallRequestId }) {
     });
 
     try {
-      await base44.entities.DataCallRequest.update(dataCallRequest.id, {
+      const response = await base44.functions.invoke('updateDataCallItem', {
+        token,
+        data_call_id: dataCallRequestId,
         checklist_items: updatedItems
       });
 
-      queryClient.invalidateQueries({ queryKey: ['data-call-request'] });
+      if (!response.data.success) {
+        throw new Error(response.data.error);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['data-call-request-public'] });
       toast.success('Item marked as not applicable');
     } catch (error) {
       toast.error('Failed to update: ' + error.message);
@@ -162,11 +138,17 @@ export default function ClientDataCallPortal({ token, dataCallRequestId }) {
     });
 
     try {
-      await base44.entities.DataCallRequest.update(dataCallRequest.id, {
+      const response = await base44.functions.invoke('updateDataCallItem', {
+        token,
+        data_call_id: dataCallRequestId,
         checklist_items: updatedItems
       });
 
-      queryClient.invalidateQueries({ queryKey: ['data-call-request'] });
+      if (!response.data.success) {
+        throw new Error(response.data.error);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['data-call-request-public'] });
       toast.success('Notes saved');
     } catch (error) {
       toast.error('Failed to save notes: ' + error.message);
@@ -185,12 +167,23 @@ export default function ClientDataCallPortal({ token, dataCallRequestId }) {
     }
 
     try {
-      await base44.entities.DataCallRequest.update(dataCallRequest.id, {
+      const response = await base44.functions.invoke('updateDataCallItem', {
+        token,
+        data_call_id: dataCallRequestId,
+        checklist_items: dataCallRequest.checklist_items
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.error);
+      }
+
+      // Update overall status
+      await base44.asServiceRole.entities.DataCallRequest.update(dataCallRequestId, {
         overall_status: 'completed',
         completed_date: new Date().toISOString()
       });
 
-      queryClient.invalidateQueries({ queryKey: ['data-call-request'] });
+      queryClient.invalidateQueries({ queryKey: ['data-call-request-public'] });
       toast.success('✅ Data call submitted successfully! Thank you.');
     } catch (error) {
       toast.error('Submission failed: ' + error.message);
