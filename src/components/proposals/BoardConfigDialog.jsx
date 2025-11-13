@@ -391,13 +391,28 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       if (!organization?.id) throw new Error("No organization");
       if (!currentConfig) throw new Error("No current configuration to save");
 
+      // NEW: Validate unique template name (case-insensitive)
+      const trimmedName = templateInfo.template_name.trim();
+      const existingTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
+        organization_id: organization.id
+      });
+
+      const normalizedName = trimmedName.toLowerCase();
+      const duplicate = existingTemplates.find(t => 
+        t.template_name.toLowerCase() === normalizedName
+      );
+
+      if (duplicate) {
+        throw new Error(`A template named "${duplicate.template_name}" already exists. Please choose a different name.`);
+      }
+
       // Determine board type from current config or default to custom
       const boardType = currentConfig.board_type || 'custom';
       const proposalTypes = currentConfig.applies_to_proposal_types || ['OTHER'];
 
       const templateToCreate = {
         organization_id: organization.id,
-        template_name: templateInfo.template_name,
+        template_name: trimmedName,
         template_type: 'organization',
         proposal_type_category: proposalTypes[0] || 'OTHER',
         board_type: boardType,
@@ -425,6 +440,9 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         estimated_duration_days: 30
       });
       alert('✅ Template saved successfully! You can now find it in the Template Manager.');
+    },
+    onError: (error) => {
+      alert(`Error saving template: ${error.message}`);
     }
   });
 

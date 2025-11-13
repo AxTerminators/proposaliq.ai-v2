@@ -23,9 +23,11 @@ import {
   Clock,
   Zap,
   Building2,
-  FileText
+  FileText,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const BOARD_TYPE_ICONS = {
   'rfp': '📋',
@@ -90,10 +92,10 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       setStep(1);
       onClose();
       
-      alert(`✅ ${data.message}`);
+      toast.success(`✅ ${data.message}`);
     },
     onError: (error) => {
-      alert(`Error creating board: ${error.message}`);
+      toast.error(`Error creating board: ${error.message}`);
     }
   });
 
@@ -118,9 +120,51 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
     enabled: isOpen && !!organization?.id,
   });
 
+  // NEW: Fetch existing boards for name validation
+  const { data: existingBoards = [] } = useQuery({
+    queryKey: ['all-kanban-boards', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        'board_name'
+      );
+    },
+    enabled: isOpen && !!organization?.id,
+  });
+
+  // NEW: Validation function for duplicate board names (case-insensitive)
+  const validateUniqueBoardName = (name) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return { valid: false, error: 'Board name cannot be empty' };
+    }
+
+    // Case-insensitive comparison
+    const normalizedName = trimmedName.toLowerCase();
+    const duplicate = existingBoards.find(board => 
+      board.board_name.toLowerCase() === normalizedName
+    );
+
+    if (duplicate) {
+      return { 
+        valid: false, 
+        error: `A board named "${duplicate.board_name}" already exists. Please choose a different name.` 
+      };
+    }
+
+    return { valid: true };
+  };
+
   // Create board mutation (for template-based boards)
   const createBoardMutation = useMutation({
     mutationFn: async ({ template, customBoardName }) => {
+      // NEW: Validate board name before creating
+      const validation = validateUniqueBoardName(customBoardName);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
       const workflowConfig = typeof template.workflow_config === 'string'
         ? JSON.parse(template.workflow_config)
         : template.workflow_config;
@@ -130,7 +174,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       const newBoard = await base44.entities.KanbanConfig.create({
         organization_id: organization.id,
         board_type: boardType,
-        board_name: customBoardName || template.template_name,
+        board_name: customBoardName.trim(), // Use trimmed name
         is_master_board: false,
         applies_to_proposal_types: [template.proposal_type_category],
         simplified_workflow: false,
@@ -158,10 +202,15 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
         onBoardCreated(newBoard);
       }
       
+      toast.success(`✅ Board "${newBoard.board_name}" created successfully!`);
       setSelectedTemplate(null);
       setBoardName("");
       setStep(1);
       onClose();
+    },
+    onError: (error) => {
+      // NEW: Use toast for better UX
+      toast.error(error.message || 'Failed to create board');
     }
   });
 
@@ -173,7 +222,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   const handleCreateBoard = () => {
     if (!selectedTemplate) {
-      alert("Please select a template");
+      toast.error("Please select a template");
       return;
     }
 
@@ -187,7 +236,14 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
     // Template-based board creation
     if (!boardName.trim()) {
-      alert("Please enter a board name");
+      toast.error("Please enter a board name");
+      return;
+    }
+
+    // NEW: Validate before creating
+    const validation = validateUniqueBoardName(boardName);
+    if (!validation.valid) {
+      toast.error(validation.error);
       return;
     }
 
@@ -200,7 +256,6 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const handleBack = () => {
     setStep(1);
     setSelectedTemplate(null);
-    setBoardName("");
   };
 
   const handleDialogClose = () => {
@@ -362,6 +417,27 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                 </div>
               </CardContent>
             </Card>
+
+            {/* NEW: Board Name Input for template-based boards */}
+            {!selectedTemplate.functionName && (
+              <div className="space-y-2">
+                <Label htmlFor="board-name-input" className="text-base font-semibold">Board Name <span className="text-red-500">*</span></Label>
+                <Input
+                  id="board-name-input"
+                  value={boardName}
+                  onChange={(e) => setBoardName(e.target.value)}
+                  placeholder="Enter a unique name for this board..."
+                  className="text-base"
+                />
+                <div className="flex items-start gap-2 text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <p>
+                    Choose a unique name that clearly identifies this board. The name is case-insensitive, 
+                    so "My RFP Board" and "my rfp board" are considered the same.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Workflow Preview (only if not special board) */}
             {!selectedTemplate.functionName && nonTerminalColumns.length > 0 && (
