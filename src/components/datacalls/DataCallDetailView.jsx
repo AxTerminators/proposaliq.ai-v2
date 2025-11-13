@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -49,9 +50,9 @@ import DataCallTimePrediction from "./DataCallTimePrediction";
 import DataCallAuditTrail from "./DataCallAuditTrail";
 import { logDataCallAction, DataCallAuditActions, isSensitiveDataCall } from "./DataCallAuditLogger";
 
-export default function DataCallDetailView({ 
-  dataCallId, 
-  isOpen, 
+export default function DataCallDetailView({
+  dataCallId,
+  isOpen,
   onClose,
   organization,
   proposals = []
@@ -75,7 +76,7 @@ export default function DataCallDetailView({
       if (!dataCallId) return null;
       const results = await base44.entities.DataCallRequest.filter({ id: dataCallId });
       const dc = results[0] || null;
-      
+
       // Log view action
       if (dc && user) {
         const isSensitive = isSensitiveDataCall(dc);
@@ -86,7 +87,7 @@ export default function DataCallDetailView({
           { ip_address: 'browser' }
         );
       }
-      
+
       return dc;
     },
     enabled: !!dataCallId && isOpen
@@ -117,11 +118,11 @@ export default function DataCallDetailView({
   const copyPortalLink = async () => {
     if (!dataCall) return;
     const baseUrl = window.location.origin;
-    const portalUrl = `${baseUrl}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`;
-    
+    const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+
     navigator.clipboard.writeText(portalUrl);
     toast.success('Portal link copied to clipboard!');
-    
+
     // Log audit action
     if (user) {
       await logDataCallAction(DataCallAuditActions.PORTAL_LINK_COPIED, dataCall, user);
@@ -130,8 +131,11 @@ export default function DataCallDetailView({
 
   const sendReminderEmail = async () => {
     try {
+      const portalUrl = `${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+
       await base44.functions.invoke('sendDataCallReminder', {
-        data_call_id: dataCallId
+        data_call_id: dataCallId,
+        portal_url: portalUrl
       });
       toast.success('Reminder email sent!');
       refreshMutation.mutate();
@@ -160,7 +164,7 @@ export default function DataCallDetailView({
     }
 
     toast.success('All files downloaded!');
-    
+
     // Log audit action
     if (user && dataCall) {
       await logDataCallAction(
@@ -179,7 +183,7 @@ export default function DataCallDetailView({
 
   const getRecipientDisplay = (dataCall) => {
     if (!dataCall) return { icon: User, text: '' };
-    
+
     if (dataCall.recipient_type === 'client_organization') {
       return { icon: Building2, text: `Client: ${dataCall.assigned_to_name || dataCall.assigned_to_email}` };
     } else if (dataCall.recipient_type === 'internal_team_member') {
@@ -213,7 +217,7 @@ export default function DataCallDetailView({
   const RecipientIcon = recipient.icon;
   const proposalName = getProposalName(dataCall?.proposal_id);
 
-  const completedItems = dataCall?.checklist_items?.filter(item => 
+  const completedItems = dataCall?.checklist_items?.filter(item =>
     item.status === 'completed' || item.status === 'not_applicable'
   ).length || 0;
   const totalItems = dataCall?.checklist_items?.length || 0;
@@ -236,8 +240,8 @@ export default function DataCallDetailView({
                         {dataCall.overall_status}
                       </Badge>
                       <Badge className={`${
-                        dataCall.priority === 'urgent' ? 'bg-red-500' : 
-                        dataCall.priority === 'high' ? 'bg-orange-500' : 
+                        dataCall.priority === 'urgent' ? 'bg-red-500' :
+                        dataCall.priority === 'high' ? 'bg-orange-500' :
                         'bg-slate-500'
                       }`}>
                         {dataCall.priority}
@@ -338,7 +342,7 @@ export default function DataCallDetailView({
                   Export
                 </Button>
                 <a
-                  href={`${window.location.origin}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`}
+                  href={`${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -458,7 +462,7 @@ export default function DataCallDetailView({
                 <TabsContent value="checklist" className="space-y-3 mt-4">
                   {dataCall.checklist_items.map((item, index) => {
                     const itemFiles = uploadedFiles.filter(f => f.data_call_item_id === item.id);
-                    
+
                     return (
                       <Card key={item.id} className="border-2">
                         <CardContent className="p-4">

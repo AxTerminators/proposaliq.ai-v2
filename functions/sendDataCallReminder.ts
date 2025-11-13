@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data_call_id } = await req.json();
+    const { data_call_id, portal_url } = await req.json();
 
     if (!data_call_id) {
       return Response.json({
@@ -32,9 +32,10 @@ Deno.serve(async (req) => {
 
     const dataCall = dataCallRequests[0];
 
-    // Generate portal URL
-    const baseUrl = Deno.env.get('BASE44_APP_URL') || 'https://app.base44.com';
-    const portalUrl = `${baseUrl}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`;
+    // Use provided portal URL or generate one (fallback for backward compatibility)
+    const finalPortalUrl = portal_url || `${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+    
+    console.log('[sendDataCallReminder] 🔗 Using portal URL:', finalPortalUrl);
 
     // Prepare email content
     const completedItems = dataCall.checklist_items.filter(item => 
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${portalUrl}" 
+            <a href="${finalPortalUrl}" 
                style="display: inline-block; background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
               📂 Access Data Call Portal
             </a>
@@ -116,7 +117,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error sending data call reminder:', error);
+    console.error('[sendDataCallReminder] Error:', error);
     return Response.json({
       success: false,
       error: error.message

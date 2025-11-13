@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -66,28 +67,22 @@ export default function ClientDataCallPortal({ token, dataCallRequestId }) {
 
     setUploadingItemId(itemId);
     try {
-      // Create FormData
-      const formData = new FormData();
-      formData.append('token', token);
-      formData.append('data_call_id', dataCallRequestId);
-      formData.append('item_id', itemId);
-      formData.append('file', file);
-
-      // Upload via backend function
-      const response = await fetch('/api/functions/uploadDataCallFile', {
-        method: 'POST',
-        body: formData
+      // Upload via backend function using proper Base44 function invocation
+      const response = await base44.functions.invoke('uploadDataCallFile', {
+        token,
+        data_call_id: dataCallRequestId,
+        item_id: itemId,
+        file: file
       });
 
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error);
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Upload failed');
       }
 
       queryClient.invalidateQueries({ queryKey: ['data-call-request-public'] });
       toast.success('File uploaded successfully!');
     } catch (error) {
+      console.error('[ClientDataCallPortal] Upload error:', error);
       toast.error('Upload failed: ' + error.message);
     } finally {
       setUploadingItemId(null);

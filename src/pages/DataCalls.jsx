@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -183,7 +184,7 @@ export default function DataCallsPage() {
 
   const copyPortalLink = (dataCall) => {
     const baseUrl = window.location.origin;
-    const portalUrl = `${baseUrl}/client-data-call?token=${dataCall.access_token}&id=${dataCall.id}`;
+    const portalUrl = `${baseUrl}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
     
     navigator.clipboard.writeText(portalUrl);
     toast.success('Portal link copied to clipboard!');
@@ -191,8 +192,11 @@ export default function DataCallsPage() {
 
   const sendReminderEmail = async (dataCall) => {
     try {
+      const portalUrl = `${window.location.origin}/ClientDataCallPortal?token=${dataCall.access_token}&id=${dataCall.id}`;
+      
       await base44.functions.invoke('sendDataCallReminder', {
-        data_call_id: dataCall.id
+        data_call_id: dataCall.id,
+        portal_url: portalUrl
       });
       toast.success('Reminder email sent!');
       
