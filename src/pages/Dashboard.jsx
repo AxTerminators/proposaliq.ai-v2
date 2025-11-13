@@ -15,7 +15,7 @@ import MobileDashboard from "../components/mobile/MobileDashboard";
 import DataCallSummaryWidget from "../components/dashboard/DataCallSummaryWidget";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
-import { Badge } from "@/components/ui/badge"; // Added Badge import
+import { Badge } from "@/components/ui/badge";
 import ClientWorkspaceInitializer from "../components/clients/ClientWorkspaceInitializer";
 
 export default function Dashboard() {
@@ -42,14 +42,11 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load proposals using React Query
+  // PERFORMANCE FIX: Removed 2-second delay
   const { data: proposals = [], refetch: refetchProposals } = useQuery({
     queryKey: ['dashboard-proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      
-      // Add delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 2000));
       
       return base44.entities.Proposal.filter(
         { organization_id: organization.id },
@@ -58,19 +55,22 @@ export default function Dashboard() {
     },
     enabled: !!organization?.id && !isLoadingOrg,
     staleTime: 60000,
-    cacheTime: 300000,
   });
 
-  // Load activity log
+  // PERFORMANCE FIX: Removed 2-second delay, optimized to run in parallel
   const { data: activityLog = [] } = useQuery({
     queryKey: ['dashboard-activity', organization?.id],
     queryFn: async () => {
-      if (!organization?.id || proposals.length === 0) return [];
+      if (!organization?.id) return [];
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get all proposals first to filter activity
+      const allProposals = await base44.entities.Proposal.filter(
+        { organization_id: organization.id }
+      );
       
-      const proposalIds = proposals.map(p => p.id);
-      if (proposalIds.length === 0) return [];
+      if (allProposals.length === 0) return [];
+      
+      const proposalIds = allProposals.map(p => p.id);
       
       return base44.entities.ActivityLog.filter(
         { proposal_id: { $in: proposalIds } },
@@ -78,9 +78,8 @@ export default function Dashboard() {
         20
       );
     },
-    enabled: !!organization?.id && proposals.length > 0 && !isLoadingOrg,
+    enabled: !!organization?.id && !isLoadingOrg,
     staleTime: 60000,
-    cacheTime: 300000,
   });
 
   // Calculate stats when proposals change
@@ -117,16 +116,15 @@ export default function Dashboard() {
     if (user?.using_sample_data === true) {
       setShowSampleDataGuard(true);
     } else {
-      navigate(createPageUrl("Pipeline")); // Navigate to Proposal Board
+      navigate(createPageUrl("Pipeline"));
     }
   };
 
   const proceedToProposalBuilder = () => {
-    navigate(createPageUrl("Pipeline")); // Navigate to Proposal Board
+    navigate(createPageUrl("Pipeline"));
   };
 
   // Show loading state
-  // `isLoadingOrg` from useOrganization covers loading state for both user and organization data.
   if (isLoadingOrg) { 
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -145,7 +143,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6 lg:p-8">
-      {/* **NEW: Demo Account Banner** */}
       {isDemoAccount && (
         <div className="bg-gradient-to-r from-purple-100 via-pink-100 to-orange-100 border-2 border-purple-300 rounded-xl p-4 shadow-lg mb-6">
           <div className="flex items-center gap-3">
@@ -166,7 +163,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* NEW: Client Workspace Initializer */}
       {organization?.organization_type === 'client_organization' && (
         <ClientWorkspaceInitializer 
           organization={organization}
@@ -193,25 +189,6 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header - This section is replaced by the new Welcome Section above */}
-        {/* <div className="flex items-center justify-between dashboard-overview">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
-            </h1>
-            <p className="text-slate-600 mt-1">
-              {organization?.organization_name || 'Your Organization'}
-            </p>
-          </div>
-          <Button
-            onClick={handleCreateProposal}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 create-proposal-button"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Proposal
-          </Button>
-        </div> */}
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
@@ -282,9 +259,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Quick Actions - Moved inside the Welcome Section */}
-        {/* <QuickActionsPanel user={user} organization={organization} /> */}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

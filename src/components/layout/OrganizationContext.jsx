@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 
 const OrganizationContext = createContext({
   user: null,
@@ -34,141 +35,99 @@ const setCachedOrgId = (userEmail, orgId) => {
 };
 
 export function OrganizationProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null);
-  const [subscription, setSubscription] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [orgId, setOrgId] = useState(null);
 
-  useEffect(() => {
-    let mounted = true;
-    
-    const loadData = async () => {
-      try {
-        // Step 1: Load user (fast)
-        const currentUser = await base44.auth.me();
-        if (!mounted) return;
-        
-        setUser(currentUser);
-        
-        // Step 2: Try to get org ID from cache first
-        const cachedOrgId = getCachedOrgId(currentUser.email);
-        
-        let orgId = currentUser.active_client_id || 
-                    currentUser.client_accesses?.[0]?.organization_id ||
-                    cachedOrgId;
-
-        // Step 3: If we have a cached or direct org ID, load it immediately
-        if (orgId && mounted) {
-          setIsLoading(false); // Set loading to false immediately
-          
-          // Load org in background
-          base44.entities.Organization.filter({ id: orgId })
-            .then(orgs => {
-              if (mounted && orgs.length > 0) {
-                setOrganization(orgs[0]);
-                setCachedOrgId(currentUser.email, orgs[0].id);
-                
-                // Load subscription in background (non-blocking)
-                base44.entities.Subscription.filter(
-                  { organization_id: orgs[0].id },
-                  '-created_date',
-                  1
-                ).then(subs => {
-                  if (mounted && subs.length > 0) {
-                    setSubscription(subs[0]);
-                  }
-                }).catch(() => {});
-              }
-            })
-            .catch(err => {
-              console.error('[OrganizationContext] Error loading org:', err);
-            });
-        } else {
-          // Step 4: No cached ID, need to search (slower path)
-          try {
-            const orgs = await base44.entities.Organization.filter(
-              { created_by: currentUser.email },
-              '-created_date',
-              1
-            );
-            
-            if (!mounted) return;
-            
-            if (orgs.length > 0) {
-              setOrganization(orgs[0]);
-              setCachedOrgId(currentUser.email, orgs[0].id);
-            }
-          } catch (e) {
-            console.error('[OrganizationContext] Error searching for org:', e);
-          }
-          
-          if (mounted) {
-            setIsLoading(false);
-          }
-        }
-      } catch (err) {
-        console.error('[OrganizationContext] Error loading user:', err);
-        if (mounted) {
-          setError(err);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadData();
-    
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const refetch = async () => {
-    setIsLoading(true);
-    try {
+  // PERFORMANCE FIX: Use React Query for user data with better caching
+  const { data: user, isLoading: isLoadingUser, error: userError } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
       const currentUser = await base44.auth.me();
-      setUser(currentUser);
       
-      const orgId = currentUser.active_client_id || 
-                    currentUser.client_accesses?.[0]?.organization_id ||
-                    getCachedOrgId(currentUser.email);
+      // Determine org ID after fetching user
+      const cachedOrgId = getCachedOrgId(currentUser.email);
+      const determinedOrgId = currentUser.active_client_id || 
+                             currentUser.client_accesses?.[0]?.organization_id ||
+                             cachedOrgId;
       
+      setOrgId(determinedOrgId);
+      
+      return currentUser;
+    },
+    staleTime: 5 * 60 * 1000, // Cache user for 5 minutes
+    retry: 1,
+  });
+
+  // PERFORMANCE FIX: Use React Query for organization data
+  const { data: organization, isLoading: isLoadingOrg, error: orgError } = useQuery({
+    queryKey: ['current-organization', orgId, user?.email],
+    queryFn: async () => {
+      if (!user?.email) return null;
+      
+      // If we have an org ID, fetch it directly
       if (orgId) {
         const orgs = await base44.entities.Organization.filter({ id: orgId });
         if (orgs.length > 0) {
-          setOrganization(orgs[0]);
-          setCachedOrgId(currentUser.email, orgs[0].id);
-          
-          const subs = await base44.entities.Subscription.filter(
-            { organization_id: orgs[0].id },
-            '-created_date',
-            1
-          );
-          if (subs.length > 0) {
-            setSubscription(subs[0]);
-          }
-        }
-      } else {
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: currentUser.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setOrganization(orgs[0]);
-          setCachedOrgId(currentUser.email, orgs[0].id);
+          setCachedOrgId(user.email, orgs[0].id);
+          return orgs[0];
         }
       }
-    } catch (err) {
-      console.error('[OrganizationContext] Refetch error:', err);
-      setError(err);
-    } finally {
-      setIsLoading(false);
-    }
+      
+      // Fallback: search by creator
+      const orgs = await base44.entities.Organization.filter(
+        { created_by: user.email },
+        '-created_date',
+        1
+      );
+      
+      if (orgs.length > 0) {
+        setCachedOrgId(user.email, orgs[0].id);
+        setOrgId(orgs[0].id);
+        return orgs[0];
+      }
+      
+      return null;
+    },
+    enabled: !!user?.email,
+    staleTime: 5 * 60 * 1000, // Cache organization for 5 minutes
+    retry: 1,
+  });
+
+  // PERFORMANCE FIX: Use React Query for subscription data
+  const { data: subscription } = useQuery({
+    queryKey: ['current-subscription', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return null;
+      
+      const subs = await base44.entities.Subscription.filter(
+        { organization_id: organization.id },
+        '-created_date',
+        1
+      );
+      
+      return subs.length > 0 ? subs[0] : null;
+    },
+    enabled: !!organization?.id,
+    staleTime: 10 * 60 * 1000, // Cache subscription for 10 minutes (changes less frequently)
+    retry: 1,
+  });
+
+  const refetch = async () => {
+    // Force refetch user, which will cascade to org and subscription
+    window.location.reload();
   };
 
+  const isLoading = isLoadingUser || isLoadingOrg;
+  const error = userError || orgError;
+
   return (
-    <OrganizationContext.Provider value={{ user, organization, subscription, isLoading, error, refetch }}>
+    <OrganizationContext.Provider value={{ 
+      user, 
+      organization, 
+      subscription, 
+      isLoading, 
+      error, 
+      refetch 
+    }}>
       {children}
     </OrganizationContext.Provider>
   );

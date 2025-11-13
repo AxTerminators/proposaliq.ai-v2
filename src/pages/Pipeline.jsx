@@ -573,8 +573,8 @@ export default function Pipeline() {
       return;
     }
 
-    // Wait for state to update
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // PERFORMANCE FIX: Reduced wait time from 500ms to 100ms
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Get fresh boards from query cache
     const freshBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]) || [];
@@ -624,8 +624,8 @@ export default function Pipeline() {
         setPendingProposalModal(null); // Clear pending state if it was set elsewhere, ensures clean slate.
       }
       
-      // Wait a bit longer for the board to render
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // PERFORMANCE FIX: Reduced wait time from 300ms to 50ms
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       console.log('[Pipeline] ✅ Board switch initiated, view should now show:', matchingBoard.board_name);
     } else {
