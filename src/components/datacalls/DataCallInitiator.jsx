@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,9 +21,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { ClipboardList, Plus, X, Send, Loader2, Users, Building2, Handshake, Calendar, Sparkles } from "lucide-react";
+import { ClipboardList, Plus, X, Send, Loader2, Users, Building2, Handshake, Calendar, Sparkles, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
+import { createPageUrl } from "@/utils";
 import DataCallTemplateLibrary from "./DataCallTemplateLibrary";
 import AIChecklistSuggester from "./AIChecklistSuggester";
 
@@ -94,6 +94,16 @@ export default function DataCallInitiator({
     enabled: isOpen && recipientType === 'client_organization' && !!formData.client_organization_id
   });
 
+  // NEW: Fetch internal team members (all users in the consulting firm organization)
+  const { data: internalTeamMembers = [] } = useQuery({
+    queryKey: ['internal-team-members', organization?.id],
+    queryFn: async () => {
+      // Fetch all users - they're automatically filtered by organization on the backend
+      return base44.entities.User.list();
+    },
+    enabled: isOpen && recipientType === 'internal_team_member'
+  });
+
   const createDataCallMutation = useMutation({
     mutationFn: async (dataCallData) => {
       // Generate secure access token
@@ -114,7 +124,7 @@ export default function DataCallInitiator({
 
       return created;
     },
-    onSuccess: () => { // Removed specific toast/close/reset from here, handled by calling functions
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['data-call-requests'] });
     },
     onError: (error) => {
@@ -243,8 +253,8 @@ export default function DataCallInitiator({
       
       console.log('[DataCallInitiator] ✅ Data call created:', createdDataCall.id);
       
-      // CRITICAL FIX: Generate portal URL pointing to the BACKEND FUNCTION instead of React page
-      const portalUrl = `${window.location.origin}/api/functions/publicDataCallPortal?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
+      // UPDATED: Generate portal URL pointing to the authenticated React page with token
+      const portalUrl = `${window.location.origin}${createPageUrl('ClientDataCallPortal')}?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
       console.log('[DataCallInitiator] 🔗 Generated portal URL:', portalUrl);
       
       // Send the notification email with the portal URL
@@ -313,6 +323,24 @@ export default function DataCallInitiator({
     });
   };
 
+  // NEW: Handle quick add user based on recipient type
+  const handleQuickAddUser = () => {
+    if (recipientType === 'client_organization') {
+      // Navigate to client team management within the client workspace
+      if (formData.client_organization_id) {
+        window.open(createPageUrl('ClientOrganizationManager') + `?clientId=${formData.client_organization_id}&action=add_team_member`, '_blank');
+      } else {
+        toast.error('Please select a client organization first');
+      }
+    } else if (recipientType === 'internal_team_member') {
+      // Navigate to Team management page
+      window.open(createPageUrl('Team') + '?action=invite_user', '_blank');
+    } else if (recipientType === 'teaming_partner') {
+      // Navigate to Teaming Partners page
+      window.open(createPageUrl('TeamingPartners') + '?action=add_partner', '_blank');
+    }
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
@@ -363,7 +391,7 @@ export default function DataCallInitiator({
                 </Button>
               </div>
 
-              {/* Recipient Type Selection - FIXED: Removed disabled condition */}
+              {/* Recipient Type Selection */}
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -507,6 +535,24 @@ export default function DataCallInitiator({
                           ))}
                         </SelectContent>
                       </Select>
+                      {/* NEW: Help text with quick add button */}
+                      {formData.client_organization_id && clientTeamMembers.length === 0 && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                          <p className="text-xs text-blue-900 flex-1">
+                            Don't see someone you need to send this to? Grant them access by adding them to your account.
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={handleQuickAddUser}
+                            className="h-7 text-xs border-blue-300 hover:bg-blue-100"
+                          >
+                            <UserPlus className="w-3 h-3 mr-1" />
+                            Add User
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -514,23 +560,46 @@ export default function DataCallInitiator({
                 {/* Recipient Selection - Internal Team Member */}
                 {recipientType === 'internal_team_member' && (
                   <>
-                    <div>
-                      <Label>Team Member Email *</Label>
-                      <Input
-                        type="email"
+                    <div className="col-span-2">
+                      <Label>Team Member *</Label>
+                      <Select
                         value={formData.assigned_to_email}
-                        onChange={(e) => setFormData({...formData, assigned_to_email: e.target.value})}
-                        placeholder="colleague@yourcompany.com"
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Team Member Name</Label>
-                      <Input
-                        value={formData.assigned_to_name}
-                        onChange={(e) => setFormData({...formData, assigned_to_name: e.target.value})}
-                        placeholder="John Doe"
-                      />
+                        onValueChange={(value) => {
+                          const member = internalTeamMembers.find(m => m.email === value);
+                          setFormData({
+                            ...formData,
+                            assigned_to_email: value,
+                            assigned_to_name: member?.full_name || ""
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select team member..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {internalTeamMembers.map(member => (
+                            <SelectItem key={member.id} value={member.email}>
+                              {member.full_name} ({member.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {/* NEW: Help text with quick add button */}
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                        <p className="text-xs text-blue-900 flex-1">
+                          Don't see someone you need to send this to? Grant them access by adding them to your account.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleQuickAddUser}
+                          className="h-7 text-xs border-blue-300 hover:bg-blue-100"
+                        >
+                          <UserPlus className="w-3 h-3 mr-1" />
+                          Add User
+                        </Button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -538,7 +607,7 @@ export default function DataCallInitiator({
                 {/* Recipient Selection - Teaming Partner */}
                 {recipientType === 'teaming_partner' && (
                   <>
-                    <div>
+                    <div className="col-span-2">
                       <Label>Teaming Partner *</Label>
                       <Select
                         value={formData.teaming_partner_id}
@@ -558,22 +627,41 @@ export default function DataCallInitiator({
                         <SelectContent>
                           {teamingPartners.map(partner => (
                             <SelectItem key={partner.id} value={partner.id}>
-                              {partner.partner_name}
+                              {partner.partner_name} {partner.poc_name && `(${partner.poc_name})`}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {/* NEW: Help text with quick add button */}
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                        <p className="text-xs text-blue-900 flex-1">
+                          Don't see someone you need to send this to? Grant them access by adding them to your account.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleQuickAddUser}
+                          className="h-7 text-xs border-blue-300 hover:bg-blue-100"
+                        >
+                          <UserPlus className="w-3 h-3 mr-1" />
+                          Add Partner
+                        </Button>
+                      </div>
                     </div>
 
-                    <div>
-                      <Label>Contact Email</Label>
-                      <Input
-                        type="email"
-                        value={formData.assigned_to_email}
-                        onChange={(e) => setFormData({...formData, assigned_to_email: e.target.value})}
-                        placeholder="Override default contact"
-                      />
-                    </div>
+                    {/* Show contact email field (editable if needed) */}
+                    {formData.teaming_partner_id && (
+                      <div className="col-span-2">
+                        <Label>Contact Email</Label>
+                        <Input
+                          type="email"
+                          value={formData.assigned_to_email}
+                          onChange={(e) => setFormData({...formData, assigned_to_email: e.target.value})}
+                          placeholder="Override default contact email"
+                        />
+                      </div>
+                    )}
                   </>
                 )}
 
