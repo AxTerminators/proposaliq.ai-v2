@@ -243,8 +243,8 @@ export default function DataCallInitiator({
       
       console.log('[DataCallInitiator] ✅ Data call created:', createdDataCall.id);
       
-      // Generate the correct portal URL using the PUBLIC page
-      const portalUrl = `${window.location.origin}/PublicDataCallPortal?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
+      // CRITICAL FIX: Generate portal URL pointing to the BACKEND FUNCTION instead of React page
+      const portalUrl = `${window.location.origin}/api/functions/publicDataCallPortal?token=${createdDataCall.access_token}&id=${createdDataCall.id}`;
       console.log('[DataCallInitiator] 🔗 Generated portal URL:', portalUrl);
       
       // Send the notification email with the portal URL
@@ -654,7 +654,7 @@ export default function DataCallInitiator({
                                 />
                                 <Label htmlFor={`required-${item.id}`} className="text-sm cursor-pointer">
                                   Required
-                                ></Label>
+                                </Label>
                               </div>
 
                               <Input
