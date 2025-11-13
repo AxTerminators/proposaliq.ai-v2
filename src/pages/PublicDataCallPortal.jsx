@@ -19,6 +19,11 @@ import {
 import { toast } from "sonner";
 import moment from "moment";
 
+// CRITICAL: This page MUST NOT use Layout - it's for external/unauthenticated access
+export const config = {
+  skipLayout: true
+};
+
 export default function PublicDataCallPortal() {
   const [dataCallRequest, setDataCallRequest] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +37,8 @@ export default function PublicDataCallPortal() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('token');
     const urlId = urlParams.get('id');
+
+    console.log('[PublicDataCallPortal] URL params:', { urlToken, urlId });
 
     if (!urlToken || !urlId) {
       setError('Invalid access link. Please use the link provided in your email.');
@@ -47,10 +54,14 @@ export default function PublicDataCallPortal() {
   const loadDataCall = async (accessToken, requestId) => {
     try {
       setIsLoading(true);
+      console.log('[PublicDataCallPortal] Validating token...', { accessToken, requestId });
+      
       const response = await base44.functions.invoke('validateDataCallToken', {
         token: accessToken,
         data_call_id: requestId
       });
+
+      console.log('[PublicDataCallPortal] Validation response:', response.data);
 
       if (!response.data.success) {
         throw new Error(response.data.error);
@@ -215,7 +226,13 @@ export default function PublicDataCallPortal() {
           <CardContent className="p-12 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-600" />
             <h2 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h2>
-            <p className="text-slate-700">{error}</p>
+            <p className="text-slate-700 mb-4">{error}</p>
+            <div className="text-xs text-slate-500 bg-slate-50 rounded p-3 mt-4">
+              <p className="font-semibold mb-1">Troubleshooting:</p>
+              <p>• Make sure you're using the link from your email</p>
+              <p>• Check that the link hasn't expired</p>
+              <p>• Contact the sender if you continue having issues</p>
+            </div>
           </CardContent>
         </Card>
       </div>
