@@ -1,3 +1,4 @@
+
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -101,7 +102,7 @@ export default function KanbanCard({
       }}
       className={cn(
         "bg-white rounded-lg shadow-sm border-2 p-4 mb-3 cursor-pointer transition-shadow hover:shadow-md relative",
-        snapshot.isDragging && "shadow-xl border-blue-400 opacity-90",
+        snapshot.isDragging && "shadow-xl border-blue-400", // Changed: Removed opacity-90
         isActionRequired && "ring-2 ring-amber-400 border-amber-400",
         isSelected && "ring-2 ring-blue-500 border-blue-500"
       )}
