@@ -89,6 +89,18 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [showIncompleteTasksConfirm, setShowIncompleteTasksConfirm] = useState(false);
   const [pendingStageMove, setPendingStageMove] = useState(null);
 
+  // Fetch organization users for timeline editor
+  const { data: organizationUsers = [] } = useQuery({
+    queryKey: ['organization-users', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const users = await base44.entities.User.list();
+      return users.filter(u => u.organization_id === organization.id || u.email === organization.contact_email);
+    },
+    enabled: !!organization?.id && isOpen,
+    staleTime: 300000 // 5 minutes
+  });
+
   // Map modal component names to actual components
   const MODAL_COMPONENTS = {
     'BasicInfoModal': BasicInfoModal,
@@ -238,6 +250,27 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const checklistItems = currentColumn?.checklist_items || [];
   const checklistStatus = proposal.current_stage_checklist_status?.[currentColumn?.id] || {};
 
+  // **UPDATED: Enhanced system check to include timeline status**
+  const systemCheckStatus = (item) => {
+    if (!item || !item.id) return false;
+
+    switch (item.id) {
+      case 'contract_value_present':
+        return proposal.contract_value ? true : false;
+      case 'due_date_present':
+      case 'set_timeline':
+        // Timeline is complete when due_date is set AND timeline_status is 'complete'
+        return proposal.due_date && proposal.timeline_status === 'complete';
+      case 'complete_sections':
+        const sections = proposal.sections || [];
+        const totalSections = sections?.length || 0;
+        const completedSections = sections?.filter(s => s.status === 'approved').length || 0;
+        return totalSections > 0 && completedSections === totalSections;
+      default:
+        return false;
+    }
+  };
+
   // **NEW: Calculate stage progress and find next/previous columns**
   const stageProgress = React.useMemo(() => {
     if (!kanbanConfig?.columns || !currentColumn) {
@@ -265,7 +298,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     };
   }, [kanbanConfig, currentColumn]);
 
-  // **NEW: Check if all required items are complete**
   const allRequiredComplete = React.useMemo(() => {
     return currentColumn?.checklist_items
       ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
@@ -722,24 +754,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     );
   };
 
-  const systemCheckStatus = (item) => {
-    if (!item || !item.id) return false;
-
-    switch (item.id) {
-      case 'contract_value_present':
-        return proposal.contract_value ? true : false;
-      case 'due_date_present':
-        return proposal.due_date ? true : false;
-      case 'complete_sections':
-        const sections = proposal.sections || [];
-        const totalSections = sections?.length || 0;
-        const completedSections = sections?.filter(s => s.status === 'approved').length || 0;
-        return totalSections > 0 && completedSections === totalSections;
-      default:
-        return false;
-    }
-  };
-
   const getItemIcon = (item, isCompleted) => {
     if (!item) return <Circle className="w-6 h-6 text-slate-400" />;
 
@@ -983,10 +997,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                 {currentColumn ? (
                   <div>
                     <div className="flex items-center gap-2 mb-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center",
-                        currentColumn.color
-                      )}>
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center">
                         <span className="text-white font-bold text-sm">
                           {currentColumn.label?.charAt(0) || '?'}
                         </span>
@@ -1152,7 +1163,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
                       await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
                     }}
-                    organizationUsers={organization.members || []}
+                    organizationUsers={organizationUsers}
                   />
                 )}
               </TabsContent>
