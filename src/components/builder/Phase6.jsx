@@ -548,7 +548,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
 
   /**
    * Handle AI-generated content insertion from AIWritingAssistant
-   * Now captures and saves RAG metadata for audit trail
+   * ENHANCED: Now captures and saves RAG metadata + passes sectionId for quality feedback
    */
   const handleAIContentGenerated = async (content, metadata = {}, sectionKey, sectionName) => {
     if (!content || !content.trim()) {
@@ -1113,6 +1113,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
             {includedSections.map((section) => {
               const hasSubsections = section.subsections && section.subsections.length > 0;
               const isExpanded = expandedSections[section.id];
+              const existingSection = sections.find(s => s.section_type === section.id);
 
               return (
                 <Card key={section.id} className="border-2" ref={(el) => sectionRefs.current[section.id] = el}>
@@ -1286,6 +1287,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                           {showAIAssistant && (
                             <AIWritingAssistant
                               proposalId={proposalId}
+                              sectionId={existingSection?.id || null}
                               sectionType={section.id}
                               contextData={{
                                 proposalName: proposalData.proposal_name,
@@ -1311,6 +1313,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                     <CardContent className="space-y-6 pt-0">
                       {section.subsections.map((subsection) => {
                         const subsectionKey = `${section.id}_${subsection.id}`;
+                        const existingSubsection = sections.find(s => s.section_type === subsectionKey);
 
                         return (
                           <div 
@@ -1472,6 +1475,7 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                 {showAIAssistant && (
                                   <AIWritingAssistant
                                     proposalId={proposalId}
+                                    sectionId={existingSubsection?.id || null}
                                     sectionType={`${section.id}_${subsection.id}`}
                                     contextData={{
                                       proposalName: proposalData.proposal_name,
