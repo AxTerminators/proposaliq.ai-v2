@@ -690,37 +690,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
             <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '50vh' }}>
               <TabsContent value="columns" className="space-y-4 mt-0">
-                <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg mb-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Sparkles className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-purple-900 mb-1">
-                          Complete 14-Column Workflow Template
-                        </div>
-                        <div className="text-sm text-purple-800 mb-3">
-                          Switch to our comprehensive workflow aligned with all 7 builder phases: <strong>New → Evaluate → Qualify → Gather → Analyze → Strategy → Outline → Drafting → Review → Final → Submitted → Won → Lost → Archive</strong>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          <Badge className="bg-purple-100 text-purple-700 text-xs">Phase Integration</Badge>
-                          <Badge className="bg-pink-100 text-pink-700 text-xs">Smart Checklists</Badge>
-                          <Badge className="bg-indigo-100 text-indigo-700 text-xs">Approval Gates</Badge>
-                          <Badge className="bg-blue-100 text-blue-700 text-xs">RBAC Ready</Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleApplyTemplate}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Apply 14-Column Template
-                  </Button>
-                </div>
-
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Manage Kanban Columns</h3>
                   <div className="flex gap-2">
