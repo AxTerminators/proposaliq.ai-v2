@@ -9,7 +9,7 @@ import {
   Library,
   LogOut,
   Menu,
-  Sparkles,
+  Sparkles, // Keep Sparkles import as it might be used elsewhere
   MessageCircle,
   Shield,
   CreditCard,
@@ -317,7 +317,11 @@ function LayoutContent({ children, currentPageName }) {
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Sparkles className="w-6 h-6 text-white" />
+                    <img 
+                      src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                      alt="GovHQ.ai Logo"
+                      className="w-10 h-10 object-contain"
+                    />
                   </div>
                   <div>
                     <h2 className="font-bold text-slate-900 text-lg">GovHQ.ai</h2>
@@ -388,7 +392,11 @@ function LayoutContent({ children, currentPageName }) {
             {sidebarCollapsed && (
               <div className="flex justify-center">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-6 h-6 text-white" />
+                  <img 
+                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                    alt="GovHQ.ai Logo"
+                    className="w-10 h-10 object-contain"
+                  />
                 </div>
               </div>
             )}
@@ -675,7 +683,11 @@ function LayoutContent({ children, currentPageName }) {
           <div className="flex items-center justify-between p-6 border-b border-slate-200">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
+                <img 
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                  alt="GovHQ.ai Logo"
+                  className="w-10 h-10 object-contain"
+                />
               </div>
               <div>
                 <h2 className="font-bold text-slate-900 text-lg">GovHQ.ai</h2>
@@ -884,7 +896,11 @@ function LayoutContent({ children, currentPageName }) {
                 </button>
 
                 <div className="flex items-center gap-2 lg:hidden">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  <img 
+                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                    alt="GovHQ.ai Logo"
+                    className="w-5 h-5 object-contain"
+                  />
                   <h1 className="text-base md:text-lg font-bold text-slate-900">GovHQ.ai</h1>
                 </div>
               </div>

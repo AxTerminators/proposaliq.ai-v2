@@ -54,9 +54,11 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
+            <img 
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+              alt="GovHQ.ai Logo"
+              className="w-10 h-10 object-contain"
+            />
             <div>
               <h1 className="text-xl font-bold text-slate-900">GovHQ.ai</h1>
               <p className="text-xs text-slate-500">AI-Powered Command Center</p>
@@ -565,9 +567,11 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
+                <img 
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                  alt="GovHQ.ai Logo"
+                  className="w-8 h-8 object-contain"
+                />
                 <span className="font-bold text-lg">GovHQ.ai</span>
               </div>
               <p className="text-slate-400 text-sm">
