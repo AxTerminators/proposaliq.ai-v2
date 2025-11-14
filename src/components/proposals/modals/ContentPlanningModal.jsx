@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, UserPlus, Calendar } from "lucide-react";
+import { Loader2, UserPlus, Calendar, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export default function ContentPlanningModal({ isOpen, onClose, proposalId }) {
+export default function ContentPlanningModal({ isOpen, onClose, proposalId, onCompletion }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState([]);
@@ -76,16 +76,30 @@ export default function ContentPlanningModal({ isOpen, onClose, proposalId }) {
   };
 
   const handleSave = async () => {
+    // **UPDATED: Validate that at least some assignments were made**
+    const assignedCount = Object.keys(sectionAssignments).length;
+    
+    if (assignedCount === 0) {
+      alert("Please assign at least one section to a writer before saving.");
+      return;
+    }
+
     try {
       setSaving(true);
       
       // In the future, save assignments to a SectionAssignment entity
       // For now, just show confirmation
       
-      const assignedCount = Object.keys(sectionAssignments).length;
+      console.log('[ContentPlanningModal] ✅ Content planning completed with', assignedCount, 'assignments');
+      
       alert(`✅ Assigned ${assignedCount} sections to writers`);
       
-      onClose();
+      // **NEW: Call onCompletion to mark checklist item as complete**
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        onClose();
+      }
     } catch (error) {
       console.error("Error saving:", error);
       alert("Error saving assignments. Please try again.");
@@ -187,7 +201,10 @@ export default function ContentPlanningModal({ isOpen, onClose, proposalId }) {
                     Saving...
                   </>
                 ) : (
-                  "Save Assignments"
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Save Assignments
+                  </>
                 )}
               </Button>
             </div>

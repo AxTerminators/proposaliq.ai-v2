@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -14,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, DollarSign, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-export default function PricingReviewModal({ isOpen, onClose, proposalId }) {
+export default function PricingReviewModal({ isOpen, onClose, proposalId, onCompletion }) {
   const [loading, setLoading] = useState(true);
   const [proposalData, setProposalData] = useState(null);
   const [pricingData, setPricingData] = useState(null);
@@ -61,6 +62,25 @@ export default function PricingReviewModal({ isOpen, onClose, proposalId }) {
   };
 
   const pricingHealth = calculatePricingHealth();
+
+  const handleDone = () => {
+    // **UPDATED: Only call onCompletion if pricing data exists**
+    if (pricingData && pricingHealth >= 80) {
+      console.log('[PricingReviewModal] ✅ Pricing review completed successfully');
+      
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        onClose();
+      }
+    } else if (pricingData) {
+      // Pricing exists but incomplete
+      alert("Pricing is incomplete. Please develop a complete pricing strategy before marking this task as done.");
+    } else {
+      // No pricing data
+      alert("No pricing data found. Please navigate to the Pricing Builder to create your pricing strategy.");
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -266,7 +286,13 @@ export default function PricingReviewModal({ isOpen, onClose, proposalId }) {
         )}
 
         <DialogFooter>
-          <Button onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDone} 
+            disabled={!pricingData || pricingHealth < 80}
+          >
             Done
           </Button>
         </DialogFooter>
