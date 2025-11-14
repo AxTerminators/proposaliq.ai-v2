@@ -35,10 +35,10 @@ export default function RAGEnhancementStatus() {
       status: "complete",
       completion: 100,
       features: [
-        { name: "Section-Type Aware RAG", status: "complete", impact: "high", description: "AI filters by section type for 40% better relevance" },
-        { name: "Intelligent Token Management", status: "complete", impact: "high", description: "100K token capacity (10x increase)" },
-        { name: "Enhanced Error Handling", status: "complete", impact: "high", description: "Full error tracking and retry" },
-        { name: "Quality Feedback System", status: "complete", impact: "high", description: "Rate AI content for improvement" }
+        { name: "Section-Type Aware RAG", status: "complete", impact: "high", description: "AI filters by section type" },
+        { name: "Intelligent Token Management", status: "complete", impact: "high", description: "100K token capacity" },
+        { name: "Enhanced Error Handling", status: "complete", impact: "high", description: "Full error tracking" },
+        { name: "Quality Feedback System", status: "complete", impact: "high", description: "Rate AI content" }
       ]
     },
     {
@@ -47,9 +47,9 @@ export default function RAGEnhancementStatus() {
       status: "complete",
       completion: 100,
       features: [
-        { name: "AI Reference Recommender", status: "complete", impact: "high", description: "Auto-suggest best references" },
-        { name: "Reference Preview Modal", status: "complete", impact: "medium", description: "Preview before linking" },
-        { name: "Token Budget Visualizer", status: "complete", impact: "medium", description: "Real-time token breakdown" }
+        { name: "AI Reference Recommender", status: "complete", impact: "high", description: "Auto-suggest references" },
+        { name: "Reference Preview", status: "complete", impact: "medium", description: "Preview before linking" },
+        { name: "Token Visualizer", status: "complete", impact: "medium", description: "Real-time breakdown" }
       ]
     },
     {
@@ -58,51 +58,52 @@ export default function RAGEnhancementStatus() {
       status: "complete",
       completion: 100,
       features: [
-        { name: "Proposal Parse Cache", status: "complete", impact: "high", description: "10x faster (7-day TTL)" },
-        { name: "Parallel Processing", status: "complete", impact: "high", description: "5x faster multi-ref parsing" },
-        { name: "Auto Context Refresh", status: "complete", impact: "medium", description: "30s debounced updates" }
+        { name: "Parse Cache", status: "complete", impact: "high", description: "10x faster (7-day TTL)" },
+        { name: "Parallel Processing", status: "complete", impact: "high", description: "5x faster parsing" },
+        { name: "Auto Refresh", status: "complete", impact: "medium", description: "30s debounced updates" }
       ]
     },
     {
       phase: 4,
-      name: "Citations & Attribution",
+      name: "Citations",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Citation System", status: "complete", impact: "medium", description: "Source attribution with [REF#]" },
-        { name: "RAG Analytics", status: "complete", impact: "medium", description: "Quality trends dashboard" },
-        { name: "Source Viewer", status: "complete", impact: "medium", description: "Click citations to view original" }
+        { name: "Citation System", status: "complete", impact: "medium", description: "Source attribution" },
+        { name: "RAG Analytics", status: "complete", impact: "medium", description: "Quality dashboard" },
+        { name: "Source Viewer", status: "complete", impact: "medium", description: "Click to view original" }
       ]
     },
     {
       phase: 5,
-      name: "Cross-Organization RAG",
+      name: "Cross-Org RAG",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Smart Proposal Discovery", status: "complete", impact: "high", description: "Auto-find similar proposals via AI scoring" },
-        { name: "Organization Knowledge Base", status: "complete", impact: "high", description: "Learn from all org proposals automatically" },
-        { name: "Privacy-Aware Cross-Client", status: "complete", impact: "high", description: "Consultant firms share across clients safely" }
+        { name: "Smart Discovery", status: "complete", impact: "high", description: "AI-powered proposal finding" },
+        { name: "Org Knowledge Base", status: "complete", impact: "high", description: "Learn from all proposals" },
+        { name: "Privacy-Aware", status: "complete", impact: "high", description: "Consultant boundaries" }
       ]
     },
     {
       phase: 6,
-      name: "A/B Testing & Optimization",
+      name: "A/B Testing",
       status: "planned",
       completion: 0,
       features: [
-        { name: "A/B Content Comparison", status: "planned", impact: "medium", description: "Test RAG vs non-RAG" },
-        { name: "Effectiveness Reports", status: "planned", impact: "medium", description: "Monthly impact analysis" }
+        { name: "A/B Comparison", status: "planned", impact: "medium", description: "Test RAG vs non-RAG" },
+        { name: "Effectiveness Reports", status: "planned", impact: "medium", description: "Monthly analysis" }
       ]
     },
     {
       phase: 7,
-      name: "Semantic Search",
-      status: "planned",
-      completion: 0,
+      name: "Semantic Chunking",
+      status: "in_progress",
+      completion: 75,
       features: [
-        { name: "Semantic Chunking", status: "planned", impact: "high", description: "Retrieve exact paragraphs" },
-        { name: "Multi-Modal RAG", status: "planned", impact: "medium", description: "Extract tables/charts" }
+        { name: "Semantic Chunking", status: "complete", impact: "high", description: "Break proposals into 200-word chunks with AI summaries" },
+        { name: "Chunk Search", status: "complete", impact: "high", description: "Find exact relevant paragraphs, not full sections" },
+        { name: "Chunk Viewer UI", status: "complete", impact: "medium", description: "Display paragraph-level results with context" }
       ]
     },
     {
@@ -111,7 +112,7 @@ export default function RAGEnhancementStatus() {
       status: "planned",
       completion: 0,
       features: [
-        { name: "Adaptive Learning", status: "planned", impact: "high", description: "System learns from usage" },
+        { name: "Adaptive Learning", status: "planned", impact: "high", description: "Learn from usage" },
         { name: "Quality Predictor", status: "planned", impact: "medium", description: "Predict reference value" }
       ]
     }
