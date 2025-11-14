@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { createPageUrl } from "@/utils";
@@ -32,7 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import QuickResourceUpload from "./QuickResourceUpload";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import SmartReferenceDiscovery from "../content/SmartReferenceDiscovery";
+import SmartReferenceDiscovery from "@/components/content/SmartReferenceDiscovery";
 
 export default function ResourceGatheringModal({ isOpen, onClose, proposalId, organizationId, onComplete }) {
   const [loading, setLoading] = useState(true);
