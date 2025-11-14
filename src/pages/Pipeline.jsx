@@ -64,6 +64,7 @@ import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import PipelineBanner from "@/components/proposals/PipelineBanner";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -945,172 +946,42 @@ export default function Pipeline() {
         automationRules={automationRules}
       />
 
-      <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center">
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Proposal Board</h1>
-              {selectedBoard && (
-                <Badge variant="secondary" className="ml-3 text-base px-3 py-1.5 flex items-center gap-1">
-                  {getBoardIcon(selectedBoard.board_type, selectedBoard.is_master_board)}
-                  {selectedBoard.board_name}
-                </Badge>
-              )}
-            </div>
-
-            {allBoards.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {allBoards.map(board => {
-                  const isSelected = selectedBoardId === board.id;
-                  const icon = getBoardIcon(board.board_type, board.is_master_board);
-
-                  return (
-                    <Button
-                      key={board.id}
-                      variant={isSelected ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedBoardId(board.id)}
-                      className={cn(
-                        "gap-2 transition-all",
-                        isSelected && "ring-2 ring-blue-400"
-                      )}
-                      title={board.board_name}
-                    >
-                      <span className="text-lg">{icon}</span>
-                      <span className="hidden sm:inline">{board.board_name}</span>
-                    </Button>
-                  );
-                })}
-
-                <Button
-                  size="sm"
-                  onClick={() => setShowQuickBoardCreate(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-9"
-                  title="Create a new board from templates"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Board
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2 lg:gap-3 w-full lg:w-auto items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
-                  <Settings className="w-4 h-4" />
-                  <span className="sr-only">More actions</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleCreateProposal}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span>New Proposal</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowBoardManager(true)}>
-                  <Database className="mr-2 h-4 w-4" />
-                  <span>Manage Boards</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowGlobalSearch(true)}>
-                  <SearchIcon className="mr-2 h-4 w-4" />
-                  <span>Global Search</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleMigrateProposals}>
-                  <TrendingUp className="mr-2 h-4 w-4" />
-                  <span>Categorize Proposals</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {!isMobile && (
-              <>
-                <SavedViews
-                  organization={organization}
-                  user={user}
-                  currentFilters={savedFilters}
-                  onApplyView={handleApplySavedView}
-                />
-                
-                <Button
-                  variant={showActivityFeed ? "default" : "outline"}
-                  onClick={() => setShowActivityFeed(!showActivityFeed)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <Activity className="w-4 h-4 mr-2" />
-                  Activity
-                </Button>
-                <Button
-                  variant={showBoardAnalytics ? "default" : "outline"}
-                  onClick={() => setShowBoardAnalytics(!showBoardAnalytics)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Stats
-                </Button>
-                <Button
-                  variant={showMultiBoardAnalytics ? "default" : "outline"}
-                  onClick={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <Layers className="w-4 h-4 mr-2" />
-                  Portfolio
-                </Button>
-                <Button
-                  variant={showAutomation ? "default" : "outline"}
-                  onClick={() => setShowAutomation(!showAutomation)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <Zap className="w-4 h-4 mr-2" />
-                  Automation
-                </Button>
-                <Button
-                  variant={showAnalytics ? "default" : "outline"}
-                  onClick={() => setShowAnalytics(!showAnalytics)}
-                  size="sm"
-                  className="h-9"
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Analytics
-                </Button>
-              </>
-            )}
-
-            <div className="hidden lg:flex gap-1 border rounded-lg p-0.5 h-9 items-center">
-              <Button
-                variant={viewMode === "kanban" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("kanban")}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "table" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8"
-                onClick={() => setViewMode("table")}
-              >
-                <Table className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PipelineBanner
+        selectedBoard={selectedBoard}
+        allBoards={allBoards}
+        onCreateProposal={handleCreateProposal}
+        onBoardChange={setSelectedBoardId}
+        onCreateBoard={() => setShowQuickBoardCreate(true)}
+        onGlobalSearch={() => setShowGlobalSearch(true)}
+        onShowStats={() => setShowBoardAnalytics(!showBoardAnalytics)}
+        onShowPortfolio={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
+        onShowAutomation={() => setShowAutomation(!showAutomation)}
+        onShowAnalytics={() => setShowAnalytics(!showAnalytics)}
+        onShowActivity={() => setShowActivityFeed(!showActivityFeed)}
+        onShowSavedViews={() => {}}
+        onManageBoards={() => setShowBoardManager(true)}
+        onCategorizeProposals={handleMigrateProposals}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        pipelineValue={pipelineStats.totalValue}
+        winRate={pipelineStats.winRate}
+        showStats={showBoardAnalytics}
+        showPortfolio={showMultiBoardAnalytics}
+        showAutomation={showAutomation}
+        showAnalytics={showAnalytics}
+        showActivity={showActivityFeed}
+        isMobile={isMobile}
+        getBoardIcon={getBoardIcon} // Pass getBoardIcon for board buttons
+        SavedViewsComponent={
+          <SavedViews
+            organization={organization}
+            user={user}
+            currentFilters={savedFilters}
+            onApplyView={handleApplySavedView}
+          />
+        }
+        showSavedViewsComponent={!isMobile} // Show SavedViews component directly if not mobile
+      />
 
       {showHealthDashboard && (
         <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 mx-6 mt-6">
