@@ -1,157 +1,157 @@
-
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { 
-  CheckCircle2, 
+  CheckCircle, 
   Circle, 
   Clock, 
-  Sparkles, 
-  TrendingUp,
+  TrendingUp, 
+  Zap, 
   Target,
-  Zap,
-  BarChart3,
   Award,
-  Rocket,
-  ArrowRight
+  FileText,
+  Database,
+  Filter,
+  Users,
+  Search,
+  BookOpen,
+  BarChart3
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 
-/**
- * RAG Enhancement Status Page
- * 
- * Shows the current implementation status of all RAG enhancements.
- * Tracks progress across all 8 phases of the RAG buildout.
- */
 export default function RAGEnhancementStatus() {
   const phases = [
     {
-      phase: 1,
-      name: "Critical Foundation",
+      name: "Phase 1: Smart Reference Discovery",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Section-Type Aware RAG", status: "complete", impact: "high", description: "AI filters by section type" },
-        { name: "Intelligent Token Management", status: "complete", impact: "high", description: "100K token capacity" },
-        { name: "Enhanced Error Handling", status: "complete", impact: "high", description: "Full error tracking" },
-        { name: "Quality Feedback System", status: "complete", impact: "high", description: "Rate AI content" }
+        { name: "Automatic similar proposal discovery", status: "complete", impact: "high" },
+        { name: "AI-powered relevance scoring", status: "complete", impact: "high" },
+        { name: "Integration with resource gathering", status: "complete", impact: "medium" }
       ]
     },
     {
-      phase: 2,
-      name: "Smart Recommendations",
+      name: "Phase 2: Intelligent Token Management",
       status: "complete",
       completion: 100,
       features: [
-        { name: "AI Reference Recommender", status: "complete", impact: "high", description: "Auto-suggest references" },
-        { name: "Reference Preview", status: "complete", impact: "medium", description: "Preview before linking" },
-        { name: "Token Visualizer", status: "complete", impact: "medium", description: "Real-time breakdown" }
+        { name: "Provider-specific token limits", status: "complete", impact: "high" },
+        { name: "Smart truncation strategies", status: "complete", impact: "high" },
+        { name: "Budget visualization UI", status: "complete", impact: "medium" }
       ]
     },
     {
-      phase: 3,
-      name: "Performance & Caching",
+      name: "Phase 3: Enhanced Caching System",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Parse Cache", status: "complete", impact: "high", description: "10x faster (7-day TTL)" },
-        { name: "Parallel Processing", status: "complete", impact: "high", description: "5x faster parsing" },
-        { name: "Auto Refresh", status: "complete", impact: "medium", description: "30s debounced updates" }
+        { name: "7-day TTL cache for parsed proposals", status: "complete", impact: "high" },
+        { name: "Access tracking & performance metrics", status: "complete", impact: "medium" },
+        { name: "Cache performance indicators", status: "complete", impact: "medium" }
       ]
     },
     {
-      phase: 4,
-      name: "Citations",
+      name: "Phase 4: Section-Type Filtering",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Citation System", status: "complete", impact: "medium", description: "Source attribution" },
-        { name: "RAG Analytics", status: "complete", impact: "medium", description: "Quality dashboard" },
-        { name: "Source Viewer", status: "complete", impact: "medium", description: "Click to view original" }
+        { name: "Targeted content retrieval by section", status: "complete", impact: "high" },
+        { name: "Reduced noise, improved relevance", status: "complete", impact: "high" },
+        { name: "Filter indicators in UI", status: "complete", impact: "low" }
       ]
     },
     {
-      phase: 5,
-      name: "Cross-Org RAG",
+      name: "Phase 5: Cross-Organization RAG",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Smart Discovery", status: "complete", impact: "high", description: "AI-powered proposal finding" },
-        { name: "Org Knowledge Base", status: "complete", impact: "high", description: "Learn from all proposals" },
-        { name: "Privacy-Aware", status: "complete", impact: "high", description: "Consultant boundaries" }
+        { name: "Organization-wide learning", status: "complete", impact: "high" },
+        { name: "Privacy-respecting data sharing", status: "complete", impact: "high" },
+        { name: "Enhanced context for new proposals", status: "complete", impact: "high" }
       ]
     },
     {
-      phase: 6,
-      name: "A/B Testing",
+      name: "Phase 6: Citation & Transparency",
+      status: "complete",
+      completion: 100,
+      features: [
+        { name: "Automatic citation generation", status: "complete", impact: "high" },
+        { name: "Source attribution in content", status: "complete", impact: "high" },
+        { name: "Enhanced citation indicators", status: "complete", impact: "medium" },
+        { name: "Audit trail for compliance", status: "complete", impact: "high" }
+      ]
+    },
+    {
+      name: "Phase 7: Semantic Chunking",
+      status: "complete",
+      completion: 100,
+      features: [
+        { name: "Paragraph-level content storage", status: "complete", impact: "high" },
+        { name: "Semantic chunk search function", status: "complete", impact: "high" },
+        { name: "Real-time relevant paragraph discovery", status: "complete", impact: "high" },
+        { name: "Chunk viewer component", status: "complete", impact: "medium" }
+      ]
+    },
+    {
+      name: "Phase 8: Continuous Learning Loop",
       status: "planned",
-      completion: 0,
+      completion: 40,
       features: [
-        { name: "A/B Comparison", status: "planned", impact: "medium", description: "Test RAG vs non-RAG" },
-        { name: "Effectiveness Reports", status: "planned", impact: "medium", description: "Monthly analysis" }
-      ]
-    },
-    {
-      phase: 7,
-      name: "Semantic Chunking",
-      status: "in_progress",
-      completion: 75,
-      features: [
-        { name: "Semantic Chunking", status: "complete", impact: "high", description: "Break proposals into 200-word chunks with AI summaries" },
-        { name: "Chunk Search", status: "complete", impact: "high", description: "Find exact relevant paragraphs, not full sections" },
-        { name: "Chunk Viewer UI", status: "complete", impact: "medium", description: "Display paragraph-level results with context" }
-      ]
-    },
-    {
-      phase: 8,
-      name: "Advanced AI",
-      status: "planned",
-      completion: 0,
-      features: [
-        { name: "Adaptive Learning", status: "planned", impact: "high", description: "Learn from usage" },
-        { name: "Quality Predictor", status: "planned", impact: "medium", description: "Predict reference value" }
+        { name: "Quality feedback collection", status: "complete", impact: "high" },
+        { name: "Performance tracking dashboard", status: "planned", impact: "medium" },
+        { name: "Adaptive reference selection", status: "planned", impact: "high" },
+        { name: "Model fine-tuning pipeline", status: "planned", impact: "medium" }
       ]
     }
   ];
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'complete': return <CheckCircle2 className="w-5 h-5 text-green-600" />;
-      case 'in_progress': return <Clock className="w-5 h-5 text-blue-600 animate-pulse" />;
-      case 'planned': return <Circle className="w-5 h-5 text-slate-400" />;
-      default: return null;
+      case 'complete':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'in_progress':
+        return <Clock className="w-4 h-4 text-blue-600" />;
+      case 'planned':
+        return <Circle className="w-4 h-4 text-slate-400" />;
+      default:
+        return <Circle className="w-4 h-4 text-slate-400" />;
     }
   };
 
   const getStatusBadge = (status) => {
-    const variants = {
-      complete: "bg-green-100 text-green-800 border-green-300",
-      in_progress: "bg-blue-100 text-blue-800 border-blue-300",
-      planned: "bg-slate-100 text-slate-800 border-slate-300"
-    };
-    return <Badge className={variants[status]}>{status.replace('_', ' ')}</Badge>;
+    switch (status) {
+      case 'complete':
+        return <Badge className="bg-green-100 text-green-800">Complete</Badge>;
+      case 'in_progress':
+        return <Badge className="bg-blue-100 text-blue-800">In Progress</Badge>;
+      case 'planned':
+        return <Badge className="bg-slate-100 text-slate-800">Planned</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
   };
 
   const getImpactBadge = (impact) => {
-    const variants = {
-      high: "bg-red-100 text-red-800",
-      medium: "bg-amber-100 text-amber-800",
-      low: "bg-blue-100 text-blue-800"
-    };
-    return <Badge className={variants[impact]}>{impact}</Badge>;
+    switch (impact) {
+      case 'high':
+        return <Badge className="bg-purple-100 text-purple-800 text-xs">High Impact</Badge>;
+      case 'medium':
+        return <Badge className="bg-amber-100 text-amber-800 text-xs">Medium</Badge>;
+      case 'low':
+        return <Badge className="bg-slate-100 text-slate-800 text-xs">Low</Badge>;
+      default:
+        return null;
+    }
   };
 
-  const totalFeatures = phases.reduce((sum, p) => sum + p.features.length, 0);
-  const completedFeatures = phases.reduce((sum, p) => 
-    sum + p.features.filter(f => f.status === 'complete').length, 0
-  );
-  const overallProgress = Math.round((completedFeatures / totalFeatures) * 100);
-
   const completedPhases = phases.filter(p => p.status === 'complete').length;
+  const totalPhases = phases.length;
+  const overallProgress = (completedPhases / totalPhases) * 100;
+
+  const liveFeatures = phases.flatMap(p => p.features).filter(f => f.status === 'complete').length;
+  const plannedFeatures = phases.flatMap(p => p.features).filter(f => f.status === 'planned').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -160,150 +160,81 @@ export default function RAGEnhancementStatus() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-purple-600" />
+              <Zap className="w-8 h-8 text-blue-600" />
               RAG Enhancement Status
             </h1>
-            <p className="text-slate-600 mt-2">
-              Retrieval-Augmented Generation system improvements for AI-powered proposal writing
+            <p className="text-slate-600 mt-1">
+              Retrieval-Augmented Generation system improvements
             </p>
           </div>
-          <Link to={createPageUrl("SystemDocumentation")}>
-            <Button variant="outline" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              View Documentation
-            </Button>
-          </Link>
+          <div className="text-right">
+            <p className="text-sm text-slate-600">Overall Progress</p>
+            <p className="text-3xl font-bold text-blue-600">{overallProgress.toFixed(0)}%</p>
+          </div>
         </div>
 
         {/* Overall Progress Card */}
-        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-pink-50">
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Rocket className="w-6 h-6 text-purple-600" />
-                Overall Progress
-              </span>
-              <Badge className="bg-purple-600 text-white text-lg px-4 py-2">
-                {overallProgress}% Complete
-              </Badge>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              System Overview
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={overallProgress} className="h-4 [&>div]:bg-gradient-to-r [&>div]:from-purple-600 [&>div]:to-pink-600" />
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="border-green-200 bg-white">
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600">{completedPhases}</p>
-                  <p className="text-sm text-slate-600 mt-1">Phases Complete</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-blue-200 bg-white">
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-blue-600">{completedFeatures}</p>
-                  <p className="text-sm text-slate-600 mt-1">Features Live</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-amber-200 bg-white">
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-amber-600">{totalFeatures - completedFeatures}</p>
-                  <p className="text-sm text-slate-600 mt-1">Features Planned</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-purple-200 bg-white">
-                <CardContent className="p-4 text-center">
-                  <p className="text-3xl font-bold text-purple-600">{phases.length}</p>
-                  <p className="text-sm text-slate-600 mt-1">Total Phases</p>
-                </CardContent>
-              </Card>
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-slate-700">Phases Complete</span>
+                <span className="font-semibold text-slate-900">{completedPhases} / {totalPhases}</span>
+              </div>
+              <Progress value={overallProgress} className="h-3" />
             </div>
-
-            {/* Key Achievements */}
-            <div className="bg-white rounded-lg p-4 border-2 border-green-300">
-              <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                <Award className="w-5 h-5" />
-                Phase 5 Unlocked: Organization Intelligence
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">🤖 Smart Discovery</p>
-                    <p className="text-xs text-slate-600">AI finds relevant references automatically</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">🏢 Org Knowledge Base</p>
-                    <p className="text-xs text-slate-600">Learn from all past wins</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">🔒 Privacy-Aware</p>
-                    <p className="text-xs text-slate-600">Consultant firms share across clients safely</p>
-                  </div>
-                </div>
+            
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{completedPhases}</p>
+                <p className="text-xs text-slate-600">Completed Phases</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">{liveFeatures}</p>
+                <p className="text-xs text-slate-600">Live Features</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-600">{plannedFeatures}</p>
+                <p className="text-xs text-slate-600">Planned Features</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Phase Cards */}
-        <div className="space-y-4">
-          {phases.map((phase) => (
-            <Card 
-              key={phase.phase}
-              className={cn(
-                "border-2",
-                phase.status === 'complete' && "border-green-300 bg-green-50",
-                phase.status === 'in_progress' && "border-blue-300 bg-blue-50",
-                phase.status === 'planned' && "border-slate-200 bg-white"
-              )}
-            >
+        {/* Individual Phases */}
+        <div className="grid gap-4">
+          {phases.map((phase, idx) => (
+            <Card key={idx} className={phase.status === 'complete' ? 'border-green-200 bg-green-50/30' : ''}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(phase.status)}
-                    <div>
-                      <CardTitle className="text-xl">
-                        Phase {phase.phase}: {phase.name}
-                      </CardTitle>
-                      <p className="text-sm text-slate-600 mt-1">
-                        {phase.features.length} features • {phase.completion}% complete
-                      </p>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {getStatusIcon(phase.status)}
+                      {phase.name}
+                    </CardTitle>
+                    <div className="flex items-center gap-2 mt-2">
+                      {getStatusBadge(phase.status)}
+                      <span className="text-sm text-slate-600">{phase.completion}% Complete</span>
                     </div>
                   </div>
-                  {getStatusBadge(phase.status)}
+                  <Progress value={phase.completion} className="w-24 h-2" />
                 </div>
-                <Progress value={phase.completion} className="h-2 mt-3" />
               </CardHeader>
-              
               <CardContent>
-                <div className="space-y-3">
-                  {phase.features.map((feature, idx) => (
-                    <div 
-                      key={idx}
-                      className={cn(
-                        "flex items-start gap-3 p-3 rounded-lg border",
-                        feature.status === 'complete' && "bg-white border-green-200",
-                        feature.status === 'in_progress' && "bg-white border-blue-200",
-                        feature.status === 'planned' && "bg-slate-50 border-slate-200"
-                      )}
-                    >
-                      {getStatusIcon(feature.status)}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-semibold text-slate-900">{feature.name}</h4>
-                          {getImpactBadge(feature.impact)}
-                        </div>
-                        <p className="text-sm text-slate-600">{feature.description}</p>
+                <div className="space-y-2">
+                  {phase.features.map((feature, fIdx) => (
+                    <div key={fIdx} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(feature.status)}
+                        <span className="text-sm">{feature.name}</span>
                       </div>
+                      {getImpactBadge(feature.impact)}
                     </div>
                   ))}
                 </div>
@@ -313,20 +244,21 @@ export default function RAGEnhancementStatus() {
         </div>
 
         {/* Next Steps */}
-        <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Card className="border-purple-200">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-900">
-              <Target className="w-6 h-6" />
-              Next: Phase 7 (Semantic Chunking)
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-purple-600" />
+              Next Steps
             </CardTitle>
+            <CardDescription>Remaining work to complete the RAG enhancement roadmap</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-start gap-3">
-              <TrendingUp className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <BarChart3 className="w-5 h-5 text-purple-600 mt-0.5" />
               <div>
-                <p className="font-semibold text-blue-900">Highest Impact: Semantic Chunking</p>
-                <p className="text-sm text-blue-800 mt-1">
-                  Retrieve exact relevant paragraphs instead of full proposals. Game-changing relevance boost.
+                <p className="font-semibold text-purple-900">Phase 8: Continuous Learning Loop</p>
+                <p className="text-sm text-purple-700 mt-1">
+                  Build performance tracking dashboard and implement adaptive reference selection based on quality feedback.
                 </p>
               </div>
             </div>
@@ -334,35 +266,30 @@ export default function RAGEnhancementStatus() {
         </Card>
 
         {/* Testing Checklist */}
-        <Card className="border-2 border-purple-300">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-6 h-6 text-purple-600" />
-              Testing Checklist
+              <Award className="w-5 h-5 text-amber-600" />
+              RAG System Testing Checklist
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>Generate content → See cache performance (first = 5s, repeat = 0.1s)</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>Check generated content → Look for [REF1: Section Name] citations</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>Click citation badge → View original source content</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>Enable auto-refresh → Edit proposal → Context updates in 30s</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>View RAG Analytics → See quality trends and top references</span>
-              </div>
+            <div className="space-y-2">
+              {[
+                "Create a new proposal and link reference proposals",
+                "Generate content and verify reference context loads",
+                "Check cache performance indicators appear",
+                "Verify section-type filtering works correctly",
+                "Test semantic chunk search with different prompts",
+                "Confirm citations are generated and displayed",
+                "Submit quality feedback after content generation",
+                "Verify token budget stays within limits"
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-2 bg-slate-50 rounded">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span className="text-sm">{item}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
