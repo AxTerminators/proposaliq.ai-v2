@@ -18,9 +18,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import SemanticChunkViewer from "../rag/SemanticChunkViewer";
 
 /**
- * AIWritingAssistant Component - ENHANCED v2.0
+ * AIWritingAssistant Component - ENHANCED v3.0
  * 
  * ENHANCEMENTS:
  * ✅ Section-type aware RAG
@@ -30,11 +31,12 @@ import {
  * ✅ Token usage visualization
  * ✅ Performance tracking
  * ✅ Auto-refresh context
+ * ✅ PHASE 7: Semantic chunk search (paragraph-level precision)
  */
 export default function AIWritingAssistant({
   onContentGenerated,
   sectionType = "",
-  sectionId = null, // NEW: For quality feedback
+  sectionId = null,
   contextData = {},
   existingContent = "",
   proposalId = null
@@ -64,6 +66,11 @@ export default function AIWritingAssistant({
   const [autoRefreshEnabled, setAutoRefreshEnabled] = React.useState(false);
   const lastProposalUpdateRef = React.useRef(null);
   const refreshTimeoutRef = React.useRef(null);
+
+  // PHASE 7: Semantic chunking state
+  const [semanticChunks, setSemanticChunks] = React.useState([]);
+  const [isLoadingChunks, setIsLoadingChunks] = React.useState(false);
+  const [useSemanticSearch, setUseSemanticSearch] = React.useState(true);
 
   /**
    * Load proposal and check for reference proposals on mount
@@ -187,6 +194,66 @@ export default function AIWritingAssistant({
   };
 
   /**
+   * PHASE 7: Search for relevant chunks based on user prompt
+   * Called when user types or changes prompt
+   */
+  const searchSemanticChunks = async (queryText) => {
+    if (!queryText || queryText.length < 10 || !proposalId) return;
+    
+    try {
+      setIsLoadingChunks(true);
+      
+      const user = await base44.auth.me();
+      const orgs = await base44.entities.Organization.filter(
+        { created_by: user.email },
+        '-created_date',
+        1
+      );
+      
+      if (orgs.length === 0) return;
+      
+      const result = await base44.functions.invoke('searchSemanticChunks', {
+        query_text: queryText,
+        current_proposal_id: proposalId,
+        section_type: sectionType || null,
+        max_results: 10,
+        min_relevance_score: 40,
+        only_winning_proposals: false,
+        organization_id: orgs[0].id
+      });
+
+      if (result.data?.status === 'success' && result.data.results?.length > 0) {
+        setSemanticChunks(result.data.results);
+        console.log('[AIWritingAssistant] 🔍 Found', result.data.results.length, 'relevant chunks');
+      } else {
+        setSemanticChunks([]);
+      }
+    } catch (error) {
+      console.error('[AIWritingAssistant] Chunk search error:', error);
+    } finally {
+      setIsLoadingChunks(false);
+    }
+  };
+
+  // Debounced chunk search
+  React.useEffect(() => {
+    if (!useSemanticSearch) {
+      setSemanticChunks([]); // Clear chunks if search is disabled
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      if (prompt.length >= 10) {
+        searchSemanticChunks(prompt);
+      } else {
+        setSemanticChunks([]); // Clear if prompt is too short
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [prompt, useSemanticSearch, proposalId, sectionType]);
+
+  /**
    * Handle document upload to provide context to AI
    * ENHANCED: Better error handling and user feedback
    */
@@ -268,7 +335,7 @@ export default function AIWritingAssistant({
 
   /**
    * Generate content with RAG
-   * ENHANCED: Performance tracking for quality feedback
+   * ENHANCED: Now includes semantic chunks alongside full reference context
    */
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -277,10 +344,9 @@ export default function AIWritingAssistant({
     }
 
     setIsGenerating(true);
-    setGenerationStartTime(Date.now()); // Track performance
+    setGenerationStartTime(Date.now());
 
     try {
-      // Build the full prompt with optional RAG context
       let fullPrompt = `You are writing a ${sectionType || 'proposal section'} for a government proposal.
 
 ${existingContent ? `Existing content:\n${existingContent}\n\n` : ''}
@@ -290,13 +356,25 @@ ${JSON.stringify(contextData, null, 2)}
 
 `;
 
-      // ===== RAG INTEGRATION: Add reference context if available =====
+      // ===== PHASE 7: Add semantic chunks first (most relevant paragraphs) =====
+      if (useSemanticSearch && semanticChunks.length > 0) {
+        fullPrompt += `\n📚 RELEVANT CONTENT FROM PAST PROPOSALS (paragraph-level):\n`;
+        fullPrompt += `Found ${semanticChunks.length} highly relevant paragraphs from winning proposals:\n\n`;
+        
+        semanticChunks.slice(0, 5).forEach((chunk, idx) => {
+          fullPrompt += `[Excerpt ${idx + 1}] From "${chunk.parent_proposal?.proposal_name || 'Reference'}" (${chunk.relevance_score}% relevant):\n`;
+          fullPrompt += `${chunk.chunk_text}\n\n`;
+        });
+        
+        console.log('[AIWritingAssistant] 🔍 Using', semanticChunks.length, 'semantic chunks');
+      }
+
+      // ===== Add full reference context if available =====
       if (referenceContext?.context?.formatted_prompt_context) {
         fullPrompt += `\n${referenceContext.context.formatted_prompt_context}\n\n`;
         console.log('[AIWritingAssistant] 📖 Using RAG context:', {
           references: referenceContext.metadata.references_included,
-          tokens: referenceContext.metadata.estimated_tokens,
-          section_filter: referenceContext.metadata.section_type_filter
+          tokens: referenceContext.metadata.estimated_tokens
         });
       }
 
@@ -309,7 +387,7 @@ Please generate professional, compelling content that:
 3. Includes specific details and quantifiable results when possible
 4. Follows proper formatting with headers, bullet points, and paragraphs
 5. Is ready to be inserted into the proposal document
-${referenceContext ? '6. When a reference significantly influenced an approach, note it like: [Based on Reference 1\'s methodology]' : ''}
+${semanticChunks.length > 0 || referenceContext ? '6. When content is inspired by a reference, note it like: [Based on similar approach in winning proposal]' : ''}
 
 Generate the content now:`;
 
@@ -324,17 +402,22 @@ Generate the content now:`;
 
       setGeneratedContent(result);
       
-      // Store generation metadata for quality feedback
+      // Store generation metadata
       if (onContentGenerated && typeof onContentGenerated === 'function') {
         const metadata = {
           ai_prompt_used: prompt,
-          ai_reference_sources: referenceContext?.metadata?.sources?.map(s => s.proposal_id) || [],
-          ai_context_summary: referenceContext 
-            ? `Referenced ${referenceContext.metadata.references_included} past proposal(s): ${referenceContext.metadata.sources.map(s => s.proposal_name).join(', ')}`
-            : null,
+          ai_reference_sources: [
+            ...(referenceContext?.metadata?.sources?.map(s => s.proposal_id) || []),
+            ...semanticChunks.map(c => c.proposal_id)
+          ],
+          ai_context_summary: [
+            referenceContext ? `${referenceContext.metadata.references_included} full reference proposal(s)` : null,
+            semanticChunks.length > 0 ? `${semanticChunks.length} relevant paragraphs` : null
+          ].filter(Boolean).join(' + '),
           ai_generation_metadata: {
             estimated_tokens_used: referenceContext?.metadata?.estimated_tokens || 0,
             reference_proposals_count: referenceContext?.metadata?.references_included || 0,
+            semantic_chunks_count: semanticChunks.length,
             context_truncated: referenceContext?.metadata?.truncated || false,
             generated_at: new Date().toISOString(),
             section_type_filter: referenceContext?.metadata?.section_type_filter,
@@ -386,6 +469,7 @@ Generate the content now:`;
       // Clean up if no quality feedback
       setGeneratedContent("");
       setPrompt("");
+      setSemanticChunks([]); // Clear semantic chunks on insert/discard
       delete window.__lastAIMetadata;
     }
   };
@@ -396,6 +480,7 @@ Generate the content now:`;
     // Clean up
     setGeneratedContent("");
     setPrompt("");
+    setSemanticChunks([]); // Clear semantic chunks after feedback
     delete window.__lastAIMetadata;
     setShowQualityRating(false);
   };
@@ -433,6 +518,11 @@ Generate the content now:`;
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+            )}
+            {semanticChunks.length > 0 && (
+              <Badge className="bg-green-100 text-green-800 border-green-300 ml-2">
+                🔍 {semanticChunks.length} Paragraph{semanticChunks.length !== 1 ? 's' : ''}
+              </Badge>
             )}
             {sectionType && (
               <Badge variant="outline" className="ml-auto text-xs">
@@ -525,6 +615,30 @@ Generate the content now:`;
             </div>
           )}
 
+          {/* PHASE 7: Semantic Search Toggle */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-green-600" />
+                <div>
+                  <p className="text-sm font-semibold text-green-900">Smart Paragraph Search</p>
+                  <p className="text-xs text-green-700">
+                    Find exact relevant paragraphs as you type (experimental)
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useSemanticSearch}
+                  onChange={(e) => setUseSemanticSearch(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+              </label>
+            </div>
+          </div>
+
           {/* Upload Context Document */}
           <div>
             <Label>Upload Context Document (Optional)</Label>
@@ -572,12 +686,28 @@ Generate the content now:`;
               rows={4}
               className="mt-1"
             />
+            {isLoadingChunks && (
+              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Searching for relevant paragraphs...
+              </p>
+            )}
           </div>
+
+          {/* PHASE 7: Semantic Chunks Display */}
+          {semanticChunks.length > 0 && (
+            <SemanticChunkViewer
+              chunks={semanticChunks}
+              onCopyChunk={(chunk) => {
+                setPrompt(prev => prev + `\n\nReference this content: "${chunk.chunk_text.substring(0, Math.min(chunk.chunk_text.length, 200))}..."`);
+              }}
+            />
+          )}
 
           {/* Generate Button */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim() || isLoadingContext}
+            disabled={isGenerating || !prompt.trim() || isLoadingContext || isLoadingChunks}
             className="w-full bg-purple-600 hover:bg-purple-700"
           >
             {isGenerating ? (
@@ -589,9 +719,9 @@ Generate the content now:`;
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
                 Generate Content
-                {referenceContext && (
+                {(referenceContext || semanticChunks.length > 0) && (
                   <Badge className="ml-2 bg-purple-800 text-white text-xs">
-                    +{referenceContext.metadata.references_included} refs
+                    +{(referenceContext?.metadata?.references_included || 0) + semanticChunks.length} sources
                   </Badge>
                 )}
               </>
@@ -648,6 +778,11 @@ Generate the content now:`;
                     Using {referenceContext.metadata.references_included} reference(s)
                   </span>
                 )}
+                {semanticChunks.length > 0 && (
+                  <span className="text-green-600 font-medium">
+                    Using {semanticChunks.length} smart paragraphs
+                  </span>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -662,6 +797,7 @@ Generate the content now:`;
                   onClick={() => {
                     setGeneratedContent("");
                     setPrompt("");
+                    setSemanticChunks([]);
                     delete window.__lastAIMetadata;
                   }}
                   variant="outline"
@@ -678,6 +814,11 @@ Generate the content now:`;
             <p className="text-xs font-semibold text-blue-900 mb-1">💡 Tips for better results:</p>
             <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
               <li>Be specific about what you want to write</li>
+              {useSemanticSearch && (
+                <li className="font-medium text-green-700">
+                  ✓ Smart search will find relevant paragraphs as you type
+                </li>
+              )}
               <li>Upload reference documents for richer context</li>
               {referenceContext && (
                 <>
@@ -693,6 +834,11 @@ Generate the content now:`;
                     </li>
                   )}
                 </>
+              )}
+              {semanticChunks.length > 0 && (
+                <li className="font-medium text-green-700">
+                  🔍 Found {semanticChunks.length} relevant paragraph{semanticChunks.length !== 1 ? 's' : ''} for precision context
+                </li>
               )}
               {!referenceContext && proposalId && (
                 <li className="text-amber-700">
@@ -714,9 +860,12 @@ Generate the content now:`;
         sectionId={sectionId}
         sectionType={sectionType}
         ragMetadata={{
-          used_rag: referenceContext !== null,
-          reference_count: referenceContext?.metadata?.references_included || 0,
-          reference_ids: referenceContext?.metadata?.sources?.map(s => s.proposal_id) || [],
+          used_rag: referenceContext !== null || semanticChunks.length > 0,
+          reference_count: (referenceContext?.metadata?.references_included || 0) + semanticChunks.length,
+          reference_ids: [
+            ...(referenceContext?.metadata?.sources?.map(s => s.proposal_id) || []),
+            ...semanticChunks.map(c => c.proposal_id)
+          ].filter((value, index, self) => self.indexOf(value) === index), // Ensure unique IDs
           estimated_tokens: referenceContext?.metadata?.estimated_tokens || 0,
           llm_provider: llmProvider
         }}
