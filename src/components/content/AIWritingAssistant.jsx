@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,13 +11,13 @@ import ContentQualityRating from "../rag/ContentQualityRating";
 import ReferenceLoadStatus from "../rag/ReferenceLoadStatus";
 import TokenBudgetVisualizer from "../rag/TokenBudgetVisualizer";
 import CachePerformanceIndicator from "../rag/CachePerformanceIndicator";
+import SemanticChunkViewer from "../rag/SemanticChunkViewer";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import SemanticChunkViewer from "../rag/SemanticChunkViewer";
 
 /**
  * AIWritingAssistant Component - ENHANCED v3.0
@@ -48,21 +47,20 @@ export default function AIWritingAssistant({
   const [copiedContent, setCopiedContent] = React.useState(false);
   const fileInputRef = React.useRef(null);
 
-  // RAG state - ENHANCED
+  // RAG state
   const [isLoadingContext, setIsLoadingContext] = React.useState(false);
   const [referenceContext, setReferenceContext] = React.useState(null);
   const [currentProposal, setCurrentProposal] = React.useState(null);
   const [contextLoadError, setContextLoadError] = React.useState(null);
 
-  // Quality feedback state - NEW
+  // Quality feedback state
   const [showQualityRating, setShowQualityRating] = React.useState(false);
   const [generationStartTime, setGenerationStartTime] = React.useState(null);
   const [generationTime, setGenerationTime] = React.useState(0);
 
-  // LLM provider (would come from subscription/settings in real app)
   const [llmProvider] = React.useState('gemini');
 
-  // NEW: Auto-refresh tracking
+  // Auto-refresh tracking
   const [autoRefreshEnabled, setAutoRefreshEnabled] = React.useState(false);
   const lastProposalUpdateRef = React.useRef(null);
   const refreshTimeoutRef = React.useRef(null);
@@ -72,39 +70,27 @@ export default function AIWritingAssistant({
   const [isLoadingChunks, setIsLoadingChunks] = React.useState(false);
   const [useSemanticSearch, setUseSemanticSearch] = React.useState(true);
 
-  /**
-   * Load proposal and check for reference proposals on mount
-   * ENHANCED: Now includes error handling and retry capability
-   */
   React.useEffect(() => {
     if (proposalId) {
       loadProposalContext();
     }
   }, [proposalId]);
 
-  /**
-   * PHASE 3: Auto-refresh context when proposal changes
-   * Debounced to avoid excessive API calls
-   */
   React.useEffect(() => {
     if (!autoRefreshEnabled || !proposalId || !referenceContext) return;
 
     const checkForUpdates = async () => {
       try {
         const proposal = await base44.entities.Proposal.get(proposalId);
-        // Use a consistent field for update tracking, e.g., 'updated_at' or 'last_modified'
-        // Assuming `updated_date` is the field to track changes.
-        const currentUpdate = proposal.updated_date; 
+        const currentUpdate = proposal.updated_date;
 
         if (lastProposalUpdateRef.current && currentUpdate !== lastProposalUpdateRef.current) {
           console.log('[AIWritingAssistant] 🔔 Proposal updated, scheduling context refresh...');
           
-          // Clear existing timeout
           if (refreshTimeoutRef.current) {
             clearTimeout(refreshTimeoutRef.current);
           }
 
-          // Schedule refresh after 30 seconds of inactivity
           refreshTimeoutRef.current = setTimeout(() => {
             console.log('[AIWritingAssistant] ⏰ Auto-refreshing context...');
             loadProposalContext();
@@ -117,7 +103,7 @@ export default function AIWritingAssistant({
       }
     };
 
-    const intervalId = setInterval(checkForUpdates, 10000); // Check every 10 seconds
+    const intervalId = setInterval(checkForUpdates, 10000);
 
     return () => {
       clearInterval(intervalId);
@@ -128,74 +114,7 @@ export default function AIWritingAssistant({
   }, [proposalId, autoRefreshEnabled, referenceContext]);
 
   /**
-   * Load proposal and build RAG context if reference proposals exist
-   * ENHANCED: Section-type filtering + better error handling
-   */
-  const loadProposalContext = async (retryFailedOnly = false) => {
-    try {
-      setIsLoadingContext(true);
-      setContextLoadError(null);
-      
-      // Fetch the current proposal
-      const proposal = await base44.entities.Proposal.get(proposalId);
-      setCurrentProposal(proposal);
-
-      // Check if reference proposals are linked
-      if (proposal.reference_proposal_ids && proposal.reference_proposal_ids.length > 0) {
-        console.log('[AIWritingAssistant] 📚 Found reference proposals:', proposal.reference_proposal_ids);
-        
-        // NEW: Call buildProposalContext with section-type filtering
-        const contextResult = await base44.functions.invoke('buildProposalContext', {
-          current_proposal_id: proposalId,
-          reference_proposal_ids: proposal.reference_proposal_ids,
-          target_section_type: sectionType || null, // ⭐ SECTION-TYPE FILTERING
-          llm_provider: llmProvider, // ⭐ INTELLIGENT TOKEN LIMITS
-          prioritize_winning: true,
-          include_documents: true,
-          include_resources: true
-        });
-
-        if (contextResult.data?.status === 'success') {
-          setReferenceContext(contextResult.data);
-          console.log('[AIWritingAssistant] ✅ Context loaded:', contextResult.data.metadata);
-          
-          // Show appropriate toast based on results
-          if (contextResult.data.metadata.references_failed > 0) {
-            toast.warning(
-              `Loaded ${contextResult.data.metadata.references_included} references, ${contextResult.data.metadata.references_failed} failed`,
-              { description: 'Check status panel for details' }
-            );
-          } else {
-            toast.success(
-              `✓ Context loaded from ${contextResult.data.metadata.references_included} reference(s)`,
-              { description: `${contextResult.data.metadata.estimated_tokens.toLocaleString()} tokens ready` }
-            );
-          }
-        } else {
-          setContextLoadError(contextResult.data?.error || 'Failed to load context');
-          toast.error('Failed to load reference context');
-        }
-      } else {
-        console.log('[AIWritingAssistant] ℹ️ No reference proposals linked');
-        setReferenceContext(null); // Clear context if no references are linked
-      }
-    } catch (error) {
-      console.error('[AIWritingAssistant] ❌ Error loading context:', error);
-      setContextLoadError(error.message);
-      toast.error('Failed to load reference context: ' + error.message);
-    } finally {
-      setIsLoadingContext(false);
-    }
-  };
-
-  // NEW: Retry failed references
-  const handleRetryFailedReferences = () => {
-    loadProposalContext(true);
-  };
-
-  /**
    * PHASE 7: Search for relevant chunks based on user prompt
-   * Called when user types or changes prompt
    */
   const searchSemanticChunks = async (queryText) => {
     if (!queryText || queryText.length < 10 || !proposalId) return;
@@ -237,26 +156,74 @@ export default function AIWritingAssistant({
 
   // Debounced chunk search
   React.useEffect(() => {
-    if (!useSemanticSearch) {
-      setSemanticChunks([]); // Clear chunks if search is disabled
-      return;
-    }
+    if (!useSemanticSearch) return;
     
     const timer = setTimeout(() => {
       if (prompt.length >= 10) {
         searchSemanticChunks(prompt);
-      } else {
-        setSemanticChunks([]); // Clear if prompt is too short
       }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [prompt, useSemanticSearch, proposalId, sectionType]);
+  }, [prompt, useSemanticSearch]);
 
-  /**
-   * Handle document upload to provide context to AI
-   * ENHANCED: Better error handling and user feedback
-   */
+  const loadProposalContext = async (retryFailedOnly = false) => {
+    try {
+      setIsLoadingContext(true);
+      setContextLoadError(null);
+      
+      const proposal = await base44.entities.Proposal.get(proposalId);
+      setCurrentProposal(proposal);
+
+      if (proposal.reference_proposal_ids && proposal.reference_proposal_ids.length > 0) {
+        console.log('[AIWritingAssistant] 📚 Found reference proposals:', proposal.reference_proposal_ids);
+        
+        const contextResult = await base44.functions.invoke('buildProposalContext', {
+          current_proposal_id: proposalId,
+          reference_proposal_ids: proposal.reference_proposal_ids,
+          target_section_type: sectionType || null,
+          llm_provider: llmProvider,
+          prioritize_winning: true,
+          include_documents: true,
+          include_resources: true
+        });
+
+        if (contextResult.data?.status === 'success') {
+          setReferenceContext(contextResult.data);
+          console.log('[AIWritingAssistant] ✅ Context loaded:', contextResult.data.metadata);
+          
+          if (contextResult.data.metadata.references_failed > 0) {
+            toast.warning(
+              `Loaded ${contextResult.data.metadata.references_included} references, ${contextResult.data.metadata.references_failed} failed`,
+              { description: 'Check status panel for details' }
+            );
+          } else {
+            toast.success(
+              `✓ Context loaded from ${contextResult.data.metadata.references_included} reference(s)`,
+              { description: `${contextResult.data.metadata.estimated_tokens.toLocaleString()} tokens ready` }
+            );
+          }
+        } else {
+          setContextLoadError(contextResult.data?.error || 'Failed to load context');
+          toast.error('Failed to load reference context');
+        }
+      } else {
+        console.log('[AIWritingAssistant] ℹ️ No reference proposals linked');
+        setReferenceContext(null);
+      }
+    } catch (error) {
+      console.error('[AIWritingAssistant] ❌ Error loading context:', error);
+      setContextLoadError(error.message);
+      toast.error('Failed to load reference context: ' + error.message);
+    } finally {
+      setIsLoadingContext(false);
+    }
+  };
+
+  const handleRetryFailedReferences = () => {
+    loadProposalContext(true);
+  };
+
   const handleDocumentUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -333,10 +300,6 @@ export default function AIWritingAssistant({
     }
   };
 
-  /**
-   * Generate content with RAG
-   * ENHANCED: Now includes semantic chunks alongside full reference context
-   */
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error('Please enter a prompt or upload a document');
@@ -356,7 +319,7 @@ ${JSON.stringify(contextData, null, 2)}
 
 `;
 
-      // ===== PHASE 7: Add semantic chunks first (most relevant paragraphs) =====
+      // PHASE 7: Add semantic chunks first
       if (useSemanticSearch && semanticChunks.length > 0) {
         fullPrompt += `\n📚 RELEVANT CONTENT FROM PAST PROPOSALS (paragraph-level):\n`;
         fullPrompt += `Found ${semanticChunks.length} highly relevant paragraphs from winning proposals:\n\n`;
@@ -369,7 +332,7 @@ ${JSON.stringify(contextData, null, 2)}
         console.log('[AIWritingAssistant] 🔍 Using', semanticChunks.length, 'semantic chunks');
       }
 
-      // ===== Add full reference context if available =====
+      // Add full reference context
       if (referenceContext?.context?.formatted_prompt_context) {
         fullPrompt += `\n${referenceContext.context.formatted_prompt_context}\n\n`;
         console.log('[AIWritingAssistant] 📖 Using RAG context:', {
@@ -402,7 +365,6 @@ Generate the content now:`;
 
       setGeneratedContent(result);
       
-      // Store generation metadata
       if (onContentGenerated && typeof onContentGenerated === 'function') {
         const metadata = {
           ai_prompt_used: prompt,
@@ -447,12 +409,7 @@ Generate the content now:`;
     setTimeout(() => setCopiedContent(false), 2000);
   };
 
-  /**
-   * Insert content and trigger quality feedback
-   * NEW: Show quality rating dialog after insertion
-   */
   const handleInsertContent = () => {
-    // Pass content and metadata to parent
     if (typeof onContentGenerated === 'function') {
       const metadata = window.__lastAIMetadata || {};
       onContentGenerated(generatedContent, metadata);
@@ -462,14 +419,11 @@ Generate the content now:`;
     
     toast.success('Content inserted into editor');
     
-    // NEW: Show quality rating dialog
     if (proposalId && sectionId) {
       setShowQualityRating(true);
     } else {
-      // Clean up if no quality feedback
       setGeneratedContent("");
       setPrompt("");
-      setSemanticChunks([]); // Clear semantic chunks on insert/discard
       delete window.__lastAIMetadata;
     }
   };
@@ -477,10 +431,8 @@ Generate the content now:`;
   const handleQualityFeedbackComplete = (rating) => {
     console.log('[AIWritingAssistant] Quality rating received:', rating);
     
-    // Clean up
     setGeneratedContent("");
     setPrompt("");
-    setSemanticChunks([]); // Clear semantic chunks after feedback
     delete window.__lastAIMetadata;
     setShowQualityRating(false);
   };
@@ -532,7 +484,6 @@ Generate the content now:`;
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
-          {/* Loading Context Indicator */}
           {isLoadingContext && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3">
               <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
@@ -545,7 +496,6 @@ Generate the content now:`;
             </div>
           )}
 
-          {/* Context Load Error */}
           {contextLoadError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -565,7 +515,6 @@ Generate the content now:`;
             </div>
           )}
 
-          {/* Reference Load Status - NEW COMPONENT */}
           {referenceContext && !isLoadingContext && (
             <ReferenceLoadStatus
               metadata={referenceContext.metadata}
@@ -573,7 +522,6 @@ Generate the content now:`;
             />
           )}
 
-          {/* NEW: Cache Performance Indicator */}
           {referenceContext?.metadata?.performance && !isLoadingContext && (
             <CachePerformanceIndicator
               performance={referenceContext.metadata.performance}
@@ -581,7 +529,6 @@ Generate the content now:`;
             />
           )}
 
-          {/* Token Budget Visualizer - NEW COMPONENT */}
           {referenceContext && !isLoadingContext && (
             <TokenBudgetVisualizer
               metadata={referenceContext.metadata}
@@ -589,7 +536,6 @@ Generate the content now:`;
             />
           )}
 
-          {/* NEW: Auto-Refresh Toggle */}
           {referenceContext && !isLoadingContext && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
@@ -615,7 +561,6 @@ Generate the content now:`;
             </div>
           )}
 
-          {/* PHASE 7: Semantic Search Toggle */}
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -623,7 +568,7 @@ Generate the content now:`;
                 <div>
                   <p className="text-sm font-semibold text-green-900">Smart Paragraph Search</p>
                   <p className="text-xs text-green-700">
-                    Find exact relevant paragraphs as you type (experimental)
+                    Find exact relevant paragraphs as you type (Phase 7)
                   </p>
                 </div>
               </div>
@@ -639,7 +584,6 @@ Generate the content now:`;
             </div>
           </div>
 
-          {/* Upload Context Document */}
           <div>
             <Label>Upload Context Document (Optional)</Label>
             <p className="text-xs text-slate-600 mb-2">
@@ -676,7 +620,6 @@ Generate the content now:`;
             </p>
           </div>
 
-          {/* Prompt Input */}
           <div>
             <Label>What would you like me to write?</Label>
             <Textarea
@@ -694,20 +637,18 @@ Generate the content now:`;
             )}
           </div>
 
-          {/* PHASE 7: Semantic Chunks Display */}
           {semanticChunks.length > 0 && (
             <SemanticChunkViewer
               chunks={semanticChunks}
               onCopyChunk={(chunk) => {
-                setPrompt(prev => prev + `\n\nReference this content: "${chunk.chunk_text.substring(0, Math.min(chunk.chunk_text.length, 200))}..."`);
+                setPrompt(prev => prev + `\n\nReference this content: "${chunk.chunk_text.substring(0, 200)}..."`);
               }}
             />
           )}
 
-          {/* Generate Button */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim() || isLoadingContext || isLoadingChunks}
+            disabled={isGenerating || !prompt.trim() || isLoadingContext}
             className="w-full bg-purple-600 hover:bg-purple-700"
           >
             {isGenerating ? (
@@ -728,7 +669,6 @@ Generate the content now:`;
             )}
           </Button>
 
-          {/* Generated Content Display */}
           {generatedContent && (
             <div className="space-y-3 pt-4 border-t">
               <div className="flex items-center justify-between">
@@ -769,18 +709,12 @@ Generate the content now:`;
                 </div>
               </div>
 
-              {/* Content Stats */}
               <div className="flex items-center gap-4 text-xs text-slate-600">
                 <span>{generatedContent.split(/\s+/).length} words</span>
                 {generationTime > 0 && <span>Generated in {generationTime.toFixed(1)}s</span>}
-                {referenceContext && (
+                {(referenceContext || semanticChunks.length > 0) && (
                   <span className="text-blue-600 font-medium">
-                    Using {referenceContext.metadata.references_included} reference(s)
-                  </span>
-                )}
-                {semanticChunks.length > 0 && (
-                  <span className="text-green-600 font-medium">
-                    Using {semanticChunks.length} smart paragraphs
+                    Using {(referenceContext?.metadata?.references_included || 0) + semanticChunks.length} source(s)
                   </span>
                 )}
               </div>
@@ -797,7 +731,6 @@ Generate the content now:`;
                   onClick={() => {
                     setGeneratedContent("");
                     setPrompt("");
-                    setSemanticChunks([]);
                     delete window.__lastAIMetadata;
                   }}
                   variant="outline"
@@ -809,7 +742,6 @@ Generate the content now:`;
             </div>
           )}
 
-          {/* Helper Tips - ENHANCED with cache info */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-xs font-semibold text-blue-900 mb-1">💡 Tips for better results:</p>
             <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
@@ -824,13 +756,10 @@ Generate the content now:`;
                 <>
                   <li className="font-medium">
                     ✓ Using {referenceContext.metadata.references_included} reference{referenceContext.metadata.references_included !== 1 ? 's' : ''}
-                    {referenceContext.metadata.section_type_filter && 
-                      ` filtered to ${referenceContext.metadata.section_type_filter.replace('_', ' ')}`
-                    }
                   </li>
                   {referenceContext.metadata.performance?.cache_hits > 0 && (
                     <li className="text-green-700 font-medium">
-                      ⚡ {referenceContext.metadata.performance.cache_hits} reference{referenceContext.metadata.performance.cache_hits !== 1 ? 's' : ''} loaded from cache (instant!)
+                      ⚡ {referenceContext.metadata.performance.cache_hits} reference{referenceContext.metadata.performance.cache_hits !== 1 ? 's' : ''} loaded from cache
                     </li>
                   )}
                 </>
@@ -852,7 +781,6 @@ Generate the content now:`;
         </CardContent>
       </Card>
 
-      {/* Quality Rating Dialog - NEW */}
       <ContentQualityRating
         isOpen={showQualityRating}
         onClose={() => setShowQualityRating(false)}
@@ -865,7 +793,7 @@ Generate the content now:`;
           reference_ids: [
             ...(referenceContext?.metadata?.sources?.map(s => s.proposal_id) || []),
             ...semanticChunks.map(c => c.proposal_id)
-          ].filter((value, index, self) => self.indexOf(value) === index), // Ensure unique IDs
+          ],
           estimated_tokens: referenceContext?.metadata?.estimated_tokens || 0,
           llm_provider: llmProvider
         }}
