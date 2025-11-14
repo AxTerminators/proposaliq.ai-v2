@@ -1,15 +1,17 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Upload, Loader2, X, RefreshCw, Copy, Check, FileText, Info, AlertCircle } from "lucide-react";
+import { Sparkles, Upload, Loader2, X, RefreshCw, Copy, Check, FileText, Info, AlertCircle, Zap } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import ContentQualityRating from "../rag/ContentQualityRating";
 import ReferenceLoadStatus from "../rag/ReferenceLoadStatus";
 import TokenBudgetVisualizer from "../rag/TokenBudgetVisualizer";
+import CachePerformanceIndicator from "../rag/CachePerformanceIndicator";
 import {
   Tooltip,
   TooltipContent,
@@ -27,6 +29,7 @@ import {
  * ✅ Quality feedback collection
  * ✅ Token usage visualization
  * ✅ Performance tracking
+ * ✅ Auto-refresh context
  */
 export default function AIWritingAssistant({
   onContentGenerated,
@@ -57,6 +60,11 @@ export default function AIWritingAssistant({
   // LLM provider (would come from subscription/settings in real app)
   const [llmProvider] = React.useState('gemini');
 
+  // NEW: Auto-refresh tracking
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = React.useState(false);
+  const lastProposalUpdateRef = React.useRef(null);
+  const refreshTimeoutRef = React.useRef(null);
+
   /**
    * Load proposal and check for reference proposals on mount
    * ENHANCED: Now includes error handling and retry capability
@@ -66,6 +74,51 @@ export default function AIWritingAssistant({
       loadProposalContext();
     }
   }, [proposalId]);
+
+  /**
+   * PHASE 3: Auto-refresh context when proposal changes
+   * Debounced to avoid excessive API calls
+   */
+  React.useEffect(() => {
+    if (!autoRefreshEnabled || !proposalId || !referenceContext) return;
+
+    const checkForUpdates = async () => {
+      try {
+        const proposal = await base44.entities.Proposal.get(proposalId);
+        // Use a consistent field for update tracking, e.g., 'updated_at' or 'last_modified'
+        // Assuming `updated_date` is the field to track changes.
+        const currentUpdate = proposal.updated_date; 
+
+        if (lastProposalUpdateRef.current && currentUpdate !== lastProposalUpdateRef.current) {
+          console.log('[AIWritingAssistant] 🔔 Proposal updated, scheduling context refresh...');
+          
+          // Clear existing timeout
+          if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current);
+          }
+
+          // Schedule refresh after 30 seconds of inactivity
+          refreshTimeoutRef.current = setTimeout(() => {
+            console.log('[AIWritingAssistant] ⏰ Auto-refreshing context...');
+            loadProposalContext();
+          }, 30000);
+        }
+
+        lastProposalUpdateRef.current = currentUpdate;
+      } catch (error) {
+        console.error('[AIWritingAssistant] Error checking for updates:', error);
+      }
+    };
+
+    const intervalId = setInterval(checkForUpdates, 10000); // Check every 10 seconds
+
+    return () => {
+      clearInterval(intervalId);
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [proposalId, autoRefreshEnabled, referenceContext]);
 
   /**
    * Load proposal and build RAG context if reference proposals exist
@@ -117,6 +170,7 @@ export default function AIWritingAssistant({
         }
       } else {
         console.log('[AIWritingAssistant] ℹ️ No reference proposals linked');
+        setReferenceContext(null); // Clear context if no references are linked
       }
     } catch (error) {
       console.error('[AIWritingAssistant] ❌ Error loading context:', error);
@@ -429,12 +483,46 @@ Generate the content now:`;
             />
           )}
 
+          {/* NEW: Cache Performance Indicator */}
+          {referenceContext?.metadata?.performance && !isLoadingContext && (
+            <CachePerformanceIndicator
+              performance={referenceContext.metadata.performance}
+              compact={false}
+            />
+          )}
+
           {/* Token Budget Visualizer - NEW COMPONENT */}
           {referenceContext && !isLoadingContext && (
             <TokenBudgetVisualizer
               metadata={referenceContext.metadata}
               compact={false}
             />
+          )}
+
+          {/* NEW: Auto-Refresh Toggle */}
+          {referenceContext && !isLoadingContext && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900">Auto-Refresh Context</p>
+                    <p className="text-xs text-blue-700">
+                      Automatically update when proposal changes (30s inactivity delay)
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoRefreshEnabled}
+                    onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
           )}
 
           {/* Upload Context Document */}
@@ -585,19 +673,26 @@ Generate the content now:`;
             </div>
           )}
 
-          {/* Helper Tips - ENHANCED */}
+          {/* Helper Tips - ENHANCED with cache info */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-xs font-semibold text-blue-900 mb-1">💡 Tips for better results:</p>
             <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
               <li>Be specific about what you want to write</li>
               <li>Upload reference documents for richer context</li>
               {referenceContext && (
-                <li className="font-medium">
-                  ✓ Using {referenceContext.metadata.references_included} reference proposal(s)
-                  {referenceContext.metadata.section_type_filter && 
-                    ` filtered to ${referenceContext.metadata.section_type_filter.replace('_', ' ')}`
-                  }
-                </li>
+                <>
+                  <li className="font-medium">
+                    ✓ Using {referenceContext.metadata.references_included} reference{referenceContext.metadata.references_included !== 1 ? 's' : ''}
+                    {referenceContext.metadata.section_type_filter && 
+                      ` filtered to ${referenceContext.metadata.section_type_filter.replace('_', ' ')}`
+                    }
+                  </li>
+                  {referenceContext.metadata.performance?.cache_hits > 0 && (
+                    <li className="text-green-700 font-medium">
+                      ⚡ {referenceContext.metadata.performance.cache_hits} reference{referenceContext.metadata.performance.cache_hits !== 1 ? 's' : ''} loaded from cache (instant!)
+                    </li>
+                  )}
+                </>
               )}
               {!referenceContext && proposalId && (
                 <li className="text-amber-700">

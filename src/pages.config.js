@@ -59,7 +59,7 @@ import ConsultantDashboard from './pages/ConsultantDashboard';
 import ClientDataCallPortal from './pages/ClientDataCallPortal';
 import DataCalls from './pages/DataCalls';
 import DataCallDocumentation from './pages/DataCallDocumentation';
-import RAGAnalytics from './pages/RAGAnalytics';
+import RAGEnhancementStatus from './pages/RAGEnhancementStatus';
 import Layout from './Layout.jsx';
 
 
@@ -125,7 +125,7 @@ export const PAGES = {
     "ClientDataCallPortal": ClientDataCallPortal,
     "DataCalls": DataCalls,
     "DataCallDocumentation": DataCallDocumentation,
-    "RAGAnalytics": RAGAnalytics,
+    "RAGEnhancementStatus": RAGEnhancementStatus,
 }
 
 export const pagesConfig = {
