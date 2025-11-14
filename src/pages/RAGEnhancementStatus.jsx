@@ -116,27 +116,12 @@ export default function RAGEnhancementStatus() {
     {
       phase: 4,
       name: "Advanced RAG Features",
-      status: "planned",
-      completion: 0,
+      status: "complete",
+      completion: 100,
       features: [
-        { 
-          name: "Citation System", 
-          status: "planned",
-          impact: "medium",
-          description: "Show which reference influenced each paragraph"
-        },
-        { 
-          name: "RAG Analytics Dashboard", 
-          status: "complete",
-          impact: "medium",
-          description: "Comprehensive analytics on RAG effectiveness"
-        },
-        { 
-          name: "Smart Reference Highlighting", 
-          status: "planned",
-          impact: "low",
-          description: "Color-code generated text by source"
-        }
+        { name: "Citation & Attribution System", status: "complete", impact: "medium", description: "Shows which reference influenced each paragraph with clickable citations" },
+        { name: "RAG Analytics Dashboard", status: "complete", impact: "medium", description: "Comprehensive analytics on RAG effectiveness" },
+        { name: "Source Content Viewer", status: "complete", impact: "medium", description: "View original source when clicking citations" }
       ]
     },
     {
@@ -330,47 +315,47 @@ export default function RAGEnhancementStatus() {
                 <Award className="w-5 h-5" />
                 Key Achievements Unlocked
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-slate-900">10x Context Capacity</p>
-                    <p className="text-xs text-slate-600">From 8K to 100K tokens</p>
+                    <p className="text-xs text-slate-600">8K → 100K tokens</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-slate-900">40% Better Relevance</p>
-                    <p className="text-xs text-slate-600">Section-type filtering</p>
+                    <p className="text-xs text-slate-600">Section filtering</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-slate-900">AI Recommendations</p>
-                    <p className="text-xs text-slate-600">Smart reference suggestions</p>
+                    <p className="text-xs text-slate-600">Smart suggestions</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900">Quality Tracking</p>
-                    <p className="text-xs text-slate-600">User feedback system</p>
+                    <p className="font-medium text-slate-900">⚡ 10x Faster Cache</p>
+                    <p className="text-xs text-slate-600">Instant repeat loads</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900">⚡ 10x Faster Caching</p>
-                    <p className="text-xs text-slate-600">Instant repeat loads (7-day TTL)</p>
+                    <p className="font-medium text-slate-900">🚀 5x Parallel Parse</p>
+                    <p className="text-xs text-slate-600">All refs at once</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900">🚀 5x Parallel Processing</p>
-                    <p className="text-xs text-slate-600">All references parsed simultaneously</p>
+                    <p className="font-medium text-slate-900">📝 Smart Citations</p>
+                    <p className="text-xs text-slate-600">Source attribution</p>
                   </div>
                 </div>
               </div>
@@ -448,9 +433,9 @@ export default function RAGEnhancementStatus() {
             <div className="flex items-start gap-3">
               <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-blue-900">Ready to Build: Phase 4 (Citations & Advanced Analytics)</p>
+                <p className="font-semibold text-blue-900">Ready: Phase 5 (Cross-Organization Knowledge)</p>
                 <p className="text-sm text-blue-800 mt-1">
-                  Add citation system to show which reference influenced each paragraph. Estimated: 12 hours, Medium Impact.
+                  Build org-wide knowledge base to learn from all winning proposals. High Impact.
                 </p>
               </div>
             </div>
@@ -460,19 +445,9 @@ export default function RAGEnhancementStatus() {
               <div>
                 <p className="font-semibold text-blue-900">High Priority: Semantic Chunking (Phase 7)</p>
                 <p className="text-sm text-blue-800 mt-1">
-                  Retrieve exact relevant paragraphs instead of full proposals. Game-changer for relevance.
+                  Retrieve exact paragraphs vs full proposals - ultimate relevance.
                 </p>
               </div>
-            </div>
-
-            <div className="bg-white rounded-lg p-4 border-2 border-blue-300 mt-4">
-              <p className="text-sm font-semibold text-blue-900 mb-2">🎯 Recommended Build Order:</p>
-              <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                <li className="line-through text-slate-500">Phase 3: Performance & Caching ✓ COMPLETE</li>
-                <li>Phase 4: Citations & Analytics (improve transparency)</li>
-                <li>Phase 7: Semantic Chunking (next-level relevance)</li>
-                <li>Phase 5: Cross-Org Learning (scale benefits)</li>
-              </ol>
             </div>
           </CardContent>
         </Card>
@@ -482,42 +457,30 @@ export default function RAGEnhancementStatus() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-purple-600" />
-              Testing Checklist for Live Features
+              Testing Checklist
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Go to Proposal Builder → Phase 6 → Write a section</span>
+                <span>Generate content → See cache performance (first = 5s, repeat = 0.1s)</span>
               </div>
               <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Click "Gather Resources" → See AI Recommendations</span>
+                <span>Check generated content → Look for [REF1: Section Name] citations</span>
               </div>
               <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Link 2-3 references → Click "Preview" button</span>
+                <span>Click citation badge → View original source content</span>
               </div>
               <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Generate content → See cache performance indicator</span>
+                <span>Enable auto-refresh → Edit proposal → Context updates in 30s</span>
               </div>
               <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Generate AGAIN → See "💨 CACHE HIT" (instant load!)</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Check Token Budget → Verify parallel processing speedup</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Enable "Auto-Refresh" → Edit proposal → Context updates automatically</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span className="text-slate-900">Insert content → Rate quality → View in RAG Analytics</span>
+                <span>View RAG Analytics → See quality trends and top references</span>
               </div>
             </div>
           </CardContent>

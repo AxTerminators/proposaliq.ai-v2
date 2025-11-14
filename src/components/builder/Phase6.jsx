@@ -46,6 +46,8 @@ import ProposalReuseIntelligence from "../content/ProposalReuseIntelligence";
 import AIWritingAssistant from "../content/AIWritingAssistant";
 import PromoteToLibraryDialog from "../proposals/PromoteToLibraryDialog"; // Added import
 import ContentLibraryQuickInsert from "../content/ContentLibraryQuickInsert";
+import CitationIndicator from "../rag/CitationIndicator";
+import SourceContentViewer from "../rag/SourceContentViewer";
 import moment from "moment"; // Added for auto-save timestamp formatting
 
 const PROPOSAL_SECTIONS = [
@@ -199,6 +201,11 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   const sectionRefs = useRef({});
 
   const [showAIAssistant, setShowAIAssistant] = useState(true);
+
+  // NEW: Citation viewing
+  const [showSourceViewer, setShowSourceViewer] = useState(false);
+  const [sourceProposalId, setSourceProposalId] = useState(null);
+  const [sourceSectionName, setSourceSectionName] = useState(null);
 
   // Enhanced context fetching with error handling
   const [contextData, setContextData] = useState({
@@ -547,6 +554,15 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
   };
 
   /**
+   * Handle viewing citation source
+   */
+  const handleViewCitationSource = (proposalId, sectionName) => {
+    setSourceProposalId(proposalId);
+    setSourceSectionName(sectionName);
+    setShowSourceViewer(true);
+  };
+
+  /**
    * Handle AI-generated content insertion from AIWritingAssistant
    * ENHANCED: Now captures and saves RAG metadata + passes sectionId for quality feedback
    */
@@ -789,30 +805,36 @@ The content should be ready to insert into the proposal document. Use HTML forma
         file_urls: fileUrls.length > 0 ? fileUrls : undefined
       });
 
-      const wordCount = result.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+      const wordCount = result.content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
 
       // Update content in state
       setSectionContent(prev => ({
         ...prev,
-        [sectionKey]: result
+        [sectionKey]: result.content
       }));
 
       // Save to database
       const existingSection = sections.find(s => s.section_type === sectionKey);
 
+      const aiGenerationMetadata = result.ai_metadata || null;
+
       if (existingSection) {
         await updateSectionMutation.mutateAsync({
           id: existingSection.id,
           data: {
-            content: result,
+            content: result.content,
             word_count: wordCount,
-            status: 'ai_generated'
+            status: 'ai_generated',
+            ai_prompt_used: prompt.substring(0, 500),
+            ai_reference_sources: aiGenerationMetadata?.ai_reference_sources || [],
+            ai_context_summary: aiGenerationMetadata?.ai_context_summary || null,
+            ai_generation_metadata: aiGenerationMetadata
           }
         });
         
         await createVersionHistory(
           existingSection.id,
-          result,
+          result.content,
           wordCount,
           isRegenerate ? 'ai_regenerated' : 'ai_generated',
           `AI ${isRegenerate ? 'regenerated' : 'generated'} content for ${sectionName}`
@@ -822,16 +844,19 @@ The content should be ready to insert into the proposal document. Use HTML forma
           proposal_id: proposalId,
           section_name: sectionName,
           section_type: sectionKey,
-          content: result,
+          content: result.content,
           word_count: wordCount,
           order: sections.length,
           status: 'ai_generated',
-          ai_prompt_used: prompt.substring(0, 500)
+          ai_prompt_used: prompt.substring(0, 500),
+          ai_reference_sources: aiGenerationMetadata?.ai_reference_sources || [],
+          ai_context_summary: aiGenerationMetadata?.ai_context_summary || null,
+          ai_generation_metadata: aiGenerationMetadata
         });
         
         await createVersionHistory(
           newSection.id,
-          result,
+          result.content,
           wordCount,
           'initial_creation',
           `Initial AI generation of ${sectionName}`
@@ -1280,6 +1305,15 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               ]
                             }}
                           />
+
+                          {/* NEW: Show citations if content has them */}
+                          {existingSection?.ai_generation_metadata?.reference_sources?.length > 0 && sectionContent[section.id] && (
+                            <CitationIndicator
+                              content={sectionContent[section.id]}
+                              referenceSources={existingSection.ai_generation_metadata.reference_sources}
+                              onViewSource={handleViewCitationSource}
+                            />
+                          )}
                         </div>
 
                         {/* AI Assistant Column - 1/3 width */}
@@ -1469,6 +1503,15 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                     ]
                                   }}
                                 />
+
+                                {/* NEW: Show citations for subsections too */}
+                                {existingSubsection?.ai_generation_metadata?.reference_sources?.length > 0 && sectionContent[subsectionKey] && (
+                                  <CitationIndicator
+                                    content={sectionContent[subsectionKey]}
+                                    referenceSources={existingSubsection.ai_generation_metadata.reference_sources}
+                                    onViewSource={handleViewCitationSource}
+                                  />
+                                )}
                               </div>
                               {/* AI Assistant Column - 1/3 width */}
                               <div className="col-span-1">
@@ -1626,6 +1669,14 @@ The content should be ready to insert into the proposal document. Use HTML forma
           }}
           organization={organization}
           onInsert={(content) => handleInsertFromLibrary(content, currentSectionForInsert)}
+        />
+
+        {/* NEW: Source Content Viewer Dialog */}
+        <SourceContentViewer
+          isOpen={showSourceViewer}
+          onClose={() => setShowSourceViewer(false)}
+          proposalId={sourceProposalId}
+          sectionName={sourceSectionName}
         />
 
         <div className="flex gap-4 pt-6 border-t">

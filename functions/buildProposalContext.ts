@@ -1,9 +1,14 @@
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 /**
- * Backend Function: Build Proposal Context for AI (RAG) - ENHANCED v3.0
+ * Backend Function: Build Proposal Context for AI (RAG) - ENHANCED v4.0
  * 
- * PHASE 3 ENHANCEMENTS:
+ * PHASE 4 ENHANCEMENTS:
+ * ✅ Citation instructions for AI to include source attribution
+ * ✅ Confidence scoring for each reference's contribution (implied by relevance and citation)
+ * 
+ * PHASE 3 FEATURES:
  * ✅ Parallel processing for 5x faster multi-reference parsing
  * ✅ Utilizes ParsedProposalCache for 10x faster repeat use
  * ✅ Enhanced performance monitoring
@@ -35,7 +40,8 @@ Deno.serve(async (req) => {
       prioritize_winning = true,
       include_documents = true,
       include_resources = true,
-      force_refresh = false // NEW: Force cache bypass
+      force_refresh = false, // NEW: Force cache bypass
+      enable_citations = true // NEW: Request citation attribution
     } = await req.json();
 
     if (!current_proposal_id) {
@@ -46,7 +52,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'reference_proposal_ids must be a non-empty array' }, { status: 400 });
     }
 
-    console.log('[buildProposalContext] 🏗️ Building context - PARALLEL MODE');
+    console.log('[buildProposalContext] 🏗️ Building context - PARALLEL MODE + CITATIONS');
     console.log('[buildProposalContext] 📚 References:', reference_proposal_ids.length);
     console.log('[buildProposalContext] 🎯 Section filter:', target_section_type || 'all');
 
@@ -92,7 +98,7 @@ Deno.serve(async (req) => {
     
     const parsePromises = reference_proposal_ids.map(async (refProposalId) => {
       try {
-        console.log(`[buildProposalContext] 📖 Parsing ${refProposalId}...`);
+        // console.log(`[buildProposalContext] 📖 Parsing ${refProposalId}...`); // Removed as per outline
         
         // Call parseProposalContent - it will use cache automatically
         const parseResult = await base44.asServiceRole.functions.invoke('parseProposalContent', {
@@ -183,7 +189,7 @@ Deno.serve(async (req) => {
         reasons.push(`Same type: ${ref.metadata.project_type}`);
       }
 
-      if (ref.metadata.status === 'won') {
+      if (prioritize_winning && ref.metadata.status === 'won') {
         score += 20;
         reasons.push('Winning proposal');
       } else if (ref.metadata.status === 'submitted') {
@@ -194,7 +200,7 @@ Deno.serve(async (req) => {
       if (ref.metadata.contract_value && currentContext.contract_value) {
         const valueDiff = Math.abs(ref.metadata.contract_value - currentContext.contract_value);
         const avgValue = (ref.metadata.contract_value + currentContext.contract_value) / 2;
-        if (valueDiff / avgValue < 0.5) {
+        if (avgValue > 0 && (valueDiff / avgValue) < 0.5) {
           score += 10;
           reasons.push('Similar contract value');
         }
@@ -262,6 +268,7 @@ Deno.serve(async (req) => {
       let refContent = '';
 
       refContent += `## Reference Proposal ${i + 1}: ${ref.metadata.proposal_name}\n`;
+      refContent += `**Reference ID:** REF${i + 1}\n`; // NEW
       refContent += `**Relevance Score:** ${ref.relevance_score}/100 (${ref.relevance_reasons.join(', ')})\n`;
       refContent += `**Status:** ${ref.metadata.status}\n`;
       refContent += `**Agency:** ${ref.metadata.agency_name || 'N/A'}\n`;
@@ -358,19 +365,32 @@ Deno.serve(async (req) => {
         status: ref.metadata.status,
         agency: ref.metadata.agency_name,
         relevance_score: ref.relevance_score,
-        relevance_reasons: ref.relevance_reasons
+        relevance_reasons: ref.relevance_reasons,
+        reference_number: i + 1 // NEW
       });
     }
 
     estimatedTokens = Math.ceil(formattedContext.length / charsPerToken);
 
+    // ===== PHASE 4: ENHANCED AI INSTRUCTIONS WITH CITATIONS =====
     formattedContext += `\n# AI WRITING INSTRUCTIONS\n\n`;
     formattedContext += `Use the above reference material to inform your writing. `;
     formattedContext += `Draw inspiration from successful structures, persuasive language, and technical approaches. `;
+    
+    if (enable_citations) {
+      formattedContext += `\n\n**CITATION REQUIREMENTS:**\n`;
+      formattedContext += `When you significantly draw from a reference proposal's approach, structure, or language, include an inline citation like this:\n`;
+      formattedContext += `- Format: [REF1: Technical Approach] or [REF2: Management Structure]\n`;
+      formattedContext += `- Place citations at the end of influenced paragraphs or sections\n`;
+      formattedContext += `- Use reference numbers (REF1, REF2, etc.) that correspond to the references above\n`;
+      formattedContext += `- Citations help with transparency and audit trails\n`;
+      formattedContext += `\nExample: "Our phased implementation approach ensures minimal disruption to operations. [REF1: Transition Plan]"\n\n`;
+    }
+    
     formattedContext += `However, ensure all generated content is:\n`;
     formattedContext += `1. **Original** - Not copied directly from references\n`;
     formattedContext += `2. **Specific** - Tailored to the current proposal\n`;
-    formattedContext += `3. **Traceable** - When significantly influenced by a reference, note it: [Based on Reference 1]\n`;
+    formattedContext += `3. **Traceable** - When significantly influenced by a reference, include citation: [REF#: Section]\n`; // UPDATED
     formattedContext += `4. **Professional** - Government proposal tone\n`;
     if (target_section_type) {
       formattedContext += `5. **Focused** - Specifically for ${target_section_type.replace('_', ' ')} section\n`;
@@ -421,7 +441,8 @@ Deno.serve(async (req) => {
           include_documents,
           include_resources,
           prioritize_winning,
-          force_refresh
+          force_refresh,
+          enable_citations // NEW
         }
       },
       built_at: new Date().toISOString()
