@@ -22,99 +22,121 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, FileText, Award, Library, ExternalLink, File, Upload, Plus, Filter, Search, Lightbulb, CheckCircle2, TrendingUp, DollarSign, Calendar, Building2, Eye, Sparkles } from "lucide-react";
+import {
+  Loader2, FileText, Award, Library, ExternalLink, File, Upload, Plus, Filter, Search, Lightbulb,
+  CheckCircle2, TrendingUp, DollarSign, Calendar, Building2, Database, XCircle, Eye, Sparkles
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import QuickResourceUpload from "./QuickResourceUpload";
-import SmartReferenceRecommender from "./SmartReferenceRecommender";
-import ReferencePreviewModal from "../../rag/ReferencePreviewModal";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import SmartReferenceDiscovery from "../content/SmartReferenceDiscovery";
 
-export default function ResourceGatheringModal({ isOpen, onClose, proposalId, onCompletion }) {
+export default function ResourceGatheringModal({ isOpen, onClose, proposalId, organizationId, onComplete }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [organization, setOrganization] = useState(null);
+  const [organization, setOrganization] = useState(null); // Keep for QuickResourceUpload and fallback org fetch
   const [currentProposal, setCurrentProposal] = useState(null);
-  
+
   const [resources, setResources] = useState([]);
   const [pastPerformance, setPastPerformance] = useState([]);
-  const [referenceProposals, setReferenceProposals] = useState([]);
+  const [allProposals, setAllProposals] = useState([]); // Renamed from referenceProposals
   const [selectedResourceIds, setSelectedResourceIds] = useState([]);
   const [selectedPPIds, setSelectedPPIds] = useState([]);
-  const [selectedReferenceIds, setSelectedReferenceIds] = useState([]);
-  
-  const [initialReferenceIds, setInitialReferenceIds] = useState([]);
+  const [selectedReferenceProposals, setSelectedReferenceProposals] = useState([]); // Renamed from selectedReferenceIds
+
+  // Track initial state to detect changes
+  const [initialSelectedReferenceProposals, setInitialSelectedReferenceProposals] = useState([]); // Renamed from initialReferenceIds
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
-
-  // NEW: Preview modal state
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [previewProposalId, setPreviewProposalId] = useState(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterResourceType, setFilterResourceType] = useState('all');
   const [filterContentCategory, setFilterContentCategory] = useState('all');
-  const [filterProposalStatus, setFilterProposalStatus] = useState('all');
+  // filterProposalStatus is removed for the reference proposals tab in favor of general search
+  // const [filterProposalStatus, setFilterProposalStatus] = useState('all');
 
-  // NEW: Show AI recommendations toggle
-  const [showRecommendations, setShowRecommendations] = useState(true);
+  // Smart Discovery state
+  const [showSmartDiscovery, setShowSmartDiscovery] = useState(true);
 
   useEffect(() => {
     if (isOpen && proposalId) {
       loadData();
     }
-  }, [isOpen, proposalId]);
+  }, [isOpen, proposalId, organizationId]); // Add organizationId to dependencies
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const user = await base44.auth.me();
-      const orgs = await base44.entities.Organization.filter(
-        { created_by: user.email },
-        '-created_date',
-        1
-      );
-      
-      if (orgs.length > 0) {
-        const org = orgs[0];
-        setOrganization(org);
+      let currentOrgId = organizationId;
+      let fetchedOrganization = null;
 
-        const proposal = await base44.entities.Proposal.get(proposalId);
-        setCurrentProposal(proposal);
-        
-        const existingRefIds = proposal.reference_proposal_ids || [];
-        setSelectedReferenceIds(existingRefIds);
-        setInitialReferenceIds(existingRefIds);
-        
-        const resourceData = await base44.entities.ProposalResource.filter(
-          { organization_id: org.id },
-          '-created_date'
+      if (!currentOrgId) {
+        // If organizationId prop is not provided, fetch user's organization
+        const user = await base44.auth.me();
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
         );
-        setResources(resourceData);
-
-        const ppData = await base44.entities.PastPerformance.filter(
-          { organization_id: org.id },
-          '-created_date'
-        );
-        setPastPerformance(ppData);
-
-        const allProposals = await base44.entities.Proposal.filter(
-          { organization_id: org.id },
-          '-updated_date',
-          100
-        );
-        
-        const completedProposals = allProposals.filter(p => 
-          p.id !== proposalId && 
-          ['won', 'submitted', 'lost'].includes(p.status)
-        );
-        
-        setReferenceProposals(completedProposals);
+        if (orgs.length > 0) {
+          fetchedOrganization = orgs[0];
+          currentOrgId = fetchedOrganization.id;
+          setOrganization(fetchedOrganization);
+        }
+      } else {
+        // If organizationId prop is provided, set a minimal org object for state if full object isn't needed
+        setOrganization({ id: organizationId });
       }
+
+      if (!currentOrgId) {
+        console.error("No organization ID available.");
+        toast.error("No organization found to load data.");
+        setLoading(false);
+        return;
+      }
+
+      // Load current proposal
+      const proposal = await base44.entities.Proposal.get(proposalId);
+      setCurrentProposal(proposal);
+
+      // Pre-select any existing reference proposals
+      const existingRefIds = proposal.reference_proposal_ids || [];
+      setSelectedReferenceProposals(existingRefIds);
+      setInitialSelectedReferenceProposals(existingRefIds);
+
+      // Load resources
+      const resourceData = await base44.entities.ProposalResource.filter(
+        { organization_id: currentOrgId },
+        '-created_date'
+      );
+      setResources(resourceData);
+
+      // Load past performance
+      const ppData = await base44.entities.PastPerformance.filter(
+        { organization_id: currentOrgId },
+        '-created_date'
+      );
+      setPastPerformance(ppData);
+
+      // Load all proposals (for references, excluding current one)
+      const allProposalsData = await base44.entities.Proposal.filter(
+        { organization_id: currentOrgId },
+        '-updated_date',
+        100 // Limit to recent 100 proposals
+      );
+
+      // Filter out the current proposal from the list of selectable references
+      const relevantProposals = allProposalsData.filter(p => p.id !== proposalId);
+
+      setAllProposals(relevantProposals);
     } catch (error) {
       console.error("Error loading data:", error);
+      toast.error("Failed to load data.");
     } finally {
       setLoading(false);
     }
@@ -136,135 +158,134 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
     );
   };
 
-  const handleReferenceToggle = (proposalId) => {
-    setSelectedReferenceIds(prev =>
-      prev.includes(proposalId)
-        ? prev.filter(id => id !== proposalId)
-        : [...prev, proposalId]
+  const toggleReferenceProposal = (propId) => { // Renamed from handleReferenceToggle
+    setSelectedReferenceProposals(prev =>
+      prev.includes(propId)
+        ? prev.filter(id => id !== propId)
+        : [...prev, propId]
     );
   };
 
   const handleResourceClick = (e, resource) => {
+    // Only open file if clicking on the title/file name area, not the checkbox
     if (e.target.type === 'checkbox') return;
-    
+
     if (resource.file_url) {
       window.open(resource.file_url, '_blank');
     }
   };
 
-  // NEW: Handle AI recommendations selection
-  const handleRecommendationsSelect = (recommendedIds) => {
-    // Add recommended IDs to selected references (avoiding duplicates)
-    setSelectedReferenceIds(prev => {
-      const newIds = [...prev];
-      recommendedIds.forEach(id => {
-        if (!newIds.includes(id)) {
-          newIds.push(id);
-        }
-      });
-      return newIds;
+  const handleAddSmartReference = (proposalIdToAdd) => {
+    setSelectedReferenceProposals(prev => {
+      if (prev.includes(proposalIdToAdd)) return prev;
+      return [...prev, proposalIdToAdd];
     });
-    
-    setShowRecommendations(false); // Collapse recommendations after selection
-  };
-
-  // NEW: Handle preview
-  const handlePreview = (e, proposalId) => {
-    e.stopPropagation();
-    setPreviewProposalId(proposalId);
-    setShowPreviewModal(true);
-  };
-
-  // NEW: Handle adding from preview
-  const handleAddFromPreview = (proposalId) => {
-    if (!selectedReferenceIds.includes(proposalId)) {
-      setSelectedReferenceIds(prev => [...prev, proposalId]);
-    }
   };
 
   const handleSave = async () => {
     try {
       setSaving(true);
-      
-      const referenceIdsChanged = 
-        JSON.stringify(selectedReferenceIds.sort()) !== 
-        JSON.stringify(initialReferenceIds.sort());
-      
-      const hasNewSelections = 
-        selectedResourceIds.length > 0 || 
-        selectedPPIds.length > 0 || 
-        selectedReferenceIds.length > 0;
-      
+
+      // CRITICAL: Detect if any changes were made
+      const referenceIdsChanged =
+        JSON.stringify(selectedReferenceProposals.sort()) !==
+        JSON.stringify(initialSelectedReferenceProposals.sort());
+
+      const hasNewSelections =
+        selectedResourceIds.length > 0 ||
+        selectedPPIds.length > 0 ||
+        selectedReferenceProposals.length > 0;
+
+      // Only proceed if there are actual changes or selections
       if (!referenceIdsChanged && !hasNewSelections) {
-        alert("No resources or reference proposals were selected.");
+        toast.info("No new resources, past performance, or reference proposals were selected or changed.");
         setSaving(false);
         return;
       }
-      
-      if (selectedReferenceIds.length > 0 || referenceIdsChanged) { // Ensure update if IDs were removed
+
+      // Save reference proposal IDs to the current proposal
+      // Always update if any reference proposals are selected, or if they were changed
+      if (selectedReferenceProposals.length > 0 || referenceIdsChanged) {
         await base44.entities.Proposal.update(proposalId, {
-          reference_proposal_ids: selectedReferenceIds
+          reference_proposal_ids: selectedReferenceProposals
         });
-        
-        console.log('[ResourceGatheringModal] ✅ Saved reference proposals:', selectedReferenceIds);
+
+        console.log('[ResourceGatheringModal] ✅ Saved reference proposals:', selectedReferenceProposals);
       }
-      
+
       // TODO: In the future, properly link resources and past performance to proposals
-      
-      const successMessage = `✅ Successfully linked:\n• ${selectedResourceIds.length} resources\n• ${selectedPPIds.length} past performance projects\n• ${selectedReferenceIds.length} reference proposals\n\nThese will be available to the AI writer when generating content.`;
-      
-      alert(successMessage);
-      
-      if (onCompletion) {
-        onCompletion();
+
+      const successMessage = `✅ Successfully linked:\n• ${selectedResourceIds.length} resources\n• ${selectedPPIds.length} past performance projects\n• ${selectedReferenceProposals.length} reference proposals\n\nThese will be available to the AI writer when generating content.`;
+
+      toast.success(successMessage);
+
+      // Call onComplete to mark checklist item as complete
+      if (onComplete) {
+        onComplete();
       } else {
         onClose();
       }
     } catch (error) {
       console.error("Error saving:", error);
-      alert("Error saving. Please try again.");
+      toast.error("Error saving. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
+  // Helper to format resource display name
   const getResourceDisplayName = (resource) => {
     if (resource.title) return resource.title;
     if (resource.file_name) return resource.file_name;
     return resource.resource_type?.replace('_', ' ') || 'Untitled Resource';
   };
 
+  // Helper to format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  // Filter resources based on search and filters
   const filteredResources = resources.filter(resource => {
-    const matchesSearch = !searchQuery || 
+    // Search filter
+    const matchesSearch = !searchQuery ||
       getResourceDisplayName(resource).toLowerCase().includes(searchQuery.toLowerCase()) ||
       resource.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       resource.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    // Resource type filter
     const matchesType = filterResourceType === 'all' || resource.resource_type === filterResourceType;
+
+    // Content category filter
     const matchesCategory = filterContentCategory === 'all' || resource.content_category === filterContentCategory;
 
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  const filteredReferenceProposals = referenceProposals.filter(proposal => {
-    return filterProposalStatus === 'all' || proposal.status === filterProposalStatus;
+  // Filter proposals based on search query for the "Reference Proposals" tab
+  const filteredProposals = allProposals.filter(proposal => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      proposal.proposal_name?.toLowerCase().includes(searchLower) ||
+      proposal.project_title?.toLowerCase().includes(searchLower) ||
+      proposal.agency_name?.toLowerCase().includes(searchLower) ||
+      proposal.solicitation_number?.toLowerCase().includes(searchLower) ||
+      proposal.status?.toLowerCase().includes(searchLower)
+    );
   });
 
+  // Handle successful upload - sets flag that new resource was added
   const handleUploadSuccess = () => {
     console.log('[ResourceGatheringModal] Resource uploaded successfully, reloading...');
-    loadData();
+    loadData(); // Refresh the resources list
   };
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <div className="flex items-start justify-between">
               <div>
@@ -287,213 +308,164 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <Tabs defaultValue="reference-proposals" className="py-4">
+            <Tabs defaultValue="references" className="flex-1 flex flex-col overflow-hidden">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="reference-proposals">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Previous Proposals ({filteredReferenceProposals.length})
+                <TabsTrigger value="references" className="gap-2">
+                  <Database className="w-4 h-4" />
+                  Reference Proposals ({allProposals.length})
                 </TabsTrigger>
-                <TabsTrigger value="resources">
-                  <Library className="w-4 h-4 mr-2" />
+                <TabsTrigger value="resources" className="gap-2">
+                  <Library className="w-4 h-4" />
                   Resources ({filteredResources.length})
                 </TabsTrigger>
-                <TabsTrigger value="past-performance">
-                  <Award className="w-4 h-4 mr-2" />
+                <TabsTrigger value="past-performance" className="gap-2">
+                  <Award className="w-4 h-4" />
                   Past Performance ({pastPerformance.length})
                 </TabsTrigger>
               </TabsList>
 
-              {/* REFERENCE PROPOSALS TAB - ENHANCED WITH RECOMMENDATIONS */}
-              <TabsContent value="reference-proposals" className="space-y-4">
-                {/* Instructional Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Lightbulb className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-blue-900 mb-1">AI Reference Material</h4>
-                      <p className="text-sm text-blue-800 leading-relaxed">
-                        Select past proposals to give the AI writer context and examples from your previous work. 
-                        The AI will reference structure, language, and successful approaches from these proposals 
-                        when generating new content, while ensuring all output is original and tailored to your current proposal.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* NEW: AI RECOMMENDATIONS SECTION */}
-                {currentProposal && referenceProposals.length > 0 && showRecommendations && (
-                  <SmartReferenceRecommender
-                    currentProposal={currentProposal}
-                    availableProposals={referenceProposals}
-                    onRecommendationsSelect={handleRecommendationsSelect}
-                    targetSectionType={null}
+              <TabsContent value="references" className="flex-1 overflow-y-auto space-y-4 mt-4">
+                {/* NEW: Smart Discovery Section */}
+                {showSmartDiscovery && (
+                  <SmartReferenceDiscovery
+                    proposalId={proposalId}
+                    organizationId={organizationId || organization?.id}
+                    currentReferences={selectedReferenceProposals}
+                    onAddReference={handleAddSmartReference}
                   />
                 )}
 
-                {/* Status Filter and Toggle Recommendations */}
-                <div className="flex justify-between items-center">
-                  <Select value={filterProposalStatus} onValueChange={setFilterProposalStatus}>
-                    <SelectTrigger className="w-48">
-                      <Filter className="w-4 h-4 mr-2" />
-                      <SelectValue placeholder="Filter by Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="won">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                          Won
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="submitted">Submitted</SelectItem>
-                      <SelectItem value="lost">Lost</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-semibold">All Proposals</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Search proposals..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-64"
+                      />
+                      <Search className="w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
 
-                  {/* NEW: Toggle Recommendations */}
-                  {referenceProposals.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowRecommendations(!showRecommendations)}
-                      className="gap-2 border-purple-300"
-                    >
-                      <Sparkles className="w-4 h-4 text-purple-600" />
-                      {showRecommendations ? 'Hide' : 'Show'} AI Recommendations
-                    </Button>
+                  {filteredProposals.length === 0 ? (
+                    <Card className="border-slate-200">
+                      <CardContent className="p-8 text-center">
+                        <Database className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                        <p className="text-slate-600">No proposals found matching your search.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredProposals.map((proposal) => {
+                        const isSelected = selectedReferenceProposals.includes(proposal.id);
+
+                        return (
+                          <Card
+                            key={proposal.id}
+                            className={cn(
+                              "cursor-pointer transition-all hover:shadow-md",
+                              isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'border'
+                            )}
+                            onClick={() => toggleReferenceProposal(proposal.id)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleReferenceProposal(proposal.id)}
+                                  className="mt-1"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  {/* Proposal Name and Status */}
+                                  <div className="flex items-start justify-between gap-3 mb-2">
+                                    <div className="flex-1">
+                                      <h4 className="font-semibold text-slate-900 mb-1">
+                                        {proposal.proposal_name}
+                                      </h4>
+                                      {proposal.project_title && (
+                                        <p className="text-sm text-slate-700 mb-1">
+                                          {proposal.project_title}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <Badge
+                                      className={cn(
+                                        "flex-shrink-0",
+                                        proposal.status === 'won' && "bg-green-100 text-green-800 border-green-300",
+                                        proposal.status === 'submitted' && "bg-blue-100 text-blue-800 border-blue-300",
+                                        proposal.status === 'lost' && "bg-slate-100 text-slate-800 border-slate-300",
+                                        proposal.status === 'draft' && "bg-yellow-100 text-yellow-800 border-yellow-300",
+                                        proposal.status === 'in_progress' && "bg-purple-100 text-purple-800 border-purple-300"
+                                      )}
+                                    >
+                                      {proposal.status === 'won' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                      {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1).replace('_', ' ')}
+                                    </Badge>
+                                  </div>
+
+                                  {/* Metadata */}
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+                                    {proposal.agency_name && (
+                                      <div className="flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                        <span className="truncate">{proposal.agency_name}</span>
+                                      </div>
+                                    )}
+                                    {proposal.contract_value && (
+                                      <div className="flex items-center gap-1.5">
+                                        <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                                        <span>${(proposal.contract_value).toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {proposal.due_date && (
+                                      <div className="flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                        <span>Due: {formatDate(proposal.due_date)}</span>
+                                      </div>
+                                    )}
+                                    {proposal.solicitation_number && (
+                                      <div className="flex items-center gap-1.5">
+                                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                        <span className="truncate">{proposal.solicitation_number}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Project Type Badge */}
+                                  {proposal.project_type && (
+                                    <div className="mt-2">
+                                      <Badge variant="outline" className="text-xs">
+                                        {proposal.project_type}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Selection Summary */}
+                  {selectedReferenceProposals.length > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-sm text-green-800">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="font-medium">
+                          {selectedReferenceProposals.length} proposal{selectedReferenceProposals.length !== 1 ? 's' : ''} selected for AI reference
+                        </span>
+                      </div>
+                      <p className="text-xs text-green-700 mt-1 ml-6">
+                        These will be analyzed by the AI writer to inform content generation
+                      </p>
+                    </div>
                   )}
                 </div>
-
-                {/* Reference Proposals List */}
-                {filteredReferenceProposals.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
-                    <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                    {referenceProposals.length === 0 ? (
-                      <p>No completed proposals found. Complete some proposals to use them as AI reference material.</p>
-                    ) : (
-                      <p>No proposals match the selected status filter.</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {filteredReferenceProposals.map(proposal => (
-                      <div 
-                        key={proposal.id} 
-                        className={cn(
-                          "flex items-start space-x-3 p-4 border-2 rounded-lg transition-all",
-                          selectedReferenceIds.includes(proposal.id) 
-                            ? "border-blue-300 bg-blue-50" 
-                            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                        )}
-                      >
-                        <Checkbox
-                          id={`ref-${proposal.id}`}
-                          checked={selectedReferenceIds.includes(proposal.id)}
-                          onCheckedChange={() => handleReferenceToggle(proposal.id)}
-                          className="mt-1"
-                        />
-                        <label htmlFor={`ref-${proposal.id}`} className="flex-1 cursor-pointer">
-                          {/* Proposal Name and Status */}
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-slate-900 mb-1">
-                                {proposal.proposal_name}
-                              </h4>
-                              {proposal.project_title && (
-                                <p className="text-sm text-slate-700 mb-1">
-                                  {proposal.project_title}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <Badge 
-                                className={cn(
-                                  "flex-shrink-0",
-                                  proposal.status === 'won' && "bg-green-100 text-green-800 border-green-300",
-                                  proposal.status === 'submitted' && "bg-blue-100 text-blue-800 border-blue-300",
-                                  proposal.status === 'lost' && "bg-slate-100 text-slate-800 border-slate-300"
-                                )}
-                              >
-                                {proposal.status === 'won' && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
-                              </Badge>
-                              
-                              {/* NEW: Preview Button */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => handlePreview(e, proposal.id)}
-                                className="h-7 text-xs text-blue-600 hover:bg-blue-50"
-                              >
-                                <Eye className="w-3 h-3 mr-1" />
-                                Preview
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Metadata */}
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
-                            {proposal.agency_name && (
-                              <div className="flex items-center gap-1.5">
-                                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="truncate">{proposal.agency_name}</span>
-                              </div>
-                            )}
-                            {proposal.contract_value && (
-                              <div className="flex items-center gap-1.5">
-                                <DollarSign className="w-3.5 h-3.5 text-slate-400" />
-                                <span>${(proposal.contract_value / 1000000).toFixed(1)}M</span>
-                              </div>
-                            )}
-                            {proposal.due_date && (
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Due: {formatDate(proposal.due_date)}</span>
-                              </div>
-                            )}
-                            {proposal.solicitation_number && (
-                              <div className="flex items-center gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="truncate">{proposal.solicitation_number}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Project Type Badge */}
-                          {proposal.project_type && (
-                            <div className="mt-2">
-                              <Badge variant="outline" className="text-xs">
-                                {proposal.project_type}
-                              </Badge>
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Results count */}
-                {filterProposalStatus !== 'all' && (
-                  <p className="text-xs text-slate-500 text-center pt-2">
-                    Showing {filteredReferenceProposals.length} of {referenceProposals.length} proposals
-                  </p>
-                )}
-
-                {/* Selection Summary */}
-                {selectedReferenceIds.length > 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm text-green-800">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span className="font-medium">
-                        {selectedReferenceIds.length} proposal{selectedReferenceIds.length !== 1 ? 's' : ''} selected for AI reference
-                      </span>
-                    </div>
-                    <p className="text-xs text-green-700 mt-1 ml-6">
-                      These will be analyzed by the AI writer to inform content generation
-                    </p>
-                  </div>
-                )}
               </TabsContent>
 
               <TabsContent value="resources" className="space-y-3">
@@ -508,7 +480,7 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
                       className="pl-9"
                     />
                   </div>
-                  
+
                   <Select value={filterResourceType} onValueChange={setFilterResourceType}>
                     <SelectTrigger className="w-full sm:w-48">
                       <Filter className="w-4 h-4 mr-2" />
@@ -577,8 +549,8 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {filteredResources.map(resource => (
-                      <div 
-                        key={resource.id} 
+                      <div
+                        key={resource.id}
                         className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-slate-50 transition-colors group"
                       >
                         <Checkbox
@@ -588,7 +560,7 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
                           className="mt-1"
                         />
                         <div className="flex-1">
-                          <div 
+                          <div
                             onClick={(e) => handleResourceClick(e, resource)}
                             className={resource.file_url ? "cursor-pointer" : ""}
                           >
@@ -603,13 +575,13 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
                                 <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                               )}
                             </div>
-                            
+
                             {resource.description && (
                               <p className="text-xs text-slate-600 mt-1 line-clamp-2">
                                 {resource.description}
                               </p>
                             )}
-                            
+
                             <div className="flex items-center gap-2 mt-1">
                               <p className="text-xs text-slate-500 capitalize">
                                 {resource.resource_type?.replace('_', ' ')}
@@ -621,7 +593,7 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
                                 </span>
                               )}
                             </div>
-                            
+
                             {resource.tags?.length > 0 && (
                               <div className="flex gap-1 mt-2">
                                 {resource.tags.slice(0, 3).map((tag, idx) => (
@@ -694,7 +666,7 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
               <div className="text-sm text-slate-600">
                 <span className="font-medium">{selectedResourceIds.length}</span> resources, {' '}
                 <span className="font-medium">{selectedPPIds.length}</span> past performance, {' '}
-                <span className="font-medium">{selectedReferenceIds.length}</span> reference proposals
+                <span className="font-medium">{selectedReferenceProposals.length}</span> reference proposals
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={onClose} disabled={saving}>
@@ -725,14 +697,6 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId, on
         onClose={() => setShowUploadModal(false)}
         organizationId={organization?.id}
         onSuccess={handleUploadSuccess}
-      />
-
-      {/* NEW: Reference Preview Modal */}
-      <ReferencePreviewModal
-        isOpen={showPreviewModal}
-        onClose={() => setShowPreviewModal(false)}
-        proposalId={previewProposalId}
-        onSelect={handleAddFromPreview}
       />
     </>
   );

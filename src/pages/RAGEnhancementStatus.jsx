@@ -35,30 +35,10 @@ export default function RAGEnhancementStatus() {
       status: "complete",
       completion: 100,
       features: [
-        { 
-          name: "Section-Type Aware RAG", 
-          status: "complete",
-          impact: "high",
-          description: "AI now filters references by section type for 40% better relevance"
-        },
-        { 
-          name: "Intelligent Token Management", 
-          status: "complete",
-          impact: "high",
-          description: "Increased from 8K to 100K tokens - 10x more context capacity"
-        },
-        { 
-          name: "Enhanced Error Handling", 
-          status: "complete",
-          impact: "high",
-          description: "Detailed error tracking and retry capability"
-        },
-        { 
-          name: "Quality Feedback System", 
-          status: "complete",
-          impact: "high",
-          description: "Users can rate AI content to improve over time"
-        }
+        { name: "Section-Type Aware RAG", status: "complete", impact: "high", description: "AI filters by section type for 40% better relevance" },
+        { name: "Intelligent Token Management", status: "complete", impact: "high", description: "100K token capacity (10x increase)" },
+        { name: "Enhanced Error Handling", status: "complete", impact: "high", description: "Full error tracking and retry" },
+        { name: "Quality Feedback System", status: "complete", impact: "high", description: "Rate AI content for improvement" }
       ]
     },
     {
@@ -67,24 +47,9 @@ export default function RAGEnhancementStatus() {
       status: "complete",
       completion: 100,
       features: [
-        { 
-          name: "AI Reference Recommender", 
-          status: "complete",
-          impact: "high",
-          description: "Automatically suggests best reference proposals"
-        },
-        { 
-          name: "Reference Preview Modal", 
-          status: "complete",
-          impact: "medium",
-          description: "Preview proposal content before linking"
-        },
-        { 
-          name: "Token Budget Visualizer", 
-          status: "complete",
-          impact: "medium",
-          description: "Real-time token allocation breakdown"
-        }
+        { name: "AI Reference Recommender", status: "complete", impact: "high", description: "Auto-suggest best references" },
+        { name: "Reference Preview Modal", status: "complete", impact: "medium", description: "Preview before linking" },
+        { name: "Token Budget Visualizer", status: "complete", impact: "medium", description: "Real-time token breakdown" }
       ]
     },
     {
@@ -93,55 +58,31 @@ export default function RAGEnhancementStatus() {
       status: "complete",
       completion: 100,
       features: [
-        { 
-          name: "Proposal Parse Cache", 
-          status: "complete",
-          impact: "high",
-          description: "Cache parsed proposals for 10x faster repeat use - 7 day TTL"
-        },
-        { 
-          name: "Parallel Processing", 
-          status: "complete",
-          impact: "high",
-          description: "Parse multiple references simultaneously (5x faster)"
-        },
-        { 
-          name: "Incremental Context Refresh", 
-          status: "complete",
-          impact: "medium",
-          description: "Auto-update context as proposal changes (30s debounce)"
-        }
+        { name: "Proposal Parse Cache", status: "complete", impact: "high", description: "10x faster (7-day TTL)" },
+        { name: "Parallel Processing", status: "complete", impact: "high", description: "5x faster multi-ref parsing" },
+        { name: "Auto Context Refresh", status: "complete", impact: "medium", description: "30s debounced updates" }
       ]
     },
     {
       phase: 4,
-      name: "Advanced RAG Features",
+      name: "Citations & Attribution",
       status: "complete",
       completion: 100,
       features: [
-        { name: "Citation & Attribution System", status: "complete", impact: "medium", description: "Shows which reference influenced each paragraph with clickable citations" },
-        { name: "RAG Analytics Dashboard", status: "complete", impact: "medium", description: "Comprehensive analytics on RAG effectiveness" },
-        { name: "Source Content Viewer", status: "complete", impact: "medium", description: "View original source when clicking citations" }
+        { name: "Citation System", status: "complete", impact: "medium", description: "Source attribution with [REF#]" },
+        { name: "RAG Analytics", status: "complete", impact: "medium", description: "Quality trends dashboard" },
+        { name: "Source Viewer", status: "complete", impact: "medium", description: "Click citations to view original" }
       ]
     },
     {
       phase: 5,
       name: "Cross-Organization RAG",
-      status: "planned",
-      completion: 0,
+      status: "complete",
+      completion: 100,
       features: [
-        { 
-          name: "Organization-Wide Knowledge Base", 
-          status: "planned",
-          impact: "high",
-          description: "Learn from all winning proposals"
-        },
-        { 
-          name: "Cross-Client RAG", 
-          status: "planned",
-          impact: "high",
-          description: "Share winning approaches across clients"
-        }
+        { name: "Smart Proposal Discovery", status: "complete", impact: "high", description: "Auto-find similar proposals via AI scoring" },
+        { name: "Organization Knowledge Base", status: "complete", impact: "high", description: "Learn from all org proposals automatically" },
+        { name: "Privacy-Aware Cross-Client", status: "complete", impact: "high", description: "Consultant firms share across clients safely" }
       ]
     },
     {
@@ -150,58 +91,28 @@ export default function RAGEnhancementStatus() {
       status: "planned",
       completion: 0,
       features: [
-        { 
-          name: "A/B Content Comparison", 
-          status: "planned",
-          impact: "medium",
-          description: "Test RAG vs non-RAG side-by-side"
-        },
-        { 
-          name: "RAG Effectiveness Report", 
-          status: "planned",
-          impact: "medium",
-          description: "Monthly automated impact reports"
-        }
+        { name: "A/B Content Comparison", status: "planned", impact: "medium", description: "Test RAG vs non-RAG" },
+        { name: "Effectiveness Reports", status: "planned", impact: "medium", description: "Monthly impact analysis" }
       ]
     },
     {
       phase: 7,
-      name: "Semantic Search & Embeddings",
+      name: "Semantic Search",
       status: "planned",
       completion: 0,
       features: [
-        { 
-          name: "Semantic Chunking", 
-          status: "planned",
-          impact: "high",
-          description: "Retrieve exact relevant paragraphs, not full proposals"
-        },
-        { 
-          name: "Multi-Modal RAG", 
-          status: "planned",
-          impact: "medium",
-          description: "Extract tables, charts, diagrams"
-        }
+        { name: "Semantic Chunking", status: "planned", impact: "high", description: "Retrieve exact paragraphs" },
+        { name: "Multi-Modal RAG", status: "planned", impact: "medium", description: "Extract tables/charts" }
       ]
     },
     {
       phase: 8,
-      name: "Advanced Features",
+      name: "Advanced AI",
       status: "planned",
       completion: 0,
       features: [
-        { 
-          name: "Adaptive Learning", 
-          status: "planned",
-          impact: "high",
-          description: "System learns which references work best"
-        },
-        { 
-          name: "Quality Predictor", 
-          status: "planned",
-          impact: "medium",
-          description: "Predict reference usefulness before parsing"
-        }
+        { name: "Adaptive Learning", status: "planned", impact: "high", description: "System learns from usage" },
+        { name: "Quality Predictor", status: "planned", impact: "medium", description: "Predict reference value" }
       ]
     }
   ];
@@ -313,49 +224,28 @@ export default function RAGEnhancementStatus() {
             <div className="bg-white rounded-lg p-4 border-2 border-green-300">
               <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
                 <Award className="w-5 h-5" />
-                Key Achievements Unlocked
+                Phase 5 Unlocked: Organization Intelligence
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900">10x Context Capacity</p>
-                    <p className="text-xs text-slate-600">8K → 100K tokens</p>
+                    <p className="font-medium text-slate-900">🤖 Smart Discovery</p>
+                    <p className="text-xs text-slate-600">AI finds relevant references automatically</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900">40% Better Relevance</p>
-                    <p className="text-xs text-slate-600">Section filtering</p>
+                    <p className="font-medium text-slate-900">🏢 Org Knowledge Base</p>
+                    <p className="text-xs text-slate-600">Learn from all past wins</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900">AI Recommendations</p>
-                    <p className="text-xs text-slate-600">Smart suggestions</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">⚡ 10x Faster Cache</p>
-                    <p className="text-xs text-slate-600">Instant repeat loads</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">🚀 5x Parallel Parse</p>
-                    <p className="text-xs text-slate-600">All refs at once</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-slate-900">📝 Smart Citations</p>
-                    <p className="text-xs text-slate-600">Source attribution</p>
+                    <p className="font-medium text-slate-900">🔒 Privacy-Aware</p>
+                    <p className="text-xs text-slate-600">Consultant firms share across clients safely</p>
                   </div>
                 </div>
               </div>
@@ -426,26 +316,16 @@ export default function RAGEnhancementStatus() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-900">
               <Target className="w-6 h-6" />
-              Next Steps
+              Next: Phase 7 (Semantic Chunking)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-start gap-3">
-              <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-blue-900">Ready: Phase 5 (Cross-Organization Knowledge)</p>
-                <p className="text-sm text-blue-800 mt-1">
-                  Build org-wide knowledge base to learn from all winning proposals. High Impact.
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3">
               <TrendingUp className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-blue-900">High Priority: Semantic Chunking (Phase 7)</p>
+                <p className="font-semibold text-blue-900">Highest Impact: Semantic Chunking</p>
                 <p className="text-sm text-blue-800 mt-1">
-                  Retrieve exact paragraphs vs full proposals - ultimate relevance.
+                  Retrieve exact relevant paragraphs instead of full proposals. Game-changing relevance boost.
                 </p>
               </div>
             </div>
