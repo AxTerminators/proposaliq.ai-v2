@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -57,7 +58,7 @@ export default function LandingPage() {
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">ProposalIQ.ai</h1>
+              <h1 className="text-xl font-bold text-slate-900">GovHQ.ai</h1>
               <p className="text-xs text-slate-500">AI-Powered Proposals</p>
             </div>
           </div>
@@ -452,7 +453,7 @@ export default function LandingPage() {
               Trusted by Government Contractors
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              See what our customers are saying about ProposalIQ.ai
+              See what our customers are saying about GovHQ.ai
             </p>
           </div>
 
@@ -465,7 +466,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-slate-700 mb-4 italic">
-                  "ProposalIQ.ai cut our proposal writing time in half. The AI-generated content is surprisingly accurate and matches our writing style perfectly."
+                  "GovHQ.ai cut our proposal writing time in half. The AI-generated content is surprisingly accurate and matches our writing style perfectly."
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
@@ -509,7 +510,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-slate-700 mb-4 italic">
-                  "Our win rate increased by 35% since adopting ProposalIQ.ai. The strategic recommendations are game-changing."
+                  "Our win rate increased by 35% since adopting GovHQ.ai. The strategic recommendations are game-changing."
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
@@ -567,7 +568,7 @@ export default function LandingPage() {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <span className="font-bold text-lg">ProposalIQ.ai</span>
+                <span className="font-bold text-lg">GovHQ.ai</span>
               </div>
               <p className="text-slate-400 text-sm">
                 AI-powered proposal writing platform for government contractors.
@@ -607,7 +608,7 @@ export default function LandingPage() {
 
           <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-slate-400 text-sm">
-              © 2024 ProposalIQ.ai. All rights reserved.
+              © 2024 GovHQ.ai. All rights reserved.
             </p>
             <div className="flex gap-6">
               <a href="#" className="text-slate-400 hover:text-white transition-colors">

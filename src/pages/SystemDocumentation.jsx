@@ -272,7 +272,7 @@ export default function SystemDocumentation() {
       <CardHeader>
         <CardTitle>8-Phase Workflow Overview</CardTitle>
         <CardDescription>
-          ProposalIQ.ai uses an 8-phase workflow to guide users through the entire proposal development process
+          GovHQ.ai uses an 8-phase workflow to guide users through the entire proposal development process
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -747,10 +747,10 @@ const proposal = proposals[0];`}
       title: "System Overview",
       icon: FileText,
       content: `
-        <h2>ProposalIQ.ai - Complete System Documentation</h2>
+        <h2>GovHQ.ai - Complete System Documentation</h2>
         
         <h3>Platform Architecture</h3>
-        <p>ProposalIQ.ai is a comprehensive proposal management platform built with React, Base44 backend services, and AI integration. The system consists of:</p>
+        <p>GovHQ.ai is a comprehensive proposal management platform built with React, Base44 backend services, and AI integration. The system consists of:</p>
         <ul>
           <li><strong>8-Phase Proposal Builder:</strong> Sequential workflow for building proposals (legacy, kept for reference)</li>
           <li><strong>15-Column Kanban Board:</strong> Visual workflow management with integrated 8-phase process (current system)</li>
@@ -787,7 +787,7 @@ const proposal = proposals[0];`}
           <CardHeader>
             <CardTitle>System Overview</CardTitle>
             <CardDescription>
-              High-level architecture and evolution of the ProposalIQ.ai platform.
+              High-level architecture and evolution of the GovHQ.ai platform.
             </CardDescription>
           </CardHeader>
           <CardContent>

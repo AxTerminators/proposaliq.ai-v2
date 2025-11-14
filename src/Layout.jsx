@@ -320,7 +320,7 @@ function LayoutContent({ children, currentPageName }) {
                     <Sparkles className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
+                    <h2 className="font-bold text-slate-900 text-lg">GovHQ.ai</h2>
                     <p className="text-xs text-slate-500">AI-Powered Proposals</p>
                   </div>
                 </div>
@@ -678,7 +678,7 @@ function LayoutContent({ children, currentPageName }) {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="font-bold text-slate-900 text-lg">ProposalIQ.ai</h2>
+                <h2 className="font-bold text-slate-900 text-lg">GovHQ.ai</h2>
                 <p className="text-xs text-slate-500">AI-Powered Proposals</p>
               </div>
             </div>
@@ -885,7 +885,7 @@ function LayoutContent({ children, currentPageName }) {
 
                 <div className="flex items-center gap-2 lg:hidden">
                   <Sparkles className="w-5 h-5 text-blue-600" />
-                  <h1 className="text-base md:text-lg font-bold text-slate-900">ProposalIQ.ai</h1>
+                  <h1 className="text-base md:text-lg font-bold text-slate-900">GovHQ.ai</h1>
                 </div>
               </div>
 
