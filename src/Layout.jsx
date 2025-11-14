@@ -321,7 +321,7 @@ function LayoutContent({ children, currentPageName }) {
                   </div>
                   <div>
                     <h2 className="font-bold text-slate-900 text-lg">GovHQ.ai</h2>
-                    <p className="text-xs text-slate-500">AI-Powered Proposals</p>
+                    <p className="text-xs text-slate-500">AI-Powered Command Center</p>
                   </div>
                 </div>
 
@@ -679,7 +679,7 @@ function LayoutContent({ children, currentPageName }) {
               </div>
               <div>
                 <h2 className="font-bold text-slate-900 text-lg">GovHQ.ai</h2>
-                <p className="text-xs text-slate-500">AI-Powered Proposals</p>
+                <p className="text-xs text-slate-500">AI-Powered Command Center</p>
               </div>
             </div>
             <button

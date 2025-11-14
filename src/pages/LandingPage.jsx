@@ -59,7 +59,7 @@ export default function LandingPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">GovHQ.ai</h1>
-              <p className="text-xs text-slate-500">AI-Powered Proposals</p>
+              <p className="text-xs text-slate-500">AI-Powered Command Center</p>
             </div>
           </div>
           
