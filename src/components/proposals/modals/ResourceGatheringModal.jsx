@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { createPageUrl } from "@/utils";
@@ -27,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import QuickResourceUpload from "./QuickResourceUpload";
 import { cn } from "@/lib/utils";
 
-export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) {
+export default function ResourceGatheringModal({ isOpen, onClose, proposalId, onCompletion }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [organization, setOrganization] = useState(null);
@@ -39,6 +40,9 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
   const [selectedResourceIds, setSelectedResourceIds] = useState([]);
   const [selectedPPIds, setSelectedPPIds] = useState([]);
   const [selectedReferenceIds, setSelectedReferenceIds] = useState([]);
+  
+  // NEW: Track initial state to detect changes
+  const [initialReferenceIds, setInitialReferenceIds] = useState([]);
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -74,10 +78,10 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
         setCurrentProposal(proposal);
         
         // Pre-select any existing reference proposals
-        if (proposal.reference_proposal_ids?.length > 0) {
-          setSelectedReferenceIds(proposal.reference_proposal_ids);
-        }
-
+        const existingRefIds = proposal.reference_proposal_ids || [];
+        setSelectedReferenceIds(existingRefIds);
+        setInitialReferenceIds(existingRefIds); // Track initial state
+        
         // Load resources
         const resourceData = await base44.entities.ProposalResource.filter(
           { organization_id: org.id },
@@ -93,7 +97,6 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
         setPastPerformance(ppData);
 
         // Load reference proposals (completed proposals, excluding current one)
-        // Fetch proposals with statuses: won, submitted, lost
         const allProposals = await base44.entities.Proposal.filter(
           { organization_id: org.id },
           '-updated_date',
@@ -152,6 +155,23 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
     try {
       setSaving(true);
       
+      // CRITICAL: Detect if any changes were made
+      const referenceIdsChanged = 
+        JSON.stringify(selectedReferenceIds.sort()) !== 
+        JSON.stringify(initialReferenceIds.sort());
+      
+      const hasNewSelections = 
+        selectedResourceIds.length > 0 || 
+        selectedPPIds.length > 0 || 
+        selectedReferenceIds.length > 0;
+      
+      // UPDATED: Only proceed if there are actual changes or selections
+      if (!referenceIdsChanged && !hasNewSelections) {
+        alert("No new resources, past performance, or reference proposals were selected or changed.");
+        setSaving(false);
+        return;
+      }
+      
       // Save reference proposal IDs to the current proposal
       if (selectedReferenceIds.length > 0) {
         await base44.entities.Proposal.update(proposalId, {
@@ -163,8 +183,16 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
       
       // TODO: In the future, properly link resources and past performance to proposals
       
-      alert(`✅ Successfully linked:\n• ${selectedResourceIds.length} resources\n• ${selectedPPIds.length} past performance projects\n• ${selectedReferenceIds.length} reference proposals\n\nThese will be available to the AI writer when generating content.`);
-      onClose();
+      const successMessage = `✅ Successfully linked:\n• ${selectedResourceIds.length} resources\n• ${selectedPPIds.length} past performance projects\n• ${selectedReferenceIds.length} reference proposals\n\nThese will be available to the AI writer when generating content.`;
+      
+      alert(successMessage);
+      
+      // NEW: Call onCompletion to mark checklist item as complete
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        onClose();
+      }
     } catch (error) {
       console.error("Error saving:", error);
       alert("Error saving. Please try again.");
@@ -209,7 +237,7 @@ export default function ResourceGatheringModal({ isOpen, onClose, proposalId }) 
     return filterProposalStatus === 'all' || proposal.status === filterProposalStatus;
   });
 
-  // Handle successful upload
+  // NEW: Handle successful upload - sets flag that new resource was added
   const handleUploadSuccess = () => {
     console.log('[ResourceGatheringModal] Resource uploaded successfully, reloading...');
     loadData(); // Refresh the resources list
