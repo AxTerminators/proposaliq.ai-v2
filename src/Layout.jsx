@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -92,6 +93,8 @@ const TOOLS_ITEMS = [
 const SETTINGS_ITEMS = [
   { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
   { title: "Team", url: createPageUrl("Team"), icon: Users },
+  { title: "RAG Performance", url: createPageUrl("RAGPerformanceDashboard"), icon: BarChart3 },
+  { title: "RAG Status", url: createPageUrl("RAGEnhancementStatus"), icon: Award },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
   { title: "System Verification", url: createPageUrl("SystemVerification"), icon: CheckSquare },
   { title: "System Docs", url: createPageUrl("SystemDocumentation"), icon: BookOpen },
