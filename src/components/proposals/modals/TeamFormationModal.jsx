@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default function TeamFormationModal({ isOpen, onClose, proposalId }) {
+export default function TeamFormationModal({ isOpen, onClose, proposalId, onCompletion }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -114,14 +115,30 @@ export default function TeamFormationModal({ isOpen, onClose, proposalId }) {
   };
 
   const handleSave = async () => {
+    // Validate that prime contractor is selected
+    if (!proposalData.prime_contractor_id) {
+      alert("Please select a prime contractor before saving.");
+      return;
+    }
+
     try {
       setSaving(true);
+      
       await base44.entities.Proposal.update(proposalId, {
         prime_contractor_id: proposalData.prime_contractor_id,
         prime_contractor_name: proposalData.prime_contractor_name,
         teaming_partner_ids: proposalData.teaming_partner_ids,
       });
-      onClose();
+      
+      console.log('[TeamFormationModal] ✅ Team formation saved successfully');
+      
+      // NEW: Call onCompletion to mark checklist item as complete
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        // Fallback if no onCompletion callback provided
+        onClose();
+      }
     } catch (error) {
       console.error("Error saving proposal:", error);
       alert("Error saving proposal. Please try again.");
@@ -323,7 +340,6 @@ export default function TeamFormationModal({ isOpen, onClose, proposalId }) {
               )}
             </div>
 
-            {/* Help Text */}
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-900">
                 <strong>💡 Tip:</strong> You can add new partners on-the-fly! Click "Add New Partner" to upload a capability statement and use AI to auto-populate the profile.

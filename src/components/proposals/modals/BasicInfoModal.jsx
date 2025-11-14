@@ -29,7 +29,7 @@ const PROJECT_TYPES = [
   { value: 'Other', label: 'Other' }
 ];
 
-export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
+export default function BasicInfoModal({ isOpen, onClose, proposalId, onCompletion }) {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -101,12 +101,20 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
         contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null
       };
 
+      // **CRITICAL: Only call onCompletion after successful save**
       await base44.entities.Proposal.update(proposalId, updateData);
 
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       
-      console.log('[BasicInfoModal] ✅ Proposal basic info saved');
-      onClose();
+      console.log('[BasicInfoModal] ✅ Proposal basic info saved successfully');
+      
+      // **NEW: Call onCompletion to mark checklist item as complete**
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        // Fallback if no onCompletion callback provided
+        onClose();
+      }
     } catch (error) {
       console.error('[BasicInfoModal] Error saving proposal:', error);
       alert('Failed to save proposal information. Please try again.');
@@ -202,7 +210,6 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId }) {
               />
             </div>
 
-            {/* NEW: Due Date and Contract Value */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="due_date" className="flex items-center gap-2">

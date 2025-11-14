@@ -688,49 +688,71 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     });
   };
 
-  const handleModalClose = async (checklistItemId = null) => {
-    console.log('[ProposalCardModal] 🚪 Closing modal, checklist item ID:', checklistItemId || activeChecklistItemId);
+  /**
+   * **NEW: Completion callback for child modals**
+   * This function is called by child modals when they successfully complete their task.
+   * It marks the checklist item as complete and updates the proposal status.
+   */
+  const handleTaskCompletion = async (itemId) => {
+    console.log('[ProposalCardModal] ✅ Task completed:', itemId);
     
-    setActiveModalName(null);
-    
-    const itemIdToComplete = checklistItemId || activeChecklistItemId;
-    
-    if (itemIdToComplete && currentColumn) {
-      const currentStatus = proposal.current_stage_checklist_status || {};
-      const columnStatus = currentStatus[currentColumn.id] || {};
-      
-      const updatedColumnStatus = {
-        ...columnStatus,
-        [itemIdToComplete]: {
-          completed: true,
-          completed_by: user?.email || "system",
-          completed_date: new Date().toISOString()
-        }
-      };
-      
-      const updatedChecklistStatus = {
-        ...currentStatus,
-        [currentColumn.id]: updatedColumnStatus
-      };
-      
-      const allRequiredComplete = currentColumn.checklist_items
-        ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
-        .every(ci => {
-          if (ci.id === itemIdToComplete) {
-            return true;
-          }
-          return updatedColumnStatus[ci.id]?.completed || false;
-        });
-
-      await updateProposalMutation.mutateAsync({
-        current_stage_checklist_status: updatedChecklistStatus,
-        action_required: !allRequiredComplete
-      });
+    if (!itemId || !currentColumn) {
+      console.error('[ProposalCardModal] Cannot complete task - invalid item or column');
+      return;
     }
+
+    const currentStatus = proposal.current_stage_checklist_status || {};
+    const columnStatus = currentStatus[currentColumn.id] || {};
     
-    setActiveChecklistItemId(null);
+    const updatedColumnStatus = {
+      ...columnStatus,
+      [itemId]: {
+        completed: true,
+        completed_by: user?.email || "system",
+        completed_date: new Date().toISOString()
+      }
+    };
+    
+    const updatedChecklistStatus = {
+      ...currentStatus,
+      [currentColumn.id]: updatedColumnStatus
+    };
+    
+    const allRequiredComplete = currentColumn.checklist_items
+      ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
+      .every(ci => {
+        if (ci.id === itemId) {
+          return true;
+        }
+        return updatedColumnStatus[ci.id]?.completed || false;
+      });
+
+    await updateProposalMutation.mutateAsync({
+      current_stage_checklist_status: updatedChecklistStatus,
+      action_required: !allRequiredComplete
+    });
     
     await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    
+    toast.success('✅ Task completed!', {
+      description: 'Checklist item marked as complete',
+      duration: 2000,
+    });
+  };
+
+  /**
+   * **UPDATED: Modal close handler - NO automatic completion**
+   * Modals now handle their own completion via onCompletion callback
+   */
+  const handleModalClose = async () => {
+    console.log('[ProposalCardModal] 🚪 Closing modal (no auto-completion)');
+    
+    setActiveModalName(null);
+    setActiveChecklistItemId(null);
+    
+    // Refetch to get latest data
+    await queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
   };
 
   const renderActiveModal = () => {
@@ -746,10 +768,15 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     return (
       <ModalComponent
         isOpen={true}
-        onClose={() => {
-          handleModalClose();
-        }}
+        onClose={handleModalClose}
         proposalId={proposal.id}
+        onCompletion={() => {
+          // Call completion handler with the active checklist item ID
+          if (activeChecklistItemId) {
+            handleTaskCompletion(activeChecklistItemId);
+          }
+          handleModalClose(); // Then close the modal
+        }}
       />
     );
   };
