@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -15,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Upload, File, X, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function SolicitationUploadModal({ isOpen, onClose, proposalId }) {
+export default function SolicitationUploadModal({ isOpen, onClose, proposalId, onCompletion }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -26,6 +25,7 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
     due_date: "",
     contract_value: null,
   });
+  const [hasUploadedNewFiles, setHasUploadedNewFiles] = useState(false);
 
   useEffect(() => {
     if (isOpen && proposalId) {
@@ -78,6 +78,7 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
       for (const file of files) {
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
+        // **CRITICAL: Creating a SolicitationDocument successfully**
         await base44.entities.SolicitationDocument.create({
           proposal_id: proposalId,
           organization_id: organization.id,
@@ -87,6 +88,9 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
           file_size: file.size,
         });
       }
+      
+      // **NEW: Track that files were uploaded successfully**
+      setHasUploadedNewFiles(true);
       
       await loadData();
       alert(`✓ Successfully uploaded ${files.length} file(s)`);
@@ -163,16 +167,30 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
   };
 
   const handleSave = async () => {
+    // **UPDATED: Check if at least one document was uploaded**
+    if (!hasUploadedNewFiles && uploadedDocs.length === 0) {
+      alert("Please upload at least one solicitation document before saving.");
+      return;
+    }
+
     try {
       const updateData = {
         due_date: proposalData.due_date || null,
         contract_value: proposalData.contract_value ? parseFloat(proposalData.contract_value) : null
       };
 
+      // **CRITICAL: Only call onCompletion after successful save AND file upload**
       await base44.entities.Proposal.update(proposalId, updateData);
 
-      console.log('[SolicitationUploadModal] ✅ Proposal info saved');
-      onClose();
+      console.log('[SolicitationUploadModal] ✅ Solicitation documents uploaded and info saved successfully');
+      
+      // **NEW: Call onCompletion to mark checklist item as complete**
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        // Fallback if no onCompletion callback provided
+        onClose();
+      }
     } catch (error) {
       console.error("Error saving:", error);
       alert("Error saving. Please try again.");
@@ -328,7 +346,7 @@ export default function SolicitationUploadModal({ isOpen, onClose, proposalId })
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading || uploading}>
             Save
           </Button>
         </DialogFooter>

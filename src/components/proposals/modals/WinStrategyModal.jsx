@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Sparkles, Target, Award } from "lucide-react";
 
-export default function WinStrategyModal({ isOpen, onClose, proposalId }) {
+export default function WinStrategyModal({ isOpen, onClose, proposalId, onCompletion }) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [proposalData, setProposalData] = useState(null);
@@ -114,7 +114,7 @@ Return JSON array of themes.`;
         }
       });
 
-      // Create win theme records
+      // **CRITICAL: Create win theme records successfully**
       const createdThemes = [];
       for (const theme of result.themes || []) {
         const created = await base44.entities.WinTheme.create({
@@ -142,6 +142,21 @@ Return JSON array of themes.`;
       alert("Error generating win themes: " + error.message);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDone = () => {
+    // **UPDATED: Only call onCompletion if at least one win theme exists**
+    if (winThemes.length > 0) {
+      console.log('[WinStrategyModal] ✅ Win themes defined successfully');
+      
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        onClose();
+      }
+    } else {
+      alert("Please generate at least one win theme before closing.");
     }
   };
 
@@ -253,7 +268,10 @@ Return JSON array of themes.`;
         )}
 
         <DialogFooter>
-          <Button onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleDone} disabled={winThemes.length === 0}>
             Done
           </Button>
         </DialogFooter>

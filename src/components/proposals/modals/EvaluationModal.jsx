@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
@@ -13,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Sparkles, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 
-export default function EvaluationModal({ isOpen, onClose, proposalId }) {
+export default function EvaluationModal({ isOpen, onClose, proposalId, onCompletion }) {
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [proposalData, setProposalData] = useState(null);
@@ -95,18 +96,36 @@ Return JSON with these fields.`;
 
       setEvaluationResults(result);
 
+      // CRITICAL: Save evaluation results to Proposal entity
       await base44.entities.Proposal.update(proposalId, {
         evaluation_results: JSON.stringify(result),
         evaluation_date: new Date().toISOString(),
         match_score: result.assessment_score
       });
 
+      console.log('[EvaluationModal] ✅ Strategic evaluation completed and saved successfully');
+      
       alert("✓ Strategic evaluation complete!");
     } catch (error) {
       console.error("Error running evaluation:", error);
       alert("Error running evaluation: " + error.message);
     } finally {
       setEvaluating(false);
+    }
+  };
+
+  const handleDone = () => {
+    // UPDATED: Only call onCompletion if evaluation has been run
+    if (evaluationResults) {
+      console.log('[EvaluationModal] ✅ Evaluation completed successfully');
+      
+      if (onCompletion) {
+        onCompletion();
+      } else {
+        onClose();
+      }
+    } else {
+      alert("Please run the evaluation before closing.");
     }
   };
 
@@ -257,7 +276,10 @@ Return JSON with these fields.`;
         )}
 
         <DialogFooter>
-          <Button onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleDone} disabled={!evaluationResults}>
             Done
           </Button>
         </DialogFooter>
