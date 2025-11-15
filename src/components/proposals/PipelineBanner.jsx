@@ -15,7 +15,9 @@ import {
   List,
   Table,
   DollarSign,
-  Target
+  Target,
+  Filter,
+  HelpCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,6 +51,8 @@ export default function PipelineBanner({
   onShowSavedViews,
   onManageBoards,
   onCategorizeProposals,
+  onShowAdvancedFilters,
+  onShowHelp,
   viewMode,
   onViewModeChange,
   pipelineValue,
@@ -225,6 +229,10 @@ export default function PipelineBanner({
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onShowAdvancedFilters}>
+                    <Filter className="mr-2 h-4 w-4" />
+                    <span>Advanced Filters</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={onManageBoards}>
                     <Layers className="mr-2 h-4 w-4" />
                     <span>Manage Boards</span>
@@ -232,6 +240,11 @@ export default function PipelineBanner({
                   <DropdownMenuItem onClick={onCategorizeProposals}>
                     <Target className="mr-2 h-4 w-4" />
                     <span>Categorize Proposals</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onShowHelp}>
+                    <HelpCircle className="mr-2 h-4 w-4" />
+                    <span>Help</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
