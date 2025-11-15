@@ -36,6 +36,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Settings2,
   Columns,
   Layers,
@@ -54,6 +60,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ColumnDetailEditor from "./ColumnDetailEditor";
+import { getTooltipText } from "./KanbanTooltipContent";
 
 // 14-column template definition
 const TEMPLATE_14_COLUMN_FULL = [
@@ -659,13 +666,21 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   };
 
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="w-5 h-5" />
               Board Configuration
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-slate-400 cursor-help ml-1" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm">
+                  <p>{getTooltipText('BOARD_CONFIG')}</p>
+                </TooltipContent>
+              </Tooltip>
             </DialogTitle>
             <DialogDescription>
               Configure columns, swimlanes, view settings, and display preferences for your Kanban board.
@@ -681,6 +696,14 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
               <TabsTrigger value="swimlanes" className="flex items-center gap-2">
                 <Layers className="w-4 h-4" />
                 Swimlanes
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>{getTooltipText('SWIMLANES')}</p>
+                  </TooltipContent>
+                </Tooltip>
               </TabsTrigger>
               <TabsTrigger value="view" className="flex items-center gap-2">
                 <Zap className="w-4 h-4" />
@@ -756,7 +779,14 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                 >
                                   <div {...provided.dragHandleProps}>
                                     {locked ? (
-                                      <Lock className="w-5 h-5 text-amber-600" />
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Lock className="w-5 h-5 text-amber-600 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                          <p>{getTooltipText('LOCKED_COLUMN')}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
                                     ) : (
                                       <GripVertical className="w-5 h-5 text-slate-400 cursor-move" />
                                     )}
@@ -768,20 +798,50 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                       <span className="font-semibold text-slate-900">{column.label}</span>
 
                                       {column.checklist_items && column.checklist_items.length > 0 && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <ListChecks className="w-3 h-3 mr-1" />
-                                          {column.checklist_items.length} items
-                                        </Badge>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="text-xs cursor-help">
+                                              <ListChecks className="w-3 h-3 mr-1" />
+                                              {column.checklist_items.length} items
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p>{getTooltipText('CHECKLIST_ITEMS_COUNT', { 
+                                              count: column.checklist_items.length 
+                                            })}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                       )}
 
                                       {column.type === 'default_status' && (
-                                        <Badge variant="secondary" className="text-xs">Default</Badge>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge variant="secondary" className="text-xs cursor-help">Default</Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p>{getTooltipText('DEFAULT_STATUS_COLUMN')}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                       )}
                                       {column.type === 'custom_stage' && (
-                                        <Badge variant="outline" className="text-xs">Custom</Badge>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="text-xs cursor-help">Custom</Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p>{getTooltipText('CUSTOM_STAGE_COLUMN')}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                       )}
                                       {column.type === 'locked_phase' && (
-                                        <Badge className="bg-purple-100 text-purple-800 text-xs">Phase</Badge>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge className="bg-purple-100 text-purple-800 text-xs cursor-help">Phase</Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p>{getTooltipText('PHASE_COLUMN')}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                       )}
                                       {locked && (
                                         <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
@@ -793,14 +853,21 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEditColumn(column)}
-                                    >
-                                      <Settings className="w-4 h-4 mr-1" />
-                                      Configure
-                                    </Button>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleEditColumn(column)}
+                                        >
+                                          <Settings className="w-4 h-4 mr-1" />
+                                          Configure
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs">
+                                        <p>{getTooltipText('CONFIGURE_COLUMN')}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
 
                                     {canDelete && (
                                       <Button
@@ -826,8 +893,11 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                 </DragDropContext>
 
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
-                  <div className="text-sm text-blue-900">
-                    <strong>Tip:</strong> Drag columns to reorder them on your board. Click "Configure" to customize checklists, permissions, and WIP limits.
+                  <div className="text-sm text-blue-900 flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Tip:</strong> Drag columns to reorder them on your board. Click "Configure" to customize checklists, permissions, and WIP limits.
+                    </span>
                   </div>
                 </div>
               </TabsContent>
@@ -836,7 +906,17 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                     <div className="flex-1">
-                      <div className="font-semibold text-slate-900 mb-1">Enable Swimlanes</div>
+                      <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                        Enable Swimlanes
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-4 h-4 text-slate-500 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>{getTooltipText('SWIMLANES')}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                       <div className="text-sm text-slate-600">
                         Group proposals into horizontal rows based on a field (e.g., by client, lead writer, or agency)
                       </div>
@@ -850,7 +930,17 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                   {config.swimlane_config?.enabled && (
                     <>
                       <div className="space-y-3">
-                        <Label className="text-base font-semibold">Group Proposals By</Label>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold">Group Proposals By</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-4 h-4 text-slate-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>{getTooltipText('SWIMLANE_GROUPING')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <Select
                           value={config.swimlane_config?.group_by || 'none'}
                           onValueChange={handleGroupByChange}
@@ -889,7 +979,17 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
                         <div className="flex-1">
-                          <div className="font-medium text-sm text-slate-900">Show Empty Swimlanes</div>
+                          <div className="font-medium text-sm text-slate-900 flex items-center gap-2">
+                            Show Empty Swimlanes
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-slate-400 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>{getTooltipText('EMPTY_SWIMLANES')}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                           <div className="text-xs text-slate-600 mt-0.5">
                             Display swimlanes even if they have no proposals (e.g., show all team members)
                           </div>
@@ -907,7 +1007,17 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
               <TabsContent value="view" className="space-y-6 mt-0">
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-base font-semibold mb-3 block">Card Details to Display</Label>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Label className="text-base font-semibold">Card Details to Display</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 text-slate-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>{getTooltipText('CARD_DETAILS')}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <div className="space-y-2">
                       {[
                         { key: 'assignees', label: 'Team Member Avatars', desc: 'Show assigned team members' },
@@ -943,7 +1053,17 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
                   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border">
                     <div className="flex-1">
-                      <div className="font-semibold text-slate-900 mb-1">Compact Mode</div>
+                      <div className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                        Compact Mode
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-4 h-4 text-slate-400 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>{getTooltipText('COMPACT_MODE')}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                       <div className="text-sm text-slate-600">
                         Reduce card spacing and padding to fit more proposals on screen
                       </div>
@@ -959,46 +1079,60 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           </Tabs>
 
           <DialogFooter className="flex items-center justify-between">
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfig}
-              disabled={deleteConfigMutation.isPending}
-              className="mr-auto"
-            >
-              {deleteConfigMutation.isPending ? (
-                <>
-                  <div className="animate-spin mr-2">⏳</div>
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Configuration
-                </>
-              )}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteConfig}
+                  disabled={deleteConfigMutation.isPending}
+                  className="mr-auto"
+                >
+                  {deleteConfigMutation.isPending ? (
+                    <>
+                      <div className="animate-spin mr-2">⏳</div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Configuration
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>{getTooltipText('DELETE_CONFIG')}</p>
+              </TooltipContent>
+            </Tooltip>
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button
-                variant="secondary"
-                onClick={handleSaveAsTemplate}
-                disabled={saveAsTemplateMutation.isPending}
-              >
-                {saveAsTemplateMutation.isPending ? (
-                  <>
-                    <div className="animate-spin mr-2">⏳</div>
-                    Saving Template...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save as Template
-                  </>
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    onClick={handleSaveAsTemplate}
+                    disabled={saveAsTemplateMutation.isPending}
+                  >
+                    {saveAsTemplateMutation.isPending ? (
+                      <>
+                        <div className="animate-spin mr-2">⏳</div>
+                        Saving Template...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save as Template
+                      </>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>{getTooltipText('SAVE_AS_TEMPLATE')}</p>
+                </TooltipContent>
+              </Tooltip>
               <Button onClick={handleSave} disabled={saveConfigMutation.isPending}>
                 {saveConfigMutation.isPending ? (
                   <>
@@ -1108,7 +1242,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       </AlertDialog>
 
       {/* Save as Template Dialog */}
-      <Dialog open={showSaveAsTemplateDialog} onOpenChange={setShowSaveAsTemplateDialog}>
+      <Dialog open={showSaveAsTemplateDialog} onOnpenChange={setShowSaveAsTemplateDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1199,6 +1333,6 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
