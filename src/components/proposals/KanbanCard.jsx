@@ -26,8 +26,6 @@ export default function KanbanCard({
   isSelected = false,
   onToggleSelection,
   selectionMode = false,
-  showDueDate = true,
-  showCreatedDate = true,
 }) {
   // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
@@ -169,7 +167,7 @@ export default function KanbanCard({
           </div>
         )}
 
-        {showDueDate && proposal.due_date && (
+        {proposal.due_date && (
           <div className={cn(
             "flex items-center gap-2 text-xs",
             isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-slate-600"
@@ -181,7 +179,7 @@ export default function KanbanCard({
           </div>
         )}
 
-        {showCreatedDate && proposal.created_date && (
+        {proposal.created_date && (
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <Clock className="w-3 h-3" />
             <span>Added {moment(proposal.created_date).format('MMM D, YYYY')}</span>

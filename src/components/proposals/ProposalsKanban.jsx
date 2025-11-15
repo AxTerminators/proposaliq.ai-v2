@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -103,8 +102,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [winningProposal, setWinningProposal] = useState(null);
   const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
-  const [showDueDates, setShowDueDates] = useState(true);
-  const [showCreatedDates, setShowCreatedDates] = useState(true);
 
   // Sync external props to internal state
   useEffect(() => {
@@ -324,7 +321,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         p.assigned_team_members.forEach(email => members.add(email));
       }
       if (p.lead_writer_email) {
-        members.add(email);
+        members.add(p.lead_writer_email);
       }
     });
     return Array.from(members).sort();
@@ -494,13 +491,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             ? (a.project_title || '').localeCompare(b.project_title || '')
             : (b.project_title || '').localeCompare(a.project_title || '');
         } else if (sort.by === 'due_date') {
-          const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
-          const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
+          const dateA = a.due_date ? new Date(a.due_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
+          const dateB = b.due_date ? new Date(b.due_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
           return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
         } else if (sort.by === 'created_date') {
-          return sort.direction === 'asc'
-            ? new Date(a.created_date).getTime() - new Date(b.created_date).getTime()
-            : new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+          const dateA = a.created_date ? new Date(a.created_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
+          const dateB = b.created_date ? new Date(b.created_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
+          return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
         }
         return 0;
       });
@@ -536,20 +533,37 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     getStats
   } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
-  const handleColumnSortChange = (columnId, sortBy) => {
+  const handleColumnSortChange = (columnId, sortType) => {
     setColumnSorts(prev => {
-      const current = prev[columnId];
-      if (current?.by === sortBy) {
-        return {
-          ...prev,
-          [columnId]: { by: sortBy, direction: current.direction === 'asc' ? 'desc' : 'asc' }
-        };
-      } else {
-        return {
-          ...prev,
-          [columnId]: { by: sortBy, direction: 'asc' }
-        };
+      const newSorts = { ...prev };
+      let newSort = { by: '', direction: 'asc' };
+
+      switch (sortType) {
+        case 'project_title_asc':
+          newSort = { by: 'project_title', direction: 'asc' };
+          break;
+        case 'project_title_desc':
+          newSort = { by: 'project_title', direction: 'desc' };
+          break;
+        case 'due_date_asc':
+          newSort = { by: 'due_date', direction: 'asc' };
+          break;
+        case 'due_date_desc':
+          newSort = { by: 'due_date', direction: 'desc' };
+          break;
+        case 'created_date_asc':
+          newSort = { by: 'created_date', direction: 'asc' };
+          break;
+        case 'created_date_desc':
+          newSort = { by: 'created_date', direction: 'desc' };
+          break;
+        default:
+          delete newSorts[columnId];
+          return newSorts;
       }
+
+      newSorts[columnId] = newSort;
+      return newSorts;
     });
   };
 
@@ -1423,10 +1437,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     onLoadAll={() => loadAll(column.id)}
                                     onSortChange={handleColumnSortChange}
                                     currentSort={columnSorts[column.id]}
-                                    showDueDates={showDueDates}
-                                    showCreatedDates={showCreatedDates}
-                                    onToggleDueDates={() => setShowDueDates(!showDueDates)}
-                                    onToggleCreatedDates={() => setShowCreatedDates(!showCreatedDates)}
                                   />
                                 )}
                               </Droppable>

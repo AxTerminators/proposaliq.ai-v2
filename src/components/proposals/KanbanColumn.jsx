@@ -23,9 +23,11 @@ import {
   ChevronDown,
   ArrowUpAZ,
   ArrowDownAZ,
-  Calendar,
+  CalendarDays,
   Clock,
   Check,
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -58,10 +60,6 @@ export default function KanbanColumn({
   onLoadAll,
   onSortChange,
   currentSort,
-  showDueDates = true,
-  showCreatedDates = true,
-  onToggleDueDates,
-  onToggleCreatedDates,
 }) {
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
@@ -287,15 +285,33 @@ export default function KanbanColumn({
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onToggleDueDates?.()}>
-                    <Calendar className="w-4 h-4 mr-2" />
-                    {showDueDates ? 'Hide' : 'Show'} Due Dates
-                    {showDueDates && <Check className="w-4 h-4 ml-auto text-blue-600" />}
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'due_date_asc')}>
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    Sort by Due Date (Oldest First)
+                    {currentSort?.by === 'due_date' && currentSort?.direction === 'asc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onToggleCreatedDates?.()}>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'due_date_desc')}>
+                    <ArrowDownWideNarrow className="w-4 h-4 mr-2" />
+                    Sort by Due Date (Newest First)
+                    {currentSort?.by === 'due_date' && currentSort?.direction === 'desc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'created_date_asc')}>
                     <Clock className="w-4 h-4 mr-2" />
-                    {showCreatedDates ? 'Hide' : 'Show'} Date Added
-                    {showCreatedDates && <Check className="w-4 h-4 ml-auto text-blue-600" />}
+                    Sort by Date Added (Oldest First)
+                    {currentSort?.by === 'created_date' && currentSort?.direction === 'asc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'created_date_desc')}>
+                    <ArrowUpNarrowWide className="w-4 h-4 mr-2" />
+                    Sort by Date Added (Newest First)
+                    {currentSort?.by === 'created_date' && currentSort?.direction === 'desc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={(e) => {
@@ -369,8 +385,6 @@ export default function KanbanColumn({
                     isSelected={selectedProposalIds.includes(proposal.id)}
                     onToggleSelection={onToggleProposalSelection}
                     selectionMode={selectionMode}
-                    showDueDate={showDueDates}
-                    showCreatedDate={showCreatedDates}
                   />
                 )}
               </Draggable>
