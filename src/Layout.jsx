@@ -318,7 +318,7 @@ function LayoutContent({ children, currentPageName }) {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                     <img 
-                      src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                      src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/84145c878_1.png"
                       alt="GovHQ.ai Logo"
                       className="w-10 h-10 object-contain"
                     />
@@ -393,7 +393,7 @@ function LayoutContent({ children, currentPageName }) {
               <div className="flex justify-center">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                   <img 
-                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/84145c878_1.png"
                     alt="GovHQ.ai Logo"
                     className="w-10 h-10 object-contain"
                   />
@@ -402,7 +402,7 @@ function LayoutContent({ children, currentPageName }) {
             )}
           </div>
 
-          <div className={cn("flex-1 overflow-y-auto", sidebarCollapsed ? "px-2" : "p-3")}>
+          <div className="flex-1 overflow-y-auto" >
             <div className="mb-6">
               {!sidebarCollapsed && (
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
@@ -684,7 +684,7 @@ function LayoutContent({ children, currentPageName }) {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                 <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/84145c878_1.png"
                   alt="GovHQ.ai Logo"
                   className="w-10 h-10 object-contain"
                 />
@@ -897,7 +897,7 @@ function LayoutContent({ children, currentPageName }) {
 
                 <div className="flex items-center gap-2 lg:hidden">
                   <img 
-                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/84145c878_1.png"
                     alt="GovHQ.ai Logo"
                     className="w-5 h-5 object-contain"
                   />

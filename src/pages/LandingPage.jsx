@@ -55,7 +55,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/84145c878_1.png"
               alt="GovHQ.ai Logo"
               className="w-10 h-10 object-contain"
             />
@@ -568,7 +568,7 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/194efa377_GovHQlogo-main-300x300-transparent.png"
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/84145c878_1.png"
                   alt="GovHQ.ai Logo"
                   className="w-8 h-8 object-contain"
                 />
