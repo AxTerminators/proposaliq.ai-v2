@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -26,7 +25,9 @@ export default function KanbanCard({
   organization,
   isSelected = false,
   onToggleSelection,
-  selectionMode = false
+  selectionMode = false,
+  showDueDate = true,
+  showCreatedDate = true,
 }) {
   // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
@@ -39,7 +40,7 @@ export default function KanbanCard({
     staleTime: 30000
   });
 
-  // NEW: Fetch shared clients for this proposal
+  // Fetch shared clients for this proposal
   const { data: sharedClients = [] } = useQuery({
     queryKey: ['proposal-shared-clients', proposal.id],
     queryFn: async () => {
@@ -54,16 +55,13 @@ export default function KanbanCard({
     staleTime: 60000
   });
 
-  // Calculate completion
   const completedSubtasks = subtasks.filter(t => t.status === 'completed').length;
   const completionPercentage = subtasks.length > 0 
     ? Math.round((completedSubtasks / subtasks.length) * 100)
     : 0;
 
-  // Check for action required
   const isActionRequired = proposal.action_required || false;
 
-  // Format contract value
   const formattedValue = useMemo(() => {
     if (!proposal.contract_value) return null;
     const value = proposal.contract_value;
@@ -75,7 +73,6 @@ export default function KanbanCard({
     return `$${value.toLocaleString()}`;
   }, [proposal.contract_value]);
 
-  // Calculate days until due
   const daysUntilDue = useMemo(() => {
     if (!proposal.due_date) return null;
     const today = moment();
@@ -108,12 +105,10 @@ export default function KanbanCard({
       )}
       style={{
         ...provided.draggableProps.style,
-        // CRITICAL FIX: Force full opacity during drag - no transitions
         opacity: snapshot.isDragging ? '1 !important' : '1',
         visibility: 'visible',
       }}
     >
-      {/* Selection Checkbox (if in selection mode) */}
       {selectionMode && (
         <div className="absolute top-2 left-2 z-10">
           <input
@@ -129,7 +124,6 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* Header */}
       <div className="mb-3">
         <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
           {proposal.proposal_name}
@@ -139,7 +133,6 @@ export default function KanbanCard({
         )}
       </div>
 
-      {/* Metadata Badges */}
       <div className="flex flex-wrap gap-1.5 mb-3">
         {proposal.status && (
           <Badge variant="outline" className="text-xs">
@@ -153,9 +146,7 @@ export default function KanbanCard({
         )}
       </div>
 
-      {/* Stats Row */}
       <div className="space-y-2">
-        {/* NEW: Shared Clients */}
         {sharedClients.length > 0 && (
           <div className="flex items-center gap-2 text-xs">
             <Building2 className="w-3 h-3 text-purple-600" />
@@ -178,8 +169,7 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Due Date */}
-        {proposal.due_date && (
+        {showDueDate && proposal.due_date && (
           <div className={cn(
             "flex items-center gap-2 text-xs",
             isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-slate-600"
@@ -191,7 +181,13 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Contract Value */}
+        {showCreatedDate && proposal.created_date && (
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Clock className="w-3 h-3" />
+            <span>Added {moment(proposal.created_date).format('MMM D, YYYY')}</span>
+          </div>
+        )}
+
         {formattedValue && (
           <div className="flex items-center gap-2 text-xs text-green-700">
             <DollarSign className="w-3 h-3" />
@@ -199,7 +195,6 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Team Members */}
         {proposal.assigned_team_members?.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <Users className="w-3 h-3" />
@@ -207,7 +202,6 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Progress Bar */}
         {subtasks.length > 0 && (
           <div>
             <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
@@ -228,7 +222,6 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Match Score */}
         {proposal.match_score > 0 && (
           <div className="flex items-center gap-2 text-xs text-blue-600">
             <Target className="w-3 h-3" />
@@ -236,7 +229,6 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Action Required */}
         {isActionRequired && (
           <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
             <AlertCircle className="w-3 h-3" />

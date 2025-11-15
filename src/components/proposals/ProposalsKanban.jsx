@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -102,6 +103,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [winningProposal, setWinningProposal] = useState(null);
   const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
+  const [showDueDates, setShowDueDates] = useState(true);
+  const [showCreatedDates, setShowCreatedDates] = useState(true);
 
   // Sync external props to internal state
   useEffect(() => {
@@ -321,7 +324,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         p.assigned_team_members.forEach(email => members.add(email));
       }
       if (p.lead_writer_email) {
-        members.add(p.lead_writer_email);
+        members.add(email);
       }
     });
     return Array.from(members).sort();
@@ -486,6 +489,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           return sort.direction === 'asc'
             ? a.proposal_name?.localeCompare(b.proposal_name || '')
             : b.proposal_name?.localeCompare(a.proposal_name || '');
+        } else if (sort.by === 'project_title') {
+          return sort.direction === 'asc'
+            ? (a.project_title || '').localeCompare(b.project_title || '')
+            : (b.project_title || '').localeCompare(a.project_title || '');
         } else if (sort.by === 'due_date') {
           const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
           const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
@@ -1414,6 +1421,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     hasMore={hasMore(column.id)}
                                     onLoadMore={() => loadMore(column.id)}
                                     onLoadAll={() => loadAll(column.id)}
+                                    onSortChange={handleColumnSortChange}
+                                    currentSort={columnSorts[column.id]}
+                                    showDueDates={showDueDates}
+                                    showCreatedDates={showCreatedDates}
+                                    onToggleDueDates={() => setShowDueDates(!showDueDates)}
+                                    onToggleCreatedDates={() => setShowCreatedDates(!showCreatedDates)}
                                   />
                                 )}
                               </Droppable>
