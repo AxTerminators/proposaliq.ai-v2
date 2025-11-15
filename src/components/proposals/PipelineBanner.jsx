@@ -235,6 +235,24 @@ export default function PipelineBanner({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
+
+            {/* Bottom Row: Metrics */}
+            <div className="flex items-center gap-4 pt-2 border-t border-slate-200">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <div>
+                  <div className="text-xs text-slate-600">Pipeline Value</div>
+                  <div className="font-bold text-slate-900">{pipelineValue}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-blue-600" />
+                <div>
+                  <div className="text-xs text-slate-600">Win Rate</div>
+                  <div className="font-bold text-slate-900">{winRate}%</div>
+                </div>
+              </div>
 
               {!isMobile && (
                 <div className="flex gap-1 border rounded-lg p-0.5 h-9 items-center ml-auto">
@@ -267,24 +285,6 @@ export default function PipelineBanner({
                   </Button>
                 </div>
               )}
-            </div>
-
-            {/* Bottom Row: Metrics */}
-            <div className="flex items-center gap-4 pt-2 border-t border-slate-200">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                <div>
-                  <div className="text-xs text-slate-600">Pipeline Value</div>
-                  <div className="font-bold text-slate-900">{pipelineValue}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-blue-600" />
-                <div>
-                  <div className="text-xs text-slate-600">Win Rate</div>
-                  <div className="font-bold text-slate-900">{winRate}%</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
