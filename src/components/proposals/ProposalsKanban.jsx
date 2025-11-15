@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -57,7 +56,7 @@ import BulkActionsPanel from "./BulkActionsPanel";
 import WinToPromoteDialog from "./WinToPromoteDialog";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { toast } from 'sonner';
-import { useLazyLoadColumns } from "./useLazyLoadProposals"; // NEW IMPORT
+import { useLazyLoadColumns } from "./useLazyLoadProposals";
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -458,16 +457,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
     if (column.is_terminal) {
-      // console.log(`[Kanban] Terminal column "${column.label}" - showing ALL proposals with status: ${column.default_status_mapping}`);
       columnProposals = filteredProposals.filter(proposal => {
         if (!proposal) return false;
         
         // Match by status for terminal columns
         const statusMatch = proposal.status === column.default_status_mapping;
-        
-        // if (statusMatch) {
-        //   console.log(`[Kanban] ✓ Including ${proposal.proposal_type_category} proposal "${proposal.proposal_name}" in terminal column`);
-        // }
         
         return statusMatch;
       });
@@ -1064,15 +1058,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const handleCreateProposalWithType = (proposalType) => {
     setShowNewProposalDialog(false);
-    // Don't navigate - dialog will be replaced by QuickCreateProposal
-    // If navigation was needed, it would look like:
-    // navigate(`${createPageUrl("ProposalBuilder")}?boardType=${proposalType}`);
   };
 
   const handleAdvancedFilterChange = (filtered) => {
-    // If the filtered array has the same length as the original 'proposals',
-    // it means no actual filtering occurred (or all items match), so treat it as 'null'.
-    // This helps differentiate between 'no filters applied' and 'filters applied, all match'.
     setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
   };
 
@@ -1096,8 +1084,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
-    setFilterClient("all"); // NEW
-    setAdvancedFilteredProposals(null); // Clear advanced filters too
+    setFilterClient("all");
+    setAdvancedFilteredProposals(null);
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -1105,12 +1093,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (searchQuery) count++;
     if (filterAgency !== "all") count++;
     if (filterAssignee !== "all") count++;
-    if (filterClient !== "all") count++; // NEW
-    if (advancedFilteredProposals !== null) count++; // Count advanced filters as one active filter
+    if (filterClient !== "all") count++;
+    if (advancedFilteredProposals !== null) count++;
     return count;
   }, [searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
 
-  if (isLoadingConfig && !propKanbanConfig) { // Check propKanbanConfig here to ensure we don't show loading when config is provided
+  if (isLoadingConfig && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1128,7 +1116,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (configError && !propKanbanConfig) { // Check propKanbanConfig here
+  if (configError && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1150,7 +1138,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (isLegacyConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching, not if propKanbanConfig is provided
+  if (isLegacyConfig && !isLoadingConfig) {
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1184,7 +1172,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (!hasKanbanConfig && !isLoadingConfig) { // isLoadingConfig check is only relevant if we are fetching
+  if (!hasKanbanConfig && !isLoadingConfig) {
     return (
       <>
         <div className="flex items-center justify-center min-h-[600px] p-6">
@@ -1218,7 +1206,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
-  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) { // isLoadingConfig check is only relevant if we are fetching
+  if (validColumns.length === 0 && !isLoadingConfig && hasKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1242,7 +1230,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header with filters */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between">
@@ -1256,87 +1243,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   Master Board
                 </Badge>
               )}
-            </div>
-            {/* Removed AdvancedFilterPanel and Configure button from here */}
-          </div>
-
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <Button
-                onClick={handleCreateProposal}
-                className="bg-blue-600 hover:bg-blue-700 h-9"
-                size="sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Proposal
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Pipeline Stats - Moved here and styled to match button height */}
-              <div className="flex items-center gap-2 px-3 h-9 bg-green-50 border border-green-200 rounded-lg">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                <span className="font-semibold text-green-900 text-sm">
-                  {(() => {
-                    const totalValue = proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
-                    return totalValue >= 1000000
-                      ? `$${(totalValue / 1000000).toFixed(1)}M`
-                      : totalValue >= 1000
-                      ? `$${(totalValue / 1000).toFixed(0)}K`
-                      : `$${totalValue.toLocaleString()}`;
-                  })()}
-                </span>
-                <span className="text-green-700 text-sm">Pipeline Value</span>
-              </div>
-
-              <div className="flex items-center gap-2 px-3 h-9 bg-blue-50 border border-blue-200 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-                <span className="font-semibold text-blue-900 text-sm">
-                  {(() => {
-                    const wonProposals = proposals.filter(p => p.status === 'won').length;
-                    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
-                    return submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
-                  })()}%
-                </span>
-                <span className="text-blue-700 text-sm">Win Rate</span>
-              </div>
-              <AdvancedFilterPanel
-                proposals={proposals}
-                onFilterChange={handleAdvancedFilterChange}
-                teamMembers={uniqueTeamMembers}
-              />
-              <Button
-                onClick={() => setShowBoardConfig(true)}
-                variant="outline"
-                size="sm"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Configure
-              </Button>
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="h-9"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Quick Filters
-                {activeFiltersCount > 0 && (
-                  <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center bg-white text-blue-600 hover:bg-white">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowHelpPanel(true)}
-                className="h-9"
-              >
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Help
-              </Button>
             </div>
           </div>
 
@@ -1387,7 +1293,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                   </SelectContent>
                 </Select>
 
-                {/* NEW: Client Filter */}
                 <Select value={filterClient} onValueChange={setFilterClient}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Clients" />
@@ -1421,7 +1326,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      {/* FIXED: Removed min-h-full and all bottom padding to eliminate gap */}
       <div className="flex-1 overflow-y-auto bg-slate-100">
         <div ref={boardRef} className="overflow-x-auto px-4">
           <DragDropContext
@@ -1444,8 +1348,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 >
                   {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
-                    const columnProposals = getVisibleProposals(column.id); // **UPDATED: Use lazy loaded**
-                    const stats = getStats(column.id); // **NEW: Get stats**
+                    const columnProposals = getVisibleProposals(column.id);
+                    const stats = getStats(column.id);
 
                     return (
                       <Draggable
@@ -1505,7 +1409,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     onCreateProposal={handleCreateProposalInColumn}
                                     selectedProposalIds={selectedProposalIds}
                                     onToggleProposalSelection={handleToggleProposalSelection}
-                                    // **NEW: Lazy loading props**
                                     totalCount={stats.total}
                                     visibleCount={stats.visible}
                                     hasMore={hasMore(column.id)}
@@ -1613,7 +1516,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         onClose={() => setShowHelpPanel(false)}
       />
 
-      {/* Quick Create Proposal Dialog - Replaces type selection */}
       <QuickCreateProposal
         isOpen={showNewProposalDialog}
         onClose={() => setShowNewProposalDialog(false)}
@@ -1621,7 +1523,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         preselectedType={kanbanConfig?.applies_to_proposal_types?.[0] || null}
       />
 
-      {/* **NEW: Win to Promote Dialog** */}
       {showWinPromoteDialog && winningProposal && (
         <WinToPromoteDialog
           isOpen={showWinPromoteDialog}
@@ -1634,7 +1535,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         />
       )}
 
-      {/* **NEW: Delete Column Confirmation** */}
       <ConfirmDialog
         isOpen={showDeleteColumnConfirm}
         onClose={() => {
