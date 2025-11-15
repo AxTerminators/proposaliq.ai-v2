@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -64,6 +65,7 @@ import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PipelineBanner from "@/components/proposals/PipelineBanner";
+import AdvancedFilterPanel from "@/components/proposals/AdvancedFilterPanel";
 
 export default function Pipeline() {
   const navigate = useNavigate();
@@ -106,6 +108,7 @@ export default function Pipeline() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showQuickFilters, setShowQuickFilters] = useState(false);
+  const [advancedFilteredProposals, setAdvancedFilteredProposals] = useState(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -202,7 +205,7 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // FIXED: Initialize board selection from localStorage, URL, or default - runs only once
+  // Initialize board selection from localStorage, URL, or default - runs only once
   useEffect(() => {
     if (allBoards.length === 0 || hasInitialized.current) return;
 
@@ -254,7 +257,7 @@ export default function Pipeline() {
     hasInitialized.current = true;
   }, [allBoards]);
 
-  // FIXED: Save to localStorage when board changes (only after initialization)
+  // Save to localStorage when board changes (only after initialization)
   useEffect(() => {
     if (!selectedBoardId || !hasInitialized.current) return;
 
@@ -350,11 +353,11 @@ export default function Pipeline() {
     initialData: [],
   });
 
-  // NEW: Read proposalId and tab from URL parameter on load
+  // Read proposalId and tab from URL parameter on load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const proposalIdFromUrl = urlParams.get('proposalId');
-    const openTab = urlParams.get('tab'); // NEW: Also read tab parameter
+    const openTab = urlParams.get('tab'); // Also read tab parameter
     
     // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
     if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
@@ -396,7 +399,7 @@ export default function Pipeline() {
       return proposals;
     }
 
-    // FIXED: Also check board_type for special boards like rfp_15_column
+    // Also check board_type for special boards like rfp_15_column
     if (selectedBoard.board_type === 'rfp_15_column') {
       return proposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
     }
@@ -410,8 +413,37 @@ export default function Pipeline() {
     return proposals;
   }, [proposals, selectedBoard]);
 
+  const handleAdvancedFilterChange = (filtered) => {
+    // If the filtered array has the same length as the base proposals (filteredProposals),
+    // it means no filter is effectively applied, so we can set `advancedFilteredProposals` to null.
+    // This allows `effectiveProposals` to fall back to `filteredProposals` directly, avoiding unnecessary processing.
+    setAdvancedFilteredProposals(filtered.length === filteredProposals.length ? null : filtered);
+  };
+
+  // Get unique team members for advanced filters
+  const uniqueTeamMembers = useMemo(() => {
+    const members = new Set();
+    proposals.forEach(p => {
+      if (p.assigned_team_members) {
+        p.assigned_team_members.forEach(email => members.add(email));
+      }
+      if (p.lead_writer_email) {
+        members.add(p.lead_writer_email);
+      }
+    });
+    return Array.from(members).sort();
+  }, [proposals]);
+
+  // Apply advanced filters to proposals
+  const effectiveProposals = useMemo(() => {
+    if (advancedFilteredProposals !== null) {
+      return advancedFilteredProposals;
+    }
+    return filteredProposals;
+  }, [filteredProposals, advancedFilteredProposals]);
+
   const pipelineStats = useMemo(() => {
-    const totalValue = filteredProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
+    const totalValue = effectiveProposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
     const formattedValue = totalValue >= 1000000
       ? `$${(totalValue / 1000000).toFixed(1)}M`
       : totalValue >= 1000
@@ -423,7 +455,7 @@ export default function Pipeline() {
     const winRate = submittedProposals > 0 ? Math.round((wonProposals / submittedProposals) * 100) : 0;
 
     const today = new Date();
-    const urgentProposals = filteredProposals.filter(p => {
+    const urgentProposals = effectiveProposals.filter(p => {
       if (!p.due_date) return false;
       const dueDate = new Date(p.due_date);
       const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -435,7 +467,7 @@ export default function Pipeline() {
       winRate,
       urgentCount: urgentProposals
     };
-  }, [filteredProposals, proposals]);
+  }, [effectiveProposals, proposals]);
 
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
@@ -583,7 +615,7 @@ export default function Pipeline() {
     const freshBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]) || [];
     console.log('[Pipeline] 📋 Fresh boards from cache:', freshBoards.map(b => ({ id: b.id, type: b.board_type, name: b.board_name })));
 
-    // Find the correct board - FIXED: Prioritize boardConfig if provided
+    // Find the correct board - Prioritize boardConfig if provided
     let matchingBoard = null;
     
     if (boardConfig) {
@@ -977,6 +1009,27 @@ export default function Pipeline() {
         isMobile={isMobile}
       />
 
+      {/* Advanced Filters Panel - Render when showAdvancedFilters is true */}
+      {showAdvancedFilters && (
+        <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-slate-900">Advanced Filters</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowAdvancedFilters(false)}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+          <AdvancedFilterPanel
+            proposals={filteredProposals}
+            onFilterChange={handleAdvancedFilterChange}
+            teamMembers={uniqueTeamMembers}
+          />
+        </div>
+      )}
+
       {showHealthDashboard && (
         <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 mx-6 mt-6">
           <CardHeader>
@@ -1051,7 +1104,7 @@ export default function Pipeline() {
               <div className="p-6 space-y-6 h-full overflow-y-auto">
                 <AIWorkflowSuggestions
                   organization={organization}
-                  proposals={filteredProposals}
+                  proposals={effectiveProposals}
                   automationRules={automationRules}
                 />
                 <SmartAutomationEngine organization={organization} />
@@ -1060,8 +1113,8 @@ export default function Pipeline() {
 
             {!isMobile && showAnalytics && (
               <div className="p-6 space-y-6 h-full overflow-y-auto">
-                <SnapshotGenerator organization={organization} proposals={filteredProposals} />
-                <PipelineAnalytics organization={organization} proposals={filteredProposals} />
+                <SnapshotGenerator organization={organization} proposals={effectiveProposals} />
+                <PipelineAnalytics organization={organization} proposals={effectiveProposals} />
               </div>
             )}
 
@@ -1069,13 +1122,13 @@ export default function Pipeline() {
               <>
                 {isMobile ? (
                   <div className="p-4 h-full overflow-y-auto">
-                    <MobileKanbanView proposals={filteredProposals} columns={selectedBoard?.columns || []} />
+                    <MobileKanbanView proposals={effectiveProposals} columns={selectedBoard?.columns || []} />
                   </div>
                 ) : (
                   <div className="h-full">
                     {viewMode === "kanban" && (
                       <ProposalsKanban
-                        proposals={filteredProposals}
+                        proposals={effectiveProposals}
                         organization={organization}
                         user={user}
                         kanbanConfig={selectedBoard}
@@ -1103,7 +1156,7 @@ export default function Pipeline() {
                           </Select>
                         </div>
                         <ProposalsList
-                          proposals={filteredProposals}
+                          proposals={effectiveProposals}
                           organization={organization}
                           groupBy={listGroupBy}
                         />
@@ -1126,7 +1179,7 @@ export default function Pipeline() {
                           </Select>
                         </div>
                         <ProposalsTable
-                          proposals={filteredProposals}
+                          proposals={effectiveProposals}
                           organization={organization}
                           groupBy={tableGroupBy}
                         />
