@@ -104,6 +104,8 @@ export default function Pipeline() {
   const [pendingProposalModal, setPendingProposalModal] = useState(null);
   const [proposalToDelete, setProposalToDelete] = useState(null);
   const [showMigrateConfirm, setShowMigrateConfirm] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -961,6 +963,8 @@ export default function Pipeline() {
         onShowSavedViews={() => {}}
         onManageBoards={() => setShowBoardManager(true)}
         onCategorizeProposals={handleMigrateProposals}
+        onShowAdvancedFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        onShowHelp={() => setShowHelp(!showHelp)}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         pipelineValue={pipelineStats.totalValue}
