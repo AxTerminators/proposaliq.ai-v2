@@ -73,7 +73,7 @@ const LEGACY_DEFAULT_COLUMNS = [
   }
 ];
 
-export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh }) {
+export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh, showQuickFilters, showHelp }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -104,6 +104,18 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
 
+  // Sync external props to internal state
+  useEffect(() => {
+    if (showQuickFilters !== undefined) {
+      setShowFilters(showQuickFilters);
+    }
+  }, [showQuickFilters]);
+
+  useEffect(() => {
+    if (showHelp !== undefined) {
+      setShowHelpPanel(showHelp);
+    }
+  }, [showHelp]);
 
   // Use propKanbanConfig if provided, otherwise fetch
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({

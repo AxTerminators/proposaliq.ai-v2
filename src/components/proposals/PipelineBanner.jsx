@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
-  Search,
   BarChart3,
   Layers,
   Zap,
@@ -42,7 +41,6 @@ export default function PipelineBanner({
   onCreateProposal,
   onBoardChange,
   onCreateBoard,
-  onGlobalSearch,
   onShowStats,
   onShowPortfolio,
   onShowAutomation,
@@ -53,6 +51,7 @@ export default function PipelineBanner({
   onCategorizeProposals,
   onShowAdvancedFilters,
   onShowHelp,
+  onShowQuickFilters,
   viewMode,
   onViewModeChange,
   pipelineValue,
@@ -149,11 +148,11 @@ export default function PipelineBanner({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onGlobalSearch}
+                onClick={onShowQuickFilters}
                 className="h-9 w-9"
-                title="Global Search"
+                title="Quick Filters"
               >
-                <Search className="w-4 h-4" />
+                <Filter className="w-4 h-4" />
               </Button>
 
               {!isMobile && (

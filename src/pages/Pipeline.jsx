@@ -106,6 +106,7 @@ export default function Pipeline() {
   const [showMigrateConfirm, setShowMigrateConfirm] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showQuickFilters, setShowQuickFilters] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -965,6 +966,7 @@ export default function Pipeline() {
         onCategorizeProposals={handleMigrateProposals}
         onShowAdvancedFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
         onShowHelp={() => setShowHelp(!showHelp)}
+        onShowQuickFilters={() => setShowQuickFilters(!showQuickFilters)}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         pipelineValue={pipelineStats.totalValue}
