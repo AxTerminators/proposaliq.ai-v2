@@ -1094,6 +1094,8 @@ export default function Pipeline() {
                         onRefresh={() => {
                           refetchProposals();
                         }}
+                        showQuickFilters={showQuickFilters}
+                        showHelp={showHelp}
                       />
                     )}
                     {viewMode === "list" && (
