@@ -109,6 +109,7 @@ export default function Pipeline() {
   const [showHelp, setShowHelp] = useState(false);
   const [showQuickFilters, setShowQuickFilters] = useState(false);
   const [advancedFilteredProposals, setAdvancedFilteredProposals] = useState(null);
+  const [showSavedViews, setShowSavedViews] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -991,7 +992,7 @@ export default function Pipeline() {
         onShowAutomation={() => setShowAutomation(!showAutomation)}
         onShowAnalytics={() => setShowAnalytics(!showAnalytics)}
         onShowActivity={() => setShowActivityFeed(!showActivityFeed)}
-        onShowSavedViews={() => {}}
+        onShowSavedViews={() => setShowSavedViews(!showSavedViews)}
         onManageBoards={() => setShowBoardManager(true)}
         onCategorizeProposals={handleMigrateProposals}
         onShowAdvancedFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -1026,6 +1027,16 @@ export default function Pipeline() {
             proposals={filteredProposals}
             onFilterChange={handleAdvancedFilterChange}
             teamMembers={uniqueTeamMembers}
+          />
+        </div>
+      )}
+
+      {/* Saved Views Panel */}
+      {showSavedViews && (
+        <div className="flex-shrink-0 mx-6 mt-6">
+          <SavedViews
+            organization={organization}
+            onApplyView={handleApplySavedView}
           />
         </div>
       )}
@@ -1118,7 +1129,7 @@ export default function Pipeline() {
               </div>
             )}
 
-            {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && !showMultiBoardAnalytics && (
+            {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && !showMultiBoardAnalytics && !showSavedViews && (
               <>
                 {isMobile ? (
                   <div className="p-4 h-full overflow-y-auto">
