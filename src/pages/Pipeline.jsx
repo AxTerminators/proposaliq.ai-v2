@@ -168,7 +168,7 @@ export default function Pipeline() {
     retry: 1
   });
 
-  const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
+  const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards, isFetching: isFetchingBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -177,7 +177,7 @@ export default function Pipeline() {
         { organization_id: organization.id },
         'board_type'
       );
-      console.log('[Pipeline] Found boards:', boards.length);
+      console.log('[Pipeline] Found boards:', boards.length, boards.map(b => ({ id: b.id, name: b.board_name, is_master: b.is_master_board })));
       return boards;
     },
     enabled: !!organization?.id,
@@ -223,7 +223,7 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // Initialize board selection from localStorage, URL, or default - runs only once
+  // FIXED: Initialize board selection - ensure master board is preferred
   useEffect(() => {
     if (allBoards.length === 0 || hasInitialized.current) return;
 
@@ -234,7 +234,7 @@ export default function Pipeline() {
     console.log('[Pipeline] 🔍 Initializing board selection');
     console.log('[Pipeline] URL boardId:', boardIdFromUrl);
     console.log('[Pipeline] LocalStorage boardId:', boardIdFromStorage);
-    console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name })));
+    console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name, is_master: b.is_master_board })));
 
     // Priority 1: Try to restore from localStorage
     if (boardIdFromStorage) {
@@ -264,10 +264,10 @@ export default function Pipeline() {
       }
     }
 
-    // Priority 3: Auto-select default board
+    // Priority 3: ALWAYS prefer master board if it exists
     const masterBoard = allBoards.find(b => b.is_master_board === true);
     const boardToSelect = masterBoard || allBoards[0];
-    console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name);
+    console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name, '(is_master:', boardToSelect?.is_master_board, ')');
     setSelectedBoardId(boardToSelect?.id);
     if (boardToSelect?.id) {
       localStorage.setItem('selectedBoardId', boardToSelect.id);
@@ -296,7 +296,23 @@ export default function Pipeline() {
     }
   }, [selectedBoardId]);
 
-  const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
+  const selectedBoard = useMemo(() => {
+    const board = allBoards.find(b => b.id === selectedBoardId);
+    
+    // DEFENSIVE: If selected board not found but we have a master board, fallback to it
+    if (!board && selectedBoardId) {
+      console.warn('[Pipeline] ⚠️ Selected board not found, checking for master board fallback');
+      const masterBoard = allBoards.find(b => b.is_master_board === true);
+      if (masterBoard) {
+        console.log('[Pipeline] 🔄 Falling back to master board:', masterBoard.board_name);
+        // Update selection to master board
+        setSelectedBoardId(masterBoard.id);
+        return masterBoard;
+      }
+    }
+    
+    return board;
+  }, [allBoards, selectedBoardId]);
 
   // Effect to handle pending proposal modal after board switch
   useEffect(() => {
