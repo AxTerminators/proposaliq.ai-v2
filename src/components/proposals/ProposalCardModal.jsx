@@ -48,7 +48,7 @@ import TaskManager from "../tasks/TaskManager";
 import ProposalDiscussion from "../collaboration/ProposalDiscussion";
 import ProposalFiles from "../collaboration/ProposalFiles";
 import DataCallManager from "../datacalls/DataCallManager";
-import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
+import { getActionConfig, isNavigateAction, isModalAction, isAIAction, isTabAction } from "./ChecklistActionRegistry";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import ProposalTimelineEditor from "./ProposalTimelineEditor";
 
@@ -627,6 +627,13 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return;
     }
 
+    // Handle tab switching
+    if (isTabAction(item.associated_action)) {
+      console.log('[ProposalCardModal] 📑 Switching to tab:', actionConfig.tab);
+      setActiveTab(actionConfig.tab);
+      return;
+    }
+
     if (isNavigateAction(item.associated_action)) {
       const url = `${createPageUrl(actionConfig.path)}?id=${proposal.id}`;
       navigate(url);
@@ -790,6 +797,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     if (!item.associated_action || item.type === 'manual_check') {
       return <Circle className="w-6 h-6 text-slate-400 hover:text-slate-600" />;
+    }
+
+    if (isTabAction(item.associated_action)) {
+      // You can define a specific icon for tab actions if needed, e.g., MessageCircle for Discussions tab
+      const actionConfig = getActionConfig(item.associated_action);
+      if (actionConfig.tab === 'discussions') return <MessageCircle className="w-6 h-6 text-orange-500" />;
+      if (actionConfig.tab === 'files') return <Paperclip className="w-6 h-6 text-orange-500" />;
+      if (actionConfig.tab === 'tasks') return <CheckSquare className="w-6 h-6 text-orange-500" />;
+      if (actionConfig.tab === 'data-calls') return <FileQuestion className="w-6 h-6 text-orange-500" />;
+      return <PlayCircle className="w-6 h-6 text-orange-500" />; // Generic for tab actions
     }
 
     if (isNavigateAction(item.associated_action)) {
@@ -1114,6 +1131,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                                                 ? "bg-green-600 hover:bg-green-700" 
                                                 : isModalAction(item.associated_action) ? "bg-indigo-600 hover:bg-indigo-700" :
                                                   isNavigateAction(item.associated_action) ? "bg-blue-600 hover:bg-blue-700" :
+                                                  isTabAction(item.associated_action) ? "bg-orange-500 hover:bg-orange-600" :
                                                   "bg-slate-600 hover:bg-slate-700"
                                             )}
                                           >
@@ -1122,6 +1140,9 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                                             )}
                                             {isNavigateAction(item.associated_action) && (
                                               <ExternalLink className="w-4 h-4 mr-1.5" />
+                                            )}
+                                            {isTabAction(item.associated_action) && (
+                                              <PlayCircle className="w-4 h-4 mr-1.5" />
                                             )}
                                             {item.type === 'manual_check' && !item.associated_action && (
                                               <Circle className="w-4 h-4 mr-1.5" />

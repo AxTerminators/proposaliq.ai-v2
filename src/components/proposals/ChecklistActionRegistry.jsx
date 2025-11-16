@@ -21,6 +21,11 @@ export const ACTION_REGISTRY = {
     component: BasicInfoModal,
     label: 'Enter Basic Information'
   },
+  'open_timeline_tab': {
+    type: 'tab',
+    tab: 'timeline',
+    label: 'Set Timeline'
+  },
   
   // ============================================
   // COLUMN 2: TEAM
@@ -150,4 +155,9 @@ export function isModalAction(actionKey) {
 export function isAIAction(actionKey) {
   const action = ACTION_REGISTRY[actionKey];
   return action?.type === 'ai';
+}
+
+export function isTabAction(actionKey) {
+  const action = ACTION_REGISTRY[actionKey];
+  return action?.type === 'tab';
 }
