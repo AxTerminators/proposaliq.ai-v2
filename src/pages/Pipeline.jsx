@@ -697,6 +697,39 @@ export default function Pipeline() {
     }
   };
 
+  // NEW: Temporary migration handler
+  const handleMigrateMasterBoard = async () => {
+    if (!organization?.id) {
+      toast.error("Organization not found");
+      return;
+    }
+
+    if (!confirm('⚠️ This will DELETE your current master board and create a new one with the updated 7-column structure.\n\nAre you sure you want to proceed?')) {
+      return;
+    }
+
+    setIsMigrating(true);
+    try {
+      const response = await base44.functions.invoke('migrateMasterBoardColumns', {
+        organization_id: organization.id
+      });
+
+      if (response.data.success) {
+        toast.success('✅ Master board migrated successfully! Refreshing...');
+        await refetchBoards();
+        // Reload the page to ensure everything is fresh
+        window.location.reload();
+      } else {
+        toast.error('Migration failed: ' + (response.data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error migrating master board:', error);
+      toast.error('Error migrating master board: ' + error.message);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   const handleRetry = () => {
     window.location.reload();
   };
