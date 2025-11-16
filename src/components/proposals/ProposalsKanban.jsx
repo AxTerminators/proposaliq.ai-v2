@@ -81,7 +81,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterClient, setFilterClient] = useState("all");
   const [showBoardConfig, setShowBoardConfig] = useState(false);
   const [columnSorts, setColumnSorts] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
@@ -288,17 +287,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     checkOnboardingStatus();
   }, [hasKanbanConfig, isLoadingConfig, user, organization]);
 
-  // NEW: Fetch all clients for filter
-  const { data: allClients = [] } = useQuery({
-    queryKey: ['all-clients', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return [];
-      return base44.entities.Client.filter({ organization_id: organization.id });
-    },
-    enabled: !!organization?.id,
-    staleTime: 60000
-  });
-
   const uniqueAgencies = useMemo(() => {
     const agencies = proposals
       .map(p => p.agency_name)
@@ -345,13 +333,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       const matchesAssignee = filterAssignee === "all" ||
         (proposal.assigned_team_members || []).includes(filterAssignee);
 
-      // NEW: Client filter
-      const matchesClient = filterClient === "all" ||
-        (proposal.shared_with_client_ids || []).includes(filterClient);
-
-      return matchesSearch && matchesAgency && matchesAssignee && matchesClient;
+      return matchesSearch && matchesAgency && matchesAssignee;
     });
-  }, [proposals, searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
+  }, [proposals, searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
   const proposalColumnAssignments = useMemo(() => {
     const assignments = {};
@@ -1124,7 +1108,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setSearchQuery("");
     setFilterAgency("all");
     setFilterAssignee("all");
-    setFilterClient("all");
     setAdvancedFilteredProposals(null);
   };
 
@@ -1133,10 +1116,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (searchQuery) count++;
     if (filterAgency !== "all") count++;
     if (filterAssignee !== "all") count++;
-    if (filterClient !== "all") count++;
     if (advancedFilteredProposals !== null) count++;
     return count;
-  }, [searchQuery, filterAgency, filterAssignee, filterClient, advancedFilteredProposals]);
+  }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
   if (isLoadingConfig && !propKanbanConfig) {
     return (
@@ -1298,7 +1280,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
@@ -1329,18 +1311,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                     <SelectItem value="all">All Team Members</SelectItem>
                     {uniqueAssignees.map(email => (
                       <SelectItem key={email} value={email}>{email}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filterClient} onValueChange={setFilterClient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Clients" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {allClients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>{client.client_name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
