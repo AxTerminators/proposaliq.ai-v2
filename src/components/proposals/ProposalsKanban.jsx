@@ -486,18 +486,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           return sort.direction === 'asc'
             ? a.proposal_name?.localeCompare(b.proposal_name || '')
             : b.proposal_name?.localeCompare(a.proposal_name || '');
-        } else if (sort.by === 'project_title') {
-          return sort.direction === 'asc'
-            ? (a.project_title || '').localeCompare(b.project_title || '')
-            : (b.project_title || '').localeCompare(a.project_title || '');
         } else if (sort.by === 'due_date') {
-          const dateA = a.due_date ? new Date(a.due_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
-          const dateB = b.due_date ? new Date(b.due_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
+          const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
+          const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
           return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
         } else if (sort.by === 'created_date') {
-          const dateA = a.created_date ? new Date(a.created_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
-          const dateB = b.created_date ? new Date(b.created_date) : (sort.direction === 'asc' ? new Date('2999-12-31') : new Date('1900-01-01'));
-          return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+          return sort.direction === 'asc'
+            ? new Date(a.created_date).getTime() - new Date(b.created_date).getTime()
+            : new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
         }
         return 0;
       });
@@ -533,37 +529,20 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     getStats
   } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
-  const handleColumnSortChange = (columnId, sortType) => {
+  const handleColumnSortChange = (columnId, sortBy) => {
     setColumnSorts(prev => {
-      const newSorts = { ...prev };
-      let newSort = { by: '', direction: 'asc' };
-
-      switch (sortType) {
-        case 'project_title_asc':
-          newSort = { by: 'project_title', direction: 'asc' };
-          break;
-        case 'project_title_desc':
-          newSort = { by: 'project_title', direction: 'desc' };
-          break;
-        case 'due_date_asc':
-          newSort = { by: 'due_date', direction: 'asc' };
-          break;
-        case 'due_date_desc':
-          newSort = { by: 'due_date', direction: 'desc' };
-          break;
-        case 'created_date_asc':
-          newSort = { by: 'created_date', direction: 'asc' };
-          break;
-        case 'created_date_desc':
-          newSort = { by: 'created_date', direction: 'desc' };
-          break;
-        default:
-          delete newSorts[columnId];
-          return newSorts;
+      const current = prev[columnId];
+      if (current?.by === sortBy) {
+        return {
+          ...prev,
+          [columnId]: { by: sortBy, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        };
+      } else {
+        return {
+          ...prev,
+          [columnId]: { by: sortBy, direction: 'asc' }
+        };
       }
-
-      newSorts[columnId] = newSort;
-      return newSorts;
     });
   };
 
@@ -1435,8 +1414,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     hasMore={hasMore(column.id)}
                                     onLoadMore={() => loadMore(column.id)}
                                     onLoadAll={() => loadAll(column.id)}
-                                    onSortChange={handleColumnSortChange}
-                                    currentSort={columnSorts[column.id]}
                                   />
                                 )}
                               </Droppable>
