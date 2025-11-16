@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -362,10 +361,50 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       
       // MASTER BOARD LOGIC - map by status_mapping array
       if (kanbanConfig?.is_master_board) {
-        // Find the master column that includes this proposal's status
+        let masterBoardStatus = proposal.status;
+
+        // Special mapping for RFP_15_COLUMN proposals when viewed on Master Board
+        if (proposal.proposal_type_category === 'RFP_15_COLUMN' && proposal.custom_workflow_stage_id) {
+          switch (proposal.custom_workflow_stage_id) {
+            case 'col_initiate':
+            case 'col_team':
+            case 'col_resources':
+            case 'col_solicitation':
+            case 'col_evaluation':
+            case 'col_strategy':
+              masterBoardStatus = 'evaluating'; // Maps to Qualifying
+              break;
+            case 'col_planning':
+            case 'col_writing':
+            case 'col_pricing':
+              masterBoardStatus = 'draft'; // Maps to Drafting
+              break;
+            case 'col_review':
+            case 'col_final':
+            case 'col_compliance':
+              masterBoardStatus = 'in_progress'; // Maps to Reviewing
+              break;
+            case 'col_submitted':
+              masterBoardStatus = 'submitted'; // Maps to Submitted
+              break;
+            case 'col_won':
+              masterBoardStatus = 'won'; // Maps to Won
+              break;
+            case 'col_lost':
+              masterBoardStatus = 'lost'; // Maps to Lost
+              break;
+            case 'col_archived':
+              masterBoardStatus = 'archived'; // Maps to Archived
+              break;
+            default:
+              masterBoardStatus = 'evaluating'; // Fallback for any unmapped 15-column stages
+          }
+        }
+
+        // Find the master column that includes this proposal's determined status
         const matchingColumn = columns.find(col => 
           col.type === 'master_status' && 
-          col.status_mapping?.includes(proposal.status)
+          col.status_mapping?.includes(masterBoardStatus)
         );
         
         if (matchingColumn) {
@@ -375,7 +414,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           };
         } else {
           // Fallback to first column if no match
-          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status, 'assigned to first column.');
+          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', masterBoardStatus, 'assigned to first column.');
           if (columns.length > 0) {
             assignments[proposal.id] = {
               columnId: columns[0].id,
