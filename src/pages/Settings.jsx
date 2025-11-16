@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Bell, Save, FolderTree, Sparkles } from "lucide-react";
+import { Building2, User, Bell, Save, FolderTree, Sparkles, Trash2, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label"; // Added Label import
-import ImageUploadOptimized from "../components/ui/ImageUploadOptimized"; // Added ImageUploadOptimized import
+import { Label } from "@/components/ui/label";
+import ImageUploadOptimized from "../components/ui/ImageUploadOptimized";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -44,7 +53,6 @@ export default function Settings() {
   const [organization, setOrganization] = useState(null);
   const [saving, setSaving] = useState(false);
   
-  // Renamed orgData to orgFormData and added custom_branding
   const [orgFormData, setOrgFormData] = useState({
     organization_name: "",
     organization_type: "",
@@ -70,6 +78,10 @@ export default function Settings() {
 
   const [isCreatingFolders, setIsCreatingFolders] = useState(false);
   const [foldersCreated, setFoldersCreated] = useState(false);
+
+  // Sample data deletion states
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -101,7 +113,7 @@ export default function Settings() {
           duns: org.duns || "",
           naics_codes: org.naics_codes || [],
           certifications: org.certifications || [],
-          custom_branding: org.custom_branding || { logo_url: "" } // Added custom_branding here
+          custom_branding: org.custom_branding || { logo_url: "" }
         });
       }
     } catch (error) {
@@ -144,7 +156,7 @@ export default function Settings() {
       if (response.data.success) {
         alert(`✅ ${response.data.message}\n\n📁 Created ${response.data.folder_count} folders`);
         setFoldersCreated(true);
-        await checkFolderStatus(); // Re-check status to confirm
+        await checkFolderStatus();
       } else {
         alert(`⚠️ ${response.data.message}`);
       }
@@ -156,9 +168,41 @@ export default function Settings() {
     }
   };
 
+  const handleDeleteSampleData = async () => {
+    if (!organization) {
+      alert('No organization found');
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      const response = await base44.functions.invoke('deleteSampleData', {
+        organization_id: organization.id
+      });
+
+      if (response.data.success) {
+        const counts = response.data.deleted_counts;
+        const summary = Object.entries(counts)
+          .filter(([_, count]) => count > 0)
+          .map(([key, count]) => `  • ${key.replace(/_/g, ' ')}: ${count}`)
+          .join('\n');
+
+        alert(`✅ Sample data deleted successfully!\n\n${summary || 'No sample data found.'}`);
+        setShowDeleteDialog(false);
+      } else {
+        alert(`❌ ${response.data.error || 'Failed to delete sample data'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting sample data:', error);
+      alert('❌ Error deleting sample data: ' + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleLogoUpload = async (uploadResult) => {
     if (!uploadResult) {
-      // Logo removed
       setOrgFormData(prevData => ({
         ...prevData,
         custom_branding: {
@@ -169,7 +213,6 @@ export default function Settings() {
       return;
     }
 
-    // Use optimized version for display
     setOrgFormData(prevData => ({
       ...prevData,
       custom_branding: {
@@ -184,7 +227,6 @@ export default function Settings() {
     
     setSaving(true);
     try {
-      // Used orgFormData here
       await base44.entities.Organization.update(organization.id, orgFormData);
       alert("Organization settings saved");
       await loadData();
@@ -220,6 +262,8 @@ export default function Settings() {
     );
   }
 
+  const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -242,6 +286,12 @@ export default function Settings() {
               <FolderTree className="w-4 h-4 mr-2" />
               Content Library
             </TabsTrigger>
+            {isAdminOrManager && (
+              <TabsTrigger value="data-management">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Data Management
+              </TabsTrigger>
+            )}
             <TabsTrigger value="notifications">
               <Bell className="w-4 h-4 mr-2" />
               Notifications
@@ -261,8 +311,8 @@ export default function Settings() {
                   <div>
                     <Label>Organization Name *</Label>
                     <Input
-                      value={orgFormData.organization_name} // Used orgFormData
-                      onChange={(e) => setOrgFormData({...orgFormData, organization_name: e.target.value})} // Used setOrgFormData
+                      value={orgFormData.organization_name}
+                      onChange={(e) => setOrgFormData({...orgFormData, organization_name: e.target.value})}
                       placeholder="Acme Corporation"
                     />
                   </div>
@@ -271,8 +321,8 @@ export default function Settings() {
                     <Label className="block text-sm font-medium mb-2">Organization Type</Label>
                     <select
                       className="w-full border rounded-md p-2"
-                      value={orgFormData.organization_type} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, organization_type: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.organization_type}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, organization_type: e.target.value })}
                     >
                       <option value="">Select type</option>
                       <option value="small_business">Small Business</option>
@@ -287,8 +337,8 @@ export default function Settings() {
                   <div>
                     <Label className="block text-sm font-medium mb-2">Phone</Label>
                     <Input
-                      value={orgFormData.phone} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, phone: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.phone}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, phone: e.target.value })}
                       placeholder="(555) 123-4567"
                     />
                   </div>
@@ -296,8 +346,8 @@ export default function Settings() {
                   <div>
                     <Label className="block text-sm font-medium mb-2">Website</Label>
                     <Input
-                      value={orgFormData.website} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, website: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.website}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, website: e.target.value })}
                       placeholder="https://example.com"
                     />
                   </div>
@@ -305,8 +355,8 @@ export default function Settings() {
                   <div className="md:col-span-2">
                     <Label className="block text-sm font-medium mb-2">Address</Label>
                     <Textarea
-                      value={orgFormData.address} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, address: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.address}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, address: e.target.value })}
                       placeholder="Full address"
                       rows={2}
                     />
@@ -315,8 +365,8 @@ export default function Settings() {
                   <div>
                     <Label className="block text-sm font-medium mb-2">UEI</Label>
                     <Input
-                      value={orgFormData.uei} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, uei: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.uei}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, uei: e.target.value })}
                       placeholder="Unique Entity Identifier"
                     />
                   </div>
@@ -324,8 +374,8 @@ export default function Settings() {
                   <div>
                     <Label className="block text-sm font-medium mb-2">CAGE Code</Label>
                     <Input
-                      value={orgFormData.cage_code} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, cage_code: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.cage_code}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, cage_code: e.target.value })}
                       placeholder="12345"
                     />
                   </div>
@@ -333,18 +383,17 @@ export default function Settings() {
                   <div>
                     <Label className="block text-sm font-medium mb-2">DUNS</Label>
                     <Input
-                      value={orgFormData.duns} // Used orgFormData
-                      onChange={(e) => setOrgFormData({ ...orgFormData, duns: e.target.value })} // Used setOrgFormData
+                      value={orgFormData.duns}
+                      onChange={(e) => setOrgFormData({ ...orgFormData, duns: e.target.value })}
                       placeholder="DUNS Number"
                     />
                   </div>
                 </div>
 
-                {/* UPDATED: Use ImageUploadOptimized component */}
                 <div>
                   <ImageUploadOptimized
                     label="Organization Logo"
-                    currentImageUrl={orgFormData.custom_branding?.logo_url} // Used orgFormData
+                    currentImageUrl={orgFormData.custom_branding?.logo_url}
                     onUploadComplete={handleLogoUpload}
                     maxWidth={800}
                     quality={90}
@@ -495,6 +544,76 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
+          {isAdminOrManager && (
+            <TabsContent value="data-management">
+              <Card className="border-none shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                    Data Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-slate-900 mb-2">Delete Sample Data</h3>
+                        <p className="text-sm text-slate-700 mb-4">
+                          Remove all sample/demo data from your organization. This will permanently delete:
+                        </p>
+                        <ul className="text-sm text-slate-700 space-y-1 mb-4">
+                          <li>📄 Sample proposals and sections</li>
+                          <li>✅ Sample tasks and subtasks</li>
+                          <li>🏆 Sample past performance records</li>
+                          <li>🧑‍💼 Sample key personnel</li>
+                          <li>🤝 Sample teaming partners</li>
+                          <li>📦 Sample resources and files</li>
+                          <li>📋 Sample Kanban boards</li>
+                          <li>💬 Sample discussions and comments</li>
+                        </ul>
+                        
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                          <p className="text-sm text-yellow-800 font-medium">
+                            ⚠️ This action cannot be undone. Only sample data marked with "is_sample_data: true" will be deleted.
+                          </p>
+                        </div>
+
+                        <Button
+                          onClick={() => setShowDeleteDialog(true)}
+                          variant="destructive"
+                          disabled={isDeleting}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          {isDeleting ? (
+                            <>
+                              <div className="animate-spin mr-2">⏳</div>
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Sample Data
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-slate-900 mb-2">ℹ️ About Sample Data</h4>
+                    <p className="text-sm text-slate-600">
+                      Sample data is created during onboarding to help you explore the platform. Once you're comfortable with the system, you can delete it to start with a clean workspace. You can always generate new sample data later if needed.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
           <TabsContent value="notifications">
             <Card className="border-none shadow-lg">
               <CardHeader>
@@ -507,6 +626,38 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              Delete Sample Data?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This will permanently delete all sample data for <strong>{organization.organization_name}</strong>.
+              </p>
+              <p className="text-red-600 font-medium">
+                This action cannot be undone.
+              </p>
+              <p>
+                Are you sure you want to continue?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSampleData}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Delete Sample Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
