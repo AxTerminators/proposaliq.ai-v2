@@ -331,7 +331,7 @@ export default function BoardManagement() {
         }}
       />
 
-      {/* Config Dialog */}
+      {/* FIXED: Config Dialog - use currentConfig prop instead of boardConfig */}
       {showConfigDialog && editingBoard && (
         <BoardConfigDialog
           isOpen={showConfigDialog}
@@ -339,7 +339,7 @@ export default function BoardManagement() {
             setShowConfigDialog(false);
             setEditingBoard(null);
           }}
-          boardConfig={editingBoard}
+          currentConfig={editingBoard}
           organization={organization}
           onSave={async () => {
             await refetch();
