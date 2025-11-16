@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,10 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Search, Edit, Trash2, Award, Mail, Phone, Briefcase, Library } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import ResumeBioGenerator from "../components/personnel/ResumeBioGenerator";
+import PersonnelFormDialog from "../components/personnel/PersonnelFormDialog";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 
-// Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
   if (!user) return null;
   let orgId = null;
@@ -99,7 +97,6 @@ export default function KeyPersonnel() {
   };
 
   const handlePromoteToLibrary = (person) => {
-    // Create formatted bio content
     const bioContent = `
 <h3>${person.full_name}</h3>
 <p><strong>Title:</strong> ${person.title || 'N/A'}</p>
@@ -304,18 +301,14 @@ ${person.skills && person.skills.length > 0 ? `
       )}
 
       {showDialog && (
-        <ResumeBioGenerator
-          organization={organization}
-          personnel={selectedPersonnel}
+        <PersonnelFormDialog
+          isOpen={showDialog}
           onClose={() => {
             setShowDialog(false);
             setSelectedPersonnel(null);
           }}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['key-personnel'] });
-            setShowDialog(false);
-            setSelectedPersonnel(null);
-          }}
+          personnel={selectedPersonnel}
+          organization={organization}
         />
       )}
 
