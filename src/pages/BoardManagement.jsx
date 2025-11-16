@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -230,7 +229,6 @@ export default function BoardManagement() {
                 const proposalCount = getProposalCount(board);
                 const icon = BOARD_TYPE_ICONS[board.board_type] || '📊';
                 const columnCount = board.columns?.length || 0;
-                const nonTerminalColumns = board.columns?.filter(c => !c.is_terminal).length || 0;
 
                 return (
                   <Card 
@@ -267,7 +265,7 @@ export default function BoardManagement() {
                         </div>
                         <div className="bg-slate-50 rounded-lg p-3">
                           <p className="text-xs text-slate-600 mb-1">Columns</p>
-                          <p className="text-xl font-bold text-slate-900">{nonTerminalColumns}</p>
+                          <p className="text-xl font-bold text-slate-900">{columnCount}</p>
                         </div>
                       </div>
 
@@ -333,7 +331,7 @@ export default function BoardManagement() {
         }}
       />
 
-      {/* FIXED: Config Dialog - prevent navigation by keeping dialog open */}
+      {/* Config Dialog */}
       {showConfigDialog && editingBoard && (
         <BoardConfigDialog
           isOpen={showConfigDialog}
@@ -345,7 +343,6 @@ export default function BoardManagement() {
           organization={organization}
           onSave={async () => {
             await refetch();
-            // Don't close dialog or reset state - just refetch
             alert('✅ Board configuration saved!');
           }}
         />
