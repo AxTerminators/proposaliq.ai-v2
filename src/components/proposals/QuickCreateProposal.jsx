@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +20,13 @@ import {
   Zap,
   ArrowRight,
   FileText,
+  AlertCircle, // New import
+  Check, // New import
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom"; // New import
+import { toast } from "sonner"; // New import for notifications
+import { validateBoardName } from "@/components/utils/boardNameValidation"; // New import
 
 // Standard proposal sections that will be created as placeholders
 const DEFAULT_PROPOSAL_SECTIONS = [
@@ -59,17 +65,23 @@ const COMPLEXITY_MAP = {
   'OTHER': 'Variable'
 };
 
-export default function QuickCreateProposal({ 
-  isOpen, 
-  onClose, 
-  organization, 
+export default function QuickCreateProposal({
+  isOpen,
+  onClose,
+  organization,
   preselectedType = null,
-  onSuccess 
+  onSuccess // Keep this prop
 }) {
+  const navigate = useNavigate(); // Hook for navigation
   const queryClient = useQueryClient();
-  
+
   const [proposalName, setProposalName] = useState('');
   const [selectedType, setSelectedType] = useState(preselectedType || null);
+  const [isCreating, setIsCreating] = useState(false); // State for overall creation loading
+  const [boardName, setBoardName] = useState(""); // State for new board name
+  const [nameError, setNameError] = useState(""); // State for board name validation error
+  const [isValidatingName, setIsValidatingName] = useState(false); // State for board name validation loading
+  const [needsNewBoard, setNeedsNewBoard] = useState(false); // State to indicate if a new board is needed/will be created
 
   // Fetch available templates to determine proposal types
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -79,14 +91,14 @@ export default function QuickCreateProposal({
         template_type: 'system',
         is_active: true
       }, '-created_date');
-      
-      const orgTemplates = organization?.id 
+
+      const orgTemplates = organization?.id
         ? await base44.entities.ProposalWorkflowTemplate.filter({
-            organization_id: organization.id,
-            is_active: true
-          }, '-created_date')
+          organization_id: organization.id,
+          is_active: true
+        }, '-created_date')
         : [];
-      
+
       return [...systemTemplates, ...orgTemplates].filter(t => t != null);
     },
     enabled: isOpen && !!organization?.id,
@@ -99,7 +111,7 @@ export default function QuickCreateProposal({
       if (!organization?.id) return [];
       return base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_name'
+        'board_name,board_type,applies_to_proposal_types,is_master_board,columns' // Include columns for later use
       );
     },
     enabled: isOpen && !!organization?.id,
@@ -110,31 +122,145 @@ export default function QuickCreateProposal({
     if (isOpen) {
       setProposalName('');
       setSelectedType(preselectedType || null);
+      setIsCreating(false);
+      setBoardName('');
+      setNameError('');
+      setIsValidatingName(false);
+      setNeedsNewBoard(false); // Reset this too
+
+      // If a preselectedType is given, try to determine if it needs a new board
+      if (preselectedType && templates.length > 0 && existingBoards.length > 0) {
+        const templateForPreselected = templates.find(t => t.proposal_type_category === preselectedType);
+        if (templateForPreselected) {
+          const existingBoardFound = existingBoards.some(b =>
+            b.board_type === templateForPreselected.board_type ||
+            b.applies_to_proposal_types?.includes(preselectedType)
+          );
+          setNeedsNewBoard(!existingBoardFound);
+        }
+      }
     }
-  }, [isOpen, preselectedType]);
+  }, [isOpen, preselectedType, templates, existingBoards]);
 
-  const createProposalMutation = useMutation({
-    mutationFn: async ({ name, type }) => {
-      console.log('[QuickCreate] 🚀 Creating proposal:', { name, type });
-      
-      // Find appropriate board for this type
-      const boards = await base44.entities.KanbanConfig.filter({
-        organization_id: organization.id,
-      });
+  // Real-time board name validation
+  const handleBoardNameChange = async (value) => {
+    setBoardName(value);
+    setNameError("");
 
-      // Try to find board that matches the type
-      let targetBoard = boards.find(b => 
-        b.board_type === type.toLowerCase() ||
-        b.applies_to_proposal_types?.includes(type)
+    if (!value.trim()) {
+      return;
+    }
+
+    setIsValidatingName(true);
+
+    try {
+      const validation = await validateBoardName(value, organization.id);
+
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[QuickCreateProposal] Validation error:', error);
+      setNameError('Validation service error. Please try again.'); // Generic user-friendly error
+    } finally {
+      setIsValidatingName(false);
+    }
+  };
+
+  const handleTypeSelect = (template) => {
+    setSelectedType(template.proposal_type_category);
+    const existingBoardFound = existingBoards.some(b =>
+      b.board_type === template.board_type ||
+      b.applies_to_proposal_types?.includes(template.proposal_type_category)
+    );
+    setNeedsNewBoard(!existingBoardFound); // Set needsNewBoard based on whether a board already exists for this type
+    setBoardName(''); // Clear board name when type changes
+    setNameError(''); // Clear error
+  };
+
+  const handleCreate = async () => {
+    if (!proposalName.trim()) {
+      toast.error("Please enter a proposal name");
+      return;
+    }
+
+    if (!selectedType) {
+      toast.error("Please select a proposal type");
+      return;
+    }
+
+    const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
+    if (!selectedTemplate) {
+      toast.error("Selected proposal type template not found. Please try again.");
+      return;
+    }
+
+    // If creating new board, validate board name
+    if (needsNewBoard) {
+      if (!boardName.trim()) {
+        toast.error("Please enter a board name");
+        return;
+      }
+
+      if (nameError) {
+        toast.error(nameError);
+        return;
+      }
+
+      // Final validation before creation
+      setIsValidatingName(true);
+      const validation = await validateBoardName(boardName, organization.id);
+      setIsValidatingName(false);
+      if (!validation.isValid) {
+        toast.error(validation.message);
+        setNameError(validation.message);
+        return;
+      }
+    }
+
+    setIsCreating(true);
+    let targetBoard = null;
+
+    try {
+      console.log('[QuickCreate] 🚀 Creating proposal:', { name: proposalName, type: selectedType });
+
+      // Check for existing board for this specific type
+      const existingBoardForType = existingBoards.find(b =>
+        b.board_type === selectedTemplate.board_type ||
+        b.applies_to_proposal_types?.includes(selectedType)
       );
 
-      // Fallback to master board
-      if (!targetBoard) {
-        targetBoard = boards.find(b => b.is_master_board);
+      if (needsNewBoard && !existingBoardForType) {
+        // Create a new board if needsNewBoard is true and no existing board for this type
+        const newBoardData = {
+          organization_id: organization.id,
+          board_name: boardName.trim(),
+          description: `Kanban board for ${selectedTemplate.template_name} proposals.`,
+          board_type: selectedTemplate.board_type,
+          applies_to_proposal_types: [selectedType],
+          is_master_board: false, // Newly created type-specific boards are not master boards by default
+          columns: selectedTemplate.workflow_stages || [], // Use template's stages
+          created_by: 'system_quick_create',
+          created_date: new Date().toISOString(),
+          is_active: true,
+          default_proposal_type: selectedType
+        };
+        targetBoard = await base44.entities.KanbanConfig.create(newBoardData);
+        toast.success(`New board "${boardName}" created successfully!`);
+      } else if (existingBoardForType) {
+        // Use the existing board if one is found
+        targetBoard = existingBoardForType;
+        toast.info(`Using existing board "${targetBoard.board_name}" for this proposal type.`);
+      } else {
+        // Fallback to master board if no specific board and needsNewBoard was false (or no input given)
+        targetBoard = existingBoards.find(b => b.is_master_board);
+        if (targetBoard) {
+          toast.info(`No specific board found for type ${selectedType}, falling back to master board "${targetBoard.board_name}".`);
+        }
       }
 
       if (!targetBoard) {
-        throw new Error('No board configuration available. Please create a board first.');
+        throw new Error('No appropriate board configuration found or created. Please ensure a board exists or specify a new board name.');
       }
 
       // Find first non-terminal column
@@ -143,18 +269,18 @@ export default function QuickCreateProposal({
         .sort((a, b) => (a.order || 0) - (b.order || 0))[0];
 
       if (!firstColumn) {
-        throw new Error('No workflow columns found in board');
+        throw new Error('No workflow columns found in the selected board. Please configure the board first.');
       }
 
       // Build proposal data
       let proposalCreateData = {
-        proposal_name: name,
+        proposal_name: proposalName.trim(),
         organization_id: organization.id,
-        proposal_type_category: type,
+        proposal_type_category: selectedType,
         manual_order: 0,
         is_sample_data: false,
-        current_phase: 'phase1',
-        status: 'evaluating',
+        current_phase: 'phase1', // Default, will be overridden by firstColumn if applicable
+        status: 'evaluating', // Default, will be overridden by firstColumn if applicable
         custom_workflow_stage_id: null,
         current_stage_checklist_status: {},
         action_required: false,
@@ -188,17 +314,18 @@ export default function QuickCreateProposal({
       // Check if there are required checklist items
       const hasRequiredItems = firstColumn.checklist_items?.some(item => item.required);
       proposalCreateData.action_required = hasRequiredItems;
-      proposalCreateData.action_required_description = hasRequiredItems 
-        ? `Complete required items in ${firstColumn.label}` 
+      proposalCreateData.action_required_description = hasRequiredItems
+        ? `Complete required items in ${firstColumn.label}`
         : null;
 
       const proposal = await base44.entities.Proposal.create(proposalCreateData);
-      
+
       console.log('[QuickCreate] ✅ Proposal created:', proposal.id);
+      toast.success(`Proposal "${proposalName.trim()}" created successfully!`);
 
       // Auto-generate placeholder sections for this proposal
       console.log('[QuickCreate] 📝 Auto-generating placeholder sections...');
-      
+
       const sectionsToCreate = DEFAULT_PROPOSAL_SECTIONS.map(section => ({
         proposal_id: proposal.id,
         section_name: section.name,
@@ -211,50 +338,42 @@ export default function QuickCreateProposal({
 
       // Bulk create all sections at once
       await base44.entities.ProposalSection.bulkCreate(sectionsToCreate);
-      
-      console.log('[QuickCreate] ✅ Created', sectionsToCreate.length, 'placeholder sections');
 
-      return { proposal, targetBoard };
-    },
-    onSuccess: async ({ proposal, targetBoard }) => {
+      console.log('[QuickCreate] ✅ Created', sectionsToCreate.length, 'placeholder sections');
+      toast.success('Default sections for the proposal added.');
+
+      // Invalidate queries
       await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       await queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposal.id] });
-      
-      await queryClient.refetchQueries({ 
+
+      await queryClient.refetchQueries({
         queryKey: ['all-kanban-boards'],
         exact: false
       });
-      
+
       onClose();
-      
+
       if (onSuccess) {
         console.log('[QuickCreate] 📞 Calling onSuccess');
         onSuccess(proposal, null, targetBoard);
       }
-    },
-    onError: (error) => {
+      navigate(`/pipeline`); // Navigate to the pipeline after creation
+
+    } catch (error) {
       console.error('[QuickCreate] ❌ Creation failed:', error.message);
-      alert('Failed to create proposal: ' + error.message);
+      toast.error('Failed to create proposal: ' + error.message);
+      // If the error was specifically related to board creation, potentially update nameError
+      if (needsNewBoard && error.message.includes('board configuration')) {
+        setNameError(error.message);
+      }
+    } finally {
+      setIsCreating(false);
     }
-  });
-
-  const handleCreate = () => {
-    if (!proposalName.trim()) {
-      alert('Please enter a proposal name');
-      return;
-    }
-
-    if (!selectedType) {
-      alert('Please select a proposal type');
-      return;
-    }
-
-    createProposalMutation.mutate({
-      name: proposalName.trim(),
-      type: selectedType
-    });
   };
+
+  const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -282,6 +401,7 @@ export default function QuickCreateProposal({
               placeholder="e.g., Cloud Infrastructure Modernization for VA"
               className="text-lg"
               autoFocus
+              disabled={isCreating}
             />
           </div>
 
@@ -290,7 +410,7 @@ export default function QuickCreateProposal({
             <Label className="text-base font-semibold">
               Proposal Type *
             </Label>
-            
+
             {isLoadingTemplates ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
@@ -309,33 +429,42 @@ export default function QuickCreateProposal({
                   const boardType = template.board_type;
                   const icon = template.icon_emoji || BOARD_TYPE_ICONS[boardType] || '📋';
                   const complexity = COMPLEXITY_MAP[proposalType] || 'Variable';
-                  const estimatedDuration = template.estimated_duration_days 
-                    ? `~${template.estimated_duration_days} days` 
+                  const estimatedDuration = template.estimated_duration_days
+                    ? `~${template.estimated_duration_days} days`
                     : '30-60 days';
-                  
+
                   // Check if a board exists for this type
-                  const hasBoardForType = existingBoards.some(b => 
-                    b.board_type === boardType || 
+                  const hasBoardForType = existingBoards.some(b =>
+                    b.board_type === boardType ||
                     b.applies_to_proposal_types?.includes(proposalType)
                   );
-                  
+
                   return (
                     <Card
                       key={template.id}
                       className={cn(
                         "cursor-pointer transition-all border-2 hover:shadow-lg relative",
-                        selectedType === proposalType 
-                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" 
-                          : "border-slate-200 hover:border-blue-300"
+                        selectedType === proposalType
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
+                          : "border-slate-200 hover:border-blue-300",
+                        isCreating && "pointer-events-none opacity-70"
                       )}
-                      onClick={() => setSelectedType(proposalType)}
+                      onClick={() => handleTypeSelect(template)}
                     >
-                      {hasBoardForType && (
+                      {hasBoardForType ? (
                         <div className="absolute -top-2 -right-2">
                           <Badge className="bg-green-500 text-white text-xs">
                             ✓ Board Ready
                           </Badge>
                         </div>
+                      ) : (
+                        selectedType === proposalType && ( // Only show if selected and needs new board
+                          <div className="absolute -top-2 -right-2">
+                            <Badge className="bg-orange-500 text-white text-xs">
+                              Needs New Board
+                            </Badge>
+                          </div>
+                        )
                       )}
                       <CardContent className="p-3">
                         <div className="text-2xl mb-2">{icon}</div>
@@ -350,15 +479,15 @@ export default function QuickCreateProposal({
                             <Calendar className="w-3 h-3" />
                             {estimatedDuration}
                           </Badge>
-                          <Badge 
+                          <Badge
                             className={cn(
-                              complexity === 'Advanced' || complexity === 'Very High' 
-                                ? 'bg-red-100 text-red-700' 
+                              complexity === 'Advanced' || complexity === 'Very High'
+                                ? 'bg-red-100 text-red-700'
                                 : complexity === 'High'
-                                ? 'bg-orange-100 text-orange-700'
-                                : complexity === 'Medium'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-green-100 text-green-700'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : complexity === 'Medium'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-green-100 text-green-700'
                             )}
                           >
                             {complexity}
@@ -371,6 +500,46 @@ export default function QuickCreateProposal({
               </div>
             )}
           </div>
+
+          {/* Board Name Input - if creating new board */}
+          {needsNewBoard && selectedType && (
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="new-board-name" className="text-sm font-semibold">
+                New Board Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="new-board-name"
+                value={boardName}
+                onChange={(e) => handleBoardNameChange(e.target.value)}
+                placeholder={`e.g., ${selectedTemplate?.template_name || 'My Board'}`}
+                className={cn(
+                  nameError && "border-red-500 focus-visible:ring-red-500"
+                )}
+                disabled={isCreating}
+              />
+              {isValidatingName && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  Checking availability...
+                </p>
+              )}
+              {nameError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {nameError}
+                </p>
+              )}
+              {!nameError && boardName.trim().length >= 3 && !isValidatingName && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Board name is available
+                </p>
+              )}
+              <p className="text-xs text-slate-600">
+                This name must be unique across all your boards (case-insensitive)
+              </p>
+            </div>
+          )}
 
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -391,16 +560,21 @@ export default function QuickCreateProposal({
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} disabled={createProposalMutation.isPending}>
+            <Button variant="outline" onClick={onClose} disabled={isCreating}>
               Cancel
             </Button>
-            
+
             <Button
               onClick={handleCreate}
-              disabled={createProposalMutation.isPending || !proposalName.trim() || !selectedType}
+              disabled={
+                isCreating ||
+                !proposalName.trim() ||
+                !selectedType ||
+                (needsNewBoard && (!boardName.trim() || nameError))
+              }
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
-              {createProposalMutation.isPending ? (
+              {isCreating ? (
                 <>
                   <div className="animate-spin mr-2">⏳</div>
                   Creating...

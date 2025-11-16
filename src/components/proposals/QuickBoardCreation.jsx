@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { validateBoardName } from "@/components/utils/boardNameValidation";
 
 const BOARD_TYPE_ICONS = {
   'rfp': '📋',
@@ -45,8 +46,8 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [boardName, setBoardName] = useState("");
   const [step, setStep] = useState(1);
-
-  // Removed hardcoded SPECIAL_BOARDS - now using database templates only
+  const [nameError, setNameError] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
 
   // Fetch available templates
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -69,47 +70,37 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
     enabled: isOpen && !!organization?.id,
   });
 
-  // Fetch existing boards for name validation
-  const { data: existingBoards = [] } = useQuery({
-    queryKey: ['all-kanban-boards', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) return [];
-      return base44.entities.KanbanConfig.filter(
-        { organization_id: organization.id },
-        'board_name'
-      );
-    },
-    enabled: isOpen && !!organization?.id,
-  });
+  // Real-time board name validation
+  const handleBoardNameChange = async (value) => {
+    setBoardName(value);
+    setNameError("");
 
-  // Validation function for duplicate board names (case-insensitive)
-  const validateUniqueBoardName = (name) => {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      return { valid: false, error: 'Board name cannot be empty' };
+    if (!value.trim()) {
+      return;
     }
 
-    const normalizedName = trimmedName.toLowerCase();
-    const duplicate = existingBoards.find(board => 
-      board.board_name.toLowerCase() === normalizedName
-    );
-
-    if (duplicate) {
-      return { 
-        valid: false, 
-        error: `A board named "${duplicate.board_name}" already exists. Please choose a different name.` 
-      };
+    setIsValidatingName(true);
+    
+    try {
+      const validation = await validateBoardName(value, organization.id);
+      
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[QuickBoardCreation] Validation error:', error);
+    } finally {
+      setIsValidatingName(false);
     }
-
-    return { valid: true };
   };
 
   // Create board mutation (for template-based boards)
   const createBoardMutation = useMutation({
     mutationFn: async ({ template, customBoardName }) => {
-      const validation = validateUniqueBoardName(customBoardName);
-      if (!validation.valid) {
-        throw new Error(validation.error);
+      // Final validation before creation
+      const validation = await validateBoardName(customBoardName, organization.id);
+      if (!validation.isValid) {
+        throw new Error(validation.message);
       }
 
       const workflowConfig = typeof template.workflow_config === 'string'
@@ -152,6 +143,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       toast.success(`✅ Board "${newBoard.board_name}" created successfully!`);
       setSelectedTemplate(null);
       setBoardName("");
+      setNameError("");
       setStep(1);
       onClose();
     },
@@ -162,8 +154,11 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   const handleTemplateSelect = (template) => {
     setSelectedTemplate(template);
-    setBoardName(template.template_name || template.name);
+    const suggestedName = template.template_name || template.name;
+    setBoardName(suggestedName);
     setStep(2);
+    // Validate the suggested name
+    handleBoardNameChange(suggestedName);
   };
 
   const handleCreateBoard = () => {
@@ -177,9 +172,8 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       return;
     }
 
-    const validation = validateUniqueBoardName(boardName);
-    if (!validation.valid) {
-      toast.error(validation.error);
+    if (nameError) {
+      toast.error(nameError);
       return;
     }
 
@@ -192,12 +186,14 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const handleBack = () => {
     setStep(1);
     setSelectedTemplate(null);
+    setNameError("");
   };
 
   const handleDialogClose = () => {
     setStep(1);
     setSelectedTemplate(null);
     setBoardName("");
+    setNameError("");
     onClose();
   };
 
@@ -328,14 +324,37 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
             {/* Board Name Input */}
             <div className="space-y-2">
-              <Label htmlFor="board-name-input" className="text-base font-semibold">Board Name <span className="text-red-500">*</span></Label>
+              <Label htmlFor="board-name-input" className="text-base font-semibold">
+                Board Name <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="board-name-input"
                 value={boardName}
-                onChange={(e) => setBoardName(e.target.value)}
+                onChange={(e) => handleBoardNameChange(e.target.value)}
                 placeholder="Enter a unique name for this board..."
-                className="text-base"
+                className={cn(
+                  "text-base",
+                  nameError && "border-red-500 focus-visible:ring-red-500"
+                )}
               />
+              {isValidatingName && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  Checking availability...
+                </p>
+              )}
+              {nameError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {nameError}
+                </p>
+              )}
+              {!nameError && boardName.trim().length >= 3 && !isValidatingName && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Board name is available
+                </p>
+              )}
               <div className="flex items-start gap-2 text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <p>
@@ -405,7 +424,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             {step === 2 && (
               <Button
                 onClick={handleCreateBoard}
-                disabled={createBoardMutation.isPending}
+                disabled={createBoardMutation.isPending || !!nameError || !boardName.trim() || isValidatingName}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 {createBoardMutation.isPending ? (
