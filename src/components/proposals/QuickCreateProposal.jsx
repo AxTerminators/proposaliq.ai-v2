@@ -20,13 +20,13 @@ import {
   Zap,
   ArrowRight,
   FileText,
-  AlertCircle, // New import
-  Check, // New import
+  AlertCircle,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom"; // New import
-import { toast } from "sonner"; // New import for notifications
-import { validateBoardName } from "@/components/utils/boardNameValidation"; // New import
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { validateBoardName, validateProposalName } from "@/components/utils/boardNameValidation";
 
 // Standard proposal sections that will be created as placeholders
 const DEFAULT_PROPOSAL_SECTIONS = [
@@ -79,9 +79,13 @@ export default function QuickCreateProposal({
   const [selectedType, setSelectedType] = useState(preselectedType || null);
   const [isCreating, setIsCreating] = useState(false); // State for overall creation loading
   const [boardName, setBoardName] = useState(""); // State for new board name
-  const [nameError, setNameError] = useState(""); // State for board name validation error
-  const [isValidatingName, setIsValidatingName] = useState(false); // State for board name validation loading
+  const [boardNameError, setBoardNameError] = useState(""); // State for board name validation error
+  const [isValidatingBoardName, setIsValidatingBoardName] = useState(false); // State for board name validation loading
   const [needsNewBoard, setNeedsNewBoard] = useState(false); // State to indicate if a new board is needed/will be created
+
+  // NEW: Proposal name validation state
+  const [proposalNameError, setProposalNameError] = useState("");
+  const [isValidatingProposalName, setIsValidatingProposalName] = useState(false);
 
   // Fetch available templates to determine proposal types
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -124,9 +128,11 @@ export default function QuickCreateProposal({
       setSelectedType(preselectedType || null);
       setIsCreating(false);
       setBoardName('');
-      setNameError('');
-      setIsValidatingName(false);
+      setBoardNameError(''); // Renamed from nameError
+      setIsValidatingBoardName(false); // Renamed from isValidatingName
       setNeedsNewBoard(false); // Reset this too
+      setProposalNameError(''); // NEW: Reset proposal name error
+      setIsValidatingProposalName(false); // NEW: Reset proposal name validation state
 
       // If a preselectedType is given, try to determine if it needs a new board
       if (preselectedType && templates.length > 0 && existingBoards.length > 0) {
@@ -142,28 +148,53 @@ export default function QuickCreateProposal({
     }
   }, [isOpen, preselectedType, templates, existingBoards]);
 
-  // Real-time board name validation
-  const handleBoardNameChange = async (value) => {
-    setBoardName(value);
-    setNameError("");
+  // Real-time proposal name validation
+  const handleProposalNameChange = async (value) => {
+    setProposalName(value);
+    setProposalNameError("");
 
     if (!value.trim()) {
       return;
     }
 
-    setIsValidatingName(true);
+    setIsValidatingProposalName(true);
+
+    try {
+      const validation = await validateProposalName(value, organization.id);
+
+      if (!validation.isValid) {
+        setProposalNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[QuickCreateProposal] Proposal name validation error:', error);
+      setProposalNameError('Validation service error. Please try again.'); // Generic user-friendly error
+    } finally {
+      setIsValidatingProposalName(false);
+    }
+  };
+
+  // Real-time board name validation
+  const handleBoardNameChange = async (value) => {
+    setBoardName(value);
+    setBoardNameError(""); // Renamed from nameError
+
+    if (!value.trim()) {
+      return;
+    }
+
+    setIsValidatingBoardName(true); // Renamed from isValidatingName
 
     try {
       const validation = await validateBoardName(value, organization.id);
 
       if (!validation.isValid) {
-        setNameError(validation.message);
+        setBoardNameError(validation.message); // Renamed from nameError
       }
     } catch (error) {
-      console.error('[QuickCreateProposal] Validation error:', error);
-      setNameError('Validation service error. Please try again.'); // Generic user-friendly error
+      console.error('[QuickCreateProposal] Board name validation error:', error);
+      setBoardNameError('Validation service error. Please try again.'); // Generic user-friendly error
     } finally {
-      setIsValidatingName(false);
+      setIsValidatingBoardName(false); // Renamed from isValidatingName
     }
   };
 
@@ -175,12 +206,17 @@ export default function QuickCreateProposal({
     );
     setNeedsNewBoard(!existingBoardFound); // Set needsNewBoard based on whether a board already exists for this type
     setBoardName(''); // Clear board name when type changes
-    setNameError(''); // Clear error
+    setBoardNameError(''); // Clear board error
   };
 
   const handleCreate = async () => {
     if (!proposalName.trim()) {
       toast.error("Please enter a proposal name");
+      return;
+    }
+
+    if (proposalNameError) { // NEW: Check proposal name error
+      toast.error(proposalNameError);
       return;
     }
 
@@ -195,6 +231,16 @@ export default function QuickCreateProposal({
       return;
     }
 
+    // Final proposal name validation before creation
+    setIsValidatingProposalName(true);
+    const proposalValidation = await validateProposalName(proposalName, organization.id);
+    setIsValidatingProposalName(false);
+    if (!proposalValidation.isValid) {
+      toast.error(proposalValidation.message);
+      setProposalNameError(proposalValidation.message);
+      return;
+    }
+
     // If creating new board, validate board name
     if (needsNewBoard) {
       if (!boardName.trim()) {
@@ -202,18 +248,18 @@ export default function QuickCreateProposal({
         return;
       }
 
-      if (nameError) {
-        toast.error(nameError);
+      if (boardNameError) { // Renamed from nameError
+        toast.error(boardNameError); // Renamed from nameError
         return;
       }
 
       // Final validation before creation
-      setIsValidatingName(true);
-      const validation = await validateBoardName(boardName, organization.id);
-      setIsValidatingName(false);
-      if (!validation.isValid) {
-        toast.error(validation.message);
-        setNameError(validation.message);
+      setIsValidatingBoardName(true); // Renamed from isValidatingName
+      const boardValidation = await validateBoardName(boardName, organization.id);
+      setIsValidatingBoardName(false); // Renamed from isValidatingName
+      if (!boardValidation.isValid) {
+        toast.error(boardValidation.message);
+        setBoardNameError(boardValidation.message); // Renamed from nameError
         return;
       }
     }
@@ -363,9 +409,9 @@ export default function QuickCreateProposal({
     } catch (error) {
       console.error('[QuickCreate] ❌ Creation failed:', error.message);
       toast.error('Failed to create proposal: ' + error.message);
-      // If the error was specifically related to board creation, potentially update nameError
+      // If the error was specifically related to board creation, potentially update boardNameError
       if (needsNewBoard && error.message.includes('board configuration')) {
-        setNameError(error.message);
+        setBoardNameError(error.message); // Renamed from nameError
       }
     } finally {
       setIsCreating(false);
@@ -389,7 +435,7 @@ export default function QuickCreateProposal({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Proposal Name Input */}
+          {/* Proposal Name Input with Validation */}
           <div className="space-y-2">
             <Label htmlFor="proposal_name" className="text-base font-semibold">
               Proposal Name *
@@ -397,12 +443,36 @@ export default function QuickCreateProposal({
             <Input
               id="proposal_name"
               value={proposalName}
-              onChange={(e) => setProposalName(e.target.value)}
+              onChange={(e) => handleProposalNameChange(e.target.value)} // NEW: Use handleProposalNameChange
               placeholder="e.g., Cloud Infrastructure Modernization for VA"
-              className="text-lg"
+              className={cn(
+                "text-lg",
+                proposalNameError && "border-red-500 focus-visible:ring-red-500" // NEW: Conditional styling
+              )}
               autoFocus
               disabled={isCreating}
             />
+            {isValidatingProposalName && ( // NEW: Validation feedback
+              <p className="text-xs text-blue-600 flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                Checking availability...
+              </p>
+            )}
+            {proposalNameError && ( // NEW: Error message
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {proposalNameError}
+              </p>
+            )}
+            {!proposalNameError && proposalName.trim().length >= 6 && !isValidatingProposalName && ( // NEW: Success message (min length is 6 for proposals)
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                Proposal name is available
+              </p>
+            )}
+            <p className="text-xs text-slate-600">
+              Must be 6-60 characters, unique within your organization, and avoid special characters: / \ : * ? " &lt; &gt; | # % &amp;
+            </p>
           </div>
 
           {/* Proposal Type Selection - Dynamic from Templates */}
@@ -513,23 +583,23 @@ export default function QuickCreateProposal({
                 onChange={(e) => handleBoardNameChange(e.target.value)}
                 placeholder={`e.g., ${selectedTemplate?.template_name || 'My Board'}`}
                 className={cn(
-                  nameError && "border-red-500 focus-visible:ring-red-500"
+                  boardNameError && "border-red-500 focus-visible:ring-red-500" // Renamed from nameError
                 )}
                 disabled={isCreating}
               />
-              {isValidatingName && (
+              {isValidatingBoardName && ( // Renamed from isValidatingName
                 <p className="text-xs text-blue-600 flex items-center gap-1">
                   <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
                   Checking availability...
                 </p>
               )}
-              {nameError && (
+              {boardNameError && ( // Renamed from nameError
                 <p className="text-xs text-red-600 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
-                  {nameError}
+                  {boardNameError}
                 </p>
               )}
-              {!nameError && boardName.trim().length >= 3 && !isValidatingName && (
+              {!boardNameError && boardName.trim().length >= 3 && !isValidatingBoardName && ( // Renamed from nameError, isValidatingName
                 <p className="text-xs text-green-600 flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Board name is available
@@ -569,8 +639,10 @@ export default function QuickCreateProposal({
               disabled={
                 isCreating ||
                 !proposalName.trim() ||
+                proposalNameError || // NEW: Disable if proposalNameError exists
+                isValidatingProposalName || // NEW: Disable if proposal name is validating
                 !selectedType ||
-                (needsNewBoard && (!boardName.trim() || nameError))
+                (needsNewBoard && (!boardName.trim() || boardNameError || isValidatingBoardName)) // Renamed error and validating states
               }
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
