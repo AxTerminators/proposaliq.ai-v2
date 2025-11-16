@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,11 +52,9 @@ export default function PromoteToLibraryDialog({
     content_category: 'general'
   });
 
-  // NEW: Validation state
   const [titleError, setTitleError] = useState("");
   const [isValidatingTitle, setIsValidatingTitle] = useState(false);
 
-  // Fetch folders for content library
   const { data: folders = [] } = useQuery({
     queryKey: ['folders-content-library', organization?.id],
     queryFn: async () => {
@@ -70,7 +67,6 @@ export default function PromoteToLibraryDialog({
     enabled: !!organization?.id && isOpen,
   });
 
-  // Create resource mutation
   const createResourceMutation = useMutation({
     mutationFn: async (data) => {
       const tagsArray = data.tags
@@ -102,30 +98,19 @@ export default function PromoteToLibraryDialog({
         tags: '',
         content_category: 'general'
       });
-      setTitleError(""); // NEW: Reset title error on success
+      setTitleError("");
     },
     onError: (error) => {
       alert(`Error promoting content: ${error.message}`);
     }
   });
 
-  // NEW: Handle title change with validation
   const handleTitleChange = async (value) => {
     setFormData({...formData, title: value});
-    setTitleError(""); // Clear previous error immediately
+    setTitleError("");
 
-    // Only validate if there's an organization and the value is not empty
-    if (!organization?.id) {
-        setTitleError("Organization not found for validation.");
-        return;
-    }
-    if (!value.trim()) {
-        setTitleError("Title cannot be empty.");
-        return;
-    }
-    if (value.trim().length < 3) {
-        setTitleError("Title must be at least 3 characters long.");
-        return;
+    if (!value.trim() || !organization?.id) {
+      return;
     }
 
     setIsValidatingTitle(true);
@@ -135,7 +120,7 @@ export default function PromoteToLibraryDialog({
         value, 
         organization.id, 
         formData.folder_id,
-        null // resourceId is null for creation
+        null
       );
 
       if (!validation.isValid) {
@@ -149,7 +134,7 @@ export default function PromoteToLibraryDialog({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.title.trim()) {
       alert('Please enter a title');
       return;
@@ -160,13 +145,8 @@ export default function PromoteToLibraryDialog({
       return;
     }
 
-    // NEW: Validate before submitting
     if (titleError) {
       alert('Please fix title errors before saving');
-      return;
-    }
-    if (isValidatingTitle) {
-      alert('Please wait for title validation to complete.');
       return;
     }
 
@@ -253,13 +233,12 @@ export default function PromoteToLibraryDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => handleTitleChange(e.target.value)} {/* NEW: Use handleTitleChange */}
+              onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="e.g., Standard Technical Approach Introduction"
               className={cn(
                 titleError && "border-red-500 focus-visible:ring-red-500"
@@ -288,7 +267,6 @@ export default function PromoteToLibraryDialog({
             </p>
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
@@ -300,7 +278,6 @@ export default function PromoteToLibraryDialog({
             />
           </div>
 
-          {/* Category */}
           <div className="space-y-2">
             <Label htmlFor="category">Content Category</Label>
             <Select
@@ -325,7 +302,6 @@ export default function PromoteToLibraryDialog({
             </Select>
           </div>
 
-          {/* Folder Selection */}
           <div className="space-y-2">
             <Label>Select Folder *</Label>
             <div className="border-2 border-slate-200 rounded-lg p-3 max-h-60 overflow-y-auto">
@@ -349,7 +325,6 @@ export default function PromoteToLibraryDialog({
             )}
           </div>
 
-          {/* Tags */}
           <div className="space-y-2">
             <Label htmlFor="tags">
               <Tag className="w-4 h-4 inline mr-1" />
@@ -366,7 +341,6 @@ export default function PromoteToLibraryDialog({
             </p>
           </div>
 
-          {/* Preview */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
             <p className="text-xs font-semibold text-slate-700 mb-2">Content Preview:</p>
             <div className="text-xs text-slate-600 max-h-32 overflow-y-auto line-clamp-6">
@@ -392,8 +366,8 @@ export default function PromoteToLibraryDialog({
               createResourceMutation.isPending || 
               !formData.title.trim() || 
               !formData.folder_id ||
-              !!titleError || // NEW: Disable if there's a title error
-              isValidatingTitle // NEW: Disable if title is currently validating
+              !!titleError ||
+              isValidatingTitle
             }
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
           >
