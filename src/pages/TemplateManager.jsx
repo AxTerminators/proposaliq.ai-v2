@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -597,7 +596,7 @@ export default function TemplateManager() {
             >
               Delete Template
             </AlertDialogAction>
-          </DialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
@@ -804,7 +803,7 @@ function TemplateCard({ template, onEdit, onDuplicate, onDelete, canEdit, canDel
             </Button>
             <Button onClick={() => {
               setShowPreview(false);
-              onDuplicate(template); // Pass template object for duplication
+              onDuplicate();
             }}>
               <Copy className="w-4 h-4 mr-2" />
               Duplicate This Template
