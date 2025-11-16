@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,57 +46,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const [boardName, setBoardName] = useState("");
   const [step, setStep] = useState(1);
 
-  const SPECIAL_BOARDS = [
-    {
-      id: 'rfp_15_column',
-      name: '15-Column RFP Workflow',
-      description: 'Complete independent 15-column workflow with mandatory checklists',
-      icon_emoji: '🎯', // Changed from 'icon' to 'icon_emoji'
-      boardType: 'rfp_15_column',
-      functionName: 'create15ColumnRFPBoard',
-      features: ['11 workflow stages', 'Mandatory checklists', 'AI-powered actions', 'Independent from builder'],
-      recommendedFor: 'Teams wanting maximum control and visibility',
-      estimatedDuration: '60-90 days',
-      complexity: 'Advanced',
-      proposal_type_category: 'RFP'
-    }
-  ];
-
-  const createSpecialBoardMutation = useMutation({
-    mutationFn: async ({ functionName }) => {
-      const response = await base44.functions.invoke(functionName, {
-        organization_id: organization.id
-      });
-      
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Failed to create board');
-      }
-      
-      return response.data;
-    },
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
-      
-      // Fetch the newly created board
-      const boards = await base44.entities.KanbanConfig.filter({
-        id: data.board_id
-      });
-      
-      if (boards.length > 0 && onBoardCreated) {
-        onBoardCreated(boards[0]);
-      }
-      
-      setSelectedTemplate(null);
-      setBoardName("");
-      setStep(1);
-      onClose();
-      
-      toast.success(`✅ ${data.message}`);
-    },
-    onError: (error) => {
-      toast.error(`Error creating board: ${error.message}`);
-    }
-  });
+  // Removed hardcoded SPECIAL_BOARDS - now using database templates only
 
   // Fetch available templates
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
@@ -115,12 +64,12 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
           }, '-created_date')
         : [];
       
-      return [...systemTemplates, ...orgTemplates].filter(t => t != null); // Added filter
+      return [...systemTemplates, ...orgTemplates].filter(t => t != null);
     },
     enabled: isOpen && !!organization?.id,
   });
 
-  // NEW: Fetch existing boards for name validation
+  // Fetch existing boards for name validation
   const { data: existingBoards = [] } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
@@ -133,14 +82,13 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
     enabled: isOpen && !!organization?.id,
   });
 
-  // NEW: Validation function for duplicate board names (case-insensitive)
+  // Validation function for duplicate board names (case-insensitive)
   const validateUniqueBoardName = (name) => {
     const trimmedName = name.trim();
     if (!trimmedName) {
       return { valid: false, error: 'Board name cannot be empty' };
     }
 
-    // Case-insensitive comparison
     const normalizedName = trimmedName.toLowerCase();
     const duplicate = existingBoards.find(board => 
       board.board_name.toLowerCase() === normalizedName
@@ -159,7 +107,6 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   // Create board mutation (for template-based boards)
   const createBoardMutation = useMutation({
     mutationFn: async ({ template, customBoardName }) => {
-      // NEW: Validate board name before creating
       const validation = validateUniqueBoardName(customBoardName);
       if (!validation.valid) {
         throw new Error(validation.error);
@@ -174,7 +121,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       const newBoard = await base44.entities.KanbanConfig.create({
         organization_id: organization.id,
         board_type: boardType,
-        board_name: customBoardName.trim(), // Use trimmed name
+        board_name: customBoardName.trim(),
         is_master_board: false,
         applies_to_proposal_types: [template.proposal_type_category],
         simplified_workflow: false,
@@ -209,7 +156,6 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       onClose();
     },
     onError: (error) => {
-      // NEW: Use toast for better UX
       toast.error(error.message || 'Failed to create board');
     }
   });
@@ -226,21 +172,11 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
       return;
     }
 
-    // Check if this is a special board (with function)
-    if (selectedTemplate.functionName) {
-      createSpecialBoardMutation.mutate({
-        functionName: selectedTemplate.functionName
-      });
-      return;
-    }
-
-    // Template-based board creation
     if (!boardName.trim()) {
       toast.error("Please enter a board name");
       return;
     }
 
-    // NEW: Validate before creating
     const validation = validateUniqueBoardName(boardName);
     if (!validation.valid) {
       toast.error(validation.error);
@@ -281,11 +217,8 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const columns = workflowConfig?.columns || [];
   const nonTerminalColumns = columns.filter(col => !col.is_terminal);
 
-  // Combine special boards with templates - with safety checks
-  const allOptions = [
-    ...SPECIAL_BOARDS, 
-    ...templates.filter(t => t && t.id) // Added filter
-  ];
+  // Use templates from database only
+  const allOptions = templates.filter(t => t && t.id);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
@@ -318,18 +251,17 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {allOptions.map(template => {
-                  if (!template) return null; // Added null check
+                  if (!template) return null;
                   
                   const isSystem = template.template_type === 'system';
-                  const isSpecial = !!template.functionName;
-                  const displayIcon = template.icon_emoji || template.icon || BOARD_TYPE_ICONS[template.boardType || template.board_type] || '📋';
-                  const displayName = template.name || template.template_name || 'Unnamed Template';
+                  const displayIcon = template.icon_emoji || BOARD_TYPE_ICONS[template.board_type] || '📋';
+                  const displayName = template.template_name || 'Unnamed Template';
                   const displayDescription = template.description || 'No description';
                   const displayCategory = template.proposal_type_category || 'OTHER';
                   
                   return (
                     <Card
-                      key={template.id || `template-${Math.random()}`} // Updated key for safety
+                      key={template.id}
                       className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-400"
                       onClick={() => handleTemplateSelect(template)}
                     >
@@ -337,13 +269,8 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                         <div className="flex items-start justify-between mb-3">
                           <div className="text-3xl">{displayIcon}</div>
                           <div className="flex flex-col gap-1 items-end">
-                            {isSpecial && (
-                              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs">
-                                ⚡ Featured
-                              </Badge>
-                            )}
                             <Badge variant={isSystem ? "default" : "outline"} className="text-xs">
-                              {isSystem ? 'System' : isSpecial ? 'Special' : 'Custom'}
+                              {isSystem ? 'System' : 'Custom'}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
                               {displayCategory}
@@ -357,26 +284,10 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                           {displayDescription}
                         </p>
                         
-                        {template.features && Array.isArray(template.features) && ( // Added Array.isArray check
-                          <div className="mb-3 space-y-1">
-                            {template.features.slice(0, 2).map((feature, idx) => (
-                              <div key={idx} className="flex items-center gap-1 text-xs text-slate-600">
-                                <Check className="w-3 h-3 text-green-600" />
-                                <span>{feature}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
                         <div className="flex flex-wrap gap-2 text-xs">
-                          {template.complexity && (
-                            <Badge variant="outline" className="capitalize">
-                              {template.complexity}
-                            </Badge>
-                          )}
                           <Badge variant="outline" className="gap-1">
                             <Clock className="w-3 h-3" />
-                            {template.estimatedDuration || (template.estimated_duration_days ? `~${template.estimated_duration_days}d` : '~30d')} {/* Updated fallback */}
+                            {template.estimated_duration_days ? `~${template.estimated_duration_days}d` : '~30d'}
                           </Badge>
                           {template.usage_count > 0 && (
                             <Badge className="bg-green-100 text-green-700 gap-1">
@@ -400,17 +311,14 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  <div className="text-4xl">{selectedTemplate.icon_emoji || selectedTemplate.icon || '📋'}</div>
+                  <div className="text-4xl">{selectedTemplate.icon_emoji || '📋'}</div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.name || selectedTemplate.template_name || 'Template'}</h3>
+                    <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.template_name || 'Template'}</h3>
                     <p className="text-sm text-slate-600 mb-2">{selectedTemplate.description || ''}</p>
                     <div className="flex gap-2 flex-wrap">
                       <Badge variant="outline">{selectedTemplate.proposal_type_category || 'OTHER'}</Badge>
-                      {selectedTemplate.complexity && (
-                        <Badge variant="outline" className="capitalize">{selectedTemplate.complexity}</Badge>
-                      )}
                       <Badge variant="outline">
-                        {selectedTemplate.estimatedDuration || (selectedTemplate.estimated_duration_days ? `~${selectedTemplate.estimated_duration_days} days` : '~30 days')} {/* Updated fallback */}
+                        {selectedTemplate.estimated_duration_days ? `~${selectedTemplate.estimated_duration_days} days` : '~30 days'}
                       </Badge>
                     </div>
                   </div>
@@ -418,29 +326,27 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
               </CardContent>
             </Card>
 
-            {/* NEW: Board Name Input for template-based boards */}
-            {!selectedTemplate.functionName && (
-              <div className="space-y-2">
-                <Label htmlFor="board-name-input" className="text-base font-semibold">Board Name <span className="text-red-500">*</span></Label>
-                <Input
-                  id="board-name-input"
-                  value={boardName}
-                  onChange={(e) => setBoardName(e.target.value)}
-                  placeholder="Enter a unique name for this board..."
-                  className="text-base"
-                />
-                <div className="flex items-start gap-2 text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <p>
-                    Choose a unique name that clearly identifies this board. The name is case-insensitive, 
-                    so "My RFP Board" and "my rfp board" are considered the same.
-                  </p>
-                </div>
+            {/* Board Name Input */}
+            <div className="space-y-2">
+              <Label htmlFor="board-name-input" className="text-base font-semibold">Board Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="board-name-input"
+                value={boardName}
+                onChange={(e) => setBoardName(e.target.value)}
+                placeholder="Enter a unique name for this board..."
+                className="text-base"
+              />
+              <div className="flex items-start gap-2 text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p>
+                  Choose a unique name that clearly identifies this board. The name is case-insensitive, 
+                  so "My RFP Board" and "my rfp board" are considered the same.
+                </p>
               </div>
-            )}
+            </div>
 
-            {/* Workflow Preview (only if not special board) */}
-            {!selectedTemplate.functionName && nonTerminalColumns.length > 0 && (
+            {/* Workflow Preview */}
+            {nonTerminalColumns.length > 0 && (
               <div>
                 <Label className="text-base font-semibold mb-3 block">Workflow Preview</Label>
                 <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-200">
@@ -462,21 +368,6 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                       <span className="text-xs text-slate-500 ml-2">+{nonTerminalColumns.length - 6} more</span>
                     )}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Features (for special boards) */}
-            {selectedTemplate.features && (
-              <div>
-                <Label className="text-base font-semibold mb-3 block">Features</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedTemplate.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm text-slate-700">
-                      <Check className="w-4 h-4 text-green-600" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
@@ -514,10 +405,10 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             {step === 2 && (
               <Button
                 onClick={handleCreateBoard}
-                disabled={createBoardMutation.isPending || createSpecialBoardMutation.isPending}
+                disabled={createBoardMutation.isPending}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
-                {(createBoardMutation.isPending || createSpecialBoardMutation.isPending) ? (
+                {createBoardMutation.isPending ? (
                   <>
                     <div className="animate-spin mr-2">⏳</div>
                     Creating Board...
