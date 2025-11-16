@@ -1028,6 +1028,7 @@ export default function Pipeline() {
         onShowSavedViews={() => setShowSavedViews(!showSavedViews)}
         onManageBoards={() => setShowBoardManager(true)}
         onCategorizeProposals={handleMigrateProposals}
+        onMigrateMasterBoard={handleMigrateMasterBoard}
         onShowAdvancedFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
         onShowHelp={() => setShowHelp(!showHelp)}
         onShowQuickFilters={() => setShowQuickFilters(!showQuickFilters)}
