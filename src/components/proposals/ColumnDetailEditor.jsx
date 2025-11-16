@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -22,12 +21,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { 
   Settings, 
   ListChecks, 
@@ -42,7 +35,6 @@ import {
   Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getTooltipText } from "./KanbanTooltipContent";
 
 // Checklist Item Library
 const CHECKLIST_ITEM_LIBRARY = [
@@ -239,606 +231,499 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
   };
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-blue-600" />
-              Configure Column: {column?.label}
-            </DialogTitle>
-            <DialogDescription>
-              Customize checklist items, WIP limits, permissions, and approval requirements
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-blue-600" />
+            Configure Column: {column?.label}
+          </DialogTitle>
+          <DialogDescription>
+            Customize checklist items, WIP limits, permissions, and approval requirements
+          </DialogDescription>
+        </DialogHeader>
 
-          <Tabs defaultValue="checklist" className="flex-1 overflow-hidden">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="checklist">
-                <ListChecks className="w-4 h-4 mr-2" />
-                Checklist
-              </TabsTrigger>
-              <TabsTrigger value="permissions">
-                <Shield className="w-4 h-4 mr-2" />
-                Permissions
-              </TabsTrigger>
-              <TabsTrigger value="wip">
-                <Gauge className="w-4 h-4 mr-2" />
-                WIP Limits
-              </TabsTrigger>
-              <TabsTrigger value="appearance">
-                <Palette className="w-4 h-4 mr-2" />
-                Appearance
-              </TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue="checklist" className="flex-1 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="checklist">
+              <ListChecks className="w-4 h-4 mr-2" />
+              Checklist
+            </TabsTrigger>
+            <TabsTrigger value="permissions">
+              <Shield className="w-4 h-4 mr-2" />
+              Permissions
+            </TabsTrigger>
+            <TabsTrigger value="wip">
+              <Gauge className="w-4 h-4 mr-2" />
+              WIP Limits
+            </TabsTrigger>
+            <TabsTrigger value="appearance">
+              <Palette className="w-4 h-4 mr-2" />
+              Appearance
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '55vh' }}>
-              <TabsContent value="checklist" className="space-y-4 mt-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-slate-900">Checklist Items</h3>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-sm">
-                        <p>{getTooltipText('CHECKLIST_ITEMS_EDITOR')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowChecklistLibrary(!showChecklistLibrary)}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add from Library
-                  </Button>
-                </div>
+          <div className="overflow-y-auto mt-4 pr-2" style={{ maxHeight: '55vh' }}>
+            <TabsContent value="checklist" className="space-y-4 mt-0">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900">Checklist Items</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowChecklistLibrary(!showChecklistLibrary)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add from Library
+                </Button>
+              </div>
 
-                {showChecklistLibrary && (
-                  <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-purple-900">Checklist Item Library</h4>
-                      <Badge className="bg-purple-100 text-purple-700">Pre-built Items</Badge>
-                    </div>
-
-                    {Object.entries(groupedLibraryItems).map(([category, items]) => (
-                      <div key={category}>
-                        <div className="text-sm font-semibold text-purple-800 mb-2">{category}</div>
-                        <div className="space-y-1">
-                          {items.map((libraryItem) => (
-                            <div
-                              key={libraryItem.id}
-                              className="flex items-center justify-between p-2 bg-white rounded border hover:border-purple-300 transition-colors"
-                            >
-                              <div className="flex items-center gap-2 flex-1">
-                                <span className="text-lg">{getActionTypeIcon(libraryItem.type)}</span>
-                                <div>
-                                  <div className="text-sm font-medium text-slate-900">{libraryItem.label}</div>
-                                  <div className="text-xs text-slate-500">{libraryItem.type.replace('_', ' ')}</div>
-                                </div>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => addChecklistItemFromLibrary(libraryItem)}
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <DragDropContext onDragEnd={handleChecklistDragEnd}>
-                  <Droppable droppableId="checklist-items">
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="space-y-2"
-                      >
-                        {editedColumn?.checklist_items?.map((item, index) => (
-                          <Draggable key={item.id} draggableId={item.id} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={cn(
-                                  "flex items-center gap-3 p-3 border-2 rounded-lg bg-white transition-all",
-                                  snapshot.isDragging ? "border-blue-400 shadow-lg" : "border-slate-200"
-                                )}
-                              >
-                                <div {...provided.dragHandleProps}>
-                                  <GripVertical className="w-4 h-4 text-slate-400 cursor-move" />
-                                </div>
-
-                                <div className="flex-1 space-y-2">
-                                  <Input
-                                    value={item.label}
-                                    onChange={(e) => updateChecklistItem(item.id, { label: e.target.value })}
-                                    placeholder="Item label"
-                                    className="text-sm"
-                                  />
-                                  
-                                  <div className="flex items-center gap-2">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div className="w-40">
-                                          <Select
-                                            value={item.type}
-                                            onValueChange={(value) => updateChecklistItem(item.id, { type: value })}
-                                          >
-                                            <SelectTrigger className="h-8">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="manual_check">👤 Manual Check</SelectItem>
-                                              <SelectItem value="modal_trigger">🎯 Modal Trigger</SelectItem>
-                                              <SelectItem value="ai_trigger">🤖 AI Trigger</SelectItem>
-                                              <SelectItem value="system_check">✓ System Check</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs">
-                                        <p>
-                                          {item.type === 'manual_check' && getTooltipText('CHECKLIST_MANUAL')}
-                                          {item.type === 'modal_trigger' && getTooltipText('CHECKLIST_MODAL')}
-                                          {item.type === 'ai_trigger' && getTooltipText('CHECKLIST_AI')}
-                                          {item.type === 'system_check' && getTooltipText('CHECKLIST_SYSTEM')}
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
-
-                                    <div className="flex items-center gap-2">
-                                      <Switch
-                                        checked={item.required}
-                                        onCheckedChange={(checked) => updateChecklistItem(item.id, { required: checked })}
-                                      />
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Label className="text-xs text-slate-600 cursor-help">Required</Label>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs">
-                                          <p>{getTooltipText('CHECKLIST_REQUIRED')}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  </div>
-
-                                  {(item.type === 'modal_trigger' || item.type === 'ai_trigger') && (
-                                    <Input
-                                      value={item.associated_action || ''}
-                                      onChange={(e) => updateChecklistItem(item.id, { associated_action: e.target.value })}
-                                      placeholder="Action (e.g., open_modal_basic_info)"
-                                      className="text-xs"
-                                    />
-                                  )}
-                                </div>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteChecklistItem(item.id)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
-
-                {editedColumn?.checklist_items?.length === 0 && (
-                  <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-lg">
-                    <ListChecks className="w-12 h-12 mx-auto text-slate-300 mb-2" />
-                    <p className="text-slate-600 text-sm">No checklist items yet</p>
-                    <p className="text-slate-500 text-xs">Click "Add from Library" to get started</p>
-                  </div>
-                )}
-
-                <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50 space-y-3">
-                  <h4 className="font-semibold text-blue-900">Add Custom Checklist Item</h4>
-                  
-                  <div className="space-y-2">
-                    <Label>Item Label</Label>
-                    <Input
-                      value={customChecklistItem.label}
-                      onChange={(e) => setCustomChecklistItem({ ...customChecklistItem, label: e.target.value })}
-                      placeholder="e.g., Review technical specs"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Type</Label>
-                      <Select
-                        value={customChecklistItem.type}
-                        onValueChange={(value) => setCustomChecklistItem({ ...customChecklistItem, type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manual_check">👤 Manual Check</SelectItem>
-                          <SelectItem value="modal_trigger">🎯 Modal Trigger</SelectItem>
-                          <SelectItem value="ai_trigger">🤖 AI Trigger</SelectItem>
-                          <SelectItem value="system_check">✓ System Check</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Required</Label>
-                      <div className="flex items-center gap-2 pt-2">
-                        <Switch
-                          checked={customChecklistItem.required}
-                          onCheckedChange={(checked) => setCustomChecklistItem({ ...customChecklistItem, required: checked })}
-                        />
-                        <span className="text-sm text-slate-600">
-                          {customChecklistItem.required ? 'Yes' : 'No'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {(customChecklistItem.type === 'modal_trigger' || customChecklistItem.type === 'ai_trigger') && (
-                    <div className="space-y-2">
-                      <Label>Associated Action</Label>
-                      <Input
-                        value={customChecklistItem.associated_action}
-                        onChange={(e) => setCustomChecklistItem({ ...customChecklistItem, associated_action: e.target.value })}
-                        placeholder="e.g., open_modal_basic_info"
-                      />
-                    </div>
-                  )}
-
-                  <Button onClick={addCustomChecklistItem} className="w-full" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Custom Item
-                  </Button>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="permissions" className="space-y-4 mt-0">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3 mb-3">
-                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-blue-900 mb-1">Role-Based Access Control (RBAC)</div>
-                      <div className="text-sm text-blue-800">
-                        Control which user roles can move proposals into or out of this column. 
-                        Leave empty to allow all roles.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-base font-semibold">Who Can Move Proposals INTO This Column</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p>{getTooltipText('PERMISSION_DRAG_TO')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ROLE_OPTIONS.map(role => (
-                      <div
-                        key={`to_${role.value}`}
-                        onClick={() => toggleRole('can_drag_to_here_roles', role.value)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
-                          (editedColumn.can_drag_to_here_roles || []).includes(role.value)
-                            ? 'bg-blue-50 border-blue-300'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">{role.label}</span>
-                        <Switch
-                          checked={(editedColumn.can_drag_to_here_roles || []).includes(role.value)}
-                          onCheckedChange={() => toggleRole('can_drag_to_here_roles', role.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {(editedColumn.can_drag_to_here_roles?.length === 0) && (
-                    <p className="text-xs text-slate-500 italic">✓ All roles can move proposals into this column</p>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-base font-semibold">Who Can Move Proposals OUT OF This Column</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p>{getTooltipText('PERMISSION_DRAG_FROM')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ROLE_OPTIONS.map(role => (
-                      <div
-                        key={`from_${role.value}`}
-                        onClick={() => toggleRole('can_drag_from_here_roles', role.value)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
-                          (editedColumn.can_drag_from_here_roles || []).includes(role.value)
-                            ? 'bg-green-50 border-green-300'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        )}
-                      >
-                        <span className="text-sm font-medium">{role.label}</span>
-                        <Switch
-                          checked={(editedColumn.can_drag_from_here_roles || []).includes(role.value)}
-                          onCheckedChange={() => toggleRole('can_drag_from_here_roles', role.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {(editedColumn.can_drag_from_here_roles?.length === 0) && (
-                    <p className="text-xs text-slate-500 italic">✓ All roles can move proposals out of this column</p>
-                  )}
-                </div>
-
+              {showChecklistLibrary && (
                 <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-semibold text-purple-900 mb-1 flex items-center gap-2">
-                        Require Approval to Exit Column
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-4 h-4 text-purple-600 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>{getTooltipText('APPROVAL_GATE')}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="text-sm text-purple-800">
-                        When enabled, moving proposals OUT of this column requires approval from specified roles
-                      </div>
-                    </div>
-                    <Switch
-                      checked={editedColumn.requires_approval_to_exit || false}
-                      onCheckedChange={(checked) => setEditedColumn({ ...editedColumn, requires_approval_to_exit: checked })}
-                    />
+                    <h4 className="font-semibold text-purple-900">Checklist Item Library</h4>
+                    <Badge className="bg-purple-100 text-purple-700">Pre-built Items</Badge>
                   </div>
 
-                  {editedColumn.requires_approval_to_exit && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm font-semibold">Who Can Approve</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-4 h-4 text-purple-600 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>{getTooltipText('APPROVAL_ROLES')}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {ROLE_OPTIONS.map(role => (
+                  {Object.entries(groupedLibraryItems).map(([category, items]) => (
+                    <div key={category}>
+                      <div className="text-sm font-semibold text-purple-800 mb-2">{category}</div>
+                      <div className="space-y-1">
+                        {items.map((libraryItem) => (
                           <div
-                            key={`approver_${role.value}`}
-                            onClick={() => toggleApproverRole(role.value)}
-                            className={cn(
-                              "flex items-center justify-between p-2 rounded border-2 cursor-pointer transition-all",
-                              (editedColumn.approver_roles || []).includes(role.value)
-                                ? 'bg-purple-100 border-purple-300'
-                                : 'bg-white border-slate-200 hover:border-slate-300'
-                            )}
+                            key={libraryItem.id}
+                            className="flex items-center justify-between p-2 bg-white rounded border hover:border-purple-300 transition-colors"
                           >
-                            <span className="text-xs font-medium">{role.label}</span>
-                            <Switch
-                              checked={(editedColumn.approver_roles || []).includes(role.value)}
-                              onCheckedChange={() => toggleApproverRole(role.value)}
-                            />
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-lg">{getActionTypeIcon(libraryItem.type)}</span>
+                              <div>
+                                <div className="text-sm font-medium text-slate-900">{libraryItem.label}</div>
+                                <div className="text-xs text-slate-500">{libraryItem.type.replace('_', ' ')}</div>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => addChecklistItemFromLibrary(libraryItem)}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
                           </div>
                         ))}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
-              </TabsContent>
+              )}
 
-              <TabsContent value="wip" className="space-y-4 mt-0">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-blue-900 mb-1">Work-In-Progress (WIP) Limits</div>
-                      <div className="text-sm text-blue-800">
-                        Set limits to prevent bottlenecks and maintain workflow efficiency. 
-                        <strong> Soft limits</strong> show warnings, <strong>hard limits</strong> block moves when exceeded.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Label>WIP Limit</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>{getTooltipText('WIP_LIMIT_SETTING')}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editedColumn.wip_limit || 0}
-                      onChange={(e) => setEditedColumn({ ...editedColumn, wip_limit: parseInt(e.target.value) || 0 })}
-                      placeholder="0 = No limit"
-                    />
-                    <p className="text-xs text-slate-500">
-                      Set to 0 to disable WIP limits for this column
-                    </p>
-                  </div>
-
-                  {editedColumn.wip_limit > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Label>Limit Type</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>{getTooltipText('WIP_LIMIT_TYPE')}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="space-y-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+              <DragDropContext onDragEnd={handleChecklistDragEnd}>
+                <Droppable droppableId="checklist-items">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-2"
+                    >
+                      {editedColumn?.checklist_items?.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
                             <div
-                              onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
                               className={cn(
-                                "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
-                                editedColumn.wip_limit_type === 'soft'
-                                  ? 'bg-amber-50 border-amber-300'
-                                  : 'bg-white border-slate-200 hover:border-slate-300'
+                                "flex items-center gap-3 p-3 border-2 rounded-lg bg-white transition-all",
+                                snapshot.isDragging ? "border-blue-400 shadow-lg" : "border-slate-200"
                               )}
                             >
-                              <Switch
-                                checked={editedColumn.wip_limit_type === 'soft'}
-                                onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
-                              />
-                              <div>
-                                <div className="font-semibold text-slate-900">Soft Limit (Warning)</div>
-                                <div className="text-sm text-slate-600">
-                                  Shows a warning when limit is exceeded, but allows the move
-                                </div>
+                              <div {...provided.dragHandleProps}>
+                                <GripVertical className="w-4 h-4 text-slate-400 cursor-move" />
                               </div>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>{getTooltipText('WIP_LIMIT_SOFT', { limit: editedColumn.wip_limit })}</p>
-                          </TooltipContent>
-                        </Tooltip>
 
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
-                              className={cn(
-                                "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
-                                editedColumn.wip_limit_type === 'hard'
-                                  ? 'bg-red-50 border-red-300'
-                                  : 'bg-white border-slate-200 hover:border-slate-300'
-                              )}
-                            >
-                              <Switch
-                                checked={editedColumn.wip_limit_type === 'hard'}
-                                onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
-                              />
-                              <div>
-                                <div className="font-semibold text-slate-900">Hard Limit (Enforced)</div>
-                                <div className="text-sm text-slate-600">
-                                  Prevents moving proposals when limit is reached - forces resolution of bottlenecks
+                              <div className="flex-1 space-y-2">
+                                <Input
+                                  value={item.label}
+                                  onChange={(e) => updateChecklistItem(item.id, { label: e.target.value })}
+                                  placeholder="Item label"
+                                  className="text-sm"
+                                />
+                                
+                                <div className="flex items-center gap-2">
+                                  <Select
+                                    value={item.type}
+                                    onValueChange={(value) => updateChecklistItem(item.id, { type: value })}
+                                  >
+                                    <SelectTrigger className="w-40 h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="manual_check">👤 Manual Check</SelectItem>
+                                      <SelectItem value="modal_trigger">🎯 Modal Trigger</SelectItem>
+                                      <SelectItem value="ai_trigger">🤖 AI Trigger</SelectItem>
+                                      <SelectItem value="system_check">✓ System Check</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={item.required}
+                                      onCheckedChange={(checked) => updateChecklistItem(item.id, { required: checked })}
+                                    />
+                                    <Label className="text-xs text-slate-600">Required</Label>
+                                  </div>
                                 </div>
+
+                                {(item.type === 'modal_trigger' || item.type === 'ai_trigger') && (
+                                  <Input
+                                    value={item.associated_action || ''}
+                                    onChange={(e) => updateChecklistItem(item.id, { associated_action: e.target.value })}
+                                    placeholder="Action (e.g., open_modal_basic_info)"
+                                    className="text-xs"
+                                  />
+                                )}
                               </div>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteChecklistItem(item.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>{getTooltipText('WIP_LIMIT_HARD', { limit: editedColumn.wip_limit })}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
                     </div>
                   )}
-                </div>
-              </TabsContent>
+                </Droppable>
+              </DragDropContext>
 
-              <TabsContent value="appearance" className="space-y-4 mt-0">
-                <div className="space-y-4">
+              {editedColumn?.checklist_items?.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-lg">
+                  <ListChecks className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+                  <p className="text-slate-600 text-sm">No checklist items yet</p>
+                  <p className="text-slate-500 text-xs">Click "Add from Library" to get started</p>
+                </div>
+              )}
+
+              <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50 space-y-3">
+                <h4 className="font-semibold text-blue-900">Add Custom Checklist Item</h4>
+                
+                <div className="space-y-2">
+                  <Label>Item Label</Label>
+                  <Input
+                    value={customChecklistItem.label}
+                    onChange={(e) => setCustomChecklistItem({ ...customChecklistItem, label: e.target.value })}
+                    placeholder="e.g., Review technical specs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Column Name</Label>
-                    <Input
-                      value={editedColumn.label}
-                      onChange={(e) => setEditedColumn({ ...editedColumn, label: e.target.value })}
-                      placeholder="Column name"
-                      disabled={column?.is_locked}
-                      className="text-lg font-semibold"
-                    />
-                    {column?.is_locked && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        System column names cannot be changed
-                      </p>
-                    )}
+                    <Label>Type</Label>
+                    <Select
+                      value={customChecklistItem.type}
+                      onValueChange={(value) => setCustomChecklistItem({ ...customChecklistItem, type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual_check">👤 Manual Check</SelectItem>
+                        <SelectItem value="modal_trigger">🎯 Modal Trigger</SelectItem>
+                        <SelectItem value="ai_trigger">🤖 AI Trigger</SelectItem>
+                        <SelectItem value="system_check">✓ System Check</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">Column Color</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {COLOR_OPTIONS.map(colorOption => (
+                  <div className="space-y-2">
+                    <Label>Required</Label>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Switch
+                        checked={customChecklistItem.required}
+                        onCheckedChange={(checked) => setCustomChecklistItem({ ...customChecklistItem, required: checked })}
+                      />
+                      <span className="text-sm text-slate-600">
+                        {customChecklistItem.required ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {(customChecklistItem.type === 'modal_trigger' || customChecklistItem.type === 'ai_trigger') && (
+                  <div className="space-y-2">
+                    <Label>Associated Action</Label>
+                    <Input
+                      value={customChecklistItem.associated_action}
+                      onChange={(e) => setCustomChecklistItem({ ...customChecklistItem, associated_action: e.target.value })}
+                      placeholder="e.g., open_modal_basic_info"
+                    />
+                  </div>
+                )}
+
+                <Button onClick={addCustomChecklistItem} className="w-full" size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Custom Item
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="permissions" className="space-y-4 mt-0">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3 mb-3">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">Role-Based Access Control (RBAC)</div>
+                    <div className="text-sm text-blue-800">
+                      Control which user roles can move proposals into or out of this column. 
+                      Leave empty to allow all roles.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Who Can Move Proposals INTO This Column</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLE_OPTIONS.map(role => (
+                    <div
+                      key={`to_${role.value}`}
+                      onClick={() => toggleRole('can_drag_to_here_roles', role.value)}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
+                        (editedColumn.can_drag_to_here_roles || []).includes(role.value)
+                          ? 'bg-blue-50 border-blue-300'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      )}
+                    >
+                      <span className="text-sm font-medium">{role.label}</span>
+                      <Switch
+                        checked={(editedColumn.can_drag_to_here_roles || []).includes(role.value)}
+                        onCheckedChange={() => toggleRole('can_drag_to_here_roles', role.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {(editedColumn.can_drag_to_here_roles?.length === 0) && (
+                  <p className="text-xs text-slate-500 italic">✓ All roles can move proposals into this column</p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Who Can Move Proposals OUT OF This Column</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLE_OPTIONS.map(role => (
+                    <div
+                      key={`from_${role.value}`}
+                      onClick={() => toggleRole('can_drag_from_here_roles', role.value)}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all",
+                        (editedColumn.can_drag_from_here_roles || []).includes(role.value)
+                          ? 'bg-green-50 border-green-300'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      )}
+                    >
+                      <span className="text-sm font-medium">{role.label}</span>
+                      <Switch
+                        checked={(editedColumn.can_drag_from_here_roles || []).includes(role.value)}
+                        onCheckedChange={() => toggleRole('can_drag_from_here_roles', role.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {(editedColumn.can_drag_from_here_roles?.length === 0) && (
+                  <p className="text-xs text-slate-500 italic">✓ All roles can move proposals out of this column</p>
+                )}
+              </div>
+
+              <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="font-semibold text-purple-900 mb-1">Require Approval to Exit Column</div>
+                    <div className="text-sm text-purple-800">
+                      When enabled, moving proposals OUT of this column requires approval from specified roles
+                    </div>
+                  </div>
+                  <Switch
+                    checked={editedColumn.requires_approval_to_exit || false}
+                    onCheckedChange={(checked) => setEditedColumn({ ...editedColumn, requires_approval_to_exit: checked })}
+                  />
+                </div>
+
+                {editedColumn.requires_approval_to_exit && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Who Can Approve</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ROLE_OPTIONS.map(role => (
                         <div
-                          key={colorOption.value}
-                          onClick={() => setEditedColumn({ ...editedColumn, color: colorOption.value })}
+                          key={`approver_${role.value}`}
+                          onClick={() => toggleApproverRole(role.value)}
                           className={cn(
-                            "flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all",
-                            editedColumn.color === colorOption.value
-                              ? 'border-blue-500 ring-2 ring-blue-200'
-                              : 'border-slate-200 hover:border-slate-300'
+                            "flex items-center justify-between p-2 rounded border-2 cursor-pointer transition-all",
+                            (editedColumn.approver_roles || []).includes(role.value)
+                              ? 'bg-purple-100 border-purple-300'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
                           )}
                         >
-                          <div className={cn("w-8 h-8 rounded", colorOption.preview)} />
-                          <span className="text-sm font-medium">{colorOption.label}</span>
+                          <span className="text-xs font-medium">{role.label}</span>
+                          <Switch
+                            checked={(editedColumn.approver_roles || []).includes(role.value)}
+                            onCheckedChange={() => toggleApproverRole(role.value)}
+                          />
                         </div>
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            </TabsContent>
 
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">Preview</Label>
-                    <div className={cn(
-                      "p-4 rounded-xl text-white text-center font-semibold text-lg",
-                      `bg-gradient-to-r ${editedColumn.color}`
-                    )}>
-                      {editedColumn.label}
+            <TabsContent value="wip" className="space-y-4 mt-0">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-blue-900 mb-1">Work-In-Progress (WIP) Limits</div>
+                    <div className="text-sm text-blue-800">
+                      Set limits to prevent bottlenecks and maintain workflow efficiency. 
+                      <strong> Soft limits</strong> show warnings, <strong>hard limits</strong> block moves when exceeded.
                     </div>
                   </div>
                 </div>
-              </TabsContent>
-            </div>
-          </Tabs>
+              </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={() => onSave(editedColumn)}>
-              <Save className="w-4 h-4 mr-2" />
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </TooltipProvider>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>WIP Limit</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editedColumn.wip_limit || 0}
+                    onChange={(e) => setEditedColumn({ ...editedColumn, wip_limit: parseInt(e.target.value) || 0 })}
+                    placeholder="0 = No limit"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Set to 0 to disable WIP limits for this column
+                  </p>
+                </div>
+
+                {editedColumn.wip_limit > 0 && (
+                  <div className="space-y-3">
+                    <Label>Limit Type</Label>
+                    <div className="space-y-2">
+                      <div
+                        onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
+                        className={cn(
+                          "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                          editedColumn.wip_limit_type === 'soft'
+                            ? 'bg-amber-50 border-amber-300'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        )}
+                      >
+                        <Switch
+                          checked={editedColumn.wip_limit_type === 'soft'}
+                          onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'soft' })}
+                        />
+                        <div>
+                          <div className="font-semibold text-slate-900">Soft Limit (Warning)</div>
+                          <div className="text-sm text-slate-600">
+                            Shows a warning when limit is exceeded, but allows the move
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
+                        className={cn(
+                          "flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                          editedColumn.wip_limit_type === 'hard'
+                            ? 'bg-red-50 border-red-300'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        )}
+                      >
+                        <Switch
+                          checked={editedColumn.wip_limit_type === 'hard'}
+                          onCheckedChange={() => setEditedColumn({ ...editedColumn, wip_limit_type: 'hard' })}
+                        />
+                        <div>
+                          <div className="font-semibold text-slate-900">Hard Limit (Enforced)</div>
+                          <div className="text-sm text-slate-600">
+                            Prevents moving proposals when limit is reached - forces resolution of bottlenecks
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="appearance" className="space-y-4 mt-0">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Column Name</Label>
+                  <Input
+                    value={editedColumn.label}
+                    onChange={(e) => setEditedColumn({ ...editedColumn, label: e.target.value })}
+                    placeholder="Column name"
+                    disabled={column?.is_locked}
+                    className="text-lg font-semibold"
+                  />
+                  {column?.is_locked && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      System column names cannot be changed
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Column Color</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {COLOR_OPTIONS.map(colorOption => (
+                      <div
+                        key={colorOption.value}
+                        onClick={() => setEditedColumn({ ...editedColumn, color: colorOption.value })}
+                        className={cn(
+                          "flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all",
+                          editedColumn.color === colorOption.value
+                            ? 'border-blue-500 ring-2 ring-blue-200'
+                            : 'border-slate-200 hover:border-slate-300'
+                        )}
+                      >
+                        <div className={cn("w-8 h-8 rounded", colorOption.preview)} />
+                        <span className="text-sm font-medium">{colorOption.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Preview</Label>
+                  <div className={cn(
+                    "p-4 rounded-xl text-white text-center font-semibold text-lg",
+                    `bg-gradient-to-r ${editedColumn.color}`
+                  )}>
+                    {editedColumn.label}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </div>
+        </Tabs>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => onSave(editedColumn)}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

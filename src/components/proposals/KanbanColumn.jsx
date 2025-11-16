@@ -11,12 +11,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   MoreVertical,
   Lock,
   AlertCircle,
@@ -34,11 +28,9 @@ import {
   Check,
   ArrowUpNarrowWide,
   ArrowDownWideNarrow,
-  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
-import { getTooltipText } from "./KanbanTooltipContent";
 
 function getUserRole(user) {
   if (!user) return 'viewer';
@@ -136,375 +128,300 @@ export default function KanbanColumn({
   };
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <div
+      className={cn(
+        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
+      )}
+    >
+      {/* Column Header */}
       <div
+        {...(dragHandleProps || {})}
         className={cn(
-          "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
-          snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px] transition-all duration-200",
+          column.color || "from-slate-400 to-slate-600",
+          !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
       >
-        {/* Column Header */}
-        <div
-          {...(dragHandleProps || {})}
-          className={cn(
-            "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px] transition-all duration-200",
-            column.color || "from-slate-400 to-slate-600",
-            !column.is_locked && "cursor-grab active:cursor-grabbing"
-          )}
-        >
-          <div className="p-3 h-full flex items-center">
-            <div className="flex items-center gap-2 w-full">
-              <Tooltip>
-                <TooltipTrigger asChild>
+        <div className="p-3 h-full flex items-center">
+          <div className="flex items-center gap-2 w-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e?.stopPropagation?.();
+                onToggleCollapse?.(column.id);
+              }}
+              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
+              title="Collapse column"
+            >
+              <ChevronLeft className="w-4 h-4" title="Collapse" />
+            </Button>
+
+            <div className="flex-1 min-w-0 mr-1">
+              {isEditingName ? (
+                <Input
+                  ref={inputRef}
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleNameSave}
+                  className="h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2"
+                  placeholder="Column name..."
+                />
+              ) : (
+                <button
+                  onClick={handleNameClick}
+                  className={cn(
+                    "text-left w-full",
+                    !column.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
+                  )}
+                  disabled={column.is_locked}
+                  title={column.label}
+                >
+                  <h3 className="font-bold text-white text-base truncate leading-tight">
+                    {column.label}
+                  </h3>
+                </button>
+              )}
+            </div>
+
+            {!isEditingName && (
+              <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+                <Badge
+                  variant="secondary"
+                  className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
+                  title={hasMore 
+                    ? `Showing ${visibleCount} of ${totalCount} proposals` 
+                    : `${totalCount} ${totalCount === 1 ? 'proposal' : 'proposals'}`
+                  }
+                >
+                  {hasMore ? `${visibleCount}/${totalCount}` : totalCount}
+                </Badge>
+
+                {formattedValue && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 px-2 flex items-center gap-0.5"
+                    title={`Total value: $${formattedValue}`}
+                  >
+                    <DollarSign className="w-3 h-3" title="Total value" />
+                    {formattedValue}
+                  </Badge>
+                )}
+
+                {wipLimit > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-xs font-bold h-6 px-1.5 flex items-center",
+                      isAtWipLimit ? "bg-red-500 text-white hover:bg-red-600" :
+                      isNearWipLimit ? "bg-yellow-500 text-white hover:bg-yellow-600" :
+                      "bg-white/20 text-white hover:bg-white/30 border-white/30"
+                    )}
+                    title={`Work in progress limit: ${totalCount}/${wipLimit} ${column.wip_limit_type === 'hard' ? '(Hard Limit)' : '(Soft Limit)'}`}
+                  >
+                    {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" title="Hard limit" />}
+                    {totalCount}/{wipLimit}
+                  </Badge>
+                )}
+
+                {!canDragFromHere && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
+                    title="Protected column - only specific roles can move proposals out"
+                  >
+                    <Shield className="w-3 h-3" title="Protected" />
+                  </Badge>
+                )}
+
+                {column.requires_approval_to_exit && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
+                    title="Requires approval to move proposals out of this column"
+                  >
+                    <CheckCircle className="w-3 h-3" title="Approval required" />
+                  </Badge>
+                )}
+
+                {column.is_locked && (
+                  <div
+                    className="flex-shrink-0 pl-0.5 h-6 flex items-center"
+                    title="System column (locked)"
+                  >
+                    <Lock className="w-4 h-4 text-white/90" title="Locked" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isEditingName && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={(e) => {
-                      e?.stopPropagation?.();
-                      onToggleCollapse?.(column.id);
-                    }}
-                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
+                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
+                    title="Column options"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <MoreVertical className="w-4 h-4" title="Options" />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>{getTooltipText('COLLAPSE_COLUMN')}</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <div className="flex-1 min-w-0 mr-1">
-                {isEditingName ? (
-                  <Input
-                    ref={inputRef}
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleNameSave}
-                    className="h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2"
-                    placeholder="Column name..."
-                  />
-                ) : (
-                  <button
-                    onClick={handleNameClick}
-                    className={cn(
-                      "text-left w-full",
-                      !column.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'project_title_asc')}>
+                    <ArrowUpAZ className="w-4 h-4 mr-2" />
+                    Sort A-Z by Title
+                    {currentSort?.by === 'project_title' && currentSort?.direction === 'asc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
                     )}
-                    disabled={column.is_locked}
-                    title={column.label}
-                  >
-                    <h3 className="font-bold text-white text-base truncate leading-tight">
-                      {column.label}
-                    </h3>
-                  </button>
-                )}
-              </div>
-
-              {!isEditingName && (
-                <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-                  <Badge
-                    variant="secondary"
-                    className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
-                    title={hasMore 
-                      ? `Showing ${visibleCount} of ${totalCount} proposals` 
-                      : `${totalCount} ${totalCount === 1 ? 'proposal' : 'proposals'}`
-                    }
-                  >
-                    {hasMore ? `${visibleCount}/${totalCount}` : totalCount}
-                  </Badge>
-
-                  {formattedValue && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="secondary"
-                          className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 px-2 flex items-center gap-0.5"
-                        >
-                          <DollarSign className="w-3 h-3" />
-                          {formattedValue}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p>{getTooltipText('CONTRACT_VALUE')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {wipLimit > 0 && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "text-xs font-bold h-6 px-1.5 flex items-center gap-0.5",
-                            isAtWipLimit ? "bg-red-500 text-white hover:bg-red-600" :
-                            isNearWipLimit ? "bg-yellow-500 text-white hover:bg-yellow-600" :
-                            "bg-white/20 text-white hover:bg-white/30 border-white/30"
-                          )}
-                        >
-                          {column.wip_limit_type === 'hard' && <AlertCircle className="w-3 h-3 mr-0.5" />}
-                          {totalCount}/{wipLimit}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p>
-                          {column.wip_limit_type === 'hard' 
-                            ? getTooltipText('WIP_LIMIT_HARD', { limit: wipLimit })
-                            : isNearWipLimit
-                              ? getTooltipText('WIP_LIMIT_NEAR', { current: totalCount, limit: wipLimit })
-                              : getTooltipText('WIP_LIMIT_SOFT', { limit: wipLimit })
-                          }
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {!canDragFromHere && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="secondary"
-                          className="bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
-                        >
-                          <Shield className="w-3 h-3" />
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p>
-                          {getTooltipText('DRAG_FROM_RESTRICTED', { 
-                            roles: column.can_drag_from_here_roles?.join(', ') || 'specific roles'
-                          })}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {column.requires_approval_to_exit && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="secondary"
-                          className="bg-amber-500 text-white hover:bg-amber-600 text-xs font-bold h-6 px-1.5 flex items-center gap-0.5"
-                        >
-                          <CheckCircle className="w-3 h-3" />
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p>
-                          {getTooltipText('APPROVAL_REQUIRED', { 
-                            roles: column.approver_roles?.join(', ') || 'authorized users'
-                          })}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {column.is_locked && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex-shrink-0 pl-0.5 h-6 flex items-center">
-                          <Lock className="w-4 h-4 text-white/90" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p>{getTooltipText('LOCKED_COLUMN')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              )}
-
-              {!isEditingName && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
-                      title="Column options"
-                    >
-                      <MoreVertical className="w-4 h-4" title="Options" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
-                    <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'project_title_asc')}>
-                      <ArrowUpAZ className="w-4 h-4 mr-2" />
-                      <span className="flex-1">Sort A-Z by Title</span>
-                      {currentSort?.by === 'project_title' && currentSort?.direction === 'asc' && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'project_title_desc')}>
-                      <ArrowDownAZ className="w-4 h-4 mr-2" />
-                      <span className="flex-1">Sort Z-A by Title</span>
-                      {currentSort?.by === 'project_title' && currentSort?.direction === 'desc' && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'due_date_asc')}>
-                      <CalendarDays className="w-4 h-4 mr-2" />
-                      <span className="flex-1">Due Date (Oldest First)</span>
-                      {currentSort?.by === 'due_date' && currentSort?.direction === 'asc' && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'due_date_desc')}>
-                      <ArrowDownWideNarrow className="w-4 h-4 mr-2" />
-                      <span className="flex-1">Due Date (Newest First)</span>
-                      {currentSort?.by === 'due_date' && currentSort?.direction === 'desc' && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'created_date_asc')}>
-                      <Clock className="w-4 h-4 mr-2" />
-                      <span className="flex-1">Date Added (Oldest First)</span>
-                      {currentSort?.by === 'created_date' && currentSort?.direction === 'asc' && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'created_date_desc')}>
-                      <ArrowUpNarrowWide className="w-4 h-4 mr-2" />
-                      <span className="flex-1">Date Added (Newest First)</span>
-                      {currentSort?.by === 'created_date' && currentSort?.direction === 'desc' && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={(e) => {
-                      e?.stopPropagation?.();
-                      onConfigureColumn?.();
-                    }}>
-                      <Settings className="w-4 h-4 mr-2" />
-                      Configure Column
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'project_title_desc')}>
+                    <ArrowDownAZ className="w-4 h-4 mr-2" />
+                    Sort Z-A by Title
+                    {currentSort?.by === 'project_title' && currentSort?.direction === 'desc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'due_date_asc')}>
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    Sort by Due Date (Oldest First)
+                    {currentSort?.by === 'due_date' && currentSort?.direction === 'asc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'due_date_desc')}>
+                    <ArrowDownWideNarrow className="w-4 h-4 mr-2" />
+                    Sort by Due Date (Newest First)
+                    {currentSort?.by === 'due_date' && currentSort?.direction === 'desc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'created_date_asc')}>
+                    <Clock className="w-4 h-4 mr-2" />
+                    Sort by Date Added (Oldest First)
+                    {currentSort?.by === 'created_date' && currentSort?.direction === 'asc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange?.(column.id, 'created_date_desc')}>
+                    <ArrowUpNarrowWide className="w-4 h-4 mr-2" />
+                    Sort by Date Added (Newest First)
+                    {currentSort?.by === 'created_date' && currentSort?.direction === 'desc' && (
+                      <Check className="w-4 h-4 ml-auto text-blue-600" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={(e) => {
+                    e?.stopPropagation?.();
+                    onConfigureColumn?.();
+                  }}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Configure Column
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
-
-        {/* Proposal Cards Container */}
-        <div
-          ref={provided.innerRef}
-          {...provided.droppableProps}
-          className={cn(
-            "flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] transition-all duration-200",
-            snapshot.isDraggingOver && "bg-blue-50/50"
-          )}
-        >
-          {!canDragToHere && totalCount > 0 && (
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg mb-3">
-              <div className="flex items-start gap-2">
-                <Shield className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs text-orange-900">
-                    <strong>Restricted Access:</strong> Only {column.can_drag_to_here_roles?.join(', ')} can move proposals here.
-                  </p>
-                </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="w-4 h-4 text-orange-600 flex-shrink-0 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    <p>
-                      {getTooltipText('DRAG_TO_RESTRICTED', { 
-                        roles: column.can_drag_to_here_roles?.join(', ') || 'specific roles'
-                      })}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          )}
-
-          {isAtWipLimit && column.wip_limit_type === 'hard' && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs text-red-900">
-                    <strong>WIP Limit Reached:</strong> Cannot add more proposals until others are moved out.
-                  </p>
-                </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="w-4 h-4 text-red-600 flex-shrink-0 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    <p>{getTooltipText('WIP_LIMIT_HARD', { limit: wipLimit })}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          )}
-
-          {proposals.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No proposals</p>
-              <p className="text-xs mt-1">Drag here or create new</p>
-            </div>
-          ) : (
-            <>
-              {proposals.map((proposal, index) => (
-                <Draggable
-                  key={proposal.id}
-                  draggableId={proposal.id}
-                  index={index}
-                  type="card"
-                  isDragDisabled={!canDragFromHere}
-                >
-                  {(providedCard, snapshotCard) => (
-                    <KanbanCard
-                      proposal={proposal}
-                      provided={providedCard}
-                      snapshot={snapshotCard}
-                      onClick={onCardClick}
-                      organization={organization}
-                      isSelected={selectedProposalIds.includes(proposal.id)}
-                      onToggleSelection={onToggleProposalSelection}
-                      selectionMode={selectionMode}
-                    />
-                  )}
-                </Draggable>
-              ))}
-
-              {hasMore && (
-                <div className="pt-2 space-y-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoadMore?.();
-                    }}
-                    className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400 h-9"
-                  >
-                    <ChevronDown className="w-4 h-4 mr-2" />
-                    Load More ({totalCount - visibleCount})
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoadAll?.();
-                    }}
-                    className="w-full text-xs text-slate-600 hover:text-blue-600 h-7"
-                  >
-                    Show All {totalCount}
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-
-          {provided.placeholder}
-        </div>
       </div>
-    </TooltipProvider>
+
+      {/* Proposal Cards Container */}
+      <div
+        ref={provided.innerRef}
+        {...provided.droppableProps}
+        className={cn(
+          "flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] transition-all duration-200",
+          snapshot.isDraggingOver && "bg-blue-50/50"
+        )}
+      >
+        {!canDragToHere && totalCount > 0 && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg mb-3">
+            <div className="flex items-start gap-2">
+              <Shield className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-orange-900">
+                <strong>Restricted:</strong> Only {column.can_drag_to_here_roles?.join(', ')} can move proposals here.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isAtWipLimit && column.wip_limit_type === 'hard' && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-red-900">
+                <strong>WIP Limit Reached:</strong> Cannot add more proposals until others are moved out.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {proposals.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No proposals</p>
+            <p className="text-xs mt-1">Drag here or create new</p>
+          </div>
+        ) : (
+          <>
+            {proposals.map((proposal, index) => (
+              <Draggable
+                key={proposal.id}
+                draggableId={proposal.id}
+                index={index}
+                type="card"
+                isDragDisabled={!canDragFromHere}
+              >
+                {(providedCard, snapshotCard) => (
+                  <KanbanCard
+                    proposal={proposal}
+                    provided={providedCard}
+                    snapshot={snapshotCard}
+                    onClick={onCardClick}
+                    organization={organization}
+                    isSelected={selectedProposalIds.includes(proposal.id)}
+                    onToggleSelection={onToggleProposalSelection}
+                    selectionMode={selectionMode}
+                  />
+                )}
+              </Draggable>
+            ))}
+
+            {hasMore && (
+              <div className="pt-2 space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadMore?.();
+                  }}
+                  className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400 h-9"
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Load More ({totalCount - visibleCount})
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadAll?.();
+                  }}
+                  className="w-full text-xs text-slate-600 hover:text-blue-600 h-7"
+                >
+                  Show All {totalCount}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {provided.placeholder}
+      </div>
+    </div>
   );
 }

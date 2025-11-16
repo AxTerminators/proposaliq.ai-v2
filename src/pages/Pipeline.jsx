@@ -78,14 +78,13 @@ export default function Pipeline() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const hasInitialized = useRef(false);
-  const hasCheckedMasterBoard = useRef(false); // NEW: Track if we've checked for master board
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
-  const [showQuickBoardCreation, setShowQuickBoardCreation] = useState(false);
+  const [showQuickBoardCreate, setShowQuickBoardCreate] = useState(false);
   const [showBoardAnalytics, setShowBoardAnalytics] = useState(false);
   const [showActivityFeed, setShowActivityFeed] = useState(false);
   const [savedFilters, setSavedFilters] = useState({
@@ -168,7 +167,7 @@ export default function Pipeline() {
     retry: 1
   });
 
-  const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards, isFetching: isFetchingBoards } = useQuery({
+  const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -177,7 +176,7 @@ export default function Pipeline() {
         { organization_id: organization.id },
         'board_type'
       );
-      console.log('[Pipeline] Found boards:', boards.length, boards.map(b => ({ id: b.id, name: b.board_name, is_master: b.is_master_board })));
+      console.log('[Pipeline] Found boards:', boards.length);
       return boards;
     },
     enabled: !!organization?.id,
@@ -185,37 +184,21 @@ export default function Pipeline() {
     retry: 1,
   });
 
-  // FIXED: Ensure master board exists - runs once when boards finish loading
   useEffect(() => {
     const ensureMasterBoard = async () => {
-      // Only run if:
-      // 1. Organization exists
-      // 2. Boards have finished loading (!isLoadingBoards)
-      // 3. No boards exist
-      // 4. We haven't checked yet
-      if (!organization?.id || isLoadingBoards || hasCheckedMasterBoard.current) {
-        return;
-      }
-
-      hasCheckedMasterBoard.current = true;
-
-      if (allBoards.length === 0) {
-        console.log('[Pipeline] ✨ No boards found, auto-creating master board');
-        setIsCreatingMasterBoard(true);
-        
+      if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
+        console.log('[Pipeline] No boards found, auto-creating master board');
         try {
           const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
             organization_id: organization.id
           });
 
           if (response.data.success && response.data.was_created) {
-            console.log('[Pipeline] ✅ Master board auto-created');
+            console.log('[Pipeline] Master board auto-created');
             await refetchBoards();
           }
         } catch (error) {
-          console.error('[Pipeline] ❌ Error auto-creating master board:', error);
-        } finally {
-          setIsCreatingMasterBoard(false);
+          console.error('[Pipeline] Error auto-creating master board:', error);
         }
       }
     };
@@ -223,7 +206,7 @@ export default function Pipeline() {
     ensureMasterBoard();
   }, [organization?.id, allBoards.length, isLoadingBoards, refetchBoards]);
 
-  // FIXED: Initialize board selection - ensure master board is preferred
+  // Initialize board selection from localStorage, URL, or default - runs only once
   useEffect(() => {
     if (allBoards.length === 0 || hasInitialized.current) return;
 
@@ -234,7 +217,7 @@ export default function Pipeline() {
     console.log('[Pipeline] 🔍 Initializing board selection');
     console.log('[Pipeline] URL boardId:', boardIdFromUrl);
     console.log('[Pipeline] LocalStorage boardId:', boardIdFromStorage);
-    console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name, is_master: b.is_master_board })));
+    console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name })));
 
     // Priority 1: Try to restore from localStorage
     if (boardIdFromStorage) {
@@ -264,10 +247,10 @@ export default function Pipeline() {
       }
     }
 
-    // Priority 3: ALWAYS prefer master board if it exists
+    // Priority 3: Auto-select default board
     const masterBoard = allBoards.find(b => b.is_master_board === true);
     const boardToSelect = masterBoard || allBoards[0];
-    console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name, '(is_master:', boardToSelect?.is_master_board, ')');
+    console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name);
     setSelectedBoardId(boardToSelect?.id);
     if (boardToSelect?.id) {
       localStorage.setItem('selectedBoardId', boardToSelect.id);
@@ -296,23 +279,7 @@ export default function Pipeline() {
     }
   }, [selectedBoardId]);
 
-  const selectedBoard = useMemo(() => {
-    const board = allBoards.find(b => b.id === selectedBoardId);
-    
-    // DEFENSIVE: If selected board not found but we have a master board, fallback to it
-    if (!board && selectedBoardId) {
-      console.warn('[Pipeline] ⚠️ Selected board not found, checking for master board fallback');
-      const masterBoard = allBoards.find(b => b.is_master_board === true);
-      if (masterBoard) {
-        console.log('[Pipeline] 🔄 Falling back to master board:', masterBoard.board_name);
-        // Update selection to master board
-        setSelectedBoardId(masterBoard.id);
-        return masterBoard;
-      }
-    }
-    
-    return board;
-  }, [allBoards, selectedBoardId]);
+  const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
 
   // Effect to handle pending proposal modal after board switch
   useEffect(() => {
@@ -968,7 +935,7 @@ export default function Pipeline() {
     );
   }
 
-  if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg && hasCheckedMasterBoard.current) {
+  if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -1019,7 +986,7 @@ export default function Pipeline() {
         allBoards={allBoards}
         onCreateProposal={handleCreateProposal}
         onBoardChange={setSelectedBoardId}
-        onCreateBoard={() => setShowQuickBoardCreation(true)}
+        onCreateBoard={() => setShowQuickBoardCreate(true)}
         onShowStats={() => setShowBoardAnalytics(!showBoardAnalytics)}
         onShowPortfolio={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
         onShowAutomation={() => setShowAutomation(!showAutomation)}
@@ -1272,8 +1239,8 @@ export default function Pipeline() {
       )}
 
       <QuickBoardCreation
-        isOpen={showQuickBoardCreation}
-        onClose={() => setShowQuickBoardCreation(false)}
+        isOpen={showQuickBoardCreate}
+        onClose={() => setShowQuickBoardCreate(false)}
         organization={organization}
         onBoardCreated={handleQuickBoardCreated}
       />

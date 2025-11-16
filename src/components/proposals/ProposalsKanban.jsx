@@ -13,12 +13,6 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Plus,
   Settings,
   Filter,
@@ -34,8 +28,7 @@ import {
   RefreshCw,
   Star,
   DollarSign,
-  TrendingUp,
-  Info,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
@@ -64,7 +57,6 @@ import WinToPromoteDialog from "./WinToPromoteDialog";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { toast } from 'sonner';
 import { useLazyLoadColumns } from "./useLazyLoadProposals";
-import { getTooltipText } from "./KanbanTooltipContent";
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -1181,18 +1173,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 It looks like your Kanban board is using an outdated configuration.
                 Choose a new workflow template to get access to the latest features.
               </p>
-              <div className="flex items-center justify-center gap-2 mb-6">
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-5 h-5 text-slate-500 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-sm">
-                      <p>Legacy boards lack modern features like WIP limits, approval gates, and role-based permissions. Updating ensures you have the latest workflow capabilities.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
               <Button
                 onClick={() => setShowSetupWizard(true)}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
@@ -1279,35 +1259,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 {kanbanConfig?.board_name || 'Proposal Board'}
               </h2>
               {kanbanConfig?.is_master_board && (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge className="bg-amber-100 text-amber-700 cursor-help">
-                        <Star className="w-3 h-3 mr-1 fill-amber-700" />
-                        Master Board
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>{getTooltipText('MASTER_BOARD')}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {kanbanConfig?.board_type && !kanbanConfig?.is_master_board && (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant="outline" className="cursor-help">
-                        {kanbanConfig.board_type.toUpperCase()}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>{getTooltipText('TYPE_SPECIFIC_BOARD', { 
-                        type: kanbanConfig.applies_to_proposal_types?.join(', ') || kanbanConfig.board_type 
-                      })}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Badge className="bg-amber-100 text-amber-700">
+                  <Star className="w-3 h-3 mr-1 fill-amber-700" />
+                  Master Board
+                </Badge>
               )}
             </div>
           </div>
@@ -1315,19 +1270,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           {showFilters && (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-slate-900 text-sm">Quick Filters</h3>
-                  <TooltipProvider delayDuration={300}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p>{getTooltipText('QUICK_FILTERS')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
+                <h3 className="font-semibold text-slate-900 text-sm">Quick Filters</h3>
                 {activeFiltersCount > 0 && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8">
                     <X className="w-4 h-4 mr-1" />

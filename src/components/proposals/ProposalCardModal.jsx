@@ -15,12 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   X,
   CheckSquare,
   MessageCircle,
@@ -45,8 +39,7 @@ import {
   Trash2,
   ChevronsRight,
   ChevronsLeft,
-  Loader2,
-  Info
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -58,7 +51,6 @@ import DataCallManager from "../datacalls/DataCallManager";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import ProposalTimelineEditor from "./ProposalTimelineEditor";
-import { getTooltipText } from "./KanbanTooltipContent"; // Assuming this file exists and exports getTooltipText
 
 // Import ALL modal components
 import BasicInfoModal from "./modals/BasicInfoModal";
@@ -824,7 +816,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   }
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="border-b p-6 pb-4">
@@ -911,19 +903,9 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                         </div>
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Label className="text-sm font-semibold text-slate-900">
-                            Board Assignment
-                          </Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p>{getTooltipText('BOARD_ASSIGNMENT')}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
+                        <Label className="text-sm font-semibold text-slate-900 mb-2 block">
+                          Board Assignment
+                        </Label>
                         <Select
                           value={getCurrentBoardId()}
                           onValueChange={handleBoardReassignment}
@@ -1047,20 +1029,12 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                           {currentColumn.label?.charAt(0) || '?'}
                         </span>
                       </div>
-                      <div className="flex-1">
+                      <div>
                         <h3 className="font-semibold text-lg">{currentColumn.label || 'Current Stage'}</h3>
                         <p className="text-sm text-slate-500">
                           Complete these items to progress to the next stage
                         </p>
                       </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-5 h-5 text-slate-400 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-sm">
-                          <p>{getTooltipText('STAGE_CHECKLIST')}</p>
-                        </TooltipContent>
-                      </Tooltip>
                     </div>
 
                     {checklistItems.length === 0 ? (
@@ -1096,21 +1070,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                                 <CardContent className="p-4">
                                   <div className="flex items-start gap-3">
                                     <div className="mt-1 flex-shrink-0">
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <div className="cursor-help">
-                                            {getItemIcon(item, isCompleted)}
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs">
-                                          <p>
-                                            {item.type === 'manual_check' && getTooltipText('CHECKLIST_MANUAL')}
-                                            {item.type === 'system_check' && getTooltipText('CHECKLIST_SYSTEM')}
-                                            {(isModalAction(item.associated_action) || item.type === 'modal_trigger') && getTooltipText('CHECKLIST_MODAL')}
-                                            {(isAIAction(item.associated_action) || item.type === 'ai_trigger') && getTooltipText('CHECKLIST_AI')}
-                                          </p>
-                                        </TooltipContent>
-                                      </Tooltip>
+                                      {getItemIcon(item, isCompleted)}
                                     </div>
 
                                     <div className="flex-1 min-w-0">
@@ -1123,14 +1083,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                                               {item.label || 'Unnamed Item'}
                                             </span>
                                             {item.required && !isCompleted && (
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <Badge className="bg-red-500 text-xs cursor-help">Required</Badge>
-                                                </TooltipTrigger>
-                                                <TooltipContent className="max-w-xs">
-                                                  <p>{getTooltipText('CHECKLIST_REQUIRED')}</p>
-                                                </TooltipContent>
-                                              </Tooltip>
+                                              <Badge className="bg-red-500 text-xs">Required</Badge>
                                             )}
                                           </div>
                                           
@@ -1203,29 +1156,15 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                           </div>
                           <div className="text-right">
                             {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length === 0 ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-green-500 cursor-help">
-                                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    Ready to Progress
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <p>{getTooltipText('READY_TO_PROGRESS')}</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              <Badge className="bg-green-500">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Ready to Progress
+                              </Badge>
                             ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-orange-500 cursor-help">
-                                    <AlertCircle className="w-3 h-3 mr-1" />
-                                    {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length} Required Items
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <p>{getTooltipText('INCOMPLETE_REQUIRED')}</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              <Badge className="bg-orange-500">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                {checklistItems.filter(item => item && item.required && !(item.type === 'system_check' ? systemCheckStatus(item) : checklistStatus[item.id]?.completed)).length} Required Items
+                              </Badge>
                             )}
                           </div>
                         </div>
@@ -1297,125 +1236,72 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
               </TabsContent>
 
               <TabsContent value="quick-actions" className="mt-0 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-lg font-semibold">Quick Actions</h3>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>{getTooltipText('QUICK_ACTIONS')}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          navigate(createPageUrl("proposals/WriteContentStandalone") + `?id=${proposal.id}`);
-                          onClose();
-                        }}
-                        className="h-24 flex-col gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                      >
-                        <FileEdit className="w-8 h-8" />
-                        <span>Write Content</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Open the AI writing assistant</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/WriteContentStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                  >
+                    <FileEdit className="w-8 h-8" />
+                    <span>Write Content</span>
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          navigate(createPageUrl("proposals/ComplianceMatrixStandalone") + `?id=${proposal.id}`);
-                          onClose();
-                        }}
-                        className="h-24 flex-col gap-2 bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700"
-                      >
-                        <Shield className="w-8 h-8" />
-                        <span>Compliance Matrix</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Generate compliance matrix</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/ComplianceMatrixStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700"
+                  >
+                    <Shield className="w-8 h-8" />
+                    <span>Compliance Matrix</span>
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          navigate(createPageUrl("proposals/PricingBuildStandalone") + `?id=${proposal.id}`);
-                          onClose();
-                        }}
-                        className="h-24 flex-col gap-2 bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-                      >
-                        <DollarSign className="w-8 h-8" />
-                        <span>Build Pricing</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Create detailed pricing breakdown</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/PricingBuildStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+                  >
+                    <DollarSign className="w-8 h-8" />
+                    <span>Build Pricing</span>
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          navigate(createPageUrl("proposals/RedTeamReviewStandalone") + `?id=${proposal.id}`);
-                          onClose();
-                        }}
-                        className="h-24 flex-col gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
-                      >
-                        <Activity className="w-8 h-8" />
-                        <span>Red Team Review</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Conduct internal quality review</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/RedTeamReviewStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+                  >
+                    <Activity className="w-8 h-8" />
+                    <span>Red Team Review</span>
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          navigate(createPageUrl("proposals/SubmissionReadyStandalone") + `?id=${proposal.id}`);
-                          onClose();
-                        }}
-                        className="h-24 flex-col gap-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                      >
-                        <Target className="w-8 h-8" />
-                        <span>Submission Checklist</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Final submission readiness check</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("proposals/SubmissionReadyStandalone") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                  >
+                    <Target className="w-8 h-8" />
+                    <span>Submission Checklist</span>
+                  </Button>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => {
-                          navigate(createPageUrl("ExportCenter") + `?id=${proposal.id}`);
-                          onClose();
-                        }}
-                        className="h-24 flex-col gap-2 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
-                      >
-                        <Upload className="w-8 h-8" />
-                        <span>Export Proposal</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Export to PDF or Word</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    onClick={() => {
+                      navigate(createPageUrl("ExportCenter") + `?id=${proposal.id}`);
+                      onClose();
+                    }}
+                    className="h-24 flex-col gap-2 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+                  >
+                    <Upload className="w-8 h-8" />
+                    <span>Export Proposal</span>
+                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
@@ -1425,95 +1311,67 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
           <div className="border-t bg-slate-50 p-4 flex-shrink-0">
             <div className="flex items-center justify-between gap-4">
               {/* Previous Stage Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleMoveToStage(stageProgress.previous, 'backward')}
-                    disabled={!stageProgress.previous || isMovingStage}
-                    className={cn(
-                      "flex-1 h-12",
-                      !stageProgress.previous && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {isMovingStage ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Moving...
-                      </>
-                    ) : stageProgress.previous ? (
-                      <>
-                        <ChevronsLeft className="w-5 h-5 mr-2" />
-                        Go Back: {stageProgress.previous.label}
-                      </>
-                    ) : (
-                      <>
-                        <ChevronsLeft className="w-5 h-5 mr-2 opacity-50" />
-                        First Stage
-                      </>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>
-                    {stageProgress.previous 
-                      ? getTooltipText('MOVE_TO_PREVIOUS', { stage: stageProgress.previous.label })
-                      : getTooltipText('FIRST_STAGE')
-                    }
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+              <Button
+                variant="outline"
+                onClick={() => handleMoveToStage(stageProgress.previous, 'backward')}
+                disabled={!stageProgress.previous || isMovingStage}
+                className={cn(
+                  "flex-1 h-12",
+                  !stageProgress.previous && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isMovingStage ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Moving...
+                  </>
+                ) : stageProgress.previous ? (
+                  <>
+                    <ChevronsLeft className="w-5 h-5 mr-2" />
+                    Go Back: {stageProgress.previous.label}
+                  </>
+                ) : (
+                  <>
+                    <ChevronsLeft className="w-5 h-5 mr-2 opacity-50" />
+                    First Stage
+                  </>
+                )}
+              </Button>
 
               {/* Next Stage Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => handleMoveToStage(stageProgress.next, 'forward')}
-                    disabled={!stageProgress.next || isMovingStage || stageProgress.isLastStage}
-                    className={cn(
-                      "flex-1 h-12 font-semibold",
-                      allRequiredComplete && stageProgress.next
-                        ? "bg-green-600 hover:bg-green-700 text-white"
-                        : "bg-blue-600 hover:bg-blue-700 text-white",
-                      (!stageProgress.next || stageProgress.isLastStage) && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {isMovingStage ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Moving...
-                      </>
-                    ) : stageProgress.next ? (
-                      <>
-                        Go To: {stageProgress.next.label}
-                        <ChevronsRight className="w-5 h-5 ml-2" />
-                      </>
-                    ) : stageProgress.isLastStage ? (
-                      <>
-                        <CheckCircle2 className="w-5 h-5 mr-2" />
-                        Workflow Complete
-                      </>
-                    ) : (
-                      <>
-                        Next Stage
-                        <ChevronsRight className="w-5 h-5 ml-2" />
-                      </>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>
-                    {stageProgress.next 
-                      ? allRequiredComplete
-                        ? getTooltipText('MOVE_TO_NEXT_READY', { stage: stageProgress.next.label })
-                        : getTooltipText('MOVE_TO_NEXT_INCOMPLETE', { stage: stageProgress.next.label })
-                      : stageProgress.isLastStage
-                        ? getTooltipText('LAST_STAGE')
-                        : 'No next stage available'
-                    }
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+              <Button
+                onClick={() => handleMoveToStage(stageProgress.next, 'forward')}
+                disabled={!stageProgress.next || isMovingStage || stageProgress.isLastStage}
+                className={cn(
+                  "flex-1 h-12 font-semibold",
+                  allRequiredComplete && stageProgress.next
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white",
+                  (!stageProgress.next || stageProgress.isLastStage) && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isMovingStage ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Moving...
+                  </>
+                ) : stageProgress.next ? (
+                  <>
+                    Go To: {stageProgress.next.label}
+                    <ChevronsRight className="w-5 h-5 ml-2" />
+                  </>
+                ) : stageProgress.isLastStage ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                    Workflow Complete
+                  </>
+                ) : (
+                  <>
+                    Next Stage
+                    <ChevronsRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1598,6 +1456,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
           organization={organization}
         />
       )}
-    </TooltipProvider>
+    </>
   );
 }
