@@ -78,13 +78,14 @@ export default function Pipeline() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(null);
   const [selectedBoardId, setSelectedBoardId] = useState(null);
   const hasInitialized = useRef(false);
+  const hasCheckedMasterBoard = useRef(false); // NEW: Track if we've checked for master board
   const [isCreatingMasterBoard, setIsCreatingMasterBoard] = useState(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState(false);
   const [showNewProposalDialog, setShowNewProposalDialog] = useState(false);
   const [showCreateBoardDialog, setShowCreateBoardDialog] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
-  const [showQuickBoardCreate, setShowQuickBoardCreate] = useState(false);
+  const [showQuickBoardCreation, setShowQuickBoardCreation] = useState(false);
   const [showBoardAnalytics, setShowBoardAnalytics] = useState(false);
   const [showActivityFeed, setShowActivityFeed] = useState(false);
   const [savedFilters, setSavedFilters] = useState({
@@ -184,21 +185,37 @@ export default function Pipeline() {
     retry: 1,
   });
 
+  // FIXED: Ensure master board exists - runs once when boards finish loading
   useEffect(() => {
     const ensureMasterBoard = async () => {
-      if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
-        console.log('[Pipeline] No boards found, auto-creating master board');
+      // Only run if:
+      // 1. Organization exists
+      // 2. Boards have finished loading (!isLoadingBoards)
+      // 3. No boards exist
+      // 4. We haven't checked yet
+      if (!organization?.id || isLoadingBoards || hasCheckedMasterBoard.current) {
+        return;
+      }
+
+      hasCheckedMasterBoard.current = true;
+
+      if (allBoards.length === 0) {
+        console.log('[Pipeline] ✨ No boards found, auto-creating master board');
+        setIsCreatingMasterBoard(true);
+        
         try {
           const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
             organization_id: organization.id
           });
 
           if (response.data.success && response.data.was_created) {
-            console.log('[Pipeline] Master board auto-created');
+            console.log('[Pipeline] ✅ Master board auto-created');
             await refetchBoards();
           }
         } catch (error) {
-          console.error('[Pipeline] Error auto-creating master board:', error);
+          console.error('[Pipeline] ❌ Error auto-creating master board:', error);
+        } finally {
+          setIsCreatingMasterBoard(false);
         }
       }
     };
@@ -935,7 +952,7 @@ export default function Pipeline() {
     );
   }
 
-  if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
+  if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg && hasCheckedMasterBoard.current) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
@@ -986,7 +1003,7 @@ export default function Pipeline() {
         allBoards={allBoards}
         onCreateProposal={handleCreateProposal}
         onBoardChange={setSelectedBoardId}
-        onCreateBoard={() => setShowQuickBoardCreate(true)}
+        onCreateBoard={() => setShowQuickBoardCreation(true)}
         onShowStats={() => setShowBoardAnalytics(!showBoardAnalytics)}
         onShowPortfolio={() => setShowMultiBoardAnalytics(!showMultiBoardAnalytics)}
         onShowAutomation={() => setShowAutomation(!showAutomation)}
@@ -1239,8 +1256,8 @@ export default function Pipeline() {
       )}
 
       <QuickBoardCreation
-        isOpen={showQuickBoardCreate}
-        onClose={() => setShowQuickBoardCreate(false)}
+        isOpen={showQuickBoardCreation}
+        onClose={() => setShowQuickBoardCreation(false)}
         organization={organization}
         onBoardCreated={handleQuickBoardCreated}
       />
