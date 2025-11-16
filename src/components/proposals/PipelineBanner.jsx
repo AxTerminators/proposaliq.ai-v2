@@ -16,8 +16,7 @@ import {
   DollarSign,
   Target,
   Filter,
-  HelpCircle,
-  RefreshCw
+  HelpCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,7 +52,6 @@ export default function PipelineBanner({
   onShowAdvancedFilters,
   onShowHelp,
   onShowQuickFilters,
-  onMigrateMasterBoard,
   viewMode,
   onViewModeChange,
   pipelineValue,
@@ -242,15 +240,6 @@ export default function PipelineBanner({
                     <Target className="mr-2 h-4 w-4" />
                     <span>Categorize Proposals</span>
                   </DropdownMenuItem>
-                  {onMigrateMasterBoard && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onMigrateMasterBoard} className="text-orange-600">
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        <span>Migrate Master Board</span>
-                      </DropdownMenuItem>
-                    </>
-                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onShowHelp}>
                     <HelpCircle className="mr-2 h-4 w-4" />
