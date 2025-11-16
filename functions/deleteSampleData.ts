@@ -6,14 +6,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
  * Parameters:
  * - organization_id (optional): Delete sample data for this organization only
  * - If no organization_id: Delete ALL sample data across the system (super admin only)
- * 
- * This removes:
- * - Sample proposals and related data (sections, tasks, comments, etc.)
- * - Sample organizations (only if no org_id specified)
- * - Sample teaming partners, key personnel, past performance
- * - Sample clients and all client-related data
- * - Sample resources and discussions
- * - Sample kanban boards
  */
 
 Deno.serve(async (req) => {
@@ -26,8 +18,13 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body for organization_id
-    const body = await req.json();
-    const { organization_id } = body;
+    let organization_id = null;
+    try {
+      const body = await req.json();
+      organization_id = body.organization_id;
+    } catch (e) {
+      // No body or invalid JSON, organization_id stays null
+    }
 
     // If no organization_id, only super admins can delete ALL sample data
     if (!organization_id && user.admin_role !== 'super_admin') {
@@ -38,15 +35,19 @@ Deno.serve(async (req) => {
 
     // If organization_id provided, check user has access to that org
     if (organization_id) {
-      const org = await base44.entities.Organization.get(organization_id);
-      if (!org) {
+      try {
+        const orgs = await base44.entities.Organization.filter({ id: organization_id });
+        if (orgs.length === 0) {
+          return Response.json({ error: 'Organization not found' }, { status: 404 });
+        }
+      } catch (error) {
         return Response.json({ error: 'Organization not found' }, { status: 404 });
       }
       
       // User must be admin or super admin
-      if (user.role !== 'admin' && user.admin_role !== 'super_admin') {
+      if (user.role !== 'admin' && user.role !== 'manager' && user.admin_role !== 'super_admin') {
         return Response.json({ 
-          error: 'Forbidden - Only admins can delete sample data' 
+          error: 'Forbidden - Only admins or managers can delete sample data' 
         }, { status: 403 });
       }
     }
@@ -72,51 +73,75 @@ Deno.serve(async (req) => {
     
     for (const proposal of sampleProposals) {
       // Delete proposal sections
-      const sections = await base44.asServiceRole.entities.ProposalSection.filter({
-        proposal_id: proposal.id
-      });
-      for (const section of sections) {
-        await base44.asServiceRole.entities.ProposalSection.delete(section.id);
+      try {
+        const sections = await base44.asServiceRole.entities.ProposalSection.filter({
+          proposal_id: proposal.id
+        });
+        for (const section of sections) {
+          await base44.asServiceRole.entities.ProposalSection.delete(section.id);
+        }
+      } catch (e) {
+        console.log('Error deleting sections:', e.message);
       }
 
       // Delete proposal tasks
-      const tasks = await base44.asServiceRole.entities.ProposalTask.filter({
-        proposal_id: proposal.id
-      });
-      for (const task of tasks) {
-        await base44.asServiceRole.entities.ProposalTask.delete(task.id);
+      try {
+        const tasks = await base44.asServiceRole.entities.ProposalTask.filter({
+          proposal_id: proposal.id
+        });
+        for (const task of tasks) {
+          await base44.asServiceRole.entities.ProposalTask.delete(task.id);
+        }
+      } catch (e) {
+        console.log('Error deleting tasks:', e.message);
       }
 
       // Delete proposal subtasks
-      const subtasks = await base44.asServiceRole.entities.ProposalSubtask.filter({
-        proposal_id: proposal.id
-      });
-      for (const subtask of subtasks) {
-        await base44.asServiceRole.entities.ProposalSubtask.delete(subtask.id);
+      try {
+        const subtasks = await base44.asServiceRole.entities.ProposalSubtask.filter({
+          proposal_id: proposal.id
+        });
+        for (const subtask of subtasks) {
+          await base44.asServiceRole.entities.ProposalSubtask.delete(subtask.id);
+        }
+      } catch (e) {
+        console.log('Error deleting subtasks:', e.message);
       }
 
       // Delete proposal comments
-      const comments = await base44.asServiceRole.entities.ProposalComment.filter({
-        proposal_id: proposal.id
-      });
-      for (const comment of comments) {
-        await base44.asServiceRole.entities.ProposalComment.delete(comment.id);
+      try {
+        const comments = await base44.asServiceRole.entities.ProposalComment.filter({
+          proposal_id: proposal.id
+        });
+        for (const comment of comments) {
+          await base44.asServiceRole.entities.ProposalComment.delete(comment.id);
+        }
+      } catch (e) {
+        console.log('Error deleting comments:', e.message);
       }
 
       // Delete proposal annotations
-      const annotations = await base44.asServiceRole.entities.ProposalAnnotation.filter({
-        proposal_id: proposal.id
-      });
-      for (const annotation of annotations) {
-        await base44.asServiceRole.entities.ProposalAnnotation.delete(annotation.id);
+      try {
+        const annotations = await base44.asServiceRole.entities.ProposalAnnotation.filter({
+          proposal_id: proposal.id
+        });
+        for (const annotation of annotations) {
+          await base44.asServiceRole.entities.ProposalAnnotation.delete(annotation.id);
+        }
+      } catch (e) {
+        console.log('Error deleting annotations:', e.message);
       }
 
       // Delete activity logs
-      const activityLogs = await base44.asServiceRole.entities.ActivityLog.filter({
-        proposal_id: proposal.id
-      });
-      for (const log of activityLogs) {
-        await base44.asServiceRole.entities.ActivityLog.delete(log.id);
+      try {
+        const activityLogs = await base44.asServiceRole.entities.ActivityLog.filter({
+          proposal_id: proposal.id
+        });
+        for (const log of activityLogs) {
+          await base44.asServiceRole.entities.ActivityLog.delete(log.id);
+        }
+      } catch (e) {
+        console.log('Error deleting activity logs:', e.message);
       }
 
       // Delete the proposal itself
@@ -131,11 +156,15 @@ Deno.serve(async (req) => {
       });
       for (const org of sampleOrgs) {
         // Delete associated subscriptions first
-        const subscriptions = await base44.asServiceRole.entities.Subscription.filter({
-          organization_id: org.id
-        });
-        for (const sub of subscriptions) {
-          await base44.asServiceRole.entities.Subscription.delete(sub.id);
+        try {
+          const subscriptions = await base44.asServiceRole.entities.Subscription.filter({
+            organization_id: org.id
+          });
+          for (const sub of subscriptions) {
+            await base44.asServiceRole.entities.Subscription.delete(sub.id);
+          }
+        } catch (e) {
+          console.log('Error deleting subscriptions:', e.message);
         }
 
         await base44.asServiceRole.entities.Organization.delete(org.id);
@@ -188,76 +217,29 @@ Deno.serve(async (req) => {
     }
     deletionSummary.kanban_boards = sampleBoards.length;
 
-    // 8. Delete Sample Clients
-    const sampleClients = await base44.asServiceRole.entities.Client.filter(
-      getFilter()
-    );
-    
-    for (const client of sampleClients) {
-      // Delete client team members
-      const teamMembers = await base44.asServiceRole.entities.ClientTeamMember.filter({
-        client_id: client.id
-      });
-      for (const member of teamMembers) {
-        await base44.asServiceRole.entities.ClientTeamMember.delete(member.id);
-      }
-
-      // Delete client engagement metrics
-      const engagementMetrics = await base44.asServiceRole.entities.ClientEngagementMetric.filter({
-        client_id: client.id
-      });
-      for (const metric of engagementMetrics) {
-        await base44.asServiceRole.entities.ClientEngagementMetric.delete(metric.id);
-      }
-
-      // Delete client meetings
-      const meetings = await base44.asServiceRole.entities.ClientMeeting.filter({
-        client_id: client.id
-      });
-      for (const meeting of meetings) {
-        await base44.asServiceRole.entities.ClientMeeting.delete(meeting.id);
-      }
-
-      // Delete client uploaded files
-      const files = await base44.asServiceRole.entities.ClientUploadedFile.filter({
-        client_id: client.id
-      });
-      for (const file of files) {
-        await base44.asServiceRole.entities.ClientUploadedFile.delete(file.id);
-      }
-
-      // Delete client notifications
-      const notifications = await base44.asServiceRole.entities.ClientNotification.filter({
-        client_id: client.id
-      });
-      for (const notification of notifications) {
-        await base44.asServiceRole.entities.ClientNotification.delete(notification.id);
-      }
-
-      // Delete the client itself
-      await base44.asServiceRole.entities.Client.delete(client.id);
-    }
-    deletionSummary.clients = sampleClients.length;
-
-    // 9. Delete Sample Discussions
+    // 8. Delete Sample Discussions
     const sampleDiscussions = await base44.asServiceRole.entities.Discussion.filter(
       getFilter()
     );
     
     for (const discussion of sampleDiscussions) {
       // Delete discussion comments first
-      const discussionComments = await base44.asServiceRole.entities.DiscussionComment.filter({
-        discussion_id: discussion.id
-      });
-      for (const comment of discussionComments) {
-        await base44.asServiceRole.entities.DiscussionComment.delete(comment.id);
+      try {
+        const discussionComments = await base44.asServiceRole.entities.DiscussionComment.filter({
+          discussion_id: discussion.id
+        });
+        for (const comment of discussionComments) {
+          await base44.asServiceRole.entities.DiscussionComment.delete(comment.id);
+        }
+      } catch (e) {
+        console.log('Error deleting discussion comments:', e.message);
       }
 
       await base44.asServiceRole.entities.Discussion.delete(discussion.id);
     }
     deletionSummary.discussions = sampleDiscussions.length;
 
-    // 10. Delete Sample Automation Rules
+    // 9. Delete Sample Automation Rules
     const sampleRules = await base44.asServiceRole.entities.ProposalAutomationRule.filter(
       getFilter()
     );
