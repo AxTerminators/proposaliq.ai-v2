@@ -421,17 +421,17 @@ export const validateProposalName = async (proposalName, organizationId, exclude
     };
   }
 
-  if (proposalName.trim().length < 6) {
+  if (proposalName.trim().length < 3) {
     return {
       isValid: false,
-      message: 'Proposal name must be at least 6 characters long'
+      message: 'Proposal name must be at least 3 characters long'
     };
   }
 
-  if (proposalName.trim().length > 60) {
+  if (proposalName.trim().length > 100) {
     return {
       isValid: false,
-      message: 'Proposal name must be less than 60 characters'
+      message: 'Proposal name must be less than 100 characters'
     };
   }
 
