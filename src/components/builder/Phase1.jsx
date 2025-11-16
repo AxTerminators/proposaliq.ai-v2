@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, AlertTriangle, Briefcase, Building2, CheckCircle, CheckCircle2, ChevronDown, ChevronUp, Plus, Sparkles, Users, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Briefcase, Building2, CheckCircle, CheckCircle2, ChevronDown, ChevronUp, Plus, Sparkles, Users, X, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -22,6 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { validateProposalName } from "@/components/utils/boardNameValidation";
 
 const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
@@ -38,6 +41,10 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successContext, setSuccessContext] = useState('');
   const [currentTab, setCurrentTab] = useState("basic");
+  
+  // NEW: Proposal name validation state
+  const [nameError, setNameError] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
   
   const [newPartnerForm, setNewPartnerForm] = useState({
     partner_name: "",
@@ -112,6 +119,43 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
     };
     loadData();
   }, [proposalData.prime_contractor_id, proposalData.teaming_partner_ids]);
+
+  // NEW: Real-time proposal name validation
+  const handleProposalNameChange = async (value) => {
+    setProposalData({ ...proposalData, proposal_name: value });
+    setNameError("");
+
+    if (!value.trim() || !organization?.id) {
+      return;
+    }
+
+    // Basic client-side validation for minimum length and forbidden characters
+    if (value.trim().length < 6) {
+      setNameError("Name must be at least 6 characters long.");
+      return;
+    }
+    const forbiddenChars = /[/\:*?"<>|#%&]/; // Added some common forbidden chars for file paths/system names
+    if (forbiddenChars.test(value.trim())) {
+      setNameError("Name contains forbidden characters: / \\ : * ? \" < > | # % &");
+      return;
+    }
+
+
+    setIsValidatingName(true);
+
+    try {
+      const validation = await validateProposalName(value, organization.id, proposalId);
+
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[Phase1] Validation error:', error);
+      setNameError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingName(false);
+    }
+  };
 
   const createPartnerMutation = useMutation({
     mutationFn: async (data) => {
@@ -291,13 +335,22 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
       setNewPartnerForm(updatedForm);
 
       if (fieldsPopulated.length > 0) {
-        alert(`✅ Success! AI extracted ${fieldsPopulated.length} fields from ${file.name}:\n\n${fieldsPopulated.join('\n')}\n\nPlease review and adjust as needed.`);
+        toast.success(`AI Extracted Data`, {
+          description: `Successfully extracted ${fieldsPopulated.length} fields from ${file.name}. Please review and adjust.`,
+          duration: 8000,
+        });
       } else {
-        alert(`⚠️ AI analyzed ${file.name} but couldn't extract structured data.\n\nThe document may not contain the expected information. Please manually enter the details.`);
+        toast.warning(`AI Extraction Incomplete`, {
+          description: `AI analyzed ${file.name} but couldn't extract structured data. Please manually enter the details.`,
+          duration: 8000,
+        });
       }
     } catch (error) {
       console.error('Error during PDF processing:', error);
-      alert(`❌ Error processing ${file.name}:\n${error.message}\n\nPlease manually enter the information.`);
+      toast.error(`Error Processing PDF`, {
+        description: `❌ Error processing ${file.name}: ${error.message}. Please manually enter the information.`,
+        duration: 8000,
+      });
     } finally {
       setIsExtractingData(false);
     }
@@ -465,8 +518,29 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
               <Input
                 placeholder="e.g., GSA IT Services Proposal"
                 value={proposalData.proposal_name || ""}
-                onChange={(e) => setProposalData({ ...proposalData, proposal_name: e.target.value })}
+                onChange={(e) => handleProposalNameChange(e.target.value)}
+                className={cn(
+                  nameError && "border-red-500 focus-visible:ring-red-500"
+                )}
               />
+              {isValidatingName && (
+                <p className="text-xs text-blue-600 flex items-center gap-1 mt-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  Checking availability...
+                </p>
+              )}
+              {nameError && (
+                <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {nameError}
+                </p>
+              )}
+              {!nameError && proposalData.proposal_name?.trim().length >= 6 && !isValidatingName && (
+                <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                  <Check className="w-3 h-3" />
+                  Name is available
+                </p>
+              )}
             </div>
 
             <div>
@@ -623,11 +697,32 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
           <Input
             id="proposal_name"
             value={proposalData.proposal_name || ""}
-            onChange={(e) => setProposalData({...proposalData, proposal_name: e.target.value})}
+            onChange={(e) => handleProposalNameChange(e.target.value)}
             placeholder="e.g., DoD IT Modernization 2024"
+            className={cn(
+              nameError && "border-red-500 focus-visible:ring-red-500"
+            )}
           />
+          {isValidatingName && (
+            <p className="text-xs text-blue-600 flex items-center gap-1">
+              <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+              Checking availability...
+            </p>
+          )}
+          {nameError && (
+            <p className="text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {nameError}
+            </p>
+          )}
+          {!nameError && proposalData.proposal_name?.trim().length >= 6 && !isValidatingName && (
+            <p className="text-xs text-green-600 flex items-center gap-1">
+              <Check className="w-3 h-3" />
+              Name is available
+            </p>
+          )}
           <p className="text-sm text-slate-500">
-            Internal name for easy identification
+            Must be 6-60 characters, unique within your organization, and avoid special characters: / \ : * ? " {'<'} {'>'} | # % &
           </p>
         </div>
 
@@ -978,7 +1073,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
                           onClick={() => toggleCertification(cert)}
                         >
                           {newPartnerForm.certifications?.includes(cert) && (
-                            <CheckCircle className="w-3 h-3 mr-1" />
+                            <Check className="w-3 h-3 mr-1" />
                           )}
                           {cert}
                         </Badge>
