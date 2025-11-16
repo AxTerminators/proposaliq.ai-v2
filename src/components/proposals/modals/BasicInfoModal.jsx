@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,7 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save, Calendar } from "lucide-react";
+import { Loader2, Save, Calendar, AlertCircle, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { validateProposalName } from "@/components/utils/boardNameValidation";
 
 const PROJECT_TYPES = [
   { value: 'RFP', label: 'RFP - Request for Proposal' },
@@ -44,6 +46,10 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId, onCompleti
     due_date: '',
     contract_value: ''
   });
+
+  // NEW: Validation state
+  const [nameError, setNameError] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
 
   useEffect(() => {
     const loadProposal = async () => {
@@ -78,21 +84,68 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId, onCompleti
     loadProposal();
   }, [proposalId, isOpen]);
 
+  // NEW: Real-time proposal name validation
+  const handleProposalNameChange = async (value) => {
+    setFormData({...formData, proposal_name: value});
+    setNameError("");
+
+    if (!value.trim()) {
+      return;
+    }
+
+    if (!organizationId) {
+      return;
+    }
+
+    setIsValidatingName(true);
+
+    try {
+      const validation = await validateProposalName(value, organizationId, proposalId);
+
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[BasicInfoModal] Validation error:', error);
+      setNameError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingName(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.proposal_name.trim()) {
-      alert('Please enter a Proposal Name');
+      toast.error('Please enter a Proposal Name');
       return;
     }
 
     if (!formData.solicitation_number.trim()) {
-      alert('Please enter a Solicitation Number');
+      toast.error('Please enter a Solicitation Number');
       return;
+    }
+
+    if (nameError) {
+      toast.error(nameError);
+      return;
+    }
+
+    // Final validation before saving
+    if (organizationId) {
+      setIsValidatingName(true);
+      const validation = await validateProposalName(formData.proposal_name, organizationId, proposalId);
+      setIsValidatingName(false);
+
+      if (!validation.isValid) {
+        toast.error(validation.message);
+        setNameError(validation.message);
+        return;
+      }
     }
 
     setIsSaving(true);
     try {
       const updateData = {
-        proposal_name: formData.proposal_name,
+        proposal_name: formData.proposal_name.trim(),
         solicitation_number: formData.solicitation_number,
         project_type: formData.project_type,
         agency_name: formData.agency_name,
@@ -101,23 +154,21 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId, onCompleti
         contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null
       };
 
-      // **CRITICAL: Only call onCompletion after successful save**
       await base44.entities.Proposal.update(proposalId, updateData);
 
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
       
       console.log('[BasicInfoModal] ✅ Proposal basic info saved successfully');
+      toast.success('Proposal information saved successfully');
       
-      // **NEW: Call onCompletion to mark checklist item as complete**
       if (onCompletion) {
         onCompletion();
       } else {
-        // Fallback if no onCompletion callback provided
         onClose();
       }
     } catch (error) {
       console.error('[BasicInfoModal] Error saving proposal:', error);
-      alert('Failed to save proposal information. Please try again.');
+      toast.error('Failed to save proposal information. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -146,9 +197,33 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId, onCompleti
               <Input
                 id="proposal_name"
                 value={formData.proposal_name}
-                onChange={(e) => setFormData({...formData, proposal_name: e.target.value})}
+                onChange={(e) => handleProposalNameChange(e.target.value)}
                 placeholder="Internal name for easy identification"
+                className={cn(
+                  nameError && "border-red-500 focus-visible:ring-red-500"
+                )}
               />
+              {isValidatingName && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  Checking availability...
+                </p>
+              )}
+              {nameError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {nameError}
+                </p>
+              )}
+              {!nameError && formData.proposal_name.trim().length >= 6 && !isValidatingName && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Name is available
+                </p>
+              )}
+              <p className="text-xs text-slate-600">
+                Must be 6-60 characters, unique within your organization, and avoid special characters: /\:*?"&lt;&gt;|#%&amp;
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -254,7 +329,7 @@ export default function BasicInfoModal({ isOpen, onClose, proposalId, onCompleti
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={isSaving || !formData.proposal_name.trim() || !formData.solicitation_number.trim()}
+                disabled={isSaving || !formData.proposal_name.trim() || !formData.solicitation_number.trim() || nameError}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {isSaving ? (
