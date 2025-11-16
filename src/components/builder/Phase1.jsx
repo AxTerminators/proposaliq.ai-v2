@@ -24,7 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { validateProposalName } from "@/components/utils/boardNameValidation";
+import { validateProposalName, validatePartnerName } from "@/components/utils/boardNameValidation";
 
 const CERTIFICATIONS = [
   "8(a)", "HUBZone", "SDVOSB", "VOSB", "WOSB", "EDWOSB", "SDB"
@@ -42,9 +42,13 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
   const [successContext, setSuccessContext] = useState('');
   const [currentTab, setCurrentTab] = useState("basic");
   
-  // NEW: Proposal name validation state
+  // Proposal name validation state
   const [nameError, setNameError] = useState("");
   const [isValidatingName, setIsValidatingName] = useState(false);
+  
+  // NEW: Partner name validation for dialog
+  const [partnerNameError, setPartnerNameError] = useState("");
+  const [isValidatingPartnerName, setIsValidatingPartnerName] = useState(false);
   
   const [newPartnerForm, setNewPartnerForm] = useState({
     partner_name: "",
@@ -154,6 +158,42 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
       setNameError('Validation service error. Please try again.');
     } finally {
       setIsValidatingName(false);
+    }
+  };
+
+  // NEW: Handle partner name change with validation
+  const handlePartnerNameChange = async (value) => {
+    setNewPartnerForm({...newPartnerForm, partner_name: value});
+    setPartnerNameError("");
+
+    if (!value.trim() || !organization?.id) {
+      return;
+    }
+
+    // Basic client-side validation for minimum length and forbidden characters
+    if (value.trim().length < 3) {
+      setPartnerNameError("Name must be at least 3 characters long.");
+      return;
+    }
+    const forbiddenChars = /[/\:*?"<>|#%&]/;
+    if (forbiddenChars.test(value.trim())) {
+      setPartnerNameError("Name contains forbidden characters: / \\ : * ? \" < > | # % &");
+      return;
+    }
+
+    setIsValidatingPartnerName(true);
+
+    try {
+      const validation = await validatePartnerName(value, organization.id, null); // null as partnerId for new partners
+
+      if (!validation.isValid) {
+        setPartnerNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[Phase1] Partner validation error:', error);
+      setPartnerNameError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingPartnerName(false);
     }
   };
 
@@ -381,6 +421,7 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
     setOtherCertification("");
     setNewItem("");
     setCurrentTab("basic");
+    setPartnerNameError(""); // NEW: Reset partner name error
   };
 
   const handleOpenAddPartner = (forPrime) => {
@@ -388,11 +429,19 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
     setShowAddPartnerDialog(true);
   };
 
-  const handleSaveNewPartner = () => {
+  const handleSaveNewPartner = async () => {
     if (!newPartnerForm.partner_name?.trim()) {
-      alert("Please enter a partner name");
+      toast.error("Please enter a partner name.");
       return;
     }
+
+    // NEW: Validate before saving
+    if (partnerNameError) {
+      toast.error("Please fix partner name errors before saving.");
+      setCurrentTab("basic"); // Ensure the user is on the basic tab to see the error
+      return;
+    }
+
     createPartnerMutation.mutate(newPartnerForm);
   };
 
@@ -959,9 +1008,33 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
                     <Label>Company Name *</Label>
                     <Input
                       value={newPartnerForm.partner_name}
-                      onChange={(e) => setNewPartnerForm({...newPartnerForm, partner_name: e.target.value})}
+                      onChange={(e) => handlePartnerNameChange(e.target.value)}
                       placeholder="Company name"
+                      className={cn(
+                        partnerNameError && "border-red-500 focus-visible:ring-red-500"
+                      )}
                     />
+                    {isValidatingPartnerName && (
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                        Checking availability...
+                      </p>
+                    )}
+                    {partnerNameError && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {partnerNameError}
+                      </p>
+                    )}
+                    {!partnerNameError && newPartnerForm.partner_name?.trim().length >= 3 && !isValidatingPartnerName && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        Name is available
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Must be 3-150 characters, unique in your organization, avoid: / \ : * ? " {'<'} {'>'} | # % &
+                    </p>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4">
@@ -1179,7 +1252,13 @@ export default function Phase1({ proposalData, setProposalData, proposalId, embe
             </Button>
             <Button 
               onClick={handleSaveNewPartner}
-              disabled={!newPartnerForm.partner_name || createPartnerMutation.isPending || uploadingCapStatement}
+              disabled={
+                !newPartnerForm.partner_name || 
+                !!partnerNameError || // NEW: Disable if partner name has an error
+                isValidatingPartnerName || // NEW: Disable if partner name is currently validating
+                createPartnerMutation.isPending || 
+                uploadingCapStatement
+              }
             >
               {(createPartnerMutation.isPending || uploadingCapStatement) ? 'Saving...' : 'Save Company'}
             </Button>

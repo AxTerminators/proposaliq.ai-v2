@@ -29,7 +29,8 @@ import {
   X,
   Plus,
   HelpCircle,
-  ArrowRight
+  ArrowRight,
+  Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CapabilityStatementUploader from "../components/teamingpartners/CapabilityStatementUploader";
@@ -56,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { validatePartnerName } from "@/components/utils/boardNameValidation";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -128,7 +130,11 @@ export default function AddTeamingPartner() {
   const [savedPartnerId, setSavedPartnerId] = useState(null);
   const [showRoleSelectionDialog, setShowRoleSelectionDialog] = useState(false);
   const [isSavingAndReturning, setIsSavingAndReturning] = useState(false);
-  const [duplicateInfo, setDuplicateInfo] = useState(null); // NEW
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
+
+  // NEW: Validation state
+  const [nameError, setNameError] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
 
   // Tag inputs for various array fields
   const [tagInput, setTagInput] = useState("");
@@ -216,6 +222,37 @@ export default function AddTeamingPartner() {
     }
   }, [existingPartner]);
 
+  // NEW: Handle partner name change with validation
+  const handlePartnerNameChange = async (value) => {
+    setFormData(prev => ({ ...prev, partner_name: value }));
+    setNameError(""); // Clear previous error
+
+    if (!value.trim()) {
+      return; // No validation if empty
+    }
+
+    if (!organization?.id) {
+      setNameError("Organization not loaded for name validation.");
+      return;
+    }
+
+    setIsValidatingName(true);
+
+    try {
+      // Pass savedPartnerId (for existing partners) or partnerId from URL for current edit context
+      const validation = await validatePartnerName(value, organization.id, savedPartnerId || partnerId);
+
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[AddTeamingPartner] Validation error:', error);
+      setNameError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingName(false);
+    }
+  };
+
   const savePartnerMutation = useMutation({
     mutationFn: async (data) => {
       // CRITICAL FIX: Check if we already have a savedPartnerId (from previous save in this session)
@@ -295,6 +332,13 @@ export default function AddTeamingPartner() {
       return;
     }
 
+    // NEW: Check name validation
+    if (nameError) {
+      toast.error("Please fix partner name errors before saving.");
+      setActiveTab("basic");
+      return;
+    }
+
     // NEW: Block save if UEI duplicate found
     if (duplicateInfo?.hasUEIDuplicate) {
       toast.error("Cannot save - UEI already exists in your organization. Please edit the existing partner or use a different UEI.");
@@ -334,6 +378,12 @@ export default function AddTeamingPartner() {
   const handleBackToProposal = async () => {
     if (!formData.partner_name?.trim()) {
       toast.error("Company name is required before saving");
+      return;
+    }
+
+    if (nameError) {
+      toast.error("Please fix partner name errors before saving.");
+      setActiveTab("basic");
       return;
     }
 
@@ -600,19 +650,42 @@ export default function AddTeamingPartner() {
                       </Label>
                       <Input
                         value={formData.partner_name}
-                        onChange={(e) => updateField('partner_name', e.target.value)}
+                        onChange={(e) => handlePartnerNameChange(e.target.value)}
                         placeholder="Acme Defense Solutions"
                         className={cn(
                           isFieldAIExtracted('partner_name') && "border-purple-300",
-                          !formData.partner_name && "border-red-300"
+                          nameError && "border-red-500 focus-visible:ring-red-500",
+                          !formData.partner_name && !nameError && "border-red-300"
                         )}
                       />
-                      {!formData.partner_name && (
+                      {isValidatingName && (
+                        <p className="text-xs text-blue-600 flex items-center gap-1 mt-1">
+                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                          Checking availability...
+                        </p>
+                      )}
+                      {nameError && (
+                        <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {nameError}
+                        </p>
+                      )}
+                      {/* Show success only if name is not empty, no error, and not validating, and has minimum length */}
+                      {!nameError && formData.partner_name?.trim().length >= 3 && !isValidatingName && (
+                        <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                          <Check className="w-3 h-3" />
+                          Name is available
+                        </p>
+                      )}
+                      {!formData.partner_name && !nameError && (
                         <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" />
                           Required field
                         </p>
                       )}
+                      <p className="text-xs text-slate-500 mt-1">
+                        Must be 3-150 characters, unique in your organization, avoid: /\:*?"&lt;&gt;|#%&amp;
+                      </p>
                     </div>
 
                     <div>
@@ -1439,10 +1512,18 @@ export default function AddTeamingPartner() {
                       AI-Assisted
                     </Badge>
                   )}
-                  {!formData.partner_name && (
+                  {/* Show general required field message only if name is empty and no specific nameError */}
+                  {!formData.partner_name && !nameError && (
                     <p className="text-sm text-amber-600 flex items-center gap-1">
                       <AlertCircle className="w-4 h-4" />
                       Company name is required
+                    </p>
+                  )}
+                  {/* Show specific name validation error */}
+                  {nameError && (
+                    <p className="text-sm text-red-600 flex items-center gap-1 font-semibold">
+                      <AlertCircle className="w-4 h-4" />
+                      Name Error
                     </p>
                   )}
                   {/* NEW: Show duplicate warning in action bar */}
@@ -1462,6 +1543,7 @@ export default function AddTeamingPartner() {
                         savePartnerMutation.isPending || 
                         isSavingAndReturning || 
                         !formData.partner_name ||
+                        !!nameError || // Disable if name has error
                         duplicateInfo?.hasUEIDuplicate // NEW: Disable if UEI duplicate
                       }
                       className="border-blue-300 text-blue-700 hover:bg-blue-50"
@@ -1484,6 +1566,7 @@ export default function AddTeamingPartner() {
                     disabled={
                       savePartnerMutation.isPending || 
                       !formData.partner_name ||
+                      !!nameError || // Disable if name has error
                       duplicateInfo?.hasUEIDuplicate // NEW: Disable if UEI duplicate
                     }
                     className="bg-blue-600 hover:bg-blue-700"

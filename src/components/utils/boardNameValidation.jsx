@@ -163,6 +163,52 @@ export const checkProposalNameUnique = async (proposalName, organizationId, excl
 };
 
 /**
+ * Check if a TeamingPartner name is unique within an organization
+ * @param {string} partnerName - The proposed partner name
+ * @param {string} organizationId - The organization ID
+ * @param {string} excludeId - Optional: ID to exclude from check (for updates)
+ * @returns {Promise<{isUnique: boolean, existingPartner?: object}>}
+ */
+export const checkPartnerNameUnique = async (partnerName, organizationId, excludeId = null) => {
+  try {
+    if (!partnerName || !organizationId) {
+      return { isUnique: false, error: 'Partner name and organization ID are required' };
+    }
+
+    const normalizedProposedName = normalizeForComparison(partnerName);
+
+    // Fetch all partners for this organization
+    const existingPartners = await base44.entities.TeamingPartner.filter({
+      organization_id: organizationId
+    });
+
+    // Check for duplicates (case-insensitive)
+    const duplicate = existingPartners.find(partner => {
+      // Exclude the current partner if we're updating
+      if (excludeId && partner.id === excludeId) {
+        return false;
+      }
+      return normalizeForComparison(partner.partner_name) === normalizedProposedName;
+    });
+
+    if (duplicate) {
+      return {
+        isUnique: false,
+        existingPartner: duplicate
+      };
+    }
+
+    return { isUnique: true };
+  } catch (error) {
+    console.error('[BoardNameValidation] Error checking partner name uniqueness:', error);
+    return {
+      isUnique: false,
+      error: error.message || 'Failed to check partner name uniqueness'
+    };
+  }
+};
+
+/**
  * Ensure a template name ends with " Template"
  * @param {string} name - The proposed template name
  * @returns {string} - Name with " Template" suffix
@@ -346,6 +392,66 @@ export const validateProposalName = async (proposalName, organizationId, exclude
     return {
       isValid: false,
       message: `A proposal named "${proposalName}" already exists. Please choose a different name.`
+    };
+  }
+
+  return { isValid: true };
+};
+
+/**
+ * Validate a teaming partner name and provide user-friendly feedback
+ * @param {string} partnerName - The proposed partner name
+ * @param {string} organizationId - The organization ID
+ * @param {string} excludeId - Optional: ID to exclude from check (for updates)
+ * @returns {Promise<{isValid: boolean, message?: string}>}
+ */
+export const validatePartnerName = async (partnerName, organizationId, excludeId = null) => {
+  // Check if name is empty
+  if (!partnerName || partnerName.trim().length === 0) {
+    return {
+      isValid: false,
+      message: 'Partner name cannot be empty'
+    };
+  }
+
+  // Check if name is too short
+  if (partnerName.trim().length < 3) {
+    return {
+      isValid: false,
+      message: 'Partner name must be at least 3 characters long'
+    };
+  }
+
+  // Check if name is too long
+  if (partnerName.trim().length > 150) {
+    return {
+      isValid: false,
+      message: 'Partner name must be less than 150 characters'
+    };
+  }
+
+  // Check for forbidden characters
+  if (containsForbiddenCharacters(partnerName)) {
+    return {
+      isValid: false,
+      message: `Partner name contains forbidden characters. Please avoid: ${FORBIDDEN_CHARS_LIST}`
+    };
+  }
+
+  // Check uniqueness
+  const uniqueCheck = await checkPartnerNameUnique(partnerName, organizationId, excludeId);
+  
+  if (uniqueCheck.error) {
+    return {
+      isValid: false,
+      message: uniqueCheck.error
+    };
+  }
+
+  if (!uniqueCheck.isUnique) {
+    return {
+      isValid: false,
+      message: `A partner named "${partnerName}" already exists in your organization. Please choose a different name.`
     };
   }
 
