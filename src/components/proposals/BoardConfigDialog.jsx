@@ -50,10 +50,12 @@ import {
   Sparkles,
   RefreshCw,
   Settings,
-  ListChecks
+  ListChecks,
+  Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ColumnDetailEditor from "./ColumnDetailEditor";
+import { validateTemplateName, enforceTemplateSuffix } from "@/components/utils/boardNameValidation";
 
 // 14-column template definition
 const TEMPLATE_14_COLUMN_FULL = [
@@ -294,6 +296,9 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     icon_emoji: '📋',
     estimated_duration_days: 30
   });
+  const [templateNameError, setTemplateNameError] = useState("");
+  const [isValidatingTemplateName, setIsValidatingTemplateName] = useState(false);
+  const [validatedTemplateName, setValidatedTemplateName] = useState("");
 
   useEffect(() => {
     if (currentConfig) {
@@ -313,6 +318,34 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       });
     }
   }, [currentConfig]);
+
+  // Real-time template name validation with " Template" suffix
+  const handleTemplateNameChange = async (value) => {
+    setTemplateData({ ...templateData, template_name: value });
+    setTemplateNameError("");
+    setValidatedTemplateName("");
+
+    if (!value.trim()) {
+      return;
+    }
+
+    setIsValidatingTemplateName(true);
+
+    try {
+      const validation = await validateTemplateName(value, organization.id);
+
+      if (!validation.isValid) {
+        setTemplateNameError(validation.message);
+      } else {
+        setValidatedTemplateName(validation.finalName);
+      }
+    } catch (error) {
+      console.error('[BoardConfigDialog] Template name validation error:', error);
+      setTemplateNameError("An error occurred during validation.");
+    } finally {
+      setIsValidatingTemplateName(false);
+    }
+  };
 
   const saveConfigMutation = useMutation({
     mutationFn: async (newConfig) => {
@@ -391,20 +424,14 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       if (!organization?.id) throw new Error("No organization");
       if (!currentConfig) throw new Error("No current configuration to save");
 
-      // NEW: Validate unique template name (case-insensitive)
-      const trimmedName = templateInfo.template_name.trim();
-      const existingTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
-        organization_id: organization.id
-      });
+      // Validate template name and get the final name with " Template" suffix
+      const validation = await validateTemplateName(templateInfo.template_name, organization.id);
 
-      const normalizedName = trimmedName.toLowerCase();
-      const duplicate = existingTemplates.find(t => 
-        t.template_name.toLowerCase() === normalizedName
-      );
-
-      if (duplicate) {
-        throw new Error(`A template named "${duplicate.template_name}" already exists. Please choose a different name.`);
+      if (!validation.isValid) {
+        throw new Error(validation.message);
       }
+
+      const finalTemplateName = validation.finalName;
 
       // Determine board type from current config or default to custom
       const boardType = currentConfig.board_type || 'custom';
@@ -412,7 +439,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
       const templateToCreate = {
         organization_id: organization.id,
-        template_name: trimmedName,
+        template_name: finalTemplateName,
         template_type: 'organization',
         proposal_type_category: proposalTypes[0] || 'OTHER',
         board_type: boardType,
@@ -430,7 +457,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
       return base44.entities.ProposalWorkflowTemplate.create(templateToCreate);
     },
-    onSuccess: () => {
+    onSuccess: (createdTemplate) => {
       queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
       setShowSaveAsTemplateDialog(false);
       setTemplateData({
@@ -439,7 +466,9 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         icon_emoji: '📋',
         estimated_duration_days: 30
       });
-      alert('✅ Template saved successfully! You can now find it in the Template Manager.');
+      setTemplateNameError("");
+      setValidatedTemplateName("");
+      alert(`✅ Template "${createdTemplate.template_name}" saved successfully! You can now find it in the Template Manager.`);
     },
     onError: (error) => {
       alert(`Error saving template: ${error.message}`);
@@ -475,8 +504,20 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   const confirmSaveAsTemplate = () => {
     if (!templateData.template_name.trim()) {
       alert('Please enter a template name');
+      setTemplateNameError("Template name cannot be empty.");
       return;
     }
+
+    if (templateNameError) {
+      alert(templateNameError);
+      return;
+    }
+
+    if (isValidatingTemplateName) {
+      alert("Please wait for template name validation to complete.");
+      return;
+    }
+
     saveAsTemplateMutation.mutate(templateData);
   };
 
@@ -1108,7 +1149,21 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
       </AlertDialog>
 
       {/* Save as Template Dialog */}
-      <Dialog open={showSaveAsTemplateDialog} onOpenChange={setShowSaveAsTemplateDialog}>
+      <Dialog open={showSaveAsTemplateDialog} onOpenChange={(open) => {
+        // Clear validation states and template data when closing the dialog
+        if (!open) {
+          setTemplateNameError("");
+          setIsValidatingTemplateName(false);
+          setValidatedTemplateName("");
+          setTemplateData({
+            template_name: '',
+            description: '',
+            icon_emoji: '📋',
+            estimated_duration_days: 30
+          });
+        }
+        setShowSaveAsTemplateDialog(open);
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1122,13 +1177,43 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="template_name">Template Name *</Label>
+              <Label htmlFor="template_name">
+                Template Name <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="template_name"
                 value={templateData.template_name}
-                onChange={(e) => setTemplateData({ ...templateData, template_name: e.target.value })}
+                onChange={(e) => handleTemplateNameChange(e.target.value)}
                 placeholder="e.g., My Custom RFP Workflow"
+                className={cn(
+                  templateNameError && "border-red-500 focus-visible:ring-red-500"
+                )}
               />
+              {isValidatingTemplateName && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  Validating name...
+                </p>
+              )}
+              {templateNameError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {templateNameError}
+                </p>
+              )}
+              {!templateNameError && validatedTemplateName && !isValidatingTemplateName && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Will be saved as: <strong>"{validatedTemplateName}"</strong>
+                </p>
+              )}
+              <div className="flex items-start gap-2 text-xs text-slate-600 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <Info className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <p>
+                  Template names must be unique and will automatically have " Template" added to the end.
+                  Names are case-insensitive (e.g., "My Workflow" and "my workflow" are considered the same).
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1174,14 +1259,25 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowSaveAsTemplateDialog(false)}
+              onClick={() => {
+                setShowSaveAsTemplateDialog(false);
+                setTemplateNameError("");
+                setIsValidatingTemplateName(false);
+                setValidatedTemplateName("");
+                setTemplateData({
+                  template_name: '',
+                  description: '',
+                  icon_emoji: '📋',
+                  estimated_duration_days: 30
+                });
+              }}
               disabled={saveAsTemplateMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               onClick={confirmSaveAsTemplate}
-              disabled={saveAsTemplateMutation.isPending}
+              disabled={saveAsTemplateMutation.isPending || !!templateNameError || !templateData.template_name.trim() || isValidatingTemplateName}
               className="bg-purple-600 hover:bg-purple-700"
             >
               {saveAsTemplateMutation.isPending ? (

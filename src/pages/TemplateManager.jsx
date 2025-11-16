@@ -42,9 +42,11 @@ import {
   Building2,
   AlertCircle,
   Check,
-  Clock
+  Clock,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { validateTemplateName, enforceTemplateSuffix } from "@/components/utils/boardNameValidation";
 
 export default function TemplateManager() {
   const navigate = useNavigate();
@@ -55,6 +57,9 @@ export default function TemplateManager() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingTemplate, setDeletingTemplate] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [templateNameError, setTemplateNameError] = useState("");
+  const [isValidatingTemplateName, setIsValidatingTemplateName] = useState(false);
+  const [validatedTemplateName, setValidatedTemplateName] = useState("");
 
   // Load user and organization
   const { data: user } = useQuery({
@@ -134,6 +139,34 @@ export default function TemplateManager() {
     };
   }, [filteredTemplates]);
 
+  // Real-time template name validation for editing
+  const handleEditTemplateNameChange = async (value) => {
+    setEditingTemplate(prev => ({ ...prev, template_name: value }));
+    setTemplateNameError("");
+    setValidatedTemplateName("");
+
+    if (!value.trim()) {
+      return;
+    }
+
+    setIsValidatingTemplateName(true);
+    
+    try {
+      const validation = await validateTemplateName(value, editingTemplate.id);
+      
+      if (!validation.isValid) {
+        setTemplateNameError(validation.message);
+      } else {
+        setValidatedTemplateName(validation.finalName);
+      }
+    } catch (error) {
+      console.error('[TemplateManager] Validation error:', error);
+      setTemplateNameError('An unexpected error occurred during validation.');
+    } finally {
+      setIsValidatingTemplateName(false);
+    }
+  };
+
   // Duplicate template mutation
   const duplicateTemplateMutation = useMutation({
     mutationFn: async (sourceTemplate) => {
@@ -141,9 +174,23 @@ export default function TemplateManager() {
         ? JSON.parse(sourceTemplate.workflow_config)
         : sourceTemplate.workflow_config;
 
+      // NEW: Generate unique name with " Template" suffix
+      let baseName = sourceTemplate.template_name;
+      // Remove existing " Template" suffix if present
+      if (baseName.toLowerCase().endsWith(' template')) {
+        baseName = baseName.substring(0, baseName.length - ' template'.length).trim();
+      }
+      baseName = `${baseName} Copy`;
+      
+      // Validate and enforce " Template" suffix
+      const validation = await validateTemplateName(baseName);
+      if (!validation.isValid) {
+        throw new Error(validation.message);
+      }
+
       return base44.entities.ProposalWorkflowTemplate.create({
         organization_id: organization.id,
-        template_name: `${sourceTemplate.template_name} (Copy)`,
+        template_name: validation.finalName,
         template_type: 'organization',
         proposal_type_category: sourceTemplate.proposal_type_category,
         board_type: sourceTemplate.board_type,
@@ -155,22 +202,41 @@ export default function TemplateManager() {
         usage_count: 0
       });
     },
-    onSuccess: () => {
+    onSuccess: (createdTemplate) => {
       queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
-      alert('✅ Template duplicated successfully!');
+      alert(`✅ Template duplicated as "${createdTemplate.template_name}"!`);
+    },
+    onError: (error) => {
+      alert(`Error duplicating template: ${error.message}`);
     }
   });
 
   // Update template mutation
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, updates }) => {
+      // Validate template name if it's being updated and if it has changed from original
+      const originalTemplate = allTemplates.find(t => t.id === id);
+      if (updates.template_name && originalTemplate?.template_name !== updates.template_name) {
+        const validation = await validateTemplateName(updates.template_name, id);
+        if (!validation.isValid) {
+          throw new Error(validation.message);
+        }
+        // Use the validated name with " Template" suffix
+        updates.template_name = validation.finalName;
+      }
+
       return base44.entities.ProposalWorkflowTemplate.update(id, updates);
     },
-    onSuccess: () => {
+    onSuccess: (updatedTemplate) => {
       queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
       setShowEditDialog(false);
       setEditingTemplate(null);
-      alert('✅ Template updated successfully!');
+      setTemplateNameError("");
+      setValidatedTemplateName("");
+      alert(`✅ Template updated as "${updatedTemplate.template_name}"!`);
+    },
+    onError: (error) => {
+      alert(`Error updating template: ${error.message}`);
     }
   });
 
@@ -216,7 +282,7 @@ export default function TemplateManager() {
         create15ColumnTemplateMutation.mutate();
       }
     }
-  }, [organization?.id, allTemplates.length]);
+  }, [organization?.id, allTemplates.length, hasCheckedTemplate, create15ColumnTemplateMutation]);
 
   const handleDuplicate = (template) => {
     duplicateTemplateMutation.mutate(template);
@@ -224,6 +290,8 @@ export default function TemplateManager() {
 
   const handleEdit = (template) => {
     setEditingTemplate(template);
+    setTemplateNameError("");
+    setValidatedTemplateName("");
     setShowEditDialog(true);
   };
 
@@ -234,10 +302,21 @@ export default function TemplateManager() {
 
   const handleSaveEdit = () => {
     if (!editingTemplate?.template_name?.trim()) {
-      alert('Please enter a template name');
+      alert('Template name cannot be empty.');
+      setTemplateNameError('Template name cannot be empty.');
+      return;
+    }
+
+    if (templateNameError) {
+      alert('Please fix the template name errors before saving.');
       return;
     }
     
+    if (isValidatingTemplateName) {
+      alert('Please wait for template name validation to complete.');
+      return;
+    }
+
     updateTemplateMutation.mutate({
       id: editingTemplate.id,
       updates: {
@@ -394,13 +473,42 @@ export default function TemplateManager() {
           {editingTemplate && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit_name">Template Name *</Label>
+                <Label htmlFor="edit_name">
+                  Template Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="edit_name"
                   value={editingTemplate.template_name || ''}
-                  onChange={(e) => setEditingTemplate({ ...editingTemplate, template_name: e.target.value })}
+                  onChange={(e) => handleEditTemplateNameChange(e.target.value)}
                   placeholder="e.g., My Custom RFP Workflow"
+                  className={cn(
+                    templateNameError && "border-red-500 focus-visible:ring-red-500"
+                  )}
                 />
+                {isValidatingTemplateName && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1">
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                    Validating name...
+                  </p>
+                )}
+                {templateNameError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {templateNameError}
+                  </p>
+                )}
+                {!templateNameError && validatedTemplateName && !isValidatingTemplateName && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Will be saved as: <strong>"{validatedTemplateName}"</strong>
+                  </p>
+                )}
+                <div className="flex items-start gap-2 text-xs text-slate-600 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <Info className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <p>
+                    Template names must end with " Template" and be unique (case-insensitive) within your organization.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -439,10 +547,18 @@ export default function TemplateManager() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowEditDialog(false);
+              setTemplateNameError("");
+              setValidatedTemplateName("");
+              setIsValidatingTemplateName(false);
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={updateTemplateMutation.isPending}>
+            <Button 
+              onClick={handleSaveEdit} 
+              disabled={updateTemplateMutation.isPending || !!templateNameError || !editingTemplate?.template_name?.trim() || isValidatingTemplateName}
+            >
               {updateTemplateMutation.isPending ? (
                 <>
                   <div className="animate-spin mr-2">⏳</div>
@@ -481,7 +597,7 @@ export default function TemplateManager() {
             >
               Delete Template
             </AlertDialogAction>
-          </AlertDialogFooter>
+          </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
@@ -688,7 +804,7 @@ function TemplateCard({ template, onEdit, onDuplicate, onDelete, canEdit, canDel
             </Button>
             <Button onClick={() => {
               setShowPreview(false);
-              onDuplicate();
+              onDuplicate(template); // Pass template object for duplication
             }}>
               <Copy className="w-4 h-4 mr-2" />
               Duplicate This Template
