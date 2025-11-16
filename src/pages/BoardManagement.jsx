@@ -3,6 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
@@ -13,7 +15,9 @@ import {
   Eye,
   AlertCircle,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Edit3,
+  Check
 } from "lucide-react";
 import {
   AlertDialog,
@@ -25,10 +29,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
 import BoardConfigDialog from "@/components/proposals/BoardConfigDialog";
 import { useOrganization } from "@/components/layout/OrganizationContext";
+import { validateBoardName } from "@/components/utils/boardNameValidation";
 
 const BOARD_TYPE_ICONS = {
   'master': '⭐',
@@ -53,6 +66,11 @@ export default function BoardManagement() {
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [deletingBoard, setDeletingBoard] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [renamingBoard, setRenamingBoard] = useState(null);
+  const [newBoardName, setNewBoardName] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
 
   // Fetch all boards for organization
   const { data: boards = [], isLoading, refetch } = useQuery({
@@ -78,6 +96,55 @@ export default function BoardManagement() {
       );
     },
     enabled: !!organization?.id,
+  });
+
+  // Real-time board name validation
+  const handleBoardNameChange = async (value) => {
+    setNewBoardName(value);
+    setNameError("");
+
+    if (!value.trim()) {
+      return;
+    }
+
+    setIsValidatingName(true);
+    
+    try {
+      const validation = await validateBoardName(value, organization.id, renamingBoard?.id);
+      
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[BoardManagement] Validation error:', error);
+    } finally {
+      setIsValidatingName(false);
+    }
+  };
+
+  // Rename board mutation
+  const renameBoardMutation = useMutation({
+    mutationFn: async ({ boardId, newName }) => {
+      const validation = await validateBoardName(newName, organization.id, boardId);
+      if (!validation.isValid) {
+        throw new Error(validation.message);
+      }
+
+      return base44.entities.KanbanConfig.update(boardId, {
+        board_name: newName.trim()
+      });
+    },
+    onSuccess: async (updatedBoard) => {
+      await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
+      setShowRenameDialog(false);
+      setRenamingBoard(null);
+      setNewBoardName("");
+      setNameError("");
+      alert(`✅ Board renamed to "${updatedBoard.board_name}"!`);
+    },
+    onError: (error) => {
+      alert(`Error renaming board: ${error.message}`);
+    }
   });
 
   // Delete board mutation
@@ -110,6 +177,30 @@ export default function BoardManagement() {
   const handleEditBoard = (board) => {
     setEditingBoard(board);
     setShowConfigDialog(true);
+  };
+
+  const handleRenameBoard = (board) => {
+    setRenamingBoard(board);
+    setNewBoardName(board.board_name);
+    setNameError("");
+    setShowRenameDialog(true);
+  };
+
+  const confirmRename = () => {
+    if (!newBoardName.trim()) {
+      alert('Board name cannot be empty');
+      return;
+    }
+
+    if (nameError) {
+      alert(nameError);
+      return;
+    }
+
+    renameBoardMutation.mutate({
+      boardId: renamingBoard.id,
+      newName: newBoardName
+    });
   };
 
   const getProposalCount = (board) => {
@@ -293,6 +384,15 @@ export default function BoardManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleRenameBoard(board)}
+                          className="flex-1"
+                        >
+                          <Edit3 className="w-4 h-4 mr-2" />
+                          Rename
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleEditBoard(board)}
                           className="flex-1"
                         >
@@ -331,7 +431,86 @@ export default function BoardManagement() {
         }}
       />
 
-      {/* FIXED: Config Dialog - use currentConfig prop instead of boardConfig */}
+      {/* Rename Board Dialog */}
+      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename Board</DialogTitle>
+            <DialogDescription>
+              Enter a new name for "{renamingBoard?.board_name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-board-name">
+                Board Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="new-board-name"
+                value={newBoardName}
+                onChange={(e) => handleBoardNameChange(e.target.value)}
+                placeholder="Enter new board name..."
+                className={cn(
+                  nameError && "border-red-500 focus-visible:ring-red-500"
+                )}
+              />
+              {isValidatingName && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                  Checking availability...
+                </p>
+              )}
+              {nameError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {nameError}
+                </p>
+              )}
+              {!nameError && newBoardName.trim().length >= 3 && !isValidatingName && newBoardName !== renamingBoard?.board_name && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Board name is available
+                </p>
+              )}
+              <p className="text-xs text-slate-600">
+                Board names must be unique (case-insensitive) within your organization
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowRenameDialog(false);
+                setNameError("");
+                setNewBoardName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRename}
+              disabled={renameBoardMutation.isPending || !!nameError || !newBoardName.trim() || isValidatingName || newBoardName === renamingBoard?.board_name}
+            >
+              {renameBoardMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Renaming...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Rename Board
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Config Dialog */}
       {showConfigDialog && editingBoard && (
         <BoardConfigDialog
           isOpen={showConfigDialog}
