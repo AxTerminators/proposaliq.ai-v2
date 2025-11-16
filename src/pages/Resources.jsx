@@ -21,9 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  FileText, 
-  Upload, 
+import {
+  FileText,
+  Upload,
   Search,
   Trash2,
   Eye,
@@ -31,12 +31,17 @@ import {
   Download,
   Star,
   StarOff,
-  Library
+  Library,
+  AlertCircle, // NEW
+  Check // NEW
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label"; // NEW
+import { cn } from "@/lib/utils"; // NEW
 import UniversalAlert from "../components/ui/UniversalAlert";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
+import { validateResourceTitle } from "@/components/utils/boardNameValidation"; // NEW
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -75,7 +80,7 @@ export default function Resources() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  
+
   // Universal Alert states
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
@@ -87,7 +92,11 @@ export default function Resources() {
   // Promote to Library states
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [resourceToPromote, setResourceToPromote] = useState(null);
-  
+
+  // NEW: Validation state
+  const [titleError, setTitleError] = useState("");
+  const [isValidatingTitle, setIsValidatingTitle] = useState(false);
+
   const [newResource, setNewResource] = useState({
     resource_type: "boilerplate_text",
     content_category: "general",
@@ -102,7 +111,7 @@ export default function Resources() {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
-        
+
         const org = await getUserActiveOrganization(currentUser);
         if (org) {
           setOrganization(org);
@@ -118,17 +127,17 @@ export default function Resources() {
     queryKey: ['resources', organization?.id, filterType, filterCategory],
     queryFn: async () => {
       if (!organization?.id) return [];
-      
+
       let query = { organization_id: organization.id };
-      
+
       if (filterType !== "all") {
         query.resource_type = filterType;
       }
-      
+
       if (filterCategory !== "all") {
         query.content_category = filterCategory;
       }
-      
+
       return base44.entities.ProposalResource.filter(query, '-created_date');
     },
     initialData: [],
@@ -167,6 +176,7 @@ export default function Resources() {
         boilerplate_content: "",
         tags: []
       });
+      setTitleError(""); // NEW: Clear title error on success
       setAlertConfig({
         type: "success",
         title: "Resource Added",
@@ -216,15 +226,55 @@ export default function Resources() {
     }
   });
 
+  // NEW: Handle title change with validation
+  const handleTitleChange = async (value) => {
+    setNewResource((prev) => ({ ...prev, title: value }));
+    setTitleError(""); // Clear previous error immediately
+
+    if (!value.trim()) { // If title is empty, no need to validate uniqueness yet
+      setIsValidatingTitle(false);
+      return;
+    }
+
+    // Only validate if organization is available
+    if (!organization?.id) {
+        setTitleError("Organization not loaded for title validation.");
+        return;
+    }
+
+    setIsValidatingTitle(true);
+
+    try {
+      const validation = await validateResourceTitle(
+        value,
+        organization.id,
+        null, // No board_id for resources
+        null  // No board_type_id for resources
+      );
+
+      if (!validation.isValid) {
+        setTitleError(validation.message);
+      }
+    } catch (error) {
+      console.error('[Resources] Validation error:', error);
+      setTitleError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingTitle(false);
+    }
+  };
+
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      setNewResource({
-        ...newResource,
+      // Automatically set title from file name and trigger validation
+      setNewResource((prev) => ({
+        ...prev,
         title: file.name,
         resource_type: getFileType(file)
-      });
+      }));
+      // Manually trigger title validation as setNewResource might be async
+      handleTitleChange(file.name);
     }
   };
 
@@ -236,11 +286,32 @@ export default function Resources() {
   };
 
   const handleUpload = async () => {
+    // Primary validation for file/boilerplate content
     if (!selectedFile && !newResource.boilerplate_content) {
       setAlertConfig({
         type: "warning",
         title: "File or Content Required",
         description: "Please select a file or enter boilerplate content."
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    // NEW: Validate title before uploading
+    if (newResource.title.trim() === "") {
+        setAlertConfig({
+            type: "warning",
+            title: "Title Required",
+            description: "Please enter a title for the resource."
+        });
+        setShowAlert(true);
+        return;
+    }
+    if (titleError || isValidatingTitle) { // Check both current error and if validation is still running
+      setAlertConfig({
+        type: "warning",
+        title: "Fix Title Errors",
+        description: "Please fix the title errors before saving."
       });
       setShowAlert(true);
       return;
@@ -264,8 +335,8 @@ export default function Resources() {
         file_url: fileUrl,
         file_size: fileSize,
         file_name: fileName,
-        word_count: newResource.boilerplate_content 
-          ? newResource.boilerplate_content.split(/\s+/).length 
+        word_count: newResource.boilerplate_content
+          ? newResource.boilerplate_content.split(/\s+/).length
           : 0
       });
     } catch (error) {
@@ -286,7 +357,7 @@ export default function Resources() {
     setShowPromoteDialog(true);
   };
 
-  const filteredResources = resources.filter(r => 
+  const filteredResources = resources.filter(r =>
     r.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -311,7 +382,21 @@ export default function Resources() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Resource Library</h1>
           <p className="text-slate-600">Manage your proposal resources and boilerplate content</p>
         </div>
-        <Button onClick={() => setShowUploadDialog(true)}>
+        <Button onClick={() => {
+          setShowUploadDialog(true);
+          // Reset dialog states when opening
+          setNewResource({
+            resource_type: "boilerplate_text",
+            content_category: "general",
+            title: "",
+            description: "",
+            boilerplate_content: "",
+            tags: []
+          });
+          setSelectedFile(null);
+          setTitleError("");
+          setIsValidatingTitle(false);
+        }}>
           <Upload className="w-5 h-5 mr-2" />
           Add Resource
         </Button>
@@ -384,9 +469,9 @@ export default function Resources() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => toggleFavoriteMutation.mutate({ 
-                      id: resource.id, 
-                      is_favorite: resource.is_favorite 
+                    onClick={() => toggleFavoriteMutation.mutate({
+                      id: resource.id,
+                      is_favorite: resource.is_favorite
                     })}
                   >
                     {resource.is_favorite ? (
@@ -401,7 +486,7 @@ export default function Resources() {
                 <p className="text-sm text-slate-600 line-clamp-3 mb-4">
                   {resource.description || 'No description'}
                 </p>
-                
+
                 {resource.tags && resource.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-4">
                     {resource.tags.slice(0, 3).map((tag, idx) => (
@@ -433,8 +518,8 @@ export default function Resources() {
                       </a>
                     </Button>
                   )}
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="ghost"
                     onClick={() => {
                       if (confirm('Delete this resource?')) {
@@ -468,21 +553,45 @@ export default function Resources() {
 
             <TabsContent value="file" className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">File</label>
+                <Label className="block mb-2">File</Label>
                 <Input type="file" onChange={handleFileSelect} />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Title</label>
-                <Input
-                  value={newResource.title}
-                  onChange={(e) => setNewResource({ ...newResource, title: e.target.value })}
-                  placeholder="Resource title"
-                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
+                <Label className="block mb-2">Title *</Label>
+                <Input
+                  value={newResource.title}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="Resource title"
+                  className={cn(
+                    titleError && "border-red-500 focus-visible:ring-red-500"
+                  )}
+                />
+                {isValidatingTitle && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1 mt-1">
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                    Checking availability...
+                  </p>
+                )}
+                {titleError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {titleError}
+                  </p>
+                )}
+                {!titleError && newResource.title?.trim().length >= 3 && !isValidatingTitle && (
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <Check className="w-3 h-3" />
+                    Title is available
+                  </p>
+                )}
+                <p className="text-xs text-slate-500 mt-1">
+                  Must be 3-200 characters, unique, avoid: /\:*?"&lt;&gt;|#%&amp;
+                </p>
+              </div>
+
+              <div>
+                <Label className="block mb-2">Description</Label>
                 <Textarea
                   value={newResource.description}
                   onChange={(e) => setNewResource({ ...newResource, description: e.target.value })}
@@ -492,9 +601,9 @@ export default function Resources() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Type</label>
-                <Select 
-                  value={newResource.resource_type} 
+                <Label className="block mb-2">Type</Label>
+                <Select
+                  value={newResource.resource_type}
                   onValueChange={(value) => setNewResource({ ...newResource, resource_type: value })}
                 >
                   <SelectTrigger>
@@ -513,18 +622,42 @@ export default function Resources() {
 
             <TabsContent value="boilerplate" className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Title</label>
+                <Label className="block mb-2">Title *</Label>
                 <Input
                   value={newResource.title}
-                  onChange={(e) => setNewResource({ ...newResource, title: e.target.value })}
+                  onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="Boilerplate title"
+                  className={cn(
+                    titleError && "border-red-500 focus-visible:ring-red-500"
+                  )}
                 />
+                {isValidatingTitle && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1 mt-1">
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                    Checking availability...
+                  </p>
+                )}
+                {titleError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {titleError}
+                  </p>
+                )}
+                {!titleError && newResource.title?.trim().length >= 3 && !isValidatingTitle && (
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <Check className="w-3 h-3" />
+                    Title is available
+                  </p>
+                )}
+                <p className="text-xs text-slate-500 mt-1">
+                  Must be 3-200 characters, unique, avoid: /\:*?"&lt;&gt;|#%&amp;
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Category</label>
-                <Select 
-                  value={newResource.content_category} 
+                <Label className="block mb-2">Category</Label>
+                <Select
+                  value={newResource.content_category}
                   onValueChange={(value) => setNewResource({ ...newResource, content_category: value })}
                 >
                   <SelectTrigger>
@@ -542,7 +675,7 @@ export default function Resources() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Content</label>
+                <Label className="block mb-2">Content</Label>
                 <Textarea
                   value={newResource.boilerplate_content}
                   onChange={(e) => setNewResource({ ...newResource, boilerplate_content: e.target.value })}
@@ -554,10 +687,17 @@ export default function Resources() {
           </Tabs>
 
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowUploadDialog(false);
+              setTitleError(""); // NEW: Clear title error on cancel
+              setIsValidatingTitle(false); // NEW: Clear validation status on cancel
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleUpload} disabled={uploading}>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !!titleError || isValidatingTitle || newResource.title.trim() === ""} // NEW: Disable logic
+            >
               {uploading ? 'Uploading...' : 'Add Resource'}
             </Button>
           </div>

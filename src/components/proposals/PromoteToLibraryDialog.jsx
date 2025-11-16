@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +22,9 @@ import {
   Sparkles,
   ChevronRight,
   ChevronDown,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  AlertCircle,
+  Check
 } from "lucide-react";
 import {
   Select,
@@ -31,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { validateResourceTitle } from "@/components/utils/boardNameValidation";
 
 export default function PromoteToLibraryDialog({ 
   isOpen, 
@@ -48,6 +52,10 @@ export default function PromoteToLibraryDialog({
     tags: '',
     content_category: 'general'
   });
+
+  // NEW: Validation state
+  const [titleError, setTitleError] = useState("");
+  const [isValidatingTitle, setIsValidatingTitle] = useState(false);
 
   // Fetch folders for content library
   const { data: folders = [] } = useQuery({
@@ -94,11 +102,52 @@ export default function PromoteToLibraryDialog({
         tags: '',
         content_category: 'general'
       });
+      setTitleError(""); // NEW: Reset title error on success
     },
     onError: (error) => {
       alert(`Error promoting content: ${error.message}`);
     }
   });
+
+  // NEW: Handle title change with validation
+  const handleTitleChange = async (value) => {
+    setFormData({...formData, title: value});
+    setTitleError(""); // Clear previous error immediately
+
+    // Only validate if there's an organization and the value is not empty
+    if (!organization?.id) {
+        setTitleError("Organization not found for validation.");
+        return;
+    }
+    if (!value.trim()) {
+        setTitleError("Title cannot be empty.");
+        return;
+    }
+    if (value.trim().length < 3) {
+        setTitleError("Title must be at least 3 characters long.");
+        return;
+    }
+
+    setIsValidatingTitle(true);
+
+    try {
+      const validation = await validateResourceTitle(
+        value, 
+        organization.id, 
+        formData.folder_id,
+        null // resourceId is null for creation
+      );
+
+      if (!validation.isValid) {
+        setTitleError(validation.message);
+      }
+    } catch (error) {
+      console.error('[PromoteToLibraryDialog] Validation error:', error);
+      setTitleError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingTitle(false);
+    }
+  };
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
@@ -108,6 +157,16 @@ export default function PromoteToLibraryDialog({
 
     if (!formData.folder_id) {
       alert('Please select a folder');
+      return;
+    }
+
+    // NEW: Validate before submitting
+    if (titleError) {
+      alert('Please fix title errors before saving');
+      return;
+    }
+    if (isValidatingTitle) {
+      alert('Please wait for title validation to complete.');
       return;
     }
 
@@ -200,9 +259,33 @@ export default function PromoteToLibraryDialog({
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              onChange={(e) => handleTitleChange(e.target.value)} {/* NEW: Use handleTitleChange */}
               placeholder="e.g., Standard Technical Approach Introduction"
+              className={cn(
+                titleError && "border-red-500 focus-visible:ring-red-500"
+              )}
             />
+            {isValidatingTitle && (
+              <p className="text-xs text-blue-600 flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                Checking availability...
+              </p>
+            )}
+            {titleError && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {titleError}
+              </p>
+            )}
+            {!titleError && formData.title?.trim().length >= 3 && !isValidatingTitle && (
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                Title is available
+              </p>
+            )}
+            <p className="text-xs text-slate-500">
+              Must be 3-200 characters, unique in selected folder, avoid: /\:*?"&lt;&gt;|#%&amp;
+            </p>
           </div>
 
           {/* Description */}
@@ -305,7 +388,13 @@ export default function PromoteToLibraryDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={createResourceMutation.isPending || !formData.title.trim() || !formData.folder_id}
+            disabled={
+              createResourceMutation.isPending || 
+              !formData.title.trim() || 
+              !formData.folder_id ||
+              !!titleError || // NEW: Disable if there's a title error
+              isValidatingTitle // NEW: Disable if title is currently validating
+            }
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
           >
             {createResourceMutation.isPending ? (
