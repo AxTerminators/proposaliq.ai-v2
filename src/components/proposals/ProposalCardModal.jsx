@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   X,
   CheckSquare,
@@ -39,7 +40,10 @@ import {
   Trash2,
   ChevronsRight,
   ChevronsLeft,
-  Loader2
+  Loader2,
+  Pencil,
+  Check,
+  XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -51,6 +55,7 @@ import DataCallManager from "../datacalls/DataCallManager";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction, isTabAction } from "./ChecklistActionRegistry";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import ProposalTimelineEditor from "./ProposalTimelineEditor";
+import { validateProposalName } from "@/components/utils/boardNameValidation";
 
 // Import ALL modal components
 import BasicInfoModal from "./modals/BasicInfoModal";
@@ -88,6 +93,12 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [approvalGateData, setApprovalGateData] = useState(null);
   const [showIncompleteTasksConfirm, setShowIncompleteTasksConfirm] = useState(false);
   const [pendingStageMove, setPendingStageMove] = useState(null);
+
+  // NEW: Proposal name editing state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
 
   // Fetch organization users for timeline editor
   const { data: organizationUsers = [] } = useQuery({
@@ -235,6 +246,79 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     },
     enabled: !!organization?.id && isOpen,
   });
+
+  // NEW: Handle name editing
+  const handleStartNameEdit = () => {
+    setIsEditingName(true);
+    setEditedName(proposal.proposal_name);
+    setNameError("");
+  };
+
+  const handleCancelNameEdit = () => {
+    setIsEditingName(false);
+    setEditedName("");
+    setNameError("");
+  };
+
+  const handleNameChange = async (value) => {
+    setEditedName(value);
+    setNameError("");
+
+    if (!value.trim()) {
+      return;
+    }
+
+    setIsValidatingName(true);
+
+    try {
+      const validation = await validateProposalName(value, organization.id, proposal.id);
+
+      if (!validation.isValid) {
+        setNameError(validation.message);
+      }
+    } catch (error) {
+      console.error('[ProposalCardModal] Name validation error:', error);
+      setNameError('Validation service error. Please try again.');
+    } finally {
+      setIsValidatingName(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!editedName.trim()) {
+      toast.error("Proposal name cannot be empty");
+      return;
+    }
+
+    if (nameError) {
+      toast.error(nameError);
+      return;
+    }
+
+    // Final validation
+    setIsValidatingName(true);
+    const validation = await validateProposalName(editedName, organization.id, proposal.id);
+    setIsValidatingName(false);
+
+    if (!validation.isValid) {
+      toast.error(validation.message);
+      setNameError(validation.message);
+      return;
+    }
+
+    try {
+      await updateProposalMutation.mutateAsync({
+        proposal_name: editedName.trim()
+      });
+      
+      toast.success("Proposal name updated successfully");
+      setIsEditingName(false);
+      setEditedName("");
+    } catch (error) {
+      console.error('[ProposalCardModal] Error updating name:', error);
+      toast.error("Failed to update proposal name");
+    }
+  };
 
   const currentColumn = kanbanConfig?.columns?.find(col => {
     if (col.type === 'locked_phase') {
@@ -840,14 +924,77 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <DialogTitle className="text-2xl">{proposal.proposal_name}</DialogTitle>
-                  {/* **NEW: Stage Progress Indicator** */}
-                  {stageProgress.total > 0 && (
+                  {isEditingName ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <Input
+                        value={editedName}
+                        onChange={(e) => handleNameChange(e.target.value)}
+                        className={cn(
+                          "text-xl font-semibold",
+                          nameError && "border-red-500 focus-visible:ring-red-500"
+                        )}
+                        autoFocus
+                        disabled={isValidatingName}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveName}
+                        disabled={isValidatingName || nameError || !editedName.trim()}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelNameEdit}
+                        disabled={isValidatingName}
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <DialogTitle className="text-2xl">{proposal.proposal_name}</DialogTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleStartNameEdit}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
+                  {!isEditingName && stageProgress.total > 0 && (
                     <Badge variant="outline" className="text-sm">
                       Stage {stageProgress.current} of {stageProgress.total}
                     </Badge>
                   )}
                 </div>
+
+                {isEditingName && (
+                  <div className="mb-2">
+                    {isValidatingName && (
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
+                        Checking availability...
+                      </p>
+                    )}
+                    {nameError && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {nameError}
+                      </p>
+                    )}
+                    {!nameError && editedName.trim().length >= 6 && !isValidatingName && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        Name is available
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-3 flex-wrap">
                   {proposal.solicitation_number && (
                     <Badge variant="outline" className="font-mono">
