@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const OrganizationContext = createContext({
   user: null,
@@ -15,7 +15,6 @@ export function useOrganization() {
   return useContext(OrganizationContext);
 }
 
-// Helper to get cached org ID from localStorage
 const getCachedOrgId = (userEmail) => {
   try {
     const cached = localStorage.getItem(`org_id_${userEmail}`);
@@ -25,7 +24,6 @@ const getCachedOrgId = (userEmail) => {
   }
 };
 
-// Helper to cache org ID in localStorage
 const setCachedOrgId = (userEmail, orgId) => {
   try {
     localStorage.setItem(`org_id_${userEmail}`, JSON.stringify(orgId));
@@ -35,15 +33,14 @@ const setCachedOrgId = (userEmail, orgId) => {
 };
 
 export function OrganizationProvider({ children }) {
+  const queryClient = useQueryClient();
   const [orgId, setOrgId] = useState(null);
 
-  // PERFORMANCE FIX: Use React Query for user data with better caching
   const { data: user, isLoading: isLoadingUser, error: userError } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
       const currentUser = await base44.auth.me();
       
-      // Determine org ID after fetching user
       const cachedOrgId = getCachedOrgId(currentUser.email);
       const determinedOrgId = currentUser.active_client_id || 
                              currentUser.client_accesses?.[0]?.organization_id ||
@@ -53,17 +50,19 @@ export function OrganizationProvider({ children }) {
       
       return currentUser;
     },
-    staleTime: 5 * 60 * 1000, // Cache user for 5 minutes
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
-  // PERFORMANCE FIX: Use React Query for organization data
   const { data: organization, isLoading: isLoadingOrg, error: orgError } = useQuery({
     queryKey: ['current-organization', orgId, user?.email],
     queryFn: async () => {
       if (!user?.email) return null;
       
-      // If we have an org ID, fetch it directly
       if (orgId) {
         const orgs = await base44.entities.Organization.filter({ id: orgId });
         if (orgs.length > 0) {
@@ -72,7 +71,6 @@ export function OrganizationProvider({ children }) {
         }
       }
       
-      // Fallback: search by creator
       const orgs = await base44.entities.Organization.filter(
         { created_by: user.email },
         '-created_date',
@@ -88,11 +86,14 @@ export function OrganizationProvider({ children }) {
       return null;
     },
     enabled: !!user?.email,
-    staleTime: 5 * 60 * 1000, // Cache organization for 5 minutes
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
-  // PERFORMANCE FIX: Use React Query for subscription data
   const { data: subscription } = useQuery({
     queryKey: ['current-subscription', organization?.id],
     queryFn: async () => {
@@ -107,13 +108,18 @@ export function OrganizationProvider({ children }) {
       return subs.length > 0 ? subs[0] : null;
     },
     enabled: !!organization?.id,
-    staleTime: 10 * 60 * 1000, // Cache subscription for 10 minutes (changes less frequently)
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
   const refetch = async () => {
-    // Force refetch user, which will cascade to org and subscription
-    window.location.reload();
+    await queryClient.invalidateQueries({ queryKey: ['current-user'] });
+    await queryClient.invalidateQueries({ queryKey: ['current-organization'] });
+    await queryClient.invalidateQueries({ queryKey: ['current-subscription'] });
   };
 
   const isLoading = isLoadingUser || isLoadingOrg;
