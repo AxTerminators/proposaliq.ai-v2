@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -529,18 +530,18 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     getStats
   } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
-  const handleColumnSortChange = (columnId, sortBy) => {
+  const handleColumnSortChange = (columnId, sortBy, direction) => {
     setColumnSorts(prev => {
       const current = prev[columnId];
-      if (current?.by === sortBy) {
+      if (current?.by === sortBy && direction === undefined) { // If same sort by and no explicit direction, toggle
         return {
           ...prev,
           [columnId]: { by: sortBy, direction: current.direction === 'asc' ? 'desc' : 'asc' }
         };
-      } else {
+      } else { // If new sort by, or explicit direction provided, use that
         return {
           ...prev,
-          [columnId]: { by: sortBy, direction: 'asc' }
+          [columnId]: { by: sortBy, direction: direction || 'asc' } // If direction is undefined, default to 'asc'
         };
       }
     });
@@ -1414,6 +1415,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     hasMore={hasMore(column.id)}
                                     onLoadMore={() => loadMore(column.id)}
                                     onLoadAll={() => loadAll(column.id)}
+                                    onColumnSortChange={handleColumnSortChange}
+                                    onClearColumnSort={handleClearColumnSort}
+                                    currentSort={columnSorts[column.id]}
                                   />
                                 )}
                               </Droppable>
