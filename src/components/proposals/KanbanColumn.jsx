@@ -8,6 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   MoreVertical,
@@ -20,6 +21,11 @@ import {
   FileText,
   DollarSign,
   ChevronDown,
+  ArrowUpAZ,
+  ArrowDownZA,
+  Calendar,
+  Clock,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
@@ -45,12 +51,14 @@ export default function KanbanColumn({
   onCreateProposal,
   selectedProposalIds = [],
   onToggleProposalSelection,
-  // **NEW: Lazy loading props**
   totalCount = proposals.length,
   visibleCount = proposals.length,
   hasMore = false,
   onLoadMore,
-  onLoadAll
+  onLoadAll,
+  onColumnSortChange,
+  onClearColumnSort,
+  currentSort,
 }) {
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
@@ -59,12 +67,10 @@ export default function KanbanColumn({
 
   const selectionMode = selectedProposalIds.length > 0;
 
-  // Calculate total dollar value in this column (using totalCount for accuracy)
   const totalValue = useMemo(() => {
     return proposals.reduce((sum, p) => sum + (p.contract_value || 0), 0);
   }, [proposals]);
 
-  // Format dollar value for display
   const formattedValue = useMemo(() => {
     if (totalValue === 0) return null;
     if (totalValue >= 1000000) {
@@ -89,8 +95,8 @@ export default function KanbanColumn({
                           column.can_drag_from_here_roles.includes(currentUserRole);
 
   const wipLimit = column.wip_limit || 0;
-  const isAtWipLimit = wipLimit > 0 && totalCount >= wipLimit; // **UPDATED: Use totalCount**
-  const isNearWipLimit = wipLimit > 0 && totalCount >= wipLimit * 0.8 && totalCount < wipLimit; // **UPDATED**
+  const isAtWipLimit = wipLimit > 0 && totalCount >= wipLimit;
+  const isNearWipLimit = wipLimit > 0 && totalCount >= wipLimit * 0.8 && totalCount < wipLimit;
 
   const handleNameClick = (e) => {
     e?.stopPropagation?.();
@@ -120,6 +126,14 @@ export default function KanbanColumn({
     }
   };
 
+  const handleSort = (sortBy, direction) => {
+    onColumnSortChange?.(column.id, sortBy, direction);
+  };
+
+  const handleClearSort = () => {
+    onClearColumnSort?.(column.id);
+  };
+
   return (
     <div
       className={cn(
@@ -127,7 +141,7 @@ export default function KanbanColumn({
         snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
       )}
     >
-      {/* Column Header - Single Row Layout with Consistent Height */}
+      {/* Column Header */}
       <div
         {...(dragHandleProps || {})}
         className={cn(
@@ -138,7 +152,7 @@ export default function KanbanColumn({
       >
         <div className="p-3 h-full flex items-center">
           <div className="flex items-center gap-2 w-full">
-            {/* Collapse Button - Far Left */}
+            {/* Collapse Button */}
             <Button
               variant="ghost"
               size="icon"
@@ -152,7 +166,7 @@ export default function KanbanColumn({
               <ChevronLeft className="w-4 h-4" title="Collapse" />
             </Button>
 
-            {/* Column Name - Truncated with tooltip */}
+            {/* Column Name */}
             <div className="flex-1 min-w-0 mr-1">
               {isEditingName ? (
                 <Input
@@ -181,10 +195,9 @@ export default function KanbanColumn({
               )}
             </div>
 
-            {/* Compact Metadata Section - All badges same height for consistency */}
+            {/* Metadata Badges */}
             {!isEditingName && (
               <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
-                {/* Proposal Count - **UPDATED: Show total/visible if lazy loaded** */}
                 <Badge
                   variant="secondary"
                   className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-bold h-6 min-w-[28px] px-1.5 flex items-center justify-center"
@@ -196,7 +209,6 @@ export default function KanbanColumn({
                   {hasMore ? `${visibleCount}/${totalCount}` : totalCount}
                 </Badge>
 
-                {/* Dollar Value */}
                 {formattedValue && (
                   <Badge
                     variant="secondary"
@@ -208,7 +220,6 @@ export default function KanbanColumn({
                   </Badge>
                 )}
 
-                {/* WIP Limit Badge - **UPDATED: Use totalCount** */}
                 {wipLimit > 0 && (
                   <Badge
                     variant="secondary"
@@ -225,7 +236,6 @@ export default function KanbanColumn({
                   </Badge>
                 )}
 
-                {/* Protected Badge */}
                 {!canDragFromHere && (
                   <Badge
                     variant="secondary"
@@ -236,7 +246,6 @@ export default function KanbanColumn({
                   </Badge>
                 )}
 
-                {/* Approval Required Badge */}
                 {column.requires_approval_to_exit && (
                   <Badge
                     variant="secondary"
@@ -247,7 +256,6 @@ export default function KanbanColumn({
                   </Badge>
                 )}
 
-                {/* Lock Icon */}
                 {column.is_locked && (
                   <div
                     className="flex-shrink-0 pl-0.5 h-6 flex items-center"
@@ -259,7 +267,7 @@ export default function KanbanColumn({
               </div>
             )}
 
-            {/* Menu - Far Right */}
+            {/* Menu */}
             {!isEditingName && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -272,7 +280,7 @@ export default function KanbanColumn({
                     <MoreVertical className="w-4 h-4" title="Options" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem onClick={(e) => {
                     e?.stopPropagation?.();
                     onConfigureColumn?.();
@@ -280,6 +288,55 @@ export default function KanbanColumn({
                     <Settings className="w-4 h-4 mr-2" />
                     Configure Column
                   </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => handleSort('name', 'asc')}>
+                    <ArrowUpAZ className="w-4 h-4 mr-2" />
+                    Sort A → Z (Title)
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => handleSort('name', 'desc')}>
+                    <ArrowDownZA className="w-4 h-4 mr-2" />
+                    Sort Z → A (Title)
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => handleSort('due_date', 'asc')}>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Sort by Due Date (Earliest)
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => handleSort('due_date', 'desc')}>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Sort by Due Date (Latest)
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => handleSort('created_date', 'desc')}>
+                    <Clock className="w-4 h-4 mr-2" />
+                    Sort by Recently Added
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => handleSort('created_date', 'asc')}>
+                    <Clock className="w-4 h-4 mr-2" />
+                    Sort by Oldest First
+                  </DropdownMenuItem>
+
+                  {currentSort && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={handleClearSort}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Clear Sort
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -296,7 +353,6 @@ export default function KanbanColumn({
           snapshot.isDraggingOver && "bg-blue-50/50"
         )}
       >
-        {/* Warning Messages */}
         {!canDragToHere && totalCount > 0 && (
           <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg mb-3">
             <div className="flex items-start gap-2">
@@ -319,7 +375,6 @@ export default function KanbanColumn({
           </div>
         )}
 
-        {/* Proposal Cards */}
         {proposals.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -351,7 +406,6 @@ export default function KanbanColumn({
               </Draggable>
             ))}
 
-            {/* **NEW: Load More Buttons** */}
             {hasMore && (
               <div className="pt-2 space-y-2">
                 <Button
