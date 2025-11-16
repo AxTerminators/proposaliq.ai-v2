@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,84 +18,9 @@ import {
   Calendar,
   Zap,
   ArrowRight,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const PROPOSAL_TYPES = [
-  { 
-    value: 'RFP', 
-    label: 'Request for Proposal (RFP)', 
-    icon: '📋',
-    description: 'Standard federal RFP workflow',
-    avgDuration: '60-90 days',
-    complexity: 'High'
-  },
-  { 
-    value: 'RFP_15_COLUMN', 
-    label: '15-Column RFP Workflow', 
-    icon: '🎯',
-    description: 'Advanced 15-column independent workflow with mandatory checklists',
-    avgDuration: '60-90 days',
-    complexity: 'Advanced',
-    featured: true
-  },
-  { 
-    value: 'RFI', 
-    label: 'Request for Information (RFI)', 
-    icon: '📝',
-    description: 'Information gathering with streamlined process',
-    avgDuration: '15-30 days',
-    complexity: 'Low'
-  },
-  { 
-    value: 'SBIR', 
-    label: 'SBIR/STTR', 
-    icon: '💡',
-    description: 'Research-focused proposals with innovation emphasis',
-    avgDuration: '60-120 days',
-    complexity: 'Very High'
-  },
-  { 
-    value: 'GSA', 
-    label: 'GSA Schedule', 
-    icon: '🏛️',
-    description: 'GSA Schedule additions or modifications',
-    avgDuration: '30-60 days',
-    complexity: 'Medium'
-  },
-  { 
-    value: 'IDIQ', 
-    label: 'IDIQ/Contract Vehicle', 
-    icon: '📑',
-    description: 'Indefinite delivery contracts',
-    avgDuration: '45-75 days',
-    complexity: 'Medium'
-  },
-  { 
-    value: 'STATE_LOCAL', 
-    label: 'State/Local Government', 
-    icon: '🏙️',
-    description: 'Non-federal government proposals',
-    avgDuration: '30-60 days',
-    complexity: 'Medium'
-  },
-  { 
-    value: 'CUSTOM_PROJECT', 
-    label: 'Custom Project', 
-    icon: '🎨',
-    description: 'Custom workflow for unique projects',
-    avgDuration: '30-60 days',
-    complexity: 'Variable'
-  },
-  { 
-    value: 'OTHER', 
-    label: 'Other/General', 
-    icon: '📊',
-    description: 'General proposal type',
-    avgDuration: '30-60 days',
-    complexity: 'Variable'
-  }
-];
 
 // Standard proposal sections that will be created as placeholders
 const DEFAULT_PROPOSAL_SECTIONS = [
@@ -112,6 +36,29 @@ const DEFAULT_PROPOSAL_SECTIONS = [
   { id: "other", name: "Other", section_type: "other", order: 9 }
 ];
 
+const BOARD_TYPE_ICONS = {
+  'rfp': '📋',
+  'rfi': '📝',
+  'sbir': '🔬',
+  'gsa': '🏛️',
+  'idiq': '📑',
+  'state_local': '🏢',
+  'custom': '📊',
+  'rfp_15_column': '🎯'
+};
+
+const COMPLEXITY_MAP = {
+  'RFP': 'High',
+  'RFP_15_COLUMN': 'Advanced',
+  'RFI': 'Low',
+  'SBIR': 'Very High',
+  'GSA': 'Medium',
+  'IDIQ': 'Medium',
+  'STATE_LOCAL': 'Medium',
+  'CUSTOM_PROJECT': 'Variable',
+  'OTHER': 'Variable'
+};
+
 export default function QuickCreateProposal({ 
   isOpen, 
   onClose, 
@@ -123,6 +70,40 @@ export default function QuickCreateProposal({
   
   const [proposalName, setProposalName] = useState('');
   const [selectedType, setSelectedType] = useState(preselectedType || null);
+
+  // Fetch available templates to determine proposal types
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
+    queryKey: ['workflow-templates-for-proposal-creation'],
+    queryFn: async () => {
+      const systemTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
+        template_type: 'system',
+        is_active: true
+      }, '-created_date');
+      
+      const orgTemplates = organization?.id 
+        ? await base44.entities.ProposalWorkflowTemplate.filter({
+            organization_id: organization.id,
+            is_active: true
+          }, '-created_date')
+        : [];
+      
+      return [...systemTemplates, ...orgTemplates].filter(t => t != null);
+    },
+    enabled: isOpen && !!organization?.id,
+  });
+
+  // Fetch existing boards to show which types have boards
+  const { data: existingBoards = [] } = useQuery({
+    queryKey: ['all-kanban-boards', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.KanbanConfig.filter(
+        { organization_id: organization.id },
+        'board_name'
+      );
+    },
+    enabled: isOpen && !!organization?.id,
+  });
 
   // Reset when dialog opens/closes
   useEffect(() => {
@@ -136,53 +117,20 @@ export default function QuickCreateProposal({
     mutationFn: async ({ name, type }) => {
       console.log('[QuickCreate] 🚀 Creating proposal:', { name, type });
       
-      // Find or create appropriate board
-      let targetBoard = null;
-      
-      // Check if board exists for this type
-      if (type === 'RFP_15_COLUMN') {
-        const boards = await base44.entities.KanbanConfig.filter({
-          organization_id: organization.id,
-          board_type: 'rfp_15_column'
-        });
-        targetBoard = boards.length > 0 ? boards[0] : null;
-        
-        // Create 15-column board if it doesn't exist
-        if (!targetBoard) {
-          const response = await base44.functions.invoke('create15ColumnRFPBoard', {
-            organization_id: organization.id
-          });
-          
-          if (response.data.success && response.data.board_id) {
-            const boards = await base44.entities.KanbanConfig.filter({
-              id: response.data.board_id
-            });
-            targetBoard = boards[0];
-          }
-        }
-      } else if (type === 'CUSTOM_PROJECT') {
-        // For custom projects, use master board or create a simple custom board
-        const masterBoards = await base44.entities.KanbanConfig.filter({
-          organization_id: organization.id,
-          is_master_board: true
-        });
-        targetBoard = masterBoards[0] || null;
-      } else {
-        // For other types, look for template_workspace board
-        const boards = await base44.entities.KanbanConfig.filter({
-          organization_id: organization.id,
-          applies_to_proposal_types: [type]
-        });
-        targetBoard = boards.length > 0 ? boards[0] : null;
-      }
-      
-      // If still no board, use master board as fallback
+      // Find appropriate board for this type
+      const boards = await base44.entities.KanbanConfig.filter({
+        organization_id: organization.id,
+      });
+
+      // Try to find board that matches the type
+      let targetBoard = boards.find(b => 
+        b.board_type === type.toLowerCase() ||
+        b.applies_to_proposal_types?.includes(type)
+      );
+
+      // Fallback to master board
       if (!targetBoard) {
-        const masterBoards = await base44.entities.KanbanConfig.filter({
-          organization_id: organization.id,
-          is_master_board: true
-        });
-        targetBoard = masterBoards[0];
+        targetBoard = boards.find(b => b.is_master_board);
       }
 
       if (!targetBoard) {
@@ -248,7 +196,7 @@ export default function QuickCreateProposal({
       
       console.log('[QuickCreate] ✅ Proposal created:', proposal.id);
 
-      // **NEW: Auto-generate placeholder sections for this proposal**
+      // Auto-generate placeholder sections for this proposal
       console.log('[QuickCreate] 📝 Auto-generating placeholder sections...');
       
       const sectionsToCreate = DEFAULT_PROPOSAL_SECTIONS.map(section => ({
@@ -271,7 +219,7 @@ export default function QuickCreateProposal({
     onSuccess: async ({ proposal, targetBoard }) => {
       await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
       await queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      await queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposal.id] }); // NEW: Invalidate sections cache
+      await queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposal.id] });
       
       await queryClient.refetchQueries({ 
         queryKey: ['all-kanban-boards'],
@@ -281,8 +229,7 @@ export default function QuickCreateProposal({
       onClose();
       
       if (onSuccess) {
-        // FIXED: Don't auto-open modals - just go to the board
-        console.log('[QuickCreate] 📞 Calling onSuccess - NO MODAL');
+        console.log('[QuickCreate] 📞 Calling onSuccess');
         onSuccess(proposal, null, targetBoard);
       }
     },
@@ -308,8 +255,6 @@ export default function QuickCreateProposal({
       type: selectedType
     });
   };
-
-  const selectedTypeConfig = PROPOSAL_TYPES.find(t => t.value === selectedType);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -340,60 +285,91 @@ export default function QuickCreateProposal({
             />
           </div>
 
-          {/* Proposal Type Selection */}
+          {/* Proposal Type Selection - Dynamic from Templates */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">
               Proposal Type *
             </Label>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {PROPOSAL_TYPES.map((type) => (
-                <Card
-                  key={type.value}
-                  className={cn(
-                    "cursor-pointer transition-all border-2 hover:shadow-lg relative",
-                    selectedType === type.value 
-                      ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" 
-                      : "border-slate-200 hover:border-blue-300",
-                    type.featured && "ring-2 ring-amber-400"
-                  )}
-                  onClick={() => setSelectedType(type.value)}
-                >
-                  {type.featured && (
-                    <div className="absolute -top-2 -right-2">
-                      <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs">
-                        ⚡ Featured
-                      </Badge>
-                    </div>
-                  )}
-                  <CardContent className="p-3">
-                    <div className="text-2xl mb-2">{type.icon}</div>
-                    <h3 className="font-bold text-sm text-slate-900 mb-1">{type.label}</h3>
-                    <p className="text-xs text-slate-600 mb-2 line-clamp-2">
-                      {type.description}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 text-xs">
-                      <Badge variant="outline" className="gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {type.avgDuration}
-                      </Badge>
-                      <Badge 
-                        className={cn(
-                          type.complexity === 'Advanced' || type.complexity === 'Very High' 
-                            ? 'bg-red-100 text-red-700' 
-                            : type.complexity === 'High'
-                            ? 'bg-orange-100 text-orange-700'
-                            : type.complexity === 'Medium'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-green-100 text-green-700'
-                        )}
-                      >
-                        {type.complexity}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            
+            {isLoadingTemplates ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-slate-600">Loading available types...</p>
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
+                <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Templates Available</h3>
+                <p className="text-slate-600">Create a board template first to enable proposal creation</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {templates.map((template) => {
+                  const proposalType = template.proposal_type_category;
+                  const boardType = template.board_type;
+                  const icon = template.icon_emoji || BOARD_TYPE_ICONS[boardType] || '📋';
+                  const complexity = COMPLEXITY_MAP[proposalType] || 'Variable';
+                  const estimatedDuration = template.estimated_duration_days 
+                    ? `~${template.estimated_duration_days} days` 
+                    : '30-60 days';
+                  
+                  // Check if a board exists for this type
+                  const hasBoardForType = existingBoards.some(b => 
+                    b.board_type === boardType || 
+                    b.applies_to_proposal_types?.includes(proposalType)
+                  );
+                  
+                  return (
+                    <Card
+                      key={template.id}
+                      className={cn(
+                        "cursor-pointer transition-all border-2 hover:shadow-lg relative",
+                        selectedType === proposalType 
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" 
+                          : "border-slate-200 hover:border-blue-300"
+                      )}
+                      onClick={() => setSelectedType(proposalType)}
+                    >
+                      {hasBoardForType && (
+                        <div className="absolute -top-2 -right-2">
+                          <Badge className="bg-green-500 text-white text-xs">
+                            ✓ Board Ready
+                          </Badge>
+                        </div>
+                      )}
+                      <CardContent className="p-3">
+                        <div className="text-2xl mb-2">{icon}</div>
+                        <h3 className="font-bold text-sm text-slate-900 mb-1">
+                          {template.template_name}
+                        </h3>
+                        <p className="text-xs text-slate-600 mb-2 line-clamp-2">
+                          {template.description || 'No description'}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          <Badge variant="outline" className="gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {estimatedDuration}
+                          </Badge>
+                          <Badge 
+                            className={cn(
+                              complexity === 'Advanced' || complexity === 'Very High' 
+                                ? 'bg-red-100 text-red-700' 
+                                : complexity === 'High'
+                                ? 'bg-orange-100 text-orange-700'
+                                : complexity === 'Medium'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-green-100 text-green-700'
+                            )}
+                          >
+                            {complexity}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Info Box */}
