@@ -1111,7 +1111,9 @@ function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete, onDupl
             <div className="text-4xl mb-2">{template.icon_emoji || '📋'}</div>
             <div className="flex flex-col gap-1 items-end">
               <Badge variant="outline" className="text-xs">
-                {template.proposal_type_category}
+                {template.proposal_type_category === 'OTHER' && template.proposal_type_other 
+                  ? template.proposal_type_other 
+                  : template.proposal_type_category}
               </Badge>
               {isDraft && (
                 <Badge className="bg-amber-100 text-amber-700 text-xs">
