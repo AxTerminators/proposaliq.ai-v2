@@ -741,7 +741,8 @@ function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete,
               {columns.length} columns
             </Badge>
             <Badge variant="outline" className="gap-1">
-              ⏱️ ~{template.estimated_duration_days || 30}d
+              <Clock className="w-3 h-3" />
+              {template.estimated_duration_days || 30}d
             </Badge>
             {template.usage_count > 0 && (
               <Badge className="bg-blue-100 text-blue-700 gap-1">
