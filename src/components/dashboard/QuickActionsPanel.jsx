@@ -15,8 +15,13 @@ import {
   Briefcase
 } from "lucide-react";
 
-export default function QuickActionsPanel({ user, organization }) {
+export default function QuickActionsPanel({ organization }) {
   const navigate = useNavigate();
+  const [user, setUser] = React.useState(null);
+
+  React.useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
 
   const quickActions = [
     {
