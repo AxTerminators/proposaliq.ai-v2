@@ -410,20 +410,31 @@ export default function KanbanCard({
           </div>
         )}
 
-        {/* Progress Bar */}
+        {/* Enhanced Progress Bar */}
         {subtasks.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-              <span>{completedSubtasks}/{subtasks.length} tasks</span>
-              <span>{completionPercentage}%</span>
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600">Progress</span>
+                <span className="text-slate-500">
+                  {completedSubtasks}/{subtasks.length} tasks
+                </span>
+              </div>
+              <span className={cn(
+                "font-medium",
+                completionPercentage === 100 ? "text-green-600" : "text-slate-900"
+              )}>
+                {completionPercentage}%
+              </span>
             </div>
-            <div className="w-full bg-slate-200 rounded-full h-1.5">
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div
                 className={cn(
-                  "h-1.5 rounded-full transition-all",
+                  "h-2 rounded-full transition-all duration-500",
                   completionPercentage === 100 ? 'bg-green-500' :
-                  completionPercentage >= 50 ? 'bg-blue-500' :
-                  'bg-amber-500'
+                  completionPercentage >= 75 ? 'bg-blue-500' :
+                  completionPercentage >= 50 ? 'bg-yellow-500' :
+                  'bg-orange-500'
                 )}
                 style={{ width: `${completionPercentage}%` }}
               />
@@ -447,6 +458,39 @@ export default function KanbanCard({
           </div>
         )}
       </div>
+
+      {/* Enhanced Warning/Blocking Indicators */}
+      {(proposal.is_blocked || isActionRequired || isOverdue) && (
+        <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+          {proposal.is_blocked && (
+            <div className="flex items-start gap-2 p-2 bg-red-50 rounded text-xs border border-red-200">
+              <Lock className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-red-900">Blocked</div>
+                {proposal.blocker_reason && (
+                  <div className="text-red-700 mt-0.5 line-clamp-2">{proposal.blocker_reason}</div>
+                )}
+                {proposal.blocked_date && (
+                  <div className="text-red-600 mt-1 text-[10px]">
+                    Since {moment(proposal.blocked_date).format('MMM D, YYYY')}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {isOverdue && !proposal.is_blocked && (
+            <div className="flex items-start gap-2 p-2 bg-red-50 rounded text-xs border border-red-200">
+              <Clock className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-red-900">Overdue</div>
+                <div className="text-red-700 mt-0.5">
+                  {Math.abs(daysUntilDue)} {Math.abs(daysUntilDue) === 1 ? 'day' : 'days'} past due
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
