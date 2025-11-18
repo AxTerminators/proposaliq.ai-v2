@@ -359,8 +359,8 @@ export default function BoardAnalytics({ board, proposals, organization }) {
               <p className="text-xs text-slate-600">Active</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-600">{wonProposals.length}</p>
-              <p className="text-xs text-slate-600">Won</p>
+              <p className="text-2xl font-bold text-green-600">{metrics.winRate}</p>
+              <p className="text-xs text-slate-600">Win Rate %</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-red-600">{metrics.overdueCount}</p>
