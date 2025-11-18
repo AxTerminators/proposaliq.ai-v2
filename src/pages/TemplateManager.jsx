@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { validateTemplateName, enforceTemplateSuffix } from "@/components/utils/boardNameValidation";
+import WorkflowConfigEditor from "@/components/proposals/WorkflowConfigEditor";
 
 export default function TemplateManager() {
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ export default function TemplateManager() {
   const [templateNameError, setTemplateNameError] = useState("");
   const [isValidatingTemplateName, setIsValidatingTemplateName] = useState(false);
   const [validatedTemplateName, setValidatedTemplateName] = useState("");
+  const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
 
   // Load user and organization
   const { data: user } = useQuery({
@@ -288,10 +290,25 @@ export default function TemplateManager() {
   };
 
   const handleEdit = (template) => {
-    setEditingTemplate(template);
+    setEditingTemplate({
+      ...template,
+      workflow_config: typeof template.workflow_config === 'string' 
+        ? JSON.parse(template.workflow_config) 
+        : template.workflow_config
+    });
     setTemplateNameError("");
     setValidatedTemplateName("");
     setShowEditDialog(true);
+  };
+
+  const handleEditWorkflow = (template) => {
+    setEditingTemplate({
+      ...template,
+      workflow_config: typeof template.workflow_config === 'string' 
+        ? JSON.parse(template.workflow_config) 
+        : template.workflow_config
+    });
+    setShowWorkflowEditor(true);
   };
 
   const handleDelete = (template) => {
@@ -323,6 +340,20 @@ export default function TemplateManager() {
         description: editingTemplate.description,
         icon_emoji: editingTemplate.icon_emoji,
         estimated_duration_days: editingTemplate.estimated_duration_days
+      }
+    });
+  };
+
+  const handleSaveWorkflow = () => {
+    if (!editingTemplate?.workflow_config) {
+      alert('Workflow configuration is required.');
+      return;
+    }
+
+    updateTemplateMutation.mutate({
+      id: editingTemplate.id,
+      updates: {
+        workflow_config: JSON.stringify(editingTemplate.workflow_config)
       }
     });
   };
@@ -415,6 +446,7 @@ export default function TemplateManager() {
                   key={template.id}
                   template={template}
                   onDuplicate={() => handleDuplicate(template)}
+                  onEditWorkflow={() => handleEditWorkflow(template)}
                   canEdit={false}
                   canDelete={false}
                 />
@@ -448,6 +480,7 @@ export default function TemplateManager() {
                   key={template.id}
                   template={template}
                   onEdit={() => handleEdit(template)}
+                  onEditWorkflow={() => handleEditWorkflow(template)}
                   onDuplicate={() => handleDuplicate(template)}
                   onDelete={() => handleDelete(template)}
                   canEdit={true}
@@ -604,7 +637,7 @@ export default function TemplateManager() {
 }
 
 // Template Card Component
-function TemplateCard({ template, onEdit, onDuplicate, onDelete, canEdit, canDelete }) {
+function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete, canEdit, canDelete }) {
   const [showPreview, setShowPreview] = useState(false);
   
   const workflowConfig = useMemo(() => {
@@ -682,7 +715,7 @@ function TemplateCard({ template, onEdit, onDuplicate, onDelete, canEdit, canDel
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2 border-t">
+          <div className="flex gap-2 pt-2 border-t flex-wrap">
             <Button
               size="sm"
               variant="outline"
@@ -712,6 +745,15 @@ function TemplateCard({ template, onEdit, onDuplicate, onDelete, canEdit, canDel
                 Edit
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="default"
+              onClick={onEditWorkflow}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              <Layers className="w-3 h-3 mr-1" />
+              Workflow
+            </Button>
             {canDelete && (
               <Button
                 size="sm"
