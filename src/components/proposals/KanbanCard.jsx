@@ -49,6 +49,8 @@ export default function KanbanCard({
 }) {
   const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(proposal.proposal_name);
   // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks', proposal.id],
@@ -131,6 +133,39 @@ export default function KanbanCard({
     }
   });
 
+  // Quick edit name mutation
+  const updateNameMutation = useMutation({
+    mutationFn: async (newName) => {
+      return base44.entities.Proposal.update(proposal.id, {
+        proposal_name: newName
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      setIsEditingName(false);
+      toast.success('Proposal name updated');
+    }
+  });
+
+  const handleNameSave = () => {
+    if (editedName.trim() && editedName !== proposal.proposal_name) {
+      updateNameMutation.mutate(editedName.trim());
+    } else {
+      setIsEditingName(false);
+      setEditedName(proposal.proposal_name);
+    }
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      setIsEditingName(false);
+      setEditedName(proposal.proposal_name);
+    }
+  };
+
   const handleContextAction = (action, e) => {
     e.stopPropagation();
     setShowMenu(false);
@@ -210,9 +245,28 @@ export default function KanbanCard({
       <div className="mb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
-              {proposal.proposal_name}
-            </h4>
+            {isEditingName ? (
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onBlur={handleNameSave}
+                onKeyDown={handleNameKeyDown}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full font-semibold text-slate-900 border border-blue-400 rounded px-1 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                autoFocus
+              />
+            ) : (
+              <h4 
+                className="font-semibold text-slate-900 mb-1 line-clamp-2 hover:text-blue-600 cursor-text"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingName(true);
+                }}
+              >
+                {proposal.proposal_name}
+              </h4>
+            )}
             {proposal.agency_name && (
               <p className="text-xs text-slate-600 truncate">{proposal.agency_name}</p>
             )}
