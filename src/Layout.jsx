@@ -531,7 +531,7 @@ function LayoutContent({ children, currentPageName }) {
                   </div>
                 )}
                 <nav className="space-y-1">
-                  {adminItems.map((item) => (
+                  {adminItems.filter(item => !item.superAdminOnly || userIsSuperAdmin).map((item) => (
                     sidebarCollapsed ? (
                       <Tooltip key={item.title}>
                         <TooltipTrigger asChild>
@@ -798,7 +798,7 @@ function LayoutContent({ children, currentPageName }) {
                   Admin
                 </h3>
                 <nav className="space-y-1">
-                  {adminItems.map((item) => (
+                  {adminItems.filter(item => !item.superAdminOnly || userIsSuperAdmin).map((item) => (
                     <Link
                       key={item.title}
                       to={item.url}
