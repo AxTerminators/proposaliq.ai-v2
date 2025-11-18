@@ -388,6 +388,11 @@ export default function AdminTemplateEditor() {
       return;
     }
 
+    if (newTemplate.proposal_type_category === 'OTHER' && !newTemplate.proposal_type_other?.trim()) {
+      alert('Please specify the other proposal type.');
+      return;
+    }
+
     if (templateNameError) {
       alert('Please fix the template name errors before saving.');
       return;
@@ -405,6 +410,11 @@ export default function AdminTemplateEditor() {
     if (!editingTemplate?.template_name?.trim()) {
       alert('Template name cannot be empty.');
       setTemplateNameError('Template name cannot be empty.');
+      return;
+    }
+
+    if (editingTemplate.proposal_type_category === 'OTHER' && !editingTemplate.proposal_type_other?.trim()) {
+      alert('Please specify the other proposal type.');
       return;
     }
 
