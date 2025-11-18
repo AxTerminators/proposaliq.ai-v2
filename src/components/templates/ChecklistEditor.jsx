@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Plus, GripVertical, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, GripVertical, Trash2, Sparkles, CheckCircle, FileText } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export default function ChecklistEditor({ column, onSave, onClose }) {
@@ -40,7 +41,10 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
       label: newItemLabel.trim(),
       type: 'manual_check',
       required: false,
-      order: items.length
+      order: items.length,
+      associated_action: null,
+      ai_config: null,
+      approval_config: null
     };
 
     setItems([...items, newItem]);
@@ -58,6 +62,40 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
   const handleUpdateLabel = (itemId, newLabel) => {
     setItems(items.map(item =>
       item.id === itemId ? { ...item, label: newLabel } : item
+    ));
+  };
+
+  // Update item type
+  const handleUpdateType = (itemId, newType) => {
+    setItems(items.map(item =>
+      item.id === itemId ? { 
+        ...item, 
+        type: newType,
+        associated_action: newType === 'modal_trigger' ? item.associated_action : null,
+        ai_config: newType === 'ai_trigger' ? (item.ai_config || { action: 'generate_content' }) : null,
+        approval_config: newType === 'approval_request' ? (item.approval_config || { approver_roles: [] }) : null
+      } : item
+    ));
+  };
+
+  // Update associated action for modal triggers
+  const handleUpdateAction = (itemId, action) => {
+    setItems(items.map(item =>
+      item.id === itemId ? { ...item, associated_action: action } : item
+    ));
+  };
+
+  // Update AI config
+  const handleUpdateAIConfig = (itemId, config) => {
+    setItems(items.map(item =>
+      item.id === itemId ? { ...item, ai_config: { ...item.ai_config, ...config } } : item
+    ));
+  };
+
+  // Update approval config
+  const handleUpdateApprovalConfig = (itemId, roles) => {
+    setItems(items.map(item =>
+      item.id === itemId ? { ...item, approval_config: { approver_roles: roles.split(',').map(r => r.trim()).filter(r => r) } } : item
     ));
   };
 
@@ -128,12 +166,111 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
                                   <GripVertical className="w-5 h-5 text-slate-400" />
                                 </div>
 
-                                <div className="flex-1 space-y-2">
+                                <div className="flex-1 space-y-3">
                                   <Input
                                     value={item.label}
                                     onChange={(e) => handleUpdateLabel(item.id, e.target.value)}
                                     placeholder="Item label"
                                   />
+                                  
+                                  {/* Item Type Selector */}
+                                  <div className="space-y-2">
+                                    <Label className="text-xs">Item Type</Label>
+                                    <Select 
+                                      value={item.type} 
+                                      onValueChange={(val) => handleUpdateType(item.id, val)}
+                                    >
+                                      <SelectTrigger className="h-8">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="manual_check">
+                                          <div className="flex items-center gap-2">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Manual Check
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="modal_trigger">
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="w-3 h-3" />
+                                            Open Modal/Popup
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="ai_trigger">
+                                          <div className="flex items-center gap-2">
+                                            <Sparkles className="w-3 h-3" />
+                                            AI Action
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="approval_request">
+                                          <div className="flex items-center gap-2">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Approval Request
+                                          </div>
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* Modal Trigger Config */}
+                                  {item.type === 'modal_trigger' && (
+                                    <div className="space-y-2 pl-4 border-l-2 border-blue-200">
+                                      <Label className="text-xs">Modal to Open</Label>
+                                      <Select 
+                                        value={item.associated_action || ''} 
+                                        onValueChange={(val) => handleUpdateAction(item.id, val)}
+                                      >
+                                        <SelectTrigger className="h-8">
+                                          <SelectValue placeholder="Select modal..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="open_modal_phase1">Phase 1: Basic Info</SelectItem>
+                                          <SelectItem value="open_modal_phase2">Phase 2: Team Formation</SelectItem>
+                                          <SelectItem value="open_modal_phase3">Phase 3: Resource Gathering</SelectItem>
+                                          <SelectItem value="open_modal_phase4">Phase 4: Solicitation Upload</SelectItem>
+                                          <SelectItem value="open_modal_phase5">Phase 5: Evaluation</SelectItem>
+                                          <SelectItem value="open_modal_phase6">Phase 6: Win Strategy</SelectItem>
+                                          <SelectItem value="open_modal_phase7">Phase 7: Content Planning</SelectItem>
+                                          <SelectItem value="open_modal_pricing">Pricing Review</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+
+                                  {/* AI Trigger Config */}
+                                  {item.type === 'ai_trigger' && (
+                                    <div className="space-y-2 pl-4 border-l-2 border-purple-200">
+                                      <Label className="text-xs">AI Action</Label>
+                                      <Select 
+                                        value={item.ai_config?.action || 'generate_content'} 
+                                        onValueChange={(val) => handleUpdateAIConfig(item.id, { action: val })}
+                                      >
+                                        <SelectTrigger className="h-8">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="generate_content">Generate Content</SelectItem>
+                                          <SelectItem value="analyze_compliance">Analyze Compliance</SelectItem>
+                                          <SelectItem value="evaluate_match">Evaluate Match Score</SelectItem>
+                                          <SelectItem value="suggest_improvements">Suggest Improvements</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+
+                                  {/* Approval Request Config */}
+                                  {item.type === 'approval_request' && (
+                                    <div className="space-y-2 pl-4 border-l-2 border-green-200">
+                                      <Label className="text-xs">Approver Roles (comma-separated)</Label>
+                                      <Input
+                                        className="h-8"
+                                        value={item.approval_config?.approver_roles?.join(', ') || ''}
+                                        onChange={(e) => handleUpdateApprovalConfig(item.id, e.target.value)}
+                                        placeholder="e.g., admin, manager"
+                                      />
+                                    </div>
+                                  )}
+
                                   <div className="flex items-center gap-2">
                                     <Checkbox
                                       id={`required-${item.id}`}
