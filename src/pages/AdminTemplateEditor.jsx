@@ -66,12 +66,7 @@ const PROPOSAL_CATEGORIES = [
   { value: 'OTHER', label: 'Other' }
 ];
 
-// Board types
-const BOARD_TYPES = [
-  { value: 'template_workspace', label: 'Template Workspace' },
-  { value: 'custom_proposal', label: 'Custom Proposal' },
-  { value: 'custom_project', label: 'Custom Project' }
-];
+// Board type removed - all templates are proposal boards that integrate with master board
 
 export default function AdminTemplateEditor() {
   const navigate = useNavigate();
@@ -169,7 +164,6 @@ export default function AdminTemplateEditor() {
     template_name: '',
     description: '',
     proposal_type_category: 'RFP',
-    board_type: 'template_workspace',
     icon_emoji: '📋',
     estimated_duration_days: 30,
     workflow_config: defaultWorkflowConfig
@@ -283,7 +277,6 @@ export default function AdminTemplateEditor() {
         template_name: '',
         description: '',
         proposal_type_category: 'RFP',
-        board_type: 'template_workspace',
         icon_emoji: '📋',
         estimated_duration_days: 30,
         workflow_config: defaultWorkflowConfig
@@ -349,7 +342,6 @@ export default function AdminTemplateEditor() {
       template_name: '',
       description: '',
       proposal_type_category: 'RFP',
-      board_type: 'template_workspace',
       icon_emoji: '📋',
       estimated_duration_days: 30,
       workflow_config: defaultWorkflowConfig
@@ -430,8 +422,7 @@ export default function AdminTemplateEditor() {
         description: editingTemplate.description,
         icon_emoji: editingTemplate.icon_emoji,
         estimated_duration_days: editingTemplate.estimated_duration_days,
-        proposal_type_category: editingTemplate.proposal_type_category,
-        board_type: editingTemplate.board_type
+        proposal_type_category: editingTemplate.proposal_type_category
       }
     });
   };
@@ -472,7 +463,6 @@ export default function AdminTemplateEditor() {
         template_name: `${template.template_name} - Copy`,
         description: template.description,
         proposal_type_category: template.proposal_type_category,
-        board_type: template.board_type,
         icon_emoji: template.icon_emoji,
         estimated_duration_days: template.estimated_duration_days,
         workflow_config: JSON.stringify(workflowConfig),
@@ -734,48 +724,25 @@ export default function AdminTemplateEditor() {
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="new_category">
-                  Proposal Type Category <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={newTemplate.proposal_type_category}
-                  onValueChange={(value) => setNewTemplate({ ...newTemplate, proposal_type_category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROPOSAL_CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new_board_type">
-                  Board Type <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={newTemplate.board_type}
-                  onValueChange={(value) => setNewTemplate({ ...newTemplate, board_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BOARD_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="new_category">
+                Proposal Type Category <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={newTemplate.proposal_type_category}
+                onValueChange={(value) => setNewTemplate({ ...newTemplate, proposal_type_category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROPOSAL_CATEGORIES.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -895,44 +862,23 @@ export default function AdminTemplateEditor() {
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit_category">Proposal Type Category</Label>
-                  <Select
-                    value={editingTemplate.proposal_type_category}
-                    onValueChange={(value) => setEditingTemplate({ ...editingTemplate, proposal_type_category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROPOSAL_CATEGORIES.map(cat => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit_board_type">Board Type</Label>
-                  <Select
-                    value={editingTemplate.board_type}
-                    onValueChange={(value) => setEditingTemplate({ ...editingTemplate, board_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BOARD_TYPES.map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_category">Proposal Type Category</Label>
+                <Select
+                  value={editingTemplate.proposal_type_category}
+                  onValueChange={(value) => setEditingTemplate({ ...editingTemplate, proposal_type_category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPOSAL_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

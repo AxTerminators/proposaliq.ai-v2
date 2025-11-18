@@ -25,9 +25,9 @@ export default function SystemBoardTemplateBuilder() {
   const [templateName, setTemplateName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
-  const [boardType, setBoardType] = useState('');
   const [columns, setColumns] = useState([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const [boardTypeSelected, setBoardTypeSelected] = useState(false);
   
   // Dialog states
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -74,7 +74,7 @@ export default function SystemBoardTemplateBuilder() {
         setTemplateName(template.template_name || '');
         setDescription(template.description || '');
         setTags(template.tags?.join(', ') || '');
-        setBoardType(template.proposal_type_category || '');
+        setBoardTypeSelected(true);
         
         // Parse kanban_config
         if (template.kanban_config) {
@@ -91,7 +91,7 @@ export default function SystemBoardTemplateBuilder() {
 
   // Initialize terminal columns when board type is selected
   useEffect(() => {
-    if (boardType && columns.length === 0) {
+    if (boardTypeSelected && columns.length === 0) {
       const terminalColumns = [
         {
           id: 'submitted',
@@ -136,14 +136,14 @@ export default function SystemBoardTemplateBuilder() {
       ];
       setColumns(terminalColumns);
     }
-  }, [boardType]);
+  }, [boardTypeSelected]);
 
   // Track unsaved changes
   useEffect(() => {
-    if (boardType || columns.length > 4 || templateName || description || tags) {
+    if (boardTypeSelected || columns.length > 4 || templateName || description || tags) {
       setHasUnsavedChanges(true);
     }
-  }, [boardType, columns, templateName, description, tags]);
+  }, [boardTypeSelected, columns, templateName, description, tags]);
 
   // Handle back navigation with unsaved changes check
   const handleBack = () => {
@@ -182,11 +182,6 @@ export default function SystemBoardTemplateBuilder() {
       setNameError('Template name is required');
       return;
     }
-    
-    if (!boardType) {
-      alert('Please select a board type');
-      return;
-    }
 
     if (nameError) {
       alert('Please fix validation errors before saving');
@@ -210,7 +205,7 @@ export default function SystemBoardTemplateBuilder() {
         template_name: templateName.trim(),
         description: description.trim(),
         tags: tags.split(',').map(t => t.trim()).filter(t => t),
-        proposal_type_category: boardType,
+        proposal_type_category: 'RFP',
         kanban_config: JSON.stringify(kanbanConfig),
         status: 'draft',
         is_system_wide: true
@@ -269,7 +264,7 @@ export default function SystemBoardTemplateBuilder() {
               <Eye className="w-4 h-4 mr-2" />
               {previewMode ? 'Edit Mode' : 'Preview'}
             </Button>
-            <Button onClick={() => setShowSaveDialog(true)} disabled={!boardType || !!nameError}>
+            <Button onClick={() => setShowSaveDialog(true)} disabled={!boardTypeSelected || !!nameError}>
               <Save className="w-4 h-4 mr-2" />
               Save as Draft
             </Button>
@@ -277,57 +272,37 @@ export default function SystemBoardTemplateBuilder() {
         </div>
 
         {/* Board Type Selection */}
-        {!boardType && (
+        {!boardTypeSelected && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Layers className="w-5 h-5" />
-                Select Board Type
+                Create Proposal Board Template
               </CardTitle>
               <CardDescription>
-                Choose the type of board template you want to create
+                All proposal board templates integrate with the master board for unified reporting
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button
-                  onClick={() => setBoardType('RFP')}
-                  className="p-6 border-2 border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
-                >
-                  <div className="text-2xl mb-2">📋</div>
-                  <h3 className="font-semibold text-lg mb-1">Proposal Board</h3>
-                  <p className="text-sm text-slate-600">Standard RFP/RFQ proposal workflow</p>
-                </button>
-
-                <button
-                  disabled
-                  className="p-6 border-2 border-slate-200 rounded-lg opacity-50 cursor-not-allowed text-left"
-                >
-                  <div className="text-2xl mb-2">💼</div>
-                  <h3 className="font-semibold text-lg mb-1">Opportunity Board</h3>
-                  <p className="text-sm text-slate-600">Coming soon</p>
-                </button>
-
-                <button
-                  disabled
-                  className="p-6 border-2 border-slate-200 rounded-lg opacity-50 cursor-not-allowed text-left"
-                >
-                  <div className="text-2xl mb-2">🎯</div>
-                  <h3 className="font-semibold text-lg mb-1">CRM Board</h3>
-                  <p className="text-sm text-slate-600">Coming soon</p>
-                </button>
-              </div>
+              <button
+                onClick={() => setBoardTypeSelected(true)}
+                className="w-full p-8 border-2 border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
+              >
+                <div className="text-4xl mb-3">📋</div>
+                <h3 className="font-semibold text-xl mb-2">Start Building Template</h3>
+                <p className="text-sm text-slate-600">Create a custom proposal workflow template</p>
+              </button>
             </CardContent>
           </Card>
         )}
 
         {/* Kanban Canvas */}
-        {boardType && (
+        {boardTypeSelected && (
           <>
             {/* Board Type Badge */}
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-sm">
-                Board Type: Proposal Board
+                Proposal Board Template
               </Badge>
               {previewMode && (
                 <Badge className="bg-blue-100 text-blue-800">
@@ -345,7 +320,7 @@ export default function SystemBoardTemplateBuilder() {
         )}
 
         {/* Info Card */}
-        {boardType && (
+        {boardTypeSelected && (
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="py-4">
               <div className="flex items-start gap-3">
