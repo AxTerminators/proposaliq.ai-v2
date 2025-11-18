@@ -430,8 +430,20 @@ export default function TemplateManager() {
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-5 h-5 text-blue-600" />
             <h2 className="text-xl font-semibold text-slate-900">System Templates</h2>
-            <Badge className="bg-blue-100 text-blue-700">Pre-built</Badge>
+            <Badge className="bg-blue-100 text-blue-700">Pre-built - Duplicate to customize</Badge>
           </div>
+          <Card className="border-2 border-blue-200 bg-blue-50 mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm text-blue-900">
+                    <strong>Pre-built templates are read-only.</strong> These templates are maintained by administrators and cannot be directly edited. To customize a system template, click "Duplicate" to create your own editable organization-specific version.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           
           {groupedTemplates.system.length === 0 ? (
             <Card className="border-2 border-dashed">
@@ -796,15 +808,28 @@ function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete,
                 Edit
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="default"
-              onClick={onEditWorkflow}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-            >
-              <Layers className="w-3 h-3 mr-1" />
-              Workflow
-            </Button>
+            {canEdit ? (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={onEditWorkflow}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                <Layers className="w-3 h-3 mr-1" />
+                Workflow
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => alert('System templates cannot be directly edited. Please duplicate this template to create an editable organization-specific version.')}
+                className="flex-1"
+                disabled
+              >
+                <Layers className="w-3 h-3 mr-1" />
+                Workflow
+              </Button>
+            )}
             {canDelete && (
               <Button
                 size="sm"

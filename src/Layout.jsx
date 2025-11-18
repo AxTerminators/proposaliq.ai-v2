@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -116,6 +115,7 @@ const ALL_NAVIGATION_ITEMS = [
 
 const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
+  { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
 ];
 
 function LayoutContent({ children, currentPageName }) {
