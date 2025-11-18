@@ -24,6 +24,10 @@ export default function SystemBoardTemplateBuilder() {
   // Template state
   const [templateName, setTemplateName] = useState('');
   const [description, setDescription] = useState('');
+  const [proposalTypeCategory, setProposalTypeCategory] = useState('RFP');
+  const [proposalTypeOther, setProposalTypeOther] = useState('');
+  const [iconEmoji, setIconEmoji] = useState('📋');
+  const [estimatedDurationDays, setEstimatedDurationDays] = useState(30);
   const [tags, setTags] = useState('');
   const [columns, setColumns] = useState([]);
   const [previewMode, setPreviewMode] = useState(false);
@@ -73,14 +77,18 @@ export default function SystemBoardTemplateBuilder() {
       if (template) {
         setTemplateName(template.template_name || '');
         setDescription(template.description || '');
+        setProposalTypeCategory(template.proposal_type_category || 'RFP');
+        setProposalTypeOther(template.proposal_type_other || '');
+        setIconEmoji(template.icon_emoji || '📋');
+        setEstimatedDurationDays(template.estimated_duration_days || 30);
         setTags(template.tags?.join(', ') || '');
         setBoardTypeSelected(true);
         
-        // Parse kanban_config
-        if (template.kanban_config) {
-          const config = typeof template.kanban_config === 'string' 
-            ? JSON.parse(template.kanban_config) 
-            : template.kanban_config;
+        // Parse workflow_config
+        if (template.workflow_config) {
+          const config = typeof template.workflow_config === 'string' 
+            ? JSON.parse(template.workflow_config) 
+            : template.workflow_config;
           setColumns(config.columns || []);
         }
       }
@@ -140,10 +148,10 @@ export default function SystemBoardTemplateBuilder() {
 
   // Track unsaved changes
   useEffect(() => {
-    if (boardTypeSelected || columns.length > 4 || templateName || description || tags) {
+    if (boardTypeSelected || columns.length > 4 || templateName || description || tags || proposalTypeCategory !== 'RFP' || proposalTypeOther || iconEmoji !== '📋' || estimatedDurationDays !== 30) {
       setHasUnsavedChanges(true);
     }
-  }, [boardTypeSelected, columns, templateName, description, tags]);
+  }, [boardTypeSelected, columns, templateName, description, tags, proposalTypeCategory, proposalTypeOther, iconEmoji, estimatedDurationDays]);
 
   // Handle back navigation with unsaved changes check
   const handleBack = () => {
@@ -183,6 +191,11 @@ export default function SystemBoardTemplateBuilder() {
       return;
     }
 
+    if (proposalTypeCategory === 'OTHER' && !proposalTypeOther.trim()) {
+      alert('Please specify the other proposal type');
+      return;
+    }
+
     if (nameError) {
       alert('Please fix validation errors before saving');
       return;
@@ -193,8 +206,8 @@ export default function SystemBoardTemplateBuilder() {
       const params = new URLSearchParams(location.search);
       const templateId = params.get('template_id');
 
-      // Prepare kanban config
-      const kanbanConfig = {
+      // Prepare workflow config
+      const workflowConfig = {
         columns: columns.map((col, idx) => ({
           ...col,
           order: col.is_terminal ? col.order : idx
@@ -204,11 +217,15 @@ export default function SystemBoardTemplateBuilder() {
       const templateData = {
         template_name: templateName.trim(),
         description: description.trim(),
-        tags: tags.split(',').map(t => t.trim()).filter(t => t),
-        proposal_type_category: 'RFP',
-        kanban_config: JSON.stringify(kanbanConfig),
+        proposal_type_category: proposalTypeCategory,
+        proposal_type_other: proposalTypeCategory === 'OTHER' ? proposalTypeOther.trim() : '',
+        icon_emoji: iconEmoji,
+        estimated_duration_days: estimatedDurationDays,
+        workflow_config: JSON.stringify(workflowConfig),
+        template_type: 'system',
         status: 'draft',
-        is_system_wide: true
+        is_active: true,
+        usage_count: 0
       };
 
       if (templateId) {
@@ -357,6 +374,67 @@ export default function SystemBoardTemplateBuilder() {
                 <p className="text-sm text-red-600">{nameError}</p>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="proposal-type">Proposal Type Category *</Label>
+              <Select
+                value={proposalTypeCategory}
+                onValueChange={(value) => {
+                  setProposalTypeCategory(value);
+                  if (value !== 'OTHER') setProposalTypeOther('');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="RFP">RFP - Request for Proposal</SelectItem>
+                  <SelectItem value="RFI">RFI - Request for Information</SelectItem>
+                  <SelectItem value="SBIR">SBIR - Small Business Innovation Research</SelectItem>
+                  <SelectItem value="GSA">GSA - GSA Schedule</SelectItem>
+                  <SelectItem value="IDIQ">IDIQ - Indefinite Delivery/Indefinite Quantity</SelectItem>
+                  <SelectItem value="STATE_LOCAL">State & Local Government</SelectItem>
+                  <SelectItem value="RFP_15_COLUMN">RFP - 15 Column Workflow</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {proposalTypeCategory === 'OTHER' && (
+              <div className="space-y-2">
+                <Label htmlFor="proposal-type-other">Specify Other Type *</Label>
+                <Input
+                  id="proposal-type-other"
+                  value={proposalTypeOther}
+                  onChange={(e) => setProposalTypeOther(e.target.value)}
+                  placeholder="e.g., Construction Bid, Grant Application"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="icon-emoji">Icon Emoji</Label>
+                <Input
+                  id="icon-emoji"
+                  value={iconEmoji}
+                  onChange={(e) => setIconEmoji(e.target.value)}
+                  placeholder="📋"
+                  maxLength={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="estimated-days">Estimated Duration (days)</Label>
+                <Input
+                  id="estimated-days"
+                  type="number"
+                  value={estimatedDurationDays}
+                  onChange={(e) => setEstimatedDurationDays(parseInt(e.target.value) || 30)}
+                  min={1}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -367,21 +445,15 @@ export default function SystemBoardTemplateBuilder() {
                 rows={4}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
-              <Input
-                id="tags"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="e.g., rfp, standard, proposal"
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving || !templateName.trim() || !!nameError}>
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !templateName.trim() || !!nameError || (proposalTypeCategory === 'OTHER' && !proposalTypeOther.trim())}
+            >
               {saving ? 'Saving...' : 'Save Draft'}
             </Button>
           </DialogFooter>
