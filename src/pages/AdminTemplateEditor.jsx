@@ -185,8 +185,8 @@ export default function AdminTemplateEditor() {
   // Check if user is super-admin
   const isSuperAdmin = user?.admin_role === 'super_admin';
 
-  // Fetch system templates
-  const { data: systemTemplates = [], isLoading: isLoadingTemplates } = useQuery({
+  // Fetch system templates (both draft and published)
+  const { data: allTemplates = [], isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['system-templates'],
     queryFn: async () => {
       return base44.entities.ProposalWorkflowTemplate.filter({
@@ -198,15 +198,29 @@ export default function AdminTemplateEditor() {
     staleTime: 30000
   });
 
+  // Separate draft and published templates
+  const draftTemplates = allTemplates.filter(t => t.status === 'draft');
+  const publishedTemplates = allTemplates.filter(t => t.status === 'published');
+  const systemTemplates = publishedTemplates; // Keep for backward compatibility
+
   // Filter templates by search
-  const filteredTemplates = useMemo(() => {
-    if (!searchQuery) return systemTemplates;
-    return systemTemplates.filter(t =>
+  const filteredPublishedTemplates = useMemo(() => {
+    if (!searchQuery) return publishedTemplates;
+    return publishedTemplates.filter(t =>
       t.template_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.proposal_type_category?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [systemTemplates, searchQuery]);
+  }, [publishedTemplates, searchQuery]);
+
+  const filteredDraftTemplates = useMemo(() => {
+    if (!searchQuery) return draftTemplates;
+    return draftTemplates.filter(t =>
+      t.template_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.proposal_type_category?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [draftTemplates, searchQuery]);
 
   // Real-time template name validation
   const handleTemplateNameChange = async (value, isCreating = false) => {
@@ -447,6 +461,52 @@ export default function AdminTemplateEditor() {
     }
   };
 
+  // Duplicate template
+  const handleDuplicate = async (template) => {
+    try {
+      const workflowConfig = typeof template.workflow_config === 'string'
+        ? JSON.parse(template.workflow_config)
+        : template.workflow_config;
+
+      const duplicatedTemplate = {
+        template_name: `${template.template_name} - Copy`,
+        description: template.description,
+        proposal_type_category: template.proposal_type_category,
+        board_type: template.board_type,
+        icon_emoji: template.icon_emoji,
+        estimated_duration_days: template.estimated_duration_days,
+        workflow_config: JSON.stringify(workflowConfig),
+        template_type: 'system',
+        status: 'draft',
+        is_active: true,
+        usage_count: 0
+      };
+
+      await base44.entities.ProposalWorkflowTemplate.create(duplicatedTemplate);
+      queryClient.invalidateQueries({ queryKey: ['system-templates'] });
+      alert(`✅ Template duplicated as draft: "${duplicatedTemplate.template_name}"`);
+    } catch (error) {
+      alert(`Error duplicating template: ${error.message}`);
+    }
+  };
+
+  // Publish template (move from draft to published)
+  const handlePublish = async (template) => {
+    if (!confirm(`Publish "${template.template_name}" to the system-wide library?\n\nThis will make it available to all subscribers.`)) {
+      return;
+    }
+
+    try {
+      await base44.entities.ProposalWorkflowTemplate.update(template.id, {
+        status: 'published'
+      });
+      queryClient.invalidateQueries({ queryKey: ['system-templates'] });
+      alert(`✅ Template "${template.template_name}" published successfully!`);
+    } catch (error) {
+      alert(`Error publishing template: ${error.message}`);
+    }
+  };
+
   // Loading state
   if (isLoadingUser) {
     return (
@@ -538,12 +598,47 @@ export default function AdminTemplateEditor() {
           />
         </div>
 
-        {/* Templates Grid */}
+        {/* Draft Templates Section */}
+        {draftTemplates.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Edit className="w-5 h-5 text-amber-600" />
+              <h2 className="text-xl font-semibold text-slate-900">Draft Templates</h2>
+              <Badge className="bg-amber-100 text-amber-700">{filteredDraftTemplates.length} drafts</Badge>
+            </div>
+
+            {isLoadingTemplates ? (
+              <Card className="border-2 border-dashed">
+                <CardContent className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-600 border-t-transparent mx-auto mb-3"></div>
+                  <p className="text-slate-600">Loading drafts...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredDraftTemplates.map(template => (
+                  <SystemTemplateCard
+                    key={template.id}
+                    template={template}
+                    onEdit={() => handleEdit(template)}
+                    onEditWorkflow={() => handleEditWorkflow(template)}
+                    onDelete={() => handleDelete(template)}
+                    onDuplicate={() => handleDuplicate(template)}
+                    onPublish={() => handlePublish(template)}
+                    isDraft={true}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Published Templates Grid */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-slate-900">System Templates</h2>
-            <Badge className="bg-blue-100 text-blue-700">{filteredTemplates.length} templates</Badge>
+            <h2 className="text-xl font-semibold text-slate-900">Published System Templates</h2>
+            <Badge className="bg-blue-100 text-blue-700">{filteredPublishedTemplates.length} templates</Badge>
           </div>
 
           {isLoadingTemplates ? (
@@ -553,11 +648,11 @@ export default function AdminTemplateEditor() {
                 <p className="text-slate-600">Loading system templates...</p>
               </CardContent>
             </Card>
-          ) : filteredTemplates.length === 0 ? (
+          ) : filteredPublishedTemplates.length === 0 ? (
             <Card className="border-2 border-dashed">
               <CardContent className="p-8 text-center">
                 <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p className="text-slate-600 mb-3">No system templates found</p>
+                <p className="text-slate-600 mb-3">No published system templates found</p>
                 <Button onClick={handleCreateNew} variant="outline">
                   <Plus className="w-4 h-4 mr-2" />
                   Create First System Template
@@ -566,13 +661,14 @@ export default function AdminTemplateEditor() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTemplates.map(template => (
+              {filteredPublishedTemplates.map(template => (
                 <SystemTemplateCard
                   key={template.id}
                   template={template}
                   onEdit={() => handleEdit(template)}
                   onEditWorkflow={() => handleEditWorkflow(template)}
                   onDelete={() => handleDelete(template)}
+                  onDuplicate={() => handleDuplicate(template)}
                 />
               ))}
             </div>
@@ -1012,7 +1108,7 @@ export default function AdminTemplateEditor() {
 }
 
 // System Template Card Component
-function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete }) {
+function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete, onDuplicate, onPublish, isDraft = false }) {
   const [showPreview, setShowPreview] = useState(false);
 
   const workflowConfig = useMemo(() => {
@@ -1034,9 +1130,16 @@ function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete }) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="text-4xl mb-2">{template.icon_emoji || '📋'}</div>
-            <Badge variant="outline" className="text-xs">
-              {template.proposal_type_category}
-            </Badge>
+            <div className="flex flex-col gap-1 items-end">
+              <Badge variant="outline" className="text-xs">
+                {template.proposal_type_category}
+              </Badge>
+              {isDraft && (
+                <Badge className="bg-amber-100 text-amber-700 text-xs">
+                  Draft
+                </Badge>
+              )}
+            </div>
           </div>
           <CardTitle className="text-lg">{template.template_name}</CardTitle>
         </CardHeader>
@@ -1119,6 +1222,29 @@ function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete }) {
               <Layers className="w-3 h-3 mr-1" />
               Workflow
             </Button>
+            {onDuplicate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onDuplicate}
+                className="flex-1"
+                title="Duplicate as draft"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Copy
+              </Button>
+            )}
+            {isDraft && onPublish && (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={onPublish}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <Check className="w-3 h-3 mr-1" />
+                Publish
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
