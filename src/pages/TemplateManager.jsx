@@ -42,7 +42,8 @@ import {
   AlertCircle,
   Check,
   Clock,
-  Info
+  Info,
+  Save
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { validateTemplateName, enforceTemplateSuffix } from "@/components/utils/boardNameValidation";
@@ -632,6 +633,56 @@ export default function TemplateManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Workflow Editor Dialog */}
+      <Dialog open={showWorkflowEditor} onOpenChange={setShowWorkflowEditor}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-blue-600" />
+              Edit Workflow Configuration
+            </DialogTitle>
+            <DialogDescription>
+              Customize columns and checklist items for this template
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingTemplate && (
+            <WorkflowConfigEditor
+              workflowConfig={editingTemplate.workflow_config}
+              onChange={(newConfig) => setEditingTemplate({ ...editingTemplate, workflow_config: newConfig })}
+            />
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowWorkflowEditor(false);
+              setEditingTemplate(null);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                handleSaveWorkflow();
+                setShowWorkflowEditor(false);
+              }}
+              disabled={updateTemplateMutation.isPending}
+            >
+              {updateTemplateMutation.isPending ? (
+                <>
+                  <div className="animate-spin mr-2">⏳</div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Save Workflow
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
