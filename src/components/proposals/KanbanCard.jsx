@@ -1,8 +1,15 @@
-
-import React, { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -14,9 +21,18 @@ import {
   Clock,
   Target,
   Check,
-  Building2
+  Building2,
+  MoreVertical,
+  Copy,
+  Archive,
+  Trash2,
+  Edit,
+  Flag,
+  Lock,
+  Unlock
 } from "lucide-react";
 import moment from "moment";
+import { toast } from "sonner";
 
 export default function KanbanCard({ 
   proposal, 
@@ -26,8 +42,13 @@ export default function KanbanCard({
   organization,
   isSelected = false,
   onToggleSelection,
-  selectionMode = false
+  selectionMode = false,
+  onDuplicate,
+  onArchive,
+  onDelete
 }) {
+  const queryClient = useQueryClient();
+  const [showMenu, setShowMenu] = useState(false);
   // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks', proposal.id],
@@ -87,6 +108,61 @@ export default function KanbanCard({
   const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
   const isUrgent = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7;
 
+  // Determine priority level based on urgency and value
+  const priorityLevel = useMemo(() => {
+    if (isOverdue) return 'critical';
+    if (isUrgent) return 'high';
+    if (proposal.contract_value >= 5000000) return 'high';
+    if (proposal.contract_value >= 1000000) return 'medium';
+    return 'normal';
+  }, [isOverdue, isUrgent, proposal.contract_value]);
+
+  // Toggle blocked status mutation
+  const toggleBlockedMutation = useMutation({
+    mutationFn: async () => {
+      return base44.entities.Proposal.update(proposal.id, {
+        is_blocked: !proposal.is_blocked,
+        blocked_date: !proposal.is_blocked ? new Date().toISOString() : null
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      toast.success(proposal.is_blocked ? 'Proposal unblocked' : 'Proposal blocked');
+    }
+  });
+
+  const handleContextAction = (action, e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    
+    switch(action) {
+      case 'duplicate':
+        onDuplicate?.(proposal);
+        break;
+      case 'archive':
+        onArchive?.(proposal);
+        break;
+      case 'delete':
+        onDelete?.(proposal);
+        break;
+      case 'toggle-block':
+        toggleBlockedMutation.mutate();
+        break;
+      case 'edit':
+        onClick?.(proposal);
+        break;
+    }
+  };
+
+  // Border color based on priority
+  const getBorderColor = () => {
+    if (proposal.is_blocked) return 'border-red-500';
+    if (priorityLevel === 'critical') return 'border-red-400';
+    if (priorityLevel === 'high') return 'border-orange-400';
+    if (priorityLevel === 'medium') return 'border-yellow-400';
+    return 'border-slate-200';
+  };
+
   return (
     <div
       ref={provided.innerRef}
@@ -101,10 +177,11 @@ export default function KanbanCard({
         }
       }}
       className={cn(
-        "bg-white rounded-lg shadow-sm border-2 p-4 mb-3 cursor-pointer hover:shadow-md relative",
+        "bg-white rounded-lg shadow-sm border-2 p-4 mb-3 cursor-pointer hover:shadow-md relative transition-all",
         snapshot.isDragging && "shadow-2xl border-blue-400 scale-105",
-        isActionRequired && "ring-2 ring-amber-400 border-amber-400",
-        isSelected && "ring-2 ring-blue-500 border-blue-500"
+        isActionRequired && "ring-2 ring-amber-400",
+        isSelected && "ring-2 ring-blue-500",
+        !snapshot.isDragging && !isSelected && getBorderColor()
       )}
       style={{
         ...provided.draggableProps.style,
@@ -129,18 +206,90 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with Context Menu */}
       <div className="mb-3">
-        <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
-          {proposal.proposal_name}
-        </h4>
-        {proposal.agency_name && (
-          <p className="text-xs text-slate-600 truncate">{proposal.agency_name}</p>
-        )}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
+              {proposal.proposal_name}
+            </h4>
+            {proposal.agency_name && (
+              <p className="text-xs text-slate-600 truncate">{proposal.agency_name}</p>
+            )}
+          </div>
+          <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 -mt-1 -mr-2 flex-shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(!showMenu);
+                }}
+              >
+                <MoreVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={(e) => handleContextAction('edit', e)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Open Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => handleContextAction('duplicate', e)}>
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => handleContextAction('toggle-block', e)}>
+                {proposal.is_blocked ? (
+                  <>
+                    <Unlock className="w-4 h-4 mr-2" />
+                    Unblock
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    Block
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={(e) => handleContextAction('archive', e)}>
+                <Archive className="w-4 h-4 mr-2" />
+                Archive
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={(e) => handleContextAction('delete', e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {/* Metadata Badges */}
+      {/* Metadata Badges & Priority Indicator */}
       <div className="flex flex-wrap gap-1.5 mb-3">
+        {priorityLevel === 'critical' && (
+          <Badge className="bg-red-500 text-white text-xs">
+            <Flag className="w-3 h-3 mr-1" />
+            Critical
+          </Badge>
+        )}
+        {priorityLevel === 'high' && (
+          <Badge className="bg-orange-500 text-white text-xs">
+            <Flag className="w-3 h-3 mr-1" />
+            High Priority
+          </Badge>
+        )}
+        {proposal.is_blocked && (
+          <Badge className="bg-red-600 text-white text-xs">
+            <Lock className="w-3 h-3 mr-1" />
+            Blocked
+          </Badge>
+        )}
         {proposal.status && (
           <Badge variant="outline" className="text-xs">
             {proposal.status}
