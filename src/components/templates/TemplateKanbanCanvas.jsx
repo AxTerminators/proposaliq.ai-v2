@@ -204,18 +204,32 @@ function ColumnCard({ column, onEdit, onDelete, onEditChecklist, previewMode, is
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 
-              className={`font-semibold text-lg truncate ${!previewMode ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
-              onClick={!previewMode ? onEdit : undefined}
-            >
-              {column.label}
-            </h3>
-            {isTerminal && (
-              <Badge variant="secondary" className="mt-1 text-xs">
-                <Lock className="w-3 h-3 mr-1" />
-                Terminal
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              <h3 
+                className={`font-semibold text-lg truncate ${!previewMode ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                onClick={!previewMode ? onEdit : undefined}
+              >
+                {column.label}
+              </h3>
+              {column.wip_limit > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  WIP: 0/{column.wip_limit}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {isTerminal && (
+                <Badge variant="secondary" className="text-xs">
+                  <Lock className="w-3 h-3 mr-1" />
+                  Terminal
+                </Badge>
+              )}
+              {column.requires_approval_to_exit && (
+                <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700">
+                  🔒 Approval Required
+                </Badge>
+              )}
+            </div>
           </div>
           {!previewMode && (
             <div className="flex items-center gap-1">
