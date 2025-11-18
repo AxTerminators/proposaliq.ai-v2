@@ -62,7 +62,6 @@ import DataCallDocumentation from './pages/DataCallDocumentation';
 import RAGEnhancementStatus from './pages/RAGEnhancementStatus';
 import RAGPerformanceDashboard from './pages/RAGPerformanceDashboard';
 import AdminTemplateEditor from './pages/AdminTemplateEditor';
-import TemplateAnalyticsDashboard from './pages/TemplateAnalyticsDashboard';
 import __Layout from './Layout.jsx';
 
 
@@ -131,7 +130,6 @@ export const PAGES = {
     "RAGEnhancementStatus": RAGEnhancementStatus,
     "RAGPerformanceDashboard": RAGPerformanceDashboard,
     "AdminTemplateEditor": AdminTemplateEditor,
-    "TemplateAnalyticsDashboard": TemplateAnalyticsDashboard,
 }
 
 export const pagesConfig = {
