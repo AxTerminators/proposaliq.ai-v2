@@ -288,7 +288,7 @@ export default function Subscription() {
             >
               <CardHeader>
                 <div className="flex items-center justify-between mb-2">
-                  <plan.icon className="w-8 h-8 text-blue-600" />
+                  {React.createElement(plan.icon, { className: "w-8 h-8 text-blue-600" })}
                   {plan.badge && (
                     <Badge className="bg-blue-100 text-blue-700">{plan.badge}</Badge>
                   )}
