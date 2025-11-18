@@ -14,6 +14,8 @@ export default function ColumnEditor({ column, onSave, onClose }) {
   const [wipLimitType, setWipLimitType] = useState(column.wip_limit_type || 'soft');
   const [requiresApprovalToExit, setRequiresApprovalToExit] = useState(column.requires_approval_to_exit || false);
   const [approverRoles, setApproverRoles] = useState(column.approver_roles?.join(', ') || '');
+  const [canDragToHereRoles, setCanDragToHereRoles] = useState(column.can_drag_to_here_roles?.join(', ') || '');
+  const [canDragFromHereRoles, setCanDragFromHereRoles] = useState(column.can_drag_from_here_roles?.join(', ') || '');
   const [error, setError] = useState('');
 
   const handleSave = () => {
@@ -34,7 +36,9 @@ export default function ColumnEditor({ column, onSave, onClose }) {
       wip_limit: wipLimit,
       wip_limit_type: wipLimitType,
       requires_approval_to_exit: requiresApprovalToExit,
-      approver_roles: approverRoles ? approverRoles.split(',').map(r => r.trim()).filter(r => r) : []
+      approver_roles: approverRoles ? approverRoles.split(',').map(r => r.trim()).filter(r => r) : [],
+      can_drag_to_here_roles: canDragToHereRoles ? canDragToHereRoles.split(',').map(r => r.trim()).filter(r => r) : [],
+      can_drag_from_here_roles: canDragFromHereRoles ? canDragFromHereRoles.split(',').map(r => r.trim()).filter(r => r) : []
     };
     
     onSave(updates);
@@ -126,8 +130,46 @@ export default function ColumnEditor({ column, onSave, onClose }) {
                   placeholder="e.g., admin, manager"
                   className="mt-1"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Only these roles can approve moving cards out of this column
+                </p>
               </div>
             )}
+          </div>
+
+          {/* Drag/Drop Permissions */}
+          <div className="space-y-3 pt-3 border-t">
+            <Label className="text-sm font-semibold">Drag & Drop Permissions</Label>
+            
+            <div className="space-y-2">
+              <Label htmlFor="drag-to-roles" className="text-sm">
+                Who can drag cards INTO this column? (empty = all roles)
+              </Label>
+              <Input
+                id="drag-to-roles"
+                value={canDragToHereRoles}
+                onChange={(e) => setCanDragToHereRoles(e.target.value)}
+                placeholder="e.g., admin, manager, user (leave empty for all)"
+              />
+              <p className="text-xs text-slate-500">
+                Restrict who can move proposals into this stage
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="drag-from-roles" className="text-sm">
+                Who can drag cards OUT OF this column? (empty = all roles)
+              </Label>
+              <Input
+                id="drag-from-roles"
+                value={canDragFromHereRoles}
+                onChange={(e) => setCanDragFromHereRoles(e.target.value)}
+                placeholder="e.g., admin, manager (leave empty for all)"
+              />
+              <p className="text-xs text-slate-500">
+                Restrict who can move proposals out of this stage
+              </p>
+            </div>
           </div>
 
           {/* Preview */}
