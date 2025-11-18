@@ -62,20 +62,8 @@ export default function KanbanCard({
     staleTime: 30000
   });
 
-  // NEW: Fetch shared clients for this proposal
-  const { data: sharedClients = [] } = useQuery({
-    queryKey: ['proposal-shared-clients', proposal.id],
-    queryFn: async () => {
-      if (!proposal.shared_with_client_ids || proposal.shared_with_client_ids.length === 0) {
-        return [];
-      }
-      
-      const allClients = await base44.entities.Client.list();
-      return allClients.filter(c => proposal.shared_with_client_ids.includes(c.id));
-    },
-    enabled: !!proposal.shared_with_client_ids && proposal.shared_with_client_ids.length > 0,
-    staleTime: 60000
-  });
+  // Shared clients display - simplified to avoid entity query issues
+  const sharedClients = [];
 
   // Calculate completion
   const completedSubtasks = subtasks.filter(t => t.status === 'completed').length;
