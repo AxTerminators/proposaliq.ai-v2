@@ -1,8 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { CheckCircle2, Circle, ExternalLink, Sparkles, FileEdit } from "lucide-react";
+import { CheckCircle2, Circle, ExternalLink, Sparkles, FileEdit, Users, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
 
 export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, proposal }) {
@@ -51,10 +52,23 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     }
   };
 
-  // Determine icon based on action type
+  // Determine icon based on action type and item type
   const getIcon = () => {
     if (isCompleted) {
       return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+    }
+
+    // Check for new item types first
+    if (item.type === 'ai_trigger') {
+      return <Sparkles className="w-4 h-4 text-purple-500" />;
+    }
+
+    if (item.type === 'approval_request') {
+      return <Shield className="w-4 h-4 text-emerald-500" />;
+    }
+
+    if (item.type === 'modal_trigger' && item.associated_action) {
+      return <FileEdit className="w-4 h-4 text-indigo-500" />;
     }
 
     if (!item.associated_action || item.type === 'manual_check') {
@@ -79,8 +93,17 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
   // Determine if this is clickable
   const isClickable = !isCompleted && (item.associated_action || item.type === 'manual_check');
 
-  // Get button label based on action type
+  // Get button label based on action type and item type
   const getButtonLabel = () => {
+    if (item.type === 'ai_trigger') {
+      return item.ai_config?.action === 'generate_content' ? 'Generate' : 'Run AI';
+    }
+    if (item.type === 'approval_request') {
+      return 'Request Approval';
+    }
+    if (item.type === 'modal_trigger') {
+      return 'Open';
+    }
     if (isNavigateAction(item.associated_action)) {
       return 'Open';
     }
@@ -116,6 +139,21 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       {item.required && !isCompleted && (
         <span className="text-xs text-red-500 font-medium">Required</span>
       )}
+      
+      {/* Type-specific badges */}
+      {item.type === 'ai_trigger' && !isCompleted && item.ai_config?.action && (
+        <Badge className="bg-purple-100 text-purple-700 text-xs">
+          {item.ai_config.action.replace(/_/g, ' ')}
+        </Badge>
+      )}
+      
+      {item.type === 'approval_request' && !isCompleted && item.approval_config?.approver_roles && (
+        <Badge className="bg-emerald-100 text-emerald-700 text-xs">
+          <Users className="w-3 h-3 mr-1" />
+          {item.approval_config.approver_roles.join(', ')}
+        </Badge>
+      )}
+      
       {isClickable && (
         <span className="text-xs text-blue-600 font-medium">{getButtonLabel()}</span>
       )}
