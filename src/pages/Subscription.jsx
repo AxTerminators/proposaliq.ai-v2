@@ -166,7 +166,7 @@ export default function Subscription() {
         <Card className="border-none shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <currentPlan.icon className="w-5 h-5" />
+              {React.createElement(currentPlan.icon, { className: "w-5 h-5" })}
               Current Plan
             </CardTitle>
           </CardHeader>
