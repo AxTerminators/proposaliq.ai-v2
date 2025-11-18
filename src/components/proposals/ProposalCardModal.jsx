@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -686,7 +685,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const handleChecklistItemClick = async (item) => {
-    console.log('[ProposalCardModal] ✨ Checklist item clicked:', item.label, 'Action:', item.associated_action);
+    console.log('[ProposalCardModal] ✨ Checklist item clicked:', item.label, 'Type:', item.type, 'Action:', item.associated_action);
 
     // If already completed, and it's a manual check, toggle it back to incomplete
     const isCurrentlyCompleted = item.type === 'system_check' 
@@ -696,6 +695,28 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     if (isCurrentlyCompleted && item.type === 'manual_check' && !item.associated_action) {
       await handleChecklistItemToggle(item);
       return;
+    }
+
+    // Handle AI trigger items
+    if (item.type === 'ai_trigger') {
+      await handleAITrigger(item);
+      return;
+    }
+
+    // Handle approval request items
+    if (item.type === 'approval_request') {
+      await handleApprovalRequest(item);
+      return;
+    }
+
+    // Handle modal trigger items
+    if (item.type === 'modal_trigger' && item.associated_action) {
+      const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
+      if (modalName && MODAL_COMPONENTS[modalName]) {
+        setActiveChecklistItemId(item.id);
+        setActiveModalName(modalName);
+        return;
+      }
     }
 
     if (!item.associated_action) {
@@ -735,6 +756,112 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     if (item.type === 'system_check' || item.type === 'manual_check') {
       await handleChecklistItemToggle(item);
+    }
+  };
+
+  // Handle AI trigger actions
+  const handleAITrigger = async (item) => {
+    const action = item.ai_config?.action || 'generate_content';
+    
+    toast.info(`🤖 Running AI: ${action.replace(/_/g, ' ')}...`, {
+      description: 'This may take a few moments',
+      duration: 3000,
+    });
+
+    try {
+      let result;
+      
+      switch (action) {
+        case 'generate_content':
+          result = await base44.integrations.Core.InvokeLLM({
+            prompt: `Generate proposal content for: ${proposal.proposal_name}. Agency: ${proposal.agency_name || 'N/A'}. Create compelling, professional content.`,
+            add_context_from_internet: false
+          });
+          toast.success('✅ Content generated successfully!');
+          break;
+          
+        case 'analyze_compliance':
+          result = await base44.integrations.Core.InvokeLLM({
+            prompt: `Analyze compliance requirements for proposal: ${proposal.proposal_name}. Review solicitation details and identify key compliance areas.`,
+            add_context_from_internet: false
+          });
+          toast.success('✅ Compliance analysis complete!');
+          break;
+          
+        case 'evaluate_match':
+          result = await base44.integrations.Core.InvokeLLM({
+            prompt: `Evaluate match score for proposal: ${proposal.proposal_name}. Analyze organizational fit, past performance, and capabilities.`,
+            add_context_from_internet: false,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                match_score: { type: "number" },
+                strengths: { type: "array", items: { type: "string" } },
+                concerns: { type: "array", items: { type: "string" } }
+              }
+            }
+          });
+          
+          if (result?.match_score) {
+            await updateProposalMutation.mutateAsync({
+              match_score: result.match_score
+            });
+          }
+          toast.success(`✅ Match Score: ${result?.match_score || 'N/A'}%`);
+          break;
+          
+        case 'suggest_improvements':
+          result = await base44.integrations.Core.InvokeLLM({
+            prompt: `Suggest improvements for proposal: ${proposal.proposal_name}. Review current status and provide actionable recommendations.`,
+            add_context_from_internet: false
+          });
+          toast.success('✅ Improvement suggestions ready!');
+          break;
+          
+        default:
+          toast.info('AI action completed');
+      }
+
+      // Mark as complete
+      await handleTaskCompletion(item.id);
+      
+    } catch (error) {
+      console.error('[ProposalCardModal] AI trigger error:', error);
+      toast.error('Failed to run AI action. Please try again.');
+    }
+  };
+
+  // Handle approval request actions
+  const handleApprovalRequest = async (item) => {
+    const approverRoles = item.approval_config?.approver_roles || [];
+    
+    if (approverRoles.length === 0) {
+      toast.error('No approver roles configured for this item');
+      return;
+    }
+
+    // Check if current user has approval permission
+    const userCanApprove = approverRoles.includes(user?.role) || user?.role === 'admin';
+    
+    if (!userCanApprove) {
+      toast.warning(`Approval required from: ${approverRoles.join(', ')}`, {
+        description: 'You do not have permission to approve this item',
+        duration: 5000,
+      });
+      return;
+    }
+
+    // Show approval confirmation
+    const confirmed = window.confirm(
+      `Approve "${item.label}"?\n\nApprover roles: ${approverRoles.join(', ')}\n\nClick OK to approve.`
+    );
+
+    if (confirmed) {
+      await handleTaskCompletion(item.id);
+      toast.success(`✅ Approved by ${user?.full_name || user?.email}`, {
+        description: `"${item.label}" has been approved`,
+        duration: 4000,
+      });
     }
   };
 
