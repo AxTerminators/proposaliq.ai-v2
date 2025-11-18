@@ -73,7 +73,6 @@ export default function AdminTemplateEditor() {
   const queryClient = useQueryClient();
 
   // State management
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -85,90 +84,7 @@ export default function AdminTemplateEditor() {
   const [isValidatingTemplateName, setIsValidatingTemplateName] = useState(false);
   const [validatedTemplateName, setValidatedTemplateName] = useState("");
 
-  // Default workflow config for new templates
-  const defaultWorkflowConfig = {
-    columns: [
-      {
-        id: 'lead',
-        label: 'Lead',
-        color: 'from-blue-400 to-blue-600',
-        order: 0,
-        type: 'custom_stage',
-        checklist_items: []
-      },
-      {
-        id: 'planning',
-        label: 'Planning',
-        color: 'from-purple-400 to-purple-600',
-        order: 1,
-        type: 'custom_stage',
-        checklist_items: []
-      },
-      {
-        id: 'drafting',
-        label: 'Drafting',
-        color: 'from-amber-400 to-amber-600',
-        order: 2,
-        type: 'custom_stage',
-        checklist_items: []
-      },
-      {
-        id: 'review',
-        label: 'Review',
-        color: 'from-indigo-400 to-indigo-600',
-        order: 3,
-        type: 'custom_stage',
-        checklist_items: []
-      },
-      {
-        id: 'submitted',
-        label: 'Submitted',
-        color: 'from-green-400 to-green-600',
-        order: 4,
-        type: 'master_status',
-        is_terminal: true,
-        status_mapping: ['submitted']
-      },
-      {
-        id: 'won',
-        label: 'Won',
-        color: 'from-emerald-400 to-emerald-600',
-        order: 5,
-        type: 'master_status',
-        is_terminal: true,
-        status_mapping: ['won']
-      },
-      {
-        id: 'lost',
-        label: 'Lost',
-        color: 'from-red-400 to-red-600',
-        order: 6,
-        type: 'master_status',
-        is_terminal: true,
-        status_mapping: ['lost']
-      },
-      {
-        id: 'archived',
-        label: 'Archived',
-        color: 'from-slate-400 to-slate-600',
-        order: 7,
-        type: 'master_status',
-        is_terminal: true,
-        status_mapping: ['archived']
-      }
-    ]
-  };
 
-  // New template state
-  const [newTemplate, setNewTemplate] = useState({
-    template_name: '',
-    description: '',
-    proposal_type_category: 'RFP',
-    proposal_type_other: '',
-    icon_emoji: '📋',
-    estimated_duration_days: 30,
-    workflow_config: defaultWorkflowConfig
-  });
 
   // Load current user
   const { data: user, isLoading: isLoadingUser } = useQuery({
@@ -218,12 +134,8 @@ export default function AdminTemplateEditor() {
   }, [draftTemplates, searchQuery]);
 
   // Real-time template name validation
-  const handleTemplateNameChange = async (value, isCreating = false) => {
-    if (isCreating) {
-      setNewTemplate(prev => ({ ...prev, template_name: value }));
-    } else {
-      setEditingTemplate(prev => ({ ...prev, template_name: value }));
-    }
+  const handleTemplateNameChange = async (value) => {
+    setEditingTemplate(prev => ({ ...prev, template_name: value }));
     setTemplateNameError("");
     setValidatedTemplateName("");
 
@@ -236,7 +148,7 @@ export default function AdminTemplateEditor() {
     try {
       const validation = await validateTemplateName(
         value,
-        isCreating ? null : editingTemplate?.id
+        editingTemplate?.id
       );
 
       if (!validation.isValid) {
@@ -251,44 +163,6 @@ export default function AdminTemplateEditor() {
       setIsValidatingTemplateName(false);
     }
   };
-
-  // Create template mutation
-  const createTemplateMutation = useMutation({
-    mutationFn: async (templateData) => {
-      // Validate template name
-      const validation = await validateTemplateName(templateData.template_name);
-      if (!validation.isValid) {
-        throw new Error(validation.message);
-      }
-
-      return base44.entities.ProposalWorkflowTemplate.create({
-        ...templateData,
-        template_name: validation.finalName,
-        template_type: 'system',
-        workflow_config: JSON.stringify(templateData.workflow_config),
-        is_active: true,
-        usage_count: 0
-      });
-    },
-    onSuccess: (createdTemplate) => {
-      queryClient.invalidateQueries({ queryKey: ['system-templates'] });
-      queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
-      setShowCreateDialog(false);
-      setNewTemplate({
-        template_name: '',
-        description: '',
-        proposal_type_category: 'RFP',
-        proposal_type_other: '',
-        icon_emoji: '📋',
-        estimated_duration_days: 30,
-        workflow_config: defaultWorkflowConfig
-      });
-      alert(`✅ System template "${createdTemplate.template_name}" created successfully!`);
-    },
-    onError: (error) => {
-      alert(`Error creating template: ${error.message}`);
-    }
-  });
 
   // Update template mutation
   const updateTemplateMutation = useMutation({
@@ -339,21 +213,6 @@ export default function AdminTemplateEditor() {
   });
 
   // Handler functions
-  const handleCreateNew = () => {
-    setNewTemplate({
-      template_name: '',
-      description: '',
-      proposal_type_category: 'RFP',
-      proposal_type_other: '',
-      icon_emoji: '📋',
-      estimated_duration_days: 30,
-      workflow_config: defaultWorkflowConfig
-    });
-    setTemplateNameError("");
-    setValidatedTemplateName("");
-    setShowCreateDialog(true);
-  };
-
   const handleEdit = (template) => {
     setEditingTemplate({
       ...template,
@@ -379,31 +238,6 @@ export default function AdminTemplateEditor() {
   const handleDelete = (template) => {
     setDeletingTemplate(template);
     setShowDeleteDialog(true);
-  };
-
-  const handleSaveCreate = () => {
-    if (!newTemplate.template_name?.trim()) {
-      alert('Template name cannot be empty.');
-      setTemplateNameError('Template name cannot be empty.');
-      return;
-    }
-
-    if (newTemplate.proposal_type_category === 'OTHER' && !newTemplate.proposal_type_other?.trim()) {
-      alert('Please specify the other proposal type.');
-      return;
-    }
-
-    if (templateNameError) {
-      alert('Please fix the template name errors before saving.');
-      return;
-    }
-
-    if (isValidatingTemplateName) {
-      alert('Please wait for template name validation to complete.');
-      return;
-    }
-
-    createTemplateMutation.mutate(newTemplate);
   };
 
   const handleSaveEdit = () => {
@@ -563,11 +397,7 @@ export default function AdminTemplateEditor() {
             <Badge className="mt-2 bg-red-100 text-red-700">Super Admin Only</Badge>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => navigate(createPageUrl("SystemBoardTemplateBuilder"))} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">
-              <Layers className="w-4 h-4 mr-2" />
-              Board Builder (New)
-            </Button>
-            <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => navigate(createPageUrl("SystemBoardTemplateBuilder"))} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Create System Template
             </Button>
@@ -679,163 +509,9 @@ export default function AdminTemplateEditor() {
             </div>
           )}
         </div>
-      </div>
+        </div>
 
-      {/* Create Template Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-blue-600" />
-              Create System Template
-            </DialogTitle>
-            <DialogDescription>
-              Create a new pre-built template that will be available to all subscribers
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="new_name">
-                Template Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="new_name"
-                value={newTemplate.template_name}
-                onChange={(e) => handleTemplateNameChange(e.target.value, true)}
-                placeholder="e.g., Standard RFP Workflow"
-                className={cn(
-                  templateNameError && "border-red-500 focus-visible:ring-red-500"
-                )}
-              />
-              {isValidatingTemplateName && (
-                <p className="text-xs text-blue-600 flex items-center gap-1">
-                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent"></div>
-                  Validating name...
-                </p>
-              )}
-              {templateNameError && (
-                <p className="text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {templateNameError}
-                </p>
-              )}
-              {!templateNameError && validatedTemplateName && !isValidatingTemplateName && (
-                <p className="text-xs text-green-600 flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  Will be saved as: <strong>"{validatedTemplateName}"</strong>
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="new_description">Description</Label>
-              <Textarea
-                id="new_description"
-                value={newTemplate.description}
-                onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-                placeholder="When to use this template..."
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="new_category">
-                Proposal Type Category <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={newTemplate.proposal_type_category}
-                onValueChange={(value) => setNewTemplate({ ...newTemplate, proposal_type_category: value, proposal_type_other: value === 'OTHER' ? newTemplate.proposal_type_other : '' })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROPOSAL_CATEGORIES.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {newTemplate.proposal_type_category === 'OTHER' && (
-              <div className="space-y-2">
-                <Label htmlFor="new_other">
-                  Specify Other Type <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="new_other"
-                  value={newTemplate.proposal_type_other}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, proposal_type_other: e.target.value })}
-                  placeholder="e.g., Construction Bid, Grant Application"
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="new_emoji">Icon Emoji</Label>
-                <Input
-                  id="new_emoji"
-                  value={newTemplate.icon_emoji}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, icon_emoji: e.target.value })}
-                  maxLength={2}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new_duration">Duration (days)</Label>
-                <Input
-                  id="new_duration"
-                  type="number"
-                  value={newTemplate.estimated_duration_days}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, estimated_duration_days: parseInt(e.target.value) || 30 })}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Workflow Configuration</Label>
-              <WorkflowConfigEditor
-                workflowConfig={newTemplate.workflow_config}
-                onChange={(newConfig) => setNewTemplate({ ...newTemplate, workflow_config: newConfig })}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowCreateDialog(false);
-              setTemplateNameError("");
-              setValidatedTemplateName("");
-              setIsValidatingTemplateName(false);
-            }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveCreate}
-              disabled={createTemplateMutation.isPending || !!templateNameError || !newTemplate.template_name?.trim() || isValidatingTemplateName}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {createTemplateMutation.isPending ? (
-                <>
-                  <div className="animate-spin mr-2">⏳</div>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Create Template
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Template Dialog */}
+        {/* Edit Template Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -854,7 +530,7 @@ export default function AdminTemplateEditor() {
                 <Input
                   id="edit_name"
                   value={editingTemplate.template_name || ''}
-                  onChange={(e) => handleTemplateNameChange(e.target.value, false)}
+                  onChange={(e) => handleTemplateNameChange(e.target.value)}
                   placeholder="e.g., My Custom RFP Workflow"
                   className={cn(
                     templateNameError && "border-red-500 focus-visible:ring-red-500"
