@@ -498,6 +498,10 @@ export default function AdminTemplateEditor() {
             <Badge className="mt-2 bg-red-100 text-red-700">Super Admin Only</Badge>
           </div>
           <div className="flex gap-2">
+            <Button onClick={() => navigate(createPageUrl("SystemBoardTemplateBuilder"))} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">
+              <Layers className="w-4 h-4 mr-2" />
+              Board Builder (New)
+            </Button>
             <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Create System Template
