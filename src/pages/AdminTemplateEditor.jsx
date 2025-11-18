@@ -164,6 +164,7 @@ export default function AdminTemplateEditor() {
     template_name: '',
     description: '',
     proposal_type_category: 'RFP',
+    proposal_type_other: '',
     icon_emoji: '📋',
     estimated_duration_days: 30,
     workflow_config: defaultWorkflowConfig
@@ -277,6 +278,7 @@ export default function AdminTemplateEditor() {
         template_name: '',
         description: '',
         proposal_type_category: 'RFP',
+        proposal_type_other: '',
         icon_emoji: '📋',
         estimated_duration_days: 30,
         workflow_config: defaultWorkflowConfig
@@ -342,6 +344,7 @@ export default function AdminTemplateEditor() {
       template_name: '',
       description: '',
       proposal_type_category: 'RFP',
+      proposal_type_other: '',
       icon_emoji: '📋',
       estimated_duration_days: 30,
       workflow_config: defaultWorkflowConfig
@@ -422,7 +425,8 @@ export default function AdminTemplateEditor() {
         description: editingTemplate.description,
         icon_emoji: editingTemplate.icon_emoji,
         estimated_duration_days: editingTemplate.estimated_duration_days,
-        proposal_type_category: editingTemplate.proposal_type_category
+        proposal_type_category: editingTemplate.proposal_type_category,
+        proposal_type_other: editingTemplate.proposal_type_other || ''
       }
     });
   };
@@ -463,6 +467,7 @@ export default function AdminTemplateEditor() {
         template_name: `${template.template_name} - Copy`,
         description: template.description,
         proposal_type_category: template.proposal_type_category,
+        proposal_type_other: template.proposal_type_other || '',
         icon_emoji: template.icon_emoji,
         estimated_duration_days: template.estimated_duration_days,
         workflow_config: JSON.stringify(workflowConfig),
@@ -730,7 +735,7 @@ export default function AdminTemplateEditor() {
               </Label>
               <Select
                 value={newTemplate.proposal_type_category}
-                onValueChange={(value) => setNewTemplate({ ...newTemplate, proposal_type_category: value })}
+                onValueChange={(value) => setNewTemplate({ ...newTemplate, proposal_type_category: value, proposal_type_other: value === 'OTHER' ? newTemplate.proposal_type_other : '' })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -744,6 +749,20 @@ export default function AdminTemplateEditor() {
                 </SelectContent>
               </Select>
             </div>
+
+            {newTemplate.proposal_type_category === 'OTHER' && (
+              <div className="space-y-2">
+                <Label htmlFor="new_other">
+                  Specify Other Type <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="new_other"
+                  value={newTemplate.proposal_type_other}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, proposal_type_other: e.target.value })}
+                  placeholder="e.g., Construction Bid, Grant Application"
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -866,7 +885,7 @@ export default function AdminTemplateEditor() {
                 <Label htmlFor="edit_category">Proposal Type Category</Label>
                 <Select
                   value={editingTemplate.proposal_type_category}
-                  onValueChange={(value) => setEditingTemplate({ ...editingTemplate, proposal_type_category: value })}
+                  onValueChange={(value) => setEditingTemplate({ ...editingTemplate, proposal_type_category: value, proposal_type_other: value === 'OTHER' ? editingTemplate.proposal_type_other : '' })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -880,6 +899,20 @@ export default function AdminTemplateEditor() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {editingTemplate.proposal_type_category === 'OTHER' && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit_other">
+                    Specify Other Type <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="edit_other"
+                    value={editingTemplate.proposal_type_other || ''}
+                    onChange={(e) => setEditingTemplate({ ...editingTemplate, proposal_type_other: e.target.value })}
+                    placeholder="e.g., Construction Bid, Grant Application"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
