@@ -66,6 +66,7 @@ import SystemBoardTemplateBuilder from './pages/SystemBoardTemplateBuilder';
 import DynamicModalDemo from './pages/DynamicModalDemo';
 import ModalFeatureStatus from './pages/ModalFeatureStatus';
 import ModalBuilder from './pages/ModalBuilder';
+import SuperAdminAiSettings from './pages/SuperAdminAiSettings';
 import __Layout from './Layout.jsx';
 
 
@@ -138,6 +139,7 @@ export const PAGES = {
     "DynamicModalDemo": DynamicModalDemo,
     "ModalFeatureStatus": ModalFeatureStatus,
     "ModalBuilder": ModalBuilder,
+    "SuperAdminAiSettings": SuperAdminAiSettings,
 }
 
 export const pagesConfig = {
