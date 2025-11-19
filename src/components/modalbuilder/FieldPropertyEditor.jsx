@@ -5,16 +5,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import DataMappingEditor from './DataMappingEditor';
 import ValidationEditor from './ValidationEditor';
 import SelectOptionsEditor from './SelectOptionsEditor';
+import ConditionalLogicEditor from './ConditionalLogicEditor';
 
 /**
  * Field Property Editor Component
  * 
- * Phase 1: Enhanced with validation rules and data mapping
+ * Phase 2: Added conditional logic and step assignment
  */
-export default function FieldPropertyEditor({ field, onUpdate }) {
+export default function FieldPropertyEditor({ field, onUpdate, allFields, steps }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   
   return (
@@ -70,6 +78,29 @@ export default function FieldPropertyEditor({ field, onUpdate }) {
         </div>
       </div>
 
+      {/* Step Assignment (if multi-step) */}
+      {steps && steps.length > 0 && (
+        <div>
+          <Label className="text-xs">Assign to Step</Label>
+          <Select 
+            value={field.stepId || 'none'}
+            onValueChange={(val) => onUpdate({ stepId: val === 'none' ? null : val })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No step (hidden)</SelectItem>
+              {steps.map((step, idx) => (
+                <SelectItem key={step.id} value={step.id}>
+                  Step {idx + 1}: {step.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Dropdown Options */}
       {field.type === 'select' && (
         <SelectOptionsEditor field={field} onUpdate={onUpdate} />
@@ -88,6 +119,9 @@ export default function FieldPropertyEditor({ field, onUpdate }) {
 
       {showAdvanced && (
         <div className="space-y-4">
+          {/* Conditional Logic */}
+          <ConditionalLogicEditor field={field} allFields={allFields} onUpdate={onUpdate} />
+          
           {/* Validation Rules */}
           <ValidationEditor field={field} onUpdate={onUpdate} />
           

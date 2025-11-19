@@ -10,7 +10,8 @@ import {
   Trash2,
   Settings,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import FieldPropertyEditor from './FieldPropertyEditor';
@@ -18,11 +19,11 @@ import FieldPropertyEditor from './FieldPropertyEditor';
 /**
  * Canvas Area Component
  * 
- * Phase 0: Display fields with basic property editing
- * Future: Drag-and-drop reordering
+ * Phase 2: Enhanced with step support and conditional logic indicators
  */
 export default function CanvasArea({ 
   fields, 
+  steps,
   onUpdateField, 
   onRemoveField,
   onReorderFields 
@@ -177,11 +178,21 @@ export default function CanvasArea({
               </div>
             </div>
 
+            {/* Conditional Logic Indicator */}
+            {field.conditions && field.conditions.length > 0 && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-purple-700">
+                <Eye className="w-3 h-3" />
+                <span>Has {field.conditions.length} visibility {field.conditions.length === 1 ? 'rule' : 'rules'}</span>
+              </div>
+            )}
+
             {/* Property Editor */}
             {selectedFieldId === field.id && (
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <FieldPropertyEditor
                   field={field}
+                  allFields={fields}
+                  steps={steps}
                   onUpdate={(updates) => onUpdateField(field.id, updates)}
                 />
               </div>

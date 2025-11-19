@@ -4,29 +4,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft, 
   Save, 
   Eye,
-  Layers
+  Layers,
+  ListOrdered
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
 import FieldPalette from './FieldPalette';
 import CanvasArea from './CanvasArea';
+import StepManager from './StepManager';
+import LivePreview from './LivePreview';
 
 /**
  * Modal Builder Editor
  * 
- * Main editing interface for creating/editing modal configurations
- * Phase 0: Basic field addition and configuration
+ * Phase 2: Added multi-step forms and live preview
  */
 export default function ModalBuilderEditor({ config, onClose }) {
   const [name, setName] = useState(config?.name || '');
   const [description, setDescription] = useState(config?.description || '');
   const [iconEmoji, setIconEmoji] = useState(config?.icon_emoji || '📋');
   const [fields, setFields] = useState([]);
+  const [steps, setSteps] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Load existing config if editing
   useEffect(() => {
@@ -34,6 +39,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
       try {
         const parsed = JSON.parse(config.config_json);
         setFields(parsed.fields || []);
+        setSteps(parsed.steps || []);
       } catch (error) {
         console.error('Error parsing config JSON:', error);
       }
@@ -84,7 +90,8 @@ export default function ModalBuilderEditor({ config, onClose }) {
       const configJson = JSON.stringify({
         title: name,
         description: description,
-        fields: fields
+        fields: fields,
+        steps: steps
       });
 
       const data = {
@@ -142,7 +149,11 @@ export default function ModalBuilderEditor({ config, onClose }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => setShowPreview(true)}
+              >
                 <Eye className="w-4 h-4" />
                 Preview
               </Button>
@@ -203,32 +214,67 @@ export default function ModalBuilderEditor({ config, onClose }) {
             <FieldPalette onAddField={handleAddField} />
           </div>
 
-          {/* Center - Canvas Area */}
+          {/* Center - Canvas Area with Tabs */}
           <div className="lg:col-span-3">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Layers className="w-5 h-5 text-slate-600" />
-                    <CardTitle className="text-base">Form Canvas</CardTitle>
+                    <CardTitle className="text-base">Form Builder</CardTitle>
                   </div>
                   <div className="text-sm text-slate-600">
                     {fields.length} {fields.length === 1 ? 'field' : 'fields'}
+                    {steps.length > 0 && ` • ${steps.length} steps`}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <CanvasArea
-                  fields={fields}
-                  onUpdateField={handleUpdateField}
-                  onRemoveField={handleRemoveField}
-                  onReorderFields={handleReorderFields}
-                />
+                <Tabs defaultValue="fields">
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="fields" className="gap-2">
+                      <Layers className="w-4 h-4" />
+                      Fields
+                    </TabsTrigger>
+                    <TabsTrigger value="steps" className="gap-2">
+                      <ListOrdered className="w-4 h-4" />
+                      Steps
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="fields">
+                    <CanvasArea
+                      fields={fields}
+                      steps={steps}
+                      onUpdateField={handleUpdateField}
+                      onRemoveField={handleRemoveField}
+                      onReorderFields={handleReorderFields}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="steps">
+                    <StepManager
+                      steps={steps}
+                      onUpdateSteps={setSteps}
+                      fields={fields}
+                      onUpdateField={handleUpdateField}
+                    />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* Live Preview Modal */}
+      <LivePreview
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        modalConfig={{ name, description }}
+        fields={fields}
+        steps={steps}
+      />
     </div>
   );
 }
