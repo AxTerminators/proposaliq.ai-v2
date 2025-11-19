@@ -67,6 +67,8 @@ import ContentPlanningModal from "./modals/ContentPlanningModal";
 import PricingReviewModal from "./modals/PricingReviewModal";
 import WinToPromoteDialog from "./WinToPromoteDialog";
 import ApprovalGate from "./ApprovalGate";
+import DynamicModal from "./modals/DynamicModal";
+import { useChecklistModal } from "./modals/ChecklistIntegration";
 
 import {
   Select,
@@ -98,6 +100,9 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [editedName, setEditedName] = useState("");
   const [nameError, setNameError] = useState("");
   const [isValidatingName, setIsValidatingName] = useState(false);
+
+  // Phase 5: DynamicModal integration
+  const { openModal, modalProps } = useChecklistModal(proposal?.id, organization?.id);
 
   // Fetch organization users for timeline editor
   const { data: organizationUsers = [] } = useQuery({
@@ -711,11 +716,20 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     // Handle modal trigger items
     if (item.type === 'modal_trigger' && item.associated_action) {
-      const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
-      if (modalName && MODAL_COMPONENTS[modalName]) {
+      // Try new DynamicModal system first
+      try {
+        openModal(item.associated_action);
         setActiveChecklistItemId(item.id);
-        setActiveModalName(modalName);
         return;
+      } catch (error) {
+        // Fall back to legacy modal system
+        console.log('[ProposalCardModal] Using legacy modal for:', item.associated_action);
+        const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
+        if (modalName && MODAL_COMPONENTS[modalName]) {
+          setActiveChecklistItemId(item.id);
+          setActiveModalName(modalName);
+          return;
+        }
       }
     }
 
@@ -1742,6 +1756,18 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       )}
 
       {renderActiveModal()}
+      
+      {/* DynamicModal Integration */}
+      <DynamicModal 
+        {...modalProps} 
+        onClose={() => {
+          modalProps.onClose();
+          // Mark the checklist item as complete after modal submission
+          if (activeChecklistItemId) {
+            handleTaskCompletion(activeChecklistItemId);
+          }
+        }}
+      />
       
       {showWinPromoteDialog && (
         <WinToPromoteDialog
