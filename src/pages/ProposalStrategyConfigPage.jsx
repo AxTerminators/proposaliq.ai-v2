@@ -90,7 +90,7 @@ export default function ProposalStrategyConfigPage() {
   }
 
   const handleSaveAndReturn = () => {
-    window.location.href = createPageUrl('Pipeline');
+    window.location.href = `${createPageUrl('Pipeline')}?openProposal=${proposalId}`;
   };
 
   return (
