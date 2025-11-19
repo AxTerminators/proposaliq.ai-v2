@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
@@ -19,6 +19,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Sparkles, Loader2, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import TokenBudgetMonitor from "./TokenBudgetMonitor";
+import QualityCheckModal from "./QualityCheckModal";
 
 /**
  * AI Generation Modal
@@ -32,6 +34,9 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
   const [customWordCountMax, setCustomWordCountMax] = useState("");
   const [additionalContext, setAdditionalContext] = useState("");
   const [useCustomSettings, setUseCustomSettings] = useState(false);
+  const [estimatedTokens, setEstimatedTokens] = useState(0);
+  const [showPreCheck, setShowPreCheck] = useState(false);
+  const [preCheckResults, setPreCheckResults] = useState({});
 
   // Fetch AI configuration to show defaults
   const { data: aiConfig } = useQuery({
@@ -59,6 +64,50 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
     },
     enabled: isOpen && !!proposal?.organization_id,
   });
+
+  // Calculate token estimate
+  useEffect(() => {
+    if (!proposal || !isOpen) return;
+
+    const calculateTokens = async () => {
+      try {
+        let tokens = 500; // Base prompt
+        const refCount = proposal.reference_proposal_ids?.length || 0;
+        tokens += refCount * 1000;
+
+        const docs = await base44.entities.SolicitationDocument.filter({
+          proposal_id: proposal.id
+        });
+        tokens += docs.length * 500;
+
+        if (additionalContext) {
+          tokens += Math.ceil(additionalContext.length / 4);
+        }
+
+        setEstimatedTokens(tokens);
+      } catch (error) {
+        console.error('Error calculating tokens:', error);
+      }
+    };
+
+    calculateTokens();
+  }, [proposal, isOpen, additionalContext]);
+
+  const handleInitiateGeneration = async () => {
+    const solDocs = await base44.entities.SolicitationDocument.filter({
+      proposal_id: proposal.id
+    });
+
+    const checkResults = {
+      hasReferences: (proposal.reference_proposal_ids?.length || 0) > 0,
+      hasSolicitation: solDocs.length > 0,
+      hasAiConfig: !!aiConfig,
+      withinTokenBudget: estimatedTokens <= 8000
+    };
+
+    setPreCheckResults(checkResults);
+    setShowPreCheck(true);
+  };
 
   // Generate content mutation
   const generateMutation = useMutation({
@@ -115,9 +164,7 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
     },
   });
 
-  const handleGenerate = () => {
-    generateMutation.mutate();
-  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -251,6 +298,15 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
               </div>
             </div>
           )}
+
+          {/* Token Budget Monitor */}
+          <TokenBudgetMonitor
+            estimatedTokens={estimatedTokens}
+            maxTokens={8000}
+            generationParams={{
+              reference_count: proposal?.reference_proposal_ids?.length || 0
+            }}
+          />
         </div>
 
         <DialogFooter>
@@ -258,7 +314,7 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
             Cancel
           </Button>
           <Button
-            onClick={handleGenerate}
+            onClick={handleInitiateGeneration}
             disabled={generateMutation.isPending}
             className="bg-gradient-to-r from-purple-600 to-pink-600"
           >
@@ -276,6 +332,18 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Pre-Generation Quality Check */}
+      <QualityCheckModal
+        isOpen={showPreCheck}
+        onClose={() => setShowPreCheck(false)}
+        onProceed={() => {
+          setShowPreCheck(false);
+          generateMutation.mutate();
+        }}
+        mode="pre"
+        checkResults={preCheckResults}
+      />
     </Dialog>
   );
 }
