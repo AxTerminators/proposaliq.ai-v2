@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -170,7 +169,7 @@ const PROPOSAL_SECTIONS = [
   }
 ];
 
-export default function Phase6({ proposalData, setProposalData, proposalId, onNavigateToPhase, onSaveAndGoToPipeline }) {
+export default function Phase6({ proposalData, setProposalData, proposalId, organization: organizationProp, onNavigateToPhase, onSaveAndGoToPipeline }) {
   const queryClient = useQueryClient();
   const [organization, setOrganization] = useState(null);
   const [strategy, setStrategy] = useState(null);
@@ -223,13 +222,19 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       try {
         const user = await base44.auth.me();
         setCurrentUser(user);
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          setOrganization(orgs[0]);
+        
+        // Use provided organization prop if available
+        if (organizationProp) {
+          setOrganization(organizationProp);
+        } else {
+          const orgs = await base44.entities.Organization.filter(
+            { created_by: user.email },
+            '-created_date',
+            1
+          );
+          if (orgs.length > 0) {
+            setOrganization(orgs[0]);
+          }
         }
 
         if (proposalId) {
@@ -247,7 +252,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, onNa
       }
     };
     loadData();
-  }, [proposalId]);
+  }, [proposalId, organizationProp]);
 
   const { data: sections = [], isLoading, error: sectionsError } = useQuery({
     queryKey: ['proposal-sections', proposalId],

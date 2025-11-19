@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -133,7 +132,7 @@ const PROPOSAL_SECTIONS = [
   }
 ];
 
-export default function Phase5({ proposalData, setProposalData, proposalId, onSaveAndGoToPipeline }) {
+export default function Phase5({ proposalData, setProposalData, proposalId, organizationId, onSaveAndGoToPipeline }) {
   const [strategy, setStrategy] = useState({
     tone: "clear",
     readingLevel: "government_plain",
@@ -153,6 +152,12 @@ export default function Phase5({ proposalData, setProposalData, proposalId, onSa
 
   React.useEffect(() => {
     const loadOrgId = async () => {
+      // Use provided organizationId prop if available
+      if (organizationId) {
+        setCurrentOrgId(organizationId);
+        return;
+      }
+      
       try {
         const user = await base44.auth.me();
         const orgs = await base44.entities.Organization.filter(
