@@ -8,6 +8,7 @@ import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createPageUrl } from "@/utils";
 import Phase5 from "@/components/builder/Phase5";
+import AIWorkflowErrorBoundary from "@/components/proposals/AIWorkflowErrorBoundary";
 
 export default function ProposalStrategyConfigPage() {
   const { currentOrganization } = useOrganization();
@@ -93,33 +94,35 @@ export default function ProposalStrategyConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Navigation Header */}
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={handleSaveAndReturn}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Pipeline
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{proposal.proposal_name}</h1>
-            <p className="text-slate-600">{proposal.agency_name} • {proposal.project_title}</p>
+    <AIWorkflowErrorBoundary proposalId={proposalId}>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Navigation Header */}
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              onClick={handleSaveAndReturn}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Pipeline
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">{proposal.proposal_name}</h1>
+              <p className="text-slate-600">{proposal.agency_name} • {proposal.project_title}</p>
+            </div>
           </div>
-        </div>
 
-        {/* Phase 5 Component */}
-        <Phase5
-          proposalData={proposal}
-          setProposalData={() => {}} // Not used in standalone mode
-          proposalId={proposalId}
-          organizationId={currentOrganization.id}
-          onSaveAndGoToPipeline={handleSaveAndReturn}
-        />
+          {/* Phase 5 Component */}
+          <Phase5
+            proposalData={proposal}
+            setProposalData={() => {}}
+            proposalId={proposalId}
+            organizationId={currentOrganization.id}
+            onSaveAndGoToPipeline={handleSaveAndReturn}
+          />
+        </div>
       </div>
-    </div>
+    </AIWorkflowErrorBoundary>
   );
 }
