@@ -311,12 +311,12 @@ export default function Pipeline() {
     const openTab = urlParams.get('tab'); // Also read tab parameter
     
     // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
-    if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
+    if (proposalIdFromUrl && proposalsData.length > 0 && !showProposalModal) {
       console.log('[Pipeline] 🔗 Found proposalId in URL:', proposalIdFromUrl);
       console.log('[Pipeline] 📑 Tab to open:', openTab || 'default');
       
       // Find the proposal
-      const proposal = proposals.find(p => p.id === proposalIdFromUrl);
+      const proposal = proposalsData.find(p => p.id === proposalIdFromUrl);
       
       if (proposal) {
         console.log('[Pipeline] ✅ Found proposal:', proposal.proposal_name);
@@ -341,7 +341,7 @@ export default function Pipeline() {
         console.warn('[Pipeline] ⚠️ Proposal not found for ID:', proposalIdFromUrl);
       }
     }
-  }, [proposals, showProposalModal]);
+  }, [proposalsData, showProposalModal]);
 
   // Effect to handle pending proposal modal after board switch
   useEffect(() => {
@@ -395,26 +395,26 @@ export default function Pipeline() {
   }, [selectedBoard, pendingProposalModal]);
 
   const filteredProposals = useMemo(() => {
-    if (!selectedBoard) return proposals;
-    if (!proposals) return [];
+    // Always return proposalsData (which defaults to []) to avoid temporal dead zone
+    if (!selectedBoard) return proposalsData;
 
     if (selectedBoard.is_master_board) {
-      return proposals;
+      return proposalsData;
     }
 
     // Also check board_type for special boards like rfp_15_column
     if (selectedBoard.board_type === 'rfp_15_column') {
-      return proposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
+      return proposalsData.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
     }
 
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
-      return proposals.filter(p =>
+      return proposalsData.filter(p =>
         selectedBoard.applies_to_proposal_types.includes(p.proposal_type_category)
       );
     }
 
-    return proposals;
-  }, [proposals, selectedBoard]);
+    return proposalsData;
+  }, [proposalsData, selectedBoard]);
 
   const handleAdvancedFilterChange = (filtered) => {
     // If the filtered array has the same length as the base proposals (filteredProposals),
@@ -426,7 +426,7 @@ export default function Pipeline() {
   // Get unique team members for advanced filters
   const uniqueTeamMembers = useMemo(() => {
     const members = new Set();
-    proposals.forEach(p => {
+    proposalsData.forEach(p => {
       if (p.assigned_team_members) {
         p.assigned_team_members.forEach(email => members.add(email));
       }
@@ -435,7 +435,7 @@ export default function Pipeline() {
       }
     });
     return Array.from(members).sort();
-  }, [proposals]);
+  }, [proposalsData]);
 
   // Apply advanced filters to proposals
   const effectiveProposals = useMemo(() => {
@@ -453,8 +453,8 @@ export default function Pipeline() {
       ? `$${(totalValue / 1000).toFixed(0)}K`
       : `$${totalValue.toLocaleString()}`;
 
-    const wonCount = proposals.filter(p => p.status === 'won').length;
-    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+    const wonCount = proposalsData.filter(p => p.status === 'won').length;
+    const submittedProposals = proposalsData.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
     const winRate = submittedProposals > 0 ? Math.round((wonCount / submittedProposals) * 100) : 0;
 
     const today = new Date();
@@ -470,7 +470,7 @@ export default function Pipeline() {
       winRate,
       urgentCount: urgentProposals
     };
-  }, [effectiveProposals, proposals]);
+  }, [effectiveProposals, proposalsData]);
 
   const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
@@ -1337,7 +1337,7 @@ export default function Pipeline() {
           <div className="space-y-3 py-4">
             {allBoards.map(board => {
               const icon = getBoardIcon(board.board_type, board.is_master_board);
-              const boardProposalCount = proposals.filter(p => {
+              const boardProposalCount = proposalsData.filter(p => {
                 if (board.is_master_board) return true;
                 if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN';
                 if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
