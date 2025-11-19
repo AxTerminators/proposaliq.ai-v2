@@ -17,6 +17,7 @@ import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import { Badge } from "@/components/ui/badge";
 import ClientWorkspaceInitializer from "../components/clients/ClientWorkspaceInitializer";
+import RAGOnboardingGuide from "../components/content/RAGOnboardingGuide";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -29,8 +30,20 @@ export default function Dashboard() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
+  const [showRAGGuide, setShowRAGGuide] = useState(false);
 
   const isDemoAccount = organization?.organization_type === 'demo';
+
+  // Check if user should see RAG onboarding
+  useEffect(() => {
+    if (!user || !organization) return;
+
+    const hasSeenRAGGuide = localStorage.getItem(`rag_guide_seen_${user.email}`);
+    
+    if (!hasSeenRAGGuide && proposals.length >= 1) {
+      setShowRAGGuide(true);
+    }
+  }, [user, organization, proposals]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -279,6 +292,17 @@ export default function Dashboard() {
         isOpen={showSampleDataGuard}
         onClose={() => setShowSampleDataGuard(false)}
         onProceed={proceedToProposalBuilder}
+      />
+
+      <RAGOnboardingGuide
+        isOpen={showRAGGuide}
+        onClose={() => {
+          setShowRAGGuide(false);
+          localStorage.setItem(`rag_guide_seen_${user?.email}`, 'true');
+        }}
+        onComplete={() => {
+          localStorage.setItem(`rag_guide_seen_${user?.email}`, 'true');
+        }}
       />
     </div>
   );

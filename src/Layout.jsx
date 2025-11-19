@@ -95,6 +95,7 @@ const SETTINGS_ITEMS = [
   { title: "Team", url: createPageUrl("Team"), icon: Users },
   { title: "RAG Performance", url: createPageUrl("RAGPerformanceDashboard"), icon: BarChart3 },
   { title: "RAG Status", url: createPageUrl("RAGEnhancementStatus"), icon: Award },
+  { title: "RAG System Health", url: createPageUrl("RAGSystemHealth"), icon: Activity },
   { title: "AI Token Usage", url: createPageUrl("AITokenUsageDashboard"), icon: Activity },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
   { title: "System Verification", url: createPageUrl("SystemVerification"), icon: CheckSquare },
