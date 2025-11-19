@@ -68,6 +68,7 @@ import ModalFeatureStatus from './pages/ModalFeatureStatus';
 import ModalBuilder from './pages/ModalBuilder';
 import SuperAdminAiSettings from './pages/SuperAdminAiSettings';
 import AITokenUsageDashboard from './pages/AITokenUsageDashboard';
+import RAGSystemHealth from './pages/RAGSystemHealth';
 import __Layout from './Layout.jsx';
 
 
@@ -142,6 +143,7 @@ export const PAGES = {
     "ModalBuilder": ModalBuilder,
     "SuperAdminAiSettings": SuperAdminAiSettings,
     "AITokenUsageDashboard": AITokenUsageDashboard,
+    "RAGSystemHealth": RAGSystemHealth,
 }
 
 export const pagesConfig = {
