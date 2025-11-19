@@ -304,7 +304,7 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
   return (
     <Card className="border-none shadow-xl">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Phase 5: Comprehensive Strategy</CardTitle>
+        <CardTitle className="text-2xl font-bold">Comprehensive Strategy</CardTitle>
         <CardDescription>
           Develop your competitive strategy, win themes, and proposal structure
         </CardDescription>
