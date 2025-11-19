@@ -10,7 +10,9 @@ import {
   Save, 
   Eye,
   Layers,
-  ListOrdered
+  ListOrdered,
+  Download,
+  Upload
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
@@ -19,12 +21,14 @@ import CanvasArea from './CanvasArea';
 import StepManager from './StepManager';
 import LivePreview from './LivePreview';
 import EntityOperationsEditor from './EntityOperationsEditor';
+import TemplateImportExport from './TemplateImportExport';
 import { ValidationAlert, validateModalConfig } from './ErrorHandling';
 
 /**
  * Modal Builder Editor
  * 
  * Phase 2: Added multi-step forms and live preview
+ * Phase 6: Added workflow automation and template import/export
  */
 export default function ModalBuilderEditor({ config, onClose }) {
   const [name, setName] = useState(config?.name || '');
@@ -33,6 +37,9 @@ export default function ModalBuilderEditor({ config, onClose }) {
   const [fields, setFields] = useState([]);
   const [steps, setSteps] = useState([]);
   const [entityOperations, setEntityOperations] = useState([]);
+  const [webhooks, setWebhooks] = useState([]);
+  const [emailNotifications, setEmailNotifications] = useState([]);
+  const [statusUpdates, setStatusUpdates] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -44,6 +51,9 @@ export default function ModalBuilderEditor({ config, onClose }) {
         setFields(parsed.fields || []);
         setSteps(parsed.steps || []);
         setEntityOperations(parsed.entityOperations || []);
+        setWebhooks(parsed.webhooks || []);
+        setEmailNotifications(parsed.emailNotifications || []);
+        setStatusUpdates(parsed.statusUpdates || []);
       } catch (error) {
         console.error('Error parsing config JSON:', error);
       }
@@ -98,7 +108,10 @@ export default function ModalBuilderEditor({ config, onClose }) {
         description: description,
         fields: fields,
         steps: steps,
-        entityOperations: entityOperations
+        entityOperations: entityOperations,
+        webhooks: webhooks,
+        emailNotifications: emailNotifications,
+        statusUpdates: statusUpdates
       });
 
       const data = {
@@ -156,6 +169,16 @@ export default function ModalBuilderEditor({ config, onClose }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <TemplateImportExport
+                config={config}
+                onImport={async (importedData) => {
+                  const user = await base44.auth.me();
+                  importedData.created_by_email = user.email;
+                  await base44.entities.ModalConfig.create(importedData);
+                  alert('Template imported successfully!');
+                  onClose();
+                }}
+              />
               <Button 
                 variant="outline" 
                 className="gap-2"
@@ -274,10 +297,24 @@ export default function ModalBuilderEditor({ config, onClose }) {
 
                   <TabsContent value="operations">
                     <EntityOperationsEditor
-                      modalConfig={{ entityOperations }}
+                      modalConfig={{ 
+                        entityOperations,
+                        webhooks,
+                        emailNotifications,
+                        statusUpdates
+                      }}
                       onUpdate={(updates) => {
                         if (updates.entityOperations !== undefined) {
                           setEntityOperations(updates.entityOperations);
+                        }
+                        if (updates.webhooks !== undefined) {
+                          setWebhooks(updates.webhooks);
+                        }
+                        if (updates.emailNotifications !== undefined) {
+                          setEmailNotifications(updates.emailNotifications);
+                        }
+                        if (updates.statusUpdates !== undefined) {
+                          setStatusUpdates(updates.statusUpdates);
                         }
                       }}
                       allFields={fields}

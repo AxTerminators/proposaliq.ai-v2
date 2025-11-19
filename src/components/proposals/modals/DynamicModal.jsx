@@ -41,6 +41,7 @@ import {
   applyAdvancedMappings,
   buildEntityData
 } from './phase5Utils';
+import { executePhase6Workflows } from './phase6Utils';
 
 /**
  * DynamicModal Component
@@ -483,6 +484,13 @@ export default function DynamicModal({ isOpen, onClose, config }) {
         }
       }
       
+      // Phase 6: Execute workflow automations (webhooks, emails, status updates)
+      await executePhase6Workflows(
+        config,
+        processedFormData,
+        { proposal: config.proposal, organization, user }
+      );
+
       // Track successful submission with snapshot for version history
       if (tracking) {
         await tracking.trackSubmit(processedFormData);

@@ -10,17 +10,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Zap } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ConditionalOperationsEditor from './ConditionalOperationsEditor';
 import UpdateOperationConfig from './UpdateOperationConfig';
+import WebhookConfig from './WebhookConfig';
+import EmailNotificationConfig from './EmailNotificationConfig';
+import StatusUpdateConfig from './StatusUpdateConfig';
 
 /**
  * Entity Operations Editor Component
  * 
  * Phase 5: Enhanced with conditional execution and update operation support
- * (Create related entities, update existing entities with conditions)
+ * Phase 6: Added workflow automation (webhooks, emails, status updates)
  */
 export default function EntityOperationsEditor({ modalConfig, onUpdate, allFields }) {
   const operations = modalConfig.entityOperations || [];
+  const webhooks = modalConfig.webhooks || [];
+  const emailNotifications = modalConfig.emailNotifications || [];
+  const statusUpdates = modalConfig.statusUpdates || [];
 
   const availableEntities = [
     'Proposal',
@@ -53,16 +60,26 @@ export default function EntityOperationsEditor({ modalConfig, onUpdate, allField
   };
 
   return (
-    <div className="space-y-4 p-4 bg-green-50 rounded-lg border border-green-200">
-      <div className="flex items-center gap-2 mb-2">
-        <Zap className="w-4 h-4 text-green-600" />
-        <h5 className="font-semibold text-sm text-slate-900">Entity Operations</h5>
-        <p className="text-xs text-slate-600 ml-auto">On Submit</p>
-      </div>
+    <div className="space-y-4">
+      <Tabs defaultValue="entities">
+        <TabsList className="mb-4">
+          <TabsTrigger value="entities">Entity Operations</TabsTrigger>
+          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+          <TabsTrigger value="emails">Email Notifications</TabsTrigger>
+          <TabsTrigger value="status">Status Updates</TabsTrigger>
+        </TabsList>
 
-      <p className="text-xs text-slate-600">
-        Configure what happens with the data when the form is submitted
-      </p>
+        <TabsContent value="entities">
+          <div className="space-y-4 p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-green-600" />
+              <h5 className="font-semibold text-sm text-slate-900">Entity Operations</h5>
+              <p className="text-xs text-slate-600 ml-auto">On Submit</p>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Configure what happens with the data when the form is submitted
+            </p>
 
       {operations.length === 0 ? (
         <div className="text-center py-4">
