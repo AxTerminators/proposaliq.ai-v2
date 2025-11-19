@@ -46,7 +46,7 @@ export default function ColumnEditor({ column, onSave, onClose }) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Column</DialogTitle>
           <DialogDescription>
