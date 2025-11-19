@@ -9,10 +9,9 @@ import {
   GripVertical,
   Trash2,
   Settings,
-  ChevronDown,
-  ChevronUp,
   Eye
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
 import FieldPropertyEditor from './FieldPropertyEditor';
 
@@ -30,18 +29,14 @@ export default function CanvasArea({
 }) {
   const [selectedFieldId, setSelectedFieldId] = useState(null);
 
-  const handleMoveUp = (index) => {
-    if (index === 0) return;
-    const newFields = [...fields];
-    [newFields[index - 1], newFields[index]] = [newFields[index], newFields[index - 1]];
-    onReorderFields(newFields);
-  };
-
-  const handleMoveDown = (index) => {
-    if (index === fields.length - 1) return;
-    const newFields = [...fields];
-    [newFields[index], newFields[index + 1]] = [newFields[index + 1], newFields[index]];
-    onReorderFields(newFields);
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    
+    const items = Array.from(fields);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    onReorderFields(items);
   };
 
   if (fields.length === 0) {
@@ -61,46 +56,38 @@ export default function CanvasArea({
   }
 
   return (
-    <div className="space-y-4">
-      {fields.map((field, index) => (
-        <Card 
-          key={field.id}
-          className={cn(
-            "transition-all",
-            selectedFieldId === field.id && "ring-2 ring-blue-500"
-          )}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              {/* Drag Handle & Reorder */}
-              <div className="flex flex-col gap-1 pt-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 cursor-move"
-                  disabled
-                >
-                  <GripVertical className="w-4 h-4 text-slate-400" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => handleMoveUp(index)}
-                  disabled={index === 0}
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => handleMoveDown(index)}
-                  disabled={index === fields.length - 1}
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </div>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <Droppable droppableId="fields">
+        {(provided, snapshot) => (
+          <div 
+            {...provided.droppableProps}
+            ref={provided.innerRef}
+            className={cn(
+              "space-y-4",
+              snapshot.isDraggingOver && "bg-blue-50/50 rounded-lg"
+            )}
+          >
+            {fields.map((field, index) => (
+              <Draggable key={field.id} draggableId={field.id} index={index}>
+                {(provided, snapshot) => (
+                  <Card 
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    className={cn(
+                      "transition-all",
+                      selectedFieldId === field.id && "ring-2 ring-blue-500",
+                      snapshot.isDragging && "shadow-lg ring-2 ring-blue-400"
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        {/* Drag Handle */}
+                        <div 
+                          {...provided.dragHandleProps}
+                          className="flex flex-col gap-1 pt-2 cursor-grab active:cursor-grabbing"
+                        >
+                          <GripVertical className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+                        </div>
 
               {/* Field Preview */}
               <div className="flex-1">
@@ -186,20 +173,26 @@ export default function CanvasArea({
               </div>
             )}
 
-            {/* Property Editor */}
-            {selectedFieldId === field.id && (
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <FieldPropertyEditor
-                  field={field}
-                  allFields={fields}
-                  steps={steps}
-                  onUpdate={(updates) => onUpdateField(field.id, updates)}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                {/* Property Editor */}
+                {selectedFieldId === field.id && (
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <FieldPropertyEditor
+                      field={field}
+                      allFields={fields}
+                      steps={steps}
+                      onUpdate={(updates) => onUpdateField(field.id, updates)}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </Draggable>
       ))}
+      {provided.placeholder}
     </div>
+  )}
+</Droppable>
+</DragDropContext>
   );
 }
