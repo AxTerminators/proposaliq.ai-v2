@@ -70,7 +70,7 @@ import WinToPromoteDialog from "./WinToPromoteDialog";
 import ApprovalGate from "./ApprovalGate";
 import DynamicModal from "./modals/DynamicModal";
 import { useChecklistModal } from "./modals/ChecklistIntegration";
-import AIGenerationModal from "../content/AIGenerationModal";
+// AIGenerationModal removed - functionality moved to AIAssistedWriterPage
 import SectionContentViewer from "../content/SectionContentViewer";
 import SmartReferenceSelector from "../content/SmartReferenceSelector";
 
@@ -98,8 +98,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [approvalGateData, setApprovalGateData] = useState(null);
   const [showIncompleteTasksConfirm, setShowIncompleteTasksConfirm] = useState(false);
   const [pendingStageMove, setPendingStageMove] = useState(null);
-  const [showAIGenerationModal, setShowAIGenerationModal] = useState(false);
-  const [selectedAISectionType, setSelectedAISectionType] = useState(null);
+  // AI Generation state removed
   const [showReferenceSelector, setShowReferenceSelector] = useState(false);
   const [localReferenceIds, setLocalReferenceIds] = useState([]);
 
@@ -725,9 +724,10 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return;
     }
 
-    // Handle AI trigger items
+    // Handle AI trigger items (Redirect to AI Writer Page)
     if (item.type === 'ai_trigger') {
-      await handleAITrigger(item);
+      navigate(`${createPageUrl('AIAssistedWriterPage')}?proposalId=${proposal.id}`);
+      onClose();
       return;
     }
 
@@ -760,6 +760,19 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         setActiveModalName(modalName);
         return;
       }
+    }
+
+    // Handle new navigation actions
+    if (item.associated_action === 'navigate_to_strategy_config') {
+      navigate(`${createPageUrl('ProposalStrategyConfig')}?proposalId=${proposal.id}`);
+      onClose();
+      return;
+    }
+
+    if (item.associated_action === 'navigate_to_ai_writer') {
+      navigate(`${createPageUrl('AIAssistedWriterPage')}?proposalId=${proposal.id}`);
+      onClose();
+      return;
     }
 
     if (!item.associated_action) {
@@ -802,24 +815,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
   };
 
-  // Handle AI trigger actions - Enhanced with UI Modal
-  const handleAITrigger = async (item) => {
-    let actionConfig;
-    try {
-      actionConfig = JSON.parse(item.associated_action);
-    } catch (e) {
-      console.error('[ProposalCardModal] Failed to parse AI action config:', e);
-      toast.error('Invalid AI configuration');
-      return;
-    }
-
-    const sectionType = actionConfig.section_type;
-    
-    // Open the AI Generation Modal instead of immediate generation
-    setSelectedAISectionType(sectionType);
-    setActiveChecklistItemId(item.id);
-    setShowAIGenerationModal(true);
-  };
+  // AI Trigger handler removed - replaced by direct navigation
 
   // Handle approval request actions
   const handleApprovalRequest = async (item) => {
@@ -1668,7 +1664,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     )}
                   </div>
 
-                  {/* AI Content Generation Section */}
+                  {/* AI Content Generation Section - Moved to dedicated page */}
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-purple-600" />
@@ -1676,15 +1672,15 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     </h3>
                     <Button
                       onClick={() => {
-                        setSelectedAISectionType('executive_summary');
-                        setShowAIGenerationModal(true);
+                        navigate(`${createPageUrl('AIAssistedWriterPage')}?proposalId=${proposal.id}`);
+                        onClose();
                       }}
                       className="w-full h-16 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 justify-start gap-3"
                     >
                       <Sparkles className="w-6 h-6" />
                       <div className="text-left">
-                        <div className="font-semibold">Generate Content with AI</div>
-                        <div className="text-xs opacity-90">Create proposal sections using AI</div>
+                        <div className="font-semibold">Launch AI Proposal Writer</div>
+                        <div className="text-xs opacity-90">Full-screen AI content generation & editing</div>
                       </div>
                     </Button>
                   </div>
@@ -1928,28 +1924,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         />
       )}
 
-      {/* AI Generation Modal */}
-      {showAIGenerationModal && (
-        <AIGenerationModal
-          isOpen={showAIGenerationModal}
-          onClose={() => {
-            setShowAIGenerationModal(false);
-            setSelectedAISectionType(null);
-            setActiveChecklistItemId(null);
-          }}
-          proposal={proposal}
-          onSuccess={async (data) => {
-            // Mark checklist item as complete if triggered from checklist
-            if (activeChecklistItemId) {
-              await handleTaskCompletion(activeChecklistItemId);
-            }
-            
-            // Refresh proposal sections
-            await queryClient.invalidateQueries({ queryKey: ['proposalSections', proposal.id] });
-            await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
-          }}
-        />
-      )}
+
     </>
   );
 }
