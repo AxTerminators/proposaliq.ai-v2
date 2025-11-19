@@ -11,7 +11,7 @@ import Phase5 from "@/components/builder/Phase5";
 import AIWorkflowErrorBoundary from "@/components/proposals/AIWorkflowErrorBoundary";
 
 export default function ProposalStrategyConfigPage() {
-  const { organization } = useOrganization();
+  const { organization, loading: orgLoading } = useOrganization();
   
   // Get proposalId from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -30,8 +30,8 @@ export default function ProposalStrategyConfigPage() {
     retry: 1
   });
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - includes organization loading
+  if (isLoading || orgLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Card className="w-96">
