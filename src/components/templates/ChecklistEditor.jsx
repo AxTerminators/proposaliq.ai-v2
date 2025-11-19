@@ -411,6 +411,7 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </Dialog>
     </TooltipProvider>
   );
 }
