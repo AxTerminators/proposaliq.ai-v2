@@ -793,75 +793,64 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
   };
 
-  // Handle AI trigger actions
+  // Handle AI trigger actions - Enhanced for Phase 3
   const handleAITrigger = async (item) => {
-    const action = item.ai_config?.action || 'generate_content';
+    let actionConfig;
+    try {
+      actionConfig = JSON.parse(item.associated_action);
+    } catch (e) {
+      console.error('[ProposalCardModal] Failed to parse AI action config:', e);
+      toast.error('Invalid AI configuration');
+      return;
+    }
+
+    const action = actionConfig.action || 'generate_section';
+    const sectionType = actionConfig.section_type;
     
-    toast.info(`🤖 Running AI: ${action.replace(/_/g, ' ')}...`, {
-      description: 'This may take a few moments',
-      duration: 3000,
+    toast.info(`🤖 Generating ${sectionType?.replace(/_/g, ' ') || 'content'}...`, {
+      description: 'AI is generating your proposal content',
+      duration: 5000,
     });
 
     try {
-      let result;
-      
-      switch (action) {
-        case 'generate_content':
-          result = await base44.integrations.Core.InvokeLLM({
-            prompt: `Generate proposal content for: ${proposal.proposal_name}. Agency: ${proposal.agency_name || 'N/A'}. Create compelling, professional content.`,
-            add_context_from_internet: false
-          });
-          toast.success('✅ Content generated successfully!');
-          break;
-          
-        case 'analyze_compliance':
-          result = await base44.integrations.Core.InvokeLLM({
-            prompt: `Analyze compliance requirements for proposal: ${proposal.proposal_name}. Review solicitation details and identify key compliance areas.`,
-            add_context_from_internet: false
-          });
-          toast.success('✅ Compliance analysis complete!');
-          break;
-          
-        case 'evaluate_match':
-          result = await base44.integrations.Core.InvokeLLM({
-            prompt: `Evaluate match score for proposal: ${proposal.proposal_name}. Analyze organizational fit, past performance, and capabilities.`,
-            add_context_from_internet: false,
-            response_json_schema: {
-              type: "object",
-              properties: {
-                match_score: { type: "number" },
-                strengths: { type: "array", items: { type: "string" } },
-                concerns: { type: "array", items: { type: "string" } }
-              }
-            }
-          });
-          
-          if (result?.match_score) {
-            await updateProposalMutation.mutateAsync({
-              match_score: result.match_score
+      // Call the AI Proposal Writer backend function
+      const response = await base44.functions.invoke('aiProposalWriter', {
+        proposalId: proposal.id,
+        sectionType: sectionType,
+        generationParams: {},
+        userEmail: user?.email,
+        agentTriggered: false
+      });
+
+      if (response.data.success) {
+        toast.success(`✅ ${sectionType?.replace(/_/g, ' ')} generated successfully!`, {
+          description: `${response.data.word_count} words | Confidence: ${response.data.confidence_score || 'N/A'}%`,
+          duration: 5000,
+        });
+
+        // Show compliance issues if any
+        if (response.data.compliance_issues && response.data.compliance_issues.length > 0) {
+          const highIssues = response.data.compliance_issues.filter(i => i.severity === 'high');
+          if (highIssues.length > 0) {
+            toast.warning(`⚠️ ${highIssues.length} compliance issue(s) found`, {
+              description: 'Review the generated content for compliance',
+              duration: 5000,
             });
           }
-          toast.success(`✅ Match Score: ${result?.match_score || 'N/A'}%`);
-          break;
-          
-        case 'suggest_improvements':
-          result = await base44.integrations.Core.InvokeLLM({
-            prompt: `Suggest improvements for proposal: ${proposal.proposal_name}. Review current status and provide actionable recommendations.`,
-            add_context_from_internet: false
-          });
-          toast.success('✅ Improvement suggestions ready!');
-          break;
-          
-        default:
-          toast.info('AI action completed');
-      }
+        }
 
-      // Mark as complete
-      await handleTaskCompletion(item.id);
+        // Mark as complete
+        await handleTaskCompletion(item.id);
+        
+        // Refresh proposal data
+        await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
+      } else {
+        toast.error('Failed to generate content');
+      }
       
     } catch (error) {
-      console.error('[ProposalCardModal] AI trigger error:', error);
-      toast.error('Failed to run AI action. Please try again.');
+      console.error('[ProposalCardModal] AI generation error:', error);
+      toast.error(error.message || 'Failed to generate content. Please try again.');
     }
   };
 

@@ -21,6 +21,9 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
   // Proposal Action specific states
   const [proposalActionType, setProposalActionType] = useState('navigate_to_tab');
   const [targetTab, setTargetTab] = useState('timeline');
+  
+  // AI Trigger specific states
+  const [aiSectionType, setAiSectionType] = useState('executive_summary');
 
   const handleAddItem = () => {
     if (!newItemLabel.trim()) return;
@@ -33,6 +36,12 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
       associatedAction = JSON.stringify({
         action_type: proposalActionType,
         target_tab: targetTab
+      });
+    } else if (newItemType === 'ai_trigger') {
+      // Store section type for AI generation
+      associatedAction = JSON.stringify({
+        action: 'generate_section',
+        section_type: aiSectionType
       });
     }
 
@@ -51,6 +60,7 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
     setNewItemRequired(false);
     setProposalActionType('navigate_to_tab');
     setTargetTab('timeline');
+    setAiSectionType('executive_summary');
   };
 
   const handleRemoveItem = (itemId) => {
@@ -95,6 +105,11 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
                         {item.type === 'proposal_action' && item.associated_action && (
                           <span className="text-blue-600">
                             → {JSON.parse(item.associated_action).target_tab}
+                          </span>
+                        )}
+                        {item.type === 'ai_trigger' && item.associated_action && (
+                          <span className="text-purple-600">
+                            → Generate {JSON.parse(item.associated_action).section_type?.replace(/_/g, ' ')}
                           </span>
                         )}
                       </div>
@@ -147,6 +162,39 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
                 {newItemType === 'proposal_action' && 'Navigate to a tab or create an item in the proposal card'}
               </p>
             </div>
+
+            {/* AI Trigger Configuration */}
+            {newItemType === 'ai_trigger' && (
+              <div className="space-y-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                <Label className="text-sm font-semibold text-purple-900">
+                  AI Content Generation Configuration
+                </Label>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ai-section-type">Section to Generate</Label>
+                  <Select value={aiSectionType} onValueChange={setAiSectionType}>
+                    <SelectTrigger id="ai-section-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="executive_summary">Executive Summary</SelectItem>
+                      <SelectItem value="technical_approach">Technical Approach</SelectItem>
+                      <SelectItem value="management_plan">Management Plan</SelectItem>
+                      <SelectItem value="past_performance">Past Performance</SelectItem>
+                      <SelectItem value="key_personnel">Key Personnel</SelectItem>
+                      <SelectItem value="corporate_experience">Corporate Experience</SelectItem>
+                      <SelectItem value="quality_assurance">Quality Assurance</SelectItem>
+                      <SelectItem value="transition_plan">Transition Plan</SelectItem>
+                      <SelectItem value="pricing">Pricing</SelectItem>
+                      <SelectItem value="custom">Custom Section</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-purple-700">
+                    When clicked, this will trigger AI to generate this section using configured settings
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Proposal Action Configuration */}
             {newItemType === 'proposal_action' && (
