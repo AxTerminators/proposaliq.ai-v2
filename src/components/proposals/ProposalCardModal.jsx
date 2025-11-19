@@ -42,7 +42,8 @@ import {
   Loader2,
   Pencil,
   Check,
-  XCircle
+  XCircle,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
