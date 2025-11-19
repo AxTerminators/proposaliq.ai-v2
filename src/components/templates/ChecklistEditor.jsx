@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, GripVertical, Trash2, Sparkles, CheckCircle, FileText, HelpCircle } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Sparkles, CheckCircle, FileText, HelpCircle, Wand2, Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
 
 // Modal configuration mapping with descriptions
 const MODAL_OPTIONS = [
@@ -32,6 +34,11 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
   const [items, setItems] = useState(column.checklist_items || []);
   const [newItemLabel, setNewItemLabel] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  
+  // AI Generation state
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiDescription, setAiDescription] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Handle drag end for item reordering
   const handleDragEnd = (result) => {
@@ -128,6 +135,44 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
     onSave(items);
   };
 
+  // Handle AI checklist generation
+  const handleAIGenerate = async () => {
+    if (!aiDescription.trim()) {
+      toast.error('Please provide a description');
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      console.log('[ChecklistEditor] 🤖 Generating checklist from AI...');
+      
+      const { data } = await base44.functions.invoke('generateChecklistFromAI', {
+        description: aiDescription
+      });
+
+      if (data.success && data.items && data.items.length > 0) {
+        // Add generated items to existing items
+        setItems([...items, ...data.items]);
+        
+        toast.success(`✅ Generated ${data.items.length} checklist items!`, {
+          description: 'Review and modify the items as needed',
+          duration: 4000
+        });
+        
+        setShowAIDialog(false);
+        setAiDescription('');
+      } else {
+        toast.error('Failed to generate checklist items');
+      }
+    } catch (error) {
+      console.error('[ChecklistEditor] Error generating checklist:', error);
+      toast.error('AI generation failed. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <TooltipProvider>
       <Dialog open={true} onOpenChange={onClose}>
@@ -140,6 +185,28 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* AI Generation Button */}
+            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-900">AI Checklist Generator</h4>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    Describe your project or workflow, and AI will generate a tailored checklist with appropriate tasks and actions.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowAIDialog(true)}
+                  className="bg-purple-600 hover:bg-purple-700 flex-shrink-0"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Generate with AI
+                </Button>
+              </div>
+            </div>
+
             {/* Add New Item */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -411,6 +478,79 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AI Generation Dialog */}
+      <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Generate Checklist with AI
+            </DialogTitle>
+            <DialogDescription>
+              Describe your project or workflow, and AI will create a comprehensive checklist tailored to your needs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="ai-description">Project Description</Label>
+              <textarea
+                id="ai-description"
+                value={aiDescription}
+                onChange={(e) => setAiDescription(e.target.value)}
+                placeholder="e.g., Create a new marketing campaign proposal, Respond to an RFP for IT services, Develop a technical white paper..."
+                className="w-full min-h-[120px] p-3 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-y"
+                disabled={isGenerating}
+              />
+              <p className="text-xs text-slate-500">
+                Be specific about the type of project and key requirements
+              </p>
+            </div>
+
+            {/* Examples */}
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <p className="text-xs font-semibold text-slate-700 mb-2">Example descriptions:</p>
+              <ul className="text-xs text-slate-600 space-y-1">
+                <li>• "Respond to a federal RFP for cybersecurity services"</li>
+                <li>• "Create a SBIR Phase I proposal for AI research"</li>
+                <li>• "Develop a capability statement for GSA Schedule"</li>
+                <li>• "Prepare a proposal for state-level infrastructure project"</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAIDialog(false);
+                setAiDescription('');
+              }}
+              disabled={isGenerating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAIGenerate}
+              disabled={!aiDescription.trim() || isGenerating}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Generate Checklist
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

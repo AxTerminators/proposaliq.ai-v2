@@ -924,6 +924,11 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       current_stage_checklist_status: updatedChecklistStatus,
       action_required: !allRequiredComplete
     });
+
+    // **NEW: Workflow Automation - Check if we should trigger actions**
+    if (!isCurrentlyCompleted && item.required) {
+      await checkWorkflowAutomation(updatedChecklistStatus);
+    }
   };
 
   /**
@@ -976,6 +981,96 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       description: 'Checklist item marked as complete',
       duration: 2000,
     });
+
+    // **NEW: Workflow Automation - Check if we should trigger actions**
+    const completedItem = currentColumn.checklist_items?.find(ci => ci.id === itemId);
+    if (completedItem?.required) {
+      await checkWorkflowAutomation(updatedChecklistStatus);
+    }
+  };
+
+  /**
+   * **NEW: Workflow Automation Logic**
+   * Checks if all required items are complete and triggers automated actions
+   */
+  const checkWorkflowAutomation = async (updatedChecklistStatus) => {
+    if (!currentColumn || !kanbanConfig) return;
+
+    const columnStatus = updatedChecklistStatus[currentColumn.id] || {};
+    
+    // Check if ALL required items in this column are now complete
+    const allRequiredComplete = currentColumn.checklist_items
+      ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
+      .every(ci => columnStatus[ci.id]?.completed || false);
+
+    if (!allRequiredComplete) {
+      console.log('[ProposalCardModal] ⏳ Not all required items complete yet');
+      return;
+    }
+
+    console.log('[ProposalCardModal] 🎯 All required items complete! Triggering workflow automation...');
+
+    // Find the next column in workflow
+    const sortedColumns = [...kanbanConfig.columns]
+      .filter(col => !col.is_terminal)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const currentIndex = sortedColumns.findIndex(col => col.id === currentColumn.id);
+    const nextColumn = currentIndex >= 0 && currentIndex < sortedColumns.length - 1 
+      ? sortedColumns[currentIndex + 1] 
+      : null;
+
+    if (!nextColumn) {
+      console.log('[ProposalCardModal] ℹ️ No next column for automation');
+      return;
+    }
+
+    // Show notification about automated move
+    toast.success('🎉 All required tasks complete!', {
+      description: `Ready to move to "${nextColumn.label}"`,
+      duration: 5000,
+      action: {
+        label: 'Move Now',
+        onClick: () => handleMoveToStage(nextColumn, 'forward')
+      }
+    });
+
+    // Send notification to team members
+    try {
+      if (proposal.assigned_team_members && proposal.assigned_team_members.length > 0) {
+        for (const memberEmail of proposal.assigned_team_members) {
+          await base44.entities.Notification.create({
+            user_email: memberEmail,
+            notification_type: 'status_change',
+            title: 'Proposal Ready to Progress',
+            message: `"${proposal.proposal_name}" has completed all required tasks in "${currentColumn.label}" and is ready to move to "${nextColumn.label}"`,
+            related_proposal_id: proposal.id,
+            action_url: `/proposals?id=${proposal.id}`
+          });
+        }
+        console.log('[ProposalCardModal] 📧 Notifications sent to team members');
+      }
+
+      // Create task for next stage (optional)
+      if (proposal.lead_writer_email) {
+        await base44.entities.ProposalTask.create({
+          proposal_id: proposal.id,
+          title: `Begin work on ${nextColumn.label}`,
+          description: `The proposal is ready to move to the next stage: ${nextColumn.label}. Review the checklist and start working on required items.`,
+          assigned_to_email: proposal.lead_writer_email,
+          assigned_to_name: user?.full_name || proposal.lead_writer_email,
+          assigned_by_email: user?.email,
+          assigned_by_name: user?.full_name,
+          status: 'todo',
+          priority: 'high',
+          due_date: proposal.due_date || null
+        });
+        console.log('[ProposalCardModal] ✅ Task created for next stage');
+      }
+    } catch (error) {
+      console.error('[ProposalCardModal] Error in workflow automation:', error);
+      // Don't fail the whole flow if notification/task creation fails
+    }
   };
 
   /**
