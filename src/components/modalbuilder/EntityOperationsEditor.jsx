@@ -101,43 +101,67 @@ export default function EntityOperationsEditor({ modalConfig, onUpdate, allField
       ) : (
         <>
           <div className="space-y-3">
-            {operations.map((op, index) => (
-              <div key={op.id} className="p-3 bg-white rounded border border-green-200">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">Operation</Label>
-                        <Select
-                          value={op.type}
-                          onValueChange={(val) => handleUpdateOperation(index, { type: val })}
-                        >
-                          <SelectTrigger className="text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="create">Create New</SelectItem>
-                            <SelectItem value="update">Update Existing</SelectItem>
-                          </SelectContent>
-                        </Select>
+            {operations.map((op, index) => {
+              // Validation for this operation
+              const opIssues = [];
+              if (!op.entity) opIssues.push('No entity');
+              if (!op.type) opIssues.push('No operation type');
+              if (op.type === 'update' && !op.idResolution?.fieldId && !op.idResolution?.contextPath) {
+                opIssues.push('ID source not configured');
+              }
+              const hasIssues = opIssues.length > 0;
+
+              return (
+                <div 
+                  key={op.id} 
+                  className={cn(
+                    'p-3 rounded border transition-all',
+                    hasIssues ? 'bg-red-50 border-red-300' : 'bg-white border-green-200'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 space-y-3">
+                      {hasIssues && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">
+                            {opIssues.length} issue{opIssues.length > 1 ? 's' : ''}
+                          </Badge>
+                          <p className="text-xs text-red-600">{opIssues.join(', ')}</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Operation</Label>
+                          <Select
+                            value={op.type}
+                            onValueChange={(val) => handleUpdateOperation(index, { type: val })}
+                          >
+                            <SelectTrigger className="text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="create">Create New</SelectItem>
+                              <SelectItem value="update">Update Existing</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Entity</Label>
+                          <Select
+                            value={op.entity}
+                            onValueChange={(val) => handleUpdateOperation(index, { entity: val })}
+                          >
+                            <SelectTrigger className={cn('text-xs', !op.entity && 'border-red-300')}>
+                              <SelectValue placeholder="Select entity..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableEntities.map(ent => (
+                                <SelectItem key={ent} value={ent}>{ent}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs">Entity</Label>
-                        <Select
-                          value={op.entity}
-                          onValueChange={(val) => handleUpdateOperation(index, { entity: val })}
-                        >
-                          <SelectTrigger className="text-xs">
-                            <SelectValue placeholder="Select entity..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableEntities.map(ent => (
-                              <SelectItem key={ent} value={ent}>{ent}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
 
                     {/* Update Operation Configuration */}
                     {op.type === 'update' && (
@@ -168,7 +192,8 @@ export default function EntityOperationsEditor({ modalConfig, onUpdate, allField
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <Button
