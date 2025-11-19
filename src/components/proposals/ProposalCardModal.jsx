@@ -1433,13 +1433,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                   <Paperclip className="w-4 h-4" />
                   Files
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="quick-actions" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
-                >
-                  <Zap className="w-4 h-4" />
-                  Quick Actions
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="checklist" className="p-6 space-y-4">
@@ -1659,70 +1652,6 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     organization={organization}
                   />
                 )}
-              </TabsContent>
-
-              <TabsContent value="quick-actions" className="mt-0 p-6">
-                <div className="space-y-6">
-                  {/* AI Writing Workflow Notice */}
-                  <Alert className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
-                    <AlertDescription>
-                      <p className="font-semibold text-purple-900 mb-1">✨ AI Content Generation</p>
-                      <p className="text-sm text-purple-800">
-                        Use the <strong>Stage Checklist</strong> to configure AI strategy and generate content. 
-                        Look for "Configure AI Strategy" and "AI Assisted Writer" checklist items to access the full AI workflow.
-                      </p>
-                    </AlertDescription>
-                  </Alert>
-
-                  {/* Reference Selection */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-blue-600" />
-                        Reference Proposals
-                      </h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowReferenceSelector(!showReferenceSelector)}
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {showReferenceSelector ? 'Hide' : 'Manage'} ({localReferenceIds.length})
-                      </Button>
-                    </div>
-                    
-                    {showReferenceSelector && (
-                      <SmartReferenceSelector
-                        proposal={proposal}
-                        selectedReferences={localReferenceIds}
-                        onSelectionChange={async (newRefs) => {
-                          setLocalReferenceIds(newRefs);
-                          await updateProposalMutation.mutateAsync({
-                            reference_proposal_ids: newRefs
-                          });
-                          toast.success('References updated');
-                        }}
-                        maxReferences={3}
-                      />
-                    )}
-                  </div>
-
-                  {/* Export Action */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Export</h3>
-                    <Button
-                      onClick={() => {
-                        navigate(createPageUrl("ExportCenter") + `?id=${proposal.id}`);
-                        onClose();
-                      }}
-                      className="w-full h-20 flex items-center justify-center gap-3 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white"
-                    >
-                      <Upload className="w-6 h-6" />
-                      <span className="text-lg">Export Proposal to PDF/DOCX</span>
-                    </Button>
-                  </div>
-                </div>
               </TabsContent>
             </Tabs>
           </div>
