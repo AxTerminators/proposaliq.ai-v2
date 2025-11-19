@@ -585,7 +585,25 @@ Generate the content now:`;
           </div>
 
           <div>
-            <Label>Upload Context Document (Optional)</Label>
+            <Label htmlFor="ai-prompt-input">What would you like me to write?</Label>
+            <Textarea
+              id="ai-prompt-input"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="E.g., 'Write a technical approach section focusing on our cloud migration methodology' or 'Expand on our cybersecurity capabilities with specific examples'"
+              rows={4}
+              className="mt-1"
+            />
+            {isLoadingChunks && (
+              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Searching for relevant paragraphs...
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="context-upload">Upload Context Document (Optional)</Label>
             <p className="text-xs text-slate-600 mb-2">
               Upload a document to provide additional context to the AI (e.g., RFP section, reference material)
             </p>
@@ -609,6 +627,7 @@ Generate the content now:`;
               )}
             </Button>
             <input
+              id="context-upload"
               ref={fileInputRef}
               type="file"
               accept=".pdf,.png,.jpg,.jpeg,.csv,.docx,.doc,.txt"
@@ -618,23 +637,6 @@ Generate the content now:`;
             <p className="text-xs text-slate-500 mt-1">
               Supported: PDF, Word (DOCX/DOC), Images, Text, CSV
             </p>
-          </div>
-
-          <div>
-            <Label>What would you like me to write?</Label>
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="E.g., 'Write a technical approach section focusing on our cloud migration methodology' or 'Expand on our cybersecurity capabilities with specific examples'"
-              rows={4}
-              className="mt-1"
-            />
-            {isLoadingChunks && (
-              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Searching for relevant paragraphs...
-              </p>
-            )}
           </div>
 
           {semanticChunks.length > 0 && (
