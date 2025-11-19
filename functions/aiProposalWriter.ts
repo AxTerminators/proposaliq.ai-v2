@@ -148,18 +148,54 @@ Deno.serve(async (req) => {
     });
 
     let savedSection;
+    let versionNumber = 1;
+    
     if (existingSections && existingSections.length > 0) {
-      // Update existing section
+      const existingSection = existingSections[0];
+      
+      // Get latest version number from history
+      const historyRecords = await base44.asServiceRole.entities.ProposalSectionHistory.filter(
+        { proposal_section_id: existingSection.id },
+        '-version_number',
+        1
+      );
+      versionNumber = historyRecords.length > 0 ? historyRecords[0].version_number + 1 : 1;
+      
+      // Save current content to history before updating
+      if (existingSection.content) {
+        await base44.asServiceRole.entities.ProposalSectionHistory.create({
+          proposal_section_id: existingSection.id,
+          version_number: versionNumber - 1,
+          content: existingSection.content,
+          changed_by_user_email: userEmail || 'system',
+          changed_by_user_name: userEmail || 'System',
+          change_summary: 'Saved before AI regeneration',
+          word_count: existingSection.word_count,
+          change_type: 'user_edit'
+        });
+      }
+      
       savedSection = await base44.asServiceRole.entities.ProposalSection.update(
-        existingSections[0].id,
+        existingSection.id,
         sectionData
       );
-      console.log(`[AI Writer] Updated existing section: ${existingSections[0].id}`);
+      console.log(`[AI Writer] Updated existing section: ${existingSection.id}`);
     } else {
-      // Create new section
       savedSection = await base44.asServiceRole.entities.ProposalSection.create(sectionData);
       console.log(`[AI Writer] Created new section: ${savedSection.id}`);
     }
+    
+    // Create history record for this AI generation
+    await base44.asServiceRole.entities.ProposalSectionHistory.create({
+      proposal_section_id: savedSection.id,
+      version_number: versionNumber,
+      content: generatedContent,
+      changed_by_user_email: userEmail || 'system',
+      changed_by_user_name: userEmail || 'AI System',
+      change_summary: agentTriggered ? 'AI Agent generated content' : 'AI generated content',
+      word_count: sectionData.word_count,
+      change_type: existingSections && existingSections.length > 0 ? 'ai_regenerated' : 'ai_generated'
+    });
 
     // ============================================
     // STEP 9: RETURN RESPONSE
