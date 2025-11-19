@@ -98,12 +98,17 @@ export const ACTION_REGISTRY = {
   },
   
   // ============================================
-  // COLUMN 8: WRITING - Content Development
+  // COLUMN 8: WRITING - Content Development (Phase 6)
   // ============================================
   'navigate_to_content_dev': {
     type: 'navigate',
     path: 'ContentDevelopment',
     label: 'Write Proposal Content'
+  },
+  'navigate_ai_writer': {
+    type: 'navigate',
+    path: 'AIAssistedWriterPage',
+    label: 'AI Assisted Writer (Phase 6)'
   },
   'complete_sections': {
     type: 'system_check',
