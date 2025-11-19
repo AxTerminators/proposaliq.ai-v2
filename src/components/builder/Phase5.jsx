@@ -191,7 +191,7 @@ export default function Phase5({ proposalData, setProposalData, proposalId, orga
       });
     });
     setStrategy(prev => ({ ...prev, sections: initialSections }));
-  }, []);
+  }, [organizationId]);
 
   const suggestWordCounts = async () => {
     setIsLoadingSuggestWordCount(true);
