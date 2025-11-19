@@ -11,6 +11,23 @@ import { Plus, GripVertical, Trash2, Sparkles, CheckCircle, FileText, HelpCircle
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+// Modal configuration mapping with descriptions
+const MODAL_OPTIONS = [
+  { value: 'add_partner', label: 'Add Teaming Partner', description: 'Upload capability statement and extract partner details' },
+  { value: 'upload_solicitation', label: 'Upload Solicitation', description: 'Upload RFP, SOW, or other solicitation documents' },
+  { value: 'add_past_performance', label: 'Add Past Performance', description: 'Document past performance and project details' },
+  { value: 'add_resource', label: 'Upload Resource', description: 'Upload general resources or boilerplate content' },
+  { value: 'ai_data_collection', label: 'AI-Enhanced Data Call', description: 'Smart form with AI-powered data extraction' },
+  { value: 'open_modal_phase1', label: 'Phase 1: Basic Info (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_phase2', label: 'Phase 2: Team Formation (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_phase3', label: 'Phase 3: Resource Gathering (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_phase4', label: 'Phase 4: Solicitation Upload (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_phase5', label: 'Phase 5: Evaluation (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_phase6', label: 'Phase 6: Win Strategy (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_phase7', label: 'Phase 7: Content Planning (Legacy)', description: 'Legacy proposal builder phase' },
+  { value: 'open_modal_pricing', label: 'Pricing Review (Legacy)', description: 'Legacy proposal builder phase' }
+];
+
 export default function ChecklistEditor({ column, onSave, onClose }) {
   const [items, setItems] = useState(column.checklist_items || []);
   const [newItemLabel, setNewItemLabel] = useState('');
