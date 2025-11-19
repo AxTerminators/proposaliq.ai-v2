@@ -19,8 +19,9 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { base44 } from '@/api/base44Client';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronRight, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 /**
  * DynamicModal Component
@@ -210,11 +211,43 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     }
   };
 
+  // Check if field should be visible
+  const isFieldVisible = (field) => {
+    if (!field.showIf) return true;
+    
+    const { field: dependentField, value: expectedValue, operator = 'equals' } = field.showIf;
+    const actualValue = formData[dependentField];
+    
+    switch (operator) {
+      case 'equals':
+        return actualValue === expectedValue;
+      case 'notEquals':
+        return actualValue !== expectedValue;
+      case 'contains':
+        return Array.isArray(actualValue) && actualValue.includes(expectedValue);
+      case 'greaterThan':
+        return actualValue > expectedValue;
+      case 'lessThan':
+        return actualValue < expectedValue;
+      case 'isEmpty':
+        return !actualValue || actualValue === '';
+      case 'isNotEmpty':
+        return actualValue && actualValue !== '';
+      default:
+        return true;
+    }
+  };
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
+    const fieldsToValidate = config.steps 
+      ? config.steps[currentStep]?.fields || []
+      : config.fields || [];
 
-    config.fields.forEach(field => {
+    fieldsToValidate.forEach(field => {
+      if (!isFieldVisible(field)) return;
+
       // Check required fields
       if (field.required && !formData[field.name]) {
         newErrors[field.name] = `${field.label} is required`;
@@ -247,11 +280,31 @@ export default function DynamicModal({ isOpen, onClose, config }) {
             newErrors[field.name] = field.validation.patternMessage || 'Invalid format';
           }
         }
+
+        // Custom validation function
+        if (field.validation.custom && typeof field.validation.custom === 'function') {
+          const customError = field.validation.custom(value, formData);
+          if (customError) newErrors[field.name] = customError;
+        }
       }
     });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Handle next step
+  const handleNext = () => {
+    if (!validateForm()) {
+      toast.error('Please fix the errors before continuing');
+      return;
+    }
+    setCurrentStep(prev => Math.min(prev + 1, (config.steps?.length || 1) - 1));
+  };
+
+  // Handle back step
+  const handleBack = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 0));
   };
 
   // Handle form submission
@@ -265,8 +318,14 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
     try {
       await config.onSubmit(formData);
-      toast.success('Saved successfully');
+      toast.success(config.successMessage || 'Saved successfully');
       onClose();
+      // Reset state
+      setFormData({});
+      setErrors({});
+      setCurrentStep(0);
+      setExtractedData(null);
+      setShowReviewMode(false);
     } catch (error) {
       console.error('[DynamicModal] Submit error:', error);
       toast.error(`Error: ${error.message}`);
@@ -275,11 +334,86 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     }
   };
 
+  // Render dynamic array field
+  const renderArrayField = (field) => {
+    const fieldName = field.name;
+    const items = formData[fieldName] || [''];
+    const error = errors[fieldName];
+
+    const addItem = () => {
+      handleChange(fieldName, [...items, '']);
+    };
+
+    const removeItem = (index) => {
+      const newItems = items.filter((_, i) => i !== index);
+      handleChange(fieldName, newItems.length > 0 ? newItems : ['']);
+    };
+
+    const updateItem = (index, value) => {
+      const newItems = [...items];
+      newItems[index] = value;
+      handleChange(fieldName, newItems);
+    };
+
+    return (
+      <div key={fieldName} className="space-y-2">
+        <Label>
+          {field.label}
+          {field.required && <span className="text-red-500 ml-1">*</span>}
+        </Label>
+        {field.helpText && (
+          <p className="text-xs text-slate-500">{field.helpText}</p>
+        )}
+        <div className="space-y-2">
+          {items.map((item, index) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={item}
+                onChange={(e) => updateItem(index, e.target.value)}
+                placeholder={field.placeholder || `Item ${index + 1}`}
+                className="flex-1"
+              />
+              {items.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => removeItem(index)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addItem}
+          className="w-full"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add {field.label}
+        </Button>
+        {error && <p className="text-sm text-red-500">{error}</p>}
+      </div>
+    );
+  };
+
   // Render field based on type
   const renderField = (field) => {
+    // Check conditional visibility
+    if (!isFieldVisible(field)) return null;
+
     const value = formData[field.name] || '';
     const error = errors[field.name];
     const uploadState = uploadStates[field.name];
+
+    // Array field
+    if (field.type === 'array') {
+      return renderArrayField(field);
+    }
 
     switch (field.type) {
       case 'text':
