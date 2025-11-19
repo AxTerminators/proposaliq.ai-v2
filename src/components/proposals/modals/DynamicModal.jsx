@@ -46,6 +46,7 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const [uploadStates, setUploadStates] = useState({}); // Track file upload progress
   const [extractedData, setExtractedData] = useState(null); // Store extracted data from documents
   const [showReviewMode, setShowReviewMode] = useState(false); // Show review before final save
+  const [currentStep, setCurrentStep] = useState(0); // For multi-step forms
 
   // Initialize form data from field defaults
   useEffect(() => {
@@ -477,13 +478,40 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
   if (!config) return null;
 
+  // Determine fields to render
+  const fieldsToRender = config.steps 
+    ? config.steps[currentStep]?.fields || []
+    : config.fields || [];
+
+  const isMultiStep = config.steps && config.steps.length > 1;
+  const isLastStep = currentStep === (config.steps?.length || 1) - 1;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{config.title}</DialogTitle>
-          {config.description && (
-            <p className="text-sm text-slate-500 mt-2">{config.description}</p>
+          <DialogTitle>
+            {config.steps ? config.steps[currentStep].title : config.title}
+          </DialogTitle>
+          {(config.steps ? config.steps[currentStep].description : config.description) && (
+            <p className="text-sm text-slate-500 mt-2">
+              {config.steps ? config.steps[currentStep].description : config.description}
+            </p>
+          )}
+          {isMultiStep && (
+            <div className="flex items-center gap-2 mt-4">
+              {config.steps.map((step, index) => (
+                <div key={index} className="flex items-center gap-2 flex-1">
+                  <div className={cn(
+                    "h-2 rounded-full flex-1 transition-colors",
+                    index <= currentStep ? "bg-blue-600" : "bg-slate-200"
+                  )} />
+                  {index < config.steps.length - 1 && (
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  )}
+                </div>
+              ))}
+            </div>
           )}
           {showReviewMode && extractedData && (
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -498,25 +526,36 @@ export default function DynamicModal({ isOpen, onClose, config }) {
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {config.fields?.map(field => renderField(field))}
+          {fieldsToRender.map(field => renderField(field))}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : showReviewMode ? (
-              'Confirm & Save'
-            ) : (
-              'Save'
-            )}
-          </Button>
+          {isMultiStep && currentStep > 0 && (
+            <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
+              Back
+            </Button>
+          )}
+          {isMultiStep && !isLastStep ? (
+            <Button onClick={handleNext} disabled={isSubmitting}>
+              Next
+            </Button>
+          ) : (
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : showReviewMode ? (
+                'Confirm & Save'
+              ) : (
+                config.submitLabel || 'Save'
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
