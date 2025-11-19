@@ -351,7 +351,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     switch (item.id) {
       case 'contract_value_present':
-        return proposal.contract_value ? true : false;
+      case 'set_contract_value':
+        return proposal.contract_value && proposal.due_date ? true : false;
       case 'due_date_present':
       case 'set_timeline':
         // Timeline is complete when due_date is set AND timeline_status is 'complete'
