@@ -83,8 +83,12 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     // Handle different action types
     if (isNavigateAction(item.associated_action)) {
       // Navigate to the specified page with proposal ID
-      const url = `${createPageUrl(action.path)}?id=${proposal?.id || ''}`;
-      console.log('[ChecklistItem] Navigating to:', url);
+      if (!proposal?.id) {
+        console.error('[ChecklistItem] Cannot navigate: proposal ID is missing');
+        return;
+      }
+      const url = `${createPageUrl(action.path)}?id=${proposal.id}`;
+      console.log('[ChecklistItem] Navigating to:', url, 'Proposal ID:', proposal.id);
       navigate(url);
     } else if (isModalAction(item.associated_action) || isAIAction(item.associated_action)) {
       // Trigger modal/AI action - call parent handler
