@@ -1002,9 +1002,6 @@ export default function Pipeline() {
     );
   }
 
-  const showDataRecovery = filteredProposals.length === 0 && !isLoadingProposals;
-  const canGenerateSampleData = organization?.is_sample_data === true;
-
   return (
     <div className="flex flex-col h-full">
       <AutomationExecutor
