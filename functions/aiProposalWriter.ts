@@ -87,16 +87,61 @@ Deno.serve(async (req) => {
     console.log(`[AI Writer] Prompt constructed, length: ${prompt.length} chars`);
 
     // ============================================
-    // STEP 5: INVOKE LLM
+    // STEP 5: INVOKE LLM WITH RETRY LOGIC
     // ============================================
-    const llmResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: prompt,
-      add_context_from_internet: false, // We provide our own context
-    });
-
-    const generatedContent = llmResponse;
+    let generatedContent;
+    let retryCount = 0;
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second
     
-    console.log(`[AI Writer] Content generated successfully`);
+    while (retryCount < maxRetries) {
+      try {
+        const llmResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: prompt,
+          add_context_from_internet: false, // We provide our own context
+        });
+
+        generatedContent = llmResponse;
+        console.log(`[AI Writer] Content generated successfully${retryCount > 0 ? ` (retry ${retryCount})` : ''}`);
+        break; // Success, exit retry loop
+        
+      } catch (error) {
+        retryCount++;
+        console.error(`[AI Writer] LLM invocation failed (attempt ${retryCount}/${maxRetries}):`, error.message);
+        
+        if (retryCount >= maxRetries) {
+          // All retries exhausted
+          throw new Error(`Failed to generate content after ${maxRetries} attempts: ${error.message}`);
+        }
+        
+        // Check if error is token-related
+        const isTokenError = error.message.toLowerCase().includes('token') || 
+                            error.message.toLowerCase().includes('limit') ||
+                            error.message.toLowerCase().includes('context');
+        
+        if (isTokenError && retryCount < maxRetries) {
+          // Reduce context and retry
+          console.log('[AI Writer] Token limit issue detected, reducing context...');
+          const reductionFactor = 0.5; // Reduce by 50%
+          
+          // Truncate reference content
+          if (context.referenceContent) {
+            const targetLength = Math.floor(context.referenceContent.length * reductionFactor);
+            context.referenceContent = context.referenceContent.substring(0, targetLength);
+            context.truncated = true;
+          }
+          
+          // Reconstruct prompt with reduced context
+          prompt = constructPrompt(finalConfig, sectionType, proposalData, context, generationParams);
+          console.log(`[AI Writer] Retry ${retryCount} with reduced context (${prompt.length} chars)`);
+        }
+        
+        // Exponential backoff delay
+        const delay = baseDelay * Math.pow(2, retryCount - 1);
+        console.log(`[AI Writer] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
 
     // ============================================
     // STEP 6: CALCULATE CONFIDENCE SCORE
