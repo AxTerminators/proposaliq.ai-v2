@@ -69,6 +69,8 @@ import ModalBuilder from './pages/ModalBuilder';
 import SuperAdminAiSettings from './pages/SuperAdminAiSettings';
 import AITokenUsageDashboard from './pages/AITokenUsageDashboard';
 import RAGSystemHealth from './pages/RAGSystemHealth';
+import ProposalStrategyConfig from './pages/ProposalStrategyConfig';
+import AIAssistedWriterPage from './pages/AIAssistedWriterPage';
 import __Layout from './Layout.jsx';
 
 
@@ -144,6 +146,8 @@ export const PAGES = {
     "SuperAdminAiSettings": SuperAdminAiSettings,
     "AITokenUsageDashboard": AITokenUsageDashboard,
     "RAGSystemHealth": RAGSystemHealth,
+    "ProposalStrategyConfig": ProposalStrategyConfig,
+    "AIAssistedWriterPage": AIAssistedWriterPage,
 }
 
 export const pagesConfig = {
