@@ -52,21 +52,36 @@ export default function SmartReferenceDiscovery({
         current_proposal_id: proposalId,
         organization_id: organizationId,
         max_results: 10,
-        min_relevance_score: 50,
+        min_relevance_score: 40, // Lowered threshold for more results
         section_type: sectionType,
         prioritize_wins: true,
         exclude_proposal_ids: currentReferences
       });
 
       if (result.data?.status === 'success') {
-        setSuggestions(result.data.discovered_proposals || []);
+        const discovered = result.data.discovered_proposals || [];
         
-        if (result.data.discovered_proposals.length === 0) {
+        // Further rank by relevance score with section type bonus
+        const rankedSuggestions = discovered.map(prop => ({
+          ...prop,
+          display_score: prop.relevance_score,
+          recommendation_level: 
+            prop.relevance_score >= 80 ? 'highly_recommended' :
+            prop.relevance_score >= 60 ? 'recommended' :
+            prop.relevance_score >= 40 ? 'consider' : 'low'
+        }));
+        
+        setSuggestions(rankedSuggestions);
+        
+        if (rankedSuggestions.length === 0) {
           toast.info('No similar proposals found', {
-            description: 'Try manually selecting references'
+            description: 'Try manually selecting references or adjust filters'
           });
         } else {
-          toast.success(`Found ${result.data.discovered_proposals.length} similar proposals`);
+          const highlyRelevant = rankedSuggestions.filter(s => s.recommendation_level === 'highly_recommended').length;
+          toast.success(`Found ${rankedSuggestions.length} similar proposals`, {
+            description: highlyRelevant > 0 ? `${highlyRelevant} highly relevant` : 'Review recommendations'
+          });
         }
       } else {
         throw new Error(result.data?.error || 'Discovery failed');
@@ -173,15 +188,27 @@ export default function SmartReferenceDiscovery({
                       <Tooltip>
                         <TooltipTrigger>
                           <Badge 
-                            className="bg-blue-100 text-blue-800 text-xs cursor-help"
+                            className={`text-xs cursor-help ${
+                              proposal.recommendation_level === 'highly_recommended' 
+                                ? 'bg-green-100 text-green-800' 
+                                : proposal.recommendation_level === 'recommended'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-amber-100 text-amber-800'
+                            }`}
                           >
                             <TrendingUp className="w-3 h-3 mr-1" />
-                            {proposal.relevance_score}% match
+                            {proposal.display_score}% match
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <div className="text-xs space-y-1">
-                            <p className="font-semibold">Why this is relevant:</p>
+                          <div className="text-xs space-y-1 max-w-xs">
+                            <p className="font-semibold">Relevance Score: {proposal.display_score}/100</p>
+                            <p className="text-slate-400 text-xs mb-1">
+                              {proposal.recommendation_level === 'highly_recommended' && '⭐ Highly Recommended'}
+                              {proposal.recommendation_level === 'recommended' && '✓ Recommended'}
+                              {proposal.recommendation_level === 'consider' && '→ Consider'}
+                            </p>
+                            <p className="font-semibold mt-2">Why this is relevant:</p>
                             {proposal.relevance_reasons.map((reason, i) => (
                               <p key={i}>• {reason}</p>
                             ))}

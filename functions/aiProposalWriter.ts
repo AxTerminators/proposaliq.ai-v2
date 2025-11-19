@@ -324,44 +324,86 @@ async function gatherContext(base44, proposal, config, sectionType) {
     }
 
     // ============================================
-    // Priority 2: Reference Proposals (RAG with semantic search)
+    // Priority 2: Reference Proposals (RAG with semantic search & relevance scoring)
     // ============================================
     if (config.use_rag && proposal.reference_proposal_ids && proposal.reference_proposal_ids.length > 0) {
       const refProposalIds = proposal.reference_proposal_ids.slice(0, 5);
       context.referenceProposalsCount = refProposalIds.length;
       
-      for (const refId of refProposalIds) {
-        // Fetch sections of same type from reference proposals
-        const refSections = await base44.asServiceRole.entities.ProposalSection.filter({
-          proposal_id: refId,
-          section_type: sectionType
+      // Score reference proposals for relevance
+      try {
+        const scoringResult = await base44.asServiceRole.functions.invoke('scoreReferenceRelevance', {
+          current_proposal_id: proposalData.id,
+          candidate_proposal_ids: refProposalIds,
+          target_section_type: sectionType
         });
         
-        if (refSections && refSections.length > 0) {
-          for (const section of refSections) {
-            if (section.content && currentTokens < MAX_CONTEXT_TOKENS) {
-              // Rank by relevance (simple heuristic - check for won proposals)
-              const refProposals = await base44.asServiceRole.entities.Proposal.filter({ id: refId });
-              const refProposal = refProposals[0];
-              const isWinningProposal = refProposal?.status === 'won';
+        if (scoringResult.data?.status === 'success') {
+          const scoredRefs = scoringResult.data.scores || [];
+          
+          // Sort by score and prioritize highly relevant ones
+          const sortedRefs = scoredRefs
+            .filter(r => r.score >= 30) // Minimum relevance threshold
+            .sort((a, b) => b.score - a.score);
+          
+          for (const refScore of sortedRefs) {
+            if (currentTokens >= MAX_CONTEXT_TOKENS) break;
+            
+            // Check cache first
+            const cachedContent = await getCachedProposalContent(base44, refScore.proposal_id, sectionType);
+            
+            if (cachedContent) {
+              const excerpt = cachedContent.substring(0, 1500); // Use more from highly relevant refs
+              const excerptTokens = Math.ceil(excerpt.length / 4);
               
-              // Extract most relevant parts (first 1000 chars for now)
+              if (currentTokens + excerptTokens < MAX_CONTEXT_TOKENS) {
+                const winLabel = refScore.status === 'won' ? ' - ⭐ WINNING PROPOSAL' : '';
+                const scoreLabel = ` (${refScore.score}% match)`;
+                context.referenceContent += `\n[Reference${winLabel}${scoreLabel}]\n${excerpt}...\n\n`;
+                currentTokens += excerptTokens;
+                
+                context.sources.push({
+                  type: 'reference_proposal',
+                  proposal_id: refScore.proposal_id,
+                  proposal_name: refScore.proposal_name,
+                  relevance_score: refScore.score,
+                  relevance_reasons: refScore.reasons,
+                  weight: config.context_priority_weights?.reference_proposals_weight || 0.8
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('[AI Writer] Reference scoring failed, using fallback:', error.message);
+        
+        // Fallback to basic section retrieval
+        for (const refId of refProposalIds) {
+          if (currentTokens >= MAX_CONTEXT_TOKENS) break;
+          
+          const refSections = await base44.asServiceRole.entities.ProposalSection.filter({
+            proposal_id: refId,
+            section_type: sectionType
+          });
+          
+          if (refSections && refSections.length > 0) {
+            const section = refSections[0];
+            if (section.content) {
               const excerpt = section.content.substring(0, 1000);
               const excerptTokens = Math.ceil(excerpt.length / 4);
               
               if (currentTokens + excerptTokens < MAX_CONTEXT_TOKENS) {
-                context.referenceContent += `\n[Reference${isWinningProposal ? ' - WINNING PROPOSAL' : ''}: ${section.section_name}]\n${excerpt}...\n\n`;
+                context.referenceContent += `\n[Reference: ${section.section_name}]\n${excerpt}...\n\n`;
                 currentTokens += excerptTokens;
+                
+                context.sources.push({
+                  type: 'reference_proposal',
+                  proposal_id: refId,
+                  weight: config.context_priority_weights?.reference_proposals_weight || 0.8
+                });
               }
             }
           }
-          
-          context.sources.push({
-            type: 'reference_proposal',
-            proposal_id: refId,
-            sections_count: refSections.length,
-            weight: config.context_priority_weights?.reference_proposals_weight || 0.8
-          });
         }
       }
     }
@@ -807,4 +849,60 @@ function extractKeyTerms(requirement) {
 function countWords(text) {
   if (!text) return 0;
   return text.trim().split(/\s+/).length;
+}
+
+/**
+ * Get cached proposal content for a section
+ * Uses ParsedProposalCache for faster retrieval
+ */
+async function getCachedProposalContent(base44, proposalId, sectionType) {
+  try {
+    // Check cache first
+    const cacheRecords = await base44.asServiceRole.entities.ParsedProposalCache.filter({
+      proposal_id: proposalId,
+      section_type: sectionType
+    }, '-last_accessed', 1);
+    
+    if (cacheRecords && cacheRecords.length > 0) {
+      const cache = cacheRecords[0];
+      
+      // Update last accessed timestamp
+      await base44.asServiceRole.entities.ParsedProposalCache.update(cache.id, {
+        last_accessed: new Date().toISOString(),
+        access_count: (cache.access_count || 0) + 1
+      });
+      
+      return cache.parsed_content;
+    }
+    
+    // Cache miss - fetch from ProposalSection
+    const sections = await base44.asServiceRole.entities.ProposalSection.filter({
+      proposal_id: proposalId,
+      section_type: sectionType
+    });
+    
+    if (sections && sections.length > 0) {
+      const content = sections[0].content;
+      
+      // Store in cache for future use
+      await base44.asServiceRole.entities.ParsedProposalCache.create({
+        proposal_id: proposalId,
+        section_type: sectionType,
+        parsed_content: content,
+        last_accessed: new Date().toISOString(),
+        access_count: 1,
+        cache_metadata: {
+          source: 'proposal_section',
+          section_id: sections[0].id
+        }
+      });
+      
+      return content;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('[AI Writer] Cache lookup failed:', error.message);
+    return null;
+  }
 }
