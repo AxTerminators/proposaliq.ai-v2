@@ -368,7 +368,11 @@ async function gatherContext(base44, proposal, config, sectionType) {
                   proposal_name: refScore.proposal_name,
                   relevance_score: refScore.score,
                   relevance_reasons: refScore.reasons,
-                  weight: config.context_priority_weights?.reference_proposals_weight || 0.8
+                  weight: config.context_priority_weights?.reference_proposals_weight || 0.8,
+                  excerpt_preview: excerpt.substring(0, 200) + '...',
+                  excerpt_start: 0,
+                  excerpt_end: Math.min(1500, excerpt.length),
+                  full_content_available: true
                 });
               }
             }

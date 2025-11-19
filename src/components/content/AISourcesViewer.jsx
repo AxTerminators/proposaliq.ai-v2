@@ -10,8 +10,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { FileText, Database, BookOpen, ExternalLink, Info } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FileText, Database, BookOpen, ExternalLink, Info, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { base44 } from "@/api/base44Client";
+import ReactMarkdown from "react-markdown";
 
 /**
  * AI Sources Viewer
@@ -19,10 +28,49 @@ import { cn } from "@/lib/utils";
  */
 export default function AISourcesViewer({ section }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [previewSource, setPreviewSource] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   if (!section?.ai_reference_sources || section.ai_reference_sources.length === 0) {
     return null;
   }
+
+  const handlePreviewSource = async (source) => {
+    if (source.type === 'reference_proposal' && source.full_content_available) {
+      setLoadingPreview(true);
+      try {
+        // Fetch full section content
+        const sections = await base44.entities.ProposalSection.filter({
+          proposal_id: source.proposal_id,
+          section_type: section.section_type
+        });
+        
+        if (sections && sections.length > 0) {
+          setPreviewSource({
+            ...source,
+            full_content: sections[0].content,
+            section_name: sections[0].section_name
+          });
+        } else {
+          setPreviewSource({
+            ...source,
+            full_content: source.excerpt_preview || 'Content not available',
+            error: 'Full content not found'
+          });
+        }
+      } catch (error) {
+        setPreviewSource({
+          ...source,
+          full_content: source.excerpt_preview || 'Error loading content',
+          error: error.message
+        });
+      } finally {
+        setLoadingPreview(false);
+      }
+    } else if (source.excerpt_preview) {
+      setPreviewSource(source);
+    }
+  };
 
   const sources = section.ai_reference_sources;
   const metadata = section.ai_generation_metadata || {};
@@ -152,18 +200,47 @@ export default function AISourcesViewer({ section }) {
               </h3>
               <div className="space-y-2">
                 {referenceSources.map((source, idx) => (
-                  <Card key={idx} className="border-purple-200">
+                  <Card key={idx} className="border-purple-200 hover:shadow-md transition-shadow">
                     <CardContent className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">Proposal ID: {source.proposal_id?.substring(0, 8)}...</p>
-                          <p className="text-xs text-slate-600 mt-1">
-                            {source.sections_count} section{source.sections_count !== 1 ? 's' : ''} referenced
-                          </p>
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">
+                              {source.proposal_name || `Proposal ${source.proposal_id?.substring(0, 8)}...`}
+                            </p>
+                            {source.relevance_score && (
+                              <Badge className="bg-green-100 text-green-700 text-xs mt-1">
+                                {source.relevance_score}% match
+                              </Badge>
+                            )}
+                            {source.relevance_reasons && source.relevance_reasons.length > 0 && (
+                              <p className="text-xs text-slate-600 mt-1">
+                                {source.relevance_reasons[0]}
+                              </p>
+                            )}
+                          </div>
+                          <Badge className="bg-purple-100 text-purple-700 text-xs flex-shrink-0">
+                            Weight: {source.weight}
+                          </Badge>
                         </div>
-                        <Badge className="bg-purple-100 text-purple-700 text-xs">
-                          Weight: {source.weight}
-                        </Badge>
+                        
+                        {source.excerpt_preview && (
+                          <div className="p-2 bg-slate-50 rounded text-xs text-slate-700 border">
+                            {source.excerpt_preview}
+                          </div>
+                        )}
+                        
+                        {source.full_content_available && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePreviewSource(source)}
+                            className="w-full text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View Full Content
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -219,6 +296,61 @@ export default function AISourcesViewer({ section }) {
           )}
         </div>
       </SheetContent>
+
+      {/* Source Preview Dialog */}
+      <Dialog open={!!previewSource} onOpenChange={() => setPreviewSource(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {previewSource?.proposal_name || 'Source Content'}
+            </DialogTitle>
+            <DialogDescription>
+              {previewSource?.section_name || 'Referenced content from this proposal'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto">
+            {loadingPreview ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-2" />
+                  <p className="text-sm text-slate-600">Loading content...</p>
+                </div>
+              </div>
+            ) : previewSource?.error ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded">
+                <p className="text-sm text-amber-900">
+                  ⚠️ {previewSource.error}
+                </p>
+                {previewSource.excerpt_preview && (
+                  <div className="mt-3 p-3 bg-white rounded border text-xs">
+                    {previewSource.excerpt_preview}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="prose prose-sm max-w-none p-4">
+                <ReactMarkdown>
+                  {previewSource?.full_content || previewSource?.excerpt_preview || 'No content available'}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+          
+          {previewSource?.relevance_reasons && previewSource.relevance_reasons.length > 0 && (
+            <div className="border-t pt-3 mt-3">
+              <p className="text-xs font-semibold text-slate-700 mb-1">Why this was used:</p>
+              <div className="flex flex-wrap gap-1">
+                {previewSource.relevance_reasons.map((reason, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    {reason}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

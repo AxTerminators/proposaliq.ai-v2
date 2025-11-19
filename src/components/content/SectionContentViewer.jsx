@@ -11,6 +11,7 @@ import AIConfidenceIndicator from "./AIConfidenceIndicator";
 import AIComplianceIssues from "./AIComplianceIssues";
 import SectionHistoryViewer from "./SectionHistoryViewer";
 import AIRegenerateModal from "./AIRegenerateModal";
+import CitationViewer from "./CitationViewer";
 
 /**
  * Section Content Viewer
@@ -80,21 +81,25 @@ export default function SectionContentViewer({ section, proposal, onEdit }) {
 
         {/* AI Metadata Actions */}
         {isAIGenerated && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            <AISourcesViewer section={section} />
-            <AIContentFeedback section={section} />
-            <SectionHistoryViewer section={section} />
-            {proposal && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowRegenerateModal(true)}
-                className="gap-2"
-              >
-                <Sparkles className="w-4 h-4" />
-                Regenerate
-              </Button>
-            )}
+          <div className="space-y-3 mt-4">
+            <div className="flex flex-wrap gap-2">
+              <AISourcesViewer section={section} />
+              <AIContentFeedback section={section} />
+              <SectionHistoryViewer section={section} />
+              {proposal && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRegenerateModal(true)}
+                  className="gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Regenerate
+                </Button>
+              )}
+            </div>
+            
+            <CitationViewer section={section} />
           </div>
         )}
 
