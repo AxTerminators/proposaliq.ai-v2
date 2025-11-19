@@ -67,6 +67,7 @@ import DynamicModalDemo from './pages/DynamicModalDemo';
 import ModalFeatureStatus from './pages/ModalFeatureStatus';
 import ModalBuilder from './pages/ModalBuilder';
 import SuperAdminAiSettings from './pages/SuperAdminAiSettings';
+import AITokenUsageDashboard from './pages/AITokenUsageDashboard';
 import __Layout from './Layout.jsx';
 
 
@@ -140,6 +141,7 @@ export const PAGES = {
     "ModalFeatureStatus": ModalFeatureStatus,
     "ModalBuilder": ModalBuilder,
     "SuperAdminAiSettings": SuperAdminAiSettings,
+    "AITokenUsageDashboard": AITokenUsageDashboard,
 }
 
 export const pagesConfig = {
