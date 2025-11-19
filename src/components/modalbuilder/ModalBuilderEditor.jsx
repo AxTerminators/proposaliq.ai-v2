@@ -19,6 +19,7 @@ import CanvasArea from './CanvasArea';
 import StepManager from './StepManager';
 import LivePreview from './LivePreview';
 import EntityOperationsEditor from './EntityOperationsEditor';
+import { ValidationAlert, validateModalConfig } from './ErrorHandling';
 
 /**
  * Modal Builder Editor
@@ -81,8 +82,10 @@ export default function ModalBuilderEditor({ config, onClose }) {
 
   // Save configuration
   const handleSave = async () => {
-    if (!name.trim()) {
-      alert('Please provide a name for this modal configuration');
+    // Validate before saving
+    const errors = validateModalConfig({ name, description }, fields, steps);
+    if (errors.length > 0) {
+      alert('Please fix the following errors:\n\n' + errors.join('\n'));
       return;
     }
 

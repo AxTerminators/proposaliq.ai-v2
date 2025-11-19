@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 // Modal configuration mapping with descriptions
 // Phase 1: Updated with new templates
@@ -42,6 +43,12 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [aiDescription, setAiDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Fetch custom modal configs
+  const { data: customModals = [] } = useQuery({
+    queryKey: ['modalConfigs'],
+    queryFn: () => base44.entities.ModalConfig.list('-updated_date')
+  });
 
   // Handle drag end for item reordering
   const handleDragEnd = (result) => {
@@ -365,6 +372,29 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
                                               </div>
                                             </SelectItem>
                                           ))}
+                                          {customModals.filter(m => m.is_active).length > 0 && (
+                                            <>
+                                              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 border-t mt-1">
+                                                Custom Modals
+                                              </div>
+                                              {customModals.filter(m => m.is_active).map(modal => (
+                                                <SelectItem key={`CUSTOM_${modal.id}`} value={`CUSTOM_${modal.id}`}>
+                                                  <div className="flex items-center gap-2">
+                                                    {modal.icon_emoji && <span>{modal.icon_emoji}</span>}
+                                                    <div className="flex flex-col py-1">
+                                                      <div className="flex items-center gap-2">
+                                                        <span className="font-medium">{modal.name}</span>
+                                                        <Badge variant="outline" className="text-xs">Custom</Badge>
+                                                      </div>
+                                                      {modal.description && (
+                                                        <span className="text-xs text-slate-500">{modal.description}</span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </SelectItem>
+                                              ))}
+                                            </>
+                                          )}
                                         </SelectContent>
                                       </Select>
                                       {item.associated_action && (

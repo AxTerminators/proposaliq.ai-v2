@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { FileText, Sparkles, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import FileTypeHelper from './FileTypeHelper';
 
 /**
  * File Upload Configuration Component
@@ -64,11 +65,18 @@ export default function FileUploadConfig({ field, onUpdate }) {
   };
 
   return (
-    <div className="space-y-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-      <div className="flex items-center gap-2 mb-2">
-        <FileText className="w-4 h-4 text-indigo-600" />
-        <h5 className="font-semibold text-sm text-slate-900">File Upload Configuration</h5>
-      </div>
+    <div className="space-y-4">
+      {/* AI-Powered Suggestions */}
+      <FileTypeHelper
+        field={field}
+        onApplySuggestion={(config) => onUpdate({ ragConfig: config })}
+      />
+
+      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <FileText className="w-4 h-4 text-indigo-600" />
+          <h5 className="font-semibold text-sm text-slate-900">File Upload Configuration</h5>
+        </div>
 
       {/* File Types */}
       <div>
@@ -161,6 +169,7 @@ export default function FileUploadConfig({ field, onUpdate }) {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
