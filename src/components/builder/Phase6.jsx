@@ -204,9 +204,9 @@ export default function Phase6({ proposalData, setProposalData, proposalId, orga
   const sectionRefs = useRef({});
 
   const [isAIAssistantExpanded, setIsAIAssistantExpanded] = useState(() => {
-    // Load saved preference from localStorage
+    // Load saved preference from localStorage - default to FALSE (minimized) for new users
     const saved = localStorage.getItem('ai-assistant-expanded');
-    return saved !== null ? JSON.parse(saved) : true;
+    return saved !== null ? JSON.parse(saved) : false;
   });
 
   // Save preference to localStorage when it changes
