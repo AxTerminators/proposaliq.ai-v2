@@ -44,6 +44,13 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       }
     }
     
+    // Handle AI trigger items
+    if (item.type === 'ai_trigger' && item.associated_action) {
+      console.log('[ChecklistItem] AI trigger action:', item.associated_action);
+      onItemClick(item);
+      return;
+    }
+    
     // Handle modal_trigger type with DynamicModal integration
     if (item.type === 'modal_trigger' && item.associated_action && openModal) {
       console.log('[ChecklistItem] Opening DynamicModal for:', item.associated_action);
@@ -148,7 +155,12 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       }
     }
     if (item.type === 'ai_trigger') {
-      return item.ai_config?.action === 'generate_content' ? 'Generate' : 'Run AI';
+      try {
+        const config = JSON.parse(item.associated_action);
+        return `Generate ${config.section_type?.replace(/_/g, ' ') || 'Content'}`;
+      } catch {
+        return 'Generate';
+      }
     }
     if (item.type === 'approval_request') {
       return 'Request Approval';
