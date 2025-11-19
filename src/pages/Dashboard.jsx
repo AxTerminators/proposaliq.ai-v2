@@ -34,17 +34,6 @@ export default function Dashboard() {
 
   const isDemoAccount = organization?.organization_type === 'demo';
 
-  // Check if user should see RAG onboarding
-  useEffect(() => {
-    if (!user || !organization || !proposals) return;
-
-    const hasSeenRAGGuide = localStorage.getItem(`rag_guide_seen_${user.email}`);
-    
-    if (!hasSeenRAGGuide && proposals.length >= 1) {
-      setTimeout(() => setShowRAGGuide(true), 1000);
-    }
-  }, [user, organization, proposals]);
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -123,6 +112,17 @@ export default function Dashboard() {
       win_rate: Math.round(winRate)
     });
   }, [proposals]);
+
+  // Check if user should see RAG onboarding
+  useEffect(() => {
+    if (!user || !organization || !proposals) return;
+
+    const hasSeenRAGGuide = localStorage.getItem(`rag_guide_seen_${user.email}`);
+    
+    if (!hasSeenRAGGuide && proposals.length >= 1) {
+      setTimeout(() => setShowRAGGuide(true), 1000);
+    }
+  }, [user, organization, proposals]);
 
   const handleCreateProposal = () => {
     // Check if user is using sample data
