@@ -35,6 +35,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  shouldExecuteOperation,
+  resolveEntityId,
+  applyAdvancedMappings,
+  buildEntityData
+} from './phase5Utils';
 
 /**
  * DynamicModal Component
@@ -411,11 +417,75 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     setIsSubmitting(true);
 
     try {
-      await config.onSubmit(formData);
+      // Phase 5: Apply advanced field mappings (computed values)
+      const processedFormData = applyAdvancedMappings(
+        config.fields || [], 
+        formData, 
+        config.fields || []
+      );
+
+      // Execute primary submission
+      await config.onSubmit(processedFormData);
+
+      // Phase 5: Execute entity operations with conditional logic
+      if (config.entityOperations && config.entityOperations.length > 0) {
+        console.log('[DynamicModal] Processing entity operations...');
+        
+        for (const operation of config.entityOperations) {
+          // Check if operation should execute based on conditions
+          const shouldExecute = shouldExecuteOperation(
+            operation, 
+            processedFormData, 
+            config.fields || []
+          );
+
+          if (!shouldExecute) {
+            console.log(`[DynamicModal] Skipping operation on ${operation.entity} - conditions not met`);
+            continue;
+          }
+
+          console.log(`[DynamicModal] Executing ${operation.type} on ${operation.entity}`);
+
+          // Build entity data from field mappings
+          const entityData = buildEntityData(
+            processedFormData,
+            operation.fieldMappings || [],
+            config.fields || []
+          );
+
+          // Add organization_id if needed
+          if (organization?.id) {
+            entityData.organization_id = organization.id;
+          }
+
+          // Execute operation
+          if (operation.type === 'create') {
+            await base44.entities[operation.entity].create(entityData);
+            console.log(`[DynamicModal] Created ${operation.entity}:`, entityData);
+          } else if (operation.type === 'update') {
+            // Resolve entity ID for update
+            const entityId = resolveEntityId(
+              operation,
+              processedFormData,
+              { proposal: config.proposal, organization, user },
+              config.fields || []
+            );
+
+            if (!entityId) {
+              console.error(`[DynamicModal] Cannot resolve entity ID for update on ${operation.entity}`);
+              toast.error(`Failed to identify ${operation.entity} to update`);
+              continue;
+            }
+
+            await base44.entities[operation.entity].update(entityId, entityData);
+            console.log(`[DynamicModal] Updated ${operation.entity} (${entityId}):`, entityData);
+          }
+        }
+      }
       
       // Track successful submission with snapshot for version history
       if (tracking) {
-        await tracking.trackSubmit(formData);
+        await tracking.trackSubmit(processedFormData);
       }
       
       toast.success(config.successMessage || 'Saved successfully');
