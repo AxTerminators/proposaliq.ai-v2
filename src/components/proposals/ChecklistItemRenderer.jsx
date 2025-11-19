@@ -84,9 +84,19 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     if (isNavigateAction(item.associated_action)) {
       // Navigate to the specified page with proposal ID
       if (!proposal?.id) {
-        console.error('[ChecklistItem] Cannot navigate: proposal ID is missing');
+        console.error('[ChecklistItem] Cannot navigate: proposal ID is missing', proposal);
         return;
       }
+      
+      // Handle dedicated full-screen pages (Phase 5, Phase 6)
+      if (action.path === 'ProposalStrategyConfigPage' || action.path === 'AIAssistedWriterPage') {
+        console.log('[ChecklistItem] 🚀 Navigating to full-screen page:', action.path, 'proposalId:', proposal.id);
+        const url = `${createPageUrl(action.path)}?proposalId=${proposal.id}`;
+        console.log('[ChecklistItem] 🔗 Full URL:', url);
+        window.location.href = url;
+        return;
+      }
+      
       const url = `${createPageUrl(action.path)}?id=${proposal.id}`;
       console.log('[ChecklistItem] Navigating to:', url, 'Proposal ID:', proposal.id);
       navigate(url);
