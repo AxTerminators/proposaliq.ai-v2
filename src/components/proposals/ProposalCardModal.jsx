@@ -69,6 +69,8 @@ import WinToPromoteDialog from "./WinToPromoteDialog";
 import ApprovalGate from "./ApprovalGate";
 import DynamicModal from "./modals/DynamicModal";
 import { useChecklistModal } from "./modals/ChecklistIntegration";
+import AIGenerationModal from "../content/AIGenerationModal";
+import SectionContentViewer from "../content/SectionContentViewer";
 
 import {
   Select,
@@ -94,6 +96,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [approvalGateData, setApprovalGateData] = useState(null);
   const [showIncompleteTasksConfirm, setShowIncompleteTasksConfirm] = useState(false);
   const [pendingStageMove, setPendingStageMove] = useState(null);
+  const [showAIGenerationModal, setShowAIGenerationModal] = useState(false);
+  const [selectedAISectionType, setSelectedAISectionType] = useState(null);
 
   // NEW: Proposal name editing state
   const [isEditingName, setIsEditingName] = useState(false);
@@ -793,7 +797,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
   };
 
-  // Handle AI trigger actions - Enhanced for Phase 3
+  // Handle AI trigger actions - Enhanced with UI Modal
   const handleAITrigger = async (item) => {
     let actionConfig;
     try {
@@ -804,54 +808,12 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return;
     }
 
-    const action = actionConfig.action || 'generate_section';
     const sectionType = actionConfig.section_type;
     
-    toast.info(`🤖 Generating ${sectionType?.replace(/_/g, ' ') || 'content'}...`, {
-      description: 'AI is generating your proposal content',
-      duration: 5000,
-    });
-
-    try {
-      // Call the AI Proposal Writer backend function
-      const response = await base44.functions.invoke('aiProposalWriter', {
-        proposalId: proposal.id,
-        sectionType: sectionType,
-        generationParams: {},
-        userEmail: user?.email,
-        agentTriggered: false
-      });
-
-      if (response.data.success) {
-        toast.success(`✅ ${sectionType?.replace(/_/g, ' ')} generated successfully!`, {
-          description: `${response.data.word_count} words | Confidence: ${response.data.confidence_score || 'N/A'}%`,
-          duration: 5000,
-        });
-
-        // Show compliance issues if any
-        if (response.data.compliance_issues && response.data.compliance_issues.length > 0) {
-          const highIssues = response.data.compliance_issues.filter(i => i.severity === 'high');
-          if (highIssues.length > 0) {
-            toast.warning(`⚠️ ${highIssues.length} compliance issue(s) found`, {
-              description: 'Review the generated content for compliance',
-              duration: 5000,
-            });
-          }
-        }
-
-        // Mark as complete
-        await handleTaskCompletion(item.id);
-        
-        // Refresh proposal data
-        await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
-      } else {
-        toast.error('Failed to generate content');
-      }
-      
-    } catch (error) {
-      console.error('[ProposalCardModal] AI generation error:', error);
-      toast.error(error.message || 'Failed to generate content. Please try again.');
-    }
+    // Open the AI Generation Modal instead of immediate generation
+    setSelectedAISectionType(sectionType);
+    setActiveChecklistItemId(item.id);
+    setShowAIGenerationModal(true);
   };
 
   // Handle approval request actions
@@ -1667,7 +1629,32 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
               </TabsContent>
 
               <TabsContent value="quick-actions" className="mt-0 p-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-6">
+                  {/* AI Content Generation Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-600" />
+                      AI Content Generation
+                    </h3>
+                    <Button
+                      onClick={() => {
+                        setSelectedAISectionType('executive_summary');
+                        setShowAIGenerationModal(true);
+                      }}
+                      className="w-full h-16 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 justify-start gap-3"
+                    >
+                      <Sparkles className="w-6 h-6" />
+                      <div className="text-left">
+                        <div className="font-semibold">Generate Content with AI</div>
+                        <div className="text-xs opacity-90">Create proposal sections using AI</div>
+                      </div>
+                    </Button>
+                  </div>
+
+                  {/* Other Quick Actions */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Other Actions</h3>
+                    <div className="grid grid-cols-2 gap-4">
                   <Button
                     onClick={() => {
                       navigate(createPageUrl("proposals/WriteContentStandalone") + `?id=${proposal.id}`);
@@ -1733,6 +1720,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     <Upload className="w-8 h-8" />
                     <span>Export Proposal</span>
                   </Button>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -1898,6 +1887,29 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
           onClose={() => setShowWinPromoteDialog(false)}
           proposal={proposal}
           organization={organization}
+        />
+      )}
+
+      {/* AI Generation Modal */}
+      {showAIGenerationModal && (
+        <AIGenerationModal
+          isOpen={showAIGenerationModal}
+          onClose={() => {
+            setShowAIGenerationModal(false);
+            setSelectedAISectionType(null);
+            setActiveChecklistItemId(null);
+          }}
+          proposal={proposal}
+          onSuccess={async (data) => {
+            // Mark checklist item as complete if triggered from checklist
+            if (activeChecklistItemId) {
+              await handleTaskCompletion(activeChecklistItemId);
+            }
+            
+            // Refresh proposal sections
+            await queryClient.invalidateQueries({ queryKey: ['proposalSections', proposal.id] });
+            await queryClient.invalidateQueries({ queryKey: ['proposal-modal', proposal.id] });
+          }}
         />
       )}
     </>
