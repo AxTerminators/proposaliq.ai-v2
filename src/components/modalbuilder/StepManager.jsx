@@ -8,10 +8,9 @@ import {
   Plus, 
   Trash2, 
   GripVertical,
-  Layers,
-  ChevronUp,
-  ChevronDown
+  Layers
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
 
 /**
@@ -46,11 +45,14 @@ export default function StepManager({ steps, onUpdateSteps, fields, onUpdateFiel
     onUpdateSteps(steps.filter((_, i) => i !== index));
   };
 
-  const handleMoveStep = (index, direction) => {
-    const newSteps = [...steps];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    [newSteps[index], newSteps[targetIndex]] = [newSteps[targetIndex], newSteps[index]];
-    onUpdateSteps(newSteps);
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    
+    const items = Array.from(steps);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    onUpdateSteps(items);
   };
 
   const getStepFieldCount = (stepId) => {
@@ -78,32 +80,36 @@ export default function StepManager({ steps, onUpdateSteps, fields, onUpdateFiel
   }
 
   return (
-    <div className="space-y-3">
-      {steps.map((step, index) => (
-        <Card key={step.id} className="border-purple-200">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex flex-col gap-1 pt-2">
-                <GripVertical className="w-4 h-4 text-slate-400 cursor-move" />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => handleMoveStep(index, 'up')}
-                  disabled={index === 0}
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => handleMoveStep(index, 'down')}
-                  disabled={index === steps.length - 1}
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </div>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <Droppable droppableId="steps">
+        {(provided, snapshot) => (
+          <div 
+            {...provided.droppableProps}
+            ref={provided.innerRef}
+            className={cn(
+              "space-y-3",
+              snapshot.isDraggingOver && "bg-purple-50/50 rounded-lg"
+            )}
+          >
+            {steps.map((step, index) => (
+              <Draggable key={step.id} draggableId={step.id} index={index}>
+                {(provided, snapshot) => (
+                  <Card 
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    className={cn(
+                      "border-purple-200",
+                      snapshot.isDragging && "shadow-lg ring-2 ring-purple-400"
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div 
+                          {...provided.dragHandleProps}
+                          className="flex flex-col gap-1 pt-2 cursor-grab active:cursor-grabbing"
+                        >
+                          <GripVertical className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+                        </div>
 
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
@@ -144,12 +150,15 @@ export default function StepManager({ steps, onUpdateSteps, fields, onUpdateFiel
                 className="text-red-600 hover:text-red-700"
               >
                 <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </Draggable>
       ))}
-
+      {provided.placeholder}
+      
       <Button
         variant="outline"
         onClick={handleAddStep}
@@ -159,5 +168,8 @@ export default function StepManager({ steps, onUpdateSteps, fields, onUpdateFiel
         Add Step
       </Button>
     </div>
+  )}
+</Droppable>
+</DragDropContext>
   );
 }
