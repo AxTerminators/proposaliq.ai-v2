@@ -71,7 +71,22 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const modalId = config?.modalId || `${config?.proposalId}_${config?.title?.replace(/\s+/g, '_')}`;
   const autosave = useAutosave(modalId, formData, isOpen);
 
-  // Initialize form data from field defaults or load draft
+  // Helper to get context value from proposal/organization/user
+  const getContextValue = (source, path) => {
+    switch (source) {
+      case 'proposal':
+        // TODO: Load proposal data if needed
+        return undefined;
+      case 'organization':
+        return organization?.[path];
+      case 'user':
+        return user?.[path];
+      default:
+        return undefined;
+    }
+  };
+
+  // Initialize form data from field defaults, context pre-fill, or load draft
   useEffect(() => {
     if (!config?.fields) return;
     
@@ -79,10 +94,18 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     if (autosave.hasDraft()) {
       setShowDraftDialog(true);
     } else {
-      // Initialize with defaults
+      // Initialize with defaults and context pre-fill
       const initialData = {};
       config.fields.forEach(field => {
-        if (field.default !== undefined) {
+        // Context pre-fill takes precedence over defaults
+        if (field.prefillFromContext && field.prefillSource && field.prefillPath) {
+          const contextValue = getContextValue(field.prefillSource, field.prefillPath);
+          if (contextValue !== undefined) {
+            initialData[field.name] = contextValue;
+          } else if (field.default !== undefined) {
+            initialData[field.name] = field.default;
+          }
+        } else if (field.default !== undefined) {
           initialData[field.name] = field.default;
         }
       });
