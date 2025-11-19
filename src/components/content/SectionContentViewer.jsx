@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sparkles, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -8,12 +9,16 @@ import AISourcesViewer from "./AISourcesViewer";
 import AIContentFeedback from "./AIContentFeedback";
 import AIConfidenceIndicator from "./AIConfidenceIndicator";
 import AIComplianceIssues from "./AIComplianceIssues";
+import SectionHistoryViewer from "./SectionHistoryViewer";
+import AIRegenerateModal from "./AIRegenerateModal";
 
 /**
  * Section Content Viewer
  * Displays proposal section content with AI metadata, sources, and feedback
  */
-export default function SectionContentViewer({ section, onEdit }) {
+export default function SectionContentViewer({ section, proposal, onEdit }) {
+  const [showRegenerateModal, setShowRegenerateModal] = React.useState(false);
+
   if (!section) {
     return (
       <Card className="border-2 border-dashed">
@@ -78,6 +83,18 @@ export default function SectionContentViewer({ section, onEdit }) {
           <div className="flex flex-wrap gap-2 mt-4">
             <AISourcesViewer section={section} />
             <AIContentFeedback section={section} />
+            <SectionHistoryViewer section={section} />
+            {proposal && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRegenerateModal(true)}
+                className="gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                Regenerate
+              </Button>
+            )}
           </div>
         )}
 
@@ -94,6 +111,16 @@ export default function SectionContentViewer({ section, onEdit }) {
           <ReactMarkdown>{section.content || '*No content*'}</ReactMarkdown>
         </div>
       </CardContent>
+
+      {/* Regenerate Modal */}
+      {showRegenerateModal && proposal && (
+        <AIRegenerateModal
+          isOpen={showRegenerateModal}
+          onClose={() => setShowRegenerateModal(false)}
+          section={section}
+          proposal={proposal}
+        />
+      )}
     </Card>
   );
 }
