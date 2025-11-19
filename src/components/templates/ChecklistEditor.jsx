@@ -141,21 +141,36 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
 
           <div className="space-y-4 py-4">
             {/* Add New Item */}
-            <div className="flex gap-2">
-              <Input
-                value={newItemLabel}
-                onChange={(e) => setNewItemLabel(e.target.value)}
-                placeholder="Enter checklist item label..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddItem();
-                  }
-                }}
-              />
-              <Button onClick={handleAddItem} disabled={!newItemLabel.trim()}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add
-              </Button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Add Checklist Item</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-slate-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">Enter a label like "Upload RFP" or "Add Team Member", then configure the action type and behavior below.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newItemLabel}
+                  onChange={(e) => setNewItemLabel(e.target.value)}
+                  placeholder="e.g., Upload Solicitation Document, Add Teaming Partner..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddItem();
+                    }
+                  }}
+                />
+                <Button onClick={handleAddItem} disabled={!newItemLabel.trim()}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </div>
             </div>
 
             {/* Checklist Items */}
