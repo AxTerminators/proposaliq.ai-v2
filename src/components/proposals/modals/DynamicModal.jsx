@@ -22,6 +22,8 @@ import { base44 } from '@/api/base44Client';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronRight, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useModalTracking } from './useModalTracking';
+import { useOrganization } from '../../layout/OrganizationContext';
 
 /**
  * DynamicModal Component
@@ -41,6 +43,7 @@ import { cn } from '@/lib/utils';
  *   }
  */
 export default function DynamicModal({ isOpen, onClose, config }) {
+  const { organization, user } = useOrganization();
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +51,9 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const [extractedData, setExtractedData] = useState(null); // Store extracted data from documents
   const [showReviewMode, setShowReviewMode] = useState(false); // Show review before final save
   const [currentStep, setCurrentStep] = useState(0); // For multi-step forms
+
+  // Phase 5: Track modal interactions
+  const tracking = useModalTracking(config, isOpen, organization?.id, config?.proposalId, user);
 
   // Initialize form data from field defaults
   useEffect(() => {
@@ -183,6 +189,11 @@ export default function DynamicModal({ isOpen, onClose, config }) {
           } else {
             toast.success(`${file.name} uploaded and indexed for AI`);
           }
+          
+          // Track upload success
+          if (tracking) {
+            tracking.trackUploadSuccess(file.name);
+          }
         } else {
           throw new Error(ragResult.data?.error || 'RAG ingestion failed');
         }
@@ -210,6 +221,11 @@ export default function DynamicModal({ isOpen, onClose, config }) {
         [fieldName]: { status: 'error', progress: 0, error: errorMessage }
       }));
       toast.error(`Upload failed: ${errorMessage}`);
+      
+      // Track upload error
+      if (tracking) {
+        tracking.trackUploadError(file.name, errorMessage);
+      }
     }
   };
 
@@ -292,6 +308,12 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     });
 
     setErrors(newErrors);
+    
+    // Track validation errors
+    if (Object.keys(newErrors).length > 0 && tracking) {
+      tracking.trackValidationError(newErrors);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
@@ -320,6 +342,12 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
     try {
       await config.onSubmit(formData);
+      
+      // Track successful submission
+      if (tracking) {
+        await tracking.trackSubmit(formData);
+      }
+      
       toast.success(config.successMessage || 'Saved successfully');
       onClose();
       // Reset state on successful save
@@ -668,7 +696,14 @@ export default function DynamicModal({ isOpen, onClose, config }) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (tracking) tracking.trackCancel();
+              onClose();
+            }}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
           {isMultiStep && currentStep > 0 && (
