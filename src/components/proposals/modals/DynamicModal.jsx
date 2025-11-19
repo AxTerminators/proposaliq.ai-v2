@@ -44,6 +44,8 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStates, setUploadStates] = useState({}); // Track file upload progress
+  const [extractedData, setExtractedData] = useState(null); // Store extracted data from documents
+  const [showReviewMode, setShowReviewMode] = useState(false); // Show review before final save
 
   // Initialize form data from field defaults
   useEffect(() => {
@@ -134,7 +136,8 @@ export default function DynamicModal({ isOpen, onClose, config }) {
             description: fieldConfig.description || null,
             folder_id: fieldConfig.folder_id || null,
             tags: fieldConfig.tags || []
-          }
+          },
+          extract_data_schema: fieldConfig.extract_data_schema || null
         });
 
         if (ragResult.data?.status === 'success') {
@@ -156,7 +159,27 @@ export default function DynamicModal({ isOpen, onClose, config }) {
             [fieldName]: { status: 'success', progress: 100 }
           }));
 
-          toast.success(`${file.name} uploaded and indexed for AI`);
+          // If data was extracted, pre-populate fields and show review mode
+          if (ragResult.data?.parsing?.extracted_data && fieldConfig.extract_data_schema) {
+            const extracted = ragResult.data.parsing.extracted_data;
+            console.log('[DynamicModal] Pre-populating fields with extracted data:', extracted);
+            
+            setExtractedData(extracted);
+            
+            // Auto-populate form fields that match extracted data keys
+            const newFormData = { ...formData };
+            Object.keys(extracted).forEach(key => {
+              if (config.fields.find(f => f.name === key)) {
+                newFormData[key] = extracted[key];
+              }
+            });
+            setFormData(newFormData);
+            
+            setShowReviewMode(true);
+            toast.success(`${file.name} uploaded - Review extracted data`);
+          } else {
+            toast.success(`${file.name} uploaded and indexed for AI`);
+          }
         } else {
           throw new Error(ragResult.data?.error || 'RAG ingestion failed');
         }
@@ -462,6 +485,16 @@ export default function DynamicModal({ isOpen, onClose, config }) {
           {config.description && (
             <p className="text-sm text-slate-500 mt-2">{config.description}</p>
           )}
+          {showReviewMode && extractedData && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm font-medium text-blue-900">
+                ✓ Data extracted from document
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Review and edit the pre-populated fields below before saving
+              </p>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -478,6 +511,8 @@ export default function DynamicModal({ isOpen, onClose, config }) {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Saving...
               </>
+            ) : showReviewMode ? (
+              'Confirm & Save'
             ) : (
               'Save'
             )}

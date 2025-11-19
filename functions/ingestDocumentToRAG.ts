@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
       file_size,
       proposal_id,
       entity_type = 'ProposalResource', // 'ProposalResource' or 'SolicitationDocument'
-      entity_metadata = {} // Additional metadata for entity creation
+      entity_metadata = {}, // Additional metadata for entity creation
+      extract_data_schema = null // JSON schema for structured data extraction
     } = await req.json();
 
     if (!file_url || !file_name) {
@@ -83,6 +84,23 @@ Deno.serve(async (req) => {
           extracted_data = parseResult.data.extracted_data;
           parse_status = 'success';
           console.log('[ingestDocumentToRAG] ✅ Parsed successfully:', parsed_text?.length, 'chars');
+
+          // If custom extraction schema provided, use LLM to extract structured data
+          if (extract_data_schema && parsed_text) {
+            try {
+              console.log('[ingestDocumentToRAG] 🤖 Extracting structured data with LLM...');
+              
+              const extractResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+                prompt: `Extract the following information from this document:\n\n${parsed_text.substring(0, 8000)}`,
+                response_json_schema: extract_data_schema
+              });
+
+              extracted_data = { ...extracted_data, ...extractResult };
+              console.log('[ingestDocumentToRAG] ✅ Structured data extracted:', Object.keys(extractResult).length, 'fields');
+            } catch (extractError) {
+              console.warn('[ingestDocumentToRAG] ⚠️ Structured extraction failed:', extractError.message);
+            }
+          }
         } else {
           parse_status = 'failed';
           console.warn('[ingestDocumentToRAG] ⚠️ Parse failed:', parseResult.data?.error);
