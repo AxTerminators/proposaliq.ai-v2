@@ -1690,6 +1690,11 @@ The content should be ready to insert into the proposal document. Use HTML forma
           sectionName={sourceSectionName}
         />
 
+        {/* Floating AI Assistant Toggle Button */}
+        {!isAIAssistantExpanded && (
+          <FloatingAIAssistantToggle onExpand={() => setIsAIAssistantExpanded(true)} />
+        )}
+
         <div className="flex gap-4 pt-6 border-t">
           <Button
             size="lg"
