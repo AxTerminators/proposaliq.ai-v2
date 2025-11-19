@@ -208,7 +208,25 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
                                   
                                   {/* Item Type Selector */}
                                   <div className="space-y-2">
-                                    <Label className="text-xs">Item Type</Label>
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-xs">Item Type</Label>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" />
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p className="text-xs font-semibold mb-1">Choose the action type:</p>
+                                            <ul className="text-xs space-y-1">
+                                              <li>• <strong>Manual Check:</strong> User manually marks complete</li>
+                                              <li>• <strong>Open Modal:</strong> Opens a form or file upload</li>
+                                              <li>• <strong>AI Action:</strong> Triggers AI analysis or generation</li>
+                                              <li>• <strong>Approval Request:</strong> Requires role-based approval</li>
+                                            </ul>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
                                     <Select 
                                       value={item.type} 
                                       onValueChange={(val) => handleUpdateType(item.id, val)}
