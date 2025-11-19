@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ChevronRight, ChevronLeft, X, HelpCircle } from 'lucide-react';
+
+const TOUR_STEPS = [
+  {
+    id: 'welcome',
+    title: 'Welcome to Modal Builder',
+    description: 'This guided tour will help you create powerful, dynamic forms for your proposals. Let\'s get started!',
+    target: null,
+  },
+  {
+    id: 'basic-info',
+    title: 'Step 1: Basic Information',
+    description: 'Start by giving your modal a clear name and description. Choose an emoji icon to help identify it quickly.',
+    target: 'basic-info-section',
+    highlightRequired: ['name', 'description'],
+  },
+  {
+    id: 'fields',
+    title: 'Step 2: Add Form Fields',
+    description: 'Drag field types from the palette on the left or click them to add to your form. Then configure each field\'s properties.',
+    target: 'fields-tab',
+    highlightRequired: ['field-palette', 'canvas-area'],
+  },
+  {
+    id: 'field-config',
+    title: 'Step 3: Configure Fields',
+    description: 'Click on any field in the canvas to edit its properties: label, placeholder, validation rules, and more.',
+    target: 'canvas-area',
+  },
+  {
+    id: 'steps',
+    title: 'Step 4: Multi-Step Forms (Optional)',
+    description: 'Create multi-step forms by organizing your fields into logical sections. This is optional for simple forms.',
+    target: 'steps-tab',
+  },
+  {
+    id: 'operations',
+    title: 'Step 5: Entity Operations',
+    description: 'Define what happens when the form is submitted: create/update database records, send webhooks, or trigger emails.',
+    target: 'operations-tab',
+    highlightRequired: ['entity-operations'],
+  },
+  {
+    id: 'validation',
+    title: 'Step 6: Check Completion Status',
+    description: 'Use the health indicator in the top-right to see what\'s missing. Green checkmarks mean you\'re ready to save!',
+    target: 'health-indicator',
+  },
+  {
+    id: 'complete',
+    title: 'You\'re Ready!',
+    description: 'Click "Save Modal" when all required sections are complete. You can restart this tour anytime from the help button.',
+    target: null,
+  },
+];
+
+export default function ModalBuilderGuide({ isOpen, onClose, onStepChange }) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [hasSeenGuide, setHasSeenGuide] = useState(false);
+
+  useEffect(() => {
+    // Check if user has seen guide before
+    const seen = localStorage.getItem('hasSeenModalBuilderGuide');
+    if (seen === 'true') {
+      setHasSeenGuide(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (onStepChange && isOpen) {
+      onStepChange(TOUR_STEPS[currentStep]);
+    }
+  }, [currentStep, isOpen, onStepChange]);
+
+  const handleNext = () => {
+    if (currentStep < TOUR_STEPS.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleComplete();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleComplete = () => {
+    localStorage.setItem('hasSeenModalBuilderGuide', 'true');
+    setHasSeenGuide(true);
+    setCurrentStep(0);
+    onClose();
+  };
+
+  const handleSkip = () => {
+    localStorage.setItem('hasSeenModalBuilderGuide', 'true');
+    setHasSeenGuide(true);
+    setCurrentStep(0);
+    onClose();
+  };
+
+  const step = TOUR_STEPS[currentStep];
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl">{step.title}</DialogTitle>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">
+                Step {currentStep + 1} of {TOUR_STEPS.length}
+              </span>
+            </div>
+          </div>
+          <DialogDescription className="text-base pt-2">
+            {step.description}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Progress indicator */}
+        <div className="flex gap-1 py-4">
+          {TOUR_STEPS.map((s, idx) => (
+            <div
+              key={s.id}
+              className={`h-2 flex-1 rounded-full transition-colors ${
+                idx === currentStep
+                  ? 'bg-blue-600'
+                  : idx < currentStep
+                  ? 'bg-blue-300'
+                  : 'bg-slate-200'
+              }`}
+            />
+          ))}
+        </div>
+
+        <DialogFooter className="flex justify-between items-center">
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            className="text-slate-500"
+          >
+            Skip Tour
+          </Button>
+          <div className="flex gap-2">
+            {currentStep > 0 && (
+              <Button variant="outline" onClick={handleBack}>
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            )}
+            <Button onClick={handleNext}>
+              {currentStep === TOUR_STEPS.length - 1 ? (
+                'Get Started'
+              ) : (
+                <>
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Helper component to trigger guide from anywhere
+export function GuideButton({ onClick }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      className="gap-2"
+    >
+      <HelpCircle className="w-4 h-4" />
+      Guide
+    </Button>
+  );
+}
