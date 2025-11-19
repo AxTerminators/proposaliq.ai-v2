@@ -71,12 +71,17 @@ export const ACTION_REGISTRY = {
   },
   
   // ============================================
-  // COLUMN 6: STRATEGY - Win Strategy
+  // COLUMN 6: STRATEGY - Win Strategy (Phase 5)
   // ============================================
   'open_win_strategy_modal': {
     type: 'modal',
     component: WinStrategyModal,
     label: 'Develop Win Strategy'
+  },
+  'navigate_strategy_config': {
+    type: 'navigate',
+    path: 'ProposalStrategyConfigPage',
+    label: 'Configure AI Strategy (Phase 5)'
   },
   'generate_win_themes_phase5': {
     type: 'ai',
