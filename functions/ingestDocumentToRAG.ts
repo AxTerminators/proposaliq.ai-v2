@@ -211,10 +211,24 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('[ingestDocumentToRAG] ❌ Error:', error);
-    return Response.json({
-      status: 'error',
-      error: error.message,
-      stack: error.stack
-    }, { status: 500 });
+    
+    // Provide more specific error messages
+    let errorMessage = error.message || 'Unknown error occurred';
+    if (error.message?.includes('authentication')) {
+      errorMessage = 'Authentication failed. Please try again.';
+    } else if (error.message?.includes('network')) {
+      errorMessage = 'Network error. Please check your connection.';
+    } else if (error.message?.includes('parse')) {
+      errorMessage = 'Failed to parse document. Please check file format.';
+    }
+    
+    return Response.json(
+      { 
+        status: 'error', 
+        error: errorMessage,
+        details: error.message
+      },
+      { status: 500 }
+    );
   }
 });
