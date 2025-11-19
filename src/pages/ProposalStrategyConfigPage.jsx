@@ -11,7 +11,7 @@ import Phase5 from "@/components/builder/Phase5";
 import AIWorkflowErrorBoundary from "@/components/proposals/AIWorkflowErrorBoundary";
 
 export default function ProposalStrategyConfigPage() {
-  const { currentOrganization } = useOrganization();
+  const { organization } = useOrganization();
   
   // Get proposalId from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -72,7 +72,7 @@ export default function ProposalStrategyConfigPage() {
   }
 
   // No organization
-  if (!currentOrganization) {
+  if (!organization) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <Card className="w-full max-w-2xl">
@@ -118,7 +118,7 @@ export default function ProposalStrategyConfigPage() {
             proposalData={proposal}
             setProposalData={() => {}}
             proposalId={proposalId}
-            organizationId={currentOrganization.id}
+            organizationId={organization.id}
             onSaveAndGoToPipeline={handleSaveAndReturn}
           />
         </div>
