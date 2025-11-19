@@ -116,6 +116,7 @@ const ALL_NAVIGATION_ITEMS = [
 const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
   { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
+  { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit },
 ];
 
 function LayoutContent({ children, currentPageName }) {
