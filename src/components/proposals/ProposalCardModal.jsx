@@ -716,20 +716,26 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     // Handle modal trigger items
     if (item.type === 'modal_trigger' && item.associated_action) {
-      // Try new DynamicModal system first
-      try {
-        openModal(item.associated_action);
-        setActiveChecklistItemId(item.id);
-        return;
-      } catch (error) {
-        // Fall back to legacy modal system
-        console.log('[ProposalCardModal] Using legacy modal for:', item.associated_action);
-        const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
-        if (modalName && MODAL_COMPONENTS[modalName]) {
+      // Check if action maps to new DynamicModal system
+      const templateKey = item.associated_action;
+      const hasDynamicModal = openModal && typeof openModal === 'function';
+      
+      if (hasDynamicModal) {
+        try {
           setActiveChecklistItemId(item.id);
-          setActiveModalName(modalName);
+          openModal(templateKey);
           return;
+        } catch (error) {
+          console.log('[ProposalCardModal] DynamicModal not available, using legacy');
         }
+      }
+      
+      // Fall back to legacy modal system
+      const modalName = ACTION_TO_MODAL_MAP[item.associated_action];
+      if (modalName && MODAL_COMPONENTS[modalName]) {
+        setActiveChecklistItemId(item.id);
+        setActiveModalName(modalName);
+        return;
       }
     }
 
@@ -1758,16 +1764,17 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       {renderActiveModal()}
       
       {/* DynamicModal Integration */}
-      <DynamicModal 
-        {...modalProps} 
-        onClose={() => {
-          modalProps.onClose();
-          // Mark the checklist item as complete after modal submission
-          if (activeChecklistItemId) {
-            handleTaskCompletion(activeChecklistItemId);
-          }
-        }}
-      />
+      {modalProps && (
+        <DynamicModal 
+          isOpen={modalProps.isOpen}
+          config={modalProps.config}
+          onClose={() => {
+            if (modalProps.onClose) {
+              modalProps.onClose();
+            }
+          }}
+        />
+      )}
       
       {showWinPromoteDialog && (
         <WinToPromoteDialog
