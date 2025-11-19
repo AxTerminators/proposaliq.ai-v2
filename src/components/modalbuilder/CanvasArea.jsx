@@ -92,7 +92,12 @@ export default function CanvasArea({
               {/* Field Preview */}
               <div className="flex-1">
                 <div className="mb-3">
-                  <Label className="text-sm font-semibold text-slate-900">
+                  <Label 
+                    className="text-sm font-semibold text-slate-900 cursor-pointer hover:text-blue-600 transition-colors"
+                    onClick={() => setSelectedFieldId(
+                      selectedFieldId === field.id ? null : field.id
+                    )}
+                  >
                     {field.label}
                     {field.required && <span className="text-red-500 ml-1">*</span>}
                   </Label>
