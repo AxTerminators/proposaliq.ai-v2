@@ -347,6 +347,11 @@ export default function RAGPerformanceDashboard() {
           </Card>
         </div>
 
+        {/* Cache Management */}
+        {organization && (
+          <CacheManagementPanel organizationId={organization.id} />
+        )}
+
         {/* Insights */}
         <Card className="border-green-200 bg-green-50/30">
           <CardHeader>
