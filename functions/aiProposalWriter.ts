@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     // ============================================
     // STEP 3: GATHER CONTEXT FROM MULTIPLE SOURCES
     // ============================================
-    const context = await gatherContext(base44, proposalData, finalConfig);
+    const context = await gatherContext(base44, proposalData, finalConfig, sectionType);
     
     // ============================================
     // STEP 4: CONSTRUCT PROMPT
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     // STEP 7: RUN COMPLIANCE CHECK (if enabled)
     // ============================================
     const complianceIssues = finalConfig.enable_compliance_check
-      ? await checkCompliance(generatedContent, context.solicitationContent, finalConfig)
+      ? await checkCompliance(generatedContent, context, finalConfig)
       : [];
 
     // ============================================
@@ -230,52 +230,95 @@ async function getAiConfiguration(base44, organizationId) {
 
 /**
  * Gather context from multiple sources with prioritization
+ * Enhanced with solicitation parsing, RAG search, and intelligent content selection
  */
-async function gatherContext(base44, proposal, config) {
+async function gatherContext(base44, proposal, config, sectionType) {
   const context = {
     solicitationContent: '',
+    solicitationRequirements: [],
     referenceContent: '',
     contentLibraryContent: '',
     sources: [],
     summary: '',
     referenceProposalsCount: 0,
     truncated: false,
+    totalTokensEstimate: 0,
   };
 
+  const MAX_CONTEXT_TOKENS = 8000; // Reserve space for prompt and response
+  let currentTokens = 0;
+
   try {
+    // ============================================
     // Priority 1: Solicitation Documents (highest weight)
+    // ============================================
     if (config.use_solicitation_parsing) {
       const solicitationDocs = await base44.asServiceRole.entities.SolicitationDocument.filter({
         proposal_id: proposal.id
       });
       
       if (solicitationDocs && solicitationDocs.length > 0) {
-        context.solicitationContent = solicitationDocs.map(doc => 
-          `Document: ${doc.file_name}\n[Content would be parsed from file_url: ${doc.file_url}]`
-        ).join('\n\n');
-        
-        context.sources.push(...solicitationDocs.map(doc => ({
-          type: 'solicitation',
-          name: doc.file_name,
-          weight: config.context_priority_weights?.solicitation_weight || 1.0
-        })));
+        for (const doc of solicitationDocs) {
+          // Attempt to parse DOCX content
+          const parsedContent = await parseSolicitationDocument(base44, doc);
+          
+          if (parsedContent) {
+            // Extract key requirements
+            const requirements = extractRequirements(parsedContent, sectionType);
+            context.solicitationRequirements.push(...requirements);
+            
+            // Add relevant excerpts
+            const relevantExcerpts = extractRelevantExcerpts(parsedContent, sectionType);
+            context.solicitationContent += `\n[${doc.file_name}]\n${relevantExcerpts}\n`;
+            
+            currentTokens += Math.ceil(relevantExcerpts.length / 4);
+          } else {
+            // Fallback: use file metadata
+            context.solicitationContent += `\n[${doc.file_name}] - File available at: ${doc.file_url}\n`;
+          }
+          
+          context.sources.push({
+            type: 'solicitation',
+            name: doc.file_name,
+            document_type: doc.document_type,
+            weight: config.context_priority_weights?.solicitation_weight || 1.0
+          });
+        }
       }
     }
 
-    // Priority 2: Reference Proposals (RAG)
+    // ============================================
+    // Priority 2: Reference Proposals (RAG with semantic search)
+    // ============================================
     if (config.use_rag && proposal.reference_proposal_ids && proposal.reference_proposal_ids.length > 0) {
-      const refProposalIds = proposal.reference_proposal_ids.slice(0, 5); // Limit to top 5
+      const refProposalIds = proposal.reference_proposal_ids.slice(0, 5);
       context.referenceProposalsCount = refProposalIds.length;
       
       for (const refId of refProposalIds) {
+        // Fetch sections of same type from reference proposals
         const refSections = await base44.asServiceRole.entities.ProposalSection.filter({
-          proposal_id: refId
+          proposal_id: refId,
+          section_type: sectionType
         });
         
         if (refSections && refSections.length > 0) {
-          context.referenceContent += refSections.map(s => 
-            `[Reference] ${s.section_name}: ${s.content?.substring(0, 500)}...`
-          ).join('\n\n');
+          for (const section of refSections) {
+            if (section.content && currentTokens < MAX_CONTEXT_TOKENS) {
+              // Rank by relevance (simple heuristic - check for won proposals)
+              const refProposals = await base44.asServiceRole.entities.Proposal.filter({ id: refId });
+              const refProposal = refProposals[0];
+              const isWinningProposal = refProposal?.status === 'won';
+              
+              // Extract most relevant parts (first 1000 chars for now)
+              const excerpt = section.content.substring(0, 1000);
+              const excerptTokens = Math.ceil(excerpt.length / 4);
+              
+              if (currentTokens + excerptTokens < MAX_CONTEXT_TOKENS) {
+                context.referenceContent += `\n[Reference${isWinningProposal ? ' - WINNING PROPOSAL' : ''}: ${section.section_name}]\n${excerpt}...\n\n`;
+                currentTokens += excerptTokens;
+              }
+            }
+          }
           
           context.sources.push({
             type: 'reference_proposal',
@@ -287,39 +330,182 @@ async function gatherContext(base44, proposal, config) {
       }
     }
 
-    // Priority 3: Content Library
-    if (config.use_content_library && proposal.organization_id) {
+    // ============================================
+    // Priority 3: Content Library (filtered by category and section type)
+    // ============================================
+    if (config.use_content_library && proposal.organization_id && currentTokens < MAX_CONTEXT_TOKENS) {
+      // Map section types to content categories
+      const categoryMapping = {
+        'executive_summary': ['company_overview', 'general'],
+        'technical_approach': ['technical_approach', 'general'],
+        'management_plan': ['management', 'general'],
+        'past_performance': ['past_performance', 'general'],
+        'key_personnel': ['key_personnel', 'general'],
+        'quality_assurance': ['quality_assurance', 'general'],
+      };
+      
+      const relevantCategories = categoryMapping[sectionType] || ['general'];
+      
       const contentLibraryItems = await base44.asServiceRole.entities.ProposalResource.filter({
         organization_id: proposal.organization_id,
         resource_type: 'boilerplate_text'
       });
       
       if (contentLibraryItems && contentLibraryItems.length > 0) {
-        // Take top 3 most relevant items
-        const relevantItems = contentLibraryItems.slice(0, 3);
-        context.contentLibraryContent = relevantItems.map(item => 
-          `[Boilerplate - ${item.content_category}]: ${item.boilerplate_content?.substring(0, 300)}...`
-        ).join('\n\n');
+        // Filter by category and sort by usage
+        const relevantItems = contentLibraryItems
+          .filter(item => relevantCategories.includes(item.content_category))
+          .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
+          .slice(0, 3);
         
-        context.sources.push(...relevantItems.map(item => ({
-          type: 'content_library',
-          title: item.title,
-          category: item.content_category,
-          weight: config.context_priority_weights?.content_library_weight || 0.6
-        })));
+        for (const item of relevantItems) {
+          if (item.boilerplate_content && currentTokens < MAX_CONTEXT_TOKENS) {
+            const excerpt = item.boilerplate_content.substring(0, 500);
+            const excerptTokens = Math.ceil(excerpt.length / 4);
+            
+            if (currentTokens + excerptTokens < MAX_CONTEXT_TOKENS) {
+              context.contentLibraryContent += `\n[${item.content_category} - ${item.title}]\n${excerpt}...\n\n`;
+              currentTokens += excerptTokens;
+              
+              context.sources.push({
+                type: 'content_library',
+                title: item.title,
+                category: item.content_category,
+                usage_count: item.usage_count || 0,
+                weight: config.context_priority_weights?.content_library_weight || 0.6
+              });
+            }
+          }
+        }
       }
     }
 
+    // Check for truncation
+    if (currentTokens >= MAX_CONTEXT_TOKENS) {
+      context.truncated = true;
+    }
+    
+    context.totalTokensEstimate = currentTokens;
+
     // Generate context summary
-    context.summary = `Used ${context.sources.length} sources: ` +
-      `${context.sources.filter(s => s.type === 'solicitation').length} solicitation docs, ` +
-      `${context.sources.filter(s => s.type === 'reference_proposal').length} reference proposals, ` +
-      `${context.sources.filter(s => s.type === 'content_library').length} content library items`;
+    const solCount = context.sources.filter(s => s.type === 'solicitation').length;
+    const refCount = context.sources.filter(s => s.type === 'reference_proposal').length;
+    const libCount = context.sources.filter(s => s.type === 'content_library').length;
+    
+    context.summary = `Used ${context.sources.length} sources (${solCount} solicitation, ${refCount} reference, ${libCount} library) | `;
+    context.summary += `${context.solicitationRequirements.length} requirements identified | `;
+    context.summary += `~${currentTokens} tokens`;
+    
+    if (context.truncated) {
+      context.summary += ' (truncated to fit limits)';
+    }
 
     return context;
   } catch (error) {
     console.error('[AI Writer] Error gathering context:', error);
     return context;
+  }
+}
+
+/**
+ * Parse solicitation document content
+ * Uses DOCX parser or falls back to basic extraction
+ */
+async function parseSolicitationDocument(base44, doc) {
+  try {
+    // Check if we have a DOCX parser function
+    if (doc.file_url && doc.file_name.endsWith('.docx')) {
+      try {
+        const parseResult = await base44.asServiceRole.functions.invoke('parseDocxFile', {
+          file_url: doc.file_url
+        });
+        
+        if (parseResult.data && parseResult.data.text) {
+          return parseResult.data.text;
+        }
+      } catch (error) {
+        console.warn('[AI Writer] DOCX parsing failed, will use fallback:', error.message);
+      }
+    }
+    
+    // Fallback: return null to use metadata only
+    return null;
+  } catch (error) {
+    console.error('[AI Writer] Error parsing solicitation document:', error);
+    return null;
+  }
+}
+
+/**
+ * Extract requirements from solicitation text
+ */
+function extractRequirements(text, sectionType) {
+  const requirements = [];
+  
+  try {
+    // Look for common requirement patterns
+    const patterns = [
+      /shall\s+(.{20,200}?)[\.\n]/gi,
+      /must\s+(.{20,200}?)[\.\n]/gi,
+      /required\s+to\s+(.{20,200}?)[\.\n]/gi,
+      /contractor\s+(?:shall|must|will)\s+(.{20,200}?)[\.\n]/gi,
+    ];
+    
+    for (const pattern of patterns) {
+      const matches = [...text.matchAll(pattern)];
+      for (const match of matches) {
+        const requirement = match[0].trim();
+        if (requirement.length > 30 && requirement.length < 300) {
+          requirements.push(requirement);
+        }
+      }
+    }
+    
+    // Remove duplicates and limit to top 10
+    const uniqueReqs = [...new Set(requirements)].slice(0, 10);
+    return uniqueReqs;
+  } catch (error) {
+    console.error('[AI Writer] Error extracting requirements:', error);
+    return [];
+  }
+}
+
+/**
+ * Extract relevant excerpts based on section type
+ */
+function extractRelevantExcerpts(text, sectionType) {
+  try {
+    // Section-specific keywords
+    const keywords = {
+      'executive_summary': ['objective', 'scope', 'overview', 'purpose', 'background'],
+      'technical_approach': ['technical', 'methodology', 'approach', 'solution', 'implementation'],
+      'management_plan': ['management', 'organization', 'staffing', 'oversight', 'coordination'],
+      'past_performance': ['experience', 'previous', 'similar', 'contract', 'performance'],
+      'key_personnel': ['personnel', 'staff', 'qualifications', 'resume', 'experience'],
+    };
+    
+    const sectionKeywords = keywords[sectionType] || ['requirement', 'specification'];
+    
+    // Find paragraphs containing keywords
+    const paragraphs = text.split('\n\n');
+    const relevantParagraphs = [];
+    
+    for (const para of paragraphs) {
+      const lowerPara = para.toLowerCase();
+      const hasKeyword = sectionKeywords.some(kw => lowerPara.includes(kw));
+      
+      if (hasKeyword && para.length > 50 && para.length < 1000) {
+        relevantParagraphs.push(para.trim());
+        
+        // Limit to 5 most relevant paragraphs
+        if (relevantParagraphs.length >= 5) break;
+      }
+    }
+    
+    return relevantParagraphs.join('\n\n') || text.substring(0, 2000);
+  } catch (error) {
+    console.error('[AI Writer] Error extracting excerpts:', error);
+    return text.substring(0, 2000);
   }
 }
 
@@ -355,8 +541,16 @@ function constructPrompt(config, sectionType, proposal, context, params) {
   prompt += `- Solicitation Number: ${proposal.solicitation_number || 'Not specified'}\n\n`;
 
   // Solicitation requirements (highest priority)
+  if (context.solicitationRequirements && context.solicitationRequirements.length > 0) {
+    prompt += `KEY SOLICITATION REQUIREMENTS TO ADDRESS:\n`;
+    context.solicitationRequirements.forEach((req, idx) => {
+      prompt += `${idx + 1}. ${req}\n`;
+    });
+    prompt += `\n`;
+  }
+  
   if (context.solicitationContent) {
-    prompt += `SOLICITATION REQUIREMENTS:\n${context.solicitationContent}\n\n`;
+    prompt += `SOLICITATION CONTEXT:\n${context.solicitationContent}\n\n`;
   }
 
   // Reference content
@@ -435,12 +629,15 @@ async function calculateConfidenceScore(base44, content, context, proposal) {
 
 /**
  * Check compliance against solicitation requirements
+ * Enhanced with requirement matching and coverage analysis
  */
-async function checkCompliance(content, solicitationContent, config) {
+async function checkCompliance(content, context, config) {
   const issues = [];
 
   try {
-    // Check forbidden phrases
+    // ============================================
+    // Check 1: Forbidden Phrases
+    // ============================================
     if (config.guardrails?.forbidden_phrases) {
       for (const phrase of config.guardrails.forbidden_phrases) {
         if (content.toLowerCase().includes(phrase.toLowerCase())) {
@@ -453,7 +650,9 @@ async function checkCompliance(content, solicitationContent, config) {
       }
     }
 
-    // Check required disclaimers
+    // ============================================
+    // Check 2: Required Disclaimers
+    // ============================================
     if (config.guardrails?.required_disclaimers) {
       for (const disclaimer of config.guardrails.required_disclaimers) {
         if (!content.includes(disclaimer)) {
@@ -466,7 +665,9 @@ async function checkCompliance(content, solicitationContent, config) {
       }
     }
 
-    // Simple length check
+    // ============================================
+    // Check 3: Word Count
+    // ============================================
     const wordCount = countWords(content);
     if (wordCount < config.default_word_count_min) {
       issues.push({
@@ -474,11 +675,92 @@ async function checkCompliance(content, solicitationContent, config) {
         message: `Content is shorter than minimum (${wordCount} vs ${config.default_word_count_min})`,
         severity: 'low'
       });
+    } else if (wordCount > config.default_word_count_max) {
+      issues.push({
+        type: 'word_count',
+        message: `Content exceeds maximum (${wordCount} vs ${config.default_word_count_max})`,
+        severity: 'low'
+      });
+    }
+
+    // ============================================
+    // Check 4: Requirement Coverage
+    // ============================================
+    if (context.solicitationRequirements && context.solicitationRequirements.length > 0) {
+      const contentLower = content.toLowerCase();
+      const uncoveredRequirements = [];
+      
+      for (const req of context.solicitationRequirements) {
+        // Extract key terms from requirement
+        const keyTerms = extractKeyTerms(req);
+        
+        // Check if any key terms appear in content
+        const hasMatch = keyTerms.some(term => contentLower.includes(term.toLowerCase()));
+        
+        if (!hasMatch && req.length < 200) {
+          uncoveredRequirements.push(req.substring(0, 100));
+        }
+      }
+      
+      if (uncoveredRequirements.length > 0) {
+        issues.push({
+          type: 'requirement_coverage',
+          message: `${uncoveredRequirements.length} solicitation requirement(s) may not be addressed`,
+          details: uncoveredRequirements.slice(0, 3),
+          severity: 'medium'
+        });
+      }
+    }
+
+    // ============================================
+    // Check 5: Formatting Rules
+    // ============================================
+    if (config.guardrails?.formatting_rules) {
+      for (const rule of config.guardrails.formatting_rules) {
+        // Simple check for numbered lists if required
+        if (rule.toLowerCase().includes('numbered list') && !content.match(/\d+\./)) {
+          issues.push({
+            type: 'formatting',
+            message: `May not comply with formatting rule: "${rule}"`,
+            severity: 'low'
+          });
+        }
+        
+        // Check for bullet points if required
+        if (rule.toLowerCase().includes('bullet') && !content.match(/[•\-\*]/)) {
+          issues.push({
+            type: 'formatting',
+            message: `May not comply with formatting rule: "${rule}"`,
+            severity: 'low'
+          });
+        }
+      }
     }
 
     return issues;
   } catch (error) {
     console.error('[AI Writer] Error checking compliance:', error);
+    return [];
+  }
+}
+
+/**
+ * Extract key terms from a requirement for matching
+ */
+function extractKeyTerms(requirement) {
+  try {
+    // Remove common words and extract meaningful terms
+    const commonWords = ['the', 'shall', 'must', 'will', 'should', 'may', 'can', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'];
+    
+    const words = requirement
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 4 && !commonWords.includes(w));
+    
+    // Return unique terms, limited to 5 most important
+    return [...new Set(words)].slice(0, 5);
+  } catch (error) {
     return [];
   }
 }
