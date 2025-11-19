@@ -25,7 +25,13 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     e.stopPropagation();
     e.preventDefault();
     
-    console.log('[ChecklistItem] Clicked:', item.label, 'Type:', item.type, 'Action:', item.associated_action);
+    console.log('[ChecklistItem] 🔍 Clicked:', {
+      label: item.label,
+      type: item.type, 
+      action: item.associated_action,
+      proposalId: proposal?.id,
+      hasProposal: !!proposal
+    });
     
     // Handle proposal_action type - navigate to proposal card tab
     if (item.type === 'proposal_action' && item.associated_action) {
@@ -83,23 +89,33 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     // Handle different action types
     if (isNavigateAction(item.associated_action)) {
       // Navigate to the specified page with proposal ID
+      console.log('[ChecklistItem] 📍 Navigate action detected:', {
+        actionPath: action.path,
+        proposalId: proposal?.id,
+        actionConfig: action
+      });
+      
       if (!proposal?.id) {
-        console.error('[ChecklistItem] Cannot navigate: proposal ID is missing', proposal);
+        console.error('[ChecklistItem] ❌ Cannot navigate: proposal ID is missing', proposal);
+        alert('Error: Proposal ID is missing. Please try again or contact support.');
         return;
       }
       
       // Handle dedicated full-screen pages (Phase 5, Phase 6)
       if (action.path === 'ProposalStrategyConfigPage' || action.path === 'AIAssistedWriterPage') {
-        console.log('[ChecklistItem] 🚀 Navigating to full-screen page:', action.path, 'proposalId:', proposal.id);
         const url = `${createPageUrl(action.path)}?proposalId=${proposal.id}`;
-        console.log('[ChecklistItem] 🔗 Full URL:', url);
+        console.log('[ChecklistItem] 🚀 Navigating to full-screen page:', action.path);
+        console.log('[ChecklistItem] 🔗 URL:', url);
+        console.log('[ChecklistItem] 📊 About to redirect...');
         window.location.href = url;
         return;
       }
       
       const url = `${createPageUrl(action.path)}?id=${proposal.id}`;
-      console.log('[ChecklistItem] Navigating to:', url, 'Proposal ID:', proposal.id);
+      console.log('[ChecklistItem] 🔗 Navigating to:', url);
       navigate(url);
+      onClose();
+      return;
     } else if (isModalAction(item.associated_action) || isAIAction(item.associated_action)) {
       // Trigger modal/AI action - call parent handler
       console.log('[ChecklistItem] Modal/AI action - calling onItemClick');
