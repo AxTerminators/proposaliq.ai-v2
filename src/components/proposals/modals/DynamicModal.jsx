@@ -390,7 +390,7 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     try {
       await config.onSubmit(formData);
       
-      // Track successful submission
+      // Track successful submission with snapshot for version history
       if (tracking) {
         await tracking.trackSubmit(formData);
       }
