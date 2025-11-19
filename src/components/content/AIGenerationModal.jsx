@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import TokenBudgetMonitor from "./TokenBudgetMonitor";
 import QualityCheckModal from "./QualityCheckModal";
+import SmartReferenceSelector from "./SmartReferenceSelector";
 
 /**
  * AI Generation Modal
@@ -37,6 +38,8 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
   const [estimatedTokens, setEstimatedTokens] = useState(0);
   const [showPreCheck, setShowPreCheck] = useState(false);
   const [preCheckResults, setPreCheckResults] = useState({});
+  const [localReferenceIds, setLocalReferenceIds] = useState([]);
+  const [showReferenceSelector, setShowReferenceSelector] = useState(false);
 
   // Fetch AI configuration to show defaults
   const { data: aiConfig } = useQuery({
@@ -65,6 +68,13 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
     enabled: isOpen && !!proposal?.organization_id,
   });
 
+  // Initialize local reference IDs from proposal
+  useEffect(() => {
+    if (proposal && isOpen) {
+      setLocalReferenceIds(proposal.reference_proposal_ids || []);
+    }
+  }, [proposal, isOpen]);
+
   // Calculate token estimate
   useEffect(() => {
     if (!proposal || !isOpen) return;
@@ -72,7 +82,7 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
     const calculateTokens = async () => {
       try {
         let tokens = 500; // Base prompt
-        const refCount = proposal.reference_proposal_ids?.length || 0;
+        const refCount = localReferenceIds.length;
         tokens += refCount * 1000;
 
         const docs = await base44.entities.SolicitationDocument.filter({
@@ -91,15 +101,22 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
     };
 
     calculateTokens();
-  }, [proposal, isOpen, additionalContext]);
+  }, [proposal, isOpen, additionalContext, localReferenceIds]);
 
   const handleInitiateGeneration = async () => {
     const solDocs = await base44.entities.SolicitationDocument.filter({
       proposal_id: proposal.id
     });
 
+    // Update proposal with selected references before generation
+    if (localReferenceIds.length !== (proposal.reference_proposal_ids?.length || 0)) {
+      await base44.entities.Proposal.update(proposal.id, {
+        reference_proposal_ids: localReferenceIds
+      });
+    }
+
     const checkResults = {
-      hasReferences: (proposal.reference_proposal_ids?.length || 0) > 0,
+      hasReferences: localReferenceIds.length > 0,
       hasSolicitation: solDocs.length > 0,
       hasAiConfig: !!aiConfig,
       withinTokenBudget: estimatedTokens <= 8000
@@ -299,12 +316,36 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
             </div>
           )}
 
+          {/* Reference Selection */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>Reference Proposals</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReferenceSelector(!showReferenceSelector)}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {showReferenceSelector ? 'Hide' : 'Select'} References ({localReferenceIds.length})
+              </Button>
+            </div>
+            
+            {showReferenceSelector && (
+              <SmartReferenceSelector
+                proposal={proposal}
+                selectedReferences={localReferenceIds}
+                onSelectionChange={setLocalReferenceIds}
+                maxReferences={3}
+              />
+            )}
+          </div>
+
           {/* Token Budget Monitor */}
           <TokenBudgetMonitor
             estimatedTokens={estimatedTokens}
             maxTokens={8000}
             generationParams={{
-              reference_count: proposal?.reference_proposal_ids?.length || 0
+              reference_count: localReferenceIds.length
             }}
           />
         </div>
