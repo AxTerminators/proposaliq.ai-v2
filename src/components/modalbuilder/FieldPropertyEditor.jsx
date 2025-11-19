@@ -18,11 +18,12 @@ import SelectOptionsEditor from './SelectOptionsEditor';
 import ConditionalLogicEditor from './ConditionalLogicEditor';
 import ContextDataEditor from './ContextDataEditor';
 import FileUploadConfig from './FileUploadConfig';
+import AdvancedFieldMapping from './AdvancedFieldMapping';
 
 /**
  * Field Property Editor Component
  * 
- * Phase 2: Added conditional logic and step assignment
+ * Phase 5: Enhanced with advanced field mappings (nested, array, computed)
  */
 export default function FieldPropertyEditor({ field, onUpdate, allFields, steps }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -137,6 +138,9 @@ export default function FieldPropertyEditor({ field, onUpdate, allFields, steps 
           
           {/* Data Mapping */}
           <DataMappingEditor field={field} onUpdate={onUpdate} />
+
+          {/* Advanced Field Mapping */}
+          <AdvancedFieldMapping field={field} allFields={allFields} onUpdate={onUpdate} />
         </div>
       )}
     </div>

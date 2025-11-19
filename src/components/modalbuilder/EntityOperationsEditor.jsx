@@ -10,14 +10,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Zap } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import ConditionalOperationsEditor from './ConditionalOperationsEditor';
+import UpdateOperationConfig from './UpdateOperationConfig';
 
 /**
  * Entity Operations Editor Component
  * 
- * Phase 3: Configure entity operations on modal submission
- * (Create related entities, update multiple entities)
+ * Phase 5: Enhanced with conditional execution and update operation support
+ * (Create related entities, update existing entities with conditions)
  */
-export default function EntityOperationsEditor({ modalConfig, onUpdate }) {
+export default function EntityOperationsEditor({ modalConfig, onUpdate, allFields }) {
   const operations = modalConfig.entityOperations || [];
 
   const availableEntities = [
@@ -118,13 +120,22 @@ export default function EntityOperationsEditor({ modalConfig, onUpdate }) {
                       </div>
                     </div>
 
+                    {/* Update Operation Configuration */}
+                    {op.type === 'update' && op.entity && (
+                      <UpdateOperationConfig
+                        operation={op}
+                        allFields={allFields || []}
+                        onUpdate={(updates) => handleUpdateOperation(index, updates)}
+                      />
+                    )}
+
+                    {/* Conditional Execution */}
                     {op.entity && (
-                      <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded">
-                        <p className="font-medium mb-1">Field Mapping</p>
-                        <p className="text-slate-500">
-                          Configure in Phase 4: Map form fields to {op.entity} attributes
-                        </p>
-                      </div>
+                      <ConditionalOperationsEditor
+                        operation={op}
+                        allFields={allFields || []}
+                        onUpdate={(updates) => handleUpdateOperation(index, updates)}
+                      />
                     )}
                   </div>
 
