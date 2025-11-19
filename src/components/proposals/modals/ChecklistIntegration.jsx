@@ -1,6 +1,8 @@
 import React from 'react';
 import DynamicModal from './DynamicModal';
 import { MODAL_TEMPLATES } from './ModalTemplateLibrary';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
 
 /**
  * Phase 4: Checklist System Integration Helper
@@ -64,8 +66,88 @@ export const CHECKLIST_MODAL_MAPPING = {
 export function useChecklistModal(proposalId, organizationId) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [currentConfig, setCurrentConfig] = React.useState(null);
+  
+  // Fetch custom modal configs
+  const { data: customModals = [] } = useQuery({
+    queryKey: ['modalConfigs'],
+    queryFn: () => base44.entities.ModalConfig.list('-updated_date')
+  });
 
   const openModal = React.useCallback((actionId) => {
+    // Check if it's a custom modal (format: CUSTOM_{id})
+    if (actionId.startsWith('CUSTOM_')) {
+      const modalId = actionId.replace('CUSTOM_', '');
+      const customModal = customModals.find(m => m.id === modalId);
+      
+      if (!customModal || !customModal.is_active) {
+        console.warn(`[ChecklistIntegration] Custom modal not found or inactive: ${modalId}`);
+        return;
+      }
+
+      try {
+        const parsedConfig = JSON.parse(customModal.config_json);
+        
+        // Build full config for DynamicModal
+        const config = {
+          title: parsedConfig.title,
+          description: parsedConfig.description,
+          fields: parsedConfig.fields || [],
+          steps: parsedConfig.steps || null,
+          proposalId,
+          organizationId,
+          modalId: customModal.id,
+          onSubmit: async (formData) => {
+            console.log('[CustomModal] Submitting:', formData);
+            
+            // Handle entity operations if configured
+            if (parsedConfig.entityOperations && parsedConfig.entityOperations.length > 0) {
+              for (const op of parsedConfig.entityOperations) {
+                if (op.type === 'create' && op.entity) {
+                  const entityData = { organization_id: organizationId };
+                  
+                  // Map form data to entity fields
+                  parsedConfig.fields.forEach(field => {
+                    if (field.mappingType === 'entity' && field.targetEntity === op.entity) {
+                      entityData[field.targetAttribute] = formData[field.name];
+                    }
+                  });
+                  
+                  await base44.entities[op.entity].create(entityData);
+                }
+              }
+            } else {
+              // Default: save to proposal or entity based on field mappings
+              const entitiesToUpdate = {};
+              
+              parsedConfig.fields.forEach(field => {
+                if (field.mappingType === 'entity') {
+                  const entity = field.targetEntity || 'Proposal';
+                  if (!entitiesToUpdate[entity]) {
+                    entitiesToUpdate[entity] = {};
+                  }
+                  entitiesToUpdate[entity][field.targetAttribute] = formData[field.name];
+                }
+              });
+              
+              // Update entities
+              for (const [entity, data] of Object.entries(entitiesToUpdate)) {
+                if (entity === 'Proposal' && proposalId) {
+                  await base44.entities.Proposal.update(proposalId, data);
+                }
+              }
+            }
+          }
+        };
+
+        setCurrentConfig(config);
+        setIsOpen(true);
+      } catch (error) {
+        console.error('[ChecklistIntegration] Error parsing custom modal config:', error);
+      }
+      return;
+    }
+
+    // Handle built-in modals
     const templateKey = CHECKLIST_MODAL_MAPPING[actionId];
     
     if (!templateKey) {
@@ -82,7 +164,7 @@ export function useChecklistModal(proposalId, organizationId) {
     const config = template.config(proposalId, organizationId);
     setCurrentConfig(config);
     setIsOpen(true);
-  }, [proposalId, organizationId]);
+  }, [proposalId, organizationId, customModals]);
 
   const closeModal = React.useCallback(() => {
     setIsOpen(false);
