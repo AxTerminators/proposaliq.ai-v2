@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, FileText, Users, Upload, CheckSquare, Sparkles } from 'lucide-react';
+import { Search, FileText, Users, Upload, CheckSquare, Sparkles, DollarSign } from 'lucide-react';
 
 /**
  * Phase 4: Modal Template Library
@@ -323,6 +323,292 @@ export const MODAL_TEMPLATES = {
           tags: formData.tags?.filter(t => t.trim()),
           description: formData.description
         });
+      }
+    })
+  },
+
+  // Pricing Sheet Template (Phase 1.2)
+  PRICING_SHEET: {
+    id: 'pricing_sheet',
+    name: 'Pricing Sheet',
+    description: 'Collect pricing data including CLINs, labor rates, and ODCs',
+    icon: Upload,
+    category: 'Pricing',
+    config: (proposalId, organizationId) => ({
+      title: 'Add Pricing Information',
+      description: 'Enter pricing details for this proposal',
+      proposalId,
+      steps: [
+        {
+          title: 'Pricing Strategy',
+          description: 'Define your pricing approach',
+          fields: [
+            {
+              name: 'pricing_strategy',
+              label: 'Pricing Strategy',
+              type: 'select',
+              required: true,
+              options: [
+                { value: 'fixed_price', label: 'Fixed Price' },
+                { value: 'time_materials', label: 'Time & Materials' },
+                { value: 'cost_plus', label: 'Cost Plus' },
+                { value: 'labor_hour', label: 'Labor Hour' }
+              ]
+            },
+            {
+              name: 'contract_type',
+              label: 'Contract Type',
+              type: 'select',
+              required: true,
+              options: [
+                { value: 'FFP', label: 'Firm Fixed Price (FFP)' },
+                { value: 'T&M', label: 'Time and Materials (T&M)' },
+                { value: 'CPFF', label: 'Cost Plus Fixed Fee (CPFF)' },
+                { value: 'CPAF', label: 'Cost Plus Award Fee (CPAF)' }
+              ]
+            },
+            {
+              name: 'total_contract_value',
+              label: 'Total Contract Value ($)',
+              type: 'number',
+              required: true,
+              validation: { min: 0 }
+            }
+          ]
+        },
+        {
+          title: 'Labor Categories',
+          description: 'Add labor categories and rates',
+          fields: [
+            {
+              name: 'labor_categories',
+              label: 'Labor Categories',
+              type: 'array',
+              required: true,
+              helpText: 'Add each labor category with its hourly rate',
+              itemFields: [
+                {
+                  name: 'category_name',
+                  label: 'Category Name',
+                  type: 'text',
+                  placeholder: 'e.g., Senior Engineer, Project Manager'
+                },
+                {
+                  name: 'hourly_rate',
+                  label: 'Hourly Rate ($)',
+                  type: 'number',
+                  validation: { min: 0 }
+                },
+                {
+                  name: 'estimated_hours',
+                  label: 'Estimated Hours',
+                  type: 'number',
+                  validation: { min: 0 }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          title: 'Other Direct Costs',
+          description: 'Add any ODCs or materials',
+          fields: [
+            {
+              name: 'odc_items',
+              label: 'ODC Items',
+              type: 'array',
+              helpText: 'Travel, materials, equipment, etc.',
+              itemFields: [
+                {
+                  name: 'item_name',
+                  label: 'Item Name',
+                  type: 'text',
+                  placeholder: 'e.g., Travel, Equipment'
+                },
+                {
+                  name: 'cost',
+                  label: 'Cost ($)',
+                  type: 'number',
+                  validation: { min: 0 }
+                },
+                {
+                  name: 'description',
+                  label: 'Description',
+                  type: 'textarea',
+                  rows: 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      submitLabel: 'Save Pricing',
+      onSubmit: async (formData) => {
+        const { base44 } = await import('@/api/base44Client');
+        
+        // Create pricing strategy
+        const strategy = await base44.entities.PricingStrategy.create({
+          proposal_id: proposalId,
+          organization_id: organizationId,
+          strategy_type: formData.pricing_strategy,
+          contract_type: formData.contract_type,
+          total_value: formData.total_contract_value
+        });
+
+        // Create labor categories
+        if (formData.labor_categories && formData.labor_categories.length > 0) {
+          for (const cat of formData.labor_categories) {
+            await base44.entities.LaborCategory.create({
+              proposal_id: proposalId,
+              organization_id: organizationId,
+              category_name: cat.category_name,
+              hourly_rate: cat.hourly_rate,
+              estimated_hours: cat.estimated_hours
+            });
+          }
+        }
+
+        // Create ODC items
+        if (formData.odc_items && formData.odc_items.length > 0) {
+          for (const odc of formData.odc_items) {
+            await base44.entities.ODCItem.create({
+              proposal_id: proposalId,
+              organization_id: organizationId,
+              item_name: odc.item_name,
+              cost: odc.cost,
+              description: odc.description
+            });
+          }
+        }
+      }
+    })
+  },
+
+  // Compliance Matrix Template (Phase 1.3)
+  COMPLIANCE_MATRIX: {
+    id: 'compliance_matrix',
+    name: 'Compliance Matrix',
+    description: 'Track compliance requirements from solicitation documents',
+    icon: CheckSquare,
+    category: 'Compliance',
+    config: (proposalId, organizationId) => ({
+      title: 'Add Compliance Requirements',
+      description: 'Document compliance items and their status',
+      proposalId,
+      fields: [
+        {
+          name: 'requirement_source',
+          label: 'Requirement Source',
+          type: 'select',
+          required: true,
+          options: [
+            { value: 'RFP', label: 'RFP Document' },
+            { value: 'SOW', label: 'Statement of Work' },
+            { value: 'FAR', label: 'FAR Clause' },
+            { value: 'DFARS', label: 'DFARS Clause' },
+            { value: 'Other', label: 'Other' }
+          ]
+        },
+        {
+          name: 'requirement_text',
+          label: 'Requirement Text',
+          type: 'textarea',
+          required: true,
+          rows: 4,
+          placeholder: 'Paste the exact requirement from the document'
+        },
+        {
+          name: 'requirement_reference',
+          label: 'Reference (Section/Page)',
+          type: 'text',
+          placeholder: 'e.g., Section 3.2, Page 15'
+        },
+        {
+          name: 'compliance_type',
+          label: 'Compliance Type',
+          type: 'select',
+          required: true,
+          options: [
+            { value: 'mandatory', label: 'Mandatory' },
+            { value: 'optional', label: 'Optional' },
+            { value: 'if_applicable', label: 'If Applicable' }
+          ]
+        },
+        {
+          name: 'requirements',
+          label: 'Multiple Requirements',
+          type: 'array',
+          helpText: 'Add all compliance requirements from this section',
+          itemFields: [
+            {
+              name: 'requirement_number',
+              label: 'Requirement #',
+              type: 'text',
+              placeholder: 'e.g., REQ-001'
+            },
+            {
+              name: 'description',
+              label: 'Description',
+              type: 'text',
+              placeholder: 'Brief description of requirement'
+            },
+            {
+              name: 'proposal_section',
+              label: 'Addressed in Section',
+              type: 'text',
+              placeholder: 'Where we address this in proposal'
+            },
+            {
+              name: 'compliance_status',
+              label: 'Status',
+              type: 'select',
+              options: [
+                { value: 'compliant', label: 'Compliant' },
+                { value: 'partially_compliant', label: 'Partially Compliant' },
+                { value: 'non_compliant', label: 'Non-Compliant' },
+                { value: 'not_applicable', label: 'Not Applicable' }
+              ]
+            }
+          ]
+        },
+        {
+          name: 'notes',
+          label: 'Notes',
+          type: 'textarea',
+          rows: 3,
+          placeholder: 'Any additional notes about compliance'
+        }
+      ],
+      submitLabel: 'Save Requirements',
+      onSubmit: async (formData) => {
+        const { base44 } = await import('@/api/base44Client');
+        
+        // Create main compliance requirement
+        const mainRequirement = await base44.entities.ComplianceRequirement.create({
+          proposal_id: proposalId,
+          organization_id: organizationId,
+          requirement_source: formData.requirement_source,
+          requirement_text: formData.requirement_text,
+          requirement_reference: formData.requirement_reference,
+          compliance_type: formData.compliance_type,
+          notes: formData.notes
+        });
+
+        // Create individual requirements if provided
+        if (formData.requirements && formData.requirements.length > 0) {
+          for (const req of formData.requirements) {
+            await base44.entities.ComplianceRequirement.create({
+              proposal_id: proposalId,
+              organization_id: organizationId,
+              requirement_source: formData.requirement_source,
+              requirement_number: req.requirement_number,
+              requirement_text: req.description,
+              proposal_section_reference: req.proposal_section,
+              compliance_status: req.compliance_status || 'pending',
+              parent_requirement_id: mainRequirement.id
+            });
+          }
+        }
       }
     })
   },

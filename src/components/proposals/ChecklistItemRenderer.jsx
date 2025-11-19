@@ -5,17 +5,38 @@ import { CheckCircle2, Circle, ExternalLink, Sparkles, FileEdit, Users, Shield }
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { getActionConfig, isNavigateAction, isModalAction, isAIAction } from "./ChecklistActionRegistry";
+import { useChecklistModal } from "./modals/ChecklistIntegration";
 
+/**
+ * Phase 1.1: Enhanced ChecklistItemRenderer with DynamicModal Integration
+ * 
+ * This component renders individual checklist items and handles their click interactions.
+ * It now fully integrates with useChecklistModal for modal_trigger items.
+ */
 export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, proposal }) {
   const navigate = useNavigate();
   const actionConfig = getActionConfig(item.associated_action);
+  
+  // Initialize modal hook for modal_trigger items
+  const { openModal } = useChecklistModal(proposal?.id, proposal?.organization_id);
   
   const handleClick = (e) => {
     // CRITICAL: Stop event propagation to prevent card click
     e.stopPropagation();
     e.preventDefault();
     
-    console.log('[ChecklistItem] Clicked:', item.label, 'Action:', item.associated_action);
+    console.log('[ChecklistItem] Clicked:', item.label, 'Type:', item.type, 'Action:', item.associated_action);
+    
+    // Handle modal_trigger type with DynamicModal integration
+    if (item.type === 'modal_trigger' && item.associated_action && openModal) {
+      console.log('[ChecklistItem] Opening DynamicModal for:', item.associated_action);
+      try {
+        openModal(item.associated_action);
+        return;
+      } catch (error) {
+        console.warn('[ChecklistItem] DynamicModal failed, falling back to parent handler:', error);
+      }
+    }
     
     if (!item.associated_action) {
       // Manual checkbox - call parent handler
@@ -24,7 +45,7 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       return;
     }
 
-    // Get action configuration
+    // Get action configuration for legacy actions
     const action = getActionConfig(item.associated_action);
     
     if (!action) {

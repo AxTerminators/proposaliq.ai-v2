@@ -11,12 +11,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
  */
 
 // Available modal action options that AI can suggest
+// Phase 1: Updated with new templates
 const AVAILABLE_MODAL_OPTIONS = [
   { value: 'add_partner', label: 'Add Teaming Partner', description: 'Upload capability statement and extract partner details' },
   { value: 'upload_solicitation', label: 'Upload Solicitation', description: 'Upload RFP, SOW, or other solicitation documents' },
   { value: 'add_past_performance', label: 'Add Past Performance', description: 'Document past performance and project details' },
   { value: 'add_resource', label: 'Upload Resource', description: 'Upload general resources or boilerplate content' },
-  { value: 'ai_data_collection', label: 'AI-Enhanced Data Call', description: 'Smart form with AI-powered data extraction' }
+  { value: 'ai_data_collection', label: 'AI-Enhanced Data Call', description: 'Smart form with AI-powered data extraction' },
+  { value: 'pricing_sheet', label: 'Pricing Sheet', description: 'Collect pricing data including CLINs, labor rates, and ODCs' },
+  { value: 'compliance_matrix', label: 'Compliance Matrix', description: 'Track compliance requirements from solicitation' }
 ];
 
 Deno.serve(async (req) => {
