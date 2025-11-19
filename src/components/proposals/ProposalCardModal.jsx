@@ -783,6 +783,13 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
 
     if (isNavigateAction(item.associated_action)) {
+      // NEW: Handle dedicated full-screen page navigation
+      if (actionConfig.path === 'ProposalStrategyConfigPage' || actionConfig.path === 'AIAssistedWriterPage') {
+        const url = `${createPageUrl(actionConfig.path)}?proposalId=${proposal.id}`;
+        window.location.href = url;
+        return;
+      }
+      
       const url = `${createPageUrl(actionConfig.path)}?id=${proposal.id}`;
       navigate(url);
       onClose();
