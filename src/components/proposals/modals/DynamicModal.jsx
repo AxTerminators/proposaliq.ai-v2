@@ -81,7 +81,8 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     if (!file) return;
 
     if (!config.proposalId) {
-      toast.error('Proposal ID is required for file uploads');
+      console.error('[DynamicModal] Missing proposalId for file upload');
+      toast.error('Configuration error: Proposal ID required for file uploads');
       return;
     }
 
@@ -203,11 +204,12 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
     } catch (error) {
       console.error('[DynamicModal] File upload error:', error);
+      const errorMessage = error.message || 'Unknown error occurred';
       setUploadStates(prev => ({
         ...prev,
-        [fieldName]: { status: 'error', progress: 0, error: error.message }
+        [fieldName]: { status: 'error', progress: 0, error: errorMessage }
       }));
-      toast.error(`Upload failed: ${error.message}`);
+      toast.error(`Upload failed: ${errorMessage}`);
     }
   };
 
@@ -320,15 +322,17 @@ export default function DynamicModal({ isOpen, onClose, config }) {
       await config.onSubmit(formData);
       toast.success(config.successMessage || 'Saved successfully');
       onClose();
-      // Reset state
+      // Reset state on successful save
       setFormData({});
       setErrors({});
       setCurrentStep(0);
       setExtractedData(null);
       setShowReviewMode(false);
+      setUploadStates({});
     } catch (error) {
       console.error('[DynamicModal] Submit error:', error);
-      toast.error(`Error: ${error.message}`);
+      const errorMessage = error.message || 'Failed to save. Please try again.';
+      toast.error(`Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

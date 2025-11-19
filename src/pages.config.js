@@ -63,6 +63,7 @@ import RAGEnhancementStatus from './pages/RAGEnhancementStatus';
 import RAGPerformanceDashboard from './pages/RAGPerformanceDashboard';
 import AdminTemplateEditor from './pages/AdminTemplateEditor';
 import SystemBoardTemplateBuilder from './pages/SystemBoardTemplateBuilder';
+import DynamicModalDemo from './pages/DynamicModalDemo';
 import __Layout from './Layout.jsx';
 
 
@@ -132,6 +133,7 @@ export const PAGES = {
     "RAGPerformanceDashboard": RAGPerformanceDashboard,
     "AdminTemplateEditor": AdminTemplateEditor,
     "SystemBoardTemplateBuilder": SystemBoardTemplateBuilder,
+    "DynamicModalDemo": DynamicModalDemo,
 }
 
 export const pagesConfig = {
