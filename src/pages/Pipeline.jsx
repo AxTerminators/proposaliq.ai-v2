@@ -183,7 +183,7 @@ export default function Pipeline() {
     retry: 1,
   });
 
-  const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
+  const proposalsQuery = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) {
@@ -204,6 +204,11 @@ export default function Pipeline() {
     retryDelay: 1000,
     initialData: [],
   });
+
+  const proposals = proposalsQuery.data || [];
+  const isLoadingProposals = proposalsQuery.isLoading;
+  const proposalsError = proposalsQuery.error;
+  const refetchProposals = proposalsQuery.refetch;
 
   useEffect(() => {
     const ensureMasterBoard = async () => {
