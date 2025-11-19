@@ -121,12 +121,12 @@ export default function FloatingAIAssistantToggle({ onExpand }) {
             onClick={handleClick}
             onMouseDown={handleMouseDown}
             style={buttonStyle}
-            className={`fixed h-14 w-14 rounded-full shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 z-50 transition-all duration-300 hover:scale-110 ${
+            className={`fixed h-14 w-14 rounded-full shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 z-50 transition-all duration-300 hover:scale-110 animate-in fade-in zoom-in ${
               isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'
             }`}
             size="icon"
           >
-            <Sparkles className="h-6 w-6 text-white" />
+            <Sparkles className="h-6 w-6 text-white animate-pulse" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left" className="bg-slate-900 text-white">

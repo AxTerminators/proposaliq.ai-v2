@@ -21,7 +21,7 @@ export default function FloatingAIAssistantPanel({
   onMinimize
 }) {
   return (
-    <div className="h-full flex flex-col border-l border-slate-200 bg-white">
+    <div className="h-full flex flex-col border-l border-slate-200 bg-white animate-in slide-in-from-right duration-300">
       {/* Header with Minimize Button */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <h3 className="font-semibold text-slate-900">AI Writing Assistant</h3>
@@ -29,7 +29,7 @@ export default function FloatingAIAssistantPanel({
           variant="ghost"
           size="icon"
           onClick={onMinimize}
-          className="h-8 w-8 hover:bg-slate-200"
+          className="h-8 w-8 hover:bg-slate-200 transition-colors"
           title="Minimize AI Assistant"
         >
           <X className="h-4 w-4" />

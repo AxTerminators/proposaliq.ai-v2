@@ -203,7 +203,16 @@ export default function Phase6({ proposalData, setProposalData, proposalId, orga
   const scrollPositionRef = useRef(0);
   const sectionRefs = useRef({});
 
-  const [isAIAssistantExpanded, setIsAIAssistantExpanded] = useState(true);
+  const [isAIAssistantExpanded, setIsAIAssistantExpanded] = useState(() => {
+    // Load saved preference from localStorage
+    const saved = localStorage.getItem('ai-assistant-expanded');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  // Save preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('ai-assistant-expanded', JSON.stringify(isAIAssistantExpanded));
+  }, [isAIAssistantExpanded]);
 
   // NEW: Citation viewing
   const [showSourceViewer, setShowSourceViewer] = useState(false);
@@ -1170,9 +1179,9 @@ The content should be ready to insert into the proposal document. Use HTML forma
 
                   {!hasSubsections && (
                     <CardContent className="space-y-4">
-                      <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6" : ""}>
+                      <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6 transition-all duration-300" : "transition-all duration-300"}>
                         {/* Editor Column - Full width when AI Assistant is minimized */}
-                        <div className={isAIAssistantExpanded ? "col-span-2" : "w-full"}>
+                        <div className={isAIAssistantExpanded ? "col-span-2 transition-all duration-300" : "w-full transition-all duration-300"}>
                           <div className="flex flex-wrap items-center gap-2 mb-3">
                             <Button
                               size="sm"
@@ -1369,9 +1378,9 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               <h4 className="font-semibold text-slate-900">{subsection.name}</h4>
                               <Badge variant="outline" className="text-xs">{subsection.defaultWordCount} words</Badge>
                             </div>
-                            <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6" : ""}>
+                            <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6 transition-all duration-300" : "transition-all duration-300"}>
                              {/* Editor Column - Full width when AI Assistant is minimized */}
-                             <div className={isAIAssistantExpanded ? "col-span-2" : "w-full"}>
+                             <div className={isAIAssistantExpanded ? "col-span-2 transition-all duration-300" : "w-full transition-all duration-300"}>
                                 <div className="flex flex-wrap items-center gap-2 mb-3">
                                   <Button
                                     size="sm"
