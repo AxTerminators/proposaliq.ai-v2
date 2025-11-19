@@ -205,6 +205,7 @@ export default function Pipeline() {
     initialData: [],
   });
 
+  // Extract values immediately after query definition
   const proposals = proposalsQuery.data || [];
   const isLoadingProposals = proposalsQuery.isLoading;
   const proposalsError = proposalsQuery.error;
