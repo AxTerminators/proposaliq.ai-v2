@@ -423,7 +423,8 @@ export default function Pipeline() {
   // Get unique team members for advanced filters
   const uniqueTeamMembers = useMemo(() => {
     const members = new Set();
-    proposals.forEach(p => {
+    const safeProposals = proposals || [];
+    safeProposals.forEach(p => {
       if (p.assigned_team_members) {
         p.assigned_team_members.forEach(email => members.add(email));
       }
@@ -450,8 +451,9 @@ export default function Pipeline() {
       ? `$${(totalValue / 1000).toFixed(0)}K`
       : `$${totalValue.toLocaleString()}`;
 
-    const wonCount = proposals.filter(p => p.status === 'won').length;
-    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+    const safeProposals = proposals || [];
+    const wonCount = safeProposals.filter(p => p.status === 'won').length;
+    const submittedProposals = safeProposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
     const winRate = submittedProposals > 0 ? Math.round((wonCount / submittedProposals) * 100) : 0;
 
     const today = new Date();
@@ -1334,7 +1336,8 @@ export default function Pipeline() {
           <div className="space-y-3 py-4">
             {allBoards.map(board => {
               const icon = getBoardIcon(board.board_type, board.is_master_board);
-              const boardProposalCount = proposals.filter(p => {
+              const safeProposals = proposals || [];
+              const boardProposalCount = safeProposals.filter(p => {
                 if (board.is_master_board) return true;
                 if (board.board_type === 'rfp_15_column') return p.proposal_type_category === 'RFP_15_COLUMN';
                 if (board.applies_to_proposal_types && board.applies_to_proposal_types.length > 0) {
