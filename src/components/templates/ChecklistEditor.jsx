@@ -129,7 +129,7 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
   };
 
   return (
-    <>
+    <TooltipProvider>
       <Dialog open={true} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
