@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -184,6 +183,28 @@ export default function Pipeline() {
     retry: 1,
   });
 
+  const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
+    queryKey: ['proposals', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) {
+        console.log('[Pipeline] No organization ID, skipping proposal fetch');
+        return [];
+      }
+      console.log('[Pipeline] Fetching proposals for org:', organization.id);
+      const results = await base44.entities.Proposal.filter(
+        { organization_id: organization.id },
+        '-created_date'
+      );
+      console.log('[Pipeline] Fetched proposals:', results.length);
+      return results || [];
+    },
+    enabled: !!organization?.id,
+    staleTime: 10000,
+    retry: 3,
+    retryDelay: 1000,
+    initialData: [],
+  });
+
   useEffect(() => {
     const ensureMasterBoard = async () => {
       if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
@@ -281,6 +302,45 @@ export default function Pipeline() {
 
   const selectedBoard = allBoards.find(b => b.id === selectedBoardId);
 
+  // Read proposalId and tab from URL parameter on load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const proposalIdFromUrl = urlParams.get('proposalId');
+    const openTab = urlParams.get('tab'); // Also read tab parameter
+    
+    // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
+    if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
+      console.log('[Pipeline] 🔗 Found proposalId in URL:', proposalIdFromUrl);
+      console.log('[Pipeline] 📑 Tab to open:', openTab || 'default');
+      
+      // Find the proposal
+      const proposal = proposals.find(p => p.id === proposalIdFromUrl);
+      
+      if (proposal) {
+        console.log('[Pipeline] ✅ Found proposal:', proposal.proposal_name);
+        
+        // Auto-open the modal
+        setSelectedProposalToOpen(proposal);
+        setShowProposalModal(true);
+        
+        // Store the tab to open if specified
+        if (openTab) {
+          sessionStorage.setItem('openProposalTab', openTab);
+        }
+        
+        // Clear the URL parameter to avoid reopening on refresh, preserve other params
+        urlParams.delete('proposalId');
+        urlParams.delete('tab');
+        const newUrl = urlParams.toString() 
+          ? `${createPageUrl("Pipeline")}?${urlParams.toString()}`
+          : createPageUrl("Pipeline");
+        window.history.replaceState({}, '', newUrl);
+      } else {
+        console.warn('[Pipeline] ⚠️ Proposal not found for ID:', proposalIdFromUrl);
+      }
+    }
+  }, [proposals, showProposalModal]);
+
   // Effect to handle pending proposal modal after board switch
   useEffect(() => {
     if (!pendingProposalModal) return;
@@ -331,67 +391,6 @@ export default function Pipeline() {
       console.log('[Pipeline] Reason:', !selectedBoard ? 'No selected board' : 'Board mismatch');
     }
   }, [selectedBoard, pendingProposalModal]);
-
-  const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
-    queryKey: ['proposals', organization?.id],
-    queryFn: async () => {
-      if (!organization?.id) {
-        console.log('[Pipeline] No organization ID, skipping proposal fetch');
-        return [];
-      }
-      console.log('[Pipeline] Fetching proposals for org:', organization.id);
-      const results = await base44.entities.Proposal.filter(
-        { organization_id: organization.id },
-        '-created_date'
-      );
-      console.log('[Pipeline] Fetched proposals:', results.length);
-      return results || [];
-    },
-    enabled: !!organization?.id,
-    staleTime: 10000,
-    retry: 3,
-    retryDelay: 1000,
-    initialData: [],
-  });
-
-  // Read proposalId and tab from URL parameter on load
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const proposalIdFromUrl = urlParams.get('proposalId');
-    const openTab = urlParams.get('tab'); // Also read tab parameter
-    
-    // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
-    if (proposalIdFromUrl && proposals.length > 0 && !showProposalModal) {
-      console.log('[Pipeline] 🔗 Found proposalId in URL:', proposalIdFromUrl);
-      console.log('[Pipeline] 📑 Tab to open:', openTab || 'default');
-      
-      // Find the proposal
-      const proposal = proposals.find(p => p.id === proposalIdFromUrl);
-      
-      if (proposal) {
-        console.log('[Pipeline] ✅ Found proposal:', proposal.proposal_name);
-        
-        // Auto-open the modal
-        setSelectedProposalToOpen(proposal);
-        setShowProposalModal(true);
-        
-        // Store the tab to open if specified
-        if (openTab) {
-          sessionStorage.setItem('openProposalTab', openTab);
-        }
-        
-        // Clear the URL parameter to avoid reopening on refresh, preserve other params
-        urlParams.delete('proposalId');
-        urlParams.delete('tab');
-        const newUrl = urlParams.toString() 
-          ? `${createPageUrl("Pipeline")}?${urlParams.toString()}`
-          : createPageUrl("Pipeline");
-        window.history.replaceState({}, '', newUrl);
-      } else {
-        console.warn('[Pipeline] ⚠️ Proposal not found for ID:', proposalIdFromUrl);
-      }
-    }
-  }, [proposals, showProposalModal]);
 
   const filteredProposals = useMemo(() => {
     if (!selectedBoard || !proposals) return proposals;
