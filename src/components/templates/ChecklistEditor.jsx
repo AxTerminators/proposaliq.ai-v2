@@ -265,31 +265,43 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
 
                                   {/* Modal Trigger Config */}
                                   {item.type === 'modal_trigger' && (
-                                    <div className="space-y-2 pl-4 border-l-2 border-blue-200">
-                                      <Label className="text-xs">Modal to Open</Label>
+                                    <div className="space-y-2 pl-4 border-l-2 border-blue-200 bg-blue-50 p-3 rounded">
+                                      <div className="flex items-center gap-2">
+                                        <Label className="text-xs font-semibold">Select Modal to Open</Label>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs">
+                                              <p className="text-xs">Choose which form or file upload modal opens when users click this checklist item.</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </div>
                                       <Select 
                                         value={item.associated_action || ''} 
                                         onValueChange={(val) => handleUpdateAction(item.id, val)}
                                       >
-                                        <SelectTrigger className="h-8">
-                                          <SelectValue placeholder="Select modal..." />
+                                        <SelectTrigger className="h-9 bg-white">
+                                          <SelectValue placeholder="Choose a modal..." />
                                         </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="add_partner">Add Teaming Partner</SelectItem>
-                                          <SelectItem value="upload_solicitation">Upload Solicitation</SelectItem>
-                                          <SelectItem value="add_past_performance">Add Past Performance</SelectItem>
-                                          <SelectItem value="add_resource">Upload Resource</SelectItem>
-                                          <SelectItem value="ai_data_collection">AI-Enhanced Data Call</SelectItem>
-                                          <SelectItem value="open_modal_phase1">Phase 1: Basic Info (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_phase2">Phase 2: Team Formation (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_phase3">Phase 3: Resource Gathering (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_phase4">Phase 4: Solicitation Upload (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_phase5">Phase 5: Evaluation (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_phase6">Phase 6: Win Strategy (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_phase7">Phase 7: Content Planning (Legacy)</SelectItem>
-                                          <SelectItem value="open_modal_pricing">Pricing Review (Legacy)</SelectItem>
+                                        <SelectContent className="max-h-80">
+                                          {MODAL_OPTIONS.map(option => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                              <div className="flex flex-col py-1">
+                                                <span className="font-medium">{option.label}</span>
+                                                <span className="text-xs text-slate-500">{option.description}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
                                         </SelectContent>
                                       </Select>
+                                      {item.associated_action && (
+                                        <p className="text-xs text-slate-600 mt-1">
+                                          ✓ {MODAL_OPTIONS.find(o => o.value === item.associated_action)?.description}
+                                        </p>
+                                      )}
                                     </div>
                                   )}
 
