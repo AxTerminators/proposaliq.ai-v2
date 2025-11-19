@@ -356,7 +356,7 @@ export default function Pipeline() {
   // Read proposalId and tab from URL parameter on load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const proposalIdFromUrl = urlParams.get('proposalId');
+    const proposalIdFromUrl = urlParams.get('proposalId') || urlParams.get('openProposal');
     const openTab = urlParams.get('tab'); // Also read tab parameter
     
     // Only proceed if a proposalId is in the URL, proposals are loaded, and no modal is currently open
@@ -381,6 +381,7 @@ export default function Pipeline() {
         
         // Clear the URL parameter to avoid reopening on refresh, preserve other params
         urlParams.delete('proposalId');
+        urlParams.delete('openProposal');
         urlParams.delete('tab');
         const newUrl = urlParams.toString() 
           ? `${createPageUrl("Pipeline")}?${urlParams.toString()}`
