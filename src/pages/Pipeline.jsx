@@ -393,7 +393,7 @@ export default function Pipeline() {
   }, [selectedBoard, pendingProposalModal]);
 
   const filteredProposals = useMemo(() => {
-    if (!selectedBoard || !proposals) return proposals;
+    if (!selectedBoard || !proposals) return proposals || [];
 
     if (selectedBoard.is_master_board) {
       return proposals;
