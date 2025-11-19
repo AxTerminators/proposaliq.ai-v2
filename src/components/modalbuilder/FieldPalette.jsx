@@ -6,7 +6,9 @@ import {
   Hash, 
   Calendar,
   ChevronDown,
-  CheckSquare
+  CheckSquare,
+  Upload,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +56,18 @@ export default function FieldPalette({ onAddField }) {
       label: 'Checkbox',
       icon: CheckSquare,
       description: 'Yes/No option'
+    },
+    {
+      type: 'file',
+      label: 'File Upload',
+      icon: Upload,
+      description: 'File upload with RAG'
+    },
+    {
+      type: 'richtext',
+      label: 'Rich Text Editor',
+      icon: FileText,
+      description: 'Formatted text input'
     }
   ];
 

@@ -128,7 +128,10 @@ export default function CanvasArea({
                 )}
                 {field.type === 'select' && (
                   <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" disabled>
-                    <option>Select an option...</option>
+                    <option>{field.placeholder || 'Select an option...'}</option>
+                    {field.options?.map(opt => (
+                      <option key={opt.id} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 )}
                 {field.type === 'checkbox' && (
@@ -137,6 +140,16 @@ export default function CanvasArea({
                     <span className="text-sm text-slate-600">
                       {field.placeholder || 'Checkbox option'}
                     </span>
+                  </div>
+                )}
+                {field.type === 'file' && (
+                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
+                    <p className="text-sm text-slate-600">Click or drag to upload</p>
+                  </div>
+                )}
+                {field.type === 'richtext' && (
+                  <div className="border border-slate-300 rounded-md p-3 bg-slate-50 min-h-[100px]">
+                    <p className="text-sm text-slate-400">Rich text editor</p>
                   </div>
                 )}
               </div>

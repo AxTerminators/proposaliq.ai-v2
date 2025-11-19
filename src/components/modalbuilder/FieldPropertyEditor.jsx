@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import DataMappingEditor from './DataMappingEditor';
+import ValidationEditor from './ValidationEditor';
+import SelectOptionsEditor from './SelectOptionsEditor';
 
 /**
  * Field Property Editor Component
  * 
- * Phase 0: Basic field configuration (label, placeholder, required, helpText)
- * Future phases will add validation rules, conditional logic, data mapping
+ * Phase 1: Enhanced with validation rules and data mapping
  */
 export default function FieldPropertyEditor({ field, onUpdate }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   return (
     <div className="space-y-4">
@@ -65,13 +70,29 @@ export default function FieldPropertyEditor({ field, onUpdate }) {
         </div>
       </div>
 
-      {/* Field Type Specific Options */}
+      {/* Dropdown Options */}
       {field.type === 'select' && (
-        <div>
-          <Label className="text-xs">Dropdown Options (coming soon)</Label>
-          <p className="text-xs text-slate-500 mt-1">
-            Phase 1 will add the ability to configure dropdown options
-          </p>
+        <SelectOptionsEditor field={field} onUpdate={onUpdate} />
+      )}
+
+      {/* Advanced Settings Toggle */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="w-full gap-2"
+      >
+        {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
+      </Button>
+
+      {showAdvanced && (
+        <div className="space-y-4">
+          {/* Validation Rules */}
+          <ValidationEditor field={field} onUpdate={onUpdate} />
+          
+          {/* Data Mapping */}
+          <DataMappingEditor field={field} onUpdate={onUpdate} />
         </div>
       )}
     </div>
