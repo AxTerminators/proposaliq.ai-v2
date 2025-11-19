@@ -16,6 +16,8 @@ import UpdateOperationConfig from './UpdateOperationConfig';
 import WebhookConfig from './WebhookConfig';
 import EmailNotificationConfig from './EmailNotificationConfig';
 import StatusUpdateConfig from './StatusUpdateConfig';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 /**
  * Entity Operations Editor Component

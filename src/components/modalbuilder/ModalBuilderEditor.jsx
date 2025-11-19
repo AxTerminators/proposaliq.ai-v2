@@ -12,7 +12,9 @@ import {
   Layers,
   ListOrdered,
   Download,
-  Upload
+  Upload,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
@@ -23,6 +25,9 @@ import LivePreview from './LivePreview';
 import EntityOperationsEditor from './EntityOperationsEditor';
 import TemplateImportExport from './TemplateImportExport';
 import { ValidationAlert, validateModalConfig } from './ErrorHandling';
+import ModalBuilderGuide, { GuideButton } from './ModalBuilderGuide';
+import { useModalValidation } from './useModalValidation';
+import ModalHealthPanel from './ModalHealthPanel';
 
 /**
  * Modal Builder Editor
@@ -42,6 +47,28 @@ export default function ModalBuilderEditor({ config, onClose }) {
   const [statusUpdates, setStatusUpdates] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [activeTab, setActiveTab] = useState('fields');
+
+  // Validation
+  const validation = useModalValidation({
+    name,
+    description,
+    fields,
+    steps,
+    entityOperations,
+    webhooks,
+    emailNotifications,
+    statusUpdates,
+  });
+
+  // Auto-show guide on first visit
+  useEffect(() => {
+    const hasSeenGuide = localStorage.getItem('hasSeenModalBuilderGuide');
+    if (!hasSeenGuide && !config) {
+      setShowGuide(true);
+    }
+  }, [config]);
 
   // Load existing config if editing
   useEffect(() => {
@@ -169,6 +196,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <GuideButton onClick={() => setShowGuide(true)} />
               <TemplateImportExport
                 config={config}
                 onImport={async (importedData) => {
@@ -189,7 +217,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
               </Button>
               <Button 
                 onClick={handleSave} 
-                disabled={saving}
+                disabled={saving || validation.criticalIssues}
                 className="gap-2"
               >
                 <Save className="w-4 h-4" />
@@ -205,10 +233,23 @@ export default function ModalBuilderEditor({ config, onClose }) {
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Left Sidebar - Basic Info & Field Palette */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Health Panel */}
+            <ModalHealthPanel 
+              validation={validation} 
+              onJumpToSection={(tab) => setActiveTab(tab)}
+            />
+
             {/* Basic Info */}
-            <Card>
+            <Card id="basic-info-section">
               <CardHeader>
-                <CardTitle className="text-base">Basic Information</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  Basic Information
+                  {validation?.sections?.basicInfo?.isValid ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -226,16 +267,24 @@ export default function ModalBuilderEditor({ config, onClose }) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Team Information Form"
+                    className={cn(!name && 'border-red-300')}
                   />
+                  {!name && (
+                    <p className="text-xs text-red-600 mt-1">Name is required</p>
+                  )}
                 </div>
                 <div>
-                  <Label>Description</Label>
+                  <Label>Description*</Label>
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe what this modal collects..."
                     rows={3}
+                    className={cn(!description && 'border-red-300')}
                   />
+                  {!description && (
+                    <p className="text-xs text-red-600 mt-1">Description is required</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -260,19 +309,36 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 </div>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="fields">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsList className="mb-4">
-                    <TabsTrigger value="fields" className="gap-2">
+                    <TabsTrigger value="fields" className="gap-2" id="fields-tab">
                       <Layers className="w-4 h-4" />
                       Fields
+                      {validation?.sections?.fields?.isValid ? (
+                        <CheckCircle2 className="w-3 h-3 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3 text-red-600" />
+                      )}
                     </TabsTrigger>
-                    <TabsTrigger value="steps" className="gap-2">
+                    <TabsTrigger value="steps" className="gap-2" id="steps-tab">
                       <ListOrdered className="w-4 h-4" />
                       Steps
+                      {steps.length > 0 && (
+                        validation?.sections?.steps?.isValid ? (
+                          <CheckCircle2 className="w-3 h-3 text-green-600" />
+                        ) : (
+                          <AlertCircle className="w-3 h-3 text-amber-600" />
+                        )
+                      )}
                     </TabsTrigger>
-                    <TabsTrigger value="operations" className="gap-2">
+                    <TabsTrigger value="operations" className="gap-2" id="operations-tab">
                       <Save className="w-4 h-4" />
                       Operations
+                      {validation?.sections?.operations?.isValid ? (
+                        <CheckCircle2 className="w-3 h-3 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3 text-red-600" />
+                      )}
                     </TabsTrigger>
                   </TabsList>
 
@@ -334,6 +400,21 @@ export default function ModalBuilderEditor({ config, onClose }) {
         modalConfig={{ name, description }}
         fields={fields}
         steps={steps}
+      />
+
+      {/* Onboarding Guide */}
+      <ModalBuilderGuide
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+        onStepChange={(step) => {
+          // Optionally highlight sections based on tour step
+          if (step.target) {
+            const element = document.getElementById(step.target);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }}
       />
     </div>
   );
