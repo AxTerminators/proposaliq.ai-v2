@@ -280,6 +280,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
                           setEntityOperations(updates.entityOperations);
                         }
                       }}
+                      allFields={fields}
                     />
                   </TabsContent>
                 </Tabs>
