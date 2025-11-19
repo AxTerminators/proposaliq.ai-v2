@@ -38,7 +38,13 @@ export const CHECKLIST_MODAL_MAPPING = {
   
   // AI-powered
   'ai_data_collection': 'AI_DATA_CALL',
-  'smart_form': 'AI_DATA_CALL'
+  'smart_form': 'AI_DATA_CALL',
+  
+  // Phase 1.2 & 1.3: New templates
+  'pricing_sheet': 'PRICING_SHEET',
+  'add_pricing': 'PRICING_SHEET',
+  'compliance_matrix': 'COMPLIANCE_MATRIX',
+  'add_compliance': 'COMPLIANCE_MATRIX'
 };
 
 /**
