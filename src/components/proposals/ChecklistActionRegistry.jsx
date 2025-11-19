@@ -71,7 +71,7 @@ export const ACTION_REGISTRY = {
   },
   
   // ============================================
-  // COLUMN 6: STRATEGY - Win Strategy (Phase 5)
+  // COLUMN 6: STRATEGY - Win Strategy
   // ============================================
   'open_win_strategy_modal': {
     type: 'modal',
@@ -81,7 +81,7 @@ export const ACTION_REGISTRY = {
   'navigate_strategy_config': {
     type: 'navigate',
     path: 'ProposalStrategyConfigPage',
-    label: 'Configure AI Strategy (Phase 5)'
+    label: 'Set Writing Strategy'
   },
   'generate_win_themes_phase5': {
     type: 'ai',
@@ -92,8 +92,8 @@ export const ACTION_REGISTRY = {
   // COLUMN 7: PLANNING - Content Planning
   // ============================================
   'open_content_planning_modal': {
-    type: 'navigate',
-    path: 'ProposalStrategyConfigPage',
+    type: 'modal',
+    component: ContentPlanningModal,
     label: 'Plan Content Strategy'
   },
   
