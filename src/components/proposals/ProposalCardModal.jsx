@@ -71,6 +71,7 @@ import DynamicModal from "./modals/DynamicModal";
 import { useChecklistModal } from "./modals/ChecklistIntegration";
 import AIGenerationModal from "../content/AIGenerationModal";
 import SectionContentViewer from "../content/SectionContentViewer";
+import SmartReferenceSelector from "../content/SmartReferenceSelector";
 
 import {
   Select,
@@ -98,6 +99,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [pendingStageMove, setPendingStageMove] = useState(null);
   const [showAIGenerationModal, setShowAIGenerationModal] = useState(false);
   const [selectedAISectionType, setSelectedAISectionType] = useState(null);
+  const [showReferenceSelector, setShowReferenceSelector] = useState(false);
+  const [localReferenceIds, setLocalReferenceIds] = useState([]);
 
   // NEW: Proposal name editing state
   const [isEditingName, setIsEditingName] = useState(false);
@@ -239,6 +242,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   useEffect(() => {
     if (isOpen && proposal) {
       setPreviousStatus(proposal.status);
+      setLocalReferenceIds(proposal.reference_proposal_ids || []);
     }
   }, [isOpen, proposal?.id, proposal?.status]);
 
@@ -1630,6 +1634,39 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
               <TabsContent value="quick-actions" className="mt-0 p-6">
                 <div className="space-y-6">
+                  {/* Reference Selection */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                        Reference Proposals
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowReferenceSelector(!showReferenceSelector)}
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {showReferenceSelector ? 'Hide' : 'Manage'} ({localReferenceIds.length})
+                      </Button>
+                    </div>
+                    
+                    {showReferenceSelector && (
+                      <SmartReferenceSelector
+                        proposal={proposal}
+                        selectedReferences={localReferenceIds}
+                        onSelectionChange={async (newRefs) => {
+                          setLocalReferenceIds(newRefs);
+                          await updateProposalMutation.mutateAsync({
+                            reference_proposal_ids: newRefs
+                          });
+                          toast.success('References updated');
+                        }}
+                        maxReferences={3}
+                      />
+                    )}
+                  </div>
+
                   {/* AI Content Generation Section */}
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
