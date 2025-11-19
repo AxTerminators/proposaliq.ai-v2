@@ -18,6 +18,7 @@ import FieldPalette from './FieldPalette';
 import CanvasArea from './CanvasArea';
 import StepManager from './StepManager';
 import LivePreview from './LivePreview';
+import EntityOperationsEditor from './EntityOperationsEditor';
 
 /**
  * Modal Builder Editor
@@ -30,6 +31,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
   const [iconEmoji, setIconEmoji] = useState(config?.icon_emoji || '📋');
   const [fields, setFields] = useState([]);
   const [steps, setSteps] = useState([]);
+  const [entityOperations, setEntityOperations] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -40,6 +42,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
         const parsed = JSON.parse(config.config_json);
         setFields(parsed.fields || []);
         setSteps(parsed.steps || []);
+        setEntityOperations(parsed.entityOperations || []);
       } catch (error) {
         console.error('Error parsing config JSON:', error);
       }
@@ -91,7 +94,8 @@ export default function ModalBuilderEditor({ config, onClose }) {
         title: name,
         description: description,
         fields: fields,
-        steps: steps
+        steps: steps,
+        entityOperations: entityOperations
       });
 
       const data = {
@@ -240,6 +244,10 @@ export default function ModalBuilderEditor({ config, onClose }) {
                       <ListOrdered className="w-4 h-4" />
                       Steps
                     </TabsTrigger>
+                    <TabsTrigger value="operations" className="gap-2">
+                      <Save className="w-4 h-4" />
+                      Operations
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="fields">
@@ -258,6 +266,17 @@ export default function ModalBuilderEditor({ config, onClose }) {
                       onUpdateSteps={setSteps}
                       fields={fields}
                       onUpdateField={handleUpdateField}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="operations">
+                    <EntityOperationsEditor
+                      modalConfig={{ entityOperations }}
+                      onUpdate={(updates) => {
+                        if (updates.entityOperations !== undefined) {
+                          setEntityOperations(updates.entityOperations);
+                        }
+                      }}
                     />
                   </TabsContent>
                 </Tabs>

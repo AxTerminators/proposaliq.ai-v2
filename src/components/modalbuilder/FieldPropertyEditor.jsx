@@ -16,6 +16,8 @@ import DataMappingEditor from './DataMappingEditor';
 import ValidationEditor from './ValidationEditor';
 import SelectOptionsEditor from './SelectOptionsEditor';
 import ConditionalLogicEditor from './ConditionalLogicEditor';
+import ContextDataEditor from './ContextDataEditor';
+import FileUploadConfig from './FileUploadConfig';
 
 /**
  * Field Property Editor Component
@@ -106,6 +108,11 @@ export default function FieldPropertyEditor({ field, onUpdate, allFields, steps 
         <SelectOptionsEditor field={field} onUpdate={onUpdate} />
       )}
 
+      {/* File Upload Configuration */}
+      {field.type === 'file' && (
+        <FileUploadConfig field={field} onUpdate={onUpdate} />
+      )}
+
       {/* Advanced Settings Toggle */}
       <Button
         variant="outline"
@@ -119,6 +126,9 @@ export default function FieldPropertyEditor({ field, onUpdate, allFields, steps 
 
       {showAdvanced && (
         <div className="space-y-4">
+          {/* Pre-fill from Context */}
+          <ContextDataEditor field={field} onUpdate={onUpdate} />
+          
           {/* Conditional Logic */}
           <ConditionalLogicEditor field={field} allFields={allFields} onUpdate={onUpdate} />
           
