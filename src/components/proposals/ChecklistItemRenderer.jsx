@@ -27,6 +27,23 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     
     console.log('[ChecklistItem] Clicked:', item.label, 'Type:', item.type, 'Action:', item.associated_action);
     
+    // Handle proposal_action type - navigate to proposal card tab
+    if (item.type === 'proposal_action' && item.associated_action) {
+      try {
+        const actionConfig = JSON.parse(item.associated_action);
+        if (actionConfig.action_type === 'navigate_to_tab' && actionConfig.target_tab) {
+          console.log('[ChecklistItem] Navigating to proposal tab:', actionConfig.target_tab);
+          // Store tab to open in sessionStorage
+          sessionStorage.setItem('openProposalTab', actionConfig.target_tab);
+          // Trigger parent click to open the proposal card
+          onItemClick(item);
+          return;
+        }
+      } catch (error) {
+        console.error('[ChecklistItem] Error parsing proposal_action config:', error);
+      }
+    }
+    
     // Handle modal_trigger type with DynamicModal integration
     if (item.type === 'modal_trigger' && item.associated_action && openModal) {
       console.log('[ChecklistItem] Opening DynamicModal for:', item.associated_action);
@@ -80,6 +97,10 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
     }
 
     // Check for new item types first
+    if (item.type === 'proposal_action') {
+      return <ExternalLink className="w-4 h-4 text-orange-500" />;
+    }
+
     if (item.type === 'ai_trigger') {
       return <Sparkles className="w-4 h-4 text-purple-500" />;
     }
@@ -116,6 +137,16 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
 
   // Get button label based on action type and item type
   const getButtonLabel = () => {
+    if (item.type === 'proposal_action') {
+      try {
+        const actionConfig = JSON.parse(item.associated_action);
+        if (actionConfig.action_type === 'navigate_to_tab') {
+          return 'Go to Tab';
+        }
+      } catch (e) {
+        return 'Open';
+      }
+    }
     if (item.type === 'ai_trigger') {
       return item.ai_config?.action === 'generate_content' ? 'Generate' : 'Run AI';
     }

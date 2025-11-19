@@ -692,6 +692,20 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const handleChecklistItemClick = async (item) => {
     console.log('[ProposalCardModal] ✨ Checklist item clicked:', item.label, 'Type:', item.type, 'Action:', item.associated_action);
 
+    // Handle proposal_action items - navigate to tab
+    if (item.type === 'proposal_action' && item.associated_action) {
+      try {
+        const actionConfig = JSON.parse(item.associated_action);
+        if (actionConfig.action_type === 'navigate_to_tab' && actionConfig.target_tab) {
+          console.log('[ProposalCardModal] 📑 Navigating to tab:', actionConfig.target_tab);
+          setActiveTab(actionConfig.target_tab);
+          return;
+        }
+      } catch (error) {
+        console.error('[ProposalCardModal] Error parsing proposal_action config:', error);
+      }
+    }
+
     // If already completed, and it's a manual check, toggle it back to incomplete
     const isCurrentlyCompleted = item.type === 'system_check' 
       ? systemCheckStatus(item)
@@ -1119,6 +1133,24 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     if (isCompleted) {
       return <CheckCircle2 className="w-6 h-6 text-green-600" />;
+    }
+
+    // Handle proposal_action type
+    if (item.type === 'proposal_action') {
+      try {
+        const actionConfig = JSON.parse(item.associated_action);
+        if (actionConfig.action_type === 'navigate_to_tab') {
+          // Return specific icon based on target tab
+          if (actionConfig.target_tab === 'timeline') return <Calendar className="w-6 h-6 text-orange-500" />;
+          if (actionConfig.target_tab === 'tasks') return <CheckSquare className="w-6 h-6 text-orange-500" />;
+          if (actionConfig.target_tab === 'data-calls') return <FileQuestion className="w-6 h-6 text-orange-500" />;
+          if (actionConfig.target_tab === 'discussions') return <MessageCircle className="w-6 h-6 text-orange-500" />;
+          if (actionConfig.target_tab === 'files') return <Paperclip className="w-6 h-6 text-orange-500" />;
+        }
+      } catch (e) {
+        // Fallback to generic icon
+      }
+      return <ExternalLink className="w-6 h-6 text-orange-500" />;
     }
 
     if (!item.associated_action || item.type === 'manual_check') {
