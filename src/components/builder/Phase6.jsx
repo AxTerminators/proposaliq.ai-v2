@@ -49,6 +49,8 @@ import PromoteToLibraryDialog from "../proposals/PromoteToLibraryDialog"; // Add
 import ContentLibraryQuickInsert from "../content/ContentLibraryQuickInsert";
 import CitationIndicator from "../rag/CitationIndicator";
 import SourceContentViewer from "../rag/SourceContentViewer";
+import FloatingAIAssistantPanel from "../content/FloatingAIAssistantPanel";
+import FloatingAIAssistantToggle from "../content/FloatingAIAssistantToggle";
 import moment from "moment"; // Added for auto-save timestamp formatting
 
 const PROPOSAL_SECTIONS = [
@@ -201,8 +203,7 @@ export default function Phase6({ proposalData, setProposalData, proposalId, orga
   const scrollPositionRef = useRef(0);
   const sectionRefs = useRef({});
 
-  const [showAIAssistant, setShowAIAssistant] = useState(true);
-  const [collapsedAISections, setCollapsedAISections] = useState({});
+  const [isAIAssistantExpanded, setIsAIAssistantExpanded] = useState(true);
 
   // NEW: Citation viewing
   const [showSourceViewer, setShowSourceViewer] = useState(false);
@@ -1169,9 +1170,9 @@ The content should be ready to insert into the proposal document. Use HTML forma
 
                   {!hasSubsections && (
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-6">
-                        {/* Editor Column - 2/3 width */}
-                        <div className={collapsedAISections[section.id] ? "col-span-3" : "col-span-2"} space-y-4>
+                      <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6" : ""}>
+                        {/* Editor Column - Full width when AI Assistant is minimized */}
+                        <div className={isAIAssistantExpanded ? "col-span-2" : "w-full"}>
                           <div className="flex flex-wrap items-center gap-2 mb-3">
                             <Button
                               size="sm"
@@ -1325,49 +1326,27 @@ The content should be ready to insert into the proposal document. Use HTML forma
                         </div>
 
                         {/* AI Assistant Column - 1/3 width */}
-                        {!collapsedAISections[section.id] ? (
-                          <div className="col-span-1 relative">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setCollapsedAISections(prev => ({ ...prev, [section.id]: true }))}
-                              className="absolute -left-3 top-0 h-8 w-8 rounded-full border bg-white shadow-md hover:bg-slate-100 z-10"
-                              title="Collapse AI Assistant"
-                            >
-                              <ChevronsRight className="h-4 w-4" />
-                            </Button>
-                            {showAIAssistant && (
-                              <AIWritingAssistant
-                                proposalId={proposalId}
-                                sectionId={existingSection?.id || null}
-                                sectionType={section.id}
-                                contextData={{
-                                  proposalName: proposalData.proposal_name,
-                                  agencyName: proposalData.agency_name,
-                                  projectTitle: proposalData.project_title,
-                                  projectType: proposalData.project_type,
-                                  solicitationNumber: proposalData.solicitation_number,
-                                  primeContractor: proposalData.prime_contractor_name,
-                                  winThemes: winThemes
-                                }}
-                                existingContent={sectionContent[section.id] || ''}
-                                onContentGenerated={(content, metadata) => 
-                                  handleAIContentGenerated(content, metadata, section.id, section.name)
-                                }
-                              />
-                            )}
-                          </div>
-                        ) : (
-                          <div className="fixed right-4 top-1/2 -translate-y-1/2 z-20">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setCollapsedAISections(prev => ({ ...prev, [section.id]: false }))}
-                              className="h-12 w-8 rounded-l-lg border bg-white shadow-lg hover:bg-slate-100"
-                              title="Expand AI Assistant"
-                            >
-                              <ChevronsLeft className="h-5 w-5" />
-                            </Button>
+                        {isAIAssistantExpanded && (
+                          <div className="col-span-1">
+                            <FloatingAIAssistantPanel
+                              proposalId={proposalId}
+                              sectionId={existingSection?.id || null}
+                              sectionType={section.id}
+                              contextData={{
+                                proposalName: proposalData.proposal_name,
+                                agencyName: proposalData.agency_name,
+                                projectTitle: proposalData.project_title,
+                                projectType: proposalData.project_type,
+                                solicitationNumber: proposalData.solicitation_number,
+                                primeContractor: proposalData.prime_contractor_name,
+                                winThemes: winThemes
+                              }}
+                              existingContent={sectionContent[section.id] || ''}
+                              onContentGenerated={(content, metadata) => 
+                                handleAIContentGenerated(content, metadata, section.id, section.name)
+                              }
+                              onMinimize={() => setIsAIAssistantExpanded(false)}
+                            />
                           </div>
                         )}
                       </div>
@@ -1390,9 +1369,9 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               <h4 className="font-semibold text-slate-900">{subsection.name}</h4>
                               <Badge variant="outline" className="text-xs">{subsection.defaultWordCount} words</Badge>
                             </div>
-                            <div className="grid grid-cols-3 gap-6">
-                             {/* Editor Column - 2/3 width */}
-                             <div className={collapsedAISections[subsectionKey] ? "col-span-3" : "col-span-2"} space-y-4>
+                            <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6" : ""}>
+                             {/* Editor Column - Full width when AI Assistant is minimized */}
+                             <div className={isAIAssistantExpanded ? "col-span-2" : "w-full"}>
                                 <div className="flex flex-wrap items-center gap-2 mb-3">
                                   <Button
                                     size="sm"
@@ -1545,51 +1524,29 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                 )}
                               </div>
                               {/* AI Assistant Column - 1/3 width */}
-                              {!collapsedAISections[subsectionKey] ? (
-                                <div className="col-span-1 relative">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setCollapsedAISections(prev => ({ ...prev, [subsectionKey]: true }))}
-                                    className="absolute -left-3 top-0 h-8 w-8 rounded-full border bg-white shadow-md hover:bg-slate-100 z-10"
-                                    title="Collapse AI Assistant"
-                                  >
-                                    <ChevronsRight className="h-4 w-4" />
-                                  </Button>
-                                  {showAIAssistant && (
-                                    <AIWritingAssistant
-                                      proposalId={proposalId}
-                                      sectionId={existingSubsection?.id || null}
-                                      sectionType={`${section.id}_${subsection.id}`}
-                                      contextData={{
-                                        proposalName: proposalData.proposal_name,
-                                        agencyName: proposalData.agency_name,
-                                        projectTitle: proposalData.project_title,
-                                        projectType: proposalData.project_type,
-                                        solicitationNumber: proposalData.solicitation_number,
-                                        primeContractor: proposalData.prime_contractor_name,
-                                        winThemes: winThemes,
-                                        parentSection: section.name,
-                                        subsectionName: subsection.name
-                                      }}
-                                      existingContent={sectionContent[subsectionKey] || ''}
-                                      onContentGenerated={(content, metadata) => 
-                                        handleAIContentGenerated(content, metadata, subsectionKey, `${section.name} - ${subsection.name}`)
-                                      }
-                                    />
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="fixed right-4 top-1/2 -translate-y-1/2 z-20">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setCollapsedAISections(prev => ({ ...prev, [subsectionKey]: false }))}
-                                    className="h-12 w-8 rounded-l-lg border bg-white shadow-lg hover:bg-slate-100"
-                                    title="Expand AI Assistant"
-                                  >
-                                    <ChevronsLeft className="h-5 w-5" />
-                                  </Button>
+                              {isAIAssistantExpanded && (
+                                <div className="col-span-1">
+                                  <FloatingAIAssistantPanel
+                                    proposalId={proposalId}
+                                    sectionId={existingSubsection?.id || null}
+                                    sectionType={`${section.id}_${subsection.id}`}
+                                    contextData={{
+                                      proposalName: proposalData.proposal_name,
+                                      agencyName: proposalData.agency_name,
+                                      projectTitle: proposalData.project_title,
+                                      projectType: proposalData.project_type,
+                                      solicitationNumber: proposalData.solicitation_number,
+                                      primeContractor: proposalData.prime_contractor_name,
+                                      winThemes: winThemes,
+                                      parentSection: section.name,
+                                      subsectionName: subsection.name
+                                    }}
+                                    existingContent={sectionContent[subsectionKey] || ''}
+                                    onContentGenerated={(content, metadata) => 
+                                      handleAIContentGenerated(content, metadata, subsectionKey, `${section.name} - ${subsection.name}`)
+                                    }
+                                    onMinimize={() => setIsAIAssistantExpanded(false)}
+                                  />
                                 </div>
                               )}
                             </div>
