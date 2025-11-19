@@ -36,12 +36,12 @@ export default function Dashboard() {
 
   // Check if user should see RAG onboarding
   useEffect(() => {
-    if (!user || !organization) return;
+    if (!user || !organization || !proposals) return;
 
     const hasSeenRAGGuide = localStorage.getItem(`rag_guide_seen_${user.email}`);
     
     if (!hasSeenRAGGuide && proposals.length >= 1) {
-      setShowRAGGuide(true);
+      setTimeout(() => setShowRAGGuide(true), 1000);
     }
   }, [user, organization, proposals]);
 
