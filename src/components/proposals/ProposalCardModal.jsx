@@ -1708,76 +1708,19 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     )}
                   </div>
 
-                  {/* Other Quick Actions */}
+                  {/* Export Action */}
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Other Actions</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/WriteContentStandalone") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                  >
-                    <FileEdit className="w-8 h-8" />
-                    <span>Write Content</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/ComplianceMatrixStandalone") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700"
-                  >
-                    <Shield className="w-8 h-8" />
-                    <span>Compliance Matrix</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/PricingBuildStandalone") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-                  >
-                    <DollarSign className="w-8 h-8" />
-                    <span>Build Pricing</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/RedTeamReviewStandalone") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
-                  >
-                    <Activity className="w-8 h-8" />
-                    <span>Red Team Review</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("proposals/SubmissionReadyStandalone") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                  >
-                    <Target className="w-8 h-8" />
-                    <span>Submission Checklist</span>
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      navigate(createPageUrl("ExportCenter") + `?id=${proposal.id}`);
-                      onClose();
-                    }}
-                    className="h-24 flex-col gap-2 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
-                  >
-                    <Upload className="w-8 h-8" />
-                    <span>Export Proposal</span>
-                  </Button>
-                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Export</h3>
+                    <Button
+                      onClick={() => {
+                        navigate(createPageUrl("ExportCenter") + `?id=${proposal.id}`);
+                        onClose();
+                      }}
+                      className="w-full h-20 flex items-center justify-center gap-3 bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white"
+                    >
+                      <Upload className="w-6 h-6" />
+                      <span className="text-lg">Export Proposal to PDF/DOCX</span>
+                    </Button>
                   </div>
                 </div>
               </TabsContent>
