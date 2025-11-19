@@ -74,8 +74,10 @@ export function useChecklistModal(proposalId, organizationId) {
   });
 
   const openModal = React.useCallback((actionId) => {
+    if (!actionId) return;
+    
     // Check if it's a custom modal (format: CUSTOM_{id})
-    if (actionId.startsWith('CUSTOM_')) {
+    if (typeof actionId === 'string' && actionId.startsWith('CUSTOM_')) {
       const modalId = actionId.replace('CUSTOM_', '');
       const customModal = customModals.find(m => m.id === modalId);
       
