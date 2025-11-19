@@ -64,6 +64,7 @@ import RAGPerformanceDashboard from './pages/RAGPerformanceDashboard';
 import AdminTemplateEditor from './pages/AdminTemplateEditor';
 import SystemBoardTemplateBuilder from './pages/SystemBoardTemplateBuilder';
 import DynamicModalDemo from './pages/DynamicModalDemo';
+import ModalFeatureStatus from './pages/ModalFeatureStatus';
 import __Layout from './Layout.jsx';
 
 
@@ -134,6 +135,7 @@ export const PAGES = {
     "AdminTemplateEditor": AdminTemplateEditor,
     "SystemBoardTemplateBuilder": SystemBoardTemplateBuilder,
     "DynamicModalDemo": DynamicModalDemo,
+    "ModalFeatureStatus": ModalFeatureStatus,
 }
 
 export const pagesConfig = {
