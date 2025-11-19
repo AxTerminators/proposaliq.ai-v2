@@ -738,6 +738,24 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
     // Handle modal trigger items
     if (item.type === 'modal_trigger' && item.associated_action) {
+      // First check if this action is actually a navigate action
+      const actionConfig = getActionConfig(item.associated_action);
+      if (actionConfig && isNavigateAction(item.associated_action)) {
+        console.log('[ProposalCardModal] 🔄 Modal trigger is actually a navigate action, handling as navigation');
+        // Handle dedicated full-screen pages
+        if (actionConfig.path === 'ProposalStrategyConfigPage' || actionConfig.path === 'AIAssistedWriterPage') {
+          const url = `${createPageUrl(actionConfig.path)}?proposalId=${proposal.id}`;
+          console.log('[ProposalCardModal] 🚀 Navigating to:', url);
+          window.location.href = url;
+          return;
+        }
+        
+        const url = `${createPageUrl(actionConfig.path)}?id=${proposal.id}`;
+        navigate(url);
+        onClose();
+        return;
+      }
+      
       // Check if action maps to new DynamicModal system
       const templateKey = item.associated_action;
       const hasDynamicModal = openModal && typeof openModal === 'function';
