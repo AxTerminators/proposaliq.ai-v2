@@ -24,6 +24,17 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useModalTracking } from './useModalTracking';
 import { useOrganization } from '../../layout/OrganizationContext';
+import { useAutosave } from './useAutosave';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 /**
  * DynamicModal Component
@@ -51,14 +62,48 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const [extractedData, setExtractedData] = useState(null); // Store extracted data from documents
   const [showReviewMode, setShowReviewMode] = useState(false); // Show review before final save
   const [currentStep, setCurrentStep] = useState(0); // For multi-step forms
+  const [showDraftDialog, setShowDraftDialog] = useState(false); // Show draft recovery dialog
 
   // Phase 5: Track modal interactions
   const tracking = useModalTracking(config, isOpen, organization?.id, config?.proposalId, user);
 
-  // Initialize form data from field defaults
+  // Phase 2.3: Autosave functionality
+  const modalId = config?.modalId || `${config?.proposalId}_${config?.title?.replace(/\s+/g, '_')}`;
+  const autosave = useAutosave(modalId, formData, isOpen);
+
+  // Initialize form data from field defaults or load draft
   useEffect(() => {
     if (!config?.fields) return;
     
+    // Check if draft exists
+    if (autosave.hasDraft()) {
+      setShowDraftDialog(true);
+    } else {
+      // Initialize with defaults
+      const initialData = {};
+      config.fields.forEach(field => {
+        if (field.default !== undefined) {
+          initialData[field.name] = field.default;
+        }
+      });
+      setFormData(initialData);
+    }
+  }, [config?.fields, autosave]);
+
+  // Handle draft recovery
+  const handleLoadDraft = () => {
+    const draft = autosave.loadDraft();
+    if (draft) {
+      setFormData(draft);
+      toast.success('Draft restored');
+    }
+    setShowDraftDialog(false);
+  };
+
+  const handleDiscardDraft = () => {
+    autosave.clearDraft();
+    
+    // Initialize with defaults
     const initialData = {};
     config.fields.forEach(field => {
       if (field.default !== undefined) {
@@ -66,7 +111,9 @@ export default function DynamicModal({ isOpen, onClose, config }) {
       }
     });
     setFormData(initialData);
-  }, [config?.fields]);
+    setShowDraftDialog(false);
+    toast.info('Draft discarded');
+  };
 
   // Handle input change
   const handleChange = (fieldName, value) => {
@@ -349,6 +396,10 @@ export default function DynamicModal({ isOpen, onClose, config }) {
       }
       
       toast.success(config.successMessage || 'Saved successfully');
+      
+      // Clear draft on successful save
+      autosave.clearDraft();
+      
       onClose();
       // Reset state on successful save
       setFormData({});
@@ -653,9 +704,30 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const isLastStep = currentStep === (config.steps?.length || 1) - 1;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+    <>
+      {/* Draft Recovery Dialog */}
+      <AlertDialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recover Unsaved Draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We found a draft from your previous session. Would you like to continue where you left off?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardDraft}>
+              Start Fresh
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleLoadDraft} className="bg-blue-600 hover:bg-blue-700">
+              Load Draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
           <DialogTitle>
             {config.steps ? config.steps[currentStep].title : config.title}
           </DialogTitle>
@@ -687,6 +759,23 @@ export default function DynamicModal({ isOpen, onClose, config }) {
               <p className="text-xs text-blue-700 mt-1">
                 Review and edit the pre-populated fields below before saving
               </p>
+            </div>
+          )}
+          
+          {/* Autosave Indicator */}
+          {autosave.lastSaved && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              {autosave.isSaving ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Saving draft...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3 h-3 text-green-600" />
+                  <span>Draft saved {new Date(autosave.lastSaved).toLocaleTimeString()}</span>
+                </>
+              )}
             </div>
           )}
         </DialogHeader>
@@ -730,7 +819,8 @@ export default function DynamicModal({ isOpen, onClose, config }) {
             </Button>
           )}
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
