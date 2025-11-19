@@ -224,14 +224,19 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
                                           <SelectValue placeholder="Select modal..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="open_modal_phase1">Phase 1: Basic Info</SelectItem>
-                                          <SelectItem value="open_modal_phase2">Phase 2: Team Formation</SelectItem>
-                                          <SelectItem value="open_modal_phase3">Phase 3: Resource Gathering</SelectItem>
-                                          <SelectItem value="open_modal_phase4">Phase 4: Solicitation Upload</SelectItem>
-                                          <SelectItem value="open_modal_phase5">Phase 5: Evaluation</SelectItem>
-                                          <SelectItem value="open_modal_phase6">Phase 6: Win Strategy</SelectItem>
-                                          <SelectItem value="open_modal_phase7">Phase 7: Content Planning</SelectItem>
-                                          <SelectItem value="open_modal_pricing">Pricing Review</SelectItem>
+                                          <SelectItem value="add_partner">Add Teaming Partner</SelectItem>
+                                          <SelectItem value="upload_solicitation">Upload Solicitation</SelectItem>
+                                          <SelectItem value="add_past_performance">Add Past Performance</SelectItem>
+                                          <SelectItem value="add_resource">Upload Resource</SelectItem>
+                                          <SelectItem value="ai_data_collection">AI-Enhanced Data Call</SelectItem>
+                                          <SelectItem value="open_modal_phase1">Phase 1: Basic Info (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_phase2">Phase 2: Team Formation (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_phase3">Phase 3: Resource Gathering (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_phase4">Phase 4: Solicitation Upload (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_phase5">Phase 5: Evaluation (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_phase6">Phase 6: Win Strategy (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_phase7">Phase 7: Content Planning (Legacy)</SelectItem>
+                                          <SelectItem value="open_modal_pricing">Pricing Review (Legacy)</SelectItem>
                                         </SelectContent>
                                       </Select>
                                     </div>
