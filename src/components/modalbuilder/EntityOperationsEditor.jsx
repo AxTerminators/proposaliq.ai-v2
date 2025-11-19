@@ -138,7 +138,7 @@ export default function EntityOperationsEditor({ modalConfig, onUpdate, allField
                     </div>
 
                     {/* Update Operation Configuration */}
-                    {op.type === 'update' && op.entity && (
+                    {op.type === 'update' && (
                       <UpdateOperationConfig
                         operation={op}
                         allFields={allFields || []}
