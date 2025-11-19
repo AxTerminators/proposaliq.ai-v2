@@ -180,6 +180,33 @@ export default function EntityOperationsEditor({ modalConfig, onUpdate, allField
           </Button>
         </>
       )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="webhooks">
+          <WebhookConfig
+            webhooks={webhooks}
+            onChange={(newWebhooks) => onUpdate({ webhooks: newWebhooks })}
+            allFields={allFields}
+          />
+        </TabsContent>
+
+        <TabsContent value="emails">
+          <EmailNotificationConfig
+            notifications={emailNotifications}
+            onChange={(newNotifications) => onUpdate({ emailNotifications: newNotifications })}
+            allFields={allFields}
+          />
+        </TabsContent>
+
+        <TabsContent value="status">
+          <StatusUpdateConfig
+            statusUpdates={statusUpdates}
+            onChange={(newUpdates) => onUpdate({ statusUpdates: newUpdates })}
+            allFields={allFields}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
