@@ -126,67 +126,101 @@ export default function ModalBuilderGuide({ isOpen, onClose, onStepChange }) {
   const step = TOUR_STEPS[currentStep];
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl">{step.title}</DialogTitle>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">
-                Step {currentStep + 1} of {TOUR_STEPS.length}
-              </span>
+    <>
+      {/* Spotlight overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-black/50" />
+          
+          {/* Spotlight cutout */}
+          {highlightRect && (
+            <div
+              className="absolute border-4 border-blue-500 rounded-lg shadow-2xl bg-white/10 pointer-events-auto"
+              style={{
+                top: highlightRect.top - 8,
+                left: highlightRect.left - 8,
+                width: highlightRect.width + 16,
+                height: highlightRect.height + 16,
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Compact floating guide card */}
+      {isOpen && (
+        <div className="fixed bottom-6 right-6 z-[60] max-w-md">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-blue-500 p-6">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">{step.title}</h3>
+                <span className="text-xs text-slate-500">
+                  Step {currentStep + 1} of {TOUR_STEPS.length}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSkip}
+                className="h-8 w-8"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-4">
+              {step.description}
+            </p>
+
+            {/* Progress indicator */}
+            <div className="flex gap-1 mb-4">
+              {TOUR_STEPS.map((s, idx) => (
+                <div
+                  key={s.id}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    idx === currentStep
+                      ? 'bg-blue-600'
+                      : idx < currentStep
+                      ? 'bg-blue-300'
+                      : 'bg-slate-200'
+                  }`}
+                />
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center">
+              <Button
+                variant="ghost"
+                onClick={handleSkip}
+                className="text-slate-500 text-xs"
+                size="sm"
+              >
+                Skip Tour
+              </Button>
+              <div className="flex gap-2">
+                {currentStep > 0 && (
+                  <Button variant="outline" onClick={handleBack} size="sm">
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Back
+                  </Button>
+                )}
+                <Button onClick={handleNext} size="sm">
+                  {currentStep === TOUR_STEPS.length - 1 ? (
+                    'Get Started'
+                  ) : (
+                    <>
+                      Next
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-          <DialogDescription className="text-base pt-2">
-            {step.description}
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Progress indicator */}
-        <div className="flex gap-1 py-4">
-          {TOUR_STEPS.map((s, idx) => (
-            <div
-              key={s.id}
-              className={`h-2 flex-1 rounded-full transition-colors ${
-                idx === currentStep
-                  ? 'bg-blue-600'
-                  : idx < currentStep
-                  ? 'bg-blue-300'
-                  : 'bg-slate-200'
-              }`}
-            />
-          ))}
         </div>
-
-        <DialogFooter className="flex justify-between items-center">
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="text-slate-500"
-          >
-            Skip Tour
-          </Button>
-          <div className="flex gap-2">
-            {currentStep > 0 && (
-              <Button variant="outline" onClick={handleBack}>
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-            )}
-            <Button onClick={handleNext}>
-              {currentStep === TOUR_STEPS.length - 1 ? (
-                'Get Started'
-              ) : (
-                <>
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 }
 
