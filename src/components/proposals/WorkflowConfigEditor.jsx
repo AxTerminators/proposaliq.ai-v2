@@ -281,9 +281,8 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                           </div>
                         </div>
 
-                        {organizationId && (
-                          <div className="space-y-2">
-                            <Label>Map to Master Board Column</Label>
+                        <div className="space-y-2">
+                          <Label>Map to Master Board Column</Label>
                           <Select
                             value={column.master_board_column_id || ""}
                             onValueChange={(value) => updateColumn(column.id, { master_board_column_id: value || null })}
