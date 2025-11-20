@@ -46,7 +46,10 @@ export default function ConsultantCommandCenter({ user, organization }) {
   // Query all data needed for command center
   const { data: clients = [] } = useQuery({
     queryKey: ['clients', organization.id],
-    queryFn: () => base44.entities.Client.filter({ organization_id: organization.id }),
+    queryFn: () => base44.entities.Organization.filter({ 
+      organization_type: 'client_organization',
+      parent_organization_id: organization.id 
+    }),
     initialData: []
   });
 
@@ -145,7 +148,7 @@ export default function ConsultantCommandCenter({ user, organization }) {
             id: `follow-up-${clientId}`,
             type: 'follow_up',
             priority: hoursSinceView >= 48 ? 'high' : 'medium',
-            title: `${client.contact_name || client.client_name} viewed but no response`,
+            title: `${client.contact_name || client.organization_name} viewed but no response`,
             description: `Viewed ${proposal.proposal_name} ${Math.round(hoursSinceView)} hours ago`,
             action: 'Send Follow-up',
             url: createPageUrl(`ClientPortal?token=${client.access_token}`),
@@ -204,7 +207,7 @@ export default function ConsultantCommandCenter({ user, organization }) {
           id: `inactive-${client.id}`,
           type: 'engagement',
           priority: 'low',
-          title: `${client.contact_name || client.client_name} inactive for ${daysSinceLogin} days`,
+          title: `${client.contact_name || client.organization_name} inactive for ${daysSinceLogin} days`,
           description: 'Consider sending an engagement email',
           action: 'Re-engage',
           url: createPageUrl(`Clients`),
