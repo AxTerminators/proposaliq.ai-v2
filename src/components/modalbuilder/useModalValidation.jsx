@@ -99,11 +99,9 @@ export function useModalValidation(config) {
       operationIssues: {},
     };
 
-    // Check if file upload fields with templates that have default operations exist
-    const fileFieldsWithTemplateOps = fields.filter(
-      f => f.type === 'file' && 
-      f.templateId && 
-      f.ragConfig?.default_entity_operations?.length > 0
+    // Check if file upload fields with templates exist (operations auto-added by ModalBuilderEditor)
+    const fileFieldsWithTemplates = fields.filter(
+      f => f.type === 'file' && f.templateId && f.templateDefaults?.default_entity_operations?.length > 0
     );
 
     entityOperations.forEach((op, idx) => {
@@ -131,8 +129,8 @@ export function useModalValidation(config) {
       }
     });
 
-    // Valid if either: manual operations configured OR file templates with default operations exist
-    if (entityOperations.length === 0 && fileFieldsWithTemplateOps.length === 0) {
+    // Valid if either: operations exist OR file template fields with default operations exist
+    if (entityOperations.length === 0 && fileFieldsWithTemplates.length === 0) {
       operationsValidation.issues.push('No entity operations configured (data won\'t be saved)');
       operationsValidation.isValid = false;
     }
