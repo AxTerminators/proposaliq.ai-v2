@@ -65,6 +65,15 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
     enabled: !!organizationId
   });
 
+  // Fetch available modal configurations
+  const { data: modalConfigs = [] } = useQuery({
+    queryKey: ['modalConfigs'],
+    queryFn: async () => {
+      const configs = await base44.entities.ModalConfig.list();
+      return configs || [];
+    }
+  });
+
   // Use standard columns if no organizationId, otherwise use org's master board
   const masterBoardColumns = organizationId 
     ? (masterBoard?.columns || [])
@@ -397,13 +406,34 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                       </Select>
                                     </div>
 
-                                    {(item.type === 'modal_trigger' || item.type === 'ai_trigger' || item.type === 'navigate') && (
+                                    {item.type === 'modal_trigger' && (
+                                      <div>
+                                        <Label className="text-xs">Associated Action</Label>
+                                        <Select
+                                          value={item.associated_action || ''}
+                                          onValueChange={(value) => updateChecklistItem(column.id, item.id, { associated_action: value })}
+                                        >
+                                          <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="Select modal" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {modalConfigs.map((modal) => (
+                                              <SelectItem key={modal.id} value={`open_modal_${modal.id}`}>
+                                                {modal.data.modal_name}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    )}
+
+                                    {(item.type === 'ai_trigger' || item.type === 'navigate') && (
                                       <div>
                                         <Label className="text-xs">Associated Action</Label>
                                         <Input
                                           value={item.associated_action || ''}
                                           onChange={(e) => updateChecklistItem(column.id, item.id, { associated_action: e.target.value })}
-                                          placeholder="e.g., open_modal_basic_info"
+                                          placeholder="e.g., run_ai_analysis"
                                           className="h-8 text-xs"
                                         />
                                       </div>
