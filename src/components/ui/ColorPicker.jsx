@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,10 +52,23 @@ const SOLID_COLOR_PRESETS = [
  * @param {string} props.label - Optional label for the picker
  */
 export default function ColorPicker({ value, onChange, mode = 'gradient', label }) {
-  const [customColor, setCustomColor] = useState('#3b82f6');
-
   const isGradientMode = mode === 'gradient';
   const presets = isGradientMode ? GRADIENT_PRESETS : SOLID_COLOR_PRESETS;
+  
+  // Initialize customColor based on value prop for solid mode
+  const [customColor, setCustomColor] = useState(() => {
+    if (!isGradientMode && value && /^#[0-9A-Fa-f]{6}$/i.test(value)) {
+      return value;
+    }
+    return '#3b82f6';
+  });
+
+  // Sync customColor with value prop changes for solid mode
+  React.useEffect(() => {
+    if (!isGradientMode && value && /^#[0-9A-Fa-f]{6}$/i.test(value)) {
+      setCustomColor(value);
+    }
+  }, [value, isGradientMode]);
 
   const handlePresetClick = (presetValue) => {
     onChange(presetValue);
