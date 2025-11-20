@@ -317,7 +317,13 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-slate-500">
-                            Link this column to a Master Board column for unified tracking
+                            {!organizationId ? (
+                              <span className="text-blue-600">ℹ Using standard master board columns ({masterBoardColumns.length} available)</span>
+                            ) : masterBoardColumns.length === 0 ? (
+                              <span className="text-amber-600">⚠ No master board found</span>
+                            ) : (
+                              <>Link this column to a Master Board column ({masterBoardColumns.length} available)</>
+                            )}
                           </p>
                         </div>
 
