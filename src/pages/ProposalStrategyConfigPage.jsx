@@ -17,6 +17,14 @@ export default function ProposalStrategyConfigPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const proposalId = urlParams.get('proposalId');
 
+  // Redirect to Pipeline if no proposalId
+  React.useEffect(() => {
+    if (!proposalId && !orgLoading) {
+      console.log('[ProposalStrategyConfigPage] No proposalId, redirecting to Pipeline');
+      window.location.href = createPageUrl('Pipeline');
+    }
+  }, [proposalId, orgLoading]);
+
   // Fetch proposal data
   const { data: proposal, isLoading, error } = useQuery({
     queryKey: ['proposal', proposalId],
