@@ -19,6 +19,7 @@ import ConditionalLogicEditor from './ConditionalLogicEditor';
 import ContextDataEditor from './ContextDataEditor';
 import FileUploadConfig from './FileUploadConfig';
 import AdvancedFieldMapping from './AdvancedFieldMapping';
+import PrefillMappingEditor from './PrefillMappingEditor';
 
 /**
  * Field Property Editor Component
@@ -127,6 +128,11 @@ export default function FieldPropertyEditor({ field, onUpdate, allFields, steps 
 
       {showAdvanced && (
         <div className="space-y-4">
+          {/* Pre-fill from Extracted Data (for non-file fields) */}
+          {field.type !== 'file' && (
+            <PrefillMappingEditor field={field} allFields={allFields} onUpdate={onUpdate} />
+          )}
+
           {/* Pre-fill from Context */}
           <ContextDataEditor field={field} onUpdate={onUpdate} />
           
