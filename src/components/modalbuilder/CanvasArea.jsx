@@ -136,7 +136,12 @@ export default function CanvasArea({
                   </div>
                 )}
                 {field.type === 'file' && (
-                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
+                  <div 
+                    className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+                    onClick={() => setSelectedFieldId(
+                      selectedFieldId === field.id ? null : field.id
+                    )}
+                  >
                     <p className="text-sm text-slate-600">Click or drag to upload</p>
                   </div>
                 )}
