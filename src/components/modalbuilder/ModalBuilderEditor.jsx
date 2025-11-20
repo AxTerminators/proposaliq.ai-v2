@@ -426,7 +426,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="fields">
+                  <TabsContent value="fields" id="canvas-area">
                     <CanvasArea
                       fields={fields}
                       steps={steps}
