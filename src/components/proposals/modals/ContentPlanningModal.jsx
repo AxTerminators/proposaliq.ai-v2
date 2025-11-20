@@ -76,12 +76,13 @@ export default function ContentPlanningModal({ isOpen, onClose, proposalId, onCo
   };
 
   const handleSave = async () => {
-    // **UPDATED: Validate that at least some assignments were made**
+    // **UPDATED: Allow save even with 0 assignments for flexibility**
     const assignedCount = Object.keys(sectionAssignments).length;
     
-    if (assignedCount === 0) {
-      alert("Please assign at least one section to a writer before saving.");
-      return;
+    // Optional: Show warning but allow proceeding
+    if (assignedCount === 0 && sections.length > 0) {
+      const proceed = window.confirm("No sections assigned yet. Continue anyway?");
+      if (!proceed) return;
     }
 
     try {
@@ -92,7 +93,11 @@ export default function ContentPlanningModal({ isOpen, onClose, proposalId, onCo
       
       console.log('[ContentPlanningModal] ✅ Content planning completed with', assignedCount, 'assignments');
       
-      alert(`✅ Assigned ${assignedCount} sections to writers`);
+      if (assignedCount > 0) {
+        alert(`✅ Assigned ${assignedCount} sections to writers`);
+      } else {
+        alert(`✅ Content planning initialized (no assignments yet)`);
+      }
       
       // **NEW: Call onCompletion to mark checklist item as complete**
       if (onCompletion) {
