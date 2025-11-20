@@ -35,6 +35,7 @@ import {
   Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ColorPicker from "@/components/ui/ColorPicker";
 
 // Checklist Item Library
 const CHECKLIST_ITEM_LIBRARY = [
@@ -679,26 +680,12 @@ export default function ColumnDetailEditor({ column, onSave, onClose, isOpen }) 
                   )}
                 </div>
 
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Column Color</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {COLOR_OPTIONS.map(colorOption => (
-                      <div
-                        key={colorOption.value}
-                        onClick={() => setEditedColumn({ ...editedColumn, color: colorOption.value })}
-                        className={cn(
-                          "flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all",
-                          editedColumn.color === colorOption.value
-                            ? 'border-blue-500 ring-2 ring-blue-200'
-                            : 'border-slate-200 hover:border-slate-300'
-                        )}
-                      >
-                        <div className={cn("w-8 h-8 rounded", colorOption.preview)} />
-                        <span className="text-sm font-medium">{colorOption.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <ColorPicker
+                  value={editedColumn.color}
+                  onChange={(color) => setEditedColumn({ ...editedColumn, color })}
+                  mode="gradient"
+                  label="Column Color"
+                />
 
                 <div className="space-y-2">
                   <Label className="text-base font-semibold">Preview</Label>
