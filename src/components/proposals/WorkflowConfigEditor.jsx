@@ -26,10 +26,18 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
-  const [expandedColumns, setExpandedColumns] = useState(new Set());
+  const columns = workflowConfig?.columns || [];
+  
+  // Auto-expand all columns when component mounts or columns change
+  const [expandedColumns, setExpandedColumns] = useState(() => {
+    return new Set(columns.map(col => col.id));
+  });
   const [editingColumn, setEditingColumn] = useState(null);
 
-  const columns = workflowConfig?.columns || [];
+  // Update expanded columns when columns change
+  React.useEffect(() => {
+    setExpandedColumns(new Set(columns.map(col => col.id)));
+  }, [columns.length]);
 
   const toggleColumn = (columnId) => {
     const newExpanded = new Set(expandedColumns);
