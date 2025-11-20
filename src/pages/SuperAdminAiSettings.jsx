@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Slider } from "@/components/ui/slider";
 import { Plus, Edit, Trash2, Save, X, Settings, Shield, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -404,16 +405,15 @@ export default function SuperAdminAiSettings() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="temperature">Temperature ({editingConfig.temperature})</Label>
-                      <Input
+                      <Label htmlFor="temperature">Temperature: {editingConfig.temperature.toFixed(2)}</Label>
+                      <Slider
                         id="temperature"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="2"
-                        value={editingConfig.temperature}
-                        onChange={(e) => updateConfig('temperature', parseFloat(e.target.value))}
-                        className={validationErrors.temperature ? 'border-red-500' : ''}
+                        value={[editingConfig.temperature]}
+                        onValueChange={([value]) => updateConfig('temperature', value)}
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        className={cn("w-full", validationErrors.temperature ? 'opacity-50' : '')}
                       />
                       {validationErrors.temperature && (
                         <p className="text-red-500 text-sm mt-1">{validationErrors.temperature}</p>
