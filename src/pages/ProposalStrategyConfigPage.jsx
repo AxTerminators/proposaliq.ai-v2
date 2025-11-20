@@ -45,8 +45,8 @@ export default function ProposalStrategyConfigPage() {
     );
   }
 
-  // Error state
-  if (error || !proposal || !proposalId) {
+  // Error state - only show if actually loaded and has error
+  if (!isLoading && !orgLoading && (error || (!proposal && proposalId))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <Card className="w-full max-w-2xl">
