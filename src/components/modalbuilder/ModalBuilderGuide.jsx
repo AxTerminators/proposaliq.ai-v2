@@ -82,14 +82,24 @@ export default function ModalBuilderGuide({ isOpen, onClose, onStepChange }) {
       onStepChange(TOUR_STEPS[currentStep]);
     }
 
-    // Highlight target element
+    // Highlight target element with delay to ensure DOM is ready
     if (isOpen && TOUR_STEPS[currentStep].target) {
-      const element = document.getElementById(TOUR_STEPS[currentStep].target);
-      if (element) {
-        const rect = element.getBoundingClientRect();
-        setHighlightRect(rect);
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      setTimeout(() => {
+        const element = document.getElementById(TOUR_STEPS[currentStep].target);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          setHighlightRect({
+            top: rect.top + window.scrollY,
+            left: rect.left + window.scrollX,
+            width: rect.width,
+            height: rect.height
+          });
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          console.warn(`Element not found: ${TOUR_STEPS[currentStep].target}`);
+          setHighlightRect(null);
+        }
+      }, 100);
     } else {
       setHighlightRect(null);
     }
