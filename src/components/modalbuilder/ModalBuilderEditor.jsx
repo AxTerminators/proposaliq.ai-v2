@@ -104,13 +104,15 @@ export default function ModalBuilderEditor({ config, onClose }) {
     if (template && fieldType === 'file') {
       newField.acceptedFileTypes = template.default_accepted_file_types || ['.pdf', '.docx', '.doc'];
       
-      // Apply RAG configuration
+      // Apply RAG configuration with proper defaults
       if (template.default_rag_config) {
         newField.ragConfig = {
-          enabled: template.default_rag_config.enabled || false,
+          enabled: template.default_rag_config.enabled ?? true,
           ingestionMode: template.default_rag_config.ingestion_mode || 'full_document',
-          extractionEnabled: template.default_rag_config.extraction_enabled || false,
-          extractionFieldsDescription: template.default_rag_config.extraction_fields_description || ''
+          autoIngest: template.default_rag_config.ingestion_mode === 'full_document',
+          extractData: template.default_rag_config.extraction_enabled ?? true,
+          extractionFieldsDescription: template.default_rag_config.extraction_fields_description || '',
+          targetSchema: ''
         };
       }
 
@@ -124,9 +126,10 @@ export default function ModalBuilderEditor({ config, onClose }) {
         newField.validationRules = template.default_validation_rules;
       }
 
-      // Store template reference for context
+      // Store full template reference for FileUploadConfig
       newField.templateId = template.id;
       newField.templateName = template.template_name;
+      newField.templateDefaults = template;
     }
 
     setFields([...fields, newField]);
