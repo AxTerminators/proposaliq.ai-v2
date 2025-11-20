@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -256,6 +255,7 @@ const COLOR_OPTIONS = [
 ];
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
+  const organizationId = organization?.id;
   const queryClient = useQueryClient();
 
   const defaultColumns = [

@@ -682,6 +682,7 @@ export default function AdminTemplateEditor() {
             <WorkflowConfigEditor
               workflowConfig={editingTemplate.workflow_config}
               onChange={(newConfig) => setEditingTemplate({ ...editingTemplate, workflow_config: newConfig })}
+              organizationId={null}
             />
           )}
 
