@@ -72,8 +72,8 @@ export default function ProposalStrategyConfigPage() {
     );
   }
 
-  // No organization
-  if (!organization) {
+  // No organization or proposal not loaded yet
+  if (!organization || !proposal) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <Card className="w-full max-w-2xl">
@@ -81,7 +81,7 @@ export default function ProposalStrategyConfigPage() {
             <Alert className="bg-amber-50 border-amber-200">
               <AlertCircle className="w-5 h-5 text-amber-600" />
               <AlertDescription className="text-amber-800">
-                Organization context not available. Please refresh the page.
+                {!organization ? 'Organization context not available. Please refresh the page.' : 'Loading proposal data...'}
               </AlertDescription>
             </Alert>
           </CardContent>
