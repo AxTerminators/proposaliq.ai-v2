@@ -286,9 +286,15 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                           <Select
                             value={column.master_board_column_id || ""}
                             onValueChange={(value) => updateColumn(column.id, { master_board_column_id: value || null })}
+                            disabled={isLoadingMasterBoard || !organizationId}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select master board column (optional)" />
+                              <SelectValue placeholder={
+                                isLoadingMasterBoard ? "Loading master board..." :
+                                !organizationId ? "No organization ID" :
+                                masterBoardColumns.length === 0 ? "No master board found" :
+                                "Select master board column (optional)"
+                              } />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value={null}>None</SelectItem>
@@ -300,7 +306,13 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-slate-500">
-                            Link this column to a Master Board column for unified tracking
+                            {!organizationId ? (
+                              <span className="text-amber-600">⚠ Organization ID not provided</span>
+                            ) : masterBoardColumns.length === 0 ? (
+                              <span className="text-amber-600">⚠ No master board columns found. Check console for details.</span>
+                            ) : (
+                              <>Link this column to a Master Board column for unified tracking ({masterBoardColumns.length} columns available)</>
+                            )}
                           </p>
                         </div>
 
