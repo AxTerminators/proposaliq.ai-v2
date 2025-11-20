@@ -663,6 +663,7 @@ export default function TemplateManager() {
             <WorkflowConfigEditor
               workflowConfig={editingTemplate.workflow_config}
               onChange={(newConfig) => setEditingTemplate({ ...editingTemplate, workflow_config: newConfig })}
+              organizationId={organization?.id}
             />
           )}
 
