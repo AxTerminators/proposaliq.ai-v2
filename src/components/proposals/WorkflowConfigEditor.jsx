@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,19 +117,16 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
     });
   };
 
-  const moveColumn = (columnId, direction) => {
-    const index = columns.findIndex(c => c.id === columnId);
-    if (index === -1) return;
-    
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= columns.length) return;
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
 
-    const newColumns = [...columns];
-    [newColumns[index], newColumns[newIndex]] = [newColumns[newIndex], newColumns[index]];
-    
+    const items = Array.from(columns);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
     onChange({
       ...workflowConfig,
-      columns: newColumns.map((col, idx) => ({ ...col, order: idx }))
+      columns: items.map((col, idx) => ({ ...col, order: idx }))
     });
   };
 
@@ -154,36 +152,38 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {columns.map((column, idx) => {
-            const isExpanded = expandedColumns.has(column.id);
-            const isEditing = editingColumn === column.id;
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="columns">
+            {(provided) => (
+              <div 
+                {...provided.droppableProps} 
+                ref={provided.innerRef}
+                className="space-y-2"
+              >
+                {columns.map((column, idx) => {
+                  const isExpanded = expandedColumns.has(column.id);
+                  const isEditing = editingColumn === column.id;
 
-            return (
-              <Card key={column.id} className="border-2">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    {/* Drag Handle */}
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => moveColumn(column.id, 'up')}
-                        disabled={idx === 0}
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => moveColumn(column.id, 'down')}
-                        disabled={idx === columns.length - 1}
-                      >
-                        ↓
-                      </Button>
-                    </div>
+                  return (
+                    <Draggable key={column.id} draggableId={column.id} index={idx}>
+                      {(provided, snapshot) => (
+                        <Card 
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={cn(
+                            "border-2 transition-shadow",
+                            snapshot.isDragging && "shadow-lg"
+                          )}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center gap-3">
+                              {/* Drag Handle */}
+                              <div 
+                                {...provided.dragHandleProps}
+                                className="cursor-grab active:cursor-grabbing"
+                              >
+                                <GripVertical className="w-5 h-5 text-slate-400" />
+                              </div>
 
                     {/* Column Info */}
                     <button
@@ -368,10 +368,16 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
                     </div>
                   </CardContent>
                 )}
-              </Card>
-            );
-          })}
-        </div>
+                        </Card>
+                      )}
+                    </Draggable>
+                  );
+                })}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
     </div>
   );
