@@ -323,29 +323,45 @@ export default function ModalBuilderEditor({ config, onClose }) {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Icon Emoji</Label>
-                  <div className="flex gap-2 flex-wrap mb-2">
-                    {['📋', '📝', '📄', '📊', '📈', '💼', '🎯', '✅', '📁', '🚀', '⚡', '🔔', '💡', '🎨', '🔧', '📦'].map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => setIconEmoji(emoji)}
-                        className={cn(
-                          "w-10 h-10 text-xl rounded border-2 transition-all hover:scale-110",
-                          iconEmoji === emoji 
-                            ? "border-blue-500 bg-blue-50" 
-                            : "border-slate-200 hover:border-slate-300"
-                        )}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                  <Input
-                    value={iconEmoji}
-                    onChange={(e) => setIconEmoji(e.target.value)}
-                    placeholder="📋"
-                    maxLength={2}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full h-12 text-2xl justify-center">
+                        {iconEmoji} <Smile className="w-4 h-4 ml-2 text-slate-400" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-slate-700">Choose an icon</p>
+                        <div className="grid grid-cols-8 gap-1">
+                          {['📋', '📝', '📄', '📊', '📈', '💼', '🎯', '✅', '📁', '🚀', '⚡', '🔔', '💡', '🎨', '🔧', '📦', '🏢', '👥', '📞', '✉️', '🌟', '🔍', '📌', '🎓', '💰', '📅', '🔐', '⚙️', '📎', '🗂️', '📤', '📥', '🔗', '📱', '💻', '🖥️', '⌨️', '🖱️', '🖨️', '📸', '🎬', '🎤', '🎧', '📻', '📡', '🛠️', '🔨', '⚡', '🔥', '💧', '🌍', '🗺️', '🧭', '📍', '🏆', '🥇', '🎖️', '🏅', '⭐'].map(emoji => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => setIconEmoji(emoji)}
+                              className={cn(
+                                "w-9 h-9 text-xl rounded border transition-all hover:scale-110",
+                                iconEmoji === emoji 
+                                  ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" 
+                                  : "border-slate-200 hover:border-slate-300"
+                              )}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                        <div>
+                          <Label className="text-xs">Or enter custom emoji</Label>
+                          <Input
+                            value={iconEmoji}
+                            onChange={(e) => setIconEmoji(e.target.value)}
+                            placeholder="📋"
+                            maxLength={2}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label>Modal Name*</Label>
