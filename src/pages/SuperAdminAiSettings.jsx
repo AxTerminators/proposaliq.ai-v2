@@ -20,6 +20,7 @@ export default function SuperAdminAiSettings() {
   const [editingConfig, setEditingConfig] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [forceRender, setForceRender] = useState(0);
 
   // Fetch all AI configurations
   const { data: configs = [], isLoading } = useQuery({
@@ -126,6 +127,7 @@ export default function SuperAdminAiSettings() {
     });
     setIsDialogOpen(true);
     setValidationErrors({});
+    setForceRender(prev => prev + 1);
   };
 
   // Handle edit
@@ -149,6 +151,7 @@ export default function SuperAdminAiSettings() {
     setEditingConfig(configToEdit);
     setIsDialogOpen(true);
     setValidationErrors({});
+    setForceRender(prev => prev + 1);
   };
 
   // Handle delete
@@ -334,7 +337,7 @@ export default function SuperAdminAiSettings() {
 
         {/* Edit/Create Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" key={editingConfig?.id || 'new'}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" key={`dialog-${forceRender}`}>
             <DialogHeader>
               <DialogTitle>
                 {editingConfig?.id ? 'Edit AI Configuration' : 'New AI Configuration'}
@@ -345,7 +348,7 @@ export default function SuperAdminAiSettings() {
             </DialogHeader>
 
             {editingConfig ? (
-              <Tabs defaultValue="basic" className="mt-4" key={`tabs-${editingConfig?.id || 'new'}`}>
+              <Tabs defaultValue="basic" className="mt-4" key={`tabs-${forceRender}`}>
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="basic">Model Configuration</TabsTrigger>
                   <TabsTrigger value="prompts">System Prompts</TabsTrigger>

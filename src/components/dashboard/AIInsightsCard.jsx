@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -652,17 +651,13 @@ Return 5-8 high-value, actionable insights with confidence scores.`;
                     </div>
                   )}
 
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className={cn("p-0 h-auto font-medium", colors.text)}
-                    asChild
+                  <a 
+                    href={insight.actionUrl}
+                    className={cn("inline-flex items-center p-0 h-auto font-medium hover:underline", colors.text)}
                   >
-                    <a href={insight.actionUrl}>
-                      {insight.actionText}
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </a>
-                  </Button>
+                    {insight.actionText}
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </a>
                 </div>
               </div>
             </div>
