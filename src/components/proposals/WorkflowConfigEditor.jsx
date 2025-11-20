@@ -304,7 +304,7 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                             onValueChange={(value) => updateColumn(column.id, { master_board_column_id: value || null })}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select master board column (optional)" />
+                              <SelectValue placeholder="Select master board column" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value={null}>None</SelectItem>
