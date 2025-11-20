@@ -127,30 +127,72 @@ export default function ModalBuilderGuide({ isOpen, onClose, onStepChange }) {
 
   return (
     <>
-      {/* Spotlight overlay */}
+      {/* Spotlight overlay with cutout */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-black/50" />
-          
-          {/* Spotlight cutout */}
+        <div 
+          className="fixed inset-0 z-50 pointer-events-none"
+          style={{
+            background: highlightRect 
+              ? `radial-gradient(
+                  circle at ${highlightRect.left + highlightRect.width / 2}px ${highlightRect.top + highlightRect.height / 2}px,
+                  transparent ${Math.max(highlightRect.width, highlightRect.height) / 2 + 20}px,
+                  rgba(0, 0, 0, 0.7) ${Math.max(highlightRect.width, highlightRect.height) / 2 + 80}px
+                )`
+              : 'rgba(0, 0, 0, 0.7)'
+          }}
+        >
+          {/* Animated pulsing border around highlighted element */}
           {highlightRect && (
-            <div
-              className="absolute border-4 border-blue-500 rounded-lg shadow-2xl bg-white/10 pointer-events-auto"
-              style={{
-                top: highlightRect.top - 8,
-                left: highlightRect.left - 8,
-                width: highlightRect.width + 16,
-                height: highlightRect.height + 16,
-              }}
-            />
+            <>
+              <div
+                className="absolute border-4 border-blue-500 rounded-lg animate-pulse shadow-[0_0_20px_rgba(59,130,246,0.5)]"
+                style={{
+                  top: highlightRect.top - 8,
+                  left: highlightRect.left - 8,
+                  width: highlightRect.width + 16,
+                  height: highlightRect.height + 16,
+                }}
+              />
+              {/* Arrow pointing from guide to target */}
+              <svg
+                className="absolute"
+                style={{
+                  top: highlightRect.top + highlightRect.height / 2 - 2,
+                  left: highlightRect.left + highlightRect.width + 20,
+                  width: '100px',
+                  height: '4px',
+                }}
+              >
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="9"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 10 3, 0 6" fill="#3b82f6" />
+                  </marker>
+                </defs>
+                <line
+                  x1="0"
+                  y1="2"
+                  x2="90"
+                  y2="2"
+                  stroke="#3b82f6"
+                  strokeWidth="3"
+                  markerEnd="url(#arrowhead)"
+                />
+              </svg>
+            </>
           )}
         </div>
       )}
 
       {/* Compact floating guide card */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-[60] max-w-md">
+        <div className="fixed bottom-6 right-6 z-[60] max-w-md pointer-events-auto">
           <div className="bg-white rounded-lg shadow-2xl border-2 border-blue-500 p-6">
             <div className="flex items-start justify-between mb-3">
               <div>
