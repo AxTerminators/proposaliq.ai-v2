@@ -256,7 +256,7 @@ export default function ConsultantCommandCenter({ user, organization }) {
         icon: TrendingUp,
         color: 'text-purple-600',
         title: 'Client highly engaged',
-        description: `${client.contact_name || client.client_name} - Good time to share new proposals`,
+        description: `${client.contact_name || client.organization_name} - Good time to share new proposals`,
         action: 'Share Content',
         url: createPageUrl(`Clients`)
       });
