@@ -110,7 +110,10 @@ export default function ProposalStrategyConfigPage() {
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{proposal.proposal_name}</h1>
-              <p className="text-slate-600">{proposal.agency_name} • {proposal.project_title}</p>
+              <p className="text-slate-600">
+                {proposal.agency_name && `${proposal.agency_name} • `}
+                {proposal.project_title}
+              </p>
             </div>
           </div>
 
