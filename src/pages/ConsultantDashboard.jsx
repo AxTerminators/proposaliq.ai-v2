@@ -126,29 +126,34 @@ export default function ConsultantDashboard() {
     enabled: clientOrgs.length > 0,
   });
 
-  // Fetch health scores
+  // Fetch health scores (disabled - entity may not exist yet)
   const { data: healthScores = [] } = useQuery({
     queryKey: ['all-health-scores', clientOrgs.map(c => c.id)],
     queryFn: async () => {
       if (clientOrgs.length === 0) return [];
       
-      const scores = [];
-      for (const client of clientOrgs) {
-        const clientScores = await base44.entities.ClientHealthScore.filter(
-          { client_id: client.id },
-          '-calculated_date',
-          1
-        );
-        if (clientScores.length > 0) {
-          scores.push({
-            ...clientScores[0],
-            client_name: client.organization_name
-          });
+      try {
+        const scores = [];
+        for (const client of clientOrgs) {
+          const clientScores = await base44.entities.ClientHealthScore.filter(
+            { client_id: client.id },
+            '-calculated_date',
+            1
+          );
+          if (clientScores.length > 0) {
+            scores.push({
+              ...clientScores[0],
+              client_name: client.organization_name
+            });
+          }
         }
+        return scores;
+      } catch (error) {
+        console.log('ClientHealthScore not available:', error);
+        return [];
       }
-      return scores;
     },
-    enabled: clientOrgs.length > 0,
+    enabled: false, // Temporarily disabled
   });
 
   // NEW: Fetch data calls across all client orgs
