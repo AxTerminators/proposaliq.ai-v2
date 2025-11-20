@@ -149,43 +149,84 @@ export default function Phase5({ proposalData, setProposalData, proposalId, orga
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
   const [currentOrgId, setCurrentOrgId] = useState(null);
+  const [globalAiConfig, setGlobalAiConfig] = useState(null);
 
   React.useEffect(() => {
-    const loadOrgId = async () => {
+    const loadOrgIdAndConfig = async () => {
       // Use provided organizationId prop if available
       if (organizationId) {
         setCurrentOrgId(organizationId);
-        return;
+      } else {
+        try {
+          const user = await base44.auth.me();
+          const orgs = await base44.entities.Organization.filter(
+            { created_by: user.email },
+            '-created_date',
+            1
+          );
+          if (orgs.length > 0) {
+            setCurrentOrgId(orgs[0].id);
+          }
+        } catch (error) {
+          console.error("Error loading org:", error);
+        }
       }
-      
+
+      // Load global AI configuration defaults
       try {
-        const user = await base44.auth.me();
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
-          '-created_date',
-          1
+        const configs = await base44.entities.AiConfiguration.filter(
+          { is_global_default: true, is_active: true }
         );
-        if (orgs.length > 0) {
-          setCurrentOrgId(orgs[0].id);
+        if (configs.length > 0) {
+          const config = configs[0];
+          setGlobalAiConfig(config);
+          
+          // Map AiConfiguration to strategy state
+          const toneMap = {
+            'professional': 'professional',
+            'technical': 'formal',
+            'persuasive': 'persuasive',
+            'conversational': 'conversational',
+            'formal': 'formal'
+          };
+          
+          const readingLevelMap = {
+            'government_official': 'government_plain',
+            'general_public': 'flesch_70',
+            'technical_expert': 'flesch_60',
+            'executive': 'government_plain',
+            'academic': 'flesch_60'
+          };
+
+          setStrategy(prev => ({
+            ...prev,
+            tone: toneMap[config.default_tone] || prev.tone,
+            readingLevel: readingLevelMap[config.reading_level] || prev.readingLevel,
+            requestCitations: config.citation_style !== 'none',
+            aiModel: config.llm_provider || prev.aiModel,
+            temperature: config.temperature !== undefined ? config.temperature : prev.temperature,
+            topP: prev.topP, // topP not in AiConfiguration schema
+            maxTokens: config.max_tokens || prev.maxTokens
+          }));
         }
       } catch (error) {
-        console.error("Error loading org:", error);
+        console.error("Error loading AI config:", error);
       }
     };
-    loadOrgId();
+    loadOrgIdAndConfig();
 
     const initialSections = {};
     PROPOSAL_SECTIONS.forEach(section => {
       initialSections[section.id] = {
         included: true,
-        tone: "clear", // Changed from "default" to "clear"
+        tone: "clear",
         wordCount: section.defaultWordCount,
         subsections: {}
       };
       section.subsections.forEach(sub => {
         initialSections[section.id].subsections[sub.id] = {
           included: true,
-          tone: "clear", // Changed from "default" to "clear"
+          tone: "clear",
           wordCount: sub.defaultWordCount
         };
       });
@@ -370,6 +411,15 @@ Provide 3-5 win themes with specific strategies tied to evaluation factors.`;
             {showAISettings && (
               <Card className="bg-slate-50 border-slate-300">
                 <CardContent className="p-6 space-y-6">
+                  {globalAiConfig && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-900">
+                        <strong>Using defaults from:</strong> {globalAiConfig.config_name}
+                        <br />
+                        <span className="text-xs text-blue-700">You can override these settings below for this proposal.</span>
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>AI Model</Label>
