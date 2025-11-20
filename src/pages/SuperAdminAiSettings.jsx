@@ -130,7 +130,23 @@ export default function SuperAdminAiSettings() {
 
   // Handle edit
   const handleEdit = (config) => {
-    setEditingConfig({ ...config });
+    // Ensure guardrails object exists
+    const configToEdit = {
+      ...config,
+      guardrails: config.guardrails || {
+        forbidden_phrases: [],
+        required_disclaimers: [],
+        formatting_rules: [],
+        safety_filters: []
+      },
+      context_priority_weights: config.context_priority_weights || {
+        solicitation_weight: 1.0,
+        reference_proposals_weight: 0.8,
+        content_library_weight: 0.6,
+        general_rag_weight: 0.4
+      }
+    };
+    setEditingConfig(configToEdit);
     setIsDialogOpen(true);
     setValidationErrors({});
   };
@@ -155,7 +171,7 @@ export default function SuperAdminAiSettings() {
     setEditingConfig(prev => ({
       ...prev,
       guardrails: {
-        ...prev.guardrails,
+        ...(prev.guardrails || {}),
         [field]: value
       }
     }));
@@ -166,7 +182,7 @@ export default function SuperAdminAiSettings() {
     setEditingConfig(prev => ({
       ...prev,
       context_priority_weights: {
-        ...prev.context_priority_weights,
+        ...(prev.context_priority_weights || {}),
         [field]: parseFloat(value) || 0
       }
     }));
