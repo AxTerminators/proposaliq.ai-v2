@@ -344,17 +344,17 @@ export default function SuperAdminAiSettings() {
               </DialogDescription>
             </DialogHeader>
 
-            {editingConfig && (
+            {editingConfig ? (
               <Tabs defaultValue="basic" className="mt-4">
                 <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="basic">Basic</TabsTrigger>
-                  <TabsTrigger value="prompts">Prompts</TabsTrigger>
+                  <TabsTrigger value="basic">Model Configuration</TabsTrigger>
+                  <TabsTrigger value="prompts">System Prompts</TabsTrigger>
                   <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
                   <TabsTrigger value="advanced">Advanced</TabsTrigger>
                 </TabsList>
 
                 {/* Basic Settings Tab */}
-                <TabsContent value="basic" className="space-y-4 mt-4">
+                <TabsContent value="basic" className="space-y-4 mt-4" forceMount={false}>
                   <div>
                     <Label htmlFor="config_name">Configuration Name *</Label>
                     <Input
@@ -391,19 +391,22 @@ export default function SuperAdminAiSettings() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label htmlFor="llm_provider">LLM Provider</Label>
                       <Select
-                        value={editingConfig.llm_provider}
-                        onValueChange={(value) => updateConfig('llm_provider', value)}
+                        value={editingConfig?.llm_provider || 'gemini'}
+                        onValueChange={(value) => {
+                          console.log('Provider changed:', value);
+                          updateConfig('llm_provider', value);
+                        }}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
+                        <SelectTrigger id="llm_provider">
+                          <SelectValue placeholder="Select provider" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="gemini">Gemini</SelectItem>
-                          <SelectItem value="claude">Claude</SelectItem>
-                          <SelectItem value="chatgpt">ChatGPT</SelectItem>
+                          <SelectItem value="gemini">Google Gemini</SelectItem>
+                          <SelectItem value="claude">Anthropic Claude</SelectItem>
+                          <SelectItem value="chatgpt">OpenAI GPT</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -420,21 +423,25 @@ export default function SuperAdminAiSettings() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="temperature">Temperature: {editingConfig.temperature.toFixed(2)}</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="temperature">
+                        Temperature: {editingConfig?.temperature?.toFixed(2) || '0.70'}
+                      </Label>
                       <Slider
                         id="temperature"
-                        value={[editingConfig.temperature]}
-                        onValueChange={([value]) => updateConfig('temperature', value)}
+                        value={[editingConfig?.temperature || 0.7]}
+                        onValueChange={(values) => {
+                          console.log('Temperature changed:', values[0]);
+                          updateConfig('temperature', values[0]);
+                        }}
                         min={0}
                         max={2}
                         step={0.01}
-                        className={cn("w-full", validationErrors.temperature ? 'opacity-50' : '')}
+                        className="w-full"
                       />
-                      {validationErrors.temperature && (
-                        <p className="text-red-500 text-sm mt-1">{validationErrors.temperature}</p>
-                      )}
-                      <p className="text-xs text-slate-500 mt-1">0 = deterministic, 2 = creative</p>
+                      <p className="text-xs text-slate-500">
+                        Drag to adjust: 0 = deterministic, 2 = creative
+                      </p>
                     </div>
 
                     <div>
@@ -552,24 +559,30 @@ export default function SuperAdminAiSettings() {
                 </TabsContent>
 
                 {/* Prompts Tab */}
-                <TabsContent value="prompts" className="space-y-4 mt-4">
-                  <div>
+                <TabsContent value="prompts" className="space-y-4 mt-4" forceMount={false}>
+                  <div className="space-y-2">
                     <Label htmlFor="system_instructions">System Instructions</Label>
                     <Textarea
                       id="system_instructions"
-                      value={editingConfig.system_instructions || ''}
-                      onChange={(e) => updateConfig('system_instructions', e.target.value)}
+                      value={editingConfig?.system_instructions || ''}
+                      onChange={(e) => {
+                        console.log('System instructions changed');
+                        updateConfig('system_instructions', e.target.value);
+                      }}
                       placeholder="High-level instructions for the AI (e.g., 'You are an expert government proposal writer')"
                       rows={3}
                     />
                   </div>
 
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="core_prompt_template">Core Prompt Template *</Label>
                     <Textarea
                       id="core_prompt_template"
-                      value={editingConfig.core_prompt_template}
-                      onChange={(e) => updateConfig('core_prompt_template', e.target.value)}
+                      value={editingConfig?.core_prompt_template || ''}
+                      onChange={(e) => {
+                        console.log('Prompt template changed');
+                        updateConfig('core_prompt_template', e.target.value);
+                      }}
                       placeholder="Use placeholders: {section_type}, {tone}, {reading_level}, {word_count_min}, {word_count_max}"
                       rows={6}
                       className={validationErrors.core_prompt_template ? 'border-red-500' : ''}
@@ -584,13 +597,16 @@ export default function SuperAdminAiSettings() {
                 </TabsContent>
 
                 {/* Guardrails Tab */}
-                <TabsContent value="guardrails" className="space-y-4 mt-4">
-                  <div>
+                <TabsContent value="guardrails" className="space-y-4 mt-4" forceMount={false}>
+                  <div className="space-y-2">
                     <Label htmlFor="forbidden_phrases">Forbidden Phrases</Label>
                     <Textarea
                       id="forbidden_phrases"
-                      value={editingConfig.guardrails?.forbidden_phrases?.join('\n') || ''}
-                      onChange={(e) => updateGuardrails('forbidden_phrases', e.target.value.split('\n').filter(p => p.trim()))}
+                      value={editingConfig?.guardrails?.forbidden_phrases?.join('\n') || ''}
+                      onChange={(e) => {
+                        console.log('Forbidden phrases changed');
+                        updateGuardrails('forbidden_phrases', e.target.value.split('\n').filter(p => p.trim()));
+                      }}
                       placeholder="One phrase per line"
                       rows={4}
                     />
@@ -632,15 +648,18 @@ export default function SuperAdminAiSettings() {
                 </TabsContent>
 
                 {/* Advanced Tab */}
-                <TabsContent value="advanced" className="space-y-4 mt-4">
+                <TabsContent value="advanced" className="space-y-4 mt-4" forceMount={false}>
                   <div className="space-y-3">
                     <h3 className="font-semibold text-sm">Context Sources</h3>
-                    <label className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={editingConfig.use_rag}
-                        onChange={(e) => updateConfig('use_rag', e.target.checked)}
-                        className="w-4 h-4"
+                        checked={editingConfig?.use_rag || false}
+                        onChange={(e) => {
+                          console.log('Use RAG changed:', e.target.checked);
+                          updateConfig('use_rag', e.target.checked);
+                        }}
+                        className="w-4 h-4 cursor-pointer"
                       />
                       <span className="text-sm">Use RAG (Reference Proposals)</span>
                     </label>
@@ -743,6 +762,10 @@ export default function SuperAdminAiSettings() {
                   </div>
                 </TabsContent>
               </Tabs>
+            ) : (
+              <div className="py-8 text-center text-slate-500">
+                Loading configuration...
+              </div>
             )}
 
             {/* Dialog Actions */}
