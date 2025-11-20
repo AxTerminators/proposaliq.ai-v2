@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
+export default function WorkflowConfigEditor({ workflowConfig, onChange, organizationId }) {
   const columns = workflowConfig?.columns || [];
   
   // Auto-expand all columns when component mounts or columns change
@@ -34,6 +36,22 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
     return new Set(columns.map(col => col.id));
   });
   const [editingColumn, setEditingColumn] = useState(null);
+
+  // Fetch Master Board columns
+  const { data: masterBoard } = useQuery({
+    queryKey: ['masterBoard', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
+      const boards = await base44.entities.KanbanConfig.filter({
+        organization_id: organizationId,
+        is_master_board: true
+      });
+      return boards[0] || null;
+    },
+    enabled: !!organizationId
+  });
+
+  const masterBoardColumns = masterBoard?.columns || [];
 
   // Update expanded columns when columns change
   React.useEffect(() => {
@@ -256,6 +274,29 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange }) {
                               </SelectContent>
                             </Select>
                           </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Map to Master Board Column</Label>
+                          <Select
+                            value={column.master_board_column_id || ""}
+                            onValueChange={(value) => updateColumn(column.id, { master_board_column_id: value || null })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select master board column (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={null}>None</SelectItem>
+                              {masterBoardColumns.map((masterCol) => (
+                                <SelectItem key={masterCol.id} value={masterCol.id}>
+                                  {masterCol.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-slate-500">
+                            Link this column to a Master Board column for unified tracking
+                          </p>
                         </div>
 
                         <div className="space-y-2">
