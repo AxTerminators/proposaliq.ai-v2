@@ -130,6 +130,16 @@ export default function ModalBuilderEditor({ config, onClose }) {
       newField.templateId = template.id;
       newField.templateName = template.template_name;
       newField.templateDefaults = template;
+
+      // Auto-apply default entity operations from template
+      if (template.default_entity_operations && template.default_entity_operations.length > 0) {
+        const newOperations = template.default_entity_operations.map(op => ({
+          ...op,
+          id: `operation_${Date.now()}_${Math.random()}`,
+          sourceFieldId: newField.id // Link to this file upload field
+        }));
+        setEntityOperations([...entityOperations, ...newOperations]);
+      }
     }
 
     setFields([...fields, newField]);
