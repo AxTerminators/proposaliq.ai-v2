@@ -55,6 +55,7 @@ import {
 import { cn } from "@/lib/utils";
 import ColumnDetailEditor from "./ColumnDetailEditor";
 import { validateTemplateName, enforceTemplateSuffix } from "@/components/utils/boardNameValidation";
+import ColorPicker from "@/components/ui/ColorPicker";
 
 // 14-column template definition
 const TEMPLATE_14_COLUMN_FULL = [

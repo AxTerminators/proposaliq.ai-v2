@@ -27,6 +27,7 @@ import {
   Edit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ColorPicker from "@/components/ui/ColorPicker";
 
 // Standard master board columns for system templates (when organizationId is null)
 // These match the actual master board structure from createMasterBoardConfig
@@ -327,21 +328,12 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Color (Tailwind gradient)</Label>
-                          <Input
+                          <ColorPicker
                             value={column.color}
-                            onChange={(e) => updateColumn(column.id, { color: e.target.value })}
-                            placeholder="e.g., from-blue-400 to-blue-500"
+                            onChange={(color) => updateColumn(column.id, { color })}
+                            mode="gradient"
+                            label="Column Color"
                           />
-                          <div className="flex gap-2 flex-wrap">
-                            {['from-slate-400 to-slate-500', 'from-blue-400 to-blue-500', 'from-purple-400 to-purple-500', 'from-green-400 to-green-500', 'from-amber-400 to-amber-500', 'from-red-400 to-red-500'].map(preset => (
-                              <button
-                                key={preset}
-                                onClick={() => updateColumn(column.id, { color: preset })}
-                                className={cn("w-8 h-8 rounded border-2", `bg-gradient-to-r ${preset}`, column.color === preset && "border-slate-900")}
-                              />
-                            ))}
-                          </div>
                         </div>
                       </div>
                     )}
