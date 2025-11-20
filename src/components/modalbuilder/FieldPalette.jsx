@@ -26,13 +26,15 @@ import { useQuery } from '@tanstack/react-query';
  */
 export default function FieldPalette({ onAddField }) {
   
-  // Load file upload templates
+  // Load file upload templates with caching
   const { data: fileTemplates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ['fileUploadTemplates'],
     queryFn: async () => {
       const templates = await base44.entities.FileUploadTemplate.list('display_order');
       return templates || [];
-    }
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 10 * 60 * 1000 // Keep in cache for 10 minutes
   });
 
   const basicFieldTypes = [
@@ -102,6 +104,11 @@ export default function FieldPalette({ onAddField }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* File Upload Templates Section */}
+        {templatesLoading && (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+          </div>
+        )}
         {!templatesLoading && fileTemplates.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-2">

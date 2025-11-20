@@ -38,32 +38,35 @@ export default function FileUploadConfig({ field, onUpdate }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [templateLoaded, setTemplateLoaded] = React.useState(false);
 
-  // Auto-apply template defaults on mount if field has a template
+  // Auto-apply template defaults on mount if field has a template (optimized)
   React.useEffect(() => {
     if (field.templateId && field.templateDefaults && !templateLoaded) {
       const defaults = field.templateDefaults;
       
-      // Apply all template defaults automatically
-      const updatedRagConfig = {
-        enabled: defaults.default_rag_config?.enabled ?? true,
-        extractData: defaults.default_rag_config?.extraction_enabled ?? true,
-        ingestionMode: defaults.default_rag_config?.ingestion_mode || 'full_document',
-        autoIngest: defaults.default_rag_config?.ingestion_mode === 'full_document',
-        extractionFieldsDescription: defaults.default_rag_config?.extraction_fields_description || '',
-        targetSchema: ''
-      };
+      // Use requestAnimationFrame to defer non-critical updates
+      requestAnimationFrame(() => {
+        // Apply all template defaults automatically
+        const updatedRagConfig = {
+          enabled: defaults.default_rag_config?.enabled ?? true,
+          extractData: defaults.default_rag_config?.extraction_enabled ?? true,
+          ingestionMode: defaults.default_rag_config?.ingestion_mode || 'full_document',
+          autoIngest: defaults.default_rag_config?.ingestion_mode === 'full_document',
+          extractionFieldsDescription: defaults.default_rag_config?.extraction_fields_description || '',
+          targetSchema: ''
+        };
 
-      // Set the extraction fields in state
-      if (updatedRagConfig.extractionFieldsDescription) {
-        setFieldsToExtract(updatedRagConfig.extractionFieldsDescription);
-      }
+        // Set the extraction fields in state
+        if (updatedRagConfig.extractionFieldsDescription) {
+          setFieldsToExtract(updatedRagConfig.extractionFieldsDescription);
+        }
 
-      // Update the field with template defaults
-      onUpdate({
-        ragConfig: updatedRagConfig
+        // Update the field with template defaults
+        onUpdate({
+          ragConfig: updatedRagConfig
+        });
+
+        setTemplateLoaded(true);
       });
-
-      setTemplateLoaded(true);
     }
   }, [field.templateId, field.templateDefaults, templateLoaded]);
 

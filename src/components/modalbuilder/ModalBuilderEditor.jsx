@@ -72,17 +72,20 @@ export default function ModalBuilderEditor({ config, onClose }) {
     }
   }, [config]);
 
-  // Load existing config if editing
+  // Load existing config if editing (optimized)
   useEffect(() => {
     if (config?.config_json) {
       try {
         const parsed = JSON.parse(config.config_json);
-        setFields(parsed.fields || []);
-        setSteps(parsed.steps || []);
-        setEntityOperations(parsed.entityOperations || []);
-        setWebhooks(parsed.webhooks || []);
-        setEmailNotifications(parsed.emailNotifications || []);
-        setStatusUpdates(parsed.statusUpdates || []);
+        // Batch state updates to avoid multiple re-renders
+        Promise.resolve().then(() => {
+          setFields(parsed.fields || []);
+          setSteps(parsed.steps || []);
+          setEntityOperations(parsed.entityOperations || []);
+          setWebhooks(parsed.webhooks || []);
+          setEmailNotifications(parsed.emailNotifications || []);
+          setStatusUpdates(parsed.statusUpdates || []);
+        });
       } catch (error) {
         console.error('Error parsing config JSON:', error);
       }
