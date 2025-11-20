@@ -299,10 +299,12 @@ export default function ModalBuilderEditor({ config, onClose }) {
           {/* Left Sidebar - Basic Info & Field Palette */}
           <div className="lg:col-span-1 space-y-6">
             {/* Health Panel */}
-            <ModalHealthPanel 
-              validation={validation} 
-              onJumpToSection={(tab) => setActiveTab(tab)}
-            />
+            <div id="health-indicator">
+              <ModalHealthPanel 
+                validation={validation} 
+                onJumpToSection={(tab) => setActiveTab(tab)}
+              />
+            </div>
 
             {/* Basic Info */}
             <Card id="basic-info-section">
