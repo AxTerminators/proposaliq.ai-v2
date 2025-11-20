@@ -106,6 +106,12 @@ export function useModalValidation(config) {
 
     entityOperations.forEach((op, idx) => {
       const opIssues = [];
+      
+      // Skip validation for auto-generated template operations
+      if (op.fromTemplate) {
+        return;
+      }
+      
       if (!op.entity) opIssues.push('Entity not selected');
       if (!op.type) opIssues.push('Operation type not selected');
 

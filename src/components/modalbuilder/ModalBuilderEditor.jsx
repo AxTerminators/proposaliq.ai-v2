@@ -145,7 +145,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 source: 'extracted',
                 fieldId: newField.id,
                 path: mapping.form_field,
-                defaultValue: mapping.default_value
+                defaultValue: mapping.default_value || ''
               };
             });
           }
@@ -155,10 +155,11 @@ export default function ModalBuilderEditor({ config, onClose }) {
             entity: op.target_entity,
             type: op.operation_type,
             fieldMapping: fieldMappings,
-            sourceFieldId: newField.id
+            sourceFieldId: newField.id,
+            fromTemplate: true
           };
         });
-        setEntityOperations([...entityOperations, ...newOperations]);
+        setEntityOperations(prev => [...prev, ...newOperations]);
       }
     }
 
