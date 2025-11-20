@@ -29,6 +29,10 @@ export default function FileUploadConfig({ field, onUpdate }) {
     autoIngest: true
   };
 
+  // User-friendly fields input (comma-separated)
+  const [fieldsToExtract, setFieldsToExtract] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const handleToggleRAG = (checked) => {
     onUpdate({
       ragConfig: {
@@ -63,6 +67,48 @@ export default function FileUploadConfig({ field, onUpdate }) {
         autoIngest: value === 'auto'
       }
     });
+  };
+
+  // Convert simple field names to JSON schema
+  const handleFieldsChange = (value) => {
+    setFieldsToExtract(value);
+    
+    if (!value.trim()) {
+      handleSchemaChange('');
+      return;
+    }
+
+    // Split by comma and create JSON schema
+    const fields = value.split(',').map(f => f.trim()).filter(Boolean);
+    const schema = {};
+    
+    fields.forEach(fieldName => {
+      const cleanName = fieldName.toLowerCase().replace(/\s+/g, '_');
+      schema[cleanName] = "string";
+    });
+
+    handleSchemaChange(JSON.stringify(schema, null, 2));
+  };
+
+  // AI-powered suggestions based on field label
+  const handleAISuggestion = () => {
+    const fieldLabel = field.label?.toLowerCase() || '';
+    let suggested = '';
+
+    if (fieldLabel.includes('resume') || fieldLabel.includes('cv')) {
+      suggested = 'name, email, phone, experience, skills, education';
+    } else if (fieldLabel.includes('capability') || fieldLabel.includes('partner')) {
+      suggested = 'company_name, capabilities, past_performance, certifications';
+    } else if (fieldLabel.includes('invoice') || fieldLabel.includes('receipt')) {
+      suggested = 'vendor_name, amount, date, invoice_number, items';
+    } else if (fieldLabel.includes('contract')) {
+      suggested = 'contract_number, parties, start_date, end_date, value';
+    } else {
+      suggested = 'name, email, date, description';
+    }
+
+    setFieldsToExtract(suggested);
+    handleFieldsChange(suggested);
   };
 
   return (
