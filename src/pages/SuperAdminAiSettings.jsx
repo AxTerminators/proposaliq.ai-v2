@@ -334,7 +334,7 @@ export default function SuperAdminAiSettings() {
 
         {/* Edit/Create Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" key={editingConfig?.id || 'new'}>
             <DialogHeader>
               <DialogTitle>
                 {editingConfig?.id ? 'Edit AI Configuration' : 'New AI Configuration'}
@@ -345,7 +345,7 @@ export default function SuperAdminAiSettings() {
             </DialogHeader>
 
             {editingConfig ? (
-              <Tabs defaultValue="basic" className="mt-4">
+              <Tabs defaultValue="basic" className="mt-4" key={`tabs-${editingConfig?.id || 'new'}`}>
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="basic">Model Configuration</TabsTrigger>
                   <TabsTrigger value="prompts">System Prompts</TabsTrigger>
