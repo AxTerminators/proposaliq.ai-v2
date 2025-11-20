@@ -231,8 +231,8 @@ export default function ModalBuilderEditor({ config, onClose }) {
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
@@ -242,15 +242,15 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900">
                   {config ? 'Edit Modal Configuration' : 'New Modal Configuration'}
                 </h1>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-600 hidden sm:block">
                   Design your dynamic form structure
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <GuideButton onClick={() => setShowGuide(true)} />
               <TemplateImportExport
                 config={config}
@@ -268,7 +268,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 onClick={() => setShowPreview(true)}
               >
                 <Eye className="w-4 h-4" />
-                Preview
+                <span className="hidden sm:inline">Preview</span>
               </Button>
               <Button 
                 variant="outline"
@@ -277,7 +277,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 className="gap-2"
               >
                 <Save className="w-4 h-4" />
-                Save Draft
+                <span className="hidden sm:inline">Save Draft</span>
               </Button>
               <Button 
                 onClick={handleSave} 
@@ -285,7 +285,8 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 className="gap-2"
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Configuration'}
+                <span className="hidden md:inline">{saving ? 'Saving...' : 'Save Configuration'}</span>
+                <span className="md:hidden">Save</span>
               </Button>
             </div>
           </div>
