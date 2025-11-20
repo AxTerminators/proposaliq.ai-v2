@@ -26,8 +26,9 @@ export default function ProposalStrategyConfigPage() {
       if (proposals.length === 0) throw new Error('Proposal not found');
       return proposals[0];
     },
-    enabled: !!proposalId,
-    retry: 1
+    enabled: !!proposalId && !orgLoading,
+    retry: 1,
+    retryDelay: 500
   });
 
   // Loading state - includes organization loading
