@@ -271,6 +271,15 @@ export default function ModalBuilderEditor({ config, onClose }) {
                 Preview
               </Button>
               <Button 
+                variant="outline"
+                onClick={handleSaveDraft} 
+                disabled={saving || !name || name.trim() === ''}
+                className="gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save Draft
+              </Button>
+              <Button 
                 onClick={handleSave} 
                 disabled={saving || validation.criticalIssues}
                 className="gap-2"
