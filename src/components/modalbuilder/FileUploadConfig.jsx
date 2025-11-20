@@ -23,8 +23,8 @@ import FileTypeHelper from './FileTypeHelper';
  */
 export default function FileUploadConfig({ field, onUpdate }) {
   const ragConfig = field.ragConfig || {
-    enabled: false,
-    extractData: false,
+    enabled: true,
+    extractData: true,
     targetSchema: '',
     autoIngest: true,
     ingestionMode: 'full_document',
