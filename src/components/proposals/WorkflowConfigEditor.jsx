@@ -331,7 +331,7 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                           <ColorPicker
                             value={column.color}
                             onChange={(color) => updateColumn(column.id, { color })}
-                            mode="gradient"
+                            mode="solid"
                             label="Column Color"
                           />
                         </div>
