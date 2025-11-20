@@ -17,33 +17,6 @@ export default function ProposalStrategyConfigPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const proposalId = urlParams.get('proposalId');
 
-  // Early return if no proposalId
-  if (!proposalId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <Card className="w-full max-w-2xl">
-          <CardContent className="p-8">
-            <Alert className="bg-red-50 border-red-200 mb-6">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <AlertDescription className="text-red-800">
-                No proposal ID provided in URL
-              </AlertDescription>
-            </Alert>
-            <div className="text-center">
-              <Button
-                onClick={() => window.location.href = createPageUrl('Pipeline')}
-                variant="outline"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Return to Pipeline
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Fetch proposal data
   const { data: proposal, isLoading, error } = useQuery({
     queryKey: ['proposal', proposalId],
