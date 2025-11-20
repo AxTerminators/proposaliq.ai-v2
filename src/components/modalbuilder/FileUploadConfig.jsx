@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -10,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText, Sparkles, AlertCircle } from 'lucide-react';
+import { FileText, Sparkles, AlertCircle, Wand2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import FileTypeHelper from './FileTypeHelper';
 
