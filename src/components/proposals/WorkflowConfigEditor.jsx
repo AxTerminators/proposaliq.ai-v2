@@ -28,6 +28,19 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Standard master board columns for system templates (when organizationId is null)
+const STANDARD_MASTER_COLUMNS = [
+  { id: 'master_lead', label: 'Lead' },
+  { id: 'master_plan', label: 'Plan' },
+  { id: 'master_draft', label: 'Draft' },
+  { id: 'master_review', label: 'Review' },
+  { id: 'master_hold', label: 'Hold' },
+  { id: 'master_submitted', label: 'Submitted' },
+  { id: 'master_won', label: 'Won' },
+  { id: 'master_lost', label: 'Lost' },
+  { id: 'master_archived', label: 'Archived' }
+];
+
 export default function WorkflowConfigEditor({ workflowConfig, onChange, organizationId }) {
   const columns = workflowConfig?.columns || [];
   
