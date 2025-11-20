@@ -92,8 +92,8 @@ export const ACTION_REGISTRY = {
   // COLUMN 7: PLANNING - Content Planning
   // ============================================
   'open_content_planning_modal': {
-    type: 'modal',
-    component: ContentPlanningModal,
+    type: 'navigate',
+    path: 'ProposalStrategyConfigPage',
     label: 'Plan Content Strategy'
   },
   
