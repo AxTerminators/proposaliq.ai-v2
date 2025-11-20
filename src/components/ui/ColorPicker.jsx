@@ -55,6 +55,8 @@ export default function ColorPicker({ value, onChange, mode = 'gradient', label 
   const isGradientMode = mode === 'gradient';
   const presets = isGradientMode ? GRADIENT_PRESETS : SOLID_COLOR_PRESETS;
   
+  console.log('[ColorPicker] mode:', mode, 'isGradientMode:', isGradientMode, 'value:', value);
+  
   // Initialize customColor based on value prop for solid mode
   const [customColor, setCustomColor] = useState(() => {
     if (!isGradientMode && value && /^#[0-9A-Fa-f]{6}$/i.test(value)) {
