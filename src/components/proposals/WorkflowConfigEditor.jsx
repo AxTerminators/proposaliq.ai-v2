@@ -65,9 +65,13 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
     enabled: !!organizationId
   });
 
-  const masterBoardColumns = masterBoard?.columns || [];
+  // Use standard columns if no organizationId, otherwise use org's master board
+  const masterBoardColumns = organizationId 
+    ? (masterBoard?.columns || [])
+    : STANDARD_MASTER_COLUMNS;
   
   console.log('[WorkflowConfigEditor] organizationId:', organizationId);
+  console.log('[WorkflowConfigEditor] Using standard columns:', !organizationId);
   console.log('[WorkflowConfigEditor] masterBoard:', masterBoard);
   console.log('[WorkflowConfigEditor] masterBoardColumns:', masterBoardColumns);
 
