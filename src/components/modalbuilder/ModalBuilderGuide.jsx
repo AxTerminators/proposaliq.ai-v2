@@ -67,6 +67,7 @@ const TOUR_STEPS = [
 export default function ModalBuilderGuide({ isOpen, onClose, onStepChange }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [hasSeenGuide, setHasSeenGuide] = useState(false);
+  const [highlightRect, setHighlightRect] = useState(null);
 
   useEffect(() => {
     // Check if user has seen guide before
@@ -79,6 +80,18 @@ export default function ModalBuilderGuide({ isOpen, onClose, onStepChange }) {
   useEffect(() => {
     if (onStepChange && isOpen) {
       onStepChange(TOUR_STEPS[currentStep]);
+    }
+
+    // Highlight target element
+    if (isOpen && TOUR_STEPS[currentStep].target) {
+      const element = document.getElementById(TOUR_STEPS[currentStep].target);
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        setHighlightRect(rect);
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else {
+      setHighlightRect(null);
     }
   }, [currentStep, isOpen, onStepChange]);
 
