@@ -117,6 +117,61 @@ export default function ModalBuilderEditor({ config, onClose }) {
     setFields(newFields);
   };
 
+  // Save draft (without validation)
+  const handleSaveDraft = async () => {
+    if (!name || name.trim() === '') {
+      alert('Please enter a modal name before saving draft');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const user = await base44.auth.me();
+      
+      const configJson = JSON.stringify({
+        title: name,
+        description: description,
+        fields: fields,
+        steps: steps,
+        entityOperations: entityOperations,
+        webhooks: webhooks,
+        emailNotifications: emailNotifications,
+        statusUpdates: statusUpdates
+      });
+
+      const data = {
+        name: name.trim(),
+        description: description || 'Draft',
+        icon_emoji: iconEmoji,
+        config_json: configJson,
+        template_type: 'system',
+        category: 'custom',
+        is_active: false, // Draft = inactive
+        version: config?.version ? config.version + 1 : 1,
+        last_modified_by_email: user.email
+      };
+
+      if (!config) {
+        data.created_by_email = user.email;
+      }
+
+      if (config) {
+        await base44.entities.ModalConfig.update(config.id, data);
+        alert('✅ Draft saved successfully!');
+      } else {
+        const created = await base44.entities.ModalConfig.create(data);
+        alert('✅ Draft saved successfully! You can continue editing.');
+        // Update the config so subsequent saves are updates
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      alert('Failed to save draft: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Save configuration
   const handleSave = async () => {
     // Validate before saving
