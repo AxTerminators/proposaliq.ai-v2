@@ -38,7 +38,7 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
   const [editingColumn, setEditingColumn] = useState(null);
 
   // Fetch Master Board columns
-  const { data: masterBoard } = useQuery({
+  const { data: masterBoard, isLoading: isLoadingMasterBoard } = useQuery({
     queryKey: ['masterBoard', organizationId],
     queryFn: async () => {
       if (!organizationId) return null;
@@ -46,12 +46,17 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
         organization_id: organizationId,
         is_master_board: true
       });
+      console.log('[WorkflowConfigEditor] Master board query result:', boards);
       return boards[0] || null;
     },
     enabled: !!organizationId
   });
 
   const masterBoardColumns = masterBoard?.columns || [];
+  
+  console.log('[WorkflowConfigEditor] organizationId:', organizationId);
+  console.log('[WorkflowConfigEditor] masterBoard:', masterBoard);
+  console.log('[WorkflowConfigEditor] masterBoardColumns:', masterBoardColumns);
 
   // Update expanded columns when columns change
   React.useEffect(() => {
