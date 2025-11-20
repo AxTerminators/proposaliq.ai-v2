@@ -48,6 +48,19 @@ export function useModalValidation(config) {
         fieldIssues.push('Array field needs item type');
       }
 
+      // File upload fields with templates are valid if they have complete default configs
+      if (field.type === 'file' && field.templateId) {
+        const hasCompleteTemplate = 
+          field.ragConfig?.enabled && 
+          field.ragConfig?.extraction_enabled &&
+          field.ragConfig?.extraction_fields_description;
+        
+        // Skip validation for file fields with complete templates
+        if (hasCompleteTemplate) {
+          return;
+        }
+      }
+
       if (fieldIssues.length > 0) {
         fieldsValidation.fieldIssues[field.id] = fieldIssues;
         fieldsValidation.isValid = false;
@@ -86,6 +99,13 @@ export function useModalValidation(config) {
       operationIssues: {},
     };
 
+    // Check if file upload fields with templates that have default operations exist
+    const fileFieldsWithTemplateOps = fields.filter(
+      f => f.type === 'file' && 
+      f.templateId && 
+      f.ragConfig?.default_entity_operations?.length > 0
+    );
+
     entityOperations.forEach((op, idx) => {
       const opIssues = [];
       if (!op.entity) opIssues.push('Entity not selected');
@@ -111,7 +131,8 @@ export function useModalValidation(config) {
       }
     });
 
-    if (entityOperations.length === 0) {
+    // Valid if either: manual operations configured OR file templates with default operations exist
+    if (entityOperations.length === 0 && fileFieldsWithTemplateOps.length === 0) {
       operationsValidation.issues.push('No entity operations configured (data won\'t be saved)');
       operationsValidation.isValid = false;
     }
