@@ -14,8 +14,10 @@ import {
   Download,
   Upload,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Smile
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
 import FieldPalette from './FieldPalette';
