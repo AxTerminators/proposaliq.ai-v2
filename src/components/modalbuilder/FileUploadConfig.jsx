@@ -36,13 +36,36 @@ export default function FileUploadConfig({ field, onUpdate }) {
     ragConfig.extractionFieldsDescription || ''
   );
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [templateLoaded, setTemplateLoaded] = React.useState(false);
 
-  // Load template-based extraction fields on mount
+  // Auto-apply template defaults on mount if field has a template
   React.useEffect(() => {
-    if (field.templateId && ragConfig.extractionFieldsDescription && !fieldsToExtract) {
-      setFieldsToExtract(ragConfig.extractionFieldsDescription);
+    if (field.templateId && field.templateDefaults && !templateLoaded) {
+      const defaults = field.templateDefaults;
+      
+      // Apply all template defaults automatically
+      const updatedRagConfig = {
+        enabled: defaults.default_rag_config?.enabled ?? true,
+        extractData: defaults.default_rag_config?.extraction_enabled ?? true,
+        ingestionMode: defaults.default_rag_config?.ingestion_mode || 'full_document',
+        autoIngest: defaults.default_rag_config?.ingestion_mode === 'full_document',
+        extractionFieldsDescription: defaults.default_rag_config?.extraction_fields_description || '',
+        targetSchema: ''
+      };
+
+      // Set the extraction fields in state
+      if (updatedRagConfig.extractionFieldsDescription) {
+        setFieldsToExtract(updatedRagConfig.extractionFieldsDescription);
+      }
+
+      // Update the field with template defaults
+      onUpdate({
+        ragConfig: updatedRagConfig
+      });
+
+      setTemplateLoaded(true);
     }
-  }, [field.templateId]);
+  }, [field.templateId, field.templateDefaults, templateLoaded]);
 
   const handleToggleRAG = (checked) => {
     onUpdate({
@@ -75,7 +98,7 @@ export default function FileUploadConfig({ field, onUpdate }) {
     onUpdate({
       ragConfig: {
         ...ragConfig,
-        autoIngest: value === 'auto',
+        autoIngest: value === 'full_document',
         ingestionMode: value
       }
     });
@@ -188,14 +211,14 @@ export default function FileUploadConfig({ field, onUpdate }) {
             <div>
               <Label className="text-xs">Ingestion Mode</Label>
               <Select
-                value={ragConfig.autoIngest ? 'auto' : 'manual'}
+                value={ragConfig.ingestionMode || (ragConfig.autoIngest ? 'full_document' : 'manual')}
                 onValueChange={handleIngestModeChange}
               >
                 <SelectTrigger className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Automatic (on upload)</SelectItem>
+                  <SelectItem value="full_document">Full Document (recommended)</SelectItem>
                   <SelectItem value="manual">Manual (on demand)</SelectItem>
                 </SelectContent>
               </Select>
