@@ -254,6 +254,23 @@ export default function ModalBuilderEditor({ config, onClose }) {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Icon Emoji</Label>
+                  <div className="flex gap-2 flex-wrap mb-2">
+                    {['📋', '📝', '📄', '📊', '📈', '💼', '🎯', '✅', '📁', '🚀', '⚡', '🔔', '💡', '🎨', '🔧', '📦'].map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setIconEmoji(emoji)}
+                        className={cn(
+                          "w-10 h-10 text-xl rounded border-2 transition-all hover:scale-110",
+                          iconEmoji === emoji 
+                            ? "border-blue-500 bg-blue-50" 
+                            : "border-slate-200 hover:border-slate-300"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                   <Input
                     value={iconEmoji}
                     onChange={(e) => setIconEmoji(e.target.value)}
