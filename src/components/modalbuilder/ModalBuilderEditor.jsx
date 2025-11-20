@@ -136,30 +136,38 @@ export default function ModalBuilderEditor({ config, onClose }) {
 
       // Auto-apply default entity operations from template
       if (template.default_entity_operations && template.default_entity_operations.length > 0) {
-        const newOperations = template.default_entity_operations.map(op => {
-          // Convert template format to internal format
-          const fieldMappings = {};
-          if (op.field_mappings) {
-            op.field_mappings.forEach(mapping => {
-              fieldMappings[mapping.entity_attribute] = {
-                source: 'extracted',
-                fieldId: newField.id,
-                path: mapping.form_field,
-                defaultValue: mapping.default_value || ''
-              };
-            });
-          }
+        setTimeout(() => {
+          const newOperations = template.default_entity_operations.map(op => {
+            // Convert template format to internal format that validation expects
+            const fieldMappings = {};
+            if (op.field_mappings && Array.isArray(op.field_mappings)) {
+              op.field_mappings.forEach(mapping => {
+                // Parse the form_field to determine source type
+                const [sourceType, ...pathParts] = mapping.form_field.split('.');
+                const path = pathParts.join('.');
+                
+                fieldMappings[mapping.entity_attribute] = {
+                  source: sourceType === 'extracted' ? 'extracted' : sourceType === 'constant' ? 'static' : 'field',
+                  fieldId: sourceType === 'extracted' ? newField.id : undefined,
+                  path: path || mapping.form_field,
+                  staticValue: sourceType === 'constant' ? path : undefined,
+                  defaultValue: mapping.default_value || ''
+                };
+              });
+            }
+            
+            return {
+              id: `operation_${Date.now()}_${Math.random()}`,
+              entity: op.target_entity,
+              type: op.operation_type,
+              fieldMapping: fieldMappings,
+              sourceFieldId: newField.id,
+              fromTemplate: true
+            };
+          });
           
-          return {
-            id: `operation_${Date.now()}_${Math.random()}`,
-            entity: op.target_entity,
-            type: op.operation_type,
-            fieldMapping: fieldMappings,
-            sourceFieldId: newField.id,
-            fromTemplate: true
-          };
-        });
-        setEntityOperations(prev => [...prev, ...newOperations]);
+          setEntityOperations(prev => [...prev, ...newOperations]);
+        }, 100);
       }
     }
 
