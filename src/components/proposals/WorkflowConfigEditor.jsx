@@ -29,12 +29,11 @@ import {
 import { cn } from "@/lib/utils";
 
 // Standard master board columns for system templates (when organizationId is null)
+// These match the actual master board structure from createMasterBoardConfig
 const STANDARD_MASTER_COLUMNS = [
-  { id: 'master_lead', label: 'Lead' },
-  { id: 'master_plan', label: 'Plan' },
-  { id: 'master_draft', label: 'Draft' },
-  { id: 'master_review', label: 'Review' },
-  { id: 'master_hold', label: 'Hold' },
+  { id: 'master_qualifying', label: 'Qualifying' },
+  { id: 'master_drafting', label: 'Drafting' },
+  { id: 'master_reviewing', label: 'Reviewing' },
   { id: 'master_submitted', label: 'Submitted' },
   { id: 'master_won', label: 'Won' },
   { id: 'master_lost', label: 'Lost' },
