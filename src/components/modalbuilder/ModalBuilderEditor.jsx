@@ -90,15 +90,45 @@ export default function ModalBuilderEditor({ config, onClose }) {
   }, [config]);
 
   // Add field to canvas
-  const handleAddField = (fieldType) => {
+  const handleAddField = (fieldType, template = null) => {
     const newField = {
       id: `field_${Date.now()}`,
       type: fieldType,
-      label: `New ${fieldType} Field`,
+      label: template?.default_label || `New ${fieldType} Field`,
       placeholder: '',
       required: false,
-      helpText: ''
+      helpText: template?.default_help_text || ''
     };
+
+    // Apply template configuration if provided
+    if (template && fieldType === 'file') {
+      newField.acceptedFileTypes = template.default_accepted_file_types || ['.pdf', '.docx', '.doc'];
+      
+      // Apply RAG configuration
+      if (template.default_rag_config) {
+        newField.ragConfig = {
+          enabled: template.default_rag_config.enabled || false,
+          ingestionMode: template.default_rag_config.ingestion_mode || 'full_document',
+          extractionEnabled: template.default_rag_config.extraction_enabled || false,
+          extractionFieldsDescription: template.default_rag_config.extraction_fields_description || ''
+        };
+      }
+
+      // Apply pre-fill mappings
+      if (template.default_prefill_mappings && template.default_prefill_mappings.length > 0) {
+        newField.prefillMappings = template.default_prefill_mappings;
+      }
+
+      // Apply validation rules
+      if (template.default_validation_rules) {
+        newField.validationRules = template.default_validation_rules;
+      }
+
+      // Store template reference for context
+      newField.templateId = template.id;
+      newField.templateName = template.template_name;
+    }
+
     setFields([...fields, newField]);
   };
 
