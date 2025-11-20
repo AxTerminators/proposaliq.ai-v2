@@ -195,23 +195,66 @@ export default function FileUploadConfig({ field, onUpdate }) {
         {ragConfig.extractData && (
           <div className="ml-6 space-y-3">
             <div>
-              <Label className="text-xs">Target JSON Schema</Label>
-              <Textarea
-                value={ragConfig.targetSchema}
-                onChange={(e) => handleSchemaChange(e.target.value)}
-                placeholder='{"partner_name": "string", "capabilities": "array"}'
-                rows={4}
-                className="text-xs font-mono"
-              />
+              <Label className="text-xs">What information to extract?</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={fieldsToExtract}
+                  onChange={(e) => handleFieldsChange(e.target.value)}
+                  placeholder="e.g., name, email, experience, skills"
+                  className="text-xs flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={handleAISuggestion}
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                >
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  Suggest
+                </Button>
+              </div>
               <p className="text-xs text-slate-500 mt-1">
-                Define the structure of data to extract from uploaded files
+                Enter field names separated by commas. Click "Suggest" for smart recommendations.
               </p>
             </div>
+
+            {ragConfig.targetSchema && (
+              <div className="flex items-start gap-2 p-2 bg-green-50 rounded border border-green-200">
+                <Sparkles className="w-3 h-3 text-green-700 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-green-800">
+                  AI will extract: {fieldsToExtract || 'specified fields'}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-xs text-blue-600 hover:text-blue-700 underline"
+            >
+              {showAdvanced ? 'Hide' : 'Show'} advanced JSON schema
+            </button>
+
+            {showAdvanced && (
+              <div>
+                <Label className="text-xs">Generated JSON Schema</Label>
+                <Textarea
+                  value={ragConfig.targetSchema}
+                  onChange={(e) => handleSchemaChange(e.target.value)}
+                  rows={4}
+                  className="text-xs font-mono"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Advanced users can manually edit the JSON schema
+                </p>
+              </div>
+            )}
 
             <div className="flex items-start gap-2 p-2 bg-yellow-50 rounded border border-yellow-200">
               <AlertCircle className="w-3 h-3 text-yellow-700 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-yellow-800">
-                AI will attempt to extract structured data matching this schema. Works best with PDFs and DOCX files.
+                AI will attempt to extract structured data. Works best with PDFs and DOCX files.
               </p>
             </div>
           </div>
