@@ -548,6 +548,131 @@ export default function ResourceUploadSection({
             </Select>
           </div>
 
+          {/* Supplementary Document Toggle */}
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="space-y-0.5">
+              <Label htmlFor="is-supplementary" className="text-base font-medium">
+                Is this a Supplementary Document?
+              </Label>
+              <p className="text-sm text-slate-500">
+                Amendment, Q&A response, or additional document to a primary solicitation
+              </p>
+            </div>
+            <Switch
+              id="is-supplementary"
+              checked={isSupplementary}
+              onCheckedChange={(checked) => {
+                setIsSupplementary(checked);
+                if (!checked) {
+                  setSupplementaryType("");
+                  setParentDocumentId("");
+                  setAmendmentNumber("");
+                }
+              }}
+            />
+          </div>
+
+          {/* Supplementary Type */}
+          {isSupplementary && (
+            <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <Label htmlFor="supplementary-type">Supplementary Document Type *</Label>
+                <Select 
+                  value={supplementaryType} 
+                  onValueChange={(value) => {
+                    setSupplementaryType(value);
+                    // Clear amendment number if not an amendment
+                    if (value !== "amendment") {
+                      setAmendmentNumber("");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1 bg-white">
+                    <SelectValue placeholder="Select supplementary type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="amendment">Amendment</SelectItem>
+                    <SelectItem value="q_a_response">Q&A Response</SelectItem>
+                    <SelectItem value="sow">Statement of Work (SOW)</SelectItem>
+                    <SelectItem value="pws">Performance Work Statement (PWS)</SelectItem>
+                    <SelectItem value="clarification">Clarification</SelectItem>
+                    <SelectItem value="addendum">Addendum</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Parent Document Selection */}
+              {supplementaryType && (
+                <div>
+                  <Label htmlFor="parent-document">Link to Parent Document</Label>
+                  {loadingParents ? (
+                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg border mt-1">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <span className="text-sm text-slate-600">Loading parent documents...</span>
+                    </div>
+                  ) : parentDocuments.length === 0 ? (
+                    <Alert className="mt-1 bg-amber-50 border-amber-300">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-800">
+                        No primary solicitation documents found for this proposal. 
+                        You can upload this as a standalone supplementary document, or upload the primary document first.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Select value={parentDocumentId} onValueChange={setParentDocumentId}>
+                      <SelectTrigger className="mt-1 bg-white">
+                        <SelectValue placeholder="Select parent document (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parentDocuments.map((doc) => (
+                          <SelectItem key={doc.id} value={doc.id}>
+                            {doc.file_name} ({doc.document_type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-xs text-slate-500 mt-1">
+                    Optional: Link this document to a primary solicitation document
+                  </p>
+                </div>
+              )}
+
+              {/* Amendment Number */}
+              {supplementaryType === "amendment" && (
+                <div>
+                  <Label htmlFor="amendment-number">Amendment Number</Label>
+                  <Input
+                    id="amendment-number"
+                    value={amendmentNumber}
+                    onChange={(e) => setAmendmentNumber(e.target.value)}
+                    placeholder="e.g., 001, 002"
+                    className="mt-1 bg-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Sequential number for tracking amendments
+                  </p>
+                </div>
+              )}
+
+              {/* Version Date */}
+              <div>
+                <Label htmlFor="version-date">Document Date</Label>
+                <Input
+                  id="version-date"
+                  type="date"
+                  value={versionDate}
+                  onChange={(e) => setVersionDate(e.target.value)}
+                  className="mt-1 bg-white"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Date of this document version (used for AI prioritization)
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Tags */}
           <div>
             <Label htmlFor="tags">Tags</Label>
