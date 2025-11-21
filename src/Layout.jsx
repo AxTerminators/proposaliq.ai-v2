@@ -99,7 +99,7 @@ const SETTINGS_ITEMS = [
   { title: "AI Token Usage", url: createPageUrl("AITokenUsageDashboard"), icon: Activity },
   { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
   { title: "System Verification", url: createPageUrl("SystemVerification"), icon: CheckSquare },
-  { title: "System Docs", url: createPageUrl("SystemDocumentation"), icon: BookOpen },
+  { title: "System Docs", url: createPageUrl("SystemDocumentation"), icon: BookOpen }
 ];
 
 // All possible navigation items with their visibility rules
@@ -119,8 +119,7 @@ const ALL_NAVIGATION_ITEMS = [
 const adminItems = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
   { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
-  { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit },
-  { title: "Data Cleanup", url: createPageUrl("DataCleanup"), icon: Wrench },
+  { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit }
 ];
 
 function LayoutContent({ children, currentPageName }) {
