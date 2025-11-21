@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Award, Building2, Calendar, DollarSign, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Award, Building2, Calendar, DollarSign, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import SmartSuggestions from './SmartSuggestions';
 
 /**
  * PastPerformanceReferenceSelector
@@ -120,8 +122,32 @@ export default function PastPerformanceReferenceSelector({
                     </DialogDescription>
                 </DialogHeader>
 
-                {/* Search */}
-                <div className="relative">
+                <Tabs defaultValue="all" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="suggestions">
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            AI Suggestions
+                        </TabsTrigger>
+                        <TabsTrigger value="all">
+                            <Search className="w-4 h-4 mr-2" />
+                            All Records
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="suggestions" className="space-y-4 mt-4">
+                        {proposalContext?.id && (
+                            <SmartSuggestions
+                                proposalId={proposalContext.id}
+                                organizationId={organizationId}
+                                onSelectRecord={(record) => handleToggle(record.id)}
+                                maxSuggestions={5}
+                            />
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="all" className="space-y-4 mt-4">
+                        {/* Search */}
+                        <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <Input
                         placeholder="Search by title, agency, tags, or NAICS..."
@@ -258,7 +284,9 @@ export default function PastPerformanceReferenceSelector({
                             );
                         })
                     )}
-                </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
 
                 {/* Actions */}
                 <div className="flex justify-between items-center pt-4 border-t">
