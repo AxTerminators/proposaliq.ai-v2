@@ -33,6 +33,8 @@ import {
   RefreshCw,
   AlertCircle,
   MinusCircle,
+  FileStack,
+  GitBranch,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
