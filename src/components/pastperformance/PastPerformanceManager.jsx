@@ -204,6 +204,11 @@ export default function PastPerformanceManager({
                 savedRecord = await base44.entities.PastPerformanceRecord.create(finalData);
             }
 
+            // Trigger RAG ingestion in background (non-blocking)
+            base44.functions.invoke('ingestPastPerformanceToRAG', { 
+                record_id: savedRecord.id 
+            }).catch(err => console.error('RAG ingestion failed (non-blocking):', err));
+
             // Invalidate queries
             queryClient.invalidateQueries({ queryKey: ['pastPerformanceRecords'] });
 
