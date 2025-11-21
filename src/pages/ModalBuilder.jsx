@@ -29,7 +29,11 @@ export default function ModalBuilder() {
   // Fetch all modal configs
   const { data: configs = [], isLoading, refetch } = useQuery({
     queryKey: ['modalConfigs'],
-    queryFn: () => base44.entities.ModalConfig.list('-updated_date')
+    queryFn: async () => {
+      const allConfigs = await base44.entities.ModalConfig.list('-updated_date');
+      // CRITICAL: Filter out corrupted records
+      return allConfigs.filter(c => c && c.id && c.name && typeof c === 'object');
+    }
   });
 
   // Filter configs based on search

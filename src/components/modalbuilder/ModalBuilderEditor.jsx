@@ -20,6 +20,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
+import { sanitizeModalConfigData } from '@/components/utils/iconValidation';
 import FieldPalette from './FieldPalette';
 import CanvasArea from './CanvasArea';
 import StepManager from './StepManager';
@@ -213,17 +214,17 @@ export default function ModalBuilderEditor({ config, onClose }) {
         statusUpdates: statusUpdates
       });
 
-      const data = {
+      const data = sanitizeModalConfigData({
         name: name.trim(),
         description: description || 'Draft',
-        icon_emoji: iconEmoji || '📋',
+        icon_emoji: iconEmoji,
         config_json: configJson,
         template_type: 'system',
         category: 'custom',
         is_active: false, // Draft = inactive
         version: config?.version ? config.version + 1 : 1,
         last_modified_by_email: user.email
-      };
+      });
 
       if (!config) {
         data.created_by_email = user.email;
@@ -270,17 +271,17 @@ export default function ModalBuilderEditor({ config, onClose }) {
         statusUpdates: statusUpdates
       });
 
-      const data = {
+      const data = sanitizeModalConfigData({
         name,
         description,
-        icon_emoji: iconEmoji || '📋',
+        icon_emoji: iconEmoji,
         config_json: configJson,
         template_type: 'system',
         category: 'custom',
         is_active: true,
         version: config?.version ? config.version + 1 : 1,
         last_modified_by_email: user.email
-      };
+      });
 
       if (!config) {
         data.created_by_email = user.email;
