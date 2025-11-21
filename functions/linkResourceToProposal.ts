@@ -138,12 +138,11 @@ Deno.serve(async (req) => {
             linkedSolicitationDocIds.push(id);
             linkedCount++;
 
-            // Increment usage count for SolicitationDocument
+            // Update last used date for SolicitationDocument
             try {
-              const solicitationDocs = await base44.asServiceRole.entities.SolicitationDocument.filter({ id });
+              const solicitationDocs = await base44.entities.SolicitationDocument.filter({ id });
               if (solicitationDocs && solicitationDocs.length > 0) {
-                const doc = solicitationDocs[0];
-                await base44.asServiceRole.entities.SolicitationDocument.update(id, {
+                await base44.entities.SolicitationDocument.update(id, {
                   last_used_date: new Date().toISOString()
                 });
               }
