@@ -41,6 +41,7 @@ export default function ResourceUploadSection({
   const [ingestToRAG, setIngestToRAG] = useState(true);
   const [extractKeyData, setExtractKeyData] = useState(false);
   const [extractionFieldsDescription, setExtractionFieldsDescription] = useState("");
+  const [suggestedTags, setSuggestedTags] = useState([]);
 
   // Upload state
   const [isUploading, setIsUploading] = useState(false);
@@ -55,13 +56,50 @@ export default function ResourceUploadSection({
   /**
    * Handle file selection via input or drag-and-drop
    */
-  const handleFileSelect = (file) => {
+  const handleFileSelect = async (file) => {
     if (!file) return;
 
     setSelectedFile(file);
     // Auto-fill title from filename
     const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
     setTitle(fileNameWithoutExt);
+    
+    // Generate AI tag suggestions based on filename
+    await generateTagSuggestions(fileNameWithoutExt);
+  };
+
+  /**
+   * Generate AI-powered tag suggestions
+   */
+  const generateTagSuggestions = async (filename) => {
+    try {
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `Given this filename: "${filename}", suggest 3-5 relevant tags for categorizing this document in a government proposal context. Return only the tags as a comma-separated list, nothing else.`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            tags: { type: "array", items: { type: "string" } }
+          }
+        }
+      });
+      
+      if (response.tags && Array.isArray(response.tags)) {
+        setSuggestedTags(response.tags);
+      }
+    } catch (error) {
+      console.error("Failed to generate tag suggestions:", error);
+      setSuggestedTags([]);
+    }
+  };
+
+  /**
+   * Add suggested tag
+   */
+  const handleAddSuggestedTag = (tag) => {
+    if (!tags.includes(tag)) {
+      setTags([...tags, tag]);
+    }
+    setSuggestedTags(suggestedTags.filter(t => t !== tag));
   };
 
   /**
@@ -479,6 +517,26 @@ export default function ResourceUploadSection({
               placeholder="Type and press Enter to add tags"
               className="mt-1"
             />
+            
+            {/* AI Suggested Tags */}
+            {suggestedTags.length > 0 && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-700 font-medium mb-2">✨ AI Suggested Tags:</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-blue-100 border-blue-300"
+                      onClick={() => handleAddSuggestedTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {tags.map((tag) => (
