@@ -953,6 +953,136 @@ The content should be ready to insert into the proposal document. Use HTML forma
     }
   };
 
+  /**
+   * Mark section for review - Phase 1 implementation
+   * Updates section status to pending_review and transitions proposal to Review column
+   */
+  const handleMarkForReview = async (sectionKey, sectionName) => {
+    const content = sectionContent[sectionKey] || "";
+    if (!content.trim()) {
+      alert("Cannot mark empty content for review");
+      return;
+    }
+
+    if (!confirm(`Mark "${sectionName}" for review?\n\nThis will move the proposal to the Review column on the Kanban board.`)) {
+      return;
+    }
+
+    setSavingSection(sectionKey);
+    setSaveError(null);
+    
+    try {
+      const wordCount = content.replace(/<[^>]*>/g, '').split(/\s+/).filter(w => w.length > 0).length;
+      const existingSection = sections.find(s => s.section_type === sectionKey);
+
+      // Update or create the section with pending_review status
+      if (existingSection) {
+        await updateSectionMutation.mutateAsync({
+          id: existingSection.id,
+          data: {
+            content,
+            word_count: wordCount,
+            status: 'pending_review',
+            marked_for_review_by: currentUser.email,
+            marked_for_review_date: new Date().toISOString()
+          }
+        });
+
+        await createVersionHistory(
+          existingSection.id,
+          content,
+          wordCount,
+          'user_edit',
+          'Marked for review'
+        );
+      } else {
+        const newSection = await createSectionMutation.mutateAsync({
+          proposal_id: proposalId,
+          section_name: sectionName,
+          section_type: sectionKey,
+          content,
+          word_count: wordCount,
+          order: sections.length,
+          status: 'pending_review',
+          marked_for_review_by: currentUser.email,
+          marked_for_review_date: new Date().toISOString()
+        });
+
+        await createVersionHistory(
+          newSection.id,
+          content,
+          wordCount,
+          'initial_creation',
+          'Created and marked for review'
+        );
+      }
+
+      // Update proposal status to move to Review column
+      // Find the Review column in the current board configuration
+      const kanbanConfigs = await base44.entities.KanbanConfig.filter({
+        organization_id: organization.id
+      });
+
+      let reviewColumnId = null;
+      for (const config of kanbanConfigs) {
+        const reviewColumn = config.columns?.find(col => 
+          col.label?.toLowerCase().includes('review') || 
+          col.id?.toLowerCase().includes('review')
+        );
+        if (reviewColumn) {
+          reviewColumnId = reviewColumn.id;
+          break;
+        }
+      }
+
+      // Update proposal to Review column
+      if (reviewColumnId) {
+        await base44.entities.Proposal.update(proposalId, {
+          custom_workflow_stage_id: reviewColumnId,
+          action_required: true,
+          action_required_description: `Section "${sectionName}" ready for review`
+        });
+      } else {
+        // Fallback: update status to client_review if no Review column found
+        await base44.entities.Proposal.update(proposalId, {
+          status: 'client_review',
+          action_required: true,
+          action_required_description: `Section "${sectionName}" ready for review`
+        });
+      }
+
+      // Create notification for reviewers
+      const teamMembersWithReviewRole = teamMembers.filter(member => 
+        member.role === 'admin' || member.email === proposalData.lead_writer_email
+      );
+
+      for (const reviewer of teamMembersWithReviewRole) {
+        await base44.entities.Notification.create({
+          organization_id: organization.id,
+          user_email: reviewer.email,
+          notification_type: 'section_ready_for_review',
+          title: 'Section Ready for Review',
+          message: `"${sectionName}" in proposal "${proposalData.proposal_name}" has been marked for review.`,
+          link_url: `/proposal-builder?proposalId=${proposalId}`,
+          priority: 'high',
+          is_read: false
+        });
+      }
+
+      alert(`✓ Section marked for review!\n\nProposal moved to Review column. Reviewers have been notified.`);
+      
+      // Refresh the page to show updated status
+      queryClient.invalidateQueries({ queryKey: ['proposal-sections', proposalId] });
+      
+    } catch (error) {
+      console.error("Error marking section for review:", error);
+      setSaveError(error);
+      alert("Error marking section for review: " + error.message);
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
   const handleInsertBoilerplate = (boilerplate) => {
     if (!currentSectionForBoilerplate) return;
 
@@ -1305,6 +1435,20 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                   )}
                                   Save
                                 </Button>
+
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleMarkForReview(section.id, section.name)}
+                                  disabled={savingSection === section.id}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  {savingSection === section.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                  )}
+                                  Mark for Review
+                                </Button>
                               </>
                             )}
                           </div>
@@ -1503,6 +1647,20 @@ The content should be ready to insert into the proposal document. Use HTML forma
                                           <Save className="w-4 h-4 mr-2" />
                                         )}
                                         Save
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleMarkForReview(subsectionKey, `${section.name} - ${subsection.name}`)}
+                                        disabled={savingSection === subsectionKey}
+                                        className="bg-green-600 hover:bg-green-700"
+                                      >
+                                        {savingSection === subsectionKey ? (
+                                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        )}
+                                        Mark for Review
                                       </Button>
                                     </>
                                   )}
