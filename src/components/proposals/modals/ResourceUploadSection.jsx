@@ -788,7 +788,7 @@ export default function ResourceUploadSection({
           <div className="pt-4">
             <Button
               onClick={handleUpload}
-              disabled={isUploading || !resourceType}
+              disabled={isUploading || !resourceType || (isSupplementary && !supplementaryType)}
               className="w-full bg-blue-600 hover:bg-blue-700"
               size="lg"
             >
@@ -801,6 +801,11 @@ export default function ResourceUploadSection({
                 </>
               )}
             </Button>
+            {isSupplementary && !supplementaryType && (
+              <p className="text-xs text-amber-600 mt-2 text-center">
+                Please select a supplementary document type to continue
+              </p>
+            )}
           </div>
         </div>
       )}
