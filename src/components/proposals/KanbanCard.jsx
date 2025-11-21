@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import SectionReviewModal from "../builder/SectionReviewModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +30,8 @@ import {
   Edit,
   Flag,
   Lock,
-  Unlock
+  Unlock,
+  Eye
 } from "lucide-react";
 import moment from "moment";
 import { toast } from "sonner";
@@ -51,6 +53,23 @@ export default function KanbanCard({
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(proposal.proposal_name);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [currentReviewSectionIndex, setCurrentReviewSectionIndex] = useState(0);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Fetch current user
+  React.useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await base44.auth.me();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Error loading user:", error);
+      }
+    };
+    loadUser();
+  }, []);
+
   // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
     queryKey: ['proposal-subtasks', proposal.id],
@@ -61,6 +80,22 @@ export default function KanbanCard({
     },
     staleTime: 30000
   });
+
+  // Fetch sections for review status
+  const { data: sections = [] } = useQuery({
+    queryKey: ['proposal-sections', proposal.id],
+    queryFn: async () => {
+      return base44.entities.ProposalSection.filter({
+        proposal_id: proposal.id
+      });
+    },
+    staleTime: 30000
+  });
+
+  // Get sections pending review
+  const pendingReviewSections = useMemo(() => {
+    return sections.filter(s => s.status === 'pending_review');
+  }, [sections]);
 
   // Shared clients display - simplified to avoid entity query issues
   const sharedClients = [];
@@ -445,6 +480,22 @@ export default function KanbanCard({
             <span className="font-medium">{proposal.action_required_description || 'Action required'}</span>
           </div>
         )}
+
+        {/* Review Sections Button */}
+        {pendingReviewSections.length > 0 && (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentReviewSectionIndex(0);
+              setShowReviewModal(true);
+            }}
+            className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Review {pendingReviewSections.length} Section{pendingReviewSections.length !== 1 ? 's' : ''}
+          </Button>
+        )}
       </div>
 
       {/* Enhanced Warning/Blocking Indicators */}
@@ -478,6 +529,21 @@ export default function KanbanCard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Section Review Modal */}
+      {pendingReviewSections.length > 0 && currentUser && (
+        <SectionReviewModal
+          isOpen={showReviewModal}
+          onClose={() => {
+            setShowReviewModal(false);
+            setCurrentReviewSectionIndex(0);
+          }}
+          section={pendingReviewSections[currentReviewSectionIndex]}
+          proposal={proposal}
+          organization={organization}
+          currentUser={currentUser}
+        />
       )}
     </div>
   );
