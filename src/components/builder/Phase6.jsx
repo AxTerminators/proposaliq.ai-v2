@@ -681,6 +681,10 @@ export default function Phase6({ proposalData, setProposalData, proposalId, orga
     setGenerationError(null);
 
     try {
+      // Check if section has reviewer feedback
+      const sectionEntity = sections.find(s => s.section_type === sectionKey);
+      const reviewerFeedback = sectionEntity ? getSectionFeedback(sectionKey) : [];
+      const hasReviewerFeedback = reviewerFeedback.length > 0 && sectionEntity?.status === 'rework_needed';
       const context = buildAIContext(sectionConfig, subsectionConfig);
       const fileUrls = contextData.solicitationDocs
         .filter(doc => doc.file_url)
@@ -706,8 +710,18 @@ export default function Phase6({ proposalData, setProposalData, proposalId, orga
 
       let prompt = "";
       
+      // Add reviewer feedback at the top if it exists
+      let feedbackPrefix = "";
+      if (hasReviewerFeedback) {
+        feedbackPrefix = `⚠️ **CRITICAL - REVIEWER FEEDBACK MUST BE ADDRESSED** ⚠️\n\nThis content was reviewed and sent back with the following feedback:\n\n`;
+        reviewerFeedback.forEach((comment, idx) => {
+          feedbackPrefix += `FEEDBACK ${idx + 1} from ${comment.author_name}:\n${comment.content.replace(/🔄 \*\*Sent Back for Regeneration\*\*\n\n/, '')}\n\n`;
+        });
+        feedbackPrefix += `YOU MUST carefully address ALL the feedback points above in your regenerated content. This is mandatory.\n\n---\n\n`;
+      }
+      
       if (subsectionConfig) {
-        prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} the "${subsectionConfig.name}" subsection as part of the larger "${sectionConfig.name}" section.
+        prompt = feedbackPrefix + `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} the "${subsectionConfig.name}" subsection as part of the larger "${sectionConfig.name}" section.
 
 **CRITICAL INSTRUCTIONS FOR SUBSECTIONS:**
 - DO NOT write a general introduction to the proposal or repeat information from the parent section
@@ -771,7 +785,7 @@ Write professional, focused content for the "${subsectionConfig.name}" subsectio
 Begin immediately with the subsection content. Do not include any introduction or preamble.`;
 
       } else {
-        prompt = `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} a compelling ${sectionName} section for this proposal.
+        prompt = feedbackPrefix + `You are an expert proposal writer for government contracts. ${isRegenerate ? 'REGENERATE and IMPROVE' : 'Write'} a compelling ${sectionName} section for this proposal.
 
 **PROPOSAL DETAILS:**
 - Proposal Name: ${proposalData.proposal_name}
@@ -856,7 +870,11 @@ The content should be ready to insert into the proposal document. Use HTML forma
             ai_prompt_used: prompt.substring(0, 500),
             ai_reference_sources: aiGenerationMetadata?.ai_reference_sources || [],
             ai_context_summary: aiGenerationMetadata?.ai_context_summary || null,
-            ai_generation_metadata: aiGenerationMetadata
+            ai_generation_metadata: aiGenerationMetadata,
+            // Clear review markers when regenerating
+            marked_for_review_by: null,
+            marked_for_review_date: null,
+            reviewer_assigned: null
           }
         });
         
