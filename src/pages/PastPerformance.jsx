@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library, BarChart, Upload, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
 import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
 import RecordListView from "../components/pastperformance/RecordListView";
@@ -229,8 +230,8 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
           <Button
             variant="outline"
             onClick={() => {
-              if (pastPerformanceRecords.length > 0) {
-                setSelectedForExport([pastPerformanceRecords[0]]);
+              if (ppRecords.length > 0) {
+                setSelectedForExport([ppRecords[0]]);
                 setShowExportDialog(true);
               } else {
                 toast.error('No records available to export');
@@ -310,6 +311,10 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
               if (confirm(`Delete "${record.title}"? This action cannot be undone.`)) {
                 deleteRecordMutation.mutate(record.id);
               }
+            }}
+            onExport={(records) => {
+              setSelectedForExport(records);
+              setShowExportDialog(true);
             }}
           />
         </div>
