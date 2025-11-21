@@ -1,126 +1,112 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 /**
- * Score Past Performance Record Relevance
+ * Score Past Performance Relevance
  * 
- * Uses AI to analyze how relevant a past performance record is to a current proposal
- * Considers: agency match, work scope overlap, NAICS codes, keywords, contract type
- * 
- * Input:
- * - record_id: Past performance record ID
- * - proposal_id: Current proposal ID
- * 
- * Output:
- * - relevance_score: 0-100 score
- * - reasoning: Why this score was assigned
- * - key_matches: What matched between record and proposal
+ * Uses AI to determine how relevant a past performance record is
+ * to a specific proposal or solicitation
  */
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         
-        // Authenticate user
         const user = await base44.auth.me();
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { record_id, proposal_id } = await req.json();
+        const { record_id, proposal_id, solicitation_context } = await req.json();
 
-        if (!record_id || !proposal_id) {
-            return Response.json({ 
-                error: 'record_id and proposal_id are required' 
-            }, { status: 400 });
+        if (!record_id) {
+            return Response.json({ error: 'record_id required' }, { status: 400 });
         }
 
-        // Fetch record and proposal
-        const [records, proposals] = await Promise.all([
-            base44.asServiceRole.entities.PastPerformanceRecord.filter({ id: record_id }),
-            base44.asServiceRole.entities.Proposal.filter({ id: proposal_id })
-        ]);
-
+        // Fetch the record
+        const records = await base44.entities.PastPerformanceRecord.filter({ id: record_id });
         if (records.length === 0) {
             return Response.json({ error: 'Record not found' }, { status: 404 });
         }
-        if (proposals.length === 0) {
-            return Response.json({ error: 'Proposal not found' }, { status: 404 });
+        const record = records[0];
+
+        // Fetch proposal if provided
+        let proposal = null;
+        if (proposal_id) {
+            const proposals = await base44.entities.Proposal.filter({ id: proposal_id });
+            proposal = proposals[0] || null;
         }
 
-        const record = records[0];
-        const proposal = proposals[0];
+        // Build context for scoring
+        const proposalContext = proposal ? `
+Project: ${proposal.project_title || 'N/A'}
+Agency: ${proposal.agency_name || 'N/A'}
+Type: ${proposal.project_type || 'N/A'}
+Description: ${proposal.proposal_name || 'N/A'}
+        `.trim() : solicitation_context || 'General proposal';
 
-        // Build scoring prompt
-        const prompt = `Analyze the relevance of this past performance record to the current proposal opportunity.
+        const recordContext = `
+Title: ${record.title}
+Agency: ${record.customer_agency}
+Contract Type: ${record.contract_type || 'N/A'}
+Role: ${record.role || 'N/A'}
+Work Scope: ${record.work_scope_tags?.join(', ') || 'N/A'}
+Description: ${record.project_description?.substring(0, 300) || 'N/A'}
+        `.trim();
+
+        // Use AI to score relevance
+        const prompt = `You are evaluating the relevance of a past performance record to a proposal opportunity.
+
+PROPOSAL/SOLICITATION:
+${proposalContext}
 
 PAST PERFORMANCE RECORD:
-- Title: ${record.title || 'N/A'}
-- Customer/Agency: ${record.customer_agency || 'N/A'}
-- Work Scope Tags: ${(record.work_scope_tags || []).join(', ') || 'N/A'}
-- NAICS Codes: ${(record.naics_codes || []).join(', ') || 'N/A'}
-- Contract Type: ${record.contract_type || 'N/A'}
-- Contract Value: ${record.contract_value_display || 'N/A'}
-- Role: ${record.role || 'N/A'}
-- Description: ${record.project_description || 'N/A'}
+${recordContext}
 
-CURRENT PROPOSAL:
-- Title: ${proposal.project_title || proposal.proposal_name || 'N/A'}
-- Agency: ${proposal.agency_name || 'N/A'}
-- Project Type: ${proposal.project_type || 'N/A'}
-- Description: ${proposal.project_title || 'N/A'}
+Analyze the alignment and provide:
+1. A relevance score from 0-100 (0 = not relevant, 100 = highly relevant)
+2. Top 3-5 specific reasons for the match (brief phrases like "Same agency", "Similar work scope", "Matching contract type")
 
-Provide a relevance score (0-100) and explain your reasoning. Consider:
-1. Agency/customer similarity or relationship
-2. Work scope and technical alignment
-3. NAICS code matches
-4. Contract type and size similarity
-5. Role alignment (prime vs sub)
-6. Recent vs older experience
+Consider:
+- Agency/customer alignment
+- Work scope and service similarity  
+- Contract type and size alignment
+- Geographic relevance
+- Technical capabilities demonstrated
 
-Return your analysis as a JSON object with:
-- relevance_score (number 0-100)
-- reasoning (brief explanation)
-- key_matches (array of strings describing what matched)
-- suggestions (array of strings on how to leverage this record)`;
+Respond ONLY with a JSON object:
+{
+  "relevance_score": <number 0-100>,
+  "match_reasons": ["reason1", "reason2", "reason3"]
+}`;
 
-        // Call LLM for scoring
         const aiResponse = await base44.integrations.Core.InvokeLLM({
             prompt,
             response_json_schema: {
-                type: 'object',
+                type: "object",
                 properties: {
-                    relevance_score: { type: 'number' },
-                    reasoning: { type: 'string' },
-                    key_matches: { 
-                        type: 'array', 
-                        items: { type: 'string' } 
-                    },
-                    suggestions: {
-                        type: 'array',
-                        items: { type: 'string' }
+                    relevance_score: { type: "number" },
+                    match_reasons: { 
+                        type: "array",
+                        items: { type: "string" }
                     }
                 }
             }
         });
 
-        // Ensure score is within bounds
-        const score = Math.max(0, Math.min(100, aiResponse.relevance_score || 0));
-
         return Response.json({
             status: 'success',
+            relevance_score: aiResponse.relevance_score || 0,
+            match_reasons: aiResponse.match_reasons || [],
             record_id,
-            proposal_id,
-            relevance_score: score,
-            reasoning: aiResponse.reasoning || 'No reasoning provided',
-            key_matches: aiResponse.key_matches || [],
-            suggestions: aiResponse.suggestions || [],
-            timestamp: new Date().toISOString()
+            proposal_id
         });
 
     } catch (error) {
         console.error('Error scoring relevance:', error);
         return Response.json({ 
             status: 'error',
-            error: error.message 
+            error: error.message,
+            relevance_score: 0,
+            match_reasons: []
         }, { status: 500 });
     }
 });

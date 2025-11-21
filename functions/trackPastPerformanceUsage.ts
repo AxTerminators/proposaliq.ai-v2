@@ -1,93 +1,60 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 /**
- * Track Past Performance Record Usage
+ * Track Past Performance Usage
  * 
- * Updates usage metrics when a record is referenced in a proposal
- * Called by: PastPerformanceReferenceSelector, AI Writer, etc.
- * 
- * Input:
- * - record_ids: array of record IDs being used
- * - proposal_id: ID of proposal where records are being used
- * - context: optional context (e.g., "ai_generation", "manual_selection")
+ * Records when a past performance record is used in proposal content generation
+ * Updates usage count, last used date, and links to proposals
  */
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         
-        // Authenticate user
         const user = await base44.auth.me();
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Parse request body
-        const { record_ids, proposal_id, context = 'manual_selection' } = await req.json();
+        const { record_id, proposal_id, context } = await req.json();
 
-        if (!record_ids || !Array.isArray(record_ids) || record_ids.length === 0) {
-            return Response.json({ error: 'record_ids array is required' }, { status: 400 });
+        if (!record_id) {
+            return Response.json({ error: 'record_id required' }, { status: 400 });
         }
 
-        if (!proposal_id) {
-            return Response.json({ error: 'proposal_id is required' }, { status: 400 });
+        // Fetch the record
+        const records = await base44.entities.PastPerformanceRecord.filter({ id: record_id });
+        if (records.length === 0) {
+            return Response.json({ error: 'Record not found' }, { status: 404 });
         }
 
-        const results = [];
-        const errors = [];
+        const record = records[0];
 
-        // Update each record
-        for (const recordId of record_ids) {
-            try {
-                // Fetch current record
-                const records = await base44.asServiceRole.entities.PastPerformanceRecord.filter({ id: recordId });
-                
-                if (records.length === 0) {
-                    errors.push({ record_id: recordId, error: 'Record not found' });
-                    continue;
-                }
+        // Update usage tracking
+        const updates = {
+            usage_count: (record.usage_count || 0) + 1,
+            last_used_date: new Date().toISOString()
+        };
 
-                const record = records[0];
-
-                // Update usage metrics
-                const linkedProposalIds = record.linked_proposal_ids || [];
-                if (!linkedProposalIds.includes(proposal_id)) {
-                    linkedProposalIds.push(proposal_id);
-                }
-
-                await base44.asServiceRole.entities.PastPerformanceRecord.update(recordId, {
-                    usage_count: (record.usage_count || 0) + 1,
-                    last_used_date: new Date().toISOString(),
-                    linked_proposal_ids: linkedProposalIds
-                });
-
-                results.push({
-                    record_id: recordId,
-                    status: 'success',
-                    new_usage_count: (record.usage_count || 0) + 1
-                });
-
-            } catch (error) {
-                console.error(`Error updating record ${recordId}:`, error);
-                errors.push({ 
-                    record_id: recordId, 
-                    error: error.message 
-                });
+        // Add proposal to linked_proposal_ids if not already there
+        if (proposal_id) {
+            const linkedIds = record.linked_proposal_ids || [];
+            if (!linkedIds.includes(proposal_id)) {
+                linkedIds.push(proposal_id);
+                updates.linked_proposal_ids = linkedIds;
             }
         }
+
+        // Update the record
+        await base44.asServiceRole.entities.PastPerformanceRecord.update(record_id, updates);
 
         return Response.json({
-            status: 'completed',
-            results,
-            errors: errors.length > 0 ? errors : null,
-            summary: {
-                total: record_ids.length,
-                success: results.length,
-                failed: errors.length
-            }
+            status: 'success',
+            usage_count: updates.usage_count,
+            message: 'Usage tracked successfully'
         });
 
     } catch (error) {
-        console.error('Error in trackPastPerformanceUsage:', error);
+        console.error('Error tracking usage:', error);
         return Response.json({ 
             status: 'error',
             error: error.message 

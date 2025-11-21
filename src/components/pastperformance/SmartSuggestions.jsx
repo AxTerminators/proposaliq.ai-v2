@@ -1,107 +1,110 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Sparkles, TrendingUp, Award, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sparkles, TrendingUp, CheckCircle2, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 /**
  * SmartSuggestions Component
  * 
- * Shows AI-suggested past performance records relevant to the current proposal
- * Displays relevance scores, key matches, and usage suggestions
- * 
- * Props:
- * - proposalId: ID of current proposal
- * - organizationId: Organization ID
- * - onSelectRecord: Callback when user selects a suggested record
- * - maxSuggestions: Maximum number of suggestions to show (default 5)
+ * Shows AI-powered suggestions for which past performance records
+ * are most relevant to the current proposal based on:
+ * - Work scope similarity
+ * - Agency matching
+ * - Contract type alignment
+ * - Recent usage patterns
  */
 export default function SmartSuggestions({ 
     proposalId, 
-    organizationId, 
-    onSelectRecord,
-    maxSuggestions = 5 
+    organizationId,
+    solicitation = null,
+    onSelectRecord 
 }) {
-    const [scoringRecord, setScoringRecord] = useState(null);
-    const [scoredRecords, setScoredRecords] = useState({});
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    // Fetch available records
-    const { data: records = [], isLoading: recordsLoading } = useQuery({
+    // Fetch proposal details if proposalId provided
+    const { data: proposal } = useQuery({
+        queryKey: ['proposal', proposalId],
+        queryFn: async () => {
+            if (!proposalId) return null;
+            const proposals = await base44.entities.Proposal.filter({ id: proposalId });
+            return proposals[0] || null;
+        },
+        enabled: !!proposalId
+    });
+
+    // Fetch all past performance records
+    const { data: allRecords = [] } = useQuery({
         queryKey: ['pastPerformanceRecords', organizationId],
         queryFn: async () => {
             if (!organizationId) return [];
-            return await base44.entities.PastPerformanceRecord.filter(
-                { organization_id: organizationId },
-                '-usage_count'
-            );
+            return base44.entities.PastPerformanceRecord.filter({ 
+                organization_id: organizationId 
+            });
         },
         enabled: !!organizationId
     });
 
-    // Auto-score top records
-    React.useEffect(() => {
-        if (!proposalId || !records.length || Object.keys(scoredRecords).length > 0) return;
-
-        const scoreTopRecords = async () => {
-            const topRecords = records.slice(0, Math.min(records.length, maxSuggestions));
+    // Generate AI suggestions
+    useEffect(() => {
+        const generateSuggestions = async () => {
+            if (!allRecords.length) return;
             
-            for (const record of topRecords) {
-                try {
-                    setScoringRecord(record.id);
-                    const result = await base44.functions.invoke('scorePastPerformanceRelevance', {
-                        record_id: record.id,
-                        proposal_id: proposalId
-                    });
-                    
-                    setScoredRecords(prev => ({
-                        ...prev,
-                        [record.id]: result.data
-                    }));
-                } catch (error) {
-                    console.error(`Error scoring record ${record.id}:`, error);
-                }
+            setLoading(true);
+            try {
+                // Score each record for relevance
+                const scoredRecords = await Promise.all(
+                    allRecords.map(async (record) => {
+                        try {
+                            const response = await base44.functions.invoke('scorePastPerformanceRelevance', {
+                                record_id: record.id,
+                                proposal_id: proposalId,
+                                solicitation_context: solicitation || proposal?.project_title
+                            });
+
+                            return {
+                                record,
+                                score: response.data.relevance_score || 0,
+                                reasons: response.data.match_reasons || []
+                            };
+                        } catch (error) {
+                            console.error('Error scoring record:', error);
+                            return {
+                                record,
+                                score: 0,
+                                reasons: []
+                            };
+                        }
+                    })
+                );
+
+                // Sort by score and take top 5
+                const topSuggestions = scoredRecords
+                    .filter(s => s.score > 30) // Only show if reasonably relevant
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5);
+
+                setSuggestions(topSuggestions);
+            } catch (error) {
+                console.error('Error generating suggestions:', error);
+            } finally {
+                setLoading(false);
             }
-            setScoringRecord(null);
         };
 
-        scoreTopRecords();
-    }, [proposalId, records, maxSuggestions, scoredRecords]);
+        generateSuggestions();
+    }, [allRecords, proposalId, solicitation, proposal]);
 
-    // Sort records by relevance score
-    const sortedSuggestions = React.useMemo(() => {
-        return records
-            .filter(r => scoredRecords[r.id])
-            .sort((a, b) => 
-                (scoredRecords[b.id]?.relevance_score || 0) - 
-                (scoredRecords[a.id]?.relevance_score || 0)
-            )
-            .slice(0, maxSuggestions);
-    }, [records, scoredRecords, maxSuggestions]);
-
-    const getScoreColor = (score) => {
-        if (score >= 80) return 'text-green-600 bg-green-50';
-        if (score >= 60) return 'text-blue-600 bg-blue-50';
-        if (score >= 40) return 'text-amber-600 bg-amber-50';
-        return 'text-slate-600 bg-slate-50';
-    };
-
-    const getScoreLabel = (score) => {
-        if (score >= 80) return 'Highly Relevant';
-        if (score >= 60) return 'Relevant';
-        if (score >= 40) return 'Moderately Relevant';
-        return 'Somewhat Relevant';
-    };
-
-    if (recordsLoading) {
+    if (loading) {
         return (
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-purple-500" />
+                        <Sparkles className="w-5 h-5 text-blue-600" />
                         AI Suggestions
                     </CardTitle>
                 </CardHeader>
@@ -114,19 +117,22 @@ export default function SmartSuggestions({
         );
     }
 
-    if (!records.length) {
+    if (suggestions.length === 0) {
         return (
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-purple-500" />
+                        <Sparkles className="w-5 h-5 text-blue-600" />
                         AI Suggestions
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-slate-500">
-                        No past performance records available yet
-                    </p>
+                    <div className="text-center py-6">
+                        <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                        <p className="text-sm text-slate-600">
+                            No highly relevant records found for this proposal
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
         );
@@ -136,100 +142,64 @@ export default function SmartSuggestions({
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-500" />
+                    <Sparkles className="w-5 h-5 text-blue-600" />
                     AI Suggestions
-                    {sortedSuggestions.length > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                            {sortedSuggestions.length} found
-                        </Badge>
-                    )}
+                    <Badge variant="secondary" className="ml-auto">
+                        {suggestions.length} matches
+                    </Badge>
                 </CardTitle>
-                <p className="text-sm text-slate-500">
-                    Records most relevant to this proposal
-                </p>
             </CardHeader>
             <CardContent className="space-y-3">
-                {sortedSuggestions.map((record) => {
-                    const scoring = scoredRecords[record.id];
-                    const isScoring = scoringRecord === record.id;
-
-                    return (
-                        <div
-                            key={record.id}
-                            className={cn(
-                                "p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer",
-                                "border-slate-200 hover:border-purple-300"
-                            )}
-                            onClick={() => onSelectRecord && onSelectRecord(record)}
-                        >
-                            {isScoring ? (
-                                <div className="flex items-center gap-2 text-sm text-slate-500">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent" />
-                                    Analyzing relevance...
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {/* Header */}
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-slate-900 text-sm">
-                                                {record.title}
-                                            </h4>
-                                            <p className="text-xs text-slate-500 mt-1">
-                                                {record.customer_agency}
-                                            </p>
-                                        </div>
-                                        <div className={cn(
-                                            "px-3 py-1 rounded-full text-xs font-semibold",
-                                            getScoreColor(scoring?.relevance_score || 0)
-                                        )}>
-                                            {scoring?.relevance_score || 0}%
-                                        </div>
-                                    </div>
-
-                                    {/* Relevance badge */}
-                                    <Badge className="bg-purple-100 text-purple-700">
-                                        <TrendingUp className="w-3 h-3 mr-1" />
-                                        {getScoreLabel(scoring?.relevance_score || 0)}
+                {suggestions.map(({ record, score, reasons }) => (
+                    <div
+                        key={record.id}
+                        className="p-4 border rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer"
+                        onClick={() => onSelectRecord && onSelectRecord(record)}
+                    >
+                        <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-sm text-slate-900 mb-1">
+                                    {record.title}
+                                </h4>
+                                <p className="text-xs text-slate-600">
+                                    {record.customer_agency}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge 
+                                    className={
+                                        score >= 80 ? 'bg-green-100 text-green-700' :
+                                        score >= 60 ? 'bg-blue-100 text-blue-700' :
+                                        'bg-amber-100 text-amber-700'
+                                    }
+                                >
+                                    <TrendingUp className="w-3 h-3 mr-1" />
+                                    {score}% match
+                                </Badge>
+                                {record.overall_rating && (
+                                    <Badge variant="secondary">
+                                        <Award className="w-3 h-3 mr-1" />
+                                        {record.overall_rating}
                                     </Badge>
-
-                                    {/* Key matches */}
-                                    {scoring?.key_matches && scoring.key_matches.length > 0 && (
-                                        <div className="space-y-1">
-                                            {scoring.key_matches.slice(0, 2).map((match, idx) => (
-                                                <div key={idx} className="flex items-start gap-2 text-xs">
-                                                    <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
-                                                    <span className="text-slate-700">{match}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Action */}
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onSelectRecord && onSelectRecord(record);
-                                        }}
-                                    >
-                                        Use This Record
-                                        <ChevronRight className="w-4 h-4 ml-2" />
-                                    </Button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    );
-                })}
-
-                {scoringRecord && sortedSuggestions.length === 0 && (
-                    <div className="text-center py-4 text-slate-500 text-sm">
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent mx-auto mb-2" />
-                        Analyzing your records...
+                        
+                        {reasons.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                {reasons.slice(0, 3).map((reason, idx) => (
+                                    <Badge 
+                                        key={idx} 
+                                        variant="outline" 
+                                        className="text-xs"
+                                    >
+                                        {reason}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                )}
+                ))}
             </CardContent>
         </Card>
     );
