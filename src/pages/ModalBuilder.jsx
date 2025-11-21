@@ -34,8 +34,8 @@ export default function ModalBuilder() {
 
   // Filter configs based on search
   const filteredConfigs = configs.filter(config => 
-    config.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    config.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    config?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    config?.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleCreateNew = () => {
@@ -113,7 +113,7 @@ export default function ModalBuilder() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-slate-900">
-              {configs.filter(c => c.template_type === 'system').length}
+              {configs.filter(c => c?.template_type === 'system').length}
             </div>
             <div className="text-sm text-slate-600">System Templates</div>
           </CardContent>
@@ -121,7 +121,7 @@ export default function ModalBuilder() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-slate-900">
-              {configs.filter(c => c.is_active).length}
+              {configs.filter(c => c?.is_active).length}
             </div>
             <div className="text-sm text-slate-600">Active Modals</div>
           </CardContent>
