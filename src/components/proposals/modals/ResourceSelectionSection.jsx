@@ -24,6 +24,9 @@ import {
   Link as LinkIcon,
   X,
   Loader2,
+  CheckCircle,
+  Clock,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -130,6 +133,8 @@ export default function ResourceSelectionSection({
         icon: FileText,
         resourceType: r.resource_type,
         teamingPartnerId: r.teaming_partner_id,
+        usage_count: r.usage_count || 0,
+        rag_status: r.rag_ready ? 'ready' : r.rag_processing ? 'processing' : r.rag_failed ? 'failed' : null,
       });
     });
 
@@ -430,9 +435,34 @@ export default function ResourceSelectionSection({
                         />
                         <Icon className="w-5 h-5 text-slate-600 mt-1 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-slate-900 mb-1">
-                            {item.title}
-                          </h4>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-slate-900">
+                              {item.title}
+                            </h4>
+                            {/* RAG Status Indicator */}
+                            {item.entityType === 'ProposalResource' && item.rag_status && (
+                              <>
+                                {item.rag_status === 'ready' && (
+                                  <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    RAG Ready
+                                  </Badge>
+                                )}
+                                {item.rag_status === 'processing' && (
+                                  <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Processing
+                                  </Badge>
+                                )}
+                                {item.rag_status === 'failed' && (
+                                  <Badge className="bg-red-100 text-red-700 border-red-300 text-xs">
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    Failed
+                                  </Badge>
+                                )}
+                              </>
+                            )}
+                          </div>
                           {item.description && (
                             <p className="text-sm text-slate-600 line-clamp-2 mb-2">
                               {item.description}
@@ -442,6 +472,11 @@ export default function ResourceSelectionSection({
                             <Badge variant="outline" className="text-xs">
                               {item.source}
                             </Badge>
+                            {item.usage_count > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                Used {item.usage_count}x
+                              </Badge>
+                            )}
                             {item.tags.slice(0, 3).map((tag) => (
                               <Badge
                                 key={tag}
