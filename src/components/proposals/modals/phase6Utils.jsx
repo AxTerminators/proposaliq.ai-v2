@@ -106,7 +106,7 @@ export async function executeWebhooks(webhooks = [], formData, context) {
  * Send email notifications after form submission
  */
 export async function sendEmailNotifications(notifications = [], formData, context) {
-  if (!notifications || notifications.length === 0) return;
+  if (!notifications || !Array.isArray(notifications) || notifications.length === 0) return;
 
   const enabledNotifications = notifications.filter(n => n.enabled && n.to && n.subject && n.body);
 
