@@ -721,11 +721,34 @@ export default function ResourceSelectionSection({
                       <Icon className="w-5 h-5 text-slate-600 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h4 className="font-semibold text-slate-900">
-                          {item.title}
-                        </h4>
-                        {/* RAG Status Indicator */}
-                        {renderRAGStatus(item)}
+                       <h4 className="font-semibold text-slate-900">
+                         {item.title}
+                       </h4>
+                       {/* Supplementary Document Indicators */}
+                       {item.is_supplementary && item.supplementary_type && (
+                         <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
+                           {item.supplementary_type.replace(/_/g, ' ').toUpperCase()}
+                         </Badge>
+                       )}
+                       {item.is_supplementary && item.amendment_number && (
+                         <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                           Amendment #{item.amendment_number}
+                         </Badge>
+                       )}
+                       {item.is_latest_version === true && item.is_supplementary && (
+                         <Badge className="bg-green-100 text-green-700 border-green-300 text-xs flex items-center gap-1">
+                           <CheckCircle className="w-3 h-3" />
+                           Latest
+                         </Badge>
+                       )}
+                       {item.parent_document_id && (
+                         <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-xs flex items-center gap-1">
+                           <GitBranch className="w-3 h-3" />
+                           Linked
+                         </Badge>
+                       )}
+                       {/* RAG Status Indicator */}
+                       {renderRAGStatus(item)}
                       </div>
                           {item.description && (
                             <p className="text-sm text-slate-600 line-clamp-2 mb-2">
