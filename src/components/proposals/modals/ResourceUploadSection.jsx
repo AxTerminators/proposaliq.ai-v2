@@ -264,6 +264,21 @@ export default function ResourceUploadSection({
       if (extractKeyData && extractionFieldsDescription) {
         formData.append('extraction_fields_description', extractionFieldsDescription);
       }
+      
+      // Add supplementary document fields
+      if (isSupplementary) {
+        formData.append('is_supplementary', 'true');
+        formData.append('supplementary_type', supplementaryType);
+        if (parentDocumentId) {
+          formData.append('parent_document_id', parentDocumentId);
+        }
+        if (amendmentNumber) {
+          formData.append('amendment_number', amendmentNumber);
+        }
+        if (versionDate) {
+          formData.append('version_date', versionDate);
+        }
+      }
 
       setUploadProgress("Uploading file...");
 
