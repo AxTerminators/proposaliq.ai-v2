@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
 import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
 import RecordListView from "../components/pastperformance/RecordListView";
+import UsageAnalyticsDashboard from "../components/pastperformance/UsageAnalyticsDashboard";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
