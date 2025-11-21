@@ -115,9 +115,7 @@ export default function ModalConfigList({ configs, isLoading, onEdit, onRefetch 
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
-                {config?.icon_emoji && (
-                  <span className="text-2xl">{config.icon_emoji}</span>
-                )}
+                <span className="text-2xl">{config?.icon_emoji || '📄'}</span>
                 <Badge className={getTemplateTypeColor(config?.template_type || 'custom')}>
                   {config?.template_type || 'custom'}
                 </Badge>
