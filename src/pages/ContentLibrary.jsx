@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -63,6 +62,13 @@ const CONTENT_TYPE_CONFIG = {
     bgColor: 'bg-indigo-50',
     borderColor: 'border-indigo-200'
   },
+  'ProposalTemplate': { 
+    icon: FileText, 
+    label: 'Proposal Templates', 
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50',
+    borderColor: 'border-pink-200'
+  },
   'AdminData': { 
     icon: BookOpen, 
     label: 'Admin Data', 
@@ -95,7 +101,7 @@ export default function ContentLibrary() {
       const content = [];
       
       // Fetch all content types
-      const [resources, pastPerf, personnel, partners, adminData] = await Promise.all([
+      const [resources, pastPerf, personnel, partners, templates, adminData] = await Promise.all([
         base44.entities.ProposalResource.filter({ 
           organization_id: organization.id,
           folder_id: selectedFolderId 
@@ -112,6 +118,9 @@ export default function ContentLibrary() {
           organization_id: organization.id,
           folder_id: selectedFolderId 
         }),
+        base44.entities.ProposalTemplate.filter({ 
+          organization_id: organization.id
+        }),
         base44.entities.AdminData.filter({ 
           folder_id: selectedFolderId 
         })
@@ -122,6 +131,7 @@ export default function ContentLibrary() {
       content.push(...pastPerf.map(p => ({ ...p, _entityType: 'PastPerformance' })));
       content.push(...personnel.map(p => ({ ...p, _entityType: 'KeyPersonnel' })));
       content.push(...partners.map(p => ({ ...p, _entityType: 'TeamingPartner' })));
+      content.push(...templates.map(t => ({ ...t, _entityType: 'ProposalTemplate' })));
       content.push(...adminData.map(a => ({ ...a, _entityType: 'AdminData' })));
 
       return content;
@@ -158,7 +168,7 @@ export default function ContentLibrary() {
   });
 
   const getItemTitle = (item) => {
-    return item.title || item.project_name || item.full_name || item.partner_name || 'Untitled';
+    return item.title || item.template_name || item.project_name || item.full_name || item.partner_name || 'Untitled';
   };
 
   const getItemDescription = (item) => {
