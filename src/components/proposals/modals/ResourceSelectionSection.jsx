@@ -401,7 +401,7 @@ export default function ResourceSelectionSection({
    * Render RAG status badge with actions
    */
   const renderRAGStatus = (item) => {
-    if (item.entityType !== 'ProposalResource') return null;
+    if (item.entityType !== 'ProposalResource' && item.entityType !== 'SolicitationDocument') return null;
 
     const isRetrying = retryingRAG[item.id];
 
