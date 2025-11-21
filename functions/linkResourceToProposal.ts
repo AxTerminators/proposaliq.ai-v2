@@ -163,7 +163,8 @@ Deno.serve(async (req) => {
       linked_resource_ids: linkedResourceIds,
       linked_past_performance_ids: linkedPastPerformanceIds,
       linked_personnel_ids: linkedPersonnelIds,
-      linked_win_theme_ids: linkedWinThemeIds
+      linked_win_theme_ids: linkedWinThemeIds,
+      linked_solicitation_doc_ids: linkedSolicitationDocIds
     });
 
     return Response.json({
@@ -174,7 +175,8 @@ Deno.serve(async (req) => {
         resources: linkedResourceIds.length,
         past_performance: linkedPastPerformanceIds.length,
         personnel: linkedPersonnelIds.length,
-        win_themes: linkedWinThemeIds.length
+        win_themes: linkedWinThemeIds.length,
+        solicitation_docs: linkedSolicitationDocIds.length
       }
     });
 
