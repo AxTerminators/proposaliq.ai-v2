@@ -249,11 +249,11 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                 {allOptions.map(template => {
                   if (!template) return null;
                   
-                  const isSystem = template.template_type === 'system';
-                  const displayIcon = template.icon_emoji || BOARD_TYPE_ICONS[template.board_type] || '📋';
-                  const displayName = template.template_name || 'Unnamed Template';
-                  const displayDescription = template.description || 'No description';
-                  const displayCategory = template.proposal_type_category || 'OTHER';
+                  const isSystem = template?.template_type === 'system';
+                  const displayIcon = template?.icon_emoji || BOARD_TYPE_ICONS[template?.board_type] || '📋';
+                  const displayName = template?.template_name || 'Unnamed Template';
+                  const displayDescription = template?.description || 'No description';
+                  const displayCategory = template?.proposal_type_category || 'OTHER';
                   
                   return (
                     <Card
@@ -307,7 +307,7 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  <div className="text-4xl">{selectedTemplate.icon_emoji || '📋'}</div>
+                  <div className="text-4xl">{selectedTemplate?.icon_emoji || '📋'}</div>
                   <div className="flex-1">
                     <h3 className="font-bold text-slate-900 mb-1">{selectedTemplate.template_name || 'Template'}</h3>
                     <p className="text-sm text-slate-600 mb-2">{selectedTemplate.description || ''}</p>

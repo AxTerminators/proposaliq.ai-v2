@@ -198,7 +198,7 @@ export default function TemplateManager() {
         board_type: sourceTemplate.board_type,
         description: sourceTemplate.description,
         workflow_config: JSON.stringify(workflowConfig),
-        icon_emoji: sourceTemplate.icon_emoji,
+        icon_emoji: sourceTemplate.icon_emoji || '📋',
         estimated_duration_days: sourceTemplate.estimated_duration_days,
         is_active: true,
         usage_count: 0
@@ -339,7 +339,7 @@ export default function TemplateManager() {
       updates: {
         template_name: editingTemplate.template_name,
         description: editingTemplate.description,
-        icon_emoji: editingTemplate.icon_emoji,
+        icon_emoji: editingTemplate.icon_emoji || '📋',
         estimated_duration_days: editingTemplate.estimated_duration_days
       }
     });
@@ -722,7 +722,7 @@ function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete,
       <Card className="hover:shadow-xl transition-all border-2 hover:border-blue-300">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div className="text-4xl mb-2">{template.icon_emoji || '📋'}</div>
+            <div className="text-4xl mb-2">{template?.icon_emoji || '📋'}</div>
             <Badge variant="outline" className="text-xs">
               {template.proposal_type_category}
             </Badge>
@@ -851,7 +851,7 @@ function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete,
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="text-3xl">{template.icon_emoji}</span>
+              <span className="text-3xl">{template?.icon_emoji || '📋'}</span>
               {template.template_name}
             </DialogTitle>
             <DialogDescription>
