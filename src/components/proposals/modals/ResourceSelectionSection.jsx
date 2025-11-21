@@ -764,6 +764,11 @@ export default function ResourceSelectionSection({
                                 Used {item.usage_count}x
                               </Badge>
                             )}
+                            {item.version_date && (
+                              <Badge variant="outline" className="text-xs">
+                                {new Date(item.version_date).toLocaleDateString()}
+                              </Badge>
+                            )}
                             {item.tags.slice(0, 3).map((tag) => (
                               <Badge
                                 key={tag}
