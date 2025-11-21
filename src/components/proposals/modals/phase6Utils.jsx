@@ -143,7 +143,7 @@ export async function sendEmailNotifications(notifications = [], formData, conte
  * Execute status updates after form submission
  */
 export async function executeStatusUpdates(statusUpdates = [], formData, context) {
-  if (!statusUpdates || statusUpdates.length === 0) return;
+  if (!statusUpdates || !Array.isArray(statusUpdates) || statusUpdates.length === 0) return;
 
   const enabledUpdates = statusUpdates.filter(u => u.enabled && u.entity && u.targetField && u.newValue);
 
