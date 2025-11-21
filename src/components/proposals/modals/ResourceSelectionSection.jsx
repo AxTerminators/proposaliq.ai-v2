@@ -239,8 +239,30 @@ export default function ResourceSelectionSection({
       });
     });
 
+    // Add SolicitationDocument items (including supplementary)
+    solicitationDocs.forEach((s) => {
+      items.push({
+        id: s.id,
+        type: "solicitation_document",
+        entityType: "SolicitationDocument",
+        title: s.file_name || "Untitled Document",
+        description: s.description || "",
+        tags: [],
+        source: s.is_supplementary ? "Supplementary Documents" : "Solicitation Documents",
+        icon: s.is_supplementary ? FileStack : FileText,
+        is_supplementary: s.is_supplementary,
+        supplementary_type: s.supplementary_type,
+        parent_document_id: s.parent_document_id,
+        amendment_number: s.amendment_number,
+        is_latest_version: s.is_latest_version,
+        version_date: s.version_date,
+        rag_status: s.rag_status,
+        created_date: s.created_date,
+      });
+    });
+
     return items;
-  }, [resources, pastPerformance, keyPersonnel, winThemes]);
+  }, [resources, pastPerformance, keyPersonnel, winThemes, solicitationDocs]);
 
   /**
    * Filter resources based on search and filters
