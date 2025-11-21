@@ -419,7 +419,7 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                           <SelectContent>
                                             {modalConfigs.map((modal) => (
                                               <SelectItem key={modal.id} value={`open_modal_${modal.id}`}>
-                                                {modal.data.modal_name}
+                                                {modal.icon_emoji} {modal.name}
                                               </SelectItem>
                                             ))}
                                           </SelectContent>
