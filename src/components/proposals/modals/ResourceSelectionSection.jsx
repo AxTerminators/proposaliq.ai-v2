@@ -116,6 +116,19 @@ export default function ResourceSelectionSection({
   });
 
   /**
+   * Fetch SolicitationDocument entities (including supplementary)
+   */
+  const { data: solicitationDocs = [], isLoading: loadingSolicitations } = useQuery({
+    queryKey: ["solicitation-documents", proposalId, organizationId],
+    queryFn: () =>
+      base44.entities.SolicitationDocument.filter({
+        proposal_id: proposalId,
+        organization_id: organizationId,
+      }),
+    enabled: !!organizationId && !!proposalId,
+  });
+
+  /**
    * Fetch TeamingPartner entities for filter
    */
   const { data: teamingPartners = [] } = useQuery({
@@ -127,7 +140,7 @@ export default function ResourceSelectionSection({
     enabled: !!organizationId,
   });
 
-  const isLoading = loadingResources || loadingPastPerf || loadingPersonnel || loadingThemes;
+  const isLoading = loadingResources || loadingPastPerf || loadingPersonnel || loadingThemes || loadingSolicitations;
 
   /**
    * Infinite scroll observer
