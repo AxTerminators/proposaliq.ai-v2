@@ -16,6 +16,7 @@ import ContractDetailsForm from './ContractDetailsForm';
 import PerformanceRatingsEditor from './PerformanceRatingsEditor';
 import NarrativeInput from './NarrativeInput';
 import RelevanceMapper from './RelevanceMapper';
+import DuplicateWarning from './DuplicateWarning';
 
 /**
  * PastPerformanceManager Component
@@ -66,6 +67,11 @@ export default function PastPerformanceManager({
     // Validation state
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
+    
+    // Duplicate detection state
+    const [duplicates, setDuplicates] = useState([]);
+    const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+    const [checkingDuplicates, setCheckingDuplicates] = useState(false);
 
     // Get current user and organization
     const { data: user } = useQuery({
@@ -163,11 +169,49 @@ export default function PastPerformanceManager({
         return Object.keys(newErrors).length === 0;
     };
 
+    // Check for duplicates
+    const checkDuplicates = async () => {
+        if (!organization?.id) return;
+        
+        setCheckingDuplicates(true);
+        try {
+            const result = await base44.functions.invoke('detectDuplicatePastPerformance', {
+                organization_id: organization.id,
+                title: formData.title,
+                contract_number: formData.contract_number,
+                customer_agency: formData.customer_agency,
+                pop_start_date: formData.pop_start_date,
+                pop_end_date: formData.pop_end_date,
+                exclude_id: existingRecord?.id
+            });
+            
+            if (result.data.duplicates && result.data.duplicates.length > 0) {
+                setDuplicates(result.data.duplicates);
+                setShowDuplicateWarning(true);
+                return true; // Has duplicates
+            }
+            return false; // No duplicates
+        } catch (error) {
+            console.error('Error checking duplicates:', error);
+            return false; // Proceed on error
+        } finally {
+            setCheckingDuplicates(false);
+        }
+    };
+
     // Save record
-    const handleSave = async () => {
+    const handleSave = async (skipDuplicateCheck = false) => {
         if (!validateForm()) {
             toast.error('Please fix validation errors before saving');
             return;
+        }
+
+        // Check for duplicates unless explicitly skipped
+        if (!skipDuplicateCheck && !existingRecord) {
+            const hasDuplicates = await checkDuplicates();
+            if (hasDuplicates) {
+                return; // Show duplicate warning, don't save yet
+            }
         }
 
         setSaving(true);
@@ -297,6 +341,21 @@ export default function PastPerformanceManager({
     if (workflowStep === 'form') {
         return (
             <div className="space-y-6">
+                {/* Duplicate Warning */}
+                {showDuplicateWarning && duplicates.length > 0 && (
+                    <DuplicateWarning
+                        duplicates={duplicates}
+                        onProceed={() => {
+                            setShowDuplicateWarning(false);
+                            handleSave(true); // Skip duplicate check
+                        }}
+                        onCancel={() => {
+                            setShowDuplicateWarning(false);
+                            setDuplicates([]);
+                        }}
+                    />
+                )}
+
                 <div className="flex items-center justify-between">
                     <Button
                         variant="ghost"
@@ -417,14 +476,14 @@ export default function PastPerformanceManager({
                         </Button>
                     )}
                     <Button 
-                        onClick={handleSave} 
-                        disabled={saving}
+                        onClick={() => handleSave(false)} 
+                        disabled={saving || checkingDuplicates}
                         className="bg-blue-600 hover:bg-blue-700"
                     >
-                        {saving ? (
+                        {saving || checkingDuplicates ? (
                             <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Saving...
+                                {checkingDuplicates ? 'Checking...' : 'Saving...'}
                             </>
                         ) : (
                             <>
