@@ -54,6 +54,13 @@ Deno.serve(async (req) => {
     const ingestToRag = formData.get('ingest_to_rag') === 'true';
     const extractKeyData = formData.get('extract_key_data') === 'true';
     const extractionFieldsDescription = formData.get('extraction_fields_description');
+    
+    // Supplementary document fields
+    const isSupplementary = formData.get('is_supplementary') === 'true';
+    const supplementaryType = formData.get('supplementary_type');
+    const parentDocumentId = formData.get('parent_document_id');
+    const amendmentNumber = formData.get('amendment_number');
+    const versionDate = formData.get('version_date');
 
     // Validate required fields
     if (!file || !title || !resourceType || !organizationId) {
