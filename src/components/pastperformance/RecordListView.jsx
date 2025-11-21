@@ -1,279 +1,183 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, Eye, Edit, Trash2, AlertTriangle, Building2, Calendar, DollarSign, Award, FileText } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Search, SlidersHorizontal } from 'lucide-react';
+import AdvancedFilters from './AdvancedFilters';
+import FilteredRecordsList from './FilteredRecordsList';
 
 /**
  * RecordListView Component
- * Displays all past performance records with filtering and search
- * 
- * Props:
- * - organizationId: current organization ID
- * - onEdit: callback when edit is clicked
- * - onView: callback when view is clicked
- * - onDelete: callback when delete is clicked
+ * Main view for displaying and filtering past performance records
  */
-export default function RecordListView({ organizationId, onEdit, onView, onDelete }) {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [recordTypeFilter, setRecordTypeFilter] = useState('all');
-    const [ratingFilter, setRatingFilter] = useState('all');
-    const [sortBy, setSortBy] = useState('-created_date');
+export default function RecordListView({ organizationId, onView, onEdit, onDelete }) {
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [sortBy, setSortBy] = useState('created_date');
+    const [sortOrder, setSortOrder] = useState('desc');
+    const [filters, setFilters] = useState({
+        searchQuery: '',
+        recordType: 'all',
+        customerAgency: '',
+        role: 'all',
+        contractType: 'all',
+        startDateFrom: '',
+        startDateTo: '',
+        endDateFrom: '',
+        endDateTo: '',
+        minValue: '',
+        maxValue: '',
+        overallRating: 'all',
+        hasRedFlags: false,
+        priority: 'all',
+        tags: [],
+        naicsCodes: []
+    });
+    const [savedPresets, setSavedPresets] = useState([]);
 
     // Fetch records
     const { data: records = [], isLoading } = useQuery({
         queryKey: ['pastPerformanceRecords', organizationId],
         queryFn: async () => {
             if (!organizationId) return [];
-            return base44.entities.PastPerformanceRecord.filter(
-                { organization_id: organizationId },
-                sortBy
-            );
+            return base44.entities.PastPerformanceRecord.filter({ organization_id: organizationId });
         },
         enabled: !!organizationId
     });
 
-    // Filter records
+    // Apply all filters
     const filteredRecords = records.filter(record => {
-        // Search filter
-        const searchLower = searchQuery.toLowerCase();
-        const matchesSearch = !searchQuery || 
-            record.title?.toLowerCase().includes(searchLower) ||
-            record.customer_agency?.toLowerCase().includes(searchLower) ||
-            record.contract_number?.toLowerCase().includes(searchLower);
+        // Search query
+        const matchesSearch = !filters.searchQuery || 
+            record.title?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+            record.customer_agency?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+            record.contract_number?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+            record.project_description?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+            record.work_scope_tags?.some(tag => tag.toLowerCase().includes(filters.searchQuery.toLowerCase()));
 
-        // Record type filter
-        const matchesType = recordTypeFilter === 'all' || record.record_type === recordTypeFilter;
+        // Basic filters
+        const matchesType = filters.recordType === 'all' || record.record_type === filters.recordType;
+        const matchesAgency = !filters.customerAgency || 
+            record.customer_agency?.toLowerCase().includes(filters.customerAgency.toLowerCase());
+        const matchesRole = filters.role === 'all' || record.role === filters.role;
+        const matchesContractType = filters.contractType === 'all' || record.contract_type === filters.contractType;
 
-        // Rating filter
-        let matchesRating = true;
-        if (ratingFilter === 'exceptional') {
-            matchesRating = record.overall_rating === 'Exceptional';
-        } else if (ratingFilter === 'red_flags') {
-            matchesRating = record.has_red_flags;
-        }
+        // Date filters
+        const matchesStartDateFrom = !filters.startDateFrom || 
+            (record.pop_start_date && new Date(record.pop_start_date) >= new Date(filters.startDateFrom));
+        const matchesStartDateTo = !filters.startDateTo || 
+            (record.pop_start_date && new Date(record.pop_start_date) <= new Date(filters.startDateTo));
+        const matchesEndDateFrom = !filters.endDateFrom || 
+            (record.pop_end_date && new Date(record.pop_end_date) >= new Date(filters.endDateFrom));
+        const matchesEndDateTo = !filters.endDateTo || 
+            (record.pop_end_date && new Date(record.pop_end_date) <= new Date(filters.endDateTo));
 
-        return matchesSearch && matchesType && matchesRating;
+        // Financial filters
+        const matchesMinValue = !filters.minValue || 
+            (record.contract_value && record.contract_value >= parseFloat(filters.minValue));
+        const matchesMaxValue = !filters.maxValue || 
+            (record.contract_value && record.contract_value <= parseFloat(filters.maxValue));
+
+        // Rating filters
+        const matchesRating = filters.overallRating === 'all' || record.overall_rating === filters.overallRating;
+        const matchesRedFlags = !filters.hasRedFlags || (filters.hasRedFlags && !record.has_red_flags);
+
+        // Metadata filters
+        const matchesPriority = filters.priority === 'all' || record.priority_for_proposal === filters.priority;
+        const matchesTags = filters.tags.length === 0 || 
+            filters.tags.some(tag => record.work_scope_tags?.includes(tag));
+
+        return matchesSearch && matchesType && matchesAgency && matchesRole && matchesContractType &&
+               matchesStartDateFrom && matchesStartDateTo && matchesEndDateFrom && matchesEndDateTo &&
+               matchesMinValue && matchesMaxValue && matchesRating && matchesRedFlags &&
+               matchesPriority && matchesTags;
     });
 
-    // Get rating badge color
-    const getRatingColor = (rating) => {
-        if (['Exceptional', 'Very Good'].includes(rating)) return 'bg-green-100 text-green-800';
-        if (rating === 'Satisfactory') return 'bg-blue-100 text-blue-800';
-        if (rating === 'Marginal') return 'bg-yellow-100 text-yellow-800';
-        if (rating === 'Unsatisfactory') return 'bg-red-100 text-red-800';
-        return 'bg-slate-100 text-slate-800';
+    // Handle sort
+    const handleSort = (field) => {
+        if (sortBy === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(field);
+            setSortOrder('desc');
+        }
     };
 
-    if (isLoading) {
-        return (
-            <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                    <Skeleton key={i} className="h-32 w-full" />
-                ))}
-            </div>
-        );
-    }
+    // Handle save preset
+    const handleSavePreset = () => {
+        const presetName = prompt('Enter a name for this filter preset:');
+        if (presetName) {
+            setSavedPresets([...savedPresets, { name: presetName, filters }]);
+        }
+    };
+
+    // Sort records
+    const sortedRecords = [...filteredRecords].sort((a, b) => {
+        const multiplier = sortOrder === 'asc' ? 1 : -1;
+        let comparison = 0;
+        switch (sortBy) {
+            case 'title':
+                comparison = (a.title || '').localeCompare(b.title || '');
+                break;
+            case 'pop_start_date':
+                comparison = new Date(a.pop_start_date || 0) - new Date(b.pop_start_date || 0);
+                break;
+            case 'contract_value':
+                comparison = (a.contract_value || 0) - (b.contract_value || 0);
+                break;
+            case 'created_date':
+            default:
+                comparison = new Date(b.created_date || 0) - new Date(a.created_date || 0);
+        }
+        return comparison * multiplier;
+    });
 
     return (
         <div className="space-y-6">
-            {/* Filters and Search */}
-            <Card>
-                <CardContent className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Search */}
-                        <div className="relative md:col-span-2">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                            <Input
-                                placeholder="Search records..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
-
-                        {/* Record Type Filter */}
-                        <Select value={recordTypeFilter} onValueChange={setRecordTypeFilter}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="All Types" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="general_pp">General Past Performance</SelectItem>
-                                <SelectItem value="cpars">CPARS Evaluation</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        {/* Rating Filter */}
-                        <Select value={ratingFilter} onValueChange={setRatingFilter}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="All Ratings" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Ratings</SelectItem>
-                                <SelectItem value="exceptional">Exceptional Only</SelectItem>
-                                <SelectItem value="red_flags">With Red Flags</SelectItem>
-                            </SelectContent>
-                        </Select>
+            {/* Search Bar */}
+            <Card className="p-4">
+                <div className="flex gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                            placeholder="Search by title, agency, contract number, description, tags..."
+                            value={filters.searchQuery}
+                            onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
+                            className="pl-10"
+                        />
                     </div>
-                </CardContent>
+                    <Button
+                        variant={showAdvancedFilters ? "default" : "outline"}
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    >
+                        <SlidersHorizontal className="w-4 h-4 mr-2" />
+                        {showAdvancedFilters ? 'Hide' : 'Show'} Filters
+                    </Button>
+                </div>
             </Card>
 
-            {/* Results Count */}
-            <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-600">
-                    Showing <strong>{filteredRecords.length}</strong> of {records.length} records
-                </p>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="-created_date">Newest First</SelectItem>
-                        <SelectItem value="created_date">Oldest First</SelectItem>
-                        <SelectItem value="-pop_end_date">End Date (Recent)</SelectItem>
-                        <SelectItem value="title">Title (A-Z)</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+                <AdvancedFilters
+                    filters={filters}
+                    onChange={setFilters}
+                    onSavePreset={handleSavePreset}
+                    savedPresets={savedPresets}
+                />
+            )}
 
             {/* Records List */}
-            {filteredRecords.length === 0 ? (
-                <Card className="border-dashed">
-                    <CardContent className="p-12 text-center">
-                        <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                            {searchQuery || recordTypeFilter !== 'all' || ratingFilter !== 'all'
-                                ? 'No records match your filters'
-                                : 'No records yet'}
-                        </h3>
-                        <p className="text-slate-600">
-                            {searchQuery || recordTypeFilter !== 'all' || ratingFilter !== 'all'
-                                ? 'Try adjusting your search or filters'
-                                : 'Add your first past performance record to get started'}
-                        </p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="grid gap-4">
-                    {filteredRecords.map((record) => (
-                        <Card key={record.id} className="hover:shadow-lg transition-shadow">
-                            <CardContent className="p-6">
-                                <div className="flex items-start justify-between gap-4">
-                                    {/* Main Content */}
-                                    <div className="flex-1 space-y-3">
-                                        {/* Title and Badges */}
-                                        <div className="flex items-start gap-3 flex-wrap">
-                                            <h3 className="text-lg font-semibold text-slate-900 flex-1">
-                                                {record.title}
-                                            </h3>
-                                            <Badge className={
-                                                record.record_type === 'cpars'
-                                                    ? 'bg-purple-100 text-purple-700'
-                                                    : 'bg-blue-100 text-blue-700'
-                                            }>
-                                                {record.record_type === 'cpars' ? 'CPARS' : 'General'}
-                                            </Badge>
-                                            {record.has_red_flags && (
-                                                <Badge variant="destructive">
-                                                    <AlertTriangle className="w-3 h-3 mr-1" />
-                                                    Red Flags
-                                                </Badge>
-                                            )}
-                                            {record.is_candidate_for_proposal && (
-                                                <Badge className="bg-green-100 text-green-700">
-                                                    <Award className="w-3 h-3 mr-1" />
-                                                    Proposal Ready
-                                                </Badge>
-                                            )}
-                                        </div>
-
-                                        {/* Details Grid */}
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                            {record.customer_agency && (
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 className="w-4 h-4 text-slate-400" />
-                                                    <span className="text-slate-700">{record.customer_agency}</span>
-                                                </div>
-                                            )}
-                                            {record.pop_start_date && record.pop_end_date && (
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="w-4 h-4 text-slate-400" />
-                                                    <span className="text-slate-700">
-                                                        {new Date(record.pop_start_date).getFullYear()} - {new Date(record.pop_end_date).getFullYear()}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            {record.contract_value && (
-                                                <div className="flex items-center gap-2">
-                                                    <DollarSign className="w-4 h-4 text-slate-400" />
-                                                    <span className="text-slate-700">
-                                                        ${(record.contract_value / 1000000).toFixed(1)}M
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* CPARS Rating */}
-                                        {record.overall_rating && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm text-slate-600">CPARS Rating:</span>
-                                                <Badge className={getRatingColor(record.overall_rating)}>
-                                                    {record.overall_rating}
-                                                </Badge>
-                                            </div>
-                                        )}
-
-                                        {/* AI Extraction Badge */}
-                                        {record.ai_extraction_metadata && (
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-xs">
-                                                    🤖 AI Extracted ({record.ai_extraction_metadata.confidence_score}% confidence)
-                                                </Badge>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => onView(record)}
-                                            title="View details"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => onEdit(record)}
-                                            title="Edit record"
-                                        >
-                                            <Edit className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => onDelete(record)}
-                                            title="Delete record"
-                                            className="text-red-600 hover:text-red-700"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            )}
+            <FilteredRecordsList
+                records={sortedRecords}
+                loading={isLoading}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                onView={onView}
+                onEdit={onEdit}
+                onDelete={onDelete}
+            />
         </div>
     );
 }
