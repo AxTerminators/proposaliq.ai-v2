@@ -216,11 +216,12 @@ export default function ChecklistItemRenderer({ item, isCompleted, onItemClick, 
       disabled={!isClickable}
       type="button"
       className={cn(
-        "flex items-center gap-2 py-1.5 px-2 rounded transition-colors w-full text-left",
+        "flex items-center gap-2 py-1.5 px-2 rounded transition-colors w-full text-left relative z-10",
         isClickable && "cursor-pointer hover:bg-blue-50 active:bg-blue-100",
         isCompleted && "opacity-60",
         !isClickable && "cursor-default opacity-50"
       )}
+      style={{ pointerEvents: isClickable ? 'auto' : 'none' }}
     >
       {getIcon()}
       <span className={cn(
