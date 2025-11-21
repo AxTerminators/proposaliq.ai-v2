@@ -10,6 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { X, Upload, Library } from "lucide-react";
+import ResourceUploadSection from "./ResourceUploadSection";
 
 /**
  * ResourceGatheringModal - Phase 1: Core Structure
