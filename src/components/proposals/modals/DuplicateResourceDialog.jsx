@@ -24,8 +24,6 @@ export default function DuplicateResourceDialog({
 }) {
   if (!duplicates || duplicates.length === 0) return null;
 
-  const topMatch = duplicates[0];
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">

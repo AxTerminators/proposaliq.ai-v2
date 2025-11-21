@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, FileText, Image, Award, FileCheck, Loader2, CheckCircle } from "lucide-react";
+import { Upload, X, FileText, Image, Award, FileCheck, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DuplicateResourceDialog from "./DuplicateResourceDialog";
