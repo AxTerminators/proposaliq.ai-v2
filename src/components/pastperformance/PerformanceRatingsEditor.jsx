@@ -92,7 +92,10 @@ export default function PerformanceRatingsEditor({
                             id="overall_rating"
                             className={cn(
                                 "w-full h-12 text-base font-semibold",
-                                overallRating && `border-${getRatingColor(overallRating)}-400 bg-${getRatingColor(overallRating)}-50`
+                                overallRating && getRatingColor(overallRating) === 'green' && 'border-green-400 bg-green-50',
+                                overallRating && getRatingColor(overallRating) === 'blue' && 'border-blue-400 bg-blue-50',
+                                overallRating && getRatingColor(overallRating) === 'yellow' && 'border-yellow-400 bg-yellow-50',
+                                overallRating && getRatingColor(overallRating) === 'red' && 'border-red-400 bg-red-50'
                             )}
                         >
                             <SelectValue placeholder="Select overall rating" />
@@ -148,7 +151,10 @@ export default function PerformanceRatingsEditor({
                                         <SelectTrigger 
                                             id={factor.key}
                                             className={cn(
-                                                currentRating && `border-${getRatingColor(currentRating)}-300`
+                                                currentRating && getRatingColor(currentRating) === 'green' && 'border-green-300',
+                                                currentRating && getRatingColor(currentRating) === 'blue' && 'border-blue-300',
+                                                currentRating && getRatingColor(currentRating) === 'yellow' && 'border-yellow-300',
+                                                currentRating && getRatingColor(currentRating) === 'red' && 'border-red-300'
                                             )}
                                         >
                                             <SelectValue placeholder="Select rating" />

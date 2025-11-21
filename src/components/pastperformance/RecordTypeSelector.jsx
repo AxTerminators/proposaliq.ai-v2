@@ -46,9 +46,9 @@ export default function RecordTypeSelector({ value, onChange, disabled = false }
                             key={option.value}
                             className={cn(
                                 "cursor-pointer transition-all border-2",
-                                isSelected 
-                                    ? `border-${option.color}-500 bg-${option.color}-50` 
-                                    : 'border-slate-200 hover:border-slate-300',
+                                isSelected && option.color === 'blue' && 'border-blue-500 bg-blue-50',
+                                isSelected && option.color === 'purple' && 'border-purple-500 bg-purple-50',
+                                !isSelected && 'border-slate-200 hover:border-slate-300',
                                 disabled && 'opacity-50 cursor-not-allowed'
                             )}
                             onClick={() => !disabled && onChange(option.value)}
@@ -57,9 +57,9 @@ export default function RecordTypeSelector({ value, onChange, disabled = false }
                                 <div className="flex items-start gap-3">
                                     <div className={cn(
                                         "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                                        isSelected 
-                                            ? `bg-${option.color}-600` 
-                                            : 'bg-slate-100'
+                                        isSelected && option.color === 'blue' && 'bg-blue-600',
+                                        isSelected && option.color === 'purple' && 'bg-purple-600',
+                                        !isSelected && 'bg-slate-100'
                                     )}>
                                         <Icon className={cn(
                                             "w-5 h-5",
