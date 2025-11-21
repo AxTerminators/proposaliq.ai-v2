@@ -30,6 +30,9 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  RefreshCw,
+  AlertCircle,
+  MinusCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -67,7 +70,7 @@ export default function ResourceSelectionSection({
   /**
    * Fetch ProposalResource entities
    */
-  const { data: resources = [], isLoading: loadingResources } = useQuery({
+  const { data: resources = [], isLoading: loadingResources, refetch: refetchResources } = useQuery({
     queryKey: ["proposal-resources", organizationId],
     queryFn: () =>
       base44.entities.ProposalResource.filter({
@@ -332,6 +335,91 @@ export default function ResourceSelectionSection({
   };
 
   /**
+   * Handle retrying RAG processing for a failed resource
+   */
+  const handleRetryRAG = async (resourceId) => {
+    setRetryingRAG(prev => ({ ...prev, [resourceId]: true }));
+
+    try {
+      const response = await base44.functions.invoke('retryRAGProcessing', {
+        resource_id: resourceId,
+      });
+
+      if (response.data?.success) {
+        // Refetch resources to get updated status
+        await refetchResources();
+        alert('✅ RAG processing restarted successfully');
+      } else {
+        alert(`❌ Failed to retry RAG processing: ${response.data?.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error retrying RAG:', error);
+      alert(`❌ Error: ${error.message}`);
+    } finally {
+      setRetryingRAG(prev => ({ ...prev, [resourceId]: false }));
+    }
+  };
+
+  /**
+   * Render RAG status badge with actions
+   */
+  const renderRAGStatus = (item) => {
+    if (item.entityType !== 'ProposalResource') return null;
+
+    const isRetrying = retryingRAG[item.id];
+
+    if (item.rag_status === 'ready') {
+      return (
+        <Badge className="bg-green-100 text-green-700 border-green-300 flex items-center gap-1">
+          <CheckCircle className="w-3 h-3" />
+          RAG Ready
+        </Badge>
+      );
+    }
+
+    if (item.rag_status === 'processing' || isRetrying) {
+      return (
+        <Badge className="bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Processing
+        </Badge>
+      );
+    }
+
+    if (item.rag_status === 'failed') {
+      return (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-red-100 text-red-700 border-red-300 flex items-center gap-1">
+            <XCircle className="w-3 h-3" />
+            RAG Failed
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRetryRAG(item.id);
+            }}
+            className="h-6 px-2 text-xs hover:bg-red-50"
+            disabled={isRetrying}
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Retry
+          </Button>
+        </div>
+      );
+    }
+
+    // Not yet processed
+    return (
+      <Badge className="bg-slate-100 text-slate-600 border-slate-300 flex items-center gap-1">
+        <MinusCircle className="w-3 h-3" />
+        Not Processed
+      </Badge>
+    );
+  };
+
+  /**
    * Handle linking selected resources to the proposal
    */
   const handleLinkResources = async () => {
@@ -579,41 +667,20 @@ export default function ResourceSelectionSection({
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleSelection(item)}
-                          className="mt-1"
-                        />
-                        <Icon className="w-5 h-5 text-slate-600 mt-1 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-slate-900">
-                              {item.title}
-                            </h4>
-                            {/* RAG Status Indicator */}
-                            {item.entityType === 'ProposalResource' && item.rag_status && (
-                              <>
-                                {item.rag_status === 'ready' && (
-                                  <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    RAG Ready
-                                  </Badge>
-                                )}
-                                {item.rag_status === 'processing' && (
-                                  <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    Processing
-                                  </Badge>
-                                )}
-                                {item.rag_status === 'failed' && (
-                                  <Badge className="bg-red-100 text-red-700 border-red-300 text-xs">
-                                    <XCircle className="w-3 h-3 mr-1" />
-                                    Failed
-                                  </Badge>
-                                )}
-                              </>
-                            )}
-                          </div>
+                      <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelection(item)}
+                      className="mt-1"
+                      />
+                      <Icon className="w-5 h-5 text-slate-600 mt-1 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h4 className="font-semibold text-slate-900">
+                          {item.title}
+                        </h4>
+                        {/* RAG Status Indicator */}
+                        {renderRAGStatus(item)}
+                      </div>
                           {item.description && (
                             <p className="text-sm text-slate-600 line-clamp-2 mb-2">
                               {item.description}
