@@ -17,6 +17,7 @@ import PerformanceRatingsEditor from './PerformanceRatingsEditor';
 import NarrativeInput from './NarrativeInput';
 import RelevanceMapper from './RelevanceMapper';
 import DuplicateWarning from './DuplicateWarning';
+import TemplateLibrary from './TemplateLibrary';
 
 /**
  * PastPerformanceManager Component
@@ -37,9 +38,10 @@ export default function PastPerformanceManager({
     const queryClient = useQueryClient();
 
     // Workflow state
-    const [workflowStep, setWorkflowStep] = useState('select_type'); // select_type → upload_or_manual → preview → form
+    const [workflowStep, setWorkflowStep] = useState(existingRecord ? 'form' : 'template'); // template → select_type → upload_or_manual → preview → form
     const [entryMode, setEntryMode] = useState('upload'); // 'upload' or 'manual'
     const [recordType, setRecordType] = useState(existingRecord?.record_type || 'general_pp');
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
 
     // Form data state
     const [formData, setFormData] = useState(existingRecord || {
@@ -92,6 +94,28 @@ export default function PastPerformanceManager({
         setExtractedData(data);
         setAiExtractedFields(data.ai_extraction_metadata?.fields_extracted || []);
         setWorkflowStep('preview');
+    };
+
+    // Handle template selection
+    const handleTemplateSelect = (template) => {
+        if (!template) {
+            // Skip templates
+            setSelectedTemplate(null);
+            setWorkflowStep('select_type');
+            return;
+        }
+
+        setSelectedTemplate(template);
+        setRecordType(template.record_type);
+        
+        // Pre-fill form data from template
+        setFormData({
+            ...formData,
+            ...template.pre_fill,
+            record_type: template.record_type
+        });
+        
+        setWorkflowStep('select_type');
     };
 
     // Accept extracted data and move to form
@@ -270,9 +294,46 @@ export default function PastPerformanceManager({
     };
 
     // Render based on workflow step
+    if (workflowStep === 'template') {
+        return (
+            <div className="space-y-4">
+                <TemplateLibrary
+                    onSelectTemplate={handleTemplateSelect}
+                    selectedTemplateId={selectedTemplate?.id}
+                />
+            </div>
+        );
+    }
+
     if (workflowStep === 'select_type') {
         return (
             <div className="space-y-4">
+                {selectedTemplate && (
+                    <Card className="p-4 bg-blue-50 border-2 border-blue-200">
+                        <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                            <span className="text-blue-900">
+                                <strong>Template:</strong> {selectedTemplate.name}
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setSelectedTemplate(null);
+                                    setWorkflowStep('template');
+                                }}
+                                className="ml-auto"
+                            >
+                                Change Template
+                            </Button>
+                        </div>
+                        {selectedTemplate.guidance && (
+                            <p className="text-xs text-blue-700 mt-2">
+                                💡 {selectedTemplate.guidance}
+                            </p>
+                        )}
+                    </Card>
+                )}
                 <RecordTypeSelector
                     value={recordType}
                     onChange={(value) => {
@@ -281,6 +342,12 @@ export default function PastPerformanceManager({
                     }}
                 />
                 <div className="flex justify-end gap-3">
+                    <Button 
+                        variant="outline" 
+                        onClick={() => setWorkflowStep('template')}
+                    >
+                        Back to Templates
+                    </Button>
                     {onCancel && (
                         <Button variant="outline" onClick={onCancel}>
                             Cancel
