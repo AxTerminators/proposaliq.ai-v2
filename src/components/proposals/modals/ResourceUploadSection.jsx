@@ -37,6 +37,13 @@ export default function ResourceUploadSection({
   const [resourceType, setResourceType] = useState("");
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
+  
+  // Supplementary document state
+  const [isSupplementary, setIsSupplementary] = useState(false);
+  const [supplementaryType, setSupplementaryType] = useState("");
+  const [parentDocumentId, setParentDocumentId] = useState("");
+  const [amendmentNumber, setAmendmentNumber] = useState("");
+  const [versionDate, setVersionDate] = useState("");
 
   // AI processing options
   const [ingestToRAG, setIngestToRAG] = useState(true);
