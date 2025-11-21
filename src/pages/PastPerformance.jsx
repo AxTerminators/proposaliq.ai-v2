@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library, BarChart } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library, BarChart, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
 import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
 import RecordListView from "../components/pastperformance/RecordListView";
 import UsageAnalyticsDashboard from "../components/pastperformance/UsageAnalyticsDashboard";
+import BulkImportDialog from "../components/pastperformance/BulkImportDialog";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -54,6 +55,7 @@ export default function PastPerformance() {
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [projectToPromote, setProjectToPromote] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -213,6 +215,13 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
           >
             <BarChart className="w-4 h-4 mr-2" />
             {showAnalytics ? 'Hide' : 'Show'} Analytics
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowBulkImport(true)}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Bulk Import
           </Button>
           <Button onClick={() => setShowNewManager(true)} className="bg-blue-600">
             <Plus className="w-5 h-5 mr-2" />
@@ -485,6 +494,16 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
         sectionContent={projectToPromote?.content}
         sectionName={projectToPromote?.title}
         organization={organization}
+      />
+
+      <BulkImportDialog
+        isOpen={showBulkImport}
+        onClose={() => setShowBulkImport(false)}
+        organizationId={organization?.id}
+        onImportComplete={(result) => {
+          queryClient.invalidateQueries({ queryKey: ['pastPerformanceRecords'] });
+          setShowBulkImport(false);
+        }}
       />
     </div>
   );
