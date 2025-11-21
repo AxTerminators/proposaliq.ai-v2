@@ -39,6 +39,11 @@ export const ACTION_REGISTRY = {
     component: ResourceGatheringModal,
     label: 'Gather Resources'
   },
+  'open_key_personnel_modal': {
+    type: 'dynamic_modal',
+    modalConfigName: 'Add Key Personnel',
+    label: 'Add Key Personnel'
+  },
   
   // ============================================
   // COLUMN 4: SOLICITATION - Upload & Analysis
