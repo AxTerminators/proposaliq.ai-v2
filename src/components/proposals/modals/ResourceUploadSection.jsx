@@ -183,6 +183,11 @@ export default function ResourceUploadSection({
     setTags([]);
     setExtractKeyData(false);
     setExtractionFieldsDescription("");
+    setIsSupplementary(false);
+    setSupplementaryType("");
+    setParentDocumentId("");
+    setAmendmentNumber("");
+    setVersionDate("");
   };
 
   /**
