@@ -133,6 +133,26 @@ Deno.serve(async (req) => {
           }
           break;
 
+        case 'SolicitationDocument':
+          if (!linkedSolicitationDocIds.includes(id)) {
+            linkedSolicitationDocIds.push(id);
+            linkedCount++;
+
+            // Increment usage count for SolicitationDocument
+            try {
+              const solicitationDocs = await base44.asServiceRole.entities.SolicitationDocument.filter({ id });
+              if (solicitationDocs && solicitationDocs.length > 0) {
+                const doc = solicitationDocs[0];
+                await base44.asServiceRole.entities.SolicitationDocument.update(id, {
+                  last_used_date: new Date().toISOString()
+                });
+              }
+            } catch (error) {
+              console.error('Error updating SolicitationDocument usage:', error);
+            }
+          }
+          break;
+
         default:
           console.warn('Unknown entityType:', entityType);
       }
