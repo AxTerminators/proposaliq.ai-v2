@@ -798,7 +798,7 @@ function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete, onDupl
       <Card className="hover:shadow-xl transition-all border-2 hover:border-blue-300">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div className="text-4xl mb-2">{(template && template.icon_emoji) ? template.icon_emoji : '📋'}</div>
+            <div className="text-4xl mb-2">{template?.icon_emoji || '📋'}</div>
             <div className="flex flex-col gap-1 items-end">
               <Badge variant="outline" className="text-xs">
                 {template.proposal_type_category === 'OTHER' && template.proposal_type_other 
