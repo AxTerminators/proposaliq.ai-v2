@@ -52,6 +52,7 @@ import SourceContentViewer from "../rag/SourceContentViewer";
 import FloatingAIAssistantPanel from "../content/FloatingAIAssistantPanel";
 import FloatingAIAssistantToggle from "../content/FloatingAIAssistantToggle";
 import moment from "moment"; // Added for auto-save timestamp formatting
+import { createPageUrl } from "@/utils";
 
 const PROPOSAL_SECTIONS = [
   {
