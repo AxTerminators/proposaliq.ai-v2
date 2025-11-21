@@ -85,7 +85,20 @@ export default function PastPerformanceReferenceSelector({
         );
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
+        // Track usage if proposalId is provided
+        if (proposalContext?.id && localSelected.length > 0) {
+            try {
+                await base44.functions.invoke('trackPastPerformanceUsage', {
+                    record_ids: localSelected,
+                    proposal_id: proposalContext.id,
+                    context: 'manual_selection'
+                });
+            } catch (error) {
+                console.error('Failed to track usage (non-blocking):', error);
+            }
+        }
+        
         onSelect(localSelected);
         onClose();
     };

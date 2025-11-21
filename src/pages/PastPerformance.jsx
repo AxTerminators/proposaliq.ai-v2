@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library, BarChart } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
 import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
@@ -52,6 +52,7 @@ export default function PastPerformance() {
   const [viewingRecord, setViewingRecord] = useState(null);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [projectToPromote, setProjectToPromote] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -205,6 +206,13 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
             <Plus className="w-5 h-5 mr-2" />
             Add Project (Legacy)
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowAnalytics(!showAnalytics)}
+          >
+            <BarChart className="w-4 h-4 mr-2" />
+            {showAnalytics ? 'Hide' : 'Show'} Analytics
+          </Button>
           <Button onClick={() => setShowNewManager(true)} className="bg-blue-600">
             <Plus className="w-5 h-5 mr-2" />
             Add Past Performance
@@ -253,6 +261,11 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
             />
           </CardContent>
         </Card>
+      )}
+
+      {/* Analytics Dashboard */}
+      {showAnalytics && organization && (
+        <UsageAnalyticsDashboard organizationId={organization.id} />
       )}
 
       {/* New Records List View */}
