@@ -242,10 +242,16 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       resource_id: createdResource.id,
+      entity_type: isSupplementary ? 'SolicitationDocument' : 'ProposalResource',
       file_url: fileUrl,
       extracted_data: extractedData,
       rag_status: ragStatus,
-      message: 'Resource uploaded and processed successfully'
+      is_supplementary: isSupplementary,
+      supplementary_type: supplementaryType,
+      parent_document_id: parentDocumentId,
+      message: isSupplementary 
+        ? 'Supplementary document uploaded and processed successfully' 
+        : 'Resource uploaded and processed successfully'
     });
 
   } catch (error) {
