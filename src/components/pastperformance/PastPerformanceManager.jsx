@@ -15,6 +15,7 @@ import RecordTypeSelector from './RecordTypeSelector';
 import ContractDetailsForm from './ContractDetailsForm';
 import PerformanceRatingsEditor from './PerformanceRatingsEditor';
 import NarrativeInput from './NarrativeInput';
+import RelevanceMapper from './RelevanceMapper';
 
 /**
  * PastPerformanceManager Component
@@ -381,6 +382,13 @@ export default function PastPerformanceManager({
                         onEditTracked={handleEditTracked}
                     />
                 </Card>
+
+                {/* Section 5: Relevance Mapping & AI Governance */}
+                <RelevanceMapper
+                    formData={formData}
+                    onChange={setFormData}
+                    proposalContext={proposalId ? { proposal_name: 'Current Proposal' } : null}
+                />
 
                 {/* Validation Errors */}
                 {Object.keys(errors).length > 0 && (
