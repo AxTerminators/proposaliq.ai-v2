@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     const linkedPastPerformanceIds = proposal.linked_past_performance_ids || [];
     const linkedPersonnelIds = proposal.linked_personnel_ids || [];
     const linkedWinThemeIds = proposal.linked_win_theme_ids || [];
+    const linkedSolicitationDocIds = proposal.linked_solicitation_doc_ids || [];
 
     let linkedCount = 0;
 
