@@ -580,6 +580,12 @@ export default function ResourceSelectionSection({
                 <SelectItem value="Win Themes">
                   Win Themes ({facetCounts.sources['Win Themes'] || 0})
                 </SelectItem>
+                <SelectItem value="Solicitation Documents">
+                  Solicitation Docs ({facetCounts.sources['Solicitation Documents'] || 0})
+                </SelectItem>
+                <SelectItem value="Supplementary Documents">
+                  Supplementary Docs ({facetCounts.sources['Supplementary Documents'] || 0})
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
