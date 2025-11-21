@@ -61,6 +61,9 @@ export default function ResourceSelectionSection({
   const [displayCount, setDisplayCount] = useState(20);
   const observerTarget = useRef(null);
 
+  // RAG retry state
+  const [retryingRAG, setRetryingRAG] = useState({});
+
   /**
    * Fetch ProposalResource entities
    */
