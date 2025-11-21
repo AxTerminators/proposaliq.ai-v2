@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 /**
  * ChecklistEditor - Dialog for adding/editing checklist items for a column
@@ -67,6 +68,22 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
     setItems(items.filter(item => item.id !== itemId));
   };
 
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const reorderedItems = Array.from(items);
+    const [removed] = reorderedItems.splice(result.source.index, 1);
+    reorderedItems.splice(result.destination.index, 0, removed);
+
+    // Update order property for each item
+    const updatedItems = reorderedItems.map((item, index) => ({
+      ...item,
+      order: index
+    }));
+
+    setItems(updatedItems);
+  };
+
   const handleSave = () => {
     onSave({
       ...column,
@@ -88,43 +105,68 @@ export default function ChecklistEditor({ column, onSave, onClose }) {
           {/* Existing Items List */}
           {items.length > 0 && (
             <div className="space-y-2">
-              <Label>Current Checklist Items</Label>
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium">{item.label}</div>
-                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
-                        <span className="capitalize">{item.type.replace(/_/g, ' ')}</span>
-                        {item.required && (
-                          <span className="text-red-600 font-semibold">• Required</span>
-                        )}
-                        {item.type === 'proposal_action' && item.associated_action && (
-                          <span className="text-blue-600">
-                            → {JSON.parse(item.associated_action).target_tab}
-                          </span>
-                        )}
-                        {item.type === 'ai_trigger' && item.associated_action && (
-                          <span className="text-purple-600">
-                            → Generate {JSON.parse(item.associated_action).section_type?.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              <Label>Current Checklist Items (drag to reorder)</Label>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="checklist-items">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-2"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                      {items.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn(
+                                "flex items-center gap-2 p-3 border rounded-lg bg-slate-50",
+                                snapshot.isDragging && "shadow-lg border-blue-500"
+                              )}
+                            >
+                              <div
+                                {...provided.dragHandleProps}
+                                className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing"
+                              >
+                                <GripVertical className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium">{item.label}</div>
+                                <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                                  <span className="capitalize">{item.type.replace(/_/g, ' ')}</span>
+                                  {item.required && (
+                                    <span className="text-red-600 font-semibold">• Required</span>
+                                  )}
+                                  {item.type === 'proposal_action' && item.associated_action && (
+                                    <span className="text-blue-600">
+                                      → {JSON.parse(item.associated_action).target_tab}
+                                    </span>
+                                  )}
+                                  {item.type === 'ai_trigger' && item.associated_action && (
+                                    <span className="text-purple-600">
+                                      → Generate {JSON.parse(item.associated_action).section_type?.replace(/_/g, ' ')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </div>
           )}
 
