@@ -123,6 +123,7 @@ export default function TemplateManager() {
         t && 
         t.id && 
         t.template_name && 
+        t.workflow_config &&
         typeof t === 'object'
       );
     },
@@ -197,7 +198,7 @@ export default function TemplateManager() {
         throw new Error(validation.message);
       }
 
-      return base44.entities.ProposalWorkflowTemplate.create({
+      return base44.entities.ProposalWorkflowTemplate.create(sanitizeTemplateData({
         organization_id: organization.id,
         template_name: validation.finalName,
         template_type: 'organization',
@@ -205,11 +206,11 @@ export default function TemplateManager() {
         board_type: sourceTemplate.board_type,
         description: sourceTemplate.description,
         workflow_config: JSON.stringify(workflowConfig),
-        icon_emoji: sourceTemplate?.icon_emoji || '📋',
+        icon_emoji: sourceTemplate?.icon_emoji,
         estimated_duration_days: sourceTemplate.estimated_duration_days,
         is_active: true,
         usage_count: 0
-      });
+      }));
     },
     onSuccess: (createdTemplate) => {
       queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
@@ -343,12 +344,12 @@ export default function TemplateManager() {
 
     updateTemplateMutation.mutate({
       id: editingTemplate.id,
-      updates: {
+      updates: sanitizeTemplateData({
         template_name: editingTemplate.template_name,
         description: editingTemplate.description,
-        icon_emoji: editingTemplate.icon_emoji || '📋',
+        icon_emoji: editingTemplate.icon_emoji,
         estimated_duration_days: editingTemplate.estimated_duration_days
-      }
+      })
     });
   };
 

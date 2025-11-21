@@ -101,10 +101,12 @@ export default function AdminTemplateEditor() {
   const { data: allTemplates = [], isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['system-templates'],
     queryFn: async () => {
-      return base44.entities.ProposalWorkflowTemplate.filter({
+      const templates = await base44.entities.ProposalWorkflowTemplate.filter({
         template_type: 'system',
         is_active: true
       });
+      // CRITICAL: Filter out corrupted records
+      return templates.filter(t => t && t.id && t.template_name && t.workflow_config && typeof t === 'object');
     },
     enabled: isSuperAdmin,
     staleTime: 30000
@@ -265,14 +267,14 @@ export default function AdminTemplateEditor() {
 
     updateTemplateMutation.mutate({
       id: editingTemplate.id,
-      updates: {
+      updates: sanitizeTemplateData({
         template_name: editingTemplate.template_name,
         description: editingTemplate.description,
-        icon_emoji: editingTemplate.icon_emoji || '📋',
+        icon_emoji: editingTemplate.icon_emoji,
         estimated_duration_days: editingTemplate.estimated_duration_days,
         proposal_type_category: editingTemplate.proposal_type_category,
         proposal_type_other: editingTemplate.proposal_type_other || ''
-      }
+      })
     });
   };
 
@@ -308,19 +310,19 @@ export default function AdminTemplateEditor() {
         ? JSON.parse(template.workflow_config)
         : template.workflow_config;
 
-      const duplicatedTemplate = {
+      const duplicatedTemplate = sanitizeTemplateData({
         template_name: `${template.template_name} - Copy`,
         description: template.description,
         proposal_type_category: template.proposal_type_category,
         proposal_type_other: template.proposal_type_other || '',
-        icon_emoji: template?.icon_emoji || '📋',
+        icon_emoji: template?.icon_emoji,
         estimated_duration_days: template.estimated_duration_days,
         workflow_config: JSON.stringify(workflowConfig),
         template_type: 'system',
         status: 'draft',
         is_active: true,
         usage_count: 0
-      };
+      });
 
       await base44.entities.ProposalWorkflowTemplate.create(duplicatedTemplate);
       queryClient.invalidateQueries({ queryKey: ['system-templates'] });
