@@ -267,7 +267,7 @@ export default function AdminTemplateEditor() {
       updates: {
         template_name: editingTemplate.template_name,
         description: editingTemplate.description,
-        icon_emoji: editingTemplate.icon_emoji,
+        icon_emoji: editingTemplate.icon_emoji || '📋',
         estimated_duration_days: editingTemplate.estimated_duration_days,
         proposal_type_category: editingTemplate.proposal_type_category,
         proposal_type_other: editingTemplate.proposal_type_other || ''
@@ -312,7 +312,7 @@ export default function AdminTemplateEditor() {
         description: template.description,
         proposal_type_category: template.proposal_type_category,
         proposal_type_other: template.proposal_type_other || '',
-        icon_emoji: template.icon_emoji,
+        icon_emoji: template.icon_emoji || '📋',
         estimated_duration_days: template.estimated_duration_days,
         workflow_config: JSON.stringify(workflowConfig),
         template_type: 'system',
@@ -795,7 +795,7 @@ function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete, onDupl
       <Card className="hover:shadow-xl transition-all border-2 hover:border-blue-300">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div className="text-4xl mb-2">{template.icon_emoji || '📋'}</div>
+            <div className="text-4xl mb-2">{template?.icon_emoji || '📋'}</div>
             <div className="flex flex-col gap-1 items-end">
               <Badge variant="outline" className="text-xs">
                 {template.proposal_type_category === 'OTHER' && template.proposal_type_other 
@@ -930,7 +930,7 @@ function SystemTemplateCard({ template, onEdit, onEditWorkflow, onDelete, onDupl
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="text-3xl">{template.icon_emoji}</span>
+              <span className="text-3xl">{template?.icon_emoji || '📋'}</span>
               {template.template_name}
             </DialogTitle>
             <DialogDescription>
