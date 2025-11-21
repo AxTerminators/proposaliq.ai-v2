@@ -31,8 +31,21 @@ export default function ModalBuilder() {
     queryKey: ['modalConfigs'],
     queryFn: async () => {
       const allConfigs = await base44.entities.ModalConfig.list('-updated_date');
-      // CRITICAL: Filter out corrupted records
-      return allConfigs.filter(c => c && c.id && c.name && typeof c === 'object');
+      // CRITICAL: Filter out corrupted records - ensure all required fields exist
+      return allConfigs.filter(c => {
+        if (!c || !c.id || !c.name || typeof c !== 'object') return false;
+        // Ensure config_json is valid
+        if (!c.config_json) return false;
+        try {
+          if (typeof c.config_json === 'string') {
+            JSON.parse(c.config_json);
+          }
+          return true;
+        } catch {
+          console.warn('Skipping corrupted ModalConfig:', c.id);
+          return false;
+        }
+      });
     }
   });
 
