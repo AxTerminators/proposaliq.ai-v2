@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library, BarChart, Upload } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library, BarChart, Upload, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
 import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
 import RecordListView from "../components/pastperformance/RecordListView";
 import UsageAnalyticsDashboard from "../components/pastperformance/UsageAnalyticsDashboard";
 import BulkImportDialog from "../components/pastperformance/BulkImportDialog";
+import ExportDialog from "../components/pastperformance/ExportDialog";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -56,6 +57,8 @@ export default function PastPerformance() {
   const [projectToPromote, setProjectToPromote] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [selectedForExport, setSelectedForExport] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -222,6 +225,20 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
           >
             <Upload className="w-4 h-4 mr-2" />
             Bulk Import
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (pastPerformanceRecords.length > 0) {
+                setSelectedForExport([pastPerformanceRecords[0]]);
+                setShowExportDialog(true);
+              } else {
+                toast.error('No records available to export');
+              }
+            }}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
           </Button>
           <Button onClick={() => setShowNewManager(true)} className="bg-blue-600">
             <Plus className="w-5 h-5 mr-2" />
@@ -504,6 +521,12 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
           queryClient.invalidateQueries({ queryKey: ['pastPerformanceRecords'] });
           setShowBulkImport(false);
         }}
+      />
+
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        selectedRecords={selectedForExport}
       />
     </div>
   );

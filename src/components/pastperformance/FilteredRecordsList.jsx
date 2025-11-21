@@ -12,7 +12,8 @@ import {
     Trash2,
     AlertTriangle,
     CheckCircle2,
-    FileText
+    FileText,
+    Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -31,7 +32,8 @@ export default function FilteredRecordsList({
     onSort,
     onView,
     onEdit,
-    onDelete
+    onDelete,
+    onExport
 }) {
     if (loading) {
         return (
@@ -217,6 +219,7 @@ export default function FilteredRecordsList({
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => onView(record)}
+                                        title="View details"
                                     >
                                         <Eye className="w-4 h-4" />
                                     </Button>
@@ -224,14 +227,26 @@ export default function FilteredRecordsList({
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => onEdit(record)}
+                                        title="Edit record"
                                     >
                                         <Edit className="w-4 h-4" />
                                     </Button>
+                                    {onExport && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => onExport([record])}
+                                            title="Export to PDF/Word"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => onDelete(record)}
                                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        title="Delete record"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </Button>

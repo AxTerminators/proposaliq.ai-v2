@@ -12,7 +12,7 @@ import FilteredRecordsList from './FilteredRecordsList';
  * RecordListView Component
  * Main view for displaying and filtering past performance records
  */
-export default function RecordListView({ organizationId, onView, onEdit, onDelete }) {
+export default function RecordListView({ organizationId, onView, onEdit, onDelete, onExport }) {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [sortBy, setSortBy] = useState('created_date');
     const [sortOrder, setSortOrder] = useState('desc');
@@ -177,6 +177,7 @@ export default function RecordListView({ organizationId, onView, onEdit, onDelet
                 onView={onView}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onExport={onExport}
             />
         </div>
     );
