@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { X, Upload, Library } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { X, Upload, Library, CheckCircle } from "lucide-react";
 import ResourceUploadSection from "./ResourceUploadSection";
 import ResourceSelectionSection from "./ResourceSelectionSection";
 
@@ -32,6 +34,13 @@ export default function ResourceGatheringModal({
 }) {
   // State for active tab
   const [activeTab, setActiveTab] = useState("upload");
+  const [successMessage, setSuccessMessage] = useState("");
+  const queryClient = useQueryClient();
+
+  // Clear success message when tab changes
+  React.useEffect(() => {
+    setSuccessMessage("");
+  }, [activeTab]);
 
   /**
    * Handle modal close - reset state and call parent callback
