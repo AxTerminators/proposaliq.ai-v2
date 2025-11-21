@@ -77,6 +77,65 @@ export function useChecklistModal(proposalId, organizationId) {
   const openModal = React.useCallback((actionId) => {
     if (!actionId) return;
     
+    // Check if action is a dynamic_modal type from ChecklistActionRegistry
+    const actionConfig = getActionConfig(actionId);
+    if (actionConfig && actionConfig.type === 'dynamic_modal') {
+      // Look up modal by name
+      const modalConfig = customModals.find(m => 
+        m.name === actionConfig.modalConfigName && m.is_active
+      );
+      
+      if (!modalConfig) {
+        console.warn(`[ChecklistIntegration] Modal config not found: ${actionConfig.modalConfigName}`);
+        return;
+      }
+
+      try {
+        const parsedConfig = JSON.parse(modalConfig.config_json);
+        
+        // Build full config for DynamicModal
+        const config = {
+          title: modalConfig.name,
+          description: modalConfig.description,
+          fields: parsedConfig.fields || [],
+          steps: parsedConfig.steps || null,
+          proposalId,
+          organizationId,
+          modalId: modalConfig.id,
+          onSubmit: async (formData) => {
+            console.log('[DynamicModal] Submitting:', formData);
+            
+            // Handle entity operations if configured
+            if (parsedConfig.entityOperations && parsedConfig.entityOperations.length > 0) {
+              for (const op of parsedConfig.entityOperations) {
+                if (op.operationType === 'create' && op.targetEntity) {
+                  const entityData = { organization_id: organizationId };
+                  
+                  // Map form data to entity fields using field mappings
+                  if (op.fieldMappings) {
+                    op.fieldMappings.forEach(mapping => {
+                      const value = formData[mapping.formField];
+                      if (value !== undefined && value !== null && value !== '') {
+                        entityData[mapping.entityAttribute] = value;
+                      }
+                    });
+                  }
+                  
+                  await base44.entities[op.targetEntity].create(entityData);
+                }
+              }
+            }
+          }
+        };
+
+        setCurrentConfig(config);
+        setIsOpen(true);
+      } catch (error) {
+        console.error('[ChecklistIntegration] Error parsing modal config:', error);
+      }
+      return;
+    }
+    
     // Check if it's a custom modal (format: CUSTOM_{id})
     if (typeof actionId === 'string' && actionId.startsWith('CUSTOM_')) {
       const modalId = actionId.replace('CUSTOM_', '');
