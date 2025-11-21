@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 import {
   Search,
   Filter,
@@ -45,12 +48,18 @@ export default function ResourceSelectionSection({
   const [source, setSource] = useState("all");
   const [selectedTags, setSelectedTags] = useState([]);
   const [teamingPartnerId, setTeamingPartnerId] = useState("all");
+  const [dateFrom, setDateFrom] = useState(null);
+  const [dateTo, setDateTo] = useState(null);
 
   // Selected items state
   const [selectedResources, setSelectedResources] = useState([]);
 
   // Linking state
   const [isLinking, setIsLinking] = useState(false);
+
+  // Infinite scroll state
+  const [displayCount, setDisplayCount] = useState(20);
+  const observerTarget = useRef(null);
 
   /**
    * Fetch ProposalResource entities
@@ -115,6 +124,30 @@ export default function ResourceSelectionSection({
   const isLoading = loadingResources || loadingPastPerf || loadingPersonnel || loadingThemes;
 
   /**
+   * Infinite scroll observer
+   */
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && displayCount < filteredResources.length) {
+          setDisplayCount(prev => Math.min(prev + 20, filteredResources.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [displayCount, filteredResources.length]);
+
+  /**
    * Combine all resources into a unified list with metadata
    */
   const allResources = React.useMemo(() => {
@@ -135,6 +168,7 @@ export default function ResourceSelectionSection({
         teamingPartnerId: r.teaming_partner_id,
         usage_count: r.usage_count || 0,
         rag_status: r.rag_ready ? 'ready' : r.rag_processing ? 'processing' : r.rag_failed ? 'failed' : null,
+        created_date: r.created_date,
       });
     });
 
@@ -150,6 +184,7 @@ export default function ResourceSelectionSection({
         source: "Past Performance",
         icon: Award,
         recordType: p.record_type,
+        created_date: p.created_date,
       });
     });
 
@@ -164,6 +199,7 @@ export default function ResourceSelectionSection({
         tags: k.skill_tags || [],
         source: "Key Personnel",
         icon: Users,
+        created_date: k.created_date,
       });
     });
 
@@ -178,6 +214,7 @@ export default function ResourceSelectionSection({
         tags: [],
         source: "Win Themes",
         icon: Lightbulb,
+        created_date: w.created_date,
       });
     });
 
@@ -225,8 +262,52 @@ export default function ResourceSelectionSection({
       );
     }
 
+    // Date range filter
+    if (dateFrom || dateTo) {
+      filtered = filtered.filter((item) => {
+        if (!item.created_date) return false;
+        const itemDate = new Date(item.created_date);
+        if (dateFrom && itemDate < dateFrom) return false;
+        if (dateTo && itemDate > dateTo) return false;
+        return true;
+      });
+    }
+
     return filtered;
-  }, [allResources, searchQuery, contentType, source, teamingPartnerId, selectedTags]);
+  }, [allResources, searchQuery, contentType, source, teamingPartnerId, selectedTags, dateFrom, dateTo]);
+
+  /**
+   * Calculate facet counts for filters
+   */
+  const facetCounts = React.useMemo(() => {
+    const counts = {
+      contentTypes: {},
+      sources: {},
+      partners: {},
+    };
+
+    filteredResources.forEach((item) => {
+      // Count content types
+      counts.contentTypes[item.type] = (counts.contentTypes[item.type] || 0) + 1;
+      
+      // Count sources
+      counts.sources[item.source] = (counts.sources[item.source] || 0) + 1;
+      
+      // Count partners
+      if (item.teamingPartnerId) {
+        counts.partners[item.teamingPartnerId] = (counts.partners[item.teamingPartnerId] || 0) + 1;
+      }
+    });
+
+    return counts;
+  }, [filteredResources]);
+
+  /**
+   * Get display resources with pagination
+   */
+  const displayedResources = React.useMemo(() => {
+    return filteredResources.slice(0, displayCount);
+  }, [filteredResources, displayCount]);
 
   /**
    * Toggle selection of a resource
@@ -317,8 +398,8 @@ export default function ResourceSelectionSection({
           <h3 className="font-semibold text-slate-900">Filters</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Content Type Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Content Type Filter with Facet Counts */}
           <div>
             <Label htmlFor="content-type" className="text-sm mb-1 block">
               Content Type
@@ -328,16 +409,24 @@ export default function ResourceSelectionSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="resource">Resources</SelectItem>
-                <SelectItem value="past_performance">Past Performance</SelectItem>
-                <SelectItem value="key_personnel">Key Personnel</SelectItem>
-                <SelectItem value="win_theme">Win Themes</SelectItem>
+                <SelectItem value="all">All Types ({filteredResources.length})</SelectItem>
+                <SelectItem value="resource">
+                  Resources ({facetCounts.contentTypes['resource'] || 0})
+                </SelectItem>
+                <SelectItem value="past_performance">
+                  Past Performance ({facetCounts.contentTypes['past_performance'] || 0})
+                </SelectItem>
+                <SelectItem value="key_personnel">
+                  Key Personnel ({facetCounts.contentTypes['key_personnel'] || 0})
+                </SelectItem>
+                <SelectItem value="win_theme">
+                  Win Themes ({facetCounts.contentTypes['win_theme'] || 0})
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Source Filter */}
+          {/* Source Filter with Facet Counts */}
           <div>
             <Label htmlFor="source" className="text-sm mb-1 block">
               Source
@@ -347,16 +436,24 @@ export default function ResourceSelectionSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                <SelectItem value="Content Library">Content Library</SelectItem>
-                <SelectItem value="Past Performance">Past Performance</SelectItem>
-                <SelectItem value="Key Personnel">Key Personnel</SelectItem>
-                <SelectItem value="Win Themes">Win Themes</SelectItem>
+                <SelectItem value="all">All Sources ({filteredResources.length})</SelectItem>
+                <SelectItem value="Content Library">
+                  Content Library ({facetCounts.sources['Content Library'] || 0})
+                </SelectItem>
+                <SelectItem value="Past Performance">
+                  Past Performance ({facetCounts.sources['Past Performance'] || 0})
+                </SelectItem>
+                <SelectItem value="Key Personnel">
+                  Key Personnel ({facetCounts.sources['Key Personnel'] || 0})
+                </SelectItem>
+                <SelectItem value="Win Themes">
+                  Win Themes ({facetCounts.sources['Win Themes'] || 0})
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Teaming Partner Filter */}
+          {/* Teaming Partner Filter with Facet Counts */}
           <div>
             <Label htmlFor="partner" className="text-sm mb-1 block">
               Teaming Partner
@@ -369,11 +466,62 @@ export default function ResourceSelectionSection({
                 <SelectItem value="all">All Partners</SelectItem>
                 {teamingPartners.map((partner) => (
                   <SelectItem key={partner.id} value={partner.id}>
-                    {partner.partner_name}
+                    {partner.partner_name} ({facetCounts.partners[partner.id] || 0})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Date Range Filter */}
+          <div>
+            <Label className="text-sm mb-1 block">Date Range</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  {dateFrom || dateTo ? (
+                    <>
+                      {dateFrom ? format(dateFrom, 'MMM d, yyyy') : 'Start'} - {dateTo ? format(dateTo, 'MMM d, yyyy') : 'End'}
+                    </>
+                  ) : (
+                    'Select date range'
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3 space-y-2">
+                  <div>
+                    <Label className="text-xs">From</Label>
+                    <Calendar
+                      mode="single"
+                      selected={dateFrom}
+                      onSelect={setDateFrom}
+                      className="rounded-md border"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">To</Label>
+                    <Calendar
+                      mode="single"
+                      selected={dateTo}
+                      onSelect={setDateTo}
+                      className="rounded-md border"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDateFrom(null);
+                      setDateTo(null);
+                    }}
+                    className="w-full"
+                  >
+                    Clear Dates
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
@@ -412,7 +560,7 @@ export default function ResourceSelectionSection({
         ) : (
           <ScrollArea className="h-[400px] border border-slate-200 rounded-lg">
             <div className="p-4 space-y-3">
-              {filteredResources.map((item) => {
+              {displayedResources.map((item) => {
                 const isSelected = selectedResources.some(
                   (r) => r.id === item.id && r.entityType === item.entityType
                 );
@@ -498,6 +646,16 @@ export default function ResourceSelectionSection({
                   </Card>
                 );
               })}
+              
+              {/* Infinite Scroll Trigger */}
+              {displayCount < filteredResources.length && (
+                <div ref={observerTarget} className="py-4 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
+                  <p className="text-sm text-slate-500 mt-2">
+                    Loading more... ({displayCount} of {filteredResources.length})
+                  </p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         )}
