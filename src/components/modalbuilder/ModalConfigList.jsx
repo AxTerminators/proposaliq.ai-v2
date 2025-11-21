@@ -104,7 +104,7 @@ export default function ModalConfigList({ configs, isLoading, onEdit, onRefetch 
 
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {configs.map((config) => (
+      {configs.filter(c => c && c.id && c.name).map((config) => (
         <Card 
           key={config.id}
           className={cn(
