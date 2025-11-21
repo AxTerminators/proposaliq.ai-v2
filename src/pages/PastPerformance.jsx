@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Library } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
+import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
 
 // Helper function to get user's active organization
@@ -44,6 +44,7 @@ export default function PastPerformance() {
   const [organization, setOrganization] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showNewManager, setShowNewManager] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [projectToPromote, setProjectToPromote] = useState(null);
@@ -75,6 +76,19 @@ export default function PastPerformance() {
       );
     },
     initialData: [],
+    enabled: !!organization?.id,
+  });
+
+  // Fetch new PastPerformanceRecord entities
+  const { data: ppRecords = [] } = useQuery({
+    queryKey: ['pastPerformanceRecords', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      return base44.entities.PastPerformanceRecord.filter(
+        { organization_id: organization.id },
+        '-created_date'
+      );
+    },
     enabled: !!organization?.id,
   });
 
@@ -172,10 +186,16 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Past Performance</h1>
           <p className="text-slate-600">Track your successful project history</p>
         </div>
-        <Button onClick={() => setShowAddForm(true)}>
-          <Plus className="w-5 h-5 mr-2" />
-          Add Project
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={() => setShowAddForm(true)} variant="outline">
+            <Plus className="w-5 h-5 mr-2" />
+            Add Project (Legacy)
+          </Button>
+          <Button onClick={() => setShowNewManager(true)} className="bg-blue-600">
+            <Plus className="w-5 h-5 mr-2" />
+            Add Past Performance
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
@@ -194,6 +214,82 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
           project={editingProject}
           onClose={handleCloseForm}
         />
+      )}
+
+      {showNewManager && (
+        <Card className="border-2 border-blue-200 shadow-xl">
+          <CardHeader className="border-b bg-blue-50">
+            <CardTitle>Add Past Performance Record</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <PastPerformanceManager
+              onSave={() => {
+                setShowNewManager(false);
+                queryClient.invalidateQueries({ queryKey: ['pastPerformanceRecords'] });
+              }}
+              onCancel={() => setShowNewManager(false)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* New Records Section */}
+      {ppRecords.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-900">Enhanced Records (with CPARS)</h2>
+            <Badge className="bg-blue-100 text-blue-800">{ppRecords.length} records</Badge>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {ppRecords.map((record) => (
+              <Card key={record.id} className="border-none shadow-lg hover:shadow-xl transition-all">
+                <CardHeader>
+                  <div className="flex items-start justify-between mb-2">
+                    <CardTitle className="text-lg line-clamp-2 flex-1">
+                      {record.title}
+                    </CardTitle>
+                    <Badge className={record.record_type === 'cpars' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
+                      {record.record_type === 'cpars' ? 'CPARS' : 'General'}
+                    </Badge>
+                  </div>
+                  {record.has_red_flags && (
+                    <Badge variant="destructive" className="text-xs">
+                      ⚠️ Contains Low Ratings
+                    </Badge>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {record.customer_agency && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Building2 className="w-4 h-4 text-slate-400" />
+                      <span>{record.customer_agency}</span>
+                    </div>
+                  )}
+                  {record.contract_value && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="w-4 h-4 text-slate-400" />
+                      <span>${(record.contract_value / 1000000).toFixed(1)}M</span>
+                    </div>
+                  )}
+                  {record.pop_start_date && record.pop_end_date && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <span>
+                        {new Date(record.pop_start_date).getFullYear()} - {new Date(record.pop_end_date).getFullYear()}
+                      </span>
+                    </div>
+                  )}
+                  {record.overall_rating && (
+                    <div className="pt-2 border-t">
+                      <span className="text-xs text-slate-500">CPARS Rating:</span>
+                      <Badge className="ml-2">{record.overall_rating}</Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       )}
 
       {isLoading ? (
