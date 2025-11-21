@@ -244,7 +244,6 @@ export default function ResourceSelectionSection({
 
   /**
    * Handle linking selected resources to the proposal
-   * TODO: Phase 4 - Implement actual backend integration
    */
   const handleLinkResources = async () => {
     if (selectedResources.length === 0) {
@@ -252,20 +251,33 @@ export default function ResourceSelectionSection({
       return;
     }
 
+    if (!proposalId) {
+      alert("No proposal ID provided. Cannot link resources.");
+      return;
+    }
+
     setIsLinking(true);
 
     try {
-      // TODO: Phase 4 - Update Proposal entity with reference IDs
-      // TODO: Phase 4 - Increment usage_count for linked entities
-      console.log("Linking resources:", selectedResources);
+      // Call backend function to link resources
+      const response = await base44.functions.invoke('linkResourceToProposal', {
+        proposal_id: proposalId,
+        resources: selectedResources.map(r => ({
+          id: r.id,
+          entityType: r.entityType,
+          type: r.type
+        }))
+      });
 
-      // Simulate linking delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Clear selections and notify parent
-      clearSelections();
-      if (onLinkComplete) {
-        onLinkComplete(selectedResources);
+      if (response.data.success) {
+        // Clear selections and notify parent
+        clearSelections();
+        if (onLinkComplete) {
+          onLinkComplete(selectedResources, response.data);
+        }
+        alert(`✅ Successfully linked ${response.data.linked_count} resource(s)!`);
+      } else {
+        throw new Error(response.data.error || 'Linking failed');
       }
     } catch (error) {
       console.error("Linking failed:", error);
