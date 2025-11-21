@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { validateTemplateName, enforceTemplateSuffix } from "@/components/utils/boardNameValidation";
+import { sanitizeTemplateData } from "@/components/utils/iconValidation";
 import WorkflowConfigEditor from "@/components/proposals/WorkflowConfigEditor";
 
 export default function TemplateManager() {

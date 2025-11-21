@@ -215,19 +215,19 @@ export default function SystemBoardTemplateBuilder() {
         }))
       };
 
-      const templateData = {
+      const templateData = sanitizeTemplateData({
         template_name: templateName.trim(),
         description: description.trim(),
         proposal_type_category: proposalTypeCategory,
         proposal_type_other: proposalTypeCategory === 'OTHER' ? proposalTypeOther.trim() : '',
-        icon_emoji: iconEmoji || '📋',
+        icon_emoji: iconEmoji,
         estimated_duration_days: estimatedDurationDays,
         workflow_config: JSON.stringify(workflowConfig),
         template_type: 'system',
         status: 'draft',
         is_active: true,
         usage_count: 0
-      };
+      });
 
       if (templateId) {
         // Update existing template
