@@ -60,6 +60,20 @@ export default function ResourceUploadSection({
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicates, setDuplicates] = useState([]);
   const [bypassDuplicateCheck, setBypassDuplicateCheck] = useState(false);
+  
+  // Fetch parent documents for supplementary linking
+  const { data: parentDocuments = [], isLoading: loadingParents } = useQuery({
+    queryKey: ['solicitation-documents', proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      const docs = await base44.entities.SolicitationDocument.filter({
+        proposal_id: proposalId,
+        is_supplementary: false
+      });
+      return docs || [];
+    },
+    enabled: !!proposalId && isSupplementary,
+  });
 
   /**
    * Handle file selection via input or drag-and-drop
