@@ -45,7 +45,7 @@ export function replacePlaceholders(text, formData, context) {
  * Execute webhooks after form submission
  */
 export async function executeWebhooks(webhooks = [], formData, context) {
-  if (!webhooks || webhooks.length === 0) return;
+  if (!webhooks || !Array.isArray(webhooks) || webhooks.length === 0) return;
 
   const enabledWebhooks = webhooks.filter(w => w.enabled && w.url);
 
