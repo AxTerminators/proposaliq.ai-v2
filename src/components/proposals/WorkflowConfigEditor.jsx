@@ -166,6 +166,25 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
     });
   };
 
+  const handleChecklistDragEnd = (columnId, result) => {
+    if (!result.destination) return;
+
+    const column = columns.find(c => c.id === columnId);
+    const items = Array.from(column.checklist_items);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update order property for each item
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      order: index
+    }));
+
+    updateColumn(columnId, {
+      checklist_items: updatedItems
+    });
+  };
+
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
@@ -369,27 +388,49 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                       {(!column.checklist_items || column.checklist_items.length === 0) ? (
                         <p className="text-sm text-slate-500 italic">No checklist items</p>
                       ) : (
-                        <div className="space-y-2">
-                          {column.checklist_items.map((item) => (
-                            <Card key={item.id} className="border">
-                              <CardContent className="p-3">
-                                <div className="space-y-3">
-                                  <div className="flex items-start gap-2">
-                                    <Input
-                                      value={item.label}
-                                      onChange={(e) => updateChecklistItem(column.id, item.id, { label: e.target.value })}
-                                      placeholder="Item label"
-                                      className="flex-1"
-                                    />
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => deleteChecklistItem(column.id, item.id)}
-                                      className="text-red-600"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
+                        <DragDropContext onDragEnd={(result) => handleChecklistDragEnd(column.id, result)}>
+                          <Droppable droppableId={`checklist-${column.id}`}>
+                            {(provided) => (
+                              <div
+                                {...provided.droppableProps}
+                                ref={provided.innerRef}
+                                className="space-y-2"
+                              >
+                                {column.checklist_items.map((item, itemIndex) => (
+                                  <Draggable key={item.id} draggableId={item.id} index={itemIndex}>
+                                    {(provided, snapshot) => (
+                                      <Card
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        className={cn(
+                                          "border",
+                                          snapshot.isDragging && "shadow-lg border-blue-500"
+                                        )}
+                                      >
+                                        <CardContent className="p-3">
+                                          <div className="space-y-3">
+                                            <div className="flex items-start gap-2">
+                                              <div
+                                                {...provided.dragHandleProps}
+                                                className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing pt-2"
+                                              >
+                                                <GripVertical className="w-4 h-4" />
+                                              </div>
+                                              <Input
+                                                value={item.label}
+                                                onChange={(e) => updateChecklistItem(column.id, item.id, { label: e.target.value })}
+                                                placeholder="Item label"
+                                                className="flex-1"
+                                              />
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                onClick={() => deleteChecklistItem(column.id, item.id)}
+                                                className="text-red-600"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </Button>
+                                            </div>
 
                                   <div className="grid grid-cols-2 gap-2">
                                     <div>
@@ -447,20 +488,26 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                     )}
                                   </div>
 
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={item.required}
-                                      onChange={(e) => updateChecklistItem(column.id, item.id, { required: e.target.checked })}
-                                      className="rounded"
-                                    />
-                                    <Label className="text-xs">Required to proceed</Label>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="checkbox"
+                                                checked={item.required}
+                                                onChange={(e) => updateChecklistItem(column.id, item.id, { required: e.target.checked })}
+                                                className="rounded"
+                                              />
+                                              <Label className="text-xs">Required to proceed</Label>
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    )}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
+                        </DragDropContext>
                       )}
                     </div>
                   </CardContent>
