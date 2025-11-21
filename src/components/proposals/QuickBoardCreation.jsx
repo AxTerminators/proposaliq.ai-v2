@@ -65,7 +65,13 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
           }, '-created_date')
         : [];
       
-      return [...systemTemplates, ...orgTemplates].filter(t => t != null);
+      // CRITICAL: Filter out null/undefined records AND ensure required fields exist
+      return [...systemTemplates, ...orgTemplates].filter(t => 
+        t && 
+        t.id && 
+        t.template_name && 
+        typeof t === 'object'
+      );
     },
     enabled: isOpen && !!organization?.id,
   });
@@ -213,8 +219,14 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const columns = workflowConfig?.columns || [];
   const nonTerminalColumns = columns.filter(col => !col.is_terminal);
 
-  // Use templates from database only
-  const allOptions = templates.filter(t => t && t.id);
+  // Use templates from database only - with comprehensive validation
+  const allOptions = templates.filter(t => 
+    t && 
+    typeof t === 'object' &&
+    t.id && 
+    t.template_name &&
+    t.workflow_config
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>

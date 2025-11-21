@@ -117,7 +117,13 @@ export default function TemplateManager() {
           })
         : [];
       
-      return [...systemTemplates, ...orgTemplates];
+      // CRITICAL: Filter out null/undefined records AND ensure required fields exist
+      return [...systemTemplates, ...orgTemplates].filter(t => 
+        t && 
+        t.id && 
+        t.template_name && 
+        typeof t === 'object'
+      );
     },
     enabled: !!organization?.id,
     staleTime: 30000
@@ -133,11 +139,11 @@ export default function TemplateManager() {
     );
   }, [allTemplates, searchQuery]);
 
-  // Group templates
+  // Group templates - with validation
   const groupedTemplates = useMemo(() => {
     return {
-      system: filteredTemplates.filter(t => t.template_type === 'system'),
-      organization: filteredTemplates.filter(t => t.template_type === 'organization')
+      system: filteredTemplates.filter(t => t && t.id && t.template_type === 'system'),
+      organization: filteredTemplates.filter(t => t && t.id && t.template_type === 'organization')
     };
   }, [filteredTemplates]);
 
