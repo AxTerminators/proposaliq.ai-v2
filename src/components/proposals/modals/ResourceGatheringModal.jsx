@@ -75,23 +75,14 @@ export default function ResourceGatheringModal({
             value="upload"
             className="flex-1 overflow-y-auto mt-4 space-y-6"
           >
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center bg-slate-50">
-              <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-lg font-medium text-slate-700 mb-2">
-                Upload New Resources
-              </p>
-              <p className="text-sm text-slate-500 mb-4">
-                Drag and drop files here, or click to browse
-              </p>
-              <p className="text-xs text-slate-400">
-                Supports PDF, DOCX, images, and other document formats
-              </p>
-            </div>
-
-            {/* Placeholder for Phase 2: File upload component and metadata fields */}
-            <div className="text-sm text-slate-500 italic">
-              Phase 2: File upload component, metadata fields, and AI processing options will be added here
-            </div>
+            <ResourceUploadSection
+              onUploadComplete={() => {
+                // TODO: Refresh any resource lists or show success message
+                console.log("Upload completed successfully");
+              }}
+              organizationId={organizationId}
+              proposalId={proposalId}
+            />
           </TabsContent>
 
           {/* Select from Library Tab Content */}
