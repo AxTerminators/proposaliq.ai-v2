@@ -579,6 +579,15 @@ export default function ResourceUploadSection({
           </div>
         </div>
       )}
+
+      {/* Duplicate Detection Dialog */}
+      <DuplicateResourceDialog
+        isOpen={showDuplicateDialog}
+        onClose={() => setShowDuplicateDialog(false)}
+        duplicates={duplicates}
+        onLinkExisting={handleLinkExisting}
+        onUploadAnyway={handleUploadAnyway}
+      />
     </div>
   );
 }
