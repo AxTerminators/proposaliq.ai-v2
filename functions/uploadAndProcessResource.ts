@@ -184,19 +184,38 @@ Deno.serve(async (req) => {
     if (ingestToRag) {
       console.log('Step 4: Ingesting into RAG system...');
       try {
+        const entityType = isSupplementary ? 'SolicitationDocument' : 'ProposalResource';
         await base44.functions.invoke('ingestDocumentToRAG', {
-          entity_type: 'ProposalResource',
+          entity_type: entityType,
           entity_id: createdResource.id,
           file_url: fileUrl,
-          title,
+          title: title || file.name,
           description,
-          organization_id: organizationId
+          organization_id: organizationId,
+          is_supplementary: isSupplementary,
+          supplementary_type: supplementaryType,
+          version_date: versionDate
         });
         ragStatus = 'processing';
+        
+        // Update RAG status on the entity
+        if (isSupplementary) {
+          await base44.asServiceRole.entities.SolicitationDocument.update(createdResource.id, {
+            rag_status: 'processing'
+          });
+        }
+        
         console.log('RAG ingestion initiated');
       } catch (error) {
         console.error('Error during RAG ingestion:', error);
         ragStatus = 'failed';
+        
+        // Update entity with failed status
+        if (isSupplementary) {
+          await base44.asServiceRole.entities.SolicitationDocument.update(createdResource.id, {
+            rag_status: 'failed'
+          });
+        }
       }
     }
 
