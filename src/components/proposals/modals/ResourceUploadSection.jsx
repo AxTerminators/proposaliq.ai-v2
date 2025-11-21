@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -11,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, FileText, Image, Award, FileCheck } from "lucide-react";
+import { Upload, X, FileText, Image, Award, FileCheck, Loader2, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
  * ResourceUploadSection - File upload and metadata collection component
@@ -41,6 +43,8 @@ export default function ResourceUploadSection({
 
   // Upload state
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const [uploadError, setUploadError] = useState("");
 
   /**
    * Handle file selection via input or drag-and-drop
@@ -116,42 +120,66 @@ export default function ResourceUploadSection({
   };
 
   /**
-   * Handle upload and processing
-   * TODO: Phase 4 - Implement actual backend integration
+   * Handle upload and processing with full RAG integration
    */
   const handleUpload = async () => {
     if (!selectedFile || !resourceType) {
-      alert("Please select a file and resource type");
+      setUploadError("Please select a file and resource type");
+      return;
+    }
+
+    if (!title.trim()) {
+      setUploadError("Please provide a title for the resource");
       return;
     }
 
     setIsUploading(true);
+    setUploadError("");
+    setUploadProgress("Preparing upload...");
 
     try {
-      // TODO: Phase 4 - Call functions/uploadResource
-      // TODO: Phase 4 - Call functions/processRAGAndExtractData
-      console.log("Upload initiated:", {
-        file: selectedFile.name,
-        title,
-        description,
-        resourceType,
-        tags,
-        ingestToRAG,
-        extractKeyData,
-        extractionFieldsDescription,
-      });
+      // Build form data
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('resource_type', resourceType);
+      formData.append('tags', JSON.stringify(tags));
+      formData.append('organization_id', organizationId);
+      if (proposalId) {
+        formData.append('proposal_id', proposalId);
+      }
+      formData.append('ingest_to_rag', ingestToRAG.toString());
+      formData.append('extract_key_data', extractKeyData.toString());
+      if (extractKeyData && extractionFieldsDescription) {
+        formData.append('extraction_fields_description', extractionFieldsDescription);
+      }
 
-      // Simulate upload delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setUploadProgress("Uploading file...");
 
-      // Clear form and notify parent
-      handleClearFile();
-      if (onUploadComplete) {
-        onUploadComplete();
+      // Call backend function to handle upload and processing
+      const response = await base44.functions.invoke('uploadAndProcessResource', formData);
+
+      if (response.data.success) {
+        setUploadProgress("Processing complete!");
+        
+        // Clear form after short delay
+        setTimeout(() => {
+          handleClearFile();
+          setUploadProgress("");
+          
+          // Notify parent component
+          if (onUploadComplete) {
+            onUploadComplete(response.data);
+          }
+        }, 1500);
+      } else {
+        throw new Error(response.data.error || 'Upload failed');
       }
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Upload failed: " + error.message);
+      setUploadError("Upload failed: " + error.message);
+      setUploadProgress("");
     } finally {
       setIsUploading(false);
     }
@@ -175,6 +203,25 @@ export default function ResourceUploadSection({
 
   return (
     <div className="space-y-6">
+      {/* Upload Progress/Error Messages */}
+      {uploadProgress && (
+        <Alert className="bg-blue-50 border-blue-300">
+          <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+          <AlertDescription className="text-blue-800">
+            {uploadProgress}
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {uploadError && (
+        <Alert className="bg-red-50 border-red-300">
+          <X className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            {uploadError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* File Upload Area */}
       <div>
         <Label className="text-base font-semibold mb-3 block">
