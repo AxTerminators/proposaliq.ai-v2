@@ -46,9 +46,9 @@ export default function ModalConfigList({ configs, isLoading, onEdit, onRefetch 
         name: `${config.name} (Copy)`,
         description: config.description,
         config_json: config.config_json,
-        template_type: config.template_type,
+        template_type: config.template_type || 'custom',
         category: config.category,
-        icon_emoji: config.icon_emoji
+        icon_emoji: config.icon_emoji || '📄'
       });
       onRefetch();
     } catch (error) {
@@ -115,11 +115,11 @@ export default function ModalConfigList({ configs, isLoading, onEdit, onRefetch 
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
-                {config.icon_emoji && (
+                {config?.icon_emoji && (
                   <span className="text-2xl">{config.icon_emoji}</span>
                 )}
-                <Badge className={getTemplateTypeColor(config.template_type)}>
-                  {config.template_type}
+                <Badge className={getTemplateTypeColor(config?.template_type || 'custom')}>
+                  {config?.template_type || 'custom'}
                 </Badge>
               </div>
               <DropdownMenu>
