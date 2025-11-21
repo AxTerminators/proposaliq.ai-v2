@@ -454,7 +454,7 @@ export default function TemplateManager() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {groupedTemplates.system.map(template => (
+              {groupedTemplates.system.filter(t => t && t.id).map(template => (
                 <TemplateCard
                   key={template.id}
                   template={template}
@@ -488,7 +488,7 @@ export default function TemplateManager() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {groupedTemplates.organization.map(template => (
+              {groupedTemplates.organization.filter(t => t && t.id).map(template => (
                 <TemplateCard
                   key={template.id}
                   template={template}

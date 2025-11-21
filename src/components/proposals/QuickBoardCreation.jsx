@@ -246,8 +246,9 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allOptions.map(template => {
-                  if (!template) return null;
+                {allOptions.filter(t => t && t.id && t.template_name).map(template => {
+                  // Double-check template exists (defensive programming)
+                  if (!template || !template.id) return null;
                   
                   const isSystem = template?.template_type === 'system';
                   const displayIcon = template?.icon_emoji || BOARD_TYPE_ICONS[template?.board_type] || '📋';
