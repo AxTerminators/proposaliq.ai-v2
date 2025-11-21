@@ -260,7 +260,12 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setEditingColumn(isEditing ? null : column.id)}
+                      onClick={() => {
+                        setEditingColumn(isEditing ? null : column.id);
+                        if (!isEditing) {
+                          setExpandedColumns(new Set([...expandedColumns, column.id]));
+                        }
+                      }}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
