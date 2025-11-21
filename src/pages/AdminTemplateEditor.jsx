@@ -312,7 +312,7 @@ export default function AdminTemplateEditor() {
         description: template.description,
         proposal_type_category: template.proposal_type_category,
         proposal_type_other: template.proposal_type_other || '',
-        icon_emoji: template.icon_emoji || '📋',
+        icon_emoji: template?.icon_emoji || '📋',
         estimated_duration_days: template.estimated_duration_days,
         workflow_config: JSON.stringify(workflowConfig),
         template_type: 'system',
