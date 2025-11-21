@@ -109,23 +109,76 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 3: Create ProposalResource entity
-    console.log('Step 3: Creating ProposalResource entity...');
-    const resourceData = {
-      organization_id: organizationId,
-      title,
-      description,
-      resource_type: resourceType,
-      tags,
-      file_name: file.name,
-      file_url: fileUrl,
-      file_size: file.size,
-      usage_count: 0,
-      linked_proposal_ids: proposalId ? [proposalId] : []
-    };
+    // Step 3: Handle version management for amendments
+    if (isSupplementary && supplementaryType === 'amendment' && parentDocumentId) {
+      console.log('Step 3a: Managing amendment versions...');
+      try {
+        // Find all existing documents linked to the same parent
+        const existingDocs = await base44.asServiceRole.entities.SolicitationDocument.filter({
+          parent_document_id: parentDocumentId,
+          organization_id: organizationId
+        });
 
-    const createdResource = await base44.entities.ProposalResource.create(resourceData);
-    console.log('ProposalResource created:', createdResource.id);
+        // Mark all existing versions as not latest
+        for (const doc of existingDocs) {
+          if (doc.is_latest_version) {
+            await base44.asServiceRole.entities.SolicitationDocument.update(doc.id, {
+              is_latest_version: false
+            });
+            console.log(`Marked document ${doc.id} as not latest version`);
+          }
+        }
+      } catch (error) {
+        console.error('Error managing amendment versions:', error);
+        // Continue with creation despite version management error
+      }
+    }
+
+    // Step 3b: Create SolicitationDocument entity (for supplementary docs) or ProposalResource
+    console.log('Step 3b: Creating entity...');
+    let createdResource;
+    
+    if (isSupplementary) {
+      // Create as SolicitationDocument
+      const solicitationData = {
+        proposal_id: proposalId,
+        organization_id: organizationId,
+        document_type: resourceType === 'client_supplementary_document' ? 'other' : 'reference',
+        is_supplementary: true,
+        supplementary_type: supplementaryType,
+        parent_document_id: parentDocumentId || null,
+        amendment_number: amendmentNumber || null,
+        is_latest_version: true,
+        version_date: versionDate || new Date().toISOString().split('T')[0],
+        file_name: file.name,
+        file_url: fileUrl,
+        file_size: file.size,
+        description,
+        rag_status: ingestToRag ? 'pending' : 'not_requested',
+        extracted_data: extractedData ? JSON.stringify(extractedData) : null,
+        extraction_date: extractedData ? new Date().toISOString() : null
+      };
+
+      createdResource = await base44.asServiceRole.entities.SolicitationDocument.create(solicitationData);
+      console.log('SolicitationDocument created:', createdResource.id);
+    } else {
+      // Create as ProposalResource (original behavior)
+      const resourceData = {
+        organization_id: organizationId,
+        title,
+        description,
+        resource_type: resourceType,
+        tags,
+        file_name: file.name,
+        file_url: fileUrl,
+        file_size: file.size,
+        usage_count: 0,
+        linked_proposal_ids: proposalId ? [proposalId] : []
+      };
+
+      createdResource = await base44.entities.ProposalResource.create(resourceData);
+      console.log('ProposalResource created:', createdResource.id);
+    }
 
     // Step 4: Ingest into RAG system if requested
     if (ingestToRag) {
