@@ -44,6 +44,11 @@ export const ACTION_REGISTRY = {
     modalConfigName: 'Add Key Personnel',
     label: 'Add Key Personnel'
   },
+  'open_upload_proposal_template_modal': {
+    type: 'dynamic_modal',
+    modalConfigName: 'Upload Proposal Template',
+    label: 'Upload Proposal Template'
+  },
   
   // ============================================
   // COLUMN 4: SOLICITATION - Upload & Analysis
