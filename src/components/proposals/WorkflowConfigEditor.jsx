@@ -422,9 +422,11 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                             <SelectValue placeholder="Select modal" />
                                           </SelectTrigger>
                                           <SelectContent>
-                                           {modalConfigs.map((modal) => (
+                                           {modalConfigs
+                                             .filter(modal => modal && modal.id && modal.name)
+                                             .map((modal) => (
                                              <SelectItem key={modal.id} value={`open_modal_${modal.id}`}>
-                                               {modal.data.icon_emoji} {modal.data.name}
+                                               {modal.icon_emoji || '📋'} {modal.name}
                                              </SelectItem>
                                            ))}
                                           </SelectContent>
