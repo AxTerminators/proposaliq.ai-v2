@@ -14,6 +14,7 @@ import { ArrowLeft, Save, Eye, Layers, AlertCircle } from 'lucide-react';
 import { createPageUrl } from '@/utils';
 import TemplateKanbanCanvas from '../components/templates/TemplateKanbanCanvas';
 import { validateTemplateName } from '../components/utils/boardNameValidation';
+import { sanitizeTemplateData } from '../components/utils/iconValidation';
 
 export default function SystemBoardTemplateBuilder() {
   const navigate = useNavigate();

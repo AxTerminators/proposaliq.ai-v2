@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
+import { sanitizeModalConfigData } from '@/components/utils/iconValidation';
 
 /**
  * Modal Config List Component
@@ -42,14 +43,15 @@ export default function ModalConfigList({ configs, isLoading, onEdit, onRefetch 
 
   const handleDuplicate = async (config) => {
     try {
-      await base44.entities.ModalConfig.create({
+      const modalData = sanitizeModalConfigData({
         name: `${config.name} (Copy)`,
         description: config.description,
         config_json: config.config_json,
         template_type: config.template_type || 'custom',
         category: config.category,
-        icon_emoji: config.icon_emoji || '📄'
+        icon_emoji: config.icon_emoji
       });
+      await base44.entities.ModalConfig.create(modalData);
       onRefetch();
     } catch (error) {
       console.error('Error duplicating modal config:', error);
