@@ -91,20 +91,14 @@ export default function ResourceGatheringModal({
             value="select"
             className="flex-1 overflow-y-auto mt-4 space-y-6"
           >
-            <div className="border border-slate-200 rounded-lg p-8 text-center bg-slate-50">
-              <Library className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-lg font-medium text-slate-700 mb-2">
-                Select from Library & Past Work
-              </p>
-              <p className="text-sm text-slate-500 mb-4">
-                Search and filter through existing resources, past performance, and more
-              </p>
-            </div>
-
-            {/* Placeholder for Phase 3: Search, filters, and results list */}
-            <div className="text-sm text-slate-500 italic">
-              Phase 3: Search bar, filters, and selectable resource list will be added here
-            </div>
+            <ResourceSelectionSection
+              organizationId={organizationId}
+              proposalId={proposalId}
+              onLinkComplete={(linkedResources) => {
+                // TODO: Show success message or refresh proposal data
+                console.log("Resources linked successfully:", linkedResources);
+              }}
+            />
           </TabsContent>
         </Tabs>
 
