@@ -15,6 +15,7 @@ import {
 import { Upload, X, FileText, Image, Award, FileCheck, Loader2, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import DuplicateResourceDialog from "./DuplicateResourceDialog";
 
 /**
  * ResourceUploadSection - File upload and metadata collection component
@@ -45,6 +46,11 @@ export default function ResourceUploadSection({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [uploadError, setUploadError] = useState("");
+  
+  // Duplicate detection state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicates, setDuplicates] = useState([]);
+  const [bypassDuplicateCheck, setBypassDuplicateCheck] = useState(false);
 
   /**
    * Handle file selection via input or drag-and-drop
@@ -120,6 +126,36 @@ export default function ResourceUploadSection({
   };
 
   /**
+   * Check for duplicates before uploading
+   */
+  const checkForDuplicates = async () => {
+    try {
+      setUploadProgress("Checking for duplicates...");
+      
+      const response = await base44.functions.invoke('detectDuplicateResource', {
+        organization_id: organizationId,
+        file_name: selectedFile.name,
+        title,
+        resource_type: resourceType,
+        file_size: selectedFile.size
+      });
+
+      if (response.data.has_duplicates && response.data.duplicates.length > 0) {
+        setDuplicates(response.data.duplicates);
+        setShowDuplicateDialog(true);
+        setUploadProgress("");
+        return true; // Has duplicates
+      }
+
+      return false; // No duplicates
+    } catch (error) {
+      console.error("Error checking duplicates:", error);
+      // Continue with upload even if duplicate check fails
+      return false;
+    }
+  };
+
+  /**
    * Handle upload and processing with full RAG integration
    */
   const handleUpload = async () => {
@@ -136,6 +172,15 @@ export default function ResourceUploadSection({
     setIsUploading(true);
     setUploadError("");
     setUploadProgress("Preparing upload...");
+
+    // Check for duplicates unless bypassing
+    if (!bypassDuplicateCheck) {
+      const hasDuplicates = await checkForDuplicates();
+      if (hasDuplicates) {
+        setIsUploading(false);
+        return;
+      }
+    }
 
     try {
       // Build form data
@@ -182,7 +227,56 @@ export default function ResourceUploadSection({
       setUploadProgress("");
     } finally {
       setIsUploading(false);
+      setBypassDuplicateCheck(false); // Reset bypass flag
     }
+  };
+
+  /**
+   * Handle linking to existing resource instead of uploading
+   */
+  const handleLinkExisting = async (duplicate) => {
+    setShowDuplicateDialog(false);
+    setIsUploading(true);
+    setUploadProgress("Linking to existing resource...");
+
+    try {
+      // Link the existing resource to the proposal
+      if (proposalId) {
+        await base44.functions.invoke('linkResourceToProposal', {
+          proposal_id: proposalId,
+          resources: [{
+            id: duplicate.id,
+            entityType: 'ProposalResource',
+            type: duplicate.resource_type
+          }]
+        });
+      }
+
+      setUploadProgress("Linked successfully!");
+      
+      setTimeout(() => {
+        handleClearFile();
+        setUploadProgress("");
+        if (onUploadComplete) {
+          onUploadComplete({ linked: true, resource_id: duplicate.id });
+        }
+      }, 1500);
+    } catch (error) {
+      console.error("Linking failed:", error);
+      setUploadError("Failed to link resource: " + error.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  /**
+   * Proceed with upload despite duplicates
+   */
+  const handleUploadAnyway = () => {
+    setShowDuplicateDialog(false);
+    setBypassDuplicateCheck(true);
+    // Trigger upload again with bypass flag set
+    setTimeout(() => handleUpload(), 100);
   };
 
   /**
