@@ -216,7 +216,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
       const data = {
         name: name.trim(),
         description: description || 'Draft',
-        icon_emoji: iconEmoji,
+        icon_emoji: iconEmoji || '📋',
         config_json: configJson,
         template_type: 'system',
         category: 'custom',
@@ -273,7 +273,7 @@ export default function ModalBuilderEditor({ config, onClose }) {
       const data = {
         name,
         description,
-        icon_emoji: iconEmoji,
+        icon_emoji: iconEmoji || '📋',
         config_json: configJson,
         template_type: 'system',
         category: 'custom',
