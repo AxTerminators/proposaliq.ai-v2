@@ -198,7 +198,7 @@ export default function TemplateManager() {
         board_type: sourceTemplate.board_type,
         description: sourceTemplate.description,
         workflow_config: JSON.stringify(workflowConfig),
-        icon_emoji: sourceTemplate.icon_emoji || '📋',
+        icon_emoji: sourceTemplate?.icon_emoji || '📋',
         estimated_duration_days: sourceTemplate.estimated_duration_days,
         is_active: true,
         usage_count: 0

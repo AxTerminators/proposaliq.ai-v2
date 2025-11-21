@@ -450,7 +450,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
           swimlane_config: config.swimlane_config,
           view_settings: config.view_settings
         }),
-        icon_emoji: templateInfo.icon_emoji,
+        icon_emoji: templateInfo.icon_emoji || '📋',
         estimated_duration_days: templateInfo.estimated_duration_days,
         is_active: true,
         usage_count: 0
