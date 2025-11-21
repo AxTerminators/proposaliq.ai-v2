@@ -9,7 +9,9 @@ import { Plus, Search, Edit, Trash2, Award, DollarSign, Calendar, Building2, Lib
 import { Skeleton } from "@/components/ui/skeleton";
 import AddProjectForm from "../components/pastperformance/AddProjectForm";
 import PastPerformanceManager from "../components/pastperformance/PastPerformanceManager";
+import RecordListView from "../components/pastperformance/RecordListView";
 import PromoteToLibraryDialog from "../components/proposals/PromoteToLibraryDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Helper function to get user's active organization
 async function getUserActiveOrganization(user) {
@@ -46,6 +48,8 @@ export default function PastPerformance() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNewManager, setShowNewManager] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [viewingRecord, setViewingRecord] = useState(null);
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [projectToPromote, setProjectToPromote] = useState(null);
 
@@ -90,6 +94,16 @@ export default function PastPerformance() {
       );
     },
     enabled: !!organization?.id,
+  });
+
+  // Delete mutation for new records
+  const deleteRecordMutation = useMutation({
+    mutationFn: async (id) => {
+      return base44.entities.PastPerformanceRecord.delete(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pastPerformanceRecords'] });
+    },
   });
 
   // NEW: Fetch clients to link projects
@@ -216,81 +230,99 @@ ${project.outcomes.customer_satisfaction ? `<li>Customer Satisfaction: ${project
         />
       )}
 
-      {showNewManager && (
+      {/* Add/Edit Manager Modal */}
+      {(showNewManager || editingRecord) && (
         <Card className="border-2 border-blue-200 shadow-xl">
           <CardHeader className="border-b bg-blue-50">
-            <CardTitle>Add Past Performance Record</CardTitle>
+            <CardTitle>
+              {editingRecord ? 'Edit Past Performance Record' : 'Add Past Performance Record'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <PastPerformanceManager
+              existingRecord={editingRecord}
               onSave={() => {
                 setShowNewManager(false);
+                setEditingRecord(null);
                 queryClient.invalidateQueries({ queryKey: ['pastPerformanceRecords'] });
               }}
-              onCancel={() => setShowNewManager(false)}
+              onCancel={() => {
+                setShowNewManager(false);
+                setEditingRecord(null);
+              }}
             />
           </CardContent>
         </Card>
       )}
 
-      {/* New Records Section */}
-      {ppRecords.length > 0 && (
+      {/* New Records List View */}
+      {!showNewManager && !editingRecord && ppRecords.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-slate-900">Enhanced Records (with CPARS)</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Past Performance Records</h2>
             <Badge className="bg-blue-100 text-blue-800">{ppRecords.length} records</Badge>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ppRecords.map((record) => (
-              <Card key={record.id} className="border-none shadow-lg hover:shadow-xl transition-all">
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-2">
-                    <CardTitle className="text-lg line-clamp-2 flex-1">
-                      {record.title}
-                    </CardTitle>
-                    <Badge className={record.record_type === 'cpars' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
-                      {record.record_type === 'cpars' ? 'CPARS' : 'General'}
-                    </Badge>
-                  </div>
-                  {record.has_red_flags && (
-                    <Badge variant="destructive" className="text-xs">
-                      ⚠️ Contains Low Ratings
-                    </Badge>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {record.customer_agency && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Building2 className="w-4 h-4 text-slate-400" />
-                      <span>{record.customer_agency}</span>
-                    </div>
-                  )}
-                  {record.contract_value && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <DollarSign className="w-4 h-4 text-slate-400" />
-                      <span>${(record.contract_value / 1000000).toFixed(1)}M</span>
-                    </div>
-                  )}
-                  {record.pop_start_date && record.pop_end_date && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="w-4 h-4 text-slate-400" />
-                      <span>
-                        {new Date(record.pop_start_date).getFullYear()} - {new Date(record.pop_end_date).getFullYear()}
-                      </span>
-                    </div>
-                  )}
-                  {record.overall_rating && (
-                    <div className="pt-2 border-t">
-                      <span className="text-xs text-slate-500">CPARS Rating:</span>
-                      <Badge className="ml-2">{record.overall_rating}</Badge>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <RecordListView
+            organizationId={organization?.id}
+            onEdit={(record) => setEditingRecord(record)}
+            onView={(record) => setViewingRecord(record)}
+            onDelete={(record) => {
+              if (confirm(`Delete "${record.title}"? This action cannot be undone.`)) {
+                deleteRecordMutation.mutate(record.id);
+              }
+            }}
+          />
         </div>
       )}
+
+      {/* View Record Dialog */}
+      <Dialog open={!!viewingRecord} onOpenChange={() => setViewingRecord(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewingRecord?.title}</DialogTitle>
+          </DialogHeader>
+          {viewingRecord && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Type</p>
+                  <Badge className={viewingRecord.record_type === 'cpars' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
+                    {viewingRecord.record_type === 'cpars' ? 'CPARS' : 'General'}
+                  </Badge>
+                </div>
+                {viewingRecord.overall_rating && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">Overall Rating</p>
+                    <Badge>{viewingRecord.overall_rating}</Badge>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Customer/Agency</p>
+                    <p className="text-sm font-medium">{viewingRecord.customer_agency}</p>
+                </div>
+                {viewingRecord.contract_value && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">Contract Value</p>
+                    <p className="text-sm font-medium">${(viewingRecord.contract_value / 1000000).toFixed(1)}M</p>
+                  </div>
+                )}
+              </div>
+              {viewingRecord.project_description && (
+                <div>
+                  <p className="text-sm font-semibold mb-2">Project Description</p>
+                  <p className="text-sm text-slate-700">{viewingRecord.project_description}</p>
+                </div>
+              )}
+              {viewingRecord.key_accomplishments && (
+                <div>
+                  <p className="text-sm font-semibold mb-2">Key Accomplishments</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{viewingRecord.key_accomplishments}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
