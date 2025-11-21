@@ -23,10 +23,10 @@ export function useModalTracking(config, isOpen, organizationId, proposalId, use
           organization_id: organizationId,
           proposal_id: proposalId || null,
           user_email: user.email,
-          modal_template_id: config.templateId || null,
-          modal_title: config.title,
+          modal_template_id: config?.templateId || null,
+          modal_title: config?.title || 'Untitled Form',
           interaction_type: 'opened',
-          total_fields: config.fields?.length || config.steps?.reduce((sum, step) => sum + step.fields.length, 0) || 0,
+          total_fields: config?.fields?.length || config?.steps?.reduce((sum, step) => sum + step.fields.length, 0) || 0,
           current_step: 0
         });
 
@@ -67,11 +67,11 @@ export function useModalTracking(config, isOpen, organizationId, proposalId, use
         organization_id: organizationId,
         proposal_id: proposalId || null,
         user_email: user.email,
-        modal_template_id: config.templateId || null,
-        modal_title: config.title,
+        modal_template_id: config?.templateId || null,
+        modal_title: config?.title || 'Untitled Form',
         interaction_type: 'submitted',
         fields_filled: fieldsFilled,
-        total_fields: config.fields?.length || config.steps?.reduce((sum, step) => sum + step.fields.length, 0) || 0,
+        total_fields: config?.fields?.length || config?.steps?.reduce((sum, step) => sum + step.fields.length, 0) || 0,
         file_uploads: fileUploads,
         ai_extraction_used: aiExtractionUsed,
         time_to_complete_seconds: timeToComplete,
@@ -100,8 +100,8 @@ export function useModalTracking(config, isOpen, organizationId, proposalId, use
         organization_id: organizationId,
         proposal_id: proposalId || null,
         user_email: user.email,
-        modal_template_id: config.templateId || null,
-        modal_title: config.title,
+        modal_template_id: config?.templateId || null,
+        modal_title: config?.title || 'Untitled Form',
         interaction_type: 'cancelled',
         time_to_complete_seconds: timeToComplete
       });
@@ -121,8 +121,8 @@ export function useModalTracking(config, isOpen, organizationId, proposalId, use
         organization_id: organizationId,
         proposal_id: proposalId || null,
         user_email: user.email,
-        modal_template_id: config.templateId || null,
-        modal_title: config.title,
+        modal_template_id: config?.templateId || null,
+        modal_title: config?.title || 'Untitled Form',
         interaction_type: 'validation_error',
         validation_errors_count: Object.keys(errors).length,
         error_message: Object.values(errors).join('; ')
@@ -143,8 +143,8 @@ export function useModalTracking(config, isOpen, organizationId, proposalId, use
         organization_id: organizationId,
         proposal_id: proposalId || null,
         user_email: user.email,
-        modal_template_id: config.templateId || null,
-        modal_title: config.title,
+        modal_template_id: config?.templateId || null,
+        modal_title: config?.title || 'Untitled Form',
         interaction_type: 'upload_success',
         file_uploads: 1
       });
@@ -164,8 +164,8 @@ export function useModalTracking(config, isOpen, organizationId, proposalId, use
         organization_id: organizationId,
         proposal_id: proposalId || null,
         user_email: user.email,
-        modal_template_id: config.templateId || null,
-        modal_title: config.title,
+        modal_template_id: config?.templateId || null,
+        modal_title: config?.title || 'Untitled Form',
         interaction_type: 'upload_error',
         error_message: `${fileName}: ${errorMessage}`
       });

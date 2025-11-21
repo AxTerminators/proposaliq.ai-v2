@@ -25,10 +25,10 @@ export default function TemplateImportExport({ config, onImport }) {
     try {
       const exportData = {
         version: '6.0',
-        name: config.name,
-        description: config.description,
-        icon_emoji: config.icon_emoji,
-        category: config.category,
+        name: config?.name || 'Untitled',
+        description: config?.description || '',
+        icon_emoji: config?.icon_emoji || '📋',
+        category: config?.category || 'custom',
         config: JSON.parse(config.config_json),
         exported_at: new Date().toISOString(),
         exported_by: 'GovHQ.ai Modal Builder'

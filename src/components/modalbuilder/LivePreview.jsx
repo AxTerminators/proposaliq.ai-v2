@@ -158,8 +158,8 @@ export default function LivePreview({ isOpen, onClose, modalConfig, fields, step
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle>{modalConfig.name}</DialogTitle>
-              {modalConfig.description && (
+              <DialogTitle>{modalConfig?.name || 'Form Preview'}</DialogTitle>
+              {modalConfig?.description && (
                 <p className="text-sm text-slate-600 mt-1">{modalConfig.description}</p>
               )}
             </div>
