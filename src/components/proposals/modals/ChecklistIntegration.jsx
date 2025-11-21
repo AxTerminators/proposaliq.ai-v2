@@ -3,6 +3,7 @@ import DynamicModal from './DynamicModal';
 import { MODAL_TEMPLATES } from './ModalTemplateLibrary';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { getActionConfig } from '../ChecklistActionRegistry';
 
 /**
  * Phase 4: Checklist System Integration Helper
