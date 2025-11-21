@@ -200,22 +200,37 @@ export async function executePhase6Workflows(modalConfig, formData, context) {
     console.log('[Phase 6] Executing workflow automations...');
 
     // Execute webhooks (non-blocking)
+    // Handle both array format and object format
     if (config.webhooks) {
-      executeWebhooks(config.webhooks, formData, context).catch(err => 
+      const webhooksArray = Array.isArray(config.webhooks) 
+        ? config.webhooks 
+        : (config.webhooks.enabled && config.webhooks.url ? [config.webhooks] : []);
+      
+      executeWebhooks(webhooksArray, formData, context).catch(err => 
         console.error('Webhook execution error:', err)
       );
     }
 
     // Send email notifications (non-blocking)
+    // Handle both array format and object format
     if (config.emailNotifications) {
-      sendEmailNotifications(config.emailNotifications, formData, context).catch(err =>
+      const notificationsArray = Array.isArray(config.emailNotifications)
+        ? config.emailNotifications
+        : (config.emailNotifications.enabled && config.emailNotifications.to ? [config.emailNotifications] : []);
+      
+      sendEmailNotifications(notificationsArray, formData, context).catch(err =>
         console.error('Email notification error:', err)
       );
     }
 
     // Execute status updates (blocking - important for workflow)
+    // Handle both array format and object format
     if (config.statusUpdates) {
-      await executeStatusUpdates(config.statusUpdates, formData, context);
+      const statusUpdatesArray = Array.isArray(config.statusUpdates)
+        ? config.statusUpdates
+        : (config.statusUpdates.enabled && config.statusUpdates.entity ? [config.statusUpdates] : []);
+      
+      await executeStatusUpdates(statusUpdatesArray, formData, context);
     }
 
     console.log('[Phase 6] Workflow automations complete');
