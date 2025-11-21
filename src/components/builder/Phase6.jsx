@@ -18,7 +18,8 @@ import {
   CheckCircle2, // Added for auto-save indicator
   Library, // Added for Promote to Library feature
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  User
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -347,11 +348,19 @@ export default function Phase6({ proposalData, setProposalData, proposalId, orga
     queryKey: ['proposal-comments', proposalId],
     queryFn: async () => {
       if (!proposalId) return [];
-      return base44.entities.ProposalComment.filter({ proposal_id: proposalId });
+      return base44.entities.ProposalComment.filter({ proposal_id: proposalId }, '-created_date');
     },
     enabled: !!proposalId,
     staleTime: 30000
   });
+
+  // Get section-specific feedback
+  const getSectionFeedback = (sectionKey) => {
+    const section = sections.find(s => s.section_type === sectionKey);
+    if (!section) return [];
+    
+    return comments.filter(c => c.section_id === section.id && c.comment_type === 'issue');
+  };
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members', organization?.id],
@@ -1322,6 +1331,28 @@ The content should be ready to insert into the proposal document. Use HTML forma
                       <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6 transition-all duration-300" : "transition-all duration-300"}>
                         {/* Editor Column - Full width when AI Assistant is minimized */}
                         <div className={isAIAssistantExpanded ? "col-span-2 transition-all duration-300" : "w-full transition-all duration-300"}>
+                          {/* Reviewer Feedback Display */}
+                          {existingSection?.status === 'rework_needed' && getSectionFeedback(section.id).length > 0 && (
+                            <Alert className="bg-red-50 border-red-300 mb-4">
+                              <AlertCircle className="w-4 h-4 text-red-600" />
+                              <AlertDescription>
+                                <p className="font-semibold text-red-900 mb-2">🔄 Reviewer Feedback - Regeneration Needed:</p>
+                                {getSectionFeedback(section.id).map((comment, idx) => (
+                                  <div key={comment.id} className="text-sm text-red-800 mb-2 p-3 bg-white rounded border border-red-200">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <User className="w-3 h-3" />
+                                      <span className="font-medium">{comment.author_name}</span>
+                                      <span className="text-xs text-red-600">
+                                        {moment(comment.created_date).fromNow()}
+                                      </span>
+                                    </div>
+                                    <div className="whitespace-pre-wrap">{comment.content.replace(/🔄 \*\*Sent Back for Regeneration\*\*\n\n/, '')}</div>
+                                  </div>
+                                ))}
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
                           <div className="flex flex-wrap items-center gap-2 mb-3">
                             <Button
                               size="sm"
@@ -1532,9 +1563,32 @@ The content should be ready to insert into the proposal document. Use HTML forma
                               <h4 className="font-semibold text-slate-900">{subsection.name}</h4>
                               <Badge variant="outline" className="text-xs">{subsection.defaultWordCount} words</Badge>
                             </div>
+                            
                             <div className={isAIAssistantExpanded ? "grid grid-cols-3 gap-6 transition-all duration-300" : "transition-all duration-300"}>
                              {/* Editor Column - Full width when AI Assistant is minimized */}
                              <div className={isAIAssistantExpanded ? "col-span-2 transition-all duration-300" : "w-full transition-all duration-300"}>
+                                {/* Reviewer Feedback Display for Subsections */}
+                                {existingSubsection?.status === 'rework_needed' && getSectionFeedback(subsectionKey).length > 0 && (
+                                  <Alert className="bg-red-50 border-red-300 mb-4">
+                                    <AlertCircle className="w-4 h-4 text-red-600" />
+                                    <AlertDescription>
+                                      <p className="font-semibold text-red-900 mb-2">🔄 Reviewer Feedback - Regeneration Needed:</p>
+                                      {getSectionFeedback(subsectionKey).map((comment) => (
+                                        <div key={comment.id} className="text-sm text-red-800 mb-2 p-3 bg-white rounded border border-red-200">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <User className="w-3 h-3" />
+                                            <span className="font-medium">{comment.author_name}</span>
+                                            <span className="text-xs text-red-600">
+                                              {moment(comment.created_date).fromNow()}
+                                            </span>
+                                          </div>
+                                          <div className="whitespace-pre-wrap">{comment.content.replace(/🔄 \*\*Sent Back for Regeneration\*\*\n\n/, '')}</div>
+                                        </div>
+                                      ))}
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                                
                                 <div className="flex flex-wrap items-center gap-2 mb-3">
                                   <Button
                                     size="sm"
