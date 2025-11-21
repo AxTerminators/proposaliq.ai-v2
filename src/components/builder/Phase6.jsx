@@ -1057,16 +1057,25 @@ The content should be ready to insert into the proposal document. Use HTML forma
       );
 
       for (const reviewer of teamMembersWithReviewRole) {
-        await base44.entities.Notification.create({
-          organization_id: organization.id,
-          user_email: reviewer.email,
-          notification_type: 'section_ready_for_review',
-          title: 'Section Ready for Review',
-          message: `"${sectionName}" in proposal "${proposalData.proposal_name}" has been marked for review.`,
-          link_url: `/proposal-builder?proposalId=${proposalId}`,
-          priority: 'high',
-          is_read: false
-        });
+        try {
+          await base44.entities.Notification.create({
+            organization_id: organization.id,
+            user_email: reviewer.email,
+            notification_type: 'section_ready_for_review',
+            title: 'Section Ready for Review',
+            message: `"${sectionName}" in proposal "${proposalData.proposal_name}" has been marked for review.`,
+            link_url: createPageUrl('AIAssistedWriterPage') + `?proposalId=${proposalId}`,
+            priority: 'high',
+            is_read: false,
+            related_proposal_id: proposalId,
+            related_entity_type: 'section',
+            from_user_email: currentUser.email,
+            from_user_name: currentUser.full_name
+          });
+        } catch (notifError) {
+          console.error("Error creating notification:", notifError);
+          // Don't fail the whole operation if notification fails
+        }
       }
 
       alert(`✓ Section marked for review!\n\nProposal moved to Review column. Reviewers have been notified.`);
