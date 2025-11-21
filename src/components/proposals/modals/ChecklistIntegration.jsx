@@ -95,8 +95,9 @@ export function useChecklistModal(proposalId, organizationId) {
         
         // Build full config for DynamicModal
         const config = {
-          title: modalConfig.name,
-          description: modalConfig.description,
+          title: modalConfig.name || 'Form',
+          description: modalConfig.description || '',
+          icon_emoji: modalConfig.icon_emoji || '📋',
           fields: parsedConfig.fields || [],
           steps: parsedConfig.steps || null,
           proposalId,
@@ -151,8 +152,9 @@ export function useChecklistModal(proposalId, organizationId) {
         
         // Build full config for DynamicModal
         const config = {
-          title: parsedConfig.title,
-          description: parsedConfig.description,
+          title: parsedConfig.title || customModal.name || 'Form',
+          description: parsedConfig.description || customModal.description || '',
+          icon_emoji: customModal.icon_emoji || '📋',
           fields: parsedConfig.fields || [],
           steps: parsedConfig.steps || null,
           proposalId,
