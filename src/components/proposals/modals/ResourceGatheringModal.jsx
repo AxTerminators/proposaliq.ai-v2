@@ -76,10 +76,19 @@ export default function ResourceGatheringModal({
             value="upload"
             className="flex-1 overflow-y-auto mt-4 space-y-6"
           >
+            {successMessage && (
+              <Alert className="bg-green-50 border-green-300">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  {successMessage}
+                </AlertDescription>
+              </Alert>
+            )}
             <ResourceUploadSection
-              onUploadComplete={() => {
-                // TODO: Refresh any resource lists or show success message
-                console.log("Upload completed successfully");
+              onUploadComplete={(uploadedResource) => {
+                setSuccessMessage("✅ Resource uploaded and ingested successfully!");
+                queryClient.invalidateQueries({ queryKey: ["proposal-resources", organizationId] });
+                setTimeout(() => setSuccessMessage(""), 5000);
               }}
               organizationId={organizationId}
               proposalId={proposalId}
@@ -91,12 +100,23 @@ export default function ResourceGatheringModal({
             value="select"
             className="flex-1 overflow-y-auto mt-4 space-y-6"
           >
+            {successMessage && (
+              <Alert className="bg-green-50 border-green-300">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  {successMessage}
+                </AlertDescription>
+              </Alert>
+            )}
             <ResourceSelectionSection
               organizationId={organizationId}
               proposalId={proposalId}
-              onLinkComplete={(linkedResources) => {
-                // TODO: Show success message or refresh proposal data
-                console.log("Resources linked successfully:", linkedResources);
+              onLinkComplete={(linkedResources, response) => {
+                setSuccessMessage(`✅ Successfully linked ${response.linked_count} resource(s)!`);
+                queryClient.invalidateQueries({ queryKey: ["proposals"] });
+                queryClient.invalidateQueries({ queryKey: ["proposal-resources", organizationId] });
+                queryClient.invalidateQueries({ queryKey: ["past-performance", organizationId] });
+                setTimeout(() => setSuccessMessage(""), 5000);
               }}
             />
           </TabsContent>

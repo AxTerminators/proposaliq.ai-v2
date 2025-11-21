@@ -275,7 +275,6 @@ export default function ResourceSelectionSection({
         if (onLinkComplete) {
           onLinkComplete(selectedResources, response.data);
         }
-        alert(`✅ Successfully linked ${response.data.linked_count} resource(s)!`);
       } else {
         throw new Error(response.data.error || 'Linking failed');
       }
