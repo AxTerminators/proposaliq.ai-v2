@@ -25,14 +25,18 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 export default function BatchExportDialog({ open, onOpenChange, organizationId }) {
   const [selectedProposals, setSelectedProposals] = useState([]);
-  const [exportFormat, setExportFormat] = useState("pdf_html");
+  const [exportFormat, setExportFormat] = useState("pdf");
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [includeCoverPage, setIncludeCoverPage] = useState(true);
+  const [includeTableOfContents, setIncludeTableOfContents] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exportResults, setExportResults] = useState([]);
+  const [exportComplete, setExportComplete] = useState(false);
+  const [zipDownloadUrl, setZipDownloadUrl] = useState(null);
+  const [exportResults, setExportResults] = useState(null);
 
   const { data: proposals } = useQuery({
     queryKey: ['proposals', organizationId],
@@ -54,52 +58,42 @@ export default function BatchExportDialog({ open, onOpenChange, organizationId }
 
   const handleBatchExport = async () => {
     if (selectedProposals.length === 0) {
-      alert("Please select at least one proposal to export");
+      toast.error("Please select at least one proposal to export");
       return;
     }
 
     setIsExporting(true);
-    setExportProgress(0);
-    setExportResults([]);
+    setExportComplete(false);
+    setExportResults(null);
+    setZipDownloadUrl(null);
 
-    const results = [];
-    const totalProposals = selectedProposals.length;
+    try {
+      const response = await base44.functions.invoke('batchExportProposals', {
+        proposalIds: selectedProposals,
+        format: exportFormat,
+        templateId: selectedTemplate,
+        options: {
+          includeCoverPage,
+          includeTableOfContents
+        }
+      });
 
-    for (let i = 0; i < selectedProposals.length; i++) {
-      const proposalId = selectedProposals[i];
-      const proposal = proposals.find(p => p.id === proposalId);
-      
-      try {
-        // Simulate export process
-        setExportProgress(((i + 1) / totalProposals) * 100);
-        
-        // In a real implementation, you would call the export function here
-        // For now, we'll just create a mock result
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
-        
-        results.push({
-          proposalId,
-          proposalName: proposal.proposal_name,
-          status: 'success',
-          message: 'Exported successfully'
-        });
-
-      } catch (error) {
-        results.push({
-          proposalId,
-          proposalName: proposal.proposal_name,
-          status: 'error',
-          message: error.message || 'Export failed'
-        });
+      if (response.data.success) {
+        setExportResults(response.data);
+        setZipDownloadUrl(response.data.zip_download_url);
+        setExportComplete(true);
+        toast.success(`Successfully exported ${response.data.exports_created} proposals!`);
+      } else {
+        throw new Error('Export failed');
       }
+
+    } catch (error) {
+      console.error('Batch export error:', error);
+      toast.error('Failed to export proposals: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsExporting(false);
     }
-
-    setExportResults(results);
-    setIsExporting(false);
   };
-
-  const successCount = exportResults.filter(r => r.status === 'success').length;
-  const errorCount = exportResults.filter(r => r.status === 'error').length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,12 +117,31 @@ export default function BatchExportDialog({ open, onOpenChange, organizationId }
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pdf_html">Print-Ready HTML → PDF</SelectItem>
-                <SelectItem value="docx_markdown">Markdown → Word</SelectItem>
-                <SelectItem value="excel_compliance">Compliance Matrix CSV</SelectItem>
-                <SelectItem value="html_package">Styled HTML Package</SelectItem>
+                <SelectItem value="pdf">PDF</SelectItem>
+                <SelectItem value="docx">DOCX (Word)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Export Options */}
+          <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+            <label className="text-sm font-medium">Export Options</label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={includeCoverPage}
+                  onCheckedChange={setIncludeCoverPage}
+                />
+                <span className="text-sm text-slate-700">Include Cover Page</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={includeTableOfContents}
+                  onCheckedChange={setIncludeTableOfContents}
+                />
+                <span className="text-sm text-slate-700">Include Table of Contents</span>
+              </div>
+            </div>
           </div>
 
           {/* Template Selection */}
@@ -214,46 +227,50 @@ export default function BatchExportDialog({ open, onOpenChange, organizationId }
             </ScrollArea>
           </div>
 
-          {/* Progress Bar */}
+          {/* Progress */}
           {isExporting && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Exporting proposals...</span>
-                <span className="font-medium">{Math.round(exportProgress)}%</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-3 text-blue-600 py-8">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <div>
+                  <p className="font-semibold">Generating batch export...</p>
+                  <p className="text-sm text-slate-600">Processing {selectedProposals.length} proposals</p>
+                </div>
               </div>
-              <Progress value={exportProgress} className="h-2" />
             </div>
           )}
 
-          {/* Export Results */}
-          {exportResults.length > 0 && !isExporting && (
-            <Alert className={successCount === exportResults.length ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}>
-              <CheckCircle2 className="w-4 h-4" />
+          {/* Export Complete */}
+          {exportComplete && exportResults && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
               <AlertDescription>
-                <strong>Export Complete!</strong><br/>
-                {successCount} succeeded, {errorCount} failed
+                <div className="space-y-2">
+                  <p className="font-semibold text-green-900">Batch Export Complete!</p>
+                  <p className="text-sm text-green-800">
+                    Successfully exported {exportResults.exports_created} of {exportResults.total_proposals} proposals
+                  </p>
+                  <p className="text-xs text-green-700">
+                    ZIP file size: {(exportResults.zip_file_size_bytes / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  {zipDownloadUrl && (
+                    <Button
+                      size="sm"
+                      className="mt-3 bg-green-600 hover:bg-green-700"
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = zipDownloadUrl;
+                        link.download = exportResults.zip_file_name;
+                        link.click();
+                      }}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download ZIP File
+                    </Button>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
-          )}
-
-          {exportResults.length > 0 && !isExporting && (
-            <ScrollArea className="h-32 border rounded-lg p-3">
-              <div className="space-y-2">
-                {exportResults.map((result, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-sm">
-                    {result.status === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                    )}
-                    <span className="flex-1">{result.proposalName}</span>
-                    <Badge variant={result.status === 'success' ? 'default' : 'destructive'} className="text-xs">
-                      {result.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
           )}
         </div>
 
@@ -262,13 +279,15 @@ export default function BatchExportDialog({ open, onOpenChange, organizationId }
             variant="outline" 
             onClick={() => {
               onOpenChange(false);
-              setExportResults([]);
+              setExportResults(null);
               setSelectedProposals([]);
+              setExportComplete(false);
+              setZipDownloadUrl(null);
             }}
           >
-            {exportResults.length > 0 ? 'Close' : 'Cancel'}
+            {exportComplete ? 'Close' : 'Cancel'}
           </Button>
-          {exportResults.length === 0 && (
+          {!exportComplete && (
             <Button
               onClick={handleBatchExport}
               disabled={isExporting || selectedProposals.length === 0}
@@ -281,7 +300,7 @@ export default function BatchExportDialog({ open, onOpenChange, organizationId }
                 </>
               ) : (
                 <>
-                  <Zap className="w-4 h-4 mr-2" />
+                  <Package className="w-4 h-4 mr-2" />
                   Export {selectedProposals.length} Proposal{selectedProposals.length !== 1 ? 's' : ''}
                 </>
               )}
