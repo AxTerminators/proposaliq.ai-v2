@@ -491,6 +491,7 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                             <SelectItem value="tasks">Tasks</SelectItem>
                                             <SelectItem value="data-calls">Data Calls</SelectItem>
                                             <SelectItem value="discussions">Discussions</SelectItem>
+                                            <SelectItem value="review">Review</SelectItem>
                                             <SelectItem value="files">Files</SelectItem>
                                           </SelectContent>
                                         </Select>
