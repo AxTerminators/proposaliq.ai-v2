@@ -547,7 +547,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
 
     return columnProposals;
-  }, [filteredProposals, proposalColumnAssignments, columnSorts, proposals]);
+  }, [filteredProposals, proposalColumnAssignments, columnSorts]);
 
   const handleColumnSortChange = (columnId, sortBy, direction) => {
     setColumnSorts(prev => {
