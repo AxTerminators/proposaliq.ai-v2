@@ -152,17 +152,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   // Use provided config or fetched config
   const kanbanConfig = propKanbanConfig || fetchedKanbanConfig;
 
-  useEffect(() => {
-    console.log('[Kanban] Data update:', {
-      proposalsCount: proposals.length,
-      hasConfig: !!kanbanConfig,
-      columnsCount: kanbanConfig?.columns?.length || 0,
-      isLoadingConfig,
-      boardType: kanbanConfig?.board_type,
-      isMasterBoard: kanbanConfig?.is_master_board
-    });
-  }, [proposals.length, kanbanConfig, isLoadingConfig]);
-
   const hasKanbanConfig = useMemo(() => {
     return !!kanbanConfig && kanbanConfig.columns && kanbanConfig.columns.length > 0;
   }, [kanbanConfig]);
@@ -192,6 +181,314 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   // ALL MEMOS
   const columns = useMemo(() => kanbanConfig?.columns || [], [kanbanConfig]);
   const effectiveCollapsedColumns = useMemo(() => kanbanConfig?.collapsed_column_ids || [], [kanbanConfig]);
+
+  // Memoize to prevent recalculation triggering re-renders
+  const shouldCheckOnboarding = useMemo(() => {
+    return hasKanbanConfig && !isLoadingConfig && user && organization;
+  }, [hasKanbanConfig, isLoadingConfig, user, organization]);
+
+  const uniqueAgencies = useMemo(() => {
+    const agencies = proposals
+      .map(p => p.agency_name)
+      .filter(Boolean);
+    return [...new Set(agencies)].sort();
+  }, [proposals]);
+
+  const uniqueAssignees = useMemo(() => {
+    const assignees = proposals
+      .flatMap(p => p.assigned_team_members || [])
+      .filter(Boolean);
+    return [...new Set(assignees)].sort();
+  }, [proposals]);
+
+  const uniqueTeamMembers = useMemo(() => {
+    const members = new Set();
+    proposals.forEach(p => {
+      if (p.assigned_team_members) {
+        p.assigned_team_members.forEach(email => members.add(email));
+      }
+      if (p.lead_writer_email) {
+        members.add(p.lead_writer_email);
+      }
+    });
+    return Array.from(members).sort();
+  }, [proposals]);
+
+  const filteredProposals = useMemo(() => {
+    if (advancedFilteredProposals !== null) {
+      return advancedFilteredProposals;
+    }
+
+    return proposals.filter(proposal => {
+      const matchesSearch = !searchQuery ||
+        proposal.proposal_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        proposal.project_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        proposal.solicitation_number?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesAgency = filterAgency === "all" || proposal.agency_name === filterAgency;
+
+      const matchesAssignee = filterAssignee === "all" ||
+        (proposal.assigned_team_members || []).includes(filterAssignee);
+
+      return matchesSearch && matchesAgency && matchesAssignee;
+    });
+  }, [proposals, searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
+
+  const proposalColumnAssignments = useMemo(() => {
+    const assignments = {};
+    
+    filteredProposals.forEach(proposal => {
+      if (!proposal) return;
+      
+      if (kanbanConfig?.is_master_board) {
+        let masterBoardStatus = proposal.status;
+
+        if (proposal.proposal_type_category === 'RFP_15_COLUMN' && proposal.custom_workflow_stage_id) {
+          switch (proposal.custom_workflow_stage_id) {
+            case 'col_initiate':
+            case 'col_team':
+            case 'col_resources':
+            case 'col_solicitation':
+            case 'col_evaluation':
+            case 'col_strategy':
+              masterBoardStatus = 'evaluating';
+              break;
+            case 'col_planning':
+            case 'col_writing':
+            case 'col_pricing':
+              masterBoardStatus = 'draft';
+              break;
+            case 'col_review':
+            case 'col_final':
+            case 'col_compliance':
+              masterBoardStatus = 'in_progress';
+              break;
+            case 'col_submitted':
+              masterBoardStatus = 'submitted';
+              break;
+            case 'col_won':
+              masterBoardStatus = 'won';
+              break;
+            case 'col_lost':
+              masterBoardStatus = 'lost';
+              break;
+            case 'col_archived':
+              masterBoardStatus = 'archived';
+              break;
+            default:
+              masterBoardStatus = 'evaluating';
+          }
+        }
+
+        const matchingColumn = columns.find(col => 
+          col.type === 'master_status' && 
+          col.status_mapping?.includes(masterBoardStatus)
+        );
+        
+        if (matchingColumn) {
+          assignments[proposal.id] = {
+            columnId: matchingColumn.id,
+            columnType: 'master_status'
+          };
+        } else {
+          if (columns.length > 0) {
+            assignments[proposal.id] = {
+              columnId: columns[0].id,
+              columnType: 'master_status'
+            };
+          }
+        }
+      } 
+      else {
+        if (proposal.custom_workflow_stage_id) {
+          assignments[proposal.id] = {
+            columnId: proposal.custom_workflow_stage_id,
+            columnType: 'custom_stage'
+          };
+        } 
+        else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
+          const matchingTerminalColumn = columns.find(
+            col => col.type === 'default_status' && 
+                   col.default_status_mapping === proposal.status &&
+                   col.is_terminal === true
+          );
+          if (matchingTerminalColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingTerminalColumn.id,
+              columnType: 'default_status'
+            };
+          }
+        }
+        else if (proposal.current_phase) {
+          const matchingLockedPhaseColumn = columns.find(
+            col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
+          );
+          if (matchingLockedPhaseColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingLockedPhaseColumn.id,
+              columnType: 'locked_phase'
+            };
+          }
+        }
+        else {
+          const matchingDefaultStatusColumn = columns.find(
+            col => col.type === 'default_status' && col.default_status_mapping === proposal.status
+          );
+          if (matchingDefaultStatusColumn) {
+            assignments[proposal.id] = {
+              columnId: matchingDefaultStatusColumn.id,
+              columnType: 'default_status'
+            };
+          }
+        }
+      }
+    });
+    
+    return assignments;
+  }, [filteredProposals, columns, kanbanConfig]);
+
+  const selectedProposalsData = useMemo(() => {
+    return proposals.filter(p => selectedProposalIds.includes(p.id));
+  }, [proposals, selectedProposalIds]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (filterAgency !== "all") count++;
+    if (filterAssignee !== "all") count++;
+    if (advancedFilteredProposals !== null) count++;
+    return count;
+  }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
+
+  const validColumns = useMemo(() => Array.isArray(columns) ? columns : [], [columns]);
+
+  const proposalsByColumn = useMemo(() => {
+    const byColumn = {};
+    
+    if (!validColumns || validColumns.length === 0) return {};
+    
+    validColumns.forEach(column => {
+      if (!column) return;
+
+      let columnProposals;
+
+      if (column.is_terminal) {
+        columnProposals = filteredProposals.filter(proposal => {
+          if (!proposal) return false;
+          const statusMatch = proposal.status === column.default_status_mapping;
+          return statusMatch;
+        });
+      } 
+      else {
+        columnProposals = filteredProposals.filter(proposal => {
+          if (!proposal) return false;
+          
+          const assignment = proposalColumnAssignments[proposal.id];
+          if (!assignment) return false;
+          
+          return assignment.columnId === column.id;
+        });
+      }
+
+      const sort = columnSorts[column.id];
+      if (sort) {
+        columnProposals = [...columnProposals].sort((a, b) => {
+          if (sort.by === 'name') {
+            return sort.direction === 'asc'
+              ? a.proposal_name?.localeCompare(b.proposal_name || '')
+              : b.proposal_name?.localeCompare(a.proposal_name || '');
+          } else if (sort.by === 'due_date') {
+            const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
+            const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
+            return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+          } else if (sort.by === 'created_date') {
+            return sort.direction === 'asc'
+              ? new Date(a.created_date).getTime() - new Date(b.created_date).getTime()
+              : new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+          }
+          return 0;
+        });
+      } else {
+        columnProposals = [...columnProposals].sort((a, b) => {
+          const orderA = a.manual_order ?? 999999;
+          const orderB = b.manual_order ?? 999999;
+          return orderA - orderB;
+        });
+      }
+
+      byColumn[column.id] = columnProposals;
+    });
+    
+    return byColumn;
+  }, [validColumns, filteredProposals, proposalColumnAssignments, columnSorts]);
+
+  const lazyLoadResult = useLazyLoadColumns(proposalsByColumn, 10, 10);
+
+  // UPDATED: Check UserPreference instead of just localStorage
+  useEffect(() => {
+    if (!shouldCheckOnboarding) {
+      return;
+    }
+
+    const checkOnboardingStatus = async () => {
+      try {
+        const prefs = await base44.entities.UserPreference.filter({
+          user_email: user.email,
+          organization_id: organization.id,
+          preference_type: "onboarding_status",
+          preference_name: "kanban_board_onboarding_completed"
+        });
+
+        if (prefs.length > 0) {
+          return;
+        }
+
+        const tourCompleted = localStorage.getItem('kanban_tour_completed');
+        if (tourCompleted) {
+          try {
+            await base44.entities.UserPreference.create({
+              user_email: user.email,
+              organization_id: organization.id,
+              preference_type: "onboarding_status",
+              preference_name: "kanban_board_onboarding_completed",
+              preference_data: JSON.stringify({ 
+                completed: true, 
+                migrated_from_localStorage: true,
+                completed_date: new Date().toISOString() 
+              }),
+              is_default: false
+            });
+          } catch (e) {
+            console.warn('[KanbanOnboarding] Could not migrate localStorage flag:', e);
+          }
+          return;
+        }
+
+        setTimeout(() => {
+          setShowOnboardingTour(true);
+        }, 1000);
+      } catch (error) {
+        console.error('[KanbanOnboarding] Error checking onboarding status:', error);
+        const tourCompleted = localStorage.getItem('kanban_tour_completed');
+        if (!tourCompleted) {
+          setTimeout(() => {
+            setShowOnboardingTour(true);
+          }, 1000);
+        }
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [shouldCheckOnboarding, user, organization]);
+
+  // ============================================================================
+  // ALL HOOKS COMPLETE - Regular functions and conditional returns below
+  // ============================================================================
+  
+  const getProposalsForColumn = (column) => {
+    if (!column) return [];
+    return proposalsByColumn[column.id] || [];
+  };
 
   // ALL CALLBACKS - REGULAR FUNCTIONS (not hooks)
   const toggleColumnCollapse = async (columnId) => {
@@ -1016,6 +1313,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setShowNewProposalDialog(false);
   };
 
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterAgency("all");
+    setFilterAssignee("all");
+    setAdvancedFilteredProposals(null);
+  };
+
   const handleAdvancedFilterChange = (filtered) => {
     setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
   };
@@ -1030,103 +1334,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const handleClearSelection = () => {
     setSelectedProposalIds([]);
-  };
-
-  const selectedProposalsData = useMemo(() => {
-    return proposals.filter(p => selectedProposalIds.includes(p.id));
-  }, [proposals, selectedProposalIds]);
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFilterAgency("all");
-    setFilterAssignee("all");
-    setAdvancedFilteredProposals(null);
-  };
-
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (searchQuery) count++;
-    if (filterAgency !== "all") count++;
-    if (filterAssignee !== "all") count++;
-    if (advancedFilteredProposals !== null) count++;
-    return count;
-  }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
-
-  const validColumns = useMemo(() => Array.isArray(columns) ? columns : [], [columns]);
-
-  const proposalsByColumn = useMemo(() => {
-    const byColumn = {};
-    
-    if (!validColumns || validColumns.length === 0) return {};
-    
-    validColumns.forEach(column => {
-      if (!column) return;
-
-      let columnProposals;
-
-      // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
-      if (column.is_terminal) {
-        columnProposals = filteredProposals.filter(proposal => {
-          if (!proposal) return false;
-          const statusMatch = proposal.status === column.default_status_mapping;
-          return statusMatch;
-        });
-      } 
-      // NON-TERMINAL COLUMNS: Filter by assignment
-      else {
-        columnProposals = filteredProposals.filter(proposal => {
-          if (!proposal) return false;
-          
-          const assignment = proposalColumnAssignments[proposal.id];
-          if (!assignment) return false;
-          
-          return assignment.columnId === column.id;
-        });
-      }
-
-      // Apply sorting
-      const sort = columnSorts[column.id];
-      if (sort) {
-        columnProposals = [...columnProposals].sort((a, b) => {
-          if (sort.by === 'name') {
-            return sort.direction === 'asc'
-              ? a.proposal_name?.localeCompare(b.proposal_name || '')
-              : b.proposal_name?.localeCompare(a.proposal_name || '');
-          } else if (sort.by === 'due_date') {
-            const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
-            const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
-            return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
-          } else if (sort.by === 'created_date') {
-            return sort.direction === 'asc'
-              ? new Date(a.created_date).getTime() - new Date(b.created_date).getTime()
-              : new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
-          }
-          return 0;
-        });
-      } else {
-        columnProposals = [...columnProposals].sort((a, b) => {
-          const orderA = a.manual_order ?? 999999;
-          const orderB = b.manual_order ?? 999999;
-          return orderA - orderB;
-        });
-      }
-
-      byColumn[column.id] = columnProposals;
-    });
-    
-    return byColumn;
-  }, [validColumns, filteredProposals, proposalColumnAssignments, columnSorts]);
-
-  // CRITICAL: useLazyLoadColumns must be called unconditionally
-  const lazyLoadResult = useLazyLoadColumns(proposalsByColumn, 10, 10);
-
-  // ============================================================================
-  // ALL HOOKS COMPLETE - Regular functions and conditional returns below
-  // ============================================================================
-  
-  const getProposalsForColumn = (column) => {
-    if (!column) return [];
-    return proposalsByColumn[column.id] || [];
   };
   if (isLoadingConfig && !propKanbanConfig) {
     return (
