@@ -12,7 +12,8 @@ import {
   Users,
   History,
   Calendar,
-  Highlighter
+  Highlighter,
+  Download
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
