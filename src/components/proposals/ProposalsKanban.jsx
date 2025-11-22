@@ -532,27 +532,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return columnProposals;
   }, [filteredProposals, proposalColumnAssignments, columnSorts, proposals]);
 
-  const validColumns = Array.isArray(columns) ? columns : [];
-
-  // **NEW: Lazy loading for columns**
-  const proposalsByColumn = useMemo(() => {
-    const byColumn = {};
-    
-    validColumns.forEach(column => {
-      byColumn[column.id] = getProposalsForColumn(column);
-    });
-    
-    return byColumn;
-  }, [validColumns, getProposalsForColumn]);
-
-  const {
-    getVisibleProposals,
-    hasMore,
-    loadMore,
-    loadAll,
-    getStats
-  } = useLazyLoadColumns(proposalsByColumn, 10, 10);
-
   const handleColumnSortChange = (columnId, sortBy, direction) => {
     setColumnSorts(prev => {
       const current = prev[columnId];
@@ -1119,6 +1098,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (advancedFilteredProposals !== null) count++;
     return count;
   }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
+
+  const validColumns = Array.isArray(columns) ? columns : [];
+
+  // **NEW: Lazy loading for columns** - MOVED BEFORE CONDITIONAL RETURNS
+  const proposalsByColumn = useMemo(() => {
+    const byColumn = {};
+    
+    validColumns.forEach(column => {
+      byColumn[column.id] = getProposalsForColumn(column);
+    });
+    
+    return byColumn;
+  }, [validColumns, getProposalsForColumn]);
+
+  const {
+    getVisibleProposals,
+    hasMore,
+    loadMore,
+    loadAll,
+    getStats
+  } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
   if (isLoadingConfig && !propKanbanConfig) {
     return (
