@@ -34,28 +34,13 @@ const setCachedOrgId = (userEmail, orgId) => {
 
 export function OrganizationProvider({ children }) {
   const queryClient = useQueryClient();
-  const [orgId, setOrgId] = useState(() => {
-    const user = queryClient.getQueryData(['current-user']);
-    if (user?.email) {
-      return getCachedOrgId(user.email);
-    }
-    return null;
-  });
+  const [orgId, setOrgId] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const { data: user, isLoading: isLoadingUser, error: userError } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
       const currentUser = await base44.auth.me();
-      
-      const cachedOrgId = getCachedOrgId(currentUser.email);
-      const determinedOrgId = currentUser.active_client_id || 
-                             currentUser.client_accesses?.[0]?.organization_id ||
-                             cachedOrgId;
-      
-      if (determinedOrgId && determinedOrgId !== orgId) {
-        setOrgId(determinedOrgId);
-      }
-      
       return currentUser;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -66,34 +51,57 @@ export function OrganizationProvider({ children }) {
     retry: 1,
   });
 
+  // Initialize orgId ONCE when user is loaded
+  useEffect(() => {
+    if (user?.email && !isInitialized) {
+      console.log('[OrgContext] Initializing organization for user:', user.email);
+      
+      // Priority order (MOST RELIABLE FIRST):
+      // 1. User's active_client_id (explicitly set by user)
+      // 2. Cached org from localStorage (preserves last choice)
+      // 3. First client access (fallback)
+      const cachedOrgId = getCachedOrgId(user.email);
+      let determinedOrgId = null;
+
+      if (user.active_client_id) {
+        determinedOrgId = user.active_client_id;
+        console.log('[OrgContext] Using active_client_id:', determinedOrgId);
+      } else if (cachedOrgId) {
+        determinedOrgId = cachedOrgId;
+        console.log('[OrgContext] Using cached org:', determinedOrgId);
+      } else if (user.client_accesses?.[0]?.organization_id) {
+        determinedOrgId = user.client_accesses[0].organization_id;
+        console.log('[OrgContext] Using first client access:', determinedOrgId);
+      }
+
+      if (determinedOrgId) {
+        setOrgId(determinedOrgId);
+        setCachedOrgId(user.email, determinedOrgId);
+        setIsInitialized(true);
+        console.log('[OrgContext] ✅ Organization initialized:', determinedOrgId);
+      }
+    }
+  }, [user, isInitialized]);
+
   const { data: organization, isLoading: isLoadingOrg, error: orgError } = useQuery({
     queryKey: ['current-organization', orgId],
     queryFn: async () => {
-      if (!user?.email) return null;
+      if (!user?.email || !orgId) return null;
       
-      if (orgId) {
-        const orgs = await base44.entities.Organization.filter({ id: orgId });
-        if (orgs.length > 0) {
-          setCachedOrgId(user.email, orgs[0].id);
-          return orgs[0];
-        }
-      }
-      
-      const orgs = await base44.entities.Organization.filter(
-        { created_by: user.email },
-        '-created_date',
-        1
-      );
+      console.log('[OrgContext] Fetching organization:', orgId);
+      const orgs = await base44.entities.Organization.filter({ id: orgId });
       
       if (orgs.length > 0) {
-        setCachedOrgId(user.email, orgs[0].id);
-        setOrgId(orgs[0].id);
+        console.log('[OrgContext] ✅ Organization found:', orgs[0].organization_name);
         return orgs[0];
       }
       
+      console.warn('[OrgContext] ⚠️ Organization not found with ID:', orgId);
+      // Don't fallback to created_by - this causes switching issues
+      // If the org doesn't exist, keep orgId null and let user manually select
       return null;
     },
-    enabled: !!user?.email && !!orgId,
+    enabled: !!user?.email && !!orgId && isInitialized,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

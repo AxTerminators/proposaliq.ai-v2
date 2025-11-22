@@ -81,14 +81,28 @@ export default function OrganizationSwitcher({ user, currentOrganization, onSwit
 
   const switchOrganizationMutation = useMutation({
     mutationFn: async (newOrgId) => {
+      console.log('[OrgSwitcher] Switching to organization:', newOrgId);
+      
       // Update user's active_client_id and add to recently_accessed
       const recentOrgs = user.recently_accessed_orgs || [];
       const updatedRecent = [newOrgId, ...recentOrgs.filter(id => id !== newOrgId)].slice(0, 5);
+      
+      // CRITICAL: Update cache BEFORE updating user
+      if (user?.email) {
+        try {
+          localStorage.setItem(`org_id_${user.email}`, JSON.stringify(newOrgId));
+          console.log('[OrgSwitcher] ✅ Cached new org ID:', newOrgId);
+        } catch (error) {
+          console.error('[OrgSwitcher] Failed to cache org ID:', error);
+        }
+      }
       
       await base44.auth.updateMe({ 
         active_client_id: newOrgId,
         recently_accessed_orgs: updatedRecent
       });
+      
+      console.log('[OrgSwitcher] ✅ User updated with new active_client_id');
       return newOrgId;
     },
     onSuccess: async (newOrgId) => {
@@ -101,9 +115,11 @@ export default function OrganizationSwitcher({ user, currentOrganization, onSwit
       setShowSwitcher(false);
       setIsSwitching(false);
       
+      console.log('[OrgSwitcher] Reloading page with new organization...');
       window.location.reload();
     },
     onError: (error) => {
+      console.error('[OrgSwitcher] Switch failed:', error);
       toast.error("Failed to switch organization: " + error.message);
       setIsSwitching(false);
     }
