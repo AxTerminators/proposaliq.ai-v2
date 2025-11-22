@@ -44,7 +44,8 @@ import {
   Pencil,
   Check,
   XCircle,
-  FileText
+  FileText,
+  Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -400,6 +401,26 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       ?.filter(ci => ci && ci.required && ci.type !== 'system_check')
       .every(ci => checklistStatus[ci.id]?.completed || false) || false;
   }, [currentColumn, checklistStatus]);
+
+  // NEW: Watermark status logic for export
+  const willHaveWatermark = React.useMemo(() => {
+    return !['approved', 'submitted', 'won', 'client_accepted'].includes(proposal.status);
+  }, [proposal.status]);
+
+  const exportStatusMessage = React.useMemo(() => {
+    if (willHaveWatermark) {
+      return {
+        type: "info",
+        title: "Draft Export Mode",
+        description: "Documents will include a DRAFT watermark. Approve this proposal to export without watermark."
+      };
+    }
+    return {
+      type: "success",
+      title: "Approved Export Mode",
+      description: "Documents will be exported without watermark."
+    };
+  }, [willHaveWatermark]);
 
   const updateProposalMutation = useMutation({
     mutationFn: async (updates) => {
@@ -1441,6 +1462,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                   <Paperclip className="w-4 h-4" />
                   Files
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="export" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                  {willHaveWatermark && (
+                    <Badge className="ml-2 bg-orange-500 text-xs">DRAFT</Badge>
+                  )}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="checklist" className="p-6 space-y-4">
@@ -1664,6 +1695,67 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     organization={organization}
                   />
                 )}
+              </TabsContent>
+
+              <TabsContent value="export" className="mt-0 p-6">
+                <div className="space-y-4">
+                  {/* Watermark Status Banner */}
+                  <Alert className={cn(
+                    "border-2",
+                    willHaveWatermark 
+                      ? "bg-orange-50 border-orange-200" 
+                      : "bg-green-50 border-green-200"
+                  )}>
+                    <div className="flex items-start gap-3">
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                        willHaveWatermark ? "bg-orange-100" : "bg-green-100"
+                      )}>
+                        {willHaveWatermark ? (
+                          <AlertCircle className="w-5 h-5 text-orange-600" />
+                        ) : (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <AlertDescription>
+                          <p className={cn(
+                            "font-semibold mb-1",
+                            willHaveWatermark ? "text-orange-900" : "text-green-900"
+                          )}>
+                            {exportStatusMessage.title}
+                          </p>
+                          <p className={cn(
+                            "text-sm",
+                            willHaveWatermark ? "text-orange-700" : "text-green-700"
+                          )}>
+                            {exportStatusMessage.description}
+                          </p>
+                        </AlertDescription>
+                      </div>
+                    </div>
+                  </Alert>
+
+                  {/* Placeholder for Export Panel */}
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="text-center py-8">
+                        <Download className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                          Export Configuration
+                        </h3>
+                        <p className="text-sm text-slate-600 mb-4">
+                          Select format, sections, and options to export your proposal.
+                        </p>
+                        <Badge className={cn(
+                          willHaveWatermark ? "bg-orange-500" : "bg-green-500"
+                        )}>
+                          {willHaveWatermark ? "Will include DRAFT watermark" : "Final version - no watermark"}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
