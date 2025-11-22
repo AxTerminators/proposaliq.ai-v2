@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,13 +31,13 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export default function ExportDialog({ open, onOpenChange, proposal, sections, onExportComplete }) {
+export default function ExportDialog({ open, onOpenChange, proposal, sections = [], onExportComplete }) {
   const queryClient = useQueryClient();
   const [exportFormat, setExportFormat] = useState("pdf_html");
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const [includeSections, setIncludeSections] = useState(sections.map(s => s.id));
+  const [includeSections, setIncludeSections] = useState(sections?.map(s => s.id) || []);
 
   const { data: templates = [] } = useQuery({
     queryKey: ['export-templates', proposal?.organization_id],
