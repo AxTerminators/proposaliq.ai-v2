@@ -447,6 +447,7 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                           <SelectItem value="modal_trigger">Modal Trigger</SelectItem>
                                           <SelectItem value="ai_trigger">AI Trigger</SelectItem>
                                           <SelectItem value="system_check">System Check</SelectItem>
+                                          <SelectItem value="proposal_action">Proposal Action</SelectItem>
                                           <SelectItem value="navigate">Navigate</SelectItem>
                                         </SelectContent>
                                       </Select>
