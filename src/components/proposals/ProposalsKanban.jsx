@@ -490,7 +490,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   }, [filteredProposals, columns, kanbanConfig]);
 
   const getProposalsForColumn = useCallback((column) => {
-    if (!column || !proposals) {
+    if (!column) {
       return [];
     }
 
