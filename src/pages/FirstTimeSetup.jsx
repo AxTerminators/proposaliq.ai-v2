@@ -49,7 +49,28 @@ export default function FirstTimeSetup({ user, onComplete }) {
 
       setStep(3);
 
-      // Step 3: Update user with organization access
+      // Step 3: Create master Kanban board
+      await base44.entities.KanbanConfig.create({
+        organization_id: org.id,
+        board_name: 'Master Board',
+        board_type: 'master',
+        is_master_board: true,
+        columns: [
+          { id: 'lead', label: 'Lead', color: 'bg-blue-100', order: 1, status_mapping: ['evaluating'] },
+          { id: 'plan', label: 'Plan', color: 'bg-yellow-100', order: 2, status_mapping: ['draft'] },
+          { id: 'draft', label: 'Draft', color: 'bg-orange-100', order: 3, status_mapping: ['in_progress'] },
+          { id: 'review', label: 'Review', color: 'bg-purple-100', order: 4, status_mapping: ['in_progress'] },
+          { id: 'hold', label: 'Hold', color: 'bg-gray-100', order: 5, status_mapping: ['on_hold'] },
+          { id: 'submitted', label: 'Submitted', color: 'bg-green-100', order: 6, status_mapping: ['submitted'] },
+          { id: 'won', label: 'Won', color: 'bg-emerald-100', order: 7, status_mapping: ['won'] },
+          { id: 'lost', label: 'Lost', color: 'bg-red-100', order: 8, status_mapping: ['lost'] },
+          { id: 'archived', label: 'Archived', color: 'bg-slate-100', order: 9, status_mapping: ['archived'] }
+        ]
+      });
+
+      setStep(4);
+
+      // Step 4: Update user with organization access
       await base44.auth.updateMe({
         active_client_id: org.id,
         client_accesses: [
@@ -61,7 +82,7 @@ export default function FirstTimeSetup({ user, onComplete }) {
         ],
       });
 
-      setStep(4);
+      setStep(5);
 
       // Complete and redirect
       setTimeout(() => {
@@ -80,8 +101,9 @@ export default function FirstTimeSetup({ user, onComplete }) {
   const progressSteps = [
     { step: 1, label: 'Creating organization' },
     { step: 2, label: 'Setting up subscription' },
-    { step: 3, label: 'Configuring account' },
-    { step: 4, label: 'Complete!' },
+    { step: 3, label: 'Creating pipeline board' },
+    { step: 4, label: 'Configuring account' },
+    { step: 5, label: 'Complete!' },
   ];
 
   return (
