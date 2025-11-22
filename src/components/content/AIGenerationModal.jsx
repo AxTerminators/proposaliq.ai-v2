@@ -75,6 +75,30 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
     }
   }, [proposal, isOpen]);
 
+  // Fetch supplementary document count for display
+  const { data: suppDocsSummary } = useQuery({
+    queryKey: ['suppDocs', proposal?.id],
+    queryFn: async () => {
+      const docs = await base44.entities.SolicitationDocument.filter({
+        proposal_id: proposal.id,
+        rag_ingested: true
+      });
+      
+      const supplementary = docs.filter(d => d.is_supplementary);
+      const amendments = supplementary.filter(d => d.supplementary_type === 'amendment');
+      const qas = supplementary.filter(d => d.supplementary_type === 'q_a_response');
+      
+      return {
+        total: docs.length,
+        supplementary: supplementary.length,
+        amendments: amendments.length,
+        qas: qas.length,
+        base: docs.length - supplementary.length
+      };
+    },
+    enabled: isOpen && !!proposal?.id,
+  });
+
   // Calculate token estimate
   useEffect(() => {
     if (!proposal || !isOpen) return;
@@ -88,7 +112,9 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
         const docs = await base44.entities.SolicitationDocument.filter({
           proposal_id: proposal.id
         });
-        tokens += docs.length * 500;
+        // Supplementary docs get higher token allocation
+        const suppCount = docs.filter(d => d.is_supplementary).length;
+        tokens += suppCount * 800 + (docs.length - suppCount) * 400;
 
         if (additionalContext) {
           tokens += Math.ceil(additionalContext.length / 4);
@@ -229,6 +255,27 @@ export default function AIGenerationModal({ isOpen, onClose, proposal, onSuccess
               <CheckCircle2 className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-sm text-blue-900">
                 Using configuration: <strong>{aiConfig.config_name}</strong> ({aiConfig.llm_provider})
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Supplementary Docs Summary */}
+          {suppDocsSummary && suppDocsSummary.total > 0 && (
+            <Alert className="bg-purple-50 border-purple-200">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              <AlertDescription className="text-sm text-purple-900">
+                <strong>{suppDocsSummary.total} solicitation documents</strong> will be used:
+                {suppDocsSummary.supplementary > 0 && (
+                  <span className="ml-2">
+                    {suppDocsSummary.amendments > 0 && <Badge className="ml-1 bg-red-100 text-red-700">{suppDocsSummary.amendments} Amendment{suppDocsSummary.amendments > 1 ? 's' : ''}</Badge>}
+                    {suppDocsSummary.qas > 0 && <Badge className="ml-1 bg-amber-100 text-amber-700">{suppDocsSummary.qas} Q&A{suppDocsSummary.qas > 1 ? 's' : ''}</Badge>}
+                    {suppDocsSummary.supplementary > suppDocsSummary.amendments + suppDocsSummary.qas && (
+                      <Badge className="ml-1 bg-purple-100 text-purple-700">
+                        {suppDocsSummary.supplementary - suppDocsSummary.amendments - suppDocsSummary.qas} Other
+                      </Badge>
+                    )}
+                  </span>
+                )}
               </AlertDescription>
             </Alert>
           )}

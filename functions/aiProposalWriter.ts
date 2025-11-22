@@ -331,40 +331,116 @@ async function gatherContext(base44, proposal, config, sectionType) {
 
   try {
     // ============================================
-    // Priority 1: Solicitation Documents (highest weight)
+    // Priority 1: Solicitation Documents (ENHANCED with supplementary doc prioritization)
     // ============================================
     if (config.use_solicitation_parsing) {
-      const solicitationDocs = await base44.asServiceRole.entities.SolicitationDocument.filter({
-        proposal_id: proposal.id
-      });
-      
-      if (solicitationDocs && solicitationDocs.length > 0) {
-        for (const doc of solicitationDocs) {
-          // Attempt to parse DOCX content
-          const parsedContent = await parseSolicitationDocument(base44, doc);
+      try {
+        // Use specialized supplementary context retriever
+        const suppResult = await base44.asServiceRole.functions.invoke('retrieveSupplementaryContext', {
+          proposal_id: proposal.id,
+          query: sectionType,
+          max_documents: 10
+        });
+
+        if (suppResult.data?.success && suppResult.data.documents?.length > 0) {
+          console.log('[AI Writer] Using prioritized supplementary docs:', suppResult.data.context_summary);
           
-          if (parsedContent) {
-            // Extract key requirements
-            const requirements = extractRequirements(parsedContent, sectionType);
-            context.solicitationRequirements.push(...requirements);
+          const sortedDocs = suppResult.data.documents;
+          
+          for (const doc of sortedDocs) {
+            if (currentTokens >= MAX_CONTEXT_TOKENS) break;
             
-            // Add relevant excerpts
-            const relevantExcerpts = extractRelevantExcerpts(parsedContent, sectionType);
-            context.solicitationContent += `\n[${doc.file_name}]\n${relevantExcerpts}\n`;
+            // Prioritize critical changes from amendments/Q&As
+            let docContent = '';
             
-            currentTokens += Math.ceil(relevantExcerpts.length / 4);
-          } else {
-            // Fallback: use file metadata
-            context.solicitationContent += `\n[${doc.file_name}] - File available at: ${doc.file_url}\n`;
+            if (doc.is_supplementary) {
+              // Mark supplementary docs clearly
+              const typeLabel = doc.supplementary_type === 'amendment' ? '🔴 AMENDMENT' :
+                              doc.supplementary_type === 'q_a_response' ? '⭐ Q&A RESPONSE' :
+                              doc.supplementary_type === 'sow' || doc.supplementary_type === 'pws' ? '📋 SOW/PWS' :
+                              '📄 SUPPLEMENTARY';
+              
+              docContent += `\n[${typeLabel}: ${doc.file_name}`;
+              if (doc.amendment_number) docContent += ` - Amendment #${doc.amendment_number}`;
+              docContent += `]\n`;
+              
+              // Add changes first (highest priority)
+              if (doc.content_summary.changes_and_clarifications?.length > 0) {
+                docContent += `CRITICAL CHANGES:\n`;
+                doc.content_summary.changes_and_clarifications.slice(0, 5).forEach((change, idx) => {
+                  docContent += `${idx + 1}. ${change}\n`;
+                });
+              }
+              
+              // Add requirements
+              if (doc.content_summary.key_requirements?.length > 0) {
+                docContent += `\nKEY REQUIREMENTS:\n`;
+                doc.content_summary.key_requirements.slice(0, 3).forEach((req, idx) => {
+                  docContent += `${idx + 1}. ${req}\n`;
+                });
+              }
+            } else {
+              // Base solicitation document
+              docContent += `\n[BASE SOLICITATION: ${doc.file_name}]\n`;
+              
+              if (doc.content_summary.key_requirements?.length > 0) {
+                docContent += `REQUIREMENTS:\n`;
+                doc.content_summary.key_requirements.slice(0, 5).forEach((req, idx) => {
+                  docContent += `${idx + 1}. ${req}\n`;
+                  context.solicitationRequirements.push(req);
+                });
+              }
+            }
+            
+            const docTokens = Math.ceil(docContent.length / 4);
+            if (currentTokens + docTokens < MAX_CONTEXT_TOKENS) {
+              context.solicitationContent += docContent;
+              currentTokens += docTokens;
+              
+              context.sources.push({
+                type: 'solicitation',
+                name: doc.file_name,
+                document_type: doc.document_type,
+                is_supplementary: doc.is_supplementary,
+                supplementary_type: doc.supplementary_type,
+                priority_score: doc.priority_score,
+                weight: doc.priority_score / 100 // Convert to 0-1 weight
+              });
+            }
           }
-          
-          context.sources.push({
-            type: 'solicitation',
-            name: doc.file_name,
-            document_type: doc.document_type,
-            weight: config.context_priority_weights?.solicitation_weight || 1.0
+        } else {
+          // Fallback to old method if retrieval fails
+          console.warn('[AI Writer] Supplementary retrieval failed, using fallback');
+          const solicitationDocs = await base44.asServiceRole.entities.SolicitationDocument.filter({
+            proposal_id: proposal.id,
+            rag_ingested: true
           });
+          
+          if (solicitationDocs && solicitationDocs.length > 0) {
+            for (const doc of solicitationDocs) {
+              const parsedContent = await parseSolicitationDocument(base44, doc);
+              
+              if (parsedContent) {
+                const requirements = extractRequirements(parsedContent, sectionType);
+                context.solicitationRequirements.push(...requirements);
+                
+                const relevantExcerpts = extractRelevantExcerpts(parsedContent, sectionType);
+                context.solicitationContent += `\n[${doc.file_name}]\n${relevantExcerpts}\n`;
+                
+                currentTokens += Math.ceil(relevantExcerpts.length / 4);
+              }
+              
+              context.sources.push({
+                type: 'solicitation',
+                name: doc.file_name,
+                document_type: doc.document_type,
+                weight: 1.0
+              });
+            }
+          }
         }
+      } catch (error) {
+        console.error('[AI Writer] Error retrieving supplementary context:', error);
       }
     }
 
