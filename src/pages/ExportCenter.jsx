@@ -202,6 +202,11 @@ export default function ExportCenter() {
           </TabsTrigger>
         </TabsList>
 
+        {/* Quick Export Tab */}
+        <TabsContent value="quick">
+          <QuickExportPanel organization={organization} />
+        </TabsContent>
+
         {/* Export Tab */}
         <TabsContent value="export">
           <div className="grid lg:grid-cols-3 gap-6">
