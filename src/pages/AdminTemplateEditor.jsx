@@ -215,6 +215,30 @@ export default function AdminTemplateEditor() {
     }
   });
 
+  // Force delete mutation (using backend function with service role)
+  const forceDeleteMutation = useMutation({
+    mutationFn: async (templateId) => {
+      const response = await base44.functions.invoke('forceDeleteTemplate', {
+        template_ids: [templateId]
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['system-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
+      setShowDeleteDialog(false);
+      setDeletingTemplate(null);
+      if (data.deleted_count > 0) {
+        alert('✅ Template force deleted successfully!');
+      } else {
+        alert('⚠️ Force delete completed but no records were removed.');
+      }
+    },
+    onError: (error) => {
+      alert(`Error force deleting template: ${error.message}`);
+    }
+  });
+
   // Handler functions
   const handleEdit = (template) => {
     setEditingTemplate({
@@ -300,6 +324,12 @@ export default function AdminTemplateEditor() {
   const confirmDelete = () => {
     if (deletingTemplate) {
       deleteTemplateMutation.mutate(deletingTemplate.id);
+    }
+  };
+
+  const confirmForceDelete = () => {
+    if (deletingTemplate) {
+      forceDeleteMutation.mutate(deletingTemplate.id);
     }
   };
 
@@ -768,6 +798,13 @@ export default function AdminTemplateEditor() {
               className="bg-red-600 hover:bg-red-700"
             >
               Delete System Template
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={confirmForceDelete}
+              className="bg-red-900 hover:bg-red-950"
+              disabled={forceDeleteMutation.isPending}
+            >
+              {forceDeleteMutation.isPending ? 'Force Deleting...' : 'Force Delete (Admin)'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
