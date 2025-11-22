@@ -562,14 +562,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     });
   };
 
-  const updateProposalMutation = useMutation({
-    mutationFn: async ({ proposalId, updates }) => {
-      return base44.entities.Proposal.update(proposalId, updates);
-    },
-    onSuccess: () => {
-    },
-  });
-
   const getUserRole = () => {
     if (!user || !organization) {
       console.log('[RBAC] No user or organization, defaulting to viewer');
