@@ -77,6 +77,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const navigate = useNavigate();
   const boardRef = useRef(null);
 
+  // ============================================================================
+  // ALL HOOKS MUST BE DECLARED HERE AT THE TOP - NO EXCEPTIONS
+  // This ensures consistent hook count across all render paths
+  // ============================================================================
+  
   // ALL STATE HOOKS FIRST
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,21 +108,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
 
-  // ALL EFFECTS AND QUERIES - MUST BE BEFORE CONDITIONAL RETURNS
-  // Sync external props to internal state
-  useEffect(() => {
-    if (showQuickFilters !== undefined) {
-      setShowFilters(showQuickFilters);
-    }
-  }, [showQuickFilters]);
-
-  useEffect(() => {
-    if (showHelp !== undefined) {
-      setShowHelpPanel(showHelp);
-    }
-  }, [showHelp]);
-
-  // Use propKanbanConfig if provided, otherwise fetch
+  // ALL QUERIES AND MUTATIONS
   const { data: fetchedKanbanConfig, isLoading: isLoadingConfig, error: configError } = useQuery({
     queryKey: ['kanban-config', organization?.id],
     queryFn: async () => {
@@ -136,6 +127,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     retryDelay: 1000,
     staleTime: 30000,
   });
+
+  const updateProposalMutation = useMutation({
+    mutationFn: async ({ proposalId, updates }) => {
+      return base44.entities.Proposal.update(proposalId, updates);
+    },
+    onSuccess: () => {
+    },
+  });
+
+  // ALL EFFECTS
+  useEffect(() => {
+    if (showQuickFilters !== undefined) {
+      setShowFilters(showQuickFilters);
+    }
+  }, [showQuickFilters]);
+
+  useEffect(() => {
+    if (showHelp !== undefined) {
+      setShowHelpPanel(showHelp);
+    }
+  }, [showHelp]);
 
   // Use provided config or fetched config
   const kanbanConfig = propKanbanConfig || fetchedKanbanConfig;
@@ -177,16 +189,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
   }, [kanbanConfig]);
 
-  // ALL MUTATIONS - MUST BE BEFORE CONDITIONAL RETURNS
-  const updateProposalMutation = useMutation({
-    mutationFn: async ({ proposalId, updates }) => {
-      return base44.entities.Proposal.update(proposalId, updates);
-    },
-    onSuccess: () => {
-    },
-  });
-
-  // ALL MEMOS - MUST BE BEFORE CONDITIONAL RETURNS
+  // ALL MEMOS
   const columns = useMemo(() => kanbanConfig?.columns || [], [kanbanConfig]);
   const effectiveCollapsedColumns = useMemo(() => kanbanConfig?.collapsed_column_ids || [], [kanbanConfig]);
 
@@ -1051,7 +1054,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = useMemo(() => Array.isArray(columns) ? columns : [], [columns]);
 
-  // **NEW: Lazy loading for columns** - MUST BE BEFORE CONDITIONAL RETURNS
   const proposalsByColumn = useMemo(() => {
     const byColumn = {};
     
@@ -1115,18 +1117,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return byColumn;
   }, [validColumns, filteredProposals, proposalColumnAssignments, columnSorts]);
 
-  // CRITICAL: Call useLazyLoadColumns BEFORE any conditional returns to ensure consistent hook count
+  // CRITICAL: useLazyLoadColumns must be called unconditionally
   const lazyLoadResult = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
-  // ALL HOOKS COMPLETE - Now define regular functions and values
+  // ============================================================================
+  // ALL HOOKS COMPLETE - Regular functions and conditional returns below
+  // ============================================================================
   
-  // Simple lookup function (not a hook)
   const getProposalsForColumn = (column) => {
     if (!column) return [];
     return proposalsByColumn[column.id] || [];
   };
-
-  // All conditional returns AFTER all hooks
   if (isLoadingConfig && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
