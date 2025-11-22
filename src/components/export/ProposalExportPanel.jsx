@@ -100,27 +100,38 @@ export default function ProposalExportPanel({
         return;
       }
 
-      // TODO: Replace with actual backend function call
-      // Placeholder for Phase 5 integration
-      toast.info('Export feature coming soon!', {
-        description: 'Backend function will be integrated in Phase 5'
+      // Call backend function
+      const result = await base44.functions.invoke('generateProposalDocument', {
+        proposalId: proposal.id,
+        sectionIds: selectedSectionIds,
+        format: selectedFormat,
+        templateId: selectedTemplate?.id || null,
+        options: {
+          includeCoverPage,
+          includeTableOfContents
+        }
       });
 
-      // Simulated result for now
-      const mockResult = {
-        file_name: `${proposal.proposal_name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.${selectedFormat}`,
-        file_size_bytes: 125000,
-        download_url: '#'
-      };
+      if (!result.data || !result.data.success) {
+        throw new Error(result.data?.error || 'Export failed');
+      }
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = result.data.download_url;
+      link.download = result.data.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
       const watermarkText = willHaveWatermark ? ' (DRAFT)' : '';
-      toast.success(`✅ ${mockResult.file_name} generated successfully!${watermarkText}`, {
-        description: `File size: ${(mockResult.file_size_bytes / 1024).toFixed(1)} KB`,
+      toast.success(`✅ ${result.data.file_name} generated successfully!${watermarkText}`, {
+        description: `File size: ${(result.data.file_size_bytes / 1024).toFixed(1)} KB`,
         duration: 5000
       });
 
       if (onExportComplete) {
-        onExportComplete(mockResult);
+        onExportComplete(result.data);
       }
 
     } catch (error) {
