@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, Clock, CheckCircle, Trash2, BarChart3, Shield, Layout } from "lucide-react";
+import { Download, FileText, Clock, CheckCircle, Trash2, BarChart3, Shield, Layout, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExportDialog from "../components/export/ExportDialog";
@@ -12,6 +12,8 @@ import BatchExportDialog from "../components/export/BatchExportDialog";
 import ClientDownloadInsights from "../components/export/ClientDownloadInsights";
 import ExportQualityChecker from "../components/export/ExportQualityChecker";
 import ExportTemplateManager from "../components/export/ExportTemplateManager";
+import ExportPresetManager from "../components/export/ExportPresetManager";
+import QuickExportPanel from "../components/export/QuickExportPanel";
 import moment from "moment";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { toast } from "sonner";
@@ -174,21 +176,29 @@ export default function ExportCenter() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="quick">
+            <Zap className="w-4 h-4 mr-2" />
+            Quick Export
+          </TabsTrigger>
           <TabsTrigger value="export">
             <Download className="w-4 h-4 mr-2" />
-            Export Proposals
+            All Exports
+          </TabsTrigger>
+          <TabsTrigger value="presets">
+            <Layout className="w-4 h-4 mr-2" />
+            Presets
           </TabsTrigger>
           <TabsTrigger value="templates">
-            <Layout className="w-4 h-4 mr-2" />
+            <FileText className="w-4 h-4 mr-2" />
             Templates
           </TabsTrigger>
           <TabsTrigger value="insights">
             <BarChart3 className="w-4 h-4 mr-2" />
-            Client Insights
+            Insights
           </TabsTrigger>
           <TabsTrigger value="quality">
             <Shield className="w-4 h-4 mr-2" />
-            Quality Check
+            Quality
           </TabsTrigger>
         </TabsList>
 
@@ -316,6 +326,11 @@ export default function ExportCenter() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        {/* Presets Tab */}
+        <TabsContent value="presets">
+          <ExportPresetManager organization={organization} />
         </TabsContent>
 
         {/* Templates Tab */}
