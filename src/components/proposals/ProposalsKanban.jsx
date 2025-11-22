@@ -1106,9 +1106,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  // **NEW: Lazy loading for columns** - MOVED BEFORE CONDITIONAL RETURNS
+  // **NEW: Lazy loading for columns** - MUST BE BEFORE CONDITIONAL RETURNS
   const proposalsByColumn = useMemo(() => {
     const byColumn = {};
+    
+    if (validColumns.length === 0) return {};
     
     validColumns.forEach(column => {
       byColumn[column.id] = getProposalsForColumn(column);
@@ -1125,6 +1127,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     getStats
   } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
+  // All conditional returns AFTER all hooks
   if (isLoadingConfig && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
