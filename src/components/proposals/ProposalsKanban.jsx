@@ -542,17 +542,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
   };
 
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFilterAgency("all");
-    setFilterAssignee("all");
-    setAdvancedFilteredProposals(null);
-  };
-
-  const handleAdvancedFilterChange = (filtered) => {
-    setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
-  };
-
   const handleColumnSortChange = (columnId, sortBy, direction) => {
     setColumnSorts(prev => {
       const current = prev[columnId];
