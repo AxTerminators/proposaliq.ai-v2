@@ -35,8 +35,13 @@ import {
   MinusCircle,
   FileStack,
   GitBranch,
+  GitCompare,
+  TrendingUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import SupplementaryDocTimeline from "../solicitation/SupplementaryDocTimeline";
+import VersionComparisonModal from "../solicitation/VersionComparisonModal";
+import AmendmentImpactAnalysis from "../solicitation/AmendmentImpactAnalysis";
 
 /**
  * ResourceSelectionSection - Search and select existing resources
@@ -68,6 +73,11 @@ export default function ResourceSelectionSection({
 
   // RAG retry state
   const [retryingRAG, setRetryingRAG] = useState({});
+
+  // Advanced views
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [showImpactAnalysis, setShowImpactAnalysis] = useState(false);
 
   /**
    * Fetch ProposalResource entities
@@ -502,6 +512,58 @@ export default function ResourceSelectionSection({
 
   return (
     <div className="space-y-6">
+      {/* Advanced Views Toggle */}
+      {solicitationDocs.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={showTimeline ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setShowTimeline(!showTimeline);
+              if (!showTimeline) {
+                setShowComparison(false);
+                setShowImpactAnalysis(false);
+              }
+            }}
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Timeline
+          </Button>
+          <Button
+            variant={showComparison ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setShowComparison(!showComparison);
+              if (!showComparison) {
+                setShowTimeline(false);
+                setShowImpactAnalysis(false);
+              }
+            }}
+          >
+            <GitCompare className="w-4 h-4 mr-2" />
+            Compare Versions
+          </Button>
+          <Button
+            variant={showImpactAnalysis ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setShowImpactAnalysis(!showImpactAnalysis);
+              if (!showImpactAnalysis) {
+                setShowTimeline(false);
+                setShowComparison(false);
+              }
+            }}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Impact Analysis
+          </Button>
+        </div>
+      )}
+
+      {/* Advanced Views */}
+      {showTimeline && <SupplementaryDocTimeline proposalId={proposalId} />}
+      {showImpactAnalysis && <AmendmentImpactAnalysis proposalId={proposalId} />}
+
       {/* Search Bar */}
       <div>
         <Label htmlFor="search" className="text-base font-semibold mb-2 block">
