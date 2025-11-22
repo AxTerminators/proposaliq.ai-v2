@@ -40,13 +40,30 @@ export default function ExportHistoryList({ proposal }) {
       const now = new Date();
 
       if (now > expiresAt) {
-        toast.error('Download link expired', {
-          description: 'Please generate a new export'
+        // Regenerate signed URL
+        toast.info('Generating new download link...');
+        
+        const result = await base44.functions.invoke('regenerateExportDownload', {
+          exportHistoryId: record.id
         });
+
+        if (!result.data || !result.data.success) {
+          throw new Error('Failed to regenerate download link');
+        }
+
+        // Trigger download with new URL
+        const link = document.createElement('a');
+        link.href = result.data.download_url;
+        link.download = result.data.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast.success('Download started');
         return;
       }
 
-      // Trigger download
+      // Trigger download with existing URL
       const link = document.createElement('a');
       link.href = record.download_url;
       link.download = record.file_name;
@@ -55,8 +72,6 @@ export default function ExportHistoryList({ proposal }) {
       document.body.removeChild(link);
 
       toast.success('Download started');
-
-      // TODO: Track download event in Phase 8 analytics
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download file', {
@@ -160,18 +175,11 @@ export default function ExportHistoryList({ proposal }) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleRedownload(record)}
-                      disabled={isExpired}
                       className="text-xs"
                     >
                       <Download className="w-3 h-3 mr-1" />
-                      {isExpired ? 'Link Expired' : 'Re-download'}
+                      {isExpired ? 'Regenerate & Download' : 'Re-download'}
                     </Button>
-
-                    {isExpired && (
-                      <span className="text-xs text-orange-600">
-                        Generate a new export above
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
