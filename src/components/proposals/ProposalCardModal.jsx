@@ -75,6 +75,7 @@ import { useChecklistModal } from "./modals/ChecklistIntegration";
 import SectionContentViewer from "../content/SectionContentViewer";
 import SmartReferenceSelector from "../content/SmartReferenceSelector";
 import ReviewTab from "./ReviewTab";
+import ProposalExportPanel from "../export/ProposalExportPanel";
 
 import {
   Select,
@@ -1736,25 +1737,19 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     </div>
                   </Alert>
 
-                  {/* Placeholder for Export Panel */}
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="text-center py-8">
-                        <Download className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                        <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                          Export Configuration
-                        </h3>
-                        <p className="text-sm text-slate-600 mb-4">
-                          Select format, sections, and options to export your proposal.
-                        </p>
-                        <Badge className={cn(
-                          willHaveWatermark ? "bg-orange-500" : "bg-green-500"
-                        )}>
-                          {willHaveWatermark ? "Will include DRAFT watermark" : "Final version - no watermark"}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Export Panel */}
+                  {user && organization && (
+                    <ProposalExportPanel
+                      proposal={proposal}
+                      willHaveWatermark={willHaveWatermark}
+                      user={user}
+                      organization={organization}
+                      onExportComplete={(result) => {
+                        // Future: Refresh export history
+                        queryClient.invalidateQueries(['export-history', proposal.id]);
+                      }}
+                    />
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
