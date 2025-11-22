@@ -424,7 +424,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const lazyLoadResult = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
-  // UPDATED: Check UserPreference instead of just localStorage
   useEffect(() => {
     if (!shouldCheckOnboarding) {
       return;
@@ -488,6 +487,17 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const getProposalsForColumn = (column) => {
     if (!column) return [];
     return proposalsByColumn[column.id] || [];
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterAgency("all");
+    setFilterAssignee("all");
+    setAdvancedFilteredProposals(null);
+  };
+
+  const handleAdvancedFilterChange = (filtered) => {
+    setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
   };
 
   const toggleColumnCollapse = async (columnId) => {
@@ -1064,17 +1074,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const handleCreateProposalWithType = (proposalType) => {
     setShowNewProposalDialog(false);
-  };
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setFilterAgency("all");
-    setFilterAssignee("all");
-    setAdvancedFilteredProposals(null);
-  };
-
-  const handleAdvancedFilterChange = (filtered) => {
-    setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
   };
 
   const handleToggleProposalSelection = (proposalId) => {
