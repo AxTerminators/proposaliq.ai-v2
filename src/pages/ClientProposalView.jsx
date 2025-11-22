@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +24,7 @@ import ProposalAnnotations from "../components/client/ProposalAnnotations";
 import VersionTimeline from "../components/client/VersionTimeline";
 import MeetingScheduler from "../components/client/MeetingScheduler";
 import FloatingFeedbackButton from "../components/client/FloatingFeedbackButton";
+import ClientProposalDownloadSection from "../components/client/ClientProposalDownloadSection";
 
 export default function ClientProposalView() {
   const [proposal, setProposal] = useState(null);
@@ -325,6 +325,10 @@ export default function ClientProposalView() {
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
+            <TabsTrigger value="download">
+              <Download className="w-4 h-4 mr-2" />
+              Download
+            </TabsTrigger>
             <TabsTrigger value="content">
               <FileText className="w-4 h-4 mr-2" />
               Content
@@ -346,6 +350,16 @@ export default function ClientProposalView() {
               Meetings
             </TabsTrigger>
           </TabsList>
+
+          {/* Download Tab */}
+          <TabsContent value="download">
+            <ClientProposalDownloadSection
+              proposal={proposal}
+              client={client}
+              currentMember={currentMember}
+              organization={organization}
+            />
+          </TabsContent>
 
           {/* Content Tab */}
           <TabsContent value="content">
