@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,12 +56,6 @@ export default function AdminPortal() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
-
-  const { data: sampleClients } = useQuery({
-    queryKey: ['admin-sample-clients'],
-    queryFn: () => base44.entities.Client.list('-created_date', 5),
-    initialData: []
-  });
 
   const { data: sampleProposals } = useQuery({
     queryKey: ['admin-sample-proposals'],
@@ -153,17 +146,12 @@ export default function AdminPortal() {
         description: "View client proposal interface as super admin",
         isSuperAdminOnly: true
       },
-      ...(sampleClients && sampleClients.length > 0 ? sampleClients.map(client => ({
-        name: `${client.client_name || 'Client'} - Portal Access`,
-        url: createPageUrl("ClientPortal") + `?token=${client.access_token}`,
-        description: `Access ${client.client_name}'s portal view (${client.contact_email})`
-      })) : []),
-      ...((!sampleClients || sampleClients.length === 0) ? [{
-        name: "ℹ️ How to access client portals",
+      {
+        name: "ℹ️ Client Portal Access",
         url: "#",
-        description: "Client portal links appear here when you have clients in the system. Go to Clients page to add clients, then return here to access their portals.",
+        description: "Client workspaces are now managed through the Organization entity. Use Client Workspaces page to manage client organizations.",
         isInfo: true
-      }] : [])
+      }
     ],
     "Client Feedback & Surveys": [
       {
