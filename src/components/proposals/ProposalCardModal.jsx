@@ -73,6 +73,7 @@ import DynamicModal from "./modals/DynamicModal";
 import { useChecklistModal } from "./modals/ChecklistIntegration";
 import SectionContentViewer from "../content/SectionContentViewer";
 import SmartReferenceSelector from "../content/SmartReferenceSelector";
+import ReviewTab from "./ReviewTab";
 
 import {
   Select,
@@ -1427,6 +1428,13 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                   Discussions
                 </TabsTrigger>
                 <TabsTrigger 
+                  value="review" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Review
+                </TabsTrigger>
+                <TabsTrigger 
                   value="files" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 py-3 px-4 flex items-center gap-2"
                 >
@@ -1643,6 +1651,10 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
                     organization={organization}
                   />
                 )}
+              </TabsContent>
+
+              <TabsContent value="review" className="mt-0 p-6">
+                {user && organization && <ReviewTab proposal={proposal} user={user} organization={organization} />}
               </TabsContent>
 
               <TabsContent value="files" className="mt-0 p-6">
