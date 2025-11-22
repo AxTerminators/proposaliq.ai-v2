@@ -71,6 +71,9 @@ export default function TemplateManager() {
     staleTime: 300000
   });
 
+  // Check if user is super-admin
+  const isSuperAdmin = user?.admin_role === 'super_admin';
+
   const { data: organization, isLoading: isLoadingOrg } = useQuery({
     queryKey: ['current-organization', user?.email],
     queryFn: async () => {
@@ -260,6 +263,32 @@ export default function TemplateManager() {
       setShowDeleteDialog(false);
       setDeletingTemplate(null);
       alert('✅ Template deleted successfully!');
+    },
+    onError: (error) => {
+      alert(`Error deleting template: ${error.message}`);
+    }
+  });
+
+  // Force delete mutation (super admin only)
+  const forceDeleteMutation = useMutation({
+    mutationFn: async (templateId) => {
+      const response = await base44.functions.invoke('forceDeleteTemplate', {
+        template_ids: [templateId]
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['workflow-templates'] });
+      setShowDeleteDialog(false);
+      setDeletingTemplate(null);
+      if (data.deleted_count > 0) {
+        alert('✅ Template force deleted successfully!');
+      } else {
+        alert('⚠️ Force delete completed but no records were removed.');
+      }
+    },
+    onError: (error) => {
+      alert(`Error force deleting template: ${error.message}`);
     }
   });
 
@@ -373,6 +402,12 @@ export default function TemplateManager() {
     }
   };
 
+  const confirmForceDelete = () => {
+    if (deletingTemplate) {
+      forceDeleteMutation.mutate(deletingTemplate.id);
+    }
+  };
+
   if (isLoadingOrg || isLoadingTemplates) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
@@ -468,8 +503,10 @@ export default function TemplateManager() {
                   template={template}
                   onDuplicate={() => handleDuplicate(template)}
                   onEditWorkflow={() => handleEditWorkflow(template)}
+                  onDelete={() => handleDelete(template)}
                   canEdit={false}
-                  canDelete={false}
+                  canDelete={isSuperAdmin}
+                  isSuperAdmin={isSuperAdmin}
                 />
               ))}
             </div>
@@ -506,6 +543,7 @@ export default function TemplateManager() {
                   onDelete={() => handleDelete(template)}
                   canEdit={true}
                   canDelete={true}
+                  isSuperAdmin={isSuperAdmin}
                 />
               ))}
             </div>
@@ -650,6 +688,15 @@ export default function TemplateManager() {
             >
               Delete Template
             </AlertDialogAction>
+            {isSuperAdmin && deletingTemplate?.template_type === 'system' && (
+              <AlertDialogAction
+                onClick={confirmForceDelete}
+                className="bg-red-900 hover:bg-red-950"
+                disabled={forceDeleteMutation.isPending}
+              >
+                {forceDeleteMutation.isPending ? 'Force Deleting...' : 'Force Delete (Admin)'}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -709,7 +756,7 @@ export default function TemplateManager() {
 }
 
 // Template Card Component
-function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete, canEdit, canDelete }) {
+function TemplateCard({ template, onEdit, onEditWorkflow, onDuplicate, onDelete, canEdit, canDelete, isSuperAdmin }) {
   const [showPreview, setShowPreview] = useState(false);
   
   const workflowConfig = useMemo(() => {
