@@ -1115,13 +1115,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return byColumn;
   }, [validColumns, filteredProposals, proposalColumnAssignments, columnSorts]);
 
-  const {
-    getVisibleProposals,
-    hasMore,
-    loadMore,
-    loadAll,
-    getStats
-  } = useLazyLoadColumns(proposalsByColumn, 10, 10);
+  // CRITICAL: Call useLazyLoadColumns BEFORE any conditional returns to ensure consistent hook count
+  const lazyLoadResult = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
   // ALL HOOKS COMPLETE - Now define regular functions and values
   
@@ -1370,8 +1365,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 >
                   {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);
-                    const columnProposals = getVisibleProposals(column.id);
-                    const stats = getStats(column.id);
+                    const columnProposals = lazyLoadResult.getVisibleProposals(column.id);
+                    const stats = lazyLoadResult.getStats(column.id);
 
                     return (
                       <Draggable
@@ -1433,9 +1428,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                     onToggleProposalSelection={handleToggleProposalSelection}
                                     totalCount={stats.total}
                                     visibleCount={stats.visible}
-                                    hasMore={hasMore(column.id)}
-                                    onLoadMore={() => loadMore(column.id)}
-                                    onLoadAll={() => loadAll(column.id)}
+                                    hasMore={lazyLoadResult.hasMore(column.id)}
+                                    onLoadMore={() => lazyLoadResult.loadMore(column.id)}
+                                    onLoadAll={() => lazyLoadResult.loadAll(column.id)}
                                     onColumnSortChange={handleColumnSortChange}
                                     onClearColumnSort={handleClearColumnSort}
                                     currentSort={columnSorts[column.id]}
