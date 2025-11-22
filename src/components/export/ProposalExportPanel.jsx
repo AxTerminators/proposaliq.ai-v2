@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import ExportHistoryList from "./ExportHistoryList";
 
 export default function ProposalExportPanel({
   proposal,
@@ -147,6 +148,17 @@ export default function ProposalExportPanel({
 
   return (
     <div className="space-y-6">
+      {/* Export History */}
+      <div>
+        <h3 className="text-base font-semibold mb-3">Recent Exports</h3>
+        <ExportHistoryList proposal={proposal} />
+      </div>
+
+      {/* Divider */}
+      <div className="border-t pt-6">
+        <h3 className="text-base font-semibold mb-4">Create New Export</h3>
+      </div>
+
       {/* Format Selection */}
       <div>
         <Label className="text-base font-semibold mb-3 block">Export Format</Label>
