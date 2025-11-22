@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import ExportHistoryList from "./ExportHistoryList";
+import ExportPreviewModal from "./ExportPreviewModal";
 
 export default function ProposalExportPanel({
   proposal,
@@ -41,6 +42,7 @@ export default function ProposalExportPanel({
   const [includeTableOfContents, setIncludeTableOfContents] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Fetch sections for this proposal
   const { data: sections = [], isLoading: sectionsLoading } = useQuery({
@@ -90,16 +92,19 @@ export default function ProposalExportPanel({
     setSelectedSectionIds([]);
   };
 
-  const handleExport = async () => {
+  const handleShowPreview = () => {
+    if (selectedSectionIds.length === 0) {
+      toast.error('Please select at least one section to export');
+      return;
+    }
+    setShowPreview(true);
+  };
+
+  const handleConfirmExport = async () => {
+    setShowPreview(false);
     setIsExporting(true);
 
     try {
-      // Validate selections
-      if (selectedSectionIds.length === 0) {
-        toast.error('Please select at least one section to export');
-        return;
-      }
-
       // Call backend function
       const result = await base44.functions.invoke('generateProposalDocument', {
         proposalId: proposal.id,
@@ -436,7 +441,7 @@ export default function ProposalExportPanel({
 
       {/* Export Button */}
       <Button
-        onClick={handleExport}
+        onClick={handleShowPreview}
         disabled={selectedSectionIds.length === 0 || isExporting}
         className={cn(
           "w-full h-12 text-base font-semibold",
@@ -461,6 +466,21 @@ export default function ProposalExportPanel({
           Please select at least one section to export
         </p>
       )}
+
+      {/* Preview Modal */}
+      <ExportPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={handleConfirmExport}
+        proposal={proposal}
+        selectedFormat={selectedFormat}
+        selectedSections={sections.filter(s => selectedSectionIds.includes(s.id))}
+        willHaveWatermark={willHaveWatermark}
+        options={{
+          includeCoverPage,
+          includeTableOfContents
+        }}
+      />
     </div>
   );
 }
