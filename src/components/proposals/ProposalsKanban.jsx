@@ -532,18 +532,29 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
   };
 
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterAgency("all");
+    setFilterAssignee("all");
+    setAdvancedFilteredProposals(null);
+  };
+
+  const handleAdvancedFilterChange = (filtered) => {
+    setAdvancedFilteredProposals(filtered.length === proposals.length ? null : filtered);
+  };
+
   const handleColumnSortChange = (columnId, sortBy, direction) => {
     setColumnSorts(prev => {
       const current = prev[columnId];
-      if (current?.by === sortBy && direction === undefined) { // If same sort by and no explicit direction, toggle
+      if (current?.by === sortBy && direction === undefined) {
         return {
           ...prev,
           [columnId]: { by: sortBy, direction: current.direction === 'asc' ? 'desc' : 'asc' }
         };
-      } else { // If new sort by, or explicit direction provided, use that
+      } else {
         return {
           ...prev,
-          [columnId]: { by: sortBy, direction: direction || 'asc' } // If direction is undefined, default to 'asc'
+          [columnId]: { by: sortBy, direction: direction || 'asc' }
         };
       }
     });
