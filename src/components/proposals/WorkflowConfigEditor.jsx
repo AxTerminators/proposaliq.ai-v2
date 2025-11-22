@@ -476,6 +476,27 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                       </div>
                                     )}
 
+                                    {item.type === 'proposal_action' && (
+                                      <div>
+                                        <Label className="text-xs">Target Tab</Label>
+                                        <Select
+                                          value={item.associated_action || ''}
+                                          onValueChange={(value) => updateChecklistItem(column.id, item.id, { associated_action: value })}
+                                        >
+                                          <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="Select tab" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="timeline">Timeline</SelectItem>
+                                            <SelectItem value="tasks">Tasks</SelectItem>
+                                            <SelectItem value="data-calls">Data Calls</SelectItem>
+                                            <SelectItem value="discussions">Discussions</SelectItem>
+                                            <SelectItem value="files">Files</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    )}
+
                                     {(item.type === 'ai_trigger' || item.type === 'navigate') && (
                                       <div>
                                         <Label className="text-xs">Associated Action</Label>
