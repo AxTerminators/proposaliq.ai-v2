@@ -34,7 +34,13 @@ const setCachedOrgId = (userEmail, orgId) => {
 
 export function OrganizationProvider({ children }) {
   const queryClient = useQueryClient();
-  const [orgId, setOrgId] = useState(null);
+  const [orgId, setOrgId] = useState(() => {
+    const user = queryClient.getQueryData(['current-user']);
+    if (user?.email) {
+      return getCachedOrgId(user.email);
+    }
+    return null;
+  });
 
   const { data: user, isLoading: isLoadingUser, error: userError } = useQuery({
     queryKey: ['current-user'],
@@ -46,12 +52,14 @@ export function OrganizationProvider({ children }) {
                              currentUser.client_accesses?.[0]?.organization_id ||
                              cachedOrgId;
       
-      setOrgId(determinedOrgId);
+      if (determinedOrgId && determinedOrgId !== orgId) {
+        setOrgId(determinedOrgId);
+      }
       
       return currentUser;
     },
-    staleTime: Infinity,
-    gcTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -59,7 +67,7 @@ export function OrganizationProvider({ children }) {
   });
 
   const { data: organization, isLoading: isLoadingOrg, error: orgError } = useQuery({
-    queryKey: ['current-organization', orgId, user?.email],
+    queryKey: ['current-organization', orgId],
     queryFn: async () => {
       if (!user?.email) return null;
       
@@ -85,9 +93,9 @@ export function OrganizationProvider({ children }) {
       
       return null;
     },
-    enabled: !!user?.email,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    enabled: !!user?.email && !!orgId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -108,8 +116,8 @@ export function OrganizationProvider({ children }) {
       return subs.length > 0 ? subs[0] : null;
     },
     enabled: !!organization?.id,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
