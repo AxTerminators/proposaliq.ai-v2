@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -24,12 +23,6 @@ import moment from "moment";
 
 export default function GlobalReportingModule() {
   const [timeRange, setTimeRange] = useState("30d");
-
-  const { data: clients } = useQuery({
-    queryKey: ['report-clients'],
-    queryFn: () => base44.entities.Client.list('-created_date'),
-    initialData: []
-  });
 
   const { data: proposals } = useQuery({
     queryKey: ['report-proposals'],
@@ -62,16 +55,16 @@ export default function GlobalReportingModule() {
   });
 
   // Calculate KPIs
-  const totalClients = clients.length;
-  const activeClients = clients.filter(c => c.relationship_status === 'active').length;
+  const totalClients = 0; // Legacy Client entity no longer in use
+  const activeClients = 0;
   const totalProposals = proposals.length;
   const sharedProposals = proposals.filter(p => p.client_view_enabled).length;
   const totalOrganizations = organizations.length;
   
   // Client Engagement Metrics
-  const avgEngagement = clients.reduce((sum, c) => sum + (c.engagement_score || 0), 0) / (clients.length || 1);
-  const portalUsers = clients.filter(c => c.last_portal_access).length;
-  const portalUsageRate = (portalUsers / totalClients) * 100;
+  const avgEngagement = 0;
+  const portalUsers = 0;
+  const portalUsageRate = 0;
   
   // Notification Metrics
   const totalNotifications = clientNotifications.length;
@@ -89,8 +82,8 @@ export default function GlobalReportingModule() {
   const clientAcceptanceRate = sharedProposals > 0 ? (clientAcceptedProposals / sharedProposals) * 100 : 0;
   
   // Response Time Analytics
-  const clientsWithResponseTime = clients.filter(c => c.avg_response_time_hours);
-  const avgResponseTime = clientsWithResponseTime.reduce((sum, c) => sum + c.avg_response_time_hours, 0) / (clientsWithResponseTime.length || 1);
+  const clientsWithResponseTime = [];
+  const avgResponseTime = 0;
   
   // Revenue Metrics
   const totalMRR = subscriptions.reduce((sum, sub) => sum + (sub.monthly_price || 0), 0);
@@ -99,12 +92,10 @@ export default function GlobalReportingModule() {
   // Engagement by Organization Type
   const consultancies = organizations.filter(o => o.organization_type === 'consultancy').length;
   const corporates = organizations.filter(o => o.organization_type === 'corporate').length;
+  const clientOrgs = organizations.filter(o => o.organization_type === 'client_organization').length;
   
   // Recent Activity
-  const recentClientActivity = clients
-    .filter(c => c.last_engagement_date)
-    .sort((a, b) => new Date(b.last_engagement_date) - new Date(a.last_engagement_date))
-    .slice(0, 10);
+  const recentClientActivity = [];
   
   // Notification Types Breakdown
   const notificationsByType = clientNotifications.reduce((acc, notif) => {
@@ -153,7 +144,7 @@ export default function GlobalReportingModule() {
             <p className="text-3xl font-bold text-slate-900">{totalOrganizations}</p>
             <p className="text-sm text-slate-600">Total Organizations</p>
             <p className="text-xs text-slate-500 mt-1">
-              {consultancies} Consultancies • {corporates} Corporate
+              {consultancies} Consultancies • {corporates} Corporate • {clientOrgs} Clients
             </p>
           </CardContent>
         </Card>
