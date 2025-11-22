@@ -186,10 +186,11 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     },
   });
 
-  // ALL COMPUTED VALUES AND CALLBACKS - AFTER HOOKS
-  const columns = kanbanConfig?.columns || [];
-  const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
+  // ALL MEMOS - MUST BE BEFORE CONDITIONAL RETURNS
+  const columns = useMemo(() => kanbanConfig?.columns || [], [kanbanConfig]);
+  const effectiveCollapsedColumns = useMemo(() => kanbanConfig?.collapsed_column_ids || [], [kanbanConfig]);
 
+  // ALL CALLBACKS - REGULAR FUNCTIONS (not hooks)
   const toggleColumnCollapse = async (columnId) => {
     if (!kanbanConfig) return;
 
@@ -488,66 +489,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     
     return assignments;
   }, [filteredProposals, columns, kanbanConfig]);
-
-  const getProposalsForColumn = useCallback((column) => {
-    if (!column) {
-      return [];
-    }
-
-    let columnProposals;
-
-    // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
-    if (column.is_terminal) {
-      columnProposals = filteredProposals.filter(proposal => {
-        if (!proposal) return false;
-        
-        // Match by status for terminal columns
-        const statusMatch = proposal.status === column.default_status_mapping;
-        
-        return statusMatch;
-      });
-    } 
-    // NON-TERMINAL COLUMNS: Filter by assignment
-    else {
-      columnProposals = filteredProposals.filter(proposal => {
-        if (!proposal) return false;
-        
-        const assignment = proposalColumnAssignments[proposal.id];
-        if (!assignment) return false;
-        
-        return assignment.columnId === column.id;
-      });
-    }
-
-    // Apply sorting
-    const sort = columnSorts[column.id];
-    if (sort) {
-      columnProposals = [...columnProposals].sort((a, b) => {
-        if (sort.by === 'name') {
-          return sort.direction === 'asc'
-            ? a.proposal_name?.localeCompare(b.proposal_name || '')
-            : b.proposal_name?.localeCompare(a.proposal_name || '');
-        } else if (sort.by === 'due_date') {
-          const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
-          const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
-          return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
-        } else if (sort.by === 'created_date') {
-          return sort.direction === 'asc'
-            ? new Date(a.created_date).getTime() - new Date(b.created_date).getTime()
-            : new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
-        }
-        return 0;
-      });
-    } else {
-      columnProposals = [...columnProposals].sort((a, b) => {
-        const orderA = a.manual_order ?? 999999;
-        const orderB = b.manual_order ?? 999999;
-        return orderA - orderB;
-      });
-    }
-
-    return columnProposals;
-  }, [filteredProposals, proposalColumnAssignments, columnSorts]);
 
   const handleColumnSortChange = (columnId, sortBy, direction) => {
     setColumnSorts(prev => {
@@ -1108,20 +1049,71 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return count;
   }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
-  const validColumns = Array.isArray(columns) ? columns : [];
+  const validColumns = useMemo(() => Array.isArray(columns) ? columns : [], [columns]);
 
   // **NEW: Lazy loading for columns** - MUST BE BEFORE CONDITIONAL RETURNS
   const proposalsByColumn = useMemo(() => {
     const byColumn = {};
     
-    if (validColumns.length === 0) return {};
+    if (!validColumns || validColumns.length === 0) return {};
     
     validColumns.forEach(column => {
-      byColumn[column.id] = getProposalsForColumn(column);
+      if (!column) return;
+
+      let columnProposals;
+
+      // TERMINAL COLUMNS: Show ALL proposals with matching status, regardless of type
+      if (column.is_terminal) {
+        columnProposals = filteredProposals.filter(proposal => {
+          if (!proposal) return false;
+          const statusMatch = proposal.status === column.default_status_mapping;
+          return statusMatch;
+        });
+      } 
+      // NON-TERMINAL COLUMNS: Filter by assignment
+      else {
+        columnProposals = filteredProposals.filter(proposal => {
+          if (!proposal) return false;
+          
+          const assignment = proposalColumnAssignments[proposal.id];
+          if (!assignment) return false;
+          
+          return assignment.columnId === column.id;
+        });
+      }
+
+      // Apply sorting
+      const sort = columnSorts[column.id];
+      if (sort) {
+        columnProposals = [...columnProposals].sort((a, b) => {
+          if (sort.by === 'name') {
+            return sort.direction === 'asc'
+              ? a.proposal_name?.localeCompare(b.proposal_name || '')
+              : b.proposal_name?.localeCompare(a.proposal_name || '');
+          } else if (sort.by === 'due_date') {
+            const dateA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31');
+            const dateB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31');
+            return sort.direction === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+          } else if (sort.by === 'created_date') {
+            return sort.direction === 'asc'
+              ? new Date(a.created_date).getTime() - new Date(b.created_date).getTime()
+              : new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+          }
+          return 0;
+        });
+      } else {
+        columnProposals = [...columnProposals].sort((a, b) => {
+          const orderA = a.manual_order ?? 999999;
+          const orderB = b.manual_order ?? 999999;
+          return orderA - orderB;
+        });
+      }
+
+      byColumn[column.id] = columnProposals;
     });
     
     return byColumn;
-  }, [validColumns, getProposalsForColumn]);
+  }, [validColumns, filteredProposals, proposalColumnAssignments, columnSorts]);
 
   const {
     getVisibleProposals,
@@ -1130,6 +1122,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     loadAll,
     getStats
   } = useLazyLoadColumns(proposalsByColumn, 10, 10);
+
+  // ALL CALLBACKS - AFTER HOOKS
+  const getProposalsForColumn = useCallback((column) => {
+    if (!column) return [];
+    return proposalsByColumn[column.id] || [];
+  }, [proposalsByColumn]);
 
   // All conditional returns AFTER all hooks
   if (isLoadingConfig && !propKanbanConfig) {
