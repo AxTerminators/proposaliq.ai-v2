@@ -4,13 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, Clock, CheckCircle, Trash2, BarChart3, Shield } from "lucide-react";
+import { Download, FileText, Clock, CheckCircle, Trash2, BarChart3, Shield, Layout } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExportDialog from "../components/export/ExportDialog";
 import BatchExportDialog from "../components/export/BatchExportDialog";
 import ClientDownloadInsights from "../components/export/ClientDownloadInsights";
 import ExportQualityChecker from "../components/export/ExportQualityChecker";
+import ExportTemplateManager from "../components/export/ExportTemplateManager";
 import moment from "moment";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { toast } from "sonner";
@@ -177,6 +178,10 @@ export default function ExportCenter() {
             <Download className="w-4 h-4 mr-2" />
             Export Proposals
           </TabsTrigger>
+          <TabsTrigger value="templates">
+            <Layout className="w-4 h-4 mr-2" />
+            Templates
+          </TabsTrigger>
           <TabsTrigger value="insights">
             <BarChart3 className="w-4 h-4 mr-2" />
             Client Insights
@@ -311,6 +316,11 @@ export default function ExportCenter() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        {/* Templates Tab */}
+        <TabsContent value="templates">
+          <ExportTemplateManager organization={organization} />
         </TabsContent>
 
         {/* Client Insights Tab */}
