@@ -1,14 +1,16 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, Clock, CheckCircle, Trash2 } from "lucide-react";
+import { Download, FileText, Clock, CheckCircle, Trash2, BarChart3, Shield } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExportDialog from "../components/export/ExportDialog";
 import BatchExportDialog from "../components/export/BatchExportDialog";
+import ClientDownloadInsights from "../components/export/ClientDownloadInsights";
+import ExportQualityChecker from "../components/export/ExportQualityChecker";
 import moment from "moment";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { toast } from "sonner";
@@ -49,6 +51,7 @@ export default function ExportCenter() {
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [showDeleteHistoryConfirm, setShowDeleteHistoryConfirm] = useState(false);
   const [historyToDelete, setHistoryToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState("export");
 
   useEffect(() => {
     const loadData = async () => {
@@ -160,7 +163,7 @@ export default function ExportCenter() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Export Center</h1>
-          <p className="text-slate-600">Export proposals in various formats</p>
+          <p className="text-slate-600">Export proposals and track client downloads</p>
         </div>
         <Button onClick={() => setShowBatchDialog(true)}>
           <Download className="w-5 h-5 mr-2" />
@@ -168,7 +171,25 @@ export default function ExportCenter() {
         </Button>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="export">
+            <Download className="w-4 h-4 mr-2" />
+            Export Proposals
+          </TabsTrigger>
+          <TabsTrigger value="insights">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Client Insights
+          </TabsTrigger>
+          <TabsTrigger value="quality">
+            <Shield className="w-4 h-4 mr-2" />
+            Quality Check
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Export Tab */}
+        <TabsContent value="export">
+          <div className="grid lg:grid-cols-3 gap-6">
         {/* Proposals to Export */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">Available Proposals</h2>
@@ -290,6 +311,63 @@ export default function ExportCenter() {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        {/* Client Insights Tab */}
+        <TabsContent value="insights">
+          <ClientDownloadInsights organization={organization} />
+        </TabsContent>
+
+        {/* Quality Check Tab */}
+        <TabsContent value="quality">
+          <div className="space-y-6">
+            <Card className="border-none shadow-lg">
+              <CardHeader>
+                <CardTitle>Select a Proposal to Check</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingProposals ? (
+                  <div className="space-y-3">
+                    {[1,2,3].map(i => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : proposals.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-600">No proposals available</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {proposals.map((proposal) => (
+                      <Button
+                        key={proposal.id}
+                        variant="outline"
+                        className="w-full justify-start h-auto py-3"
+                        onClick={() => setSelectedProposal(proposal)}
+                      >
+                        <div className="text-left flex-1">
+                          <p className="font-semibold text-slate-900">{proposal.proposal_name}</p>
+                          <p className="text-sm text-slate-600">
+                            {proposal.agency_name} • {proposal.solicitation_number}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="capitalize">
+                          {proposal.status}
+                        </Badge>
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {selectedProposal && (
+              <ExportQualityChecker proposalId={selectedProposal.id} />
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         isOpen={showDeleteHistoryConfirm}
