@@ -222,13 +222,18 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
   };
 
+  // Memoize to prevent recalculation triggering re-renders
+  const shouldCheckOnboarding = useMemo(() => {
+    return hasKanbanConfig && !isLoadingConfig && user && organization;
+  }, [hasKanbanConfig, isLoadingConfig, user, organization]);
+
   // UPDATED: Check UserPreference instead of just localStorage
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (!hasKanbanConfig || isLoadingConfig || !user || !organization) {
-        return;
-      }
+    if (!shouldCheckOnboarding) {
+      return;
+    }
 
+    const checkOnboardingStatus = async () => {
       try {
         // Check UserPreference first
         const prefs = await base44.entities.UserPreference.filter({
@@ -285,7 +290,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     };
 
     checkOnboardingStatus();
-  }, [hasKanbanConfig, isLoadingConfig, user, organization]);
+  }, [shouldCheckOnboarding, user, organization]);
 
   const uniqueAgencies = useMemo(() => {
     const agencies = proposals
