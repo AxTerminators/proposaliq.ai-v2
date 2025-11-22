@@ -77,6 +77,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const navigate = useNavigate();
   const boardRef = useRef(null);
 
+  // ALL STATE HOOKS FIRST
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
@@ -102,6 +103,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
 
+  // ALL EFFECTS AND QUERIES - MUST BE BEFORE CONDITIONAL RETURNS
   // Sync external props to internal state
   useEffect(() => {
     if (showQuickFilters !== undefined) {
@@ -175,9 +177,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return hasOldColumns && !hasNewColumns && kanbanConfig.columns.length > 1 && kanbanConfig.columns.length < 15;
   }, [kanbanConfig]);
 
-  const columns = kanbanConfig?.columns || [];
-  const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
-
+  // ALL MUTATIONS - MUST BE BEFORE CONDITIONAL RETURNS
   const updateProposalMutation = useMutation({
     mutationFn: async ({ proposalId, updates }) => {
       return base44.entities.Proposal.update(proposalId, updates);
@@ -185,6 +185,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     onSuccess: () => {
     },
   });
+
+  // ALL COMPUTED VALUES AND CALLBACKS - AFTER HOOKS
+  const columns = kanbanConfig?.columns || [];
+  const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
   const toggleColumnCollapse = async (columnId) => {
     if (!kanbanConfig) return;
