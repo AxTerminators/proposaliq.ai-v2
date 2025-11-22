@@ -39,9 +39,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import SupplementaryDocTimeline from "../solicitation/SupplementaryDocTimeline";
-import VersionComparisonModal from "../solicitation/VersionComparisonModal";
-import AmendmentImpactAnalysis from "../solicitation/AmendmentImpactAnalysis";
+import SupplementaryDocTimeline from "../../solicitation/SupplementaryDocTimeline";
+import VersionComparisonModal from "../../solicitation/VersionComparisonModal";
+import AmendmentImpactAnalysis from "../../solicitation/AmendmentImpactAnalysis";
 
 /**
  * ResourceSelectionSection - Search and select existing resources
