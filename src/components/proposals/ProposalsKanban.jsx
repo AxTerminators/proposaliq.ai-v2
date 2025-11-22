@@ -1123,11 +1123,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     getStats
   } = useLazyLoadColumns(proposalsByColumn, 10, 10);
 
-  // ALL CALLBACKS - AFTER HOOKS
-  const getProposalsForColumn = useCallback((column) => {
+  // ALL HOOKS COMPLETE - Now define regular functions and values
+  
+  // Simple lookup function (not a hook)
+  const getProposalsForColumn = (column) => {
     if (!column) return [];
     return proposalsByColumn[column.id] || [];
-  }, [proposalsByColumn]);
+  };
 
   // All conditional returns AFTER all hooks
   if (isLoadingConfig && !propKanbanConfig) {
