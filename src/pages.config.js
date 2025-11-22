@@ -71,7 +71,6 @@ import AITokenUsageDashboard from './pages/AITokenUsageDashboard';
 import RAGSystemHealth from './pages/RAGSystemHealth';
 import ProposalStrategyConfigPage from './pages/ProposalStrategyConfigPage';
 import AIAssistedWriterPage from './pages/AIAssistedWriterPage';
-import FirstTimeSetup from './pages/FirstTimeSetup';
 import __Layout from './Layout.jsx';
 
 
@@ -149,7 +148,6 @@ export const PAGES = {
     "RAGSystemHealth": RAGSystemHealth,
     "ProposalStrategyConfigPage": ProposalStrategyConfigPage,
     "AIAssistedWriterPage": AIAssistedWriterPage,
-    "FirstTimeSetup": FirstTimeSetup,
 }
 
 export const pagesConfig = {

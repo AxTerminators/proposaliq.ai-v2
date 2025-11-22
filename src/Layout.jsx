@@ -49,7 +49,6 @@ import GlobalSearch from "./components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import OrganizationSwitcher from "./components/layout/OrganizationSwitcher";
-import FirstTimeSetup from "./pages/FirstTimeSetup";
 import {
   Select,
   SelectContent,
@@ -127,7 +126,7 @@ function LayoutContent({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   
-  const { user, organization, subscription, refetch, isLoading } = useOrganization();
+  const { user, organization, subscription, refetch } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
@@ -269,25 +268,6 @@ function LayoutContent({ children, currentPageName }) {
 
   const userIsAdmin = user?.role === 'admin';
   const userIsSuperAdmin = user?.admin_role === 'super_admin';
-
-  // Show first-time setup if user is loaded but no organization
-  if (user && !isLoading && !organization) {
-    return <FirstTimeSetup user={user} onComplete={() => refetch()} />;
-  }
-
-  // Show loading while fetching user/org
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
-            <Building2 className="w-8 h-8 text-white" />
-          </div>
-          <p className="text-slate-600">Loading GovHQ.ai...</p>
-        </div>
-      </div>
-    );
-  }
 
   const navigationItems = React.useMemo(() => {
     if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");

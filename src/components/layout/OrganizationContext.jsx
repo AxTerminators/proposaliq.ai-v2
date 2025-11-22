@@ -77,11 +77,9 @@ export function OrganizationProvider({ children }) {
       if (determinedOrgId) {
         setOrgId(determinedOrgId);
         setCachedOrgId(user.email, determinedOrgId);
+        setIsInitialized(true);
+        console.log('[OrgContext] ✅ Organization initialized:', determinedOrgId);
       }
-      
-      // Always mark as initialized, even if no org found (for first-time users)
-      setIsInitialized(true);
-      console.log('[OrgContext] ✅ Initialization complete. OrgId:', determinedOrgId || 'None (first-time user)');
     }
   }, [user, isInitialized]);
 

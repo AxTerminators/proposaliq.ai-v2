@@ -55,16 +55,20 @@ export default function KanbanCard({
   const [editedName, setEditedName] = useState(proposal.proposal_name);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [currentReviewSectionIndex, setCurrentReviewSectionIndex] = useState(0);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // Fetch current user using React Query
-  const { data: currentUser } = useQuery({
-    queryKey: ['current-user-for-review'],
-    queryFn: async () => {
-      return base44.auth.me();
-    },
-    staleTime: 300000,
-    retry: 1
-  });
+  // Fetch current user
+  React.useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await base44.auth.me();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Error loading user:", error);
+      }
+    };
+    loadUser();
+  }, []);
 
   // Fetch subtasks for this proposal
   const { data: subtasks = [] } = useQuery({
