@@ -178,6 +178,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const columns = kanbanConfig?.columns || [];
   const effectiveCollapsedColumns = kanbanConfig?.collapsed_column_ids || [];
 
+  const updateProposalMutation = useMutation({
+    mutationFn: async ({ proposalId, updates }) => {
+      return base44.entities.Proposal.update(proposalId, updates);
+    },
+    onSuccess: () => {
+    },
+  });
+
   const toggleColumnCollapse = async (columnId) => {
     if (!kanbanConfig) return;
 
