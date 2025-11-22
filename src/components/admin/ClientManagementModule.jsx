@@ -43,12 +43,6 @@ export default function ClientManagementModule({ currentUser }) {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [detailTab, setDetailTab] = useState("overview");
 
-  const { data: clients } = useQuery({
-    queryKey: ['admin-all-clients'],
-    queryFn: () => base44.entities.Client.list('-created_date'),
-    initialData: []
-  });
-
   const { data: organizations } = useQuery({
     queryKey: ['admin-client-orgs'],
     queryFn: () => base44.entities.Organization.list('-created_date'),
@@ -61,81 +55,19 @@ export default function ClientManagementModule({ currentUser }) {
     initialData: []
   });
 
-  const { data: clientFiles } = useQuery({
-    queryKey: ['admin-client-files', selectedClient?.id],
-    queryFn: async () => {
-      if (!selectedClient?.id) return [];
-      return base44.entities.ClientUploadedFile.filter({ client_id: selectedClient.id });
-    },
-    initialData: [],
-    enabled: !!selectedClient?.id
-  });
-
-  const { data: clientNotifications } = useQuery({
-    queryKey: ['admin-client-notifications', selectedClient?.id],
-    queryFn: async () => {
-      if (!selectedClient?.id) return [];
-      return base44.entities.ClientNotification.filter({ client_id: selectedClient.id }, '-created_date', 50);
-    },
-    initialData: [],
-    enabled: !!selectedClient?.id
-  });
-
-  const regenerateTokenMutation = useMutation({
-    mutationFn: async (clientId) => {
-      const newToken = Math.random().toString(36).substring(2, 15) + 
-                      Math.random().toString(36).substring(2, 15);
-      
-      const tokenExpiresAt = new Date();
-      tokenExpiresAt.setMonth(tokenExpiresAt.getMonth() + 6);
-
-      return await base44.entities.Client.update(clientId, {
-        access_token: newToken,
-        token_expires_at: tokenExpiresAt.toISOString()
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-all-clients'] });
-      alert("Access token regenerated successfully");
-    },
-  });
-
-  const togglePortalAccessMutation = useMutation({
-    mutationFn: async ({ clientId, enabled }) => {
-      return await base44.entities.Client.update(clientId, {
-        portal_access_enabled: enabled
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-all-clients'] });
-    },
-  });
-
-  const deleteClientMutation = useMutation({
-    mutationFn: async (clientId) => {
-      return await base44.entities.Client.delete(clientId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-all-clients'] });
-      setShowDetailDialog(false);
-      alert("Client deleted successfully");
-    },
-  });
-
-  const filteredClients = clients.filter(client =>
-    client.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.contact_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.client_organization?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
+  // This module managed the legacy Client entity which has been replaced by the Organization entity
+  // Client workspaces are now managed through client_organization type Organizations
+  const clients = [];
+  
   const canManageClients = hasPermission(currentUser, "manage_users");
 
   // Stats
-  const totalClients = clients.length;
-  const activeClients = clients.filter(c => c.relationship_status === 'active').length;
-  const portalUsers = clients.filter(c => c.last_portal_access).length;
-  const avgEngagement = clients.reduce((sum, c) => sum + (c.engagement_score || 0), 0) / (clients.length || 1);
+  const totalClients = 0;
+  const activeClients = 0;
+  const portalUsers = 0;
+  const avgEngagement = 0;
+  
+  const filteredClients = [];
 
   const getClientProposals = (clientId) => {
     return proposals.filter(p => p.shared_with_client_ids?.includes(clientId));
@@ -151,10 +83,34 @@ export default function ClientManagementModule({ currentUser }) {
 
   return (
     <div className="space-y-6">
+      <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <AlertCircle className="w-5 h-5" />
+            Legacy Module - Deprecated
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-blue-900 mb-3">
+            The <strong>Client</strong> entity has been replaced by the <strong>Organization</strong> entity with <code>organization_type: "client_organization"</code>.
+          </p>
+          <p className="text-sm text-blue-800 mb-4">
+            Client workspaces are now managed through the <strong>Client Workspaces</strong> page. This module is deprecated and will be removed in a future update.
+          </p>
+          <Button
+            onClick={() => window.open('/ClientOrganizationManager', '_blank')}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Go to Client Workspaces
+          </Button>
+        </CardContent>
+      </Card>
+      
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Global Client Management</h2>
-          <p className="text-slate-600">Manage all clients across all organizations</p>
+          <h2 className="text-2xl font-bold text-slate-400">Global Client Management (Legacy)</h2>
+          <p className="text-slate-500">This module is no longer in use</p>
         </div>
       </div>
 
