@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -114,11 +113,6 @@ export default function DemoAccountManager({ currentUser }) {
       const partners = await base44.entities.TeamingPartner.filter({ organization_id: orgId });
       for (const p of partners) {
         await base44.entities.TeamingPartner.delete(p.id);
-      }
-      
-      const clients = await base44.entities.Client.filter({ organization_id: orgId });
-      for (const c of clients) {
-        await base44.entities.Client.delete(c.id);
       }
       
       const resources = await base44.entities.ProposalResource.filter({ organization_id: orgId });
