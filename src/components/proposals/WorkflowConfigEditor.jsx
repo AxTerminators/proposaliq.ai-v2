@@ -487,11 +487,11 @@ export default function WorkflowConfigEditor({ workflowConfig, onChange, organiz
                                             <SelectValue placeholder="Select tab" />
                                           </SelectTrigger>
                                           <SelectContent>
+                                            <SelectItem value="checklist">Stage Checklist</SelectItem>
                                             <SelectItem value="timeline">Timeline</SelectItem>
                                             <SelectItem value="tasks">Tasks</SelectItem>
                                             <SelectItem value="data-calls">Data Calls</SelectItem>
                                             <SelectItem value="discussions">Discussions</SelectItem>
-                                            <SelectItem value="review">Review</SelectItem>
                                             <SelectItem value="files">Files</SelectItem>
                                           </SelectContent>
                                         </Select>
