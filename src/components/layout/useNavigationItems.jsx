@@ -93,7 +93,8 @@ const ADMIN_ITEMS = [
   { title: "Feature Management", url: createPageUrl("FeatureManagement"), icon: Flag },
   { title: "Phase 5: Entities", url: createPageUrl("Phase5Consolidation"), icon: Database, superAdminOnly: true },
   { title: "Phase 6: Performance", url: createPageUrl("Phase6Performance"), icon: Zap, superAdminOnly: true },
-  { title: "Phase 7: Mobile", url: createPageUrl("Phase7MobileOptimization"), icon: Smartphone, superAdminOnly: true }
+  { title: "Phase 7: Mobile", url: createPageUrl("Phase7MobileOptimization"), icon: Smartphone, superAdminOnly: true },
+  { title: "Phase 8: Accessibility", url: createPageUrl("Phase8AccessibilityPolish"), icon: Shield, superAdminOnly: true }
 ];
 
 /**
