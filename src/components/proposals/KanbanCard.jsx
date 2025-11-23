@@ -237,9 +237,6 @@ const KanbanCard = React.memo(function KanbanCard({
       )}
       style={{
         ...provided.draggableProps.style,
-        // CRITICAL FIX: Force full opacity during drag - no transitions
-        opacity: snapshot.isDragging ? '1 !important' : '1',
-        visibility: 'visible',
         minHeight: '44px',
       }}
     >
