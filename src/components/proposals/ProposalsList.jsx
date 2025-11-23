@@ -4,19 +4,75 @@ import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Building2, Target, FileText, ChevronDown } from "lucide-react";
+import { Calendar, DollarSign, Building2, Target, FileText, ChevronDown, Loader2 } from "lucide-react";
+import moment from "moment";
 import { cn } from "@/lib/utils";
 import { useLazyLoadProposals } from "./useLazyLoadProposals";
-import { STATUS_CONFIG, TYPE_EMOJIS } from "./proposalConstants";
-import { formatCurrency, formatDueDate, groupProposals } from "./proposalUtils";
+
+const STATUS_CONFIG = {
+  evaluating: { label: 'Evaluating', color: 'bg-slate-100 text-slate-700' },
+  watch_list: { label: 'Watch List', color: 'bg-amber-100 text-amber-700' },
+  draft: { label: 'Draft', color: 'bg-blue-100 text-blue-700' },
+  in_progress: { label: 'In Progress', color: 'bg-purple-100 text-purple-700' },
+  submitted: { label: 'Submitted', color: 'bg-indigo-100 text-indigo-700' },
+  won: { label: 'Won', color: 'bg-green-100 text-green-700' },
+  lost: { label: 'Lost', color: 'bg-red-100 text-red-700' },
+  archived: { label: 'Archived', color: 'bg-gray-100 text-gray-700' },
+  client_review: { label: 'Client Review', color: 'bg-cyan-100 text-cyan-700' },
+};
+
+const TYPE_EMOJIS = {
+  RFP: '📄',
+  RFI: '📝',
+  SBIR: '💡',
+  GSA: '🏛️',
+  IDIQ: '📑',
+  STATE_LOCAL: '🏙️',
+  OTHER: '📊'
+};
+
+const formatCurrency = (value) => {
+  if (!value) return 'N/A';
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  }
+  return `$${value.toLocaleString()}`;
+};
 
 export default function ProposalsList({ proposals, organization, groupBy = 'none' }) {
   const navigate = useNavigate();
 
-  const groupedProposals = useMemo(() => 
-    groupProposals(proposals, groupBy), 
-    [proposals, groupBy]
-  );
+  const groupedProposals = useMemo(() => {
+    if (groupBy === 'proposal_type_category') {
+      const groups = {};
+      proposals.forEach(p => {
+        const type = p.proposal_type_category || 'OTHER';
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(p);
+      });
+      return groups;
+    } else if (groupBy === 'status') {
+      const groups = {};
+      proposals.forEach(p => {
+        const status = p.status || 'unknown';
+        if (!groups[status]) groups[status] = [];
+        groups[status].push(p);
+      });
+      return groups;
+    } else if (groupBy === 'agency') {
+      const groups = {};
+      proposals.forEach(p => {
+        const agency = p.agency_name || 'No Agency';
+        if (!groups[agency]) groups[agency] = [];
+        groups[agency].push(p);
+      });
+      return groups;
+    } else {
+      return { all: proposals };
+    }
+  }, [proposals, groupBy]);
 
   const handleProposalClick = (proposal) => {
     navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
@@ -95,7 +151,7 @@ export default function ProposalsList({ proposals, organization, groupBy = 'none
                               {proposal.due_date && (
                                 <div className="flex items-center gap-2 text-slate-600">
                                   <Calendar className="w-4 h-4" />
-                                  <span>{formatDueDate(proposal.due_date)}</span>
+                                  <span>{moment(proposal.due_date).format('MMM D, YYYY')}</span>
                                 </div>
                               )}
                               

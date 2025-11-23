@@ -49,7 +49,6 @@ import GlobalSearch from "./components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import OrganizationSwitcher from "./components/layout/OrganizationSwitcher";
-import { useNavigationItems, useAdminItems, useIsPageAccessible, WORKSPACE_ITEMS, TOOLS_ITEMS, SETTINGS_ITEMS } from "./components/layout/useNavigationItems";
 import {
   Select,
   SelectContent,
@@ -65,6 +64,64 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Workspace sub-menu items
+const WORKSPACE_ITEMS = [
+  { title: "Pipeline", url: createPageUrl("Pipeline"), icon: TrendingUp },
+  { title: "Board Management", url: createPageUrl("BoardManagement"), icon: Layers },
+  { title: "Content Library", url: createPageUrl("ContentLibrary"), icon: FolderOpen },
+  { title: "Resources", url: createPageUrl("Resources"), icon: Library },
+  { title: "Past Performance", url: createPageUrl("PastPerformance"), icon: Award },
+  { title: "Key Personnel", url: createPageUrl("KeyPersonnel"), icon: Users },
+  { title: "Teaming Partners", url: createPageUrl("TeamingPartners"), icon: Handshake },
+  { title: "Export Center", url: createPageUrl("ExportCenter"), icon: Download },
+  { title: "Analytics", url: createPageUrl("Analytics"), icon: BarChart3 },
+  { title: "Templates", url: createPageUrl("TemplateManager"), icon: FileText },
+  { title: "Best Practices", url: createPageUrl("BestPractices"), icon: BookOpen },
+  { title: "Search", url: createPageUrl("AdvancedSearch"), icon: Search },
+];
+
+// Tools sub-menu items
+const TOOLS_ITEMS = [
+  { title: "Calendar", url: createPageUrl("Calendar"), icon: Calendar },
+  { title: "Tasks", url: createPageUrl("Tasks"), icon: CheckSquare },
+  { title: "Discussions", url: createPageUrl("Discussions"), icon: MessageCircle },
+  { title: "AI Chat", url: createPageUrl("Chat"), icon: MessageSquare },
+  { title: "Cost Estimator", url: createPageUrl("CostEstimator"), icon: DollarSign },
+];
+
+// Settings sub-menu items
+const SETTINGS_ITEMS = [
+  { title: "Settings", url: createPageUrl("Settings"), icon: Settings },
+  { title: "Team", url: createPageUrl("Team"), icon: Users },
+  { title: "RAG Performance", url: createPageUrl("RAGPerformanceDashboard"), icon: BarChart3 },
+  { title: "RAG Status", url: createPageUrl("RAGEnhancementStatus"), icon: Award },
+  { title: "RAG System Health", url: createPageUrl("RAGSystemHealth"), icon: Activity },
+  { title: "AI Token Usage", url: createPageUrl("AITokenUsageDashboard"), icon: Activity },
+  { title: "Feedback", url: createPageUrl("Feedback"), icon: Bug },
+  { title: "System Verification", url: createPageUrl("SystemVerification"), icon: CheckSquare },
+  { title: "System Docs", url: createPageUrl("SystemDocumentation"), icon: BookOpen }
+];
+
+// All possible navigation items with their visibility rules
+const ALL_NAVIGATION_ITEMS = [
+  { title: "Dashboard", url: createPageUrl("Dashboard"), icon: LayoutDashboard, showFor: "all" },
+  { title: "Consultant Dashboard", url: createPageUrl("ConsultantDashboard"), icon: Briefcase, showFor: "consulting_firm" },
+  { title: "Proposal Builder", url: createPageUrl("ProposalBuilder"), icon: FileEdit, showFor: "all", adminOnly: true },
+  { title: "Opportunities", url: createPageUrl("OpportunityFinder"), icon: Globe, superAdminOnly: true, showFor: "all" },
+  { title: "Workspace", url: createPageUrl("Workspace"), icon: Briefcase, showFor: "all", hasSubMenu: true, subMenuItems: WORKSPACE_ITEMS },
+  { title: "Data Calls", url: createPageUrl("DataCalls"), icon: ClipboardList, showFor: "all" },
+  { title: "Tools", url: createPageUrl("Tools"), icon: Wrench, showFor: "all", hasSubMenu: true, subMenuItems: TOOLS_ITEMS },
+  { title: "Client Workspaces", url: createPageUrl("ClientOrganizationManager"), icon: Building2, showFor: "consulting_firm" },
+  { title: "Portfolio Dashboard", url: createPageUrl("ConsolidatedReporting"), icon: BarChart3, showFor: "consulting_firm" },
+  { title: "Settings", url: createPageUrl("Settings"), icon: Settings, showFor: "all", hasSubMenu: true, subMenuItems: SETTINGS_ITEMS },
+];
+
+const adminItems = [
+  { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
+  { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
+  { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit }
+];
+
 function LayoutContent({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -77,11 +134,6 @@ function LayoutContent({ children, currentPageName }) {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [demoViewMode, setDemoViewMode] = React.useState(null);
   const [showGlobalSearch, setShowGlobalSearch] = React.useState(false);
-
-  // Use extracted navigation logic hooks
-  const navigationItems = useNavigationItems(user, organization, demoViewMode);
-  const adminItems = useAdminItems(user);
-  const isCurrentPageAccessible = useIsPageAccessible(location.pathname, user, organization, demoViewMode);
 
   // Scroll to top on route change
   React.useEffect(() => {
@@ -133,15 +185,52 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [organization]);
 
-  // Redirect to Dashboard if current page is not accessible
+  // Redirect to Dashboard if current page is not accessible for the current organization
   React.useEffect(() => {
     if (!organization || !user) return;
 
-    if (!isCurrentPageAccessible) {
-      console.log('[Layout] ⚠️ Page not accessible, redirecting to Dashboard');
-      navigate(createPageUrl("Dashboard"));
+    const effectiveOrgType = organization.organization_type === 'demo'
+      ? demoViewMode
+      : organization.organization_type;
+
+    const isConsultant = effectiveOrgType === 'consultancy';
+    const isConsultingFirm = organization.organization_type === 'consulting_firm' ||
+                             (effectiveOrgType === 'consultancy');
+    const userIsAdmin = user?.role === 'admin';
+    const userIsSuperAdmin = user?.admin_role === 'super_admin';
+
+    // Combine all navigation items for easier checking
+    const allNavigableItems = [
+      ...ALL_NAVIGATION_ITEMS,
+      ...adminItems
+    ].flatMap(item => {
+      if (item.hasSubMenu && item.subMenuItems) {
+        return [item, ...item.subMenuItems];
+      }
+      return item;
+    });
+
+    const currentPageItem = allNavigableItems.find(item =>
+      location.pathname === item.url
+    );
+
+    if (currentPageItem) {
+      // Check if user has access to this page
+      const hasAccess =
+        (!currentPageItem.superAdminOnly || userIsSuperAdmin) &&
+        (!currentPageItem.adminOnly || userIsAdmin) &&
+        (currentPageItem.showFor === undefined || currentPageItem.showFor === "all" ||
+         (currentPageItem.showFor === "consultant" && isConsultant) ||
+         (currentPageItem.showFor === "corporate" && !isConsultant) ||
+         (currentPageItem.showFor === "consulting_firm" && isConsultingFirm)
+        );
+
+      if (!hasAccess) {
+        console.log('[Layout] ⚠️ Page not accessible for current user/organization settings, redirecting to Dashboard');
+        navigate(createPageUrl("Dashboard"));
+      }
     }
-  }, [organization, user, isCurrentPageAccessible, navigate]);
+  }, [organization, user, location.pathname, demoViewMode, navigate]);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -179,6 +268,27 @@ function LayoutContent({ children, currentPageName }) {
 
   const userIsAdmin = user?.role === 'admin';
   const userIsSuperAdmin = user?.admin_role === 'super_admin';
+
+  const navigationItems = React.useMemo(() => {
+    if (!organization) return ALL_NAVIGATION_ITEMS.filter(item => !item.showFor || item.showFor === "all");
+
+    const effectiveOrgType = organization.organization_type === 'demo'
+      ? demoViewMode
+      : organization.organization_type;
+
+    const isConsultant = effectiveOrgType === 'consultancy';
+    const isConsultingFirm = organization.organization_type === 'consulting_firm' ||
+                             (effectiveOrgType === 'consultancy');
+
+    return ALL_NAVIGATION_ITEMS.filter(item => {
+      if (item.superAdminOnly && !userIsSuperAdmin) return false;
+      if (item.adminOnly && !userIsAdmin) return false;
+      if (item.showFor === "consultant" && !isConsultant) return false;
+      if (item.showFor === "corporate" && isConsultant) return false;
+      if (item.showFor === "consulting_firm" && !isConsultingFirm) return false;
+      return true;
+    });
+  }, [organization, userIsSuperAdmin, userIsAdmin, demoViewMode]);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -417,15 +527,15 @@ function LayoutContent({ children, currentPageName }) {
               </nav>
             </div>
 
-            {adminItems.length > 0 && (
-                      <div className="mb-6">
-                        {!sidebarCollapsed && (
-                          <div className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
-                            Admin
-                          </div>
-                        )}
-                        <nav className="space-y-1">
-                          {adminItems.map((item) => (
+            {userIsAdmin && (
+              <div className="mb-6">
+                {!sidebarCollapsed && (
+                  <div className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
+                    Admin
+                  </div>
+                )}
+                <nav className="space-y-1">
+                  {adminItems.filter(item => !item.superAdminOnly || userIsSuperAdmin).map((item) => (
                     sidebarCollapsed ? (
                       <Tooltip key={item.title}>
                         <TooltipTrigger asChild>
@@ -686,13 +796,13 @@ function LayoutContent({ children, currentPageName }) {
               </nav>
             </div>
 
-            {adminItems.length > 0 && (
+            {userIsAdmin && (
               <div>
                 <h3 className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
                   Admin
                 </h3>
                 <nav className="space-y-1">
-                  {adminItems.map((item) => (
+                  {adminItems.filter(item => !item.superAdminOnly || userIsSuperAdmin).map((item) => (
                     <Link
                       key={item.title}
                       to={item.url}

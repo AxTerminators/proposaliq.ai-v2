@@ -15,7 +15,22 @@ export function useOrganization() {
   return useContext(OrganizationContext);
 }
 
-// REMOVED: localStorage caching - using active_organization_id as single source of truth
+const getCachedOrgId = (userEmail) => {
+  try {
+    const cached = localStorage.getItem(`org_id_${userEmail}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+};
+
+const setCachedOrgId = (userEmail, orgId) => {
+  try {
+    localStorage.setItem(`org_id_${userEmail}`, JSON.stringify(orgId));
+  } catch {
+    // Ignore storage errors
+  }
+};
 
 export function OrganizationProvider({ children }) {
   const queryClient = useQueryClient();
@@ -36,22 +51,32 @@ export function OrganizationProvider({ children }) {
     retry: 1,
   });
 
-  // Initialize orgId ONCE when user is loaded - SINGLE SOURCE OF TRUTH
+  // Initialize orgId ONCE when user is loaded
   useEffect(() => {
     if (user?.email && !isInitialized) {
       console.log('[OrgContext] Initializing organization for user:', user.email);
       
-      // SINGLE SOURCE OF TRUTH: Use active_organization_id (with fallback to legacy active_client_id)
-      let determinedOrgId = user.active_organization_id || user.active_client_id;
+      // Priority order (MOST RELIABLE FIRST):
+      // 1. User's active_client_id (explicitly set by user)
+      // 2. Cached org from localStorage (preserves last choice)
+      // 3. First client access (fallback)
+      const cachedOrgId = getCachedOrgId(user.email);
+      let determinedOrgId = null;
 
-      // Fallback only if no active org set: use first client access
-      if (!determinedOrgId && user.client_accesses?.[0]?.organization_id) {
+      if (user.active_client_id) {
+        determinedOrgId = user.active_client_id;
+        console.log('[OrgContext] Using active_client_id:', determinedOrgId);
+      } else if (cachedOrgId) {
+        determinedOrgId = cachedOrgId;
+        console.log('[OrgContext] Using cached org:', determinedOrgId);
+      } else if (user.client_accesses?.[0]?.organization_id) {
         determinedOrgId = user.client_accesses[0].organization_id;
-        console.log('[OrgContext] No active org set, using first client access:', determinedOrgId);
+        console.log('[OrgContext] Using first client access:', determinedOrgId);
       }
 
       if (determinedOrgId) {
         setOrgId(determinedOrgId);
+        setCachedOrgId(user.email, determinedOrgId);
         setIsInitialized(true);
         console.log('[OrgContext] ✅ Organization initialized:', determinedOrgId);
       }
