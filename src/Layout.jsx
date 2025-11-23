@@ -78,6 +78,11 @@ function LayoutContent({ children, currentPageName }) {
   const [demoViewMode, setDemoViewMode] = React.useState(null);
   const [showGlobalSearch, setShowGlobalSearch] = React.useState(false);
 
+  // Use extracted navigation logic hooks
+  const navigationItems = useNavigationItems(user, organization, demoViewMode);
+  const adminItems = useAdminItems(user);
+  const isCurrentPageAccessible = useIsPageAccessible(location.pathname, user, organization, demoViewMode);
+
   // Scroll to top on route change
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -174,11 +179,6 @@ function LayoutContent({ children, currentPageName }) {
 
   const userIsAdmin = user?.role === 'admin';
   const userIsSuperAdmin = user?.admin_role === 'super_admin';
-
-  // Use extracted navigation logic hook
-  const navigationItems = useNavigationItems(user, organization, demoViewMode);
-  const adminItems = useAdminItems(user);
-  const isCurrentPageAccessible = useIsPageAccessible(location.pathname, user, organization, demoViewMode);
 
   return (
     <TooltipProvider delayDuration={0}>
