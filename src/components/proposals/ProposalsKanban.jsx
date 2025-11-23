@@ -76,6 +76,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
+  const autoScrollIntervalRef = useRef(null);
 
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -790,9 +791,69 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
   };
 
+  // Mouse position-based auto-scroll during drag
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!dragInProgress || !boardRef.current) return;
+
+      const board = boardRef.current;
+      const threshold = 150; // pixels from edge to trigger scroll
+      const scrollSpeed = 3; // reduced from 10 for smoother scrolling
+      const viewportWidth = window.innerWidth;
+      const mouseX = e.clientX;
+
+      // Clear existing interval
+      if (autoScrollIntervalRef.current) {
+        clearInterval(autoScrollIntervalRef.current);
+        autoScrollIntervalRef.current = null;
+      }
+
+      // Scroll left when near left edge
+      if (mouseX < threshold && board.scrollLeft > 0) {
+        autoScrollIntervalRef.current = setInterval(() => {
+          if (board.scrollLeft > 0) {
+            board.scrollLeft -= scrollSpeed;
+          } else {
+            clearInterval(autoScrollIntervalRef.current);
+            autoScrollIntervalRef.current = null;
+          }
+        }, 16); // ~60fps
+      }
+      // Scroll right when near right edge
+      else if (mouseX > viewportWidth - threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
+        autoScrollIntervalRef.current = setInterval(() => {
+          if (board.scrollLeft < board.scrollWidth - board.clientWidth) {
+            board.scrollLeft += scrollSpeed;
+          } else {
+            clearInterval(autoScrollIntervalRef.current);
+            autoScrollIntervalRef.current = null;
+          }
+        }, 16); // ~60fps
+      }
+    };
+
+    if (dragInProgress) {
+      window.addEventListener('mousemove', handleMouseMove);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (autoScrollIntervalRef.current) {
+        clearInterval(autoScrollIntervalRef.current);
+        autoScrollIntervalRef.current = null;
+      }
+    };
+  }, [dragInProgress]);
+
   const onDragEnd = async (result) => {
     setDragOverColumnId(null);
     setDragInProgress(false);
+    
+    // Clear auto-scroll interval
+    if (autoScrollIntervalRef.current) {
+      clearInterval(autoScrollIntervalRef.current);
+      autoScrollIntervalRef.current = null;
+    }
 
     if (!result.destination) return;
 
