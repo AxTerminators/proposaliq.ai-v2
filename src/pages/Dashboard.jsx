@@ -56,7 +56,8 @@ export default function Dashboard() {
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 60000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // PERFORMANCE FIX: Removed 2-second delay, optimized to run in parallel
@@ -81,7 +82,8 @@ export default function Dashboard() {
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 60000,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    cacheTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Calculate stats when proposals change
