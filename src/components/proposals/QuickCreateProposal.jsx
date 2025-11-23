@@ -412,10 +412,6 @@ export default function QuickCreateProposal({
   const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
 
 
-  if (!organization) {
-    return null;
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -430,6 +426,13 @@ export default function QuickCreateProposal({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {!organization ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading organization...</p>
+            </div>
+          ) : (
+            <>
           {/* Proposal Name Input with Validation */}
           <div className="space-y-2">
             <Label htmlFor="proposal_name" className="text-base font-semibold">
@@ -655,6 +658,8 @@ export default function QuickCreateProposal({
               )}
             </Button>
           </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

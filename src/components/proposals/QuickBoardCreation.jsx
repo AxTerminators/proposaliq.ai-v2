@@ -49,39 +49,58 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const [nameError, setNameError] = useState("");
   const [isValidatingName, setIsValidatingName] = useState(false);
 
-  // Fetch available templates
-  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
-    queryKey: ['workflow-templates-quick-create'],
-    queryFn: async () => {
-      const systemTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
-        template_type: 'system',
-        is_active: true
-      }, '-created_date');
-      
-      const orgTemplates = organization?.id 
-        ? await base44.entities.ProposalWorkflowTemplate.filter({
-            organization_id: organization.id,
-            is_active: true
-          }, '-created_date')
-        : [];
-      
-      // CRITICAL: Filter out null/undefined records AND ensure required fields exist
-      return [...systemTemplates, ...orgTemplates].filter(t => 
-        t && 
-        t.id && 
-        t.template_name && 
-        typeof t === 'object'
-      );
+  // Simplified: Use hardcoded templates
+  const templates = [
+    { 
+      id: 'rfp', 
+      proposal_type_category: 'RFP', 
+      board_type: 'rfp', 
+      template_name: 'RFP', 
+      description: 'Request for Proposal - comprehensive workflow', 
+      icon_emoji: '📋', 
+      estimated_duration_days: 45,
+      workflow_config: { columns: [] }
     },
-    enabled: isOpen && !!organization?.id,
-  });
+    { 
+      id: 'rfp_15', 
+      proposal_type_category: 'RFP_15_COLUMN', 
+      board_type: 'rfp_15_column', 
+      template_name: 'RFP (15-Column)', 
+      description: 'Extended RFP workflow with 15 phases', 
+      icon_emoji: '🎯', 
+      estimated_duration_days: 60,
+      workflow_config: { columns: [] }
+    },
+    { 
+      id: 'rfi', 
+      proposal_type_category: 'RFI', 
+      board_type: 'rfi', 
+      template_name: 'RFI', 
+      description: 'Request for Information - simplified process', 
+      icon_emoji: '📝', 
+      estimated_duration_days: 20,
+      workflow_config: { columns: [] }
+    },
+    { 
+      id: 'sbir', 
+      proposal_type_category: 'SBIR', 
+      board_type: 'sbir', 
+      template_name: 'SBIR', 
+      description: 'Small Business Innovation Research', 
+      icon_emoji: '🔬', 
+      estimated_duration_days: 90,
+      workflow_config: { columns: [] }
+    },
+  ];
+  
+  const isLoadingTemplates = false;
 
   // Real-time board name validation
   const handleBoardNameChange = async (value) => {
     setBoardName(value);
     setNameError("");
 
-    if (!value.trim()) {
+    if (!value.trim() || !organization?.id) {
       return;
     }
 
@@ -243,7 +262,12 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
           </DialogDescription>
         </DialogHeader>
 
-        {step === 1 && (
+        {!organization ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading organization...</p>
+          </div>
+        ) : step === 1 && (
           <div className="space-y-6 py-4">
             {isLoadingTemplates ? (
               <div className="text-center py-12">
