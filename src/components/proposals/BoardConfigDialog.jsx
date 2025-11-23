@@ -256,8 +256,11 @@ const COLOR_OPTIONS = [
 ];
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
-  const organizationId = organization?.id;
   const queryClient = useQueryClient();
+
+  if (!organization) {
+    return null;
+  }
 
   const defaultColumns = [
     { id: 'evaluating', label: 'Evaluating', color: 'from-slate-400 to-slate-600', type: 'default_status', default_status_mapping: 'evaluating', order: 0 },

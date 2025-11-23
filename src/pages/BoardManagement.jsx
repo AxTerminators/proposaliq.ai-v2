@@ -511,7 +511,7 @@ export default function BoardManagement() {
       </Dialog>
 
       {/* Config Dialog */}
-      {showConfigDialog && editingBoard && (
+      {showConfigDialog && editingBoard && organization && (
         <BoardConfigDialog
           isOpen={showConfigDialog}
           onClose={() => {
