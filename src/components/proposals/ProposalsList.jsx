@@ -62,10 +62,10 @@ export default function ProposalsList({ proposals, organization, groupBy = 'none
                   return (
                     <Card
                       key={proposal.id}
-                      className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
+                      className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300 min-h-[80px]"
                       onClick={() => handleProposalClick(proposal)}
                     >
-                      <CardContent className="p-5">
+                      <CardContent className="p-5 min-h-[56px]">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-3 mb-3">
@@ -139,7 +139,7 @@ export default function ProposalsList({ proposals, organization, groupBy = 'none
                   <Button
                     variant="outline"
                     onClick={loadMore}
-                    className="w-full border-2 border-dashed hover:bg-blue-50 hover:border-blue-400 h-12"
+                    className="w-full border-2 border-dashed hover:bg-blue-50 hover:border-blue-400 min-h-[44px]"
                   >
                     <ChevronDown className="w-5 h-5 mr-2" />
                     Load More Proposals ({totalCount - visibleCount} remaining)
@@ -148,7 +148,7 @@ export default function ProposalsList({ proposals, organization, groupBy = 'none
                     variant="ghost"
                     size="sm"
                     onClick={loadAll}
-                    className="w-full text-slate-600 hover:text-blue-600"
+                    className="w-full text-slate-600 hover:text-blue-600 min-h-[44px]"
                   >
                     Show All {totalCount} Proposals
                   </Button>
