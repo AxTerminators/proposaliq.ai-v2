@@ -4,24 +4,53 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, Trash2, Play, Database, Activity } from "lucide-react";
+import { CheckCircle2, AlertCircle, Trash2, Play, Activity, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import LoadingState from "@/components/ui/LoadingState";
 
 export default function StatusMigrationManager() {
   const queryClient = useQueryClient();
   const [testResults, setTestResults] = useState(null);
 
-  const { data: user } = useQuery({
+  const { data: user, isLoading: isLoadingUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: () => base44.auth.me()
   });
 
-  const { data: organization } = useQuery({
-    queryKey: ['organization'],
+  const { data: organization, isLoading: isLoadingOrg } = useQuery({
+    queryKey: ['organization', user?.email],
     queryFn: async () => {
-      const orgs = await base44.entities.Organization.filter({ created_by: user.email }, '-created_date', 1);
-      return orgs[0];
+      if (!user) return null;
+
+      // Try active_client_id first
+      let orgId = user.active_client_id;
+
+      // Fallback to client_accesses
+      if (!orgId && user.client_accesses?.length > 0) {
+        orgId = user.client_accesses[0].organization_id;
+      }
+
+      // Fallback to created_by filter
+      if (!orgId) {
+        const orgs = await base44.entities.Organization.filter(
+          { created_by: user.email },
+          '-created_date',
+          1
+        );
+        if (orgs.length > 0) {
+          orgId = orgs[0].id;
+        }
+      }
+
+      if (orgId) {
+        const orgs = await base44.entities.Organization.filter({ id: orgId });
+        if (orgs.length > 0) {
+          return orgs[0];
+        }
+      }
+
+      return null;
     },
     enabled: !!user
   });
@@ -46,6 +75,9 @@ export default function StatusMigrationManager() {
     onSuccess: (data) => {
       toast.success('Migration completed!');
       queryClient.invalidateQueries(['proposals']);
+    },
+    onError: (error) => {
+      toast.error('Migration failed: ' + error.message);
     }
   });
 
@@ -54,6 +86,9 @@ export default function StatusMigrationManager() {
     onSuccess: () => {
       toast.success('Old board deleted!');
       queryClient.invalidateQueries(['boards']);
+    },
+    onError: (error) => {
+      toast.error('Delete failed: ' + error.message);
     }
   });
 
@@ -87,6 +122,24 @@ export default function StatusMigrationManager() {
   const oldMasterBoards = boards.filter(b => 
     b.is_master_board && !b.columns?.some(col => col.status_mapping?.includes('Qualifying'))
   );
+
+  if (isLoadingUser || isLoadingOrg) {
+    return <LoadingState message="Loading migration manager..." />;
+  }
+
+  if (!organization) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <Card>
+          <CardContent className="p-12 text-center">
+            <AlertCircle className="w-16 h-16 text-amber-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">No Organization Found</h2>
+            <p className="text-slate-600">Please set up your organization first.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -135,9 +188,9 @@ export default function StatusMigrationManager() {
           <CardDescription>Update all proposal statuses to new values</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className="border-blue-200 bg-blue-50">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-900">
               This will update all existing proposals from old status values (evaluating, draft, etc.) to new values (Qualifying, Drafting, etc.)
             </AlertDescription>
           </Alert>
@@ -146,7 +199,17 @@ export default function StatusMigrationManager() {
             disabled={migrateMutation.isPending}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            {migrateMutation.isPending ? 'Migrating...' : 'Run Migration'}
+            {migrateMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Migrating...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Run Migration
+              </>
+            )}
           </Button>
           {migrateMutation.isSuccess && migrateMutation.data && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
@@ -157,6 +220,14 @@ export default function StatusMigrationManager() {
                 <p>Skipped: {migrateMutation.data.summary?.skipped_count}</p>
               </div>
             </div>
+          )}
+          {migrateMutation.isError && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-900">
+                Migration failed: {migrateMutation.error?.message}
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
@@ -176,6 +247,7 @@ export default function StatusMigrationManager() {
             variant="outline"
             className="border-purple-300"
           >
+            <Activity className="w-4 h-4 mr-2" />
             Run Verification Tests
           </Button>
 
