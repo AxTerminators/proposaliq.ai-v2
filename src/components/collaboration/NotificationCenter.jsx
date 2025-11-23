@@ -126,12 +126,12 @@ export default function NotificationCenter({ user }) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="end">
+      <PopoverContent className="w-96 p-0" align="end" role="region" aria-label="Notifications panel">
         <div className="border-b p-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">Notifications</h3>
             {unreadCount > 0 && (
-              <Badge variant="secondary">{unreadCount} new</Badge>
+              <Badge variant="secondary" aria-live="polite">{unreadCount} new</Badge>
             )}
           </div>
           {unreadCount > 0 && (
@@ -148,7 +148,7 @@ export default function NotificationCenter({ user }) {
         </div>
         
         {isLoading ? (
-          <div className="p-8 text-center">
+          <div className="p-8 text-center" role="status" aria-live="polite" aria-busy="true">
             <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mx-auto mb-3"></div>
             <p className="text-sm text-slate-600">Loading notifications...</p>
           </div>
@@ -162,16 +162,20 @@ export default function NotificationCenter({ user }) {
           <div
             ref={containerRef}
             className="max-h-[400px] overflow-y-auto"
+            role="list"
+            aria-label="Notification list"
           >
-            <div className="divide-y">
+            <div className="divide-y" role="presentation">
               {visibleNotifications.map((notification) => (
-                <div
+                <button
                   key={notification.id}
                   className={cn(
-                    "p-4 hover:bg-slate-50 transition-colors cursor-pointer min-h-[56px]",
+                    "w-full p-4 hover:bg-slate-50 transition-colors min-h-[56px] text-left",
                     !notification.is_read && "bg-blue-50"
                   )}
                   onClick={() => handleNotificationClick(notification)}
+                  role="listitem"
+                  aria-label={`${notification.is_read ? 'Read' : 'Unread'} notification: ${notification.title}`}
                 >
                   <div className="flex items-start gap-3">
                     <Bell className={cn(
@@ -196,16 +200,16 @@ export default function NotificationCenter({ user }) {
                       <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-2" />
                     )}
                   </div>
-                </div>
+                </button>
               ))}
 
               {/* NEW: Infinite Scroll Loading */}
               {hasMore && (
-                <div ref={loadingRef} className="p-4">
+                <div ref={loadingRef} className="p-4" role="status" aria-live="polite" aria-busy={isLoadingMore}>
                   {isLoadingMore ? (
                     <div className="flex items-center justify-center gap-2 text-slate-500">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Loading...</span>
+                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                      <span className="text-sm">Loading more notifications...</span>
                     </div>
                   ) : (
                     <Button

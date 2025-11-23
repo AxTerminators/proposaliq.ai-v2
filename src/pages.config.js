@@ -69,6 +69,7 @@ import Phase10LaunchPrep from './pages/Phase10LaunchPrep';
 import ImplementationRoadmap from './pages/ImplementationRoadmap';
 import FormAccessibilityDemo from './pages/FormAccessibilityDemo';
 import Sprint9Performance from './pages/Sprint9Performance';
+import Sprint11Accessibility from './pages/Sprint11Accessibility';
 import __Layout from './Layout.jsx';
 
 
@@ -144,6 +145,7 @@ export const PAGES = {
     "ImplementationRoadmap": ImplementationRoadmap,
     "FormAccessibilityDemo": FormAccessibilityDemo,
     "Sprint9Performance": Sprint9Performance,
+    "Sprint11Accessibility": Sprint11Accessibility,
 }
 
 export const pagesConfig = {

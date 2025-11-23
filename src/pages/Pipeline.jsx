@@ -900,13 +900,13 @@ export default function Pipeline() {
 
   if (proposalsError) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6">
+      <main className="flex items-center justify-center min-h-screen p-6" role="main" aria-labelledby="error-title">
         <Card className="max-w-2xl border-none shadow-xl">
-          <CardContent className="p-12 text-center">
+          <CardContent className="p-12 text-center" role="alert" aria-live="assertive">
             <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-red-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
+            <h2 id="error-title" className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
               {proposalsError?.message || "An error occurred"}
             </p>
@@ -921,15 +921,15 @@ export default function Pipeline() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (isLoadingUser || isLoadingOrg) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6">
+      <main className="flex items-center justify-center min-h-screen p-6" role="main">
         <Card className="max-w-2xl border-none shadow-xl">
-          <CardContent className="p-12 text-center">
+          <CardContent className="p-12 text-center" role="status" aria-live="polite" aria-busy="true">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
               <LayoutGrid className="w-10 h-10 text-white" />
             </div>
@@ -943,19 +943,19 @@ export default function Pipeline() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (!organization && !isLoadingOrg) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6">
+      <main className="flex items-center justify-center min-h-screen p-6" role="main" aria-labelledby="no-org-title">
         <Card className="max-w-2xl border-none shadow-xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Building2 className="w-10 h-10 text-amber-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">No Organization Found</h2>
+            <h2 id="no-org-title" className="text-2xl font-bold text-slate-900 mb-3">No Organization Found</h2>
             <p className="text-lg text-slate-600 mb-6">
               You need to set up your organization before accessing the pipeline.
             </p>
@@ -970,19 +970,19 @@ export default function Pipeline() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6">
+      <main className="flex items-center justify-center min-h-screen p-6" role="main" aria-labelledby="setup-title">
         <Card className="max-w-2xl border-none shadow-xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Layers className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-3xl font-bold text-slate-900 mb-3">Setup Your Proposal Board</h2>
+            <h2 id="setup-title" className="text-3xl font-bold text-slate-900 mb-3">Setup Your Proposal Board</h2>
             <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
               Get started by creating your master board to view and manage all proposals in one place.
             </p>
@@ -1005,7 +1005,7 @@ export default function Pipeline() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
@@ -1013,7 +1013,7 @@ export default function Pipeline() {
   const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
-    <div className="flex flex-col h-full">
+    <main className="flex flex-col h-full" role="main" aria-label="Pipeline management">
       <AutomationExecutor
         organization={organization}
         proposals={proposals}
@@ -1148,7 +1148,7 @@ export default function Pipeline() {
 
       <div className="flex-1 min-h-0">
         {isLoadingProposals || isLoadingBoards ? (
-          <div className="flex items-center justify-center h-full p-6">
+          <div className="flex items-center justify-center h-full p-6" role="status" aria-live="polite" aria-busy="true">
             <Card className="max-w-md border-none shadow-xl">
               <CardContent className="p-8 text-center">
                 <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
@@ -1515,6 +1515,6 @@ export default function Pipeline() {
         onClose={() => setShowSampleDataGuard(false)}
         onProceed={proceedToProposalBuilder}
       />
-    </div>
+    </main>
   );
 }
