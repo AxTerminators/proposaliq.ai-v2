@@ -475,7 +475,7 @@ export default function Pipeline() {
     };
   }, [effectiveProposals, proposals]);
 
-  const { data: automationRules = [], refetch: refetchRules } = useQuery({
+  const { data: automationRules = [] } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
