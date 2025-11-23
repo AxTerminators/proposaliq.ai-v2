@@ -76,6 +76,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
+  const autoScrollIntervalRef = useRef(null);
 
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
