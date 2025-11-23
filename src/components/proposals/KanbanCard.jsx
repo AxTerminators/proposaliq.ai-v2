@@ -16,12 +16,9 @@ import {
   Calendar,
   DollarSign,
   Users,
-  CheckCircle2,
   AlertCircle,
-  TrendingUp,
   Clock,
   Target,
-  Check,
   Building2,
   MoreVertical,
   Copy,
@@ -35,6 +32,16 @@ import {
 } from "lucide-react";
 import moment from "moment";
 import { toast } from "sonner";
+import { PRIORITY_CONFIG } from "./proposalConstants";
+import { 
+  formatCurrency, 
+  calculateDaysUntilDue, 
+  isProposalOverdue, 
+  isProposalUrgent,
+  calculatePriorityLevel,
+  calculateCompletionPercentage,
+  getProgressBarColor
+} from "./proposalUtils";
 
 export default function KanbanCard({ 
   proposal, 
@@ -100,47 +107,34 @@ export default function KanbanCard({
   // Shared clients display - simplified to avoid entity query issues
   const sharedClients = [];
 
-  // Calculate completion
-  const completedSubtasks = subtasks.filter(t => t.status === 'completed').length;
-  const completionPercentage = subtasks.length > 0 
-    ? Math.round((completedSubtasks / subtasks.length) * 100)
-    : 0;
+  // Calculate completion using utility
+  const completionPercentage = useMemo(() => 
+    calculateCompletionPercentage(subtasks), [subtasks]
+  );
 
   // Check for action required
   const isActionRequired = proposal.action_required || false;
 
-  // Format contract value
-  const formattedValue = useMemo(() => {
-    if (!proposal.contract_value) return null;
-    const value = proposal.contract_value;
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`;
-    }
-    return `$${value.toLocaleString()}`;
-  }, [proposal.contract_value]);
+  // Format contract value using utility
+  const formattedValue = useMemo(() => 
+    formatCurrency(proposal.contract_value), 
+    [proposal.contract_value]
+  );
 
-  // Calculate days until due
-  const daysUntilDue = useMemo(() => {
-    if (!proposal.due_date) return null;
-    const today = moment();
-    const due = moment(proposal.due_date);
-    const days = due.diff(today, 'days');
-    return days;
-  }, [proposal.due_date]);
+  // Calculate days until due using utility
+  const daysUntilDue = useMemo(() => 
+    calculateDaysUntilDue(proposal.due_date), 
+    [proposal.due_date]
+  );
 
-  const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
-  const isUrgent = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7;
+  const isOverdue = isProposalOverdue(proposal.due_date);
+  const isUrgent = isProposalUrgent(proposal.due_date);
 
-  // Determine priority level based on urgency and value
-  const priorityLevel = useMemo(() => {
-    if (isOverdue) return 'critical';
-    if (isUrgent) return 'high';
-    if (proposal.contract_value >= 5000000) return 'high';
-    if (proposal.contract_value >= 1000000) return 'medium';
-    return 'normal';
-  }, [isOverdue, isUrgent, proposal.contract_value]);
+  // Determine priority level using utility
+  const priorityLevel = useMemo(() => 
+    calculatePriorityLevel(proposal.due_date, proposal.contract_value),
+    [proposal.due_date, proposal.contract_value]
+  );
 
   // Toggle blocked status mutation
   const toggleBlockedMutation = useMutation({
@@ -212,13 +206,10 @@ export default function KanbanCard({
     }
   };
 
-  // Border color based on priority
+  // Border color based on priority using constants
   const getBorderColor = () => {
     if (proposal.is_blocked) return 'border-red-500';
-    if (priorityLevel === 'critical') return 'border-red-400';
-    if (priorityLevel === 'high') return 'border-orange-400';
-    if (priorityLevel === 'medium') return 'border-yellow-400';
-    return 'border-slate-200';
+    return PRIORITY_CONFIG[priorityLevel]?.borderColor || 'border-slate-200';
   };
 
   return (
@@ -349,16 +340,10 @@ export default function KanbanCard({
 
       {/* Metadata Badges & Priority Indicator */}
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {priorityLevel === 'critical' && (
-          <Badge className="bg-red-500 text-white text-xs">
+        {(priorityLevel === 'critical' || priorityLevel === 'high') && (
+          <Badge className={cn(PRIORITY_CONFIG[priorityLevel].color, "text-xs")}>
             <Flag className="w-3 h-3 mr-1" />
-            Critical
-          </Badge>
-        )}
-        {priorityLevel === 'high' && (
-          <Badge className="bg-orange-500 text-white text-xs">
-            <Flag className="w-3 h-3 mr-1" />
-            High Priority
+            {PRIORITY_CONFIG[priorityLevel].label}
           </Badge>
         )}
         {proposal.is_blocked && (
@@ -454,10 +439,7 @@ export default function KanbanCard({
               <div
                 className={cn(
                   "h-2 rounded-full transition-all duration-500",
-                  completionPercentage === 100 ? 'bg-green-500' :
-                  completionPercentage >= 75 ? 'bg-blue-500' :
-                  completionPercentage >= 50 ? 'bg-yellow-500' :
-                  'bg-orange-500'
+                  getProgressBarColor(completionPercentage)
                 )}
                 style={{ width: `${completionPercentage}%` }}
               />
