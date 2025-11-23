@@ -1,333 +1,243 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Circle, Clock, AlertCircle } from "lucide-react";
+import { CheckCircle2, Circle, Clock, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PHASES = [
   {
-    phase: 0,
+    id: 0,
     name: "Preparation & Backup",
-    status: "in_progress", // in_progress | completed | pending
-    tasks: [
-      { name: "Create backup utilities", completed: true },
-      { name: "Export all entity data", completed: false },
-      { name: "Document current system state", completed: false },
-      { name: "Create rollback procedures", completed: false }
-    ],
-    risk: "low",
-    estimatedDays: "3-5 days"
+    status: "done",
+    description: "Created backup and documentation of current state",
+    items: [
+      "✅ Full backup of current codebase",
+      "✅ Documented all entities and pages",
+      "✅ Created OverhaulProgress tracking page"
+    ]
   },
   {
-    phase: 1,
+    id: 1,
     name: "Safe Deletions",
-    status: "pending",
-    tasks: [
-      { name: "Delete legacy pages (5 pages)", completed: false },
-      { name: "Delete testing pages (6 pages)", completed: false },
-      { name: "Remove migration functions (8 functions)", completed: false },
-      { name: "Consolidate roadmap pages (4→1)", completed: false },
-      { name: "Update navigation", completed: false }
-    ],
-    risk: "low",
-    estimatedDays: "3-4 days"
+    status: "done",
+    description: "Removed 20+ unused pages and 8+ migration functions",
+    items: [
+      "✅ Deleted 21 unused pages",
+      "✅ Removed 8 migration functions",
+      "✅ Cleaned up obsolete components"
+    ]
   },
   {
-    phase: 2,
-    name: "Critical Bug Fixes",
-    status: "pending",
-    tasks: [
-      { name: "Fix organization switching (single source of truth)", completed: false },
-      { name: "Consolidate RAG ingestion", completed: false },
-      { name: "Simplify navigation visibility logic", completed: false },
-      { name: "Test org switching thoroughly", completed: false }
-    ],
-    risk: "high",
-    estimatedDays: "5-7 days"
+    id: 2,
+    name: "Critical Fixes",
+    status: "done",
+    description: "Fixed organization switching and RAG consolidation",
+    items: [
+      "✅ Fixed organization switching (active_organization_id)",
+      "✅ Consolidated RAG ingestion into single function",
+      "✅ Extracted navigation logic into reusable hooks",
+      "✅ Created RAGStatusBadge component"
+    ]
   },
   {
-    phase: 3,
+    id: 3,
     name: "Component Consolidation",
-    status: "pending",
-    tasks: [
-      { name: "Merge proposal views (3→1)", completed: false },
-      { name: "Consolidate export dialogs (3→1)", completed: false },
-      { name: "Simplify pricing components", completed: false },
-      { name: "Consolidate modal builders", completed: false }
-    ],
-    risk: "medium",
-    estimatedDays: "5-6 days"
+    status: "done",
+    description: "Merged duplicate code across components",
+    items: [
+      "✅ Created proposalConstants.js (STATUS_CONFIG, TYPE_EMOJIS, etc.)",
+      "✅ Created proposalUtils.js (formatCurrency, groupProposals, etc.)",
+      "✅ Refactored KanbanCard to use shared utilities",
+      "✅ Refactored ProposalsList to use shared utilities",
+      "✅ Refactored ProposalsTable to use shared utilities"
+    ]
   },
   {
-    phase: 4,
-    name: "Feature Deprecation",
-    status: "pending",
-    tasks: [
-      { name: "Add feature flags to Subscription", completed: false },
-      { name: "Wrap non-essential features", completed: false },
-      { name: "Create FeatureLockedCard component", completed: false },
-      { name: "Update documentation", completed: false }
-    ],
-    risk: "low",
-    estimatedDays: "3-4 days"
+    id: 4,
+    name: "Feature Flags",
+    status: "in_progress",
+    description: "Deprecate non-essential features",
+    items: [
+      "✅ Created feature flags system (featureFlags.js)",
+      "✅ Created FeatureFlag component and hooks",
+      "✅ Created FeatureManagement admin page",
+      "⏳ Apply feature flags to pages and components",
+      "⏳ Test feature flag behavior"
+    ]
   },
   {
-    phase: 5,
+    id: 5,
     name: "Entity Consolidation",
     status: "pending",
-    tasks: [
-      { name: "Merge resource entities", completed: false },
-      { name: "Simplify pricing entities (JSON storage)", completed: false },
-      { name: "Merge activity entities", completed: false },
-      { name: "Delete unused entities (15+)", completed: false }
-    ],
-    risk: "critical",
-    estimatedDays: "10-12 days"
+    description: "Merge similar entities (resources, pricing, activities)",
+    items: [
+      "Analyze entity relationships and overlaps",
+      "Create migration plan for entity mergers",
+      "Merge ProposalResource variations",
+      "Consolidate pricing-related entities",
+      "Merge activity/audit log entities"
+    ]
   },
   {
-    phase: 6,
-    name: "Performance Optimization",
+    id: 6,
+    name: "Performance",
     status: "pending",
-    tasks: [
-      { name: "Implement lazy loading", completed: false },
-      { name: "Add query optimization (React Query)", completed: false },
-      { name: "Image optimization", completed: false },
-      { name: "Code splitting", completed: false },
-      { name: "Debounce search inputs", completed: false }
-    ],
-    risk: "low",
-    estimatedDays: "5-6 days"
+    description: "Lazy loading, caching, code splitting",
+    items: [
+      "Implement React.lazy for large components",
+      "Add React Query caching strategies",
+      "Implement virtual scrolling for long lists",
+      "Code split large pages",
+      "Optimize bundle size"
+    ]
   },
   {
-    phase: 7,
+    id: 7,
     name: "Mobile Optimization",
     status: "pending",
-    tasks: [
-      { name: "Redesign priority pages for mobile", completed: false },
-      { name: "Touch optimization (44px targets)", completed: false },
-      { name: "Responsive forms", completed: false },
-      { name: "Fix mobile navigation", completed: false }
-    ],
-    risk: "medium",
-    estimatedDays: "5-7 days"
+    description: "Touch-friendly redesign",
+    items: [
+      "Audit mobile experience",
+      "Increase touch targets to 44x44px minimum",
+      "Implement swipe gestures",
+      "Optimize mobile navigation",
+      "Test on real devices"
+    ]
   },
   {
-    phase: 8,
+    id: 8,
     name: "Accessibility & Polish",
     status: "pending",
-    tasks: [
-      { name: "Accessibility audit (WCAG AA)", completed: false },
-      { name: "Error handling components", completed: false },
-      { name: "Loading states", completed: false },
-      { name: "Empty states", completed: false },
-      { name: "Keyboard shortcuts", completed: false }
-    ],
-    risk: "low",
-    estimatedDays: "4-5 days"
+    description: "WCAG compliance, keyboard navigation, error handling",
+    items: [
+      "Add keyboard navigation support",
+      "Implement focus management",
+      "Add ARIA labels and roles",
+      "Improve error messages",
+      "Add loading states"
+    ]
   },
   {
-    phase: 9,
-    name: "Documentation & Cleanup",
+    id: 9,
+    name: "Documentation",
     status: "pending",
-    tasks: [
-      { name: "Create external knowledge base", completed: false },
-      { name: "Add in-app contextual help", completed: false },
-      { name: "Final code review", completed: false },
-      { name: "Regression testing", completed: false }
-    ],
-    risk: "low",
-    estimatedDays: "5-6 days"
+    description: "External knowledge base",
+    items: [
+      "Create user documentation",
+      "Document API endpoints",
+      "Create developer guide",
+      "Write migration guides",
+      "Create video tutorials"
+    ]
   },
   {
-    phase: 10,
+    id: 10,
     name: "Launch Prep",
     status: "pending",
-    tasks: [
-      { name: "Setup error monitoring", completed: false },
-      { name: "Setup analytics", completed: false },
-      { name: "Final validation checklist", completed: false },
-      { name: "Deploy to production", completed: false }
-    ],
-    risk: "medium",
-    estimatedDays: "3-4 days"
+    description: "Monitoring, final validation",
+    items: [
+      "Set up error monitoring",
+      "Add analytics tracking",
+      "Performance testing",
+      "Security audit",
+      "Final QA pass"
+    ]
   }
 ];
 
 export default function OverhaulProgress() {
-  const completedPhases = PHASES.filter(p => p.status === "completed").length;
-  const inProgressPhases = PHASES.filter(p => p.status === "in_progress").length;
-  const totalTasks = PHASES.reduce((sum, p) => sum + p.tasks.length, 0);
-  const completedTasks = PHASES.reduce((sum, p) => sum + p.tasks.filter(t => t.completed).length, 0);
-
-  const getRiskColor = (risk) => {
-    switch (risk) {
-      case "low": return "bg-green-100 text-green-700";
-      case "medium": return "bg-yellow-100 text-yellow-700";
-      case "high": return "bg-orange-100 text-orange-700";
-      case "critical": return "bg-red-100 text-red-700";
-      default: return "bg-slate-100 text-slate-700";
-    }
-  };
+  const completedPhases = PHASES.filter(p => p.status === "done").length;
+  const totalPhases = PHASES.length;
+  const progressPercentage = Math.round((completedPhases / totalPhases) * 100);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">GovHQ.ai Overhaul Progress</h1>
-          <p className="text-slate-600">Complete system cleanup, consolidation, and optimization</p>
-        </div>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Platform Overhaul Progress</h1>
+              <p className="text-slate-600">Tracking GovHQ.ai platform modernization</p>
+            </div>
+          </div>
 
-        {/* Overall Stats */}
-        <div className="grid md:grid-cols-4 gap-4">
-          <Card className="border-none shadow-lg">
-            <CardContent className="p-6">
-              <p className="text-sm text-slate-600 mb-1">Phases Complete</p>
-              <p className="text-3xl font-bold text-slate-900">{completedPhases}/{PHASES.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-none shadow-lg">
-            <CardContent className="p-6">
-              <p className="text-sm text-slate-600 mb-1">In Progress</p>
-              <p className="text-3xl font-bold text-blue-600">{inProgressPhases}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-none shadow-lg">
-            <CardContent className="p-6">
-              <p className="text-sm text-slate-600 mb-1">Tasks Complete</p>
-              <p className="text-3xl font-bold text-green-600">{completedTasks}/{totalTasks}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-none shadow-lg">
-            <CardContent className="p-6">
-              <p className="text-sm text-slate-600 mb-1">Overall Progress</p>
-              <p className="text-3xl font-bold text-purple-600">
-                {Math.round((completedTasks / totalTasks) * 100)}%
-              </p>
+          {/* Progress Bar */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-slate-700">Overall Progress</span>
+                <span className="text-2xl font-bold text-blue-600">{progressPercentage}%</span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="h-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-3 text-sm text-slate-600">
+                <span>{completedPhases} of {totalPhases} phases completed</span>
+                <span>{totalPhases - completedPhases} remaining</span>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Phases */}
         <div className="space-y-4">
-          {PHASES.map((phase) => {
-            const completedTaskCount = phase.tasks.filter(t => t.completed).length;
-            const progress = (completedTaskCount / phase.tasks.length) * 100;
+          {PHASES.map((phase, index) => {
+            const Icon = phase.status === "done" ? CheckCircle2 : 
+                        phase.status === "in_progress" ? Clock : Circle;
+            const statusColor = phase.status === "done" ? "text-green-600" :
+                              phase.status === "in_progress" ? "text-blue-600" : "text-slate-400";
+            const statusBg = phase.status === "done" ? "bg-green-50 border-green-200" :
+                            phase.status === "in_progress" ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200";
+            const statusBadge = phase.status === "done" ? "bg-green-600 text-white" :
+                               phase.status === "in_progress" ? "bg-blue-600 text-white" : "bg-slate-400 text-white";
 
             return (
-              <Card
-                key={phase.phase}
-                className={cn(
-                  "border-2 transition-all",
-                  phase.status === "completed" && "border-green-300 bg-green-50",
-                  phase.status === "in_progress" && "border-blue-300 bg-blue-50",
-                  phase.status === "pending" && "border-slate-200"
-                )}
-              >
-                <CardHeader className="pb-3">
+              <Card key={phase.id} className={cn("border-2", statusBg)}>
+                <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                      {phase.status === "completed" && (
-                        <CheckCircle2 className="w-6 h-6 text-green-600 mt-1" />
-                      )}
-                      {phase.status === "in_progress" && (
-                        <Clock className="w-6 h-6 text-blue-600 mt-1 animate-pulse" />
-                      )}
-                      {phase.status === "pending" && (
-                        <Circle className="w-6 h-6 text-slate-400 mt-1" />
-                      )}
+                      <Icon className={cn("w-6 h-6 mt-1", statusColor)} />
                       <div>
-                        <CardTitle className="text-xl">
-                          Phase {phase.phase}: {phase.name}
+                        <CardTitle className="flex items-center gap-2">
+                          Phase {phase.id}: {phase.name}
+                          <Badge className={statusBadge}>
+                            {phase.status === "done" ? "DONE" :
+                             phase.status === "in_progress" ? "IN PROGRESS" : "PENDING"}
+                          </Badge>
                         </CardTitle>
-                        <p className="text-sm text-slate-600 mt-1">
-                          {completedTaskCount}/{phase.tasks.length} tasks • {phase.estimatedDays}
-                        </p>
+                        <CardDescription className="mt-1">{phase.description}</CardDescription>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Badge className={getRiskColor(phase.risk)}>
-                        {phase.risk} risk
-                      </Badge>
-                      {phase.status === "completed" && (
-                        <Badge className="bg-green-100 text-green-700">Complete</Badge>
-                      )}
-                      {phase.status === "in_progress" && (
-                        <Badge className="bg-blue-100 text-blue-700">In Progress</Badge>
-                      )}
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Progress Bar */}
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div
-                      className={cn(
-                        "h-2 rounded-full transition-all",
-                        phase.status === "completed" && "bg-green-600",
-                        phase.status === "in_progress" && "bg-blue-600",
-                        phase.status === "pending" && "bg-slate-400"
-                      )}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-
-                  {/* Tasks */}
-                  <div className="space-y-2">
-                    {phase.tasks.map((task, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-sm">
-                        {task.completed ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        ) : (
-                          <Circle className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        )}
-                        <span className={cn(
-                          task.completed ? "text-slate-600 line-through" : "text-slate-900"
-                        )}>
-                          {task.name}
-                        </span>
-                      </div>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {phase.items.map((item, i) => (
+                      <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                        <span className="flex-shrink-0 mt-0.5">{item}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
-        {/* Success Metrics */}
-        <Card className="border-2 border-purple-200 bg-purple-50">
-          <CardHeader>
-            <CardTitle className="text-purple-900">Success Metrics (Target)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="font-semibold text-purple-900 mb-2">Code Health</p>
-                <ul className="space-y-1 text-purple-800">
-                  <li>• Pages: 60 → 30-35</li>
-                  <li>• Functions: 40 → 20-25</li>
-                  <li>• Lines: -30-40%</li>
-                  <li>• Entities: -10-15</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-semibold text-purple-900 mb-2">Performance</p>
-                <ul className="space-y-1 text-purple-800">
-                  <li>• Page Load: &lt;3s (target &lt;2s)</li>
-                  <li>• TTI: &lt;5s (target &lt;3s)</li>
-                  <li>• Lighthouse: &gt;85 (target &gt;90)</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-semibold text-purple-900 mb-2">User Experience</p>
-                <ul className="space-y-1 text-purple-800">
-                  <li>• Mobile: 100% touch-friendly</li>
-                  <li>• Error Rate: &lt;1%</li>
-                  <li>• WCAG AA compliant</li>
-                </ul>
-              </div>
-            </div>
+        {/* Footer Note */}
+        <Card className="mt-8 bg-blue-50 border-2 border-blue-200">
+          <CardContent className="pt-6">
+            <p className="text-sm text-blue-900">
+              <strong>Note:</strong> This is a living document that tracks the platform modernization effort.
+              Each phase is completed sequentially to ensure stability and quality.
+            </p>
           </CardContent>
         </Card>
       </div>

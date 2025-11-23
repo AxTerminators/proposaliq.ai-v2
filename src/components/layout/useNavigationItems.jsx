@@ -28,7 +28,8 @@ import {
   MessageCircle,
   Bug,
   Activity,
-  Shield
+  Shield,
+  Flag
 } from "lucide-react";
 
 // Workspace sub-menu items
@@ -85,7 +86,8 @@ const ALL_NAVIGATION_ITEMS = [
 const ADMIN_ITEMS = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
   { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
-  { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit }
+  { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit },
+  { title: "Feature Management", url: createPageUrl("FeatureManagement"), icon: Flag }
 ];
 
 /**
