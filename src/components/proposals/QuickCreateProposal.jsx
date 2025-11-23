@@ -404,7 +404,7 @@ export default function QuickCreateProposal({
         onSuccess(proposal, null, targetBoard);
       }
       // Navigate to the pipeline with the specific board selected
-      navigate(`/pipeline?board=${targetBoard.id}`);
+      navigate(`/pipeline?boardId=${targetBoard.id}`);
 
     } catch (error) {
       console.error('[QuickCreate] ❌ Creation failed:', error.message);
