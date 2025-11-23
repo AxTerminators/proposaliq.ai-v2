@@ -94,14 +94,39 @@ export default function StatusMigrationManager() {
 
   const activateNewBoardMutation = useMutation({
     mutationFn: async () => {
-      // Find the new master board
-      const newBoard = boards.find(b => 
-        b.board_name === 'All Proposals - New Master Board' || 
-        (b.columns?.some(col => col.status_mapping?.includes('Qualifying')) && b.board_type === 'master')
+      // Find the new master board - check multiple conditions
+      let newBoard = boards.find(b => 
+        b.board_name === 'All Proposals - New Master Board'
       );
 
+      // If not found by name, look for any board with new status mappings
       if (!newBoard) {
-        throw new Error('New master board not found');
+        newBoard = boards.find(b => 
+          b.columns?.some(col => col.status_mapping?.includes('Qualifying'))
+        );
+      }
+
+      // If still not found, create it
+      if (!newBoard) {
+        const response = await base44.functions.invoke('createMasterBoardConfig', {
+          organization_id: organization.id
+        });
+        
+        if (!response.data.success) {
+          throw new Error('Failed to create new master board');
+        }
+
+        // Refetch boards to get the newly created one
+        await queryClient.invalidateQueries(['boards']);
+        const freshBoards = await base44.entities.KanbanConfig.filter({ organization_id: organization.id });
+        newBoard = freshBoards.find(b => 
+          b.board_name === 'All Proposals - New Master Board' ||
+          b.columns?.some(col => col.status_mapping?.includes('Qualifying'))
+        );
+
+        if (!newBoard) {
+          throw new Error('Failed to retrieve newly created master board');
+        }
       }
 
       // Find old master boards
