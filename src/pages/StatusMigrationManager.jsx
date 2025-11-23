@@ -92,6 +92,49 @@ export default function StatusMigrationManager() {
     }
   });
 
+  const activateNewBoardMutation = useMutation({
+    mutationFn: async () => {
+      // Find the new master board
+      const newBoard = boards.find(b => 
+        b.board_name === 'All Proposals - New Master Board' || 
+        (b.columns?.some(col => col.status_mapping?.includes('Qualifying')) && b.board_type === 'master')
+      );
+
+      if (!newBoard) {
+        throw new Error('New master board not found');
+      }
+
+      // Find old master boards
+      const oldBoards = boards.filter(b => 
+        b.is_master_board && 
+        b.id !== newBoard.id &&
+        !b.columns?.some(col => col.status_mapping?.includes('Qualifying'))
+      );
+
+      // Deactivate old master boards
+      await Promise.all(
+        oldBoards.map(board => 
+          base44.entities.KanbanConfig.update(board.id, { is_master_board: false })
+        )
+      );
+
+      // Activate new master board
+      await base44.entities.KanbanConfig.update(newBoard.id, { 
+        is_master_board: true,
+        board_name: 'All Proposals'
+      });
+
+      return { newBoard, deactivatedCount: oldBoards.length };
+    },
+    onSuccess: (data) => {
+      toast.success(`New master board activated! Deactivated ${data.deactivatedCount} old board(s).`);
+      queryClient.invalidateQueries(['boards']);
+    },
+    onError: (error) => {
+      toast.error('Activation failed: ' + error.message);
+    }
+  });
+
   const runTests = () => {
     const validStatuses = ['Qualifying', 'Planning', 'Drafting', 'Reviewing', 'Submitted', 'Won', 'Lost', 'Archived'];
     const invalidProposals = proposals.filter(p => !validStatuses.includes(p.status));
@@ -172,8 +215,8 @@ export default function StatusMigrationManager() {
             <span className="text-sm">UI and backend logic updated</span>
           </div>
           <div className="flex items-center gap-3">
-            <Badge className="bg-amber-100 text-amber-700">→ Phase 5</Badge>
-            <span className="text-sm font-semibold">Final activation and cleanup</span>
+            <Badge className="bg-blue-100 text-blue-700">→ Phase 5</Badge>
+            <span className="text-sm font-semibold">Final activation and cleanup (in progress)</span>
           </div>
         </CardContent>
       </Card>
@@ -232,12 +275,64 @@ export default function StatusMigrationManager() {
         </CardContent>
       </Card>
 
-      {/* Step 2: Run Tests */}
+      {/* Step 2: Activate New Board */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            Step 2: Activate New Master Board
+          </CardTitle>
+          <CardDescription>Switch to the new master board with updated statuses</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-900">
+              This will activate the "All Proposals - New Master Board" and deactivate the old master board
+            </AlertDescription>
+          </Alert>
+          <Button
+            onClick={() => activateNewBoardMutation.mutate()}
+            disabled={activateNewBoardMutation.isPending}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {activateNewBoardMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Activating...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Activate New Board
+              </>
+            )}
+          </Button>
+          {activateNewBoardMutation.isSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="font-semibold text-green-900">✅ New Master Board Activated!</p>
+              <p className="text-sm text-green-700 mt-1">
+                The new board is now your primary master board.
+              </p>
+            </div>
+          )}
+          {activateNewBoardMutation.isError && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-900">
+                {activateNewBoardMutation.error?.message}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 3: Run Tests */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-purple-600" />
-            Step 2: Verify Migration
+            Step 3: Verify Migration
           </CardTitle>
           <CardDescription>Test that all proposals have valid new statuses</CardDescription>
         </CardHeader>
@@ -296,12 +391,12 @@ export default function StatusMigrationManager() {
         </CardContent>
       </Card>
 
-      {/* Step 3: Delete Old Board */}
+      {/* Step 4: Delete Old Board */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trash2 className="w-5 h-5 text-red-600" />
-            Step 3: Delete Old Master Board
+            Step 4: Delete Old Master Board
           </CardTitle>
           <CardDescription>Remove the old master board configuration</CardDescription>
         </CardHeader>
