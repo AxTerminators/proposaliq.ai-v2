@@ -21,7 +21,15 @@ import {
   FileText,
   AlertCircle,
   Check,
+  Layers,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -81,6 +89,7 @@ export default function QuickCreateProposal({
   const [boardNameError, setBoardNameError] = useState(""); // State for board name validation error
   const [isValidatingBoardName, setIsValidatingBoardName] = useState(false); // State for board name validation loading
   const [needsNewBoard, setNeedsNewBoard] = useState(false); // State to indicate if a new board is needed/will be created
+  const [selectedBoardId, setSelectedBoardId] = useState(null); // NEW: State for manually selected board
 
   // NEW: Proposal name validation state
   const [proposalNameError, setProposalNameError] = useState("");
@@ -199,13 +208,14 @@ export default function QuickCreateProposal({
 
   const handleTypeSelect = (template) => {
     setSelectedType(template.proposal_type_category);
-    const existingBoardFound = existingBoards.some(b =>
+    const matchingBoards = existingBoards.filter(b =>
       b.board_type === template.board_type ||
       b.applies_to_proposal_types?.includes(template.proposal_type_category)
     );
-    setNeedsNewBoard(!existingBoardFound); // Set needsNewBoard based on whether a board already exists for this type
-    setBoardName(''); // Clear board name when type changes
-    setBoardNameError(''); // Clear board error
+    setNeedsNewBoard(matchingBoards.length === 0);
+    setSelectedBoardId(matchingBoards.length === 1 ? matchingBoards[0].id : null); // Auto-select if only one board
+    setBoardName('');
+    setBoardNameError('');
   };
 
   const handleCreate = async () => {
@@ -270,10 +280,12 @@ export default function QuickCreateProposal({
       console.log('[QuickCreate] 🚀 Creating proposal:', { name: proposalName, type: selectedType });
 
       // Check for existing board for this specific type
-      const existingBoardForType = existingBoards.find(b =>
-        b.board_type === selectedTemplate.board_type ||
-        b.applies_to_proposal_types?.includes(selectedType)
-      );
+      const existingBoardForType = selectedBoardId 
+        ? existingBoards.find(b => b.id === selectedBoardId)
+        : existingBoards.find(b =>
+            b.board_type === selectedTemplate.board_type ||
+            b.applies_to_proposal_types?.includes(selectedType)
+          );
 
       if (needsNewBoard && !existingBoardForType) {
         // Create a new board if needsNewBoard is true and no existing board for this type
@@ -571,6 +583,44 @@ export default function QuickCreateProposal({
             )}
           </div>
 
+          {/* Board Selector - if multiple boards exist for this type */}
+          {!needsNewBoard && selectedType && (() => {
+            const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
+            const matchingBoards = existingBoards.filter(b =>
+              b.board_type === selectedTemplate?.board_type ||
+              b.applies_to_proposal_types?.includes(selectedType)
+            );
+            
+            if (matchingBoards.length > 1) {
+              return (
+                <div className="space-y-2">
+                  <Label htmlFor="board-selector" className="text-sm font-semibold">
+                    Select Board <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose which board to add this proposal to" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {matchingBoards.map(board => (
+                        <SelectItem key={board.id} value={board.id}>
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4" />
+                            {board.board_name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-600">
+                    Multiple boards support this proposal type - choose where to create it
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Board Name Input - if creating new board */}
           {needsNewBoard && selectedType && (
             <div className="space-y-2 mt-4">
@@ -639,10 +689,18 @@ export default function QuickCreateProposal({
               disabled={
                 isCreating ||
                 !proposalName.trim() ||
-                proposalNameError || // NEW: Disable if proposalNameError exists
-                isValidatingProposalName || // NEW: Disable if proposal name is validating
+                proposalNameError ||
+                isValidatingProposalName ||
                 !selectedType ||
-                (needsNewBoard && (!boardName.trim() || boardNameError || isValidatingBoardName)) // Renamed error and validating states
+                (needsNewBoard && (!boardName.trim() || boardNameError || isValidatingBoardName)) ||
+                (!needsNewBoard && (() => {
+                  const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
+                  const matchingBoards = existingBoards.filter(b =>
+                    b.board_type === selectedTemplate?.board_type ||
+                    b.applies_to_proposal_types?.includes(selectedType)
+                  );
+                  return matchingBoards.length > 1 && !selectedBoardId;
+                })())
               }
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
