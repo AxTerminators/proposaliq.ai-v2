@@ -37,7 +37,7 @@ export default function MobileNavigation({ user, organization }) {
               key={item.url}
               to={item.url}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[64px]",
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[64px] min-h-[56px]",
                 isActive
                   ? "bg-blue-50 text-blue-700"
                   : "text-slate-600 active:bg-slate-100"

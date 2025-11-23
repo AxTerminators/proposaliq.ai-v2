@@ -249,7 +249,7 @@ export default function KanbanCard({
               e?.stopPropagation?.();
               onToggleSelection?.(proposal.id);
             }}
-            className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600"
+            className="w-6 h-6 min-h-[44px] min-w-[44px] rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600"
             onClick={(e) => e?.stopPropagation?.()}
           />
         </div>
@@ -290,7 +290,7 @@ export default function KanbanCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 -mt-1 -mr-2 flex-shrink-0"
+                className="h-8 w-8 min-h-[44px] min-w-[44px] -mt-1 -mr-2 flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowMenu(!showMenu);
