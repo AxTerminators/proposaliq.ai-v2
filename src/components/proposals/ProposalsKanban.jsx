@@ -1250,17 +1250,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     );
   }
 
+  // Detect mobile viewport
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-shrink-0 bg-white border-b border-slate-200">
-        <div className="p-4 space-y-4">
+        <div className="p-3 md:p-4 space-y-3 md:space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-slate-900">
+            <div className="flex items-center gap-2 md:gap-3">
+              <h2 className="text-lg md:text-xl font-bold text-slate-900 truncate">
                 {kanbanConfig?.board_name || 'Proposal Board'}
               </h2>
               {kanbanConfig?.is_master_board && (
-                <Badge className="bg-amber-100 text-amber-700">
+                <Badge className="bg-amber-100 text-amber-700 hidden sm:flex">
                   <Star className="w-3 h-3 mr-1 fill-amber-700" />
                   Master Board
                 </Badge>
@@ -1337,7 +1347,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       </div>
 
       <div className="flex-1 overflow-y-auto bg-slate-100">
-        <div ref={boardRef} className="overflow-x-auto px-4">
+        <div ref={boardRef} className={cn(
+          "overflow-x-auto px-3 md:px-4",
+          isMobile && "pb-20"
+        )}>
           <DragDropContext
             onDragEnd={onDragEnd}
             onDragUpdate={handleDragUpdate}
@@ -1345,16 +1358,19 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
               setDragInProgress(true);
             }}
           >
-            <Droppable droppableId="all-columns" direction="horizontal" type="column">
+            <Droppable droppableId="all-columns" direction={isMobile ? "vertical" : "horizontal"} type="column">
               {(providedOuter) => (
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-4 pt-4"
-                  style={{
+                  className={cn(
+                    "pt-3 md:pt-4",
+                    isMobile ? "space-y-4" : "flex gap-4"
+                  )}
+                  style={!isMobile ? {
                     minWidth: 'min-content',
                     alignItems: 'flex-start'
-                  }}
+                  } : undefined}
                 >
                   {validColumns.map((column, index) => {
                     const isCollapsed = effectiveCollapsedColumns.includes(column.id);

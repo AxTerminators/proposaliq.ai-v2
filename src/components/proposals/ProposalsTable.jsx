@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { FileText, ChevronDown, ChevronRight, Building2, Calendar, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -20,6 +20,14 @@ import { formatCurrency, formatDueDate, groupProposals } from "./proposalUtils";
 
 export default function ProposalsTable({ proposals, organization, groupBy = 'none' }) {
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const groupedProposals = useMemo(() => 
     groupProposals(proposals, groupBy), 
@@ -39,6 +47,66 @@ export default function ProposalsTable({ proposals, organization, groupBy = 'non
       </div>
     );
   }
+
+  // Mobile Card View Component
+  const MobileProposalCard = ({ proposal }) => {
+    const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-100' };
+    
+    return (
+      <div
+        onClick={() => handleRowClick(proposal)}
+        className="bg-white border-2 border-slate-200 rounded-lg p-4 cursor-pointer hover:shadow-md hover:border-blue-400 transition-all active:scale-[0.98] min-h-[44px] touch-manipulation"
+      >
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h4 className="font-semibold text-slate-900 text-base flex-1 line-clamp-2">
+            {proposal.proposal_name}
+          </h4>
+          {proposal.is_sample_data && (
+            <Badge className="bg-amber-500 text-white text-xs h-6 flex-shrink-0">SAMPLE</Badge>
+          )}
+        </div>
+
+        <div className="space-y-2 text-sm">
+          {proposal.agency_name && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <Building2 className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{proposal.agency_name}</span>
+            </div>
+          )}
+
+          {proposal.due_date && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <span>{formatDueDate(proposal.due_date)}</span>
+            </div>
+          )}
+
+          {proposal.contract_value && (
+            <div className="flex items-center gap-2 text-green-700 font-semibold">
+              <DollarSign className="w-4 h-4 flex-shrink-0" />
+              <span>{formatCurrency(proposal.contract_value)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <Badge className={statusConfig.color}>
+            {statusConfig.label}
+          </Badge>
+          
+          {proposal.match_score > 0 && (
+            <Badge variant="outline">{proposal.match_score}%</Badge>
+          )}
+          
+          {proposal.proposal_type_category && (
+            <Badge className="bg-purple-100 text-purple-700">
+              {TYPE_EMOJIS[proposal.proposal_type_category]} {proposal.proposal_type_category}
+            </Badge>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -76,94 +144,107 @@ export default function ProposalsTable({ proposals, organization, groupBy = 'non
               )}
               
               <CollapsibleContent>
-                <div className="border rounded-lg overflow-hidden bg-white">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-slate-50">
-                        <TableHead>Proposal Name</TableHead>
-                        <TableHead>Agency</TableHead>
-                        <TableHead>Due Date</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Type</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visibleProposals.map((proposal) => {
-                        const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-100' };
-                        
-                        return (
-                          <TableRow
-                            key={proposal.id}
-                            className="cursor-pointer hover:bg-blue-50 transition-colors"
-                            onClick={() => handleRowClick(proposal)}
-                          >
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                {proposal.proposal_name}
-                                {proposal.is_sample_data && (
-                                  <Badge className="bg-amber-500 text-white text-xs">SAMPLE</Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>{proposal.agency_name || 'N/A'}</TableCell>
-                            <TableCell>
-                              {formatDueDate(proposal.due_date)}
-                            </TableCell>
-                            <TableCell className="font-semibold text-green-700">
-                              {formatCurrency(proposal.contract_value)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={statusConfig.color}>
-                                {statusConfig.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {proposal.match_score > 0 ? (
-                                <Badge variant="outline">{proposal.match_score}%</Badge>
-                              ) : (
-                                'N/A'
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {proposal.proposal_type_category && (
-                                <Badge className="bg-purple-100 text-purple-700">
-                                  {TYPE_EMOJIS[proposal.proposal_type_category]} {proposal.proposal_type_category}
+                {isMobile ? (
+                  /* Mobile Card View */
+                  <div className="space-y-3">
+                    {visibleProposals.map((proposal) => (
+                      <MobileProposalCard key={proposal.id} proposal={proposal} />
+                    ))}
+                  </div>
+                ) : (
+                  /* Desktop Table View */
+                  <div className="border rounded-lg overflow-hidden bg-white">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead>Proposal Name</TableHead>
+                          <TableHead>Agency</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Value</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Score</TableHead>
+                          <TableHead>Type</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visibleProposals.map((proposal) => {
+                          const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-100' };
+                          
+                          return (
+                            <TableRow
+                              key={proposal.id}
+                              className="cursor-pointer hover:bg-blue-50 transition-colors"
+                              onClick={() => handleRowClick(proposal)}
+                            >
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  {proposal.proposal_name}
+                                  {proposal.is_sample_data && (
+                                    <Badge className="bg-amber-500 text-white text-xs">SAMPLE</Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>{proposal.agency_name || 'N/A'}</TableCell>
+                              <TableCell>
+                                {formatDueDate(proposal.due_date)}
+                              </TableCell>
+                              <TableCell className="font-semibold text-green-700">
+                                {formatCurrency(proposal.contract_value)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={statusConfig.color}>
+                                  {statusConfig.label}
                                 </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                              </TableCell>
+                              <TableCell>
+                                {proposal.match_score > 0 ? (
+                                  <Badge variant="outline">{proposal.match_score}%</Badge>
+                                ) : (
+                                  'N/A'
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {proposal.proposal_type_category && (
+                                  <Badge className="bg-purple-100 text-purple-700">
+                                    {TYPE_EMOJIS[proposal.proposal_type_category]} {proposal.proposal_type_category}
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
 
-                  {/* **NEW: Load More Footer in Table** */}
-                  {hasMore && (
-                    <div className="border-t bg-slate-50 p-4 space-y-3">
-                      <Button
-                        variant="outline"
-                        onClick={loadMore}
-                        className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400"
-                      >
-                        <ChevronDown className="w-4 h-4 mr-2" />
-                        Load More ({totalCount - visibleCount} remaining)
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={loadAll}
-                        className="w-full text-slate-600 hover:text-blue-600"
-                      >
-                        Show All {totalCount} Rows
-                      </Button>
-                      <div className="text-center text-xs text-slate-500">
-                        Showing {visibleCount} of {totalCount}
-                      </div>
+                {/* Load More Footer */}
+                {hasMore && (
+                  <div className={cn(
+                    "p-4 space-y-3",
+                    !isMobile && "border-t bg-slate-50"
+                  )}>
+                    <Button
+                      variant="outline"
+                      onClick={loadMore}
+                      className="w-full border-dashed border-2 hover:bg-blue-50 hover:border-blue-400 min-h-[44px]"
+                    >
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Load More ({totalCount - visibleCount} remaining)
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={loadAll}
+                      className="w-full text-slate-600 hover:text-blue-600 min-h-[44px]"
+                    >
+                      Show All {totalCount} {isMobile ? 'Cards' : 'Rows'}
+                    </Button>
+                    <div className="text-center text-xs text-slate-500">
+                      Showing {visibleCount} of {totalCount}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </CollapsibleContent>
             </GroupWrapper>
           );

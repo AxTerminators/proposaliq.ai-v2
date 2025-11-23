@@ -137,22 +137,22 @@ export default function KanbanColumn({
   return (
     <div
       className={cn(
-        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
-        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
+        "w-full md:w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg md:scale-[1.02]"
       )}
     >
       {/* Column Header */}
       <div
         {...(dragHandleProps || {})}
         className={cn(
-          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px] transition-all duration-200",
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[56px] md:min-h-[60px] transition-all duration-200",
           column.color || "from-slate-400 to-slate-600",
-          !column.is_locked && "cursor-grab active:cursor-grabbing"
+          !column.is_locked && "md:cursor-grab md:active:cursor-grabbing"
         )}
       >
-        <div className="p-3 h-full flex items-center">
+        <div className="p-2.5 md:p-3 h-full flex items-center">
           <div className="flex items-center gap-2 w-full">
-            {/* Collapse Button */}
+            {/* Collapse Button - Hidden on mobile */}
             <Button
               variant="ghost"
               size="icon"
@@ -160,10 +160,11 @@ export default function KanbanColumn({
                 e?.stopPropagation?.();
                 onToggleCollapse?.(column.id);
               }}
-              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
+              className="hidden md:flex h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px]"
               title="Collapse column"
+              aria-label="Collapse column"
             >
-              <ChevronLeft className="w-4 h-4" title="Collapse" />
+              <ChevronLeft className="w-4 h-4" />
             </Button>
 
             {/* Column Name */}
@@ -175,20 +176,21 @@ export default function KanbanColumn({
                   onChange={(e) => setEditedName(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onBlur={handleNameSave}
-                  className="h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2"
+                  className="h-8 md:h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2 min-h-[44px]"
                   placeholder="Column name..."
                 />
               ) : (
                 <button
                   onClick={handleNameClick}
                   className={cn(
-                    "text-left w-full",
-                    !column.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
+                    "text-left w-full min-h-[44px] flex items-center",
+                    !column.is_locked && "md:cursor-pointer hover:opacity-90 transition-opacity"
                   )}
                   disabled={column.is_locked}
                   title={column.label}
+                  aria-label={`Column: ${column.label}`}
                 >
-                  <h3 className="font-bold text-white text-base truncate leading-tight">
+                  <h3 className="font-bold text-white text-sm md:text-base truncate leading-tight">
                     {column.label}
                   </h3>
                 </button>
@@ -274,10 +276,11 @@ export default function KanbanColumn({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
+                    className="h-9 w-9 md:h-7 md:w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1 min-h-[44px] min-w-[44px]"
                     title="Column options"
+                    aria-label="Column options"
                   >
-                    <MoreVertical className="w-4 h-4" title="Options" />
+                    <MoreVertical className="w-5 h-5 md:w-4 md:h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -349,7 +352,7 @@ export default function KanbanColumn({
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] transition-all duration-200",
+          "flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2 min-h-[120px] transition-all duration-200",
           snapshot.isDraggingOver && "bg-blue-50/50"
         )}
       >
