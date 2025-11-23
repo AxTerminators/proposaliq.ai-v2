@@ -49,7 +49,7 @@ import GlobalSearch from "./components/proposals/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import OrganizationSwitcher from "./components/layout/OrganizationSwitcher";
-import { useNavigationItems, useAdminItems, useIsPageAccessible } from "./components/layout/useNavigationItems";
+import { useNavigationItems, useAdminItems, useIsPageAccessible, WORKSPACE_ITEMS, TOOLS_ITEMS, SETTINGS_ITEMS } from "./components/layout/useNavigationItems";
 import {
   Select,
   SelectContent,
