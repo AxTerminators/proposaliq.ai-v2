@@ -150,7 +150,10 @@ export default function BoardManagement() {
   // Delete board mutation
   const deleteBoardMutation = useMutation({
     mutationFn: async (boardId) => {
-      return base44.entities.KanbanConfig.delete(boardId);
+      const response = await base44.functions.invoke('deleteBoard', {
+        board_id: boardId
+      });
+      return response.data;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['all-kanban-boards'] });
