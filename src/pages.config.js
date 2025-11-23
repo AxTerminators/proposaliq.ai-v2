@@ -70,6 +70,8 @@ import ImplementationRoadmap from './pages/ImplementationRoadmap';
 import FormAccessibilityDemo from './pages/FormAccessibilityDemo';
 import Sprint9Performance from './pages/Sprint9Performance';
 import Sprint11Accessibility from './pages/Sprint11Accessibility';
+import SecurityAudit from './pages/SecurityAudit';
+import Sprint12Security from './pages/Sprint12Security';
 import __Layout from './Layout.jsx';
 
 
@@ -146,6 +148,8 @@ export const PAGES = {
     "FormAccessibilityDemo": FormAccessibilityDemo,
     "Sprint9Performance": Sprint9Performance,
     "Sprint11Accessibility": Sprint11Accessibility,
+    "SecurityAudit": SecurityAudit,
+    "Sprint12Security": Sprint12Security,
 }
 
 export const pagesConfig = {
