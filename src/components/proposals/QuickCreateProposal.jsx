@@ -425,16 +425,15 @@ export default function QuickCreateProposal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {!organization ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading organization...</p>
-            </div>
-          ) : (
-            <>
-          {/* Proposal Name Input with Validation */}
-          <div className="space-y-2">
+        {!organization ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading...</p>
+          </div>
+        ) : (
+          <div className="space-y-6 py-4">
+            {/* Proposal Name Input with Validation */}
+            <div className="space-y-2">
             <Label htmlFor="proposal_name" className="text-base font-semibold">
               Proposal Name *
             </Label>
@@ -657,10 +656,9 @@ export default function QuickCreateProposal({
                 </>
               )}
             </Button>
+            </div>
           </div>
-            </>
-          )}
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );

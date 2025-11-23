@@ -265,10 +265,12 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
         {!organization ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-slate-600">Loading organization...</p>
+            <p className="text-slate-600">Loading...</p>
           </div>
-        ) : step === 1 && (
-          <div className="space-y-6 py-4">
+        ) : (
+          <>
+            {step === 1 && (
+              <div className="space-y-6 py-4">
             {isLoadingTemplates ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
@@ -335,10 +337,10 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                 })}
               </div>
             )}
-          </div>
-        )}
+              </div>
+            )}
 
-        {step === 2 && selectedTemplate && (
+            {step === 2 && selectedTemplate && (
           <div className="space-y-6 py-4">
             {/* Selected Template Info */}
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
@@ -442,9 +444,11 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                   </ul>
                 </div>
               </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </>
+      )}
 
         <DialogFooter className="flex items-center justify-between">
           {step === 2 && (
