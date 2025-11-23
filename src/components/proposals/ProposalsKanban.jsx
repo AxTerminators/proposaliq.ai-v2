@@ -827,6 +827,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const onDragEnd = async (result) => {
     setDragOverColumnId(null);
     setDragInProgress(false);
+    clearInterval(autoScrollIntervalRef.current);
 
     if (!result.destination) return;
 
