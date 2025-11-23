@@ -83,30 +83,21 @@ export default function OrganizationSwitcher({ user, currentOrganization, onSwit
     mutationFn: async (newOrgId) => {
       console.log('[OrgSwitcher] Switching to organization:', newOrgId);
       
-      // Update user's active_client_id and add to recently_accessed
+      // SINGLE SOURCE OF TRUTH: Update active_organization_id
       const recentOrgs = user.recently_accessed_orgs || [];
       const updatedRecent = [newOrgId, ...recentOrgs.filter(id => id !== newOrgId)].slice(0, 5);
       
-      // CRITICAL: Update cache BEFORE updating user
-      if (user?.email) {
-        try {
-          localStorage.setItem(`org_id_${user.email}`, JSON.stringify(newOrgId));
-          console.log('[OrgSwitcher] ✅ Cached new org ID:', newOrgId);
-        } catch (error) {
-          console.error('[OrgSwitcher] Failed to cache org ID:', error);
-        }
-      }
-      
       await base44.auth.updateMe({ 
-        active_client_id: newOrgId,
+        active_organization_id: newOrgId,
+        active_client_id: newOrgId, // Keep for backward compatibility during migration
         recently_accessed_orgs: updatedRecent
       });
       
-      console.log('[OrgSwitcher] ✅ User updated with new active_client_id');
+      console.log('[OrgSwitcher] ✅ User updated with new active_organization_id');
       return newOrgId;
     },
     onSuccess: async (newOrgId) => {
-      toast.success("Switched organization successfully!");
+      toast.success("Workspace switched successfully!");
       
       if (onSwitch) {
         await onSwitch(newOrgId);
