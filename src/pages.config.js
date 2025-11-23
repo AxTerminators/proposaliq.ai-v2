@@ -77,6 +77,7 @@ import Sprint13Performance from './pages/Sprint13Performance';
 import Sprint14Mobile from './pages/Sprint14Mobile';
 import Sprint15Accessibility from './pages/Sprint15Accessibility';
 import Sprint16QA from './pages/Sprint16QA';
+import Sprint17Documentation from './pages/Sprint17Documentation';
 import __Layout from './Layout.jsx';
 
 
@@ -160,6 +161,7 @@ export const PAGES = {
     "Sprint14Mobile": Sprint14Mobile,
     "Sprint15Accessibility": Sprint15Accessibility,
     "Sprint16QA": Sprint16QA,
+    "Sprint17Documentation": Sprint17Documentation,
 }
 
 export const pagesConfig = {
