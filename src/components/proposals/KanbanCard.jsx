@@ -429,7 +429,7 @@ const KanbanCard = React.memo(function KanbanCard({
               <div className="flex items-center gap-2">
                 <span className="text-slate-600">Progress</span>
                 <span className="text-slate-500">
-                  {completedSubtasks}/{subtasks.length} tasks
+                  {subtasks.filter(t => t.status === 'completed').length}/{subtasks.length} tasks
                 </span>
               </div>
               <span className={cn(
