@@ -77,8 +77,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const navigate = useNavigate();
   const boardRef = useRef(null);
   const autoScrollIntervalRef = useRef(null);
+  const columnRefs = useRef({});
 
   const [showFilters, setShowFilters] = useState(false);
+  const [magneticColumnId, setMagneticColumnId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgency, setFilterAgency] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
@@ -791,7 +793,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     }
   };
 
-  // Mouse position-based auto-scroll during drag
+  // Mouse position-based auto-scroll and magnetic snapping during drag
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!dragInProgress || !boardRef.current) return;
@@ -801,6 +803,32 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       const scrollSpeed = 3; // reduced from 10 for smoother scrolling
       const viewportWidth = window.innerWidth;
       const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      // Magnetic snapping - find which column the mouse is over
+      let closestColumnId = null;
+      let closestDistance = Infinity;
+      const magneticThreshold = 200; // pixels to trigger magnetic effect
+
+      Object.entries(columnRefs.current).forEach(([columnId, ref]) => {
+        if (ref) {
+          const rect = ref.getBoundingClientRect();
+          const columnCenterX = rect.left + rect.width / 2;
+          const distance = Math.abs(mouseX - columnCenterX);
+          
+          // Check if mouse is within column bounds (horizontally) and distance is reasonable
+          if (mouseX >= rect.left - magneticThreshold && 
+              mouseX <= rect.right + magneticThreshold && 
+              mouseY >= rect.top && 
+              mouseY <= rect.bottom + 100 && // allow some vertical tolerance
+              distance < closestDistance) {
+            closestDistance = distance;
+            closestColumnId = columnId;
+          }
+        }
+      });
+
+      setMagneticColumnId(closestColumnId);
 
       // Clear existing interval
       if (autoScrollIntervalRef.current) {
@@ -848,6 +876,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const onDragEnd = async (result) => {
     setDragOverColumnId(null);
     setDragInProgress(false);
+    setMagneticColumnId(null);
     
     // Clear auto-scroll interval
     if (autoScrollIntervalRef.current) {
