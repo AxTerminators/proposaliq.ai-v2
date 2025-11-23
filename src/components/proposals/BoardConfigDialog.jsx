@@ -275,16 +275,16 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const [config, setConfig] = useState({
     columns: currentConfig?.columns || defaultColumns,
-    swimlane_config: currentConfig?.swimlane_config || {
-      enabled: false,
-      group_by: 'none',
-      custom_field_name: '',
-      show_empty_swimlanes: false
+    swimlane_config: {
+      enabled: currentConfig?.swimlane_config?.enabled || false,
+      group_by: currentConfig?.swimlane_config?.group_by || 'none',
+      custom_field_name: currentConfig?.swimlane_config?.custom_field_name || '',
+      show_empty_swimlanes: currentConfig?.swimlane_config?.show_empty_swimlanes || false
     },
-    view_settings: currentConfig?.view_settings || {
-      default_view: 'kanban',
-      show_card_details: ['assignees', 'due_date', 'progress', 'value'],
-      compact_mode: false
+    view_settings: {
+      default_view: currentConfig?.view_settings?.default_view || 'kanban',
+      show_card_details: currentConfig?.view_settings?.show_card_details || ['assignees', 'due_date', 'progress', 'value'],
+      compact_mode: currentConfig?.view_settings?.compact_mode || false
     }
   });
 
@@ -308,16 +308,16 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     if (currentConfig) {
       setConfig({
         columns: currentConfig.columns || defaultColumns,
-        swimlane_config: currentConfig.swimlane_config || {
-          enabled: false,
-          group_by: 'none',
-          custom_field_name: '',
-          show_empty_swimlanes: false
+        swimlane_config: {
+          enabled: currentConfig.swimlane_config?.enabled || false,
+          group_by: currentConfig.swimlane_config?.group_by || 'none',
+          custom_field_name: currentConfig.swimlane_config?.custom_field_name || '',
+          show_empty_swimlanes: currentConfig.swimlane_config?.show_empty_swimlanes || false
         },
-        view_settings: currentConfig.view_settings || {
-          default_view: 'kanban',
-          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
-          compact_mode: false
+        view_settings: {
+          default_view: currentConfig.view_settings?.default_view || 'kanban',
+          show_card_details: currentConfig.view_settings?.show_card_details || ['assignees', 'due_date', 'progress', 'value'],
+          compact_mode: currentConfig.view_settings?.compact_mode || false
         }
       });
     }

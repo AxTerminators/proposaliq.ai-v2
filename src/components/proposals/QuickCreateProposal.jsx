@@ -75,14 +75,12 @@ export default function QuickCreateProposal({
   const queryClient = useQueryClient();
 
   const [proposalName, setProposalName] = useState('');
-  const [selectedType, setSelectedType] = useState(preselectedType || null);
-  const [isCreating, setIsCreating] = useState(false); // State for overall creation loading
-  const [boardName, setBoardName] = useState(""); // State for new board name
-  const [boardNameError, setBoardNameError] = useState(""); // State for board name validation error
-  const [isValidatingBoardName, setIsValidatingBoardName] = useState(false); // State for board name validation loading
-  const [needsNewBoard, setNeedsNewBoard] = useState(false); // State to indicate if a new board is needed/will be created
-
-  // NEW: Proposal name validation state
+  const [selectedType, setSelectedType] = useState(preselectedType || '');
+  const [isCreating, setIsCreating] = useState(false);
+  const [boardName, setBoardName] = useState("");
+  const [boardNameError, setBoardNameError] = useState("");
+  const [isValidatingBoardName, setIsValidatingBoardName] = useState(false);
+  const [needsNewBoard, setNeedsNewBoard] = useState(false);
   const [proposalNameError, setProposalNameError] = useState("");
   const [isValidatingProposalName, setIsValidatingProposalName] = useState(false);
 
@@ -116,14 +114,14 @@ export default function QuickCreateProposal({
   useEffect(() => {
     if (isOpen) {
       setProposalName('');
-      setSelectedType(preselectedType || null);
+      setSelectedType(preselectedType || '');
       setIsCreating(false);
       setBoardName('');
-      setBoardNameError(''); // Renamed from nameError
-      setIsValidatingBoardName(false); // Renamed from isValidatingName
-      setNeedsNewBoard(false); // Reset this too
-      setProposalNameError(''); // NEW: Reset proposal name error
-      setIsValidatingProposalName(false); // NEW: Reset proposal name validation state
+      setBoardNameError('');
+      setIsValidatingBoardName(false);
+      setNeedsNewBoard(false);
+      setProposalNameError('');
+      setIsValidatingProposalName(false);
 
       // If a preselectedType is given, try to determine if it needs a new board
       if (preselectedType && templates.length > 0 && existingBoards.length > 0) {

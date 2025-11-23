@@ -49,6 +49,11 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const [nameError, setNameError] = useState("");
   const [isValidatingName, setIsValidatingName] = useState(false);
 
+  // Early return if no organization
+  if (!organization) {
+    return null;
+  }
+
   // Simplified: Use hardcoded templates
   const templates = [
     { 
