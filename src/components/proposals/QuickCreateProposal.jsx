@@ -412,13 +412,13 @@ export default function QuickCreateProposal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="quick-create-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-blue-600" />
             Create New Proposal
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="quick-create-description">
             Quick setup - just enter a name and choose the type
           </DialogDescription>
         </DialogHeader>

@@ -126,12 +126,12 @@ export default function PersonnelFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="personnel-form-description">
         <DialogHeader>
           <DialogTitle>
             {personnel ? 'Edit Personnel' : 'Add Key Personnel'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="personnel-form-description">
             {personnel ? 'Update personnel information and bios' : 'Add a new key personnel member to your organization'}
           </DialogDescription>
         </DialogHeader>

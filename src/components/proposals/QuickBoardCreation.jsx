@@ -254,13 +254,13 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="quick-board-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-blue-600" />
             Quick Board Creation
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="quick-board-description">
             {step === 1 
               ? "Choose a workflow template to create a new board" 
               : "Review and create your new board"}

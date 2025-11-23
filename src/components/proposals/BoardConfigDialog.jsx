@@ -706,13 +706,13 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" aria-describedby="board-config-description">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="w-5 h-5" />
               Board Configuration
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="board-config-description">
               Configure columns, swimlanes, view settings, and display preferences for your Kanban board.
             </DialogDescription>
           </DialogHeader>
@@ -1168,13 +1168,13 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         }
         setShowSaveAsTemplateDialog(open);
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby="save-template-description">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-600" />
               Save as Workflow Template
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="save-template-description">
               Create a reusable template from your current board configuration
             </DialogDescription>
           </DialogHeader>
