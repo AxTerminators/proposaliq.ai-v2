@@ -310,10 +310,29 @@ export default function StatusMigrationManager() {
           <CardDescription>Switch to the new master board with updated statuses</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Show current boards for debugging */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <p className="font-medium text-sm mb-2">Current Boards ({boards.length}):</p>
+            <div className="space-y-2 text-xs">
+              {boards.map(b => (
+                <div key={b.id} className="flex items-center justify-between">
+                  <span>{b.board_name}</span>
+                  <div className="flex gap-2">
+                    <Badge variant="outline">{b.board_type}</Badge>
+                    {b.is_master_board && <Badge className="bg-blue-100 text-blue-700">Master</Badge>}
+                    {b.columns?.some(col => col.status_mapping?.includes('Qualifying')) && 
+                      <Badge className="bg-green-100 text-green-700">New Status</Badge>
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <Alert className="border-amber-200 bg-amber-50">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-900">
-              This will activate the "All Proposals - New Master Board" and deactivate the old master board
+              This will activate the board with new statuses and deactivate the old master board
             </AlertDescription>
           </Alert>
           <Button
