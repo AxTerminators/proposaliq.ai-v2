@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -87,26 +86,18 @@ export default function QuickCreateProposal({
   const [proposalNameError, setProposalNameError] = useState("");
   const [isValidatingProposalName, setIsValidatingProposalName] = useState(false);
 
-  // Fetch available templates to determine proposal types
-  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
-    queryKey: ['workflow-templates-for-proposal-creation'],
-    queryFn: async () => {
-      const systemTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
-        template_type: 'system',
-        is_active: true
-      }, '-created_date');
-
-      const orgTemplates = organization?.id
-        ? await base44.entities.ProposalWorkflowTemplate.filter({
-          organization_id: organization.id,
-          is_active: true
-        }, '-created_date')
-        : [];
-
-      return [...systemTemplates, ...orgTemplates].filter(t => t != null);
-    },
-    enabled: isOpen && !!organization?.id,
-  });
+  // Simplified: Use hardcoded templates based on board types
+  const templates = [
+    { id: 'rfp', proposal_type_category: 'RFP', board_type: 'rfp', template_name: 'RFP', description: 'Request for Proposal - comprehensive workflow', icon_emoji: '📋', estimated_duration_days: 45 },
+    { id: 'rfp_15', proposal_type_category: 'RFP_15_COLUMN', board_type: 'rfp_15_column', template_name: 'RFP (15-Column)', description: 'Extended RFP workflow with 15 phases', icon_emoji: '🎯', estimated_duration_days: 60 },
+    { id: 'rfi', proposal_type_category: 'RFI', board_type: 'rfi', template_name: 'RFI', description: 'Request for Information - simplified process', icon_emoji: '📝', estimated_duration_days: 20 },
+    { id: 'sbir', proposal_type_category: 'SBIR', board_type: 'sbir', template_name: 'SBIR', description: 'Small Business Innovation Research', icon_emoji: '🔬', estimated_duration_days: 90 },
+    { id: 'gsa', proposal_type_category: 'GSA', board_type: 'gsa', template_name: 'GSA Schedule', description: 'GSA Schedule proposals', icon_emoji: '🏛️', estimated_duration_days: 35 },
+    { id: 'idiq', proposal_type_category: 'IDIQ', board_type: 'idiq', template_name: 'IDIQ', description: 'Indefinite Delivery Indefinite Quantity', icon_emoji: '📑', estimated_duration_days: 40 },
+    { id: 'state', proposal_type_category: 'STATE_LOCAL', board_type: 'state_local', template_name: 'State/Local', description: 'State and local government proposals', icon_emoji: '🏢', estimated_duration_days: 30 },
+  ];
+  
+  const isLoadingTemplates = false;
 
   // Fetch existing boards to show which types have boards
   const { data: existingBoards = [] } = useQuery({
