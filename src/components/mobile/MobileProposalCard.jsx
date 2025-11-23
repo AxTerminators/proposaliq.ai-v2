@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Calendar,
   DollarSign,
@@ -11,7 +12,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Users
+  Users,
+  Eye,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -34,9 +37,13 @@ const formatCurrency = (value) => {
   return `$${value.toLocaleString()}`;
 };
 
-export default function MobileProposalCard({ proposal, showProgress = true }) {
+export default function MobileProposalCard({ proposal, showProgress = true, onDelete }) {
   const navigate = useNavigate();
   const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-500' };
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipeActive, setIsSwipeActive] = useState(false);
+  const touchStartX = useRef(0);
+  const cardRef = useRef(null);
   
   const daysUntilDue = proposal.due_date 
     ? moment(proposal.due_date).diff(moment(), 'days')
@@ -47,15 +54,92 @@ export default function MobileProposalCard({ proposal, showProgress = true }) {
 
   const progressPercentage = proposal.progress_summary?.completion_percentage || 0;
 
-  const handleClick = () => {
+  // Swipe handlers for actions
+  const handleSwipeStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    setIsSwipeActive(true);
+  };
+
+  const handleSwipeMove = (e) => {
+    if (!isSwipeActive) return;
+    
+    const touchX = e.touches[0].clientX;
+    const diff = touchX - touchStartX.current;
+    
+    // Only allow left swipe (negative offset)
+    if (diff < 0 && diff > -150) {
+      setSwipeOffset(diff);
+    }
+  };
+
+  const handleSwipeEnd = () => {
+    if (swipeOffset < -80) {
+      // Show actions
+      setSwipeOffset(-140);
+    } else {
+      // Reset
+      setSwipeOffset(0);
+    }
+    setIsSwipeActive(false);
+  };
+
+  const handleClick = (e) => {
+    if (Math.abs(swipeOffset) > 10) {
+      e.stopPropagation();
+      setSwipeOffset(0);
+      return;
+    }
     navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
   };
 
+  const handleViewClick = (e) => {
+    e.stopPropagation();
+    navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
+    setSwipeOffset(0);
+  };
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(proposal);
+    }
+    setSwipeOffset(0);
+  };
+
   return (
-    <Card 
-      className="border-2 border-slate-200 cursor-pointer active:scale-98 transition-transform"
-      onClick={handleClick}
-    >
+    <div className="relative overflow-hidden">
+      {/* Action Buttons (revealed on swipe) */}
+      <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
+        <Button
+          variant="ghost"
+          className="h-full px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-none"
+          onClick={handleViewClick}
+        >
+          <Eye className="w-5 h-5" />
+        </Button>
+        {onDelete && (
+          <Button
+            variant="ghost"
+            className="h-full px-6 bg-red-600 hover:bg-red-700 text-white rounded-none"
+            onClick={handleDeleteClick}
+          >
+            <Trash2 className="w-5 h-5" />
+          </Button>
+        )}
+      </div>
+
+      <Card 
+        ref={cardRef}
+        className="border-2 border-slate-200 cursor-pointer active:scale-98 transition-all relative"
+        onClick={handleClick}
+        onTouchStart={handleSwipeStart}
+        onTouchMove={handleSwipeMove}
+        onTouchEnd={handleSwipeEnd}
+        style={{
+          transform: `translateX(${swipeOffset}px)`,
+          transition: isSwipeActive ? 'none' : 'transform 0.3s ease-out'
+        }}
+      >
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-3">

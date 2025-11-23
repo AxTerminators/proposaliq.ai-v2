@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronRight, Filter } from "lucide-react";
+import { ChevronRight, Filter, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MobileProposalCard from "./MobileProposalCard";
 
@@ -46,9 +46,15 @@ const getColumnEmoji = (col) => {
   return '📋';
 };
 
-export default function MobileKanbanView({ proposals = [], columns = defaultColumns }) {
+export default function MobileKanbanView({ proposals = [], columns = defaultColumns, onRefresh }) {
   const [selectedColumn, setSelectedColumn] = useState(columns[0]?.id || 'evaluating');
   const [expandedColumn, setExpandedColumn] = useState(null);
+  const [isPullToRefresh, setIsPullToRefresh] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const touchStartY = useRef(0);
+  const scrollRef = useRef(null);
+  const [touchStart, setTouchStart] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const currentColumn = columns.find(c => c?.id === selectedColumn) || columns[0];
   
@@ -71,8 +77,87 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
 
   const currentEmoji = getColumnEmoji(currentColumn);
 
+  // Pull to refresh handlers
+  const handleTouchStart = (e) => {
+    if (!scrollRef.current || scrollRef.current.scrollTop > 0) return;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!scrollRef.current || scrollRef.current.scrollTop > 0) return;
+    
+    const touchY = e.touches[0].clientY;
+    const diff = touchY - touchStartY.current;
+    
+    if (diff > 0 && diff < 150) {
+      setPullDistance(diff);
+      setIsPullToRefresh(diff > 80);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (isPullToRefresh && onRefresh) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setIsRefreshing(false);
+    }
+    setPullDistance(0);
+    setIsPullToRefresh(false);
+  };
+
+  // Swipe navigation between columns
+  const handleSwipeStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleSwipeEnd = (e) => {
+    if (!touchStart) return;
+    
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStart - touchEnd;
+    
+    // Swipe left (next column)
+    if (diff > 50) {
+      const currentIndex = columns.findIndex(c => c.id === selectedColumn);
+      if (currentIndex < columns.length - 1) {
+        setSelectedColumn(columns[currentIndex + 1].id);
+      }
+    }
+    
+    // Swipe right (previous column)
+    if (diff < -50) {
+      const currentIndex = columns.findIndex(c => c.id === selectedColumn);
+      if (currentIndex > 0) {
+        setSelectedColumn(columns[currentIndex - 1].id);
+      }
+    }
+    
+    setTouchStart(null);
+  };
+
   return (
-    <div className="space-y-4">
+    <div 
+      className="space-y-4 relative"
+      onTouchStart={handleSwipeStart}
+      onTouchEnd={handleSwipeEnd}
+    >
+      {/* Pull to Refresh Indicator */}
+      {pullDistance > 0 && (
+        <div 
+          className="absolute top-0 left-0 right-0 flex items-center justify-center transition-all z-10"
+          style={{ transform: `translateY(${Math.min(pullDistance, 80)}px)` }}
+        >
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-full shadow-lg transition-all",
+            isPullToRefresh ? "bg-blue-600 text-white" : "bg-white text-slate-600"
+          )}>
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+            <span className="text-sm font-medium">
+              {isRefreshing ? "Refreshing..." : isPullToRefresh ? "Release to refresh" : "Pull to refresh"}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Column Selector */}
       <Card className="border-none shadow-lg">
         <CardContent className="p-4">
@@ -134,7 +219,13 @@ export default function MobileKanbanView({ proposals = [], columns = defaultColu
       </div>
 
       {/* Proposals List */}
-      <div className="space-y-3">
+      <div 
+        ref={scrollRef}
+        className="space-y-3"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {columnProposals.length === 0 ? (
           <Card className="border-2 border-dashed border-slate-300">
             <CardContent className="p-8 text-center">
