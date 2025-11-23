@@ -215,6 +215,9 @@ function LayoutContent({ children, currentPageName }) {
                       src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/db6095373_GovHQlogo-full-300x300-transparent.png"
                       alt="GovHQ.ai Logo"
                       className="w-10 h-10 object-contain"
+                      loading="lazy"
+                      width="40"
+                      height="40"
                     />
                   </div>
                   <div>
@@ -290,6 +293,9 @@ function LayoutContent({ children, currentPageName }) {
                     src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/db6095373_GovHQlogo-full-300x300-transparent.png"
                     alt="GovHQ.ai Logo"
                     className="w-10 h-10 object-contain"
+                    loading="lazy"
+                    width="40"
+                    height="40"
                   />
                 </div>
               </div>
@@ -581,6 +587,9 @@ function LayoutContent({ children, currentPageName }) {
                   src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/db6095373_GovHQlogo-full-300x300-transparent.png"
                   alt="GovHQ.ai Logo"
                   className="w-10 h-10 object-contain"
+                  loading="lazy"
+                  width="40"
+                  height="40"
                 />
               </div>
               <div>
@@ -794,6 +803,9 @@ function LayoutContent({ children, currentPageName }) {
                     src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/db6095373_GovHQlogo-full-300x300-transparent.png"
                     alt="GovHQ.ai Logo"
                     className="w-5 h-5 object-contain"
+                    loading="lazy"
+                    width="20"
+                    height="20"
                   />
                   <h1 className="text-base md:text-lg font-bold text-slate-900">GovHQ.ai</h1>
                 </div>

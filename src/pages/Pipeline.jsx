@@ -347,7 +347,8 @@ export default function Pipeline() {
       return results || [];
     },
     enabled: !!organization?.id,
-    staleTime: 10000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
     retryDelay: 1000,
     initialData: [],
@@ -480,7 +481,8 @@ export default function Pipeline() {
       );
     },
     enabled: !!organization?.id,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 30 * 60 * 1000, // 30 minutes
     retry: 1,
     initialData: [],
   });

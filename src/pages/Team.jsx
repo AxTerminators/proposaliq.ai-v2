@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -75,10 +74,12 @@ export default function Team() {
     loadData();
   }, [clientOrgIdFromUrl]); // Added clientOrgIdFromUrl to dependencies
 
-  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({ // Changed loadingUsers to isLoadingUsers, added = []
+  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['all-users'],
     queryFn: () => base44.entities.User.list(),
     initialData: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 30 * 60 * 1000, // 30 minutes
   });
 
   // Filter team members who have access to this organization

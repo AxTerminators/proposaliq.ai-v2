@@ -127,7 +127,8 @@ export default function GlobalSearch({ organization, isOpen, onClose }) {
       return results;
     },
     enabled: !!organization?.id && debouncedQuery.length >= 2,
-    staleTime: 30000
+    staleTime: 1 * 60 * 1000, // 1 minute
+    cacheTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const totalResults = useMemo(() => {
