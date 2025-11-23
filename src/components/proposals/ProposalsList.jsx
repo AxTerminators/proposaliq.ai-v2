@@ -10,7 +10,7 @@ import { useLazyLoadProposals } from "./useLazyLoadProposals";
 import { STATUS_CONFIG, TYPE_EMOJIS } from "./proposalConstants";
 import { formatCurrency, formatDueDate, groupProposals } from "./proposalUtils";
 
-export default function ProposalsList({ proposals, organization, groupBy = 'none' }) {
+const ProposalsList = React.memo(function ProposalsList({ proposals, organization, groupBy = 'none' }) {
   const navigate = useNavigate();
 
   const groupedProposals = useMemo(() => 
@@ -18,9 +18,9 @@ export default function ProposalsList({ proposals, organization, groupBy = 'none
     [proposals, groupBy]
   );
 
-  const handleProposalClick = (proposal) => {
+  const handleProposalClick = React.useCallback((proposal) => {
     navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
-  };
+  }, [navigate]);
 
   if (proposals.length === 0) {
     return (
@@ -165,4 +165,6 @@ export default function ProposalsList({ proposals, organization, groupBy = 'none
       })}
     </div>
   );
-}
+});
+
+export default ProposalsList;

@@ -36,7 +36,7 @@ function getUserRole(user) {
   return user.organization_app_role || user.role || 'viewer';
 }
 
-export default function KanbanColumn({
+const KanbanColumn = React.memo(function KanbanColumn({
   column,
   proposals,
   provided,
@@ -118,21 +118,21 @@ export default function KanbanColumn({
     setIsEditingName(false);
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = React.useCallback((e) => {
     if (e.key === 'Enter') {
       handleNameSave();
     } else if (e.key === 'Escape') {
       handleNameCancel();
     }
-  };
+  }, [handleNameSave, handleNameCancel]);
 
-  const handleSort = (sortBy, direction) => {
+  const handleSort = React.useCallback((sortBy, direction) => {
     onColumnSortChange?.(column.id, sortBy, direction);
-  };
+  }, [onColumnSortChange, column.id]);
 
-  const handleClearSort = () => {
+  const handleClearSort = React.useCallback(() => {
     onClearColumnSort?.(column.id);
-  };
+  }, [onClearColumnSort, column.id]);
 
   return (
     <div
@@ -443,4 +443,22 @@ export default function KanbanColumn({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.column.id === nextProps.column.id &&
+    prevProps.column.label === nextProps.column.label &&
+    prevProps.column.wip_limit === nextProps.column.wip_limit &&
+    prevProps.proposals.length === nextProps.proposals.length &&
+    prevProps.totalCount === nextProps.totalCount &&
+    prevProps.visibleCount === nextProps.visibleCount &&
+    prevProps.hasMore === nextProps.hasMore &&
+    prevProps.selectedProposalIds.length === nextProps.selectedProposalIds.length &&
+    prevProps.currentSort === nextProps.currentSort &&
+    prevProps.snapshot?.isDraggingOver === nextProps.snapshot?.isDraggingOver &&
+    // Check if proposal IDs changed (shallow comparison)
+    prevProps.proposals.every((p, i) => p.id === nextProps.proposals[i]?.id)
+  );
+});
+
+export default KanbanColumn;

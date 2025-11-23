@@ -16,7 +16,7 @@ import {
   Briefcase
 } from "lucide-react";
 
-export default function QuickActionsPanel({ organization }) {
+const QuickActionsPanel = React.memo(function QuickActionsPanel({ organization }) {
   const navigate = useNavigate();
   const [user, setUser] = React.useState(null);
 
@@ -24,7 +24,7 @@ export default function QuickActionsPanel({ organization }) {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  const quickActions = [
+  const quickActions = React.useMemo(() => [
     {
       icon: Plus,
       label: "New Proposal",
@@ -82,16 +82,16 @@ export default function QuickActionsPanel({ organization }) {
       color: "from-teal-500 to-cyan-600",
       action: () => navigate(createPageUrl("Chat"))
     }
-  ];
+  ], [navigate]);
 
   const userIsSuperAdmin = user?.admin_role === 'super_admin';
 
-  const filteredActions = quickActions.filter(action => {
+  const filteredActions = React.useMemo(() => quickActions.filter(action => {
     if (action.adminOnly && !userIsSuperAdmin) {
       return false;
     }
     return true;
-  });
+  }), [quickActions, userIsSuperAdmin]);
 
   return (
     <Card className="border-none shadow-lg">
@@ -116,4 +116,6 @@ export default function QuickActionsPanel({ organization }) {
       </CardContent>
     </Card>
   );
-}
+});
+
+export default QuickActionsPanel;

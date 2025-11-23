@@ -43,7 +43,7 @@ import {
   getProgressBarColor
 } from "./proposalUtils";
 
-export default function KanbanCard({ 
+const KanbanCard = React.memo(function KanbanCard({ 
   proposal, 
   provided, 
   snapshot, 
