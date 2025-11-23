@@ -18,6 +18,7 @@ import SampleDataGuard from "../components/ui/SampleDataGuard";
 import { Badge } from "@/components/ui/badge";
 import ClientWorkspaceInitializer from "../components/clients/ClientWorkspaceInitializer";
 import RAGOnboardingGuide from "../components/content/RAGOnboardingGuide";
+import ForceDeleteProposal from "../components/admin/ForceDeleteProposal";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -181,6 +182,18 @@ export default function Dashboard() {
           organization={organization}
           onComplete={() => window.location.reload()}
         />
+      )}
+
+      {/* Admin: Delete Orphaned Proposal */}
+      {user?.role === 'admin' && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">
+          <p className="text-sm text-red-900 mb-3 font-semibold">⚠️ Admin: Orphaned Proposal Detected</p>
+          <p className="text-xs text-red-700 mb-3">Proposal "Homeland Security Institute (HSI) Seminar Services" is not connected to any board.</p>
+          <ForceDeleteProposal 
+            proposalId="6921f1239cd79395b142d808"
+            proposalName="Homeland Security Institute (HSI) Seminar Services"
+          />
+        </div>
       )}
 
       {/* Welcome Section */}
