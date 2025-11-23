@@ -533,4 +533,21 @@ const KanbanCard = React.memo(function KanbanCard({
       )}
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  return (
+    prevProps.proposal.id === nextProps.proposal.id &&
+    prevProps.proposal.proposal_name === nextProps.proposal.proposal_name &&
+    prevProps.proposal.status === nextProps.proposal.status &&
+    prevProps.proposal.due_date === nextProps.proposal.due_date &&
+    prevProps.proposal.contract_value === nextProps.proposal.contract_value &&
+    prevProps.proposal.is_blocked === nextProps.proposal.is_blocked &&
+    prevProps.proposal.action_required === nextProps.proposal.action_required &&
+    prevProps.proposal.progress_summary?.completion_percentage === nextProps.proposal.progress_summary?.completion_percentage &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.selectionMode === nextProps.selectionMode &&
+    prevProps.snapshot?.isDragging === nextProps.snapshot?.isDragging
+  );
+});
+
+export default KanbanCard;
