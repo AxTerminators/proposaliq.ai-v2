@@ -128,17 +128,15 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [organization]);
 
-  // Redirect to Dashboard if current page is not accessible - SIMPLIFIED
+  // Redirect to Dashboard if current page is not accessible
   React.useEffect(() => {
     if (!organization || !user) return;
 
-    const isAccessible = useIsPageAccessible(location.pathname, user, organization, demoViewMode);
-
-    if (!isAccessible) {
+    if (!isCurrentPageAccessible) {
       console.log('[Layout] ⚠️ Page not accessible, redirecting to Dashboard');
       navigate(createPageUrl("Dashboard"));
     }
-  }, [organization, user, location.pathname, demoViewMode, navigate]);
+  }, [organization, user, isCurrentPageAccessible, navigate]);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -180,6 +178,7 @@ function LayoutContent({ children, currentPageName }) {
   // Use extracted navigation logic hook
   const navigationItems = useNavigationItems(user, organization, demoViewMode);
   const adminItems = useAdminItems(user);
+  const isCurrentPageAccessible = useIsPageAccessible(location.pathname, user, organization, demoViewMode);
 
   return (
     <TooltipProvider delayDuration={0}>
