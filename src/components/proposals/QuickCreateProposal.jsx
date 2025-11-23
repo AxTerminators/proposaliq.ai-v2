@@ -277,15 +277,23 @@ export default function QuickCreateProposal({
     let targetBoard = null;
 
     try {
-      console.log('[QuickCreate] 🚀 Creating proposal:', { name: proposalName, type: selectedType });
+      console.log('[QuickCreate] 🚀 Creating proposal:', { name: proposalName, type: selectedType, selectedBoardId });
 
-      // Check for existing board for this specific type
-      const existingBoardForType = selectedBoardId 
-        ? existingBoards.find(b => b.id === selectedBoardId)
-        : existingBoards.find(b =>
-            b.board_type === selectedTemplate.board_type ||
-            b.applies_to_proposal_types?.includes(selectedType)
-          );
+      // Use the board the user explicitly selected
+      let existingBoardForType = null;
+      
+      if (selectedBoardId) {
+        // User explicitly selected a board from the dropdown
+        existingBoardForType = existingBoards.find(b => b.id === selectedBoardId);
+        console.log('[QuickCreate] 🎯 Using user-selected board:', existingBoardForType?.board_name);
+      } else {
+        // Auto-find a matching board
+        existingBoardForType = existingBoards.find(b =>
+          b.board_type === selectedTemplate.board_type ||
+          b.applies_to_proposal_types?.includes(selectedType)
+        );
+        console.log('[QuickCreate] 🔍 Auto-found board:', existingBoardForType?.board_name);
+      }
 
       if (needsNewBoard && !existingBoardForType) {
         // Create a new board if needsNewBoard is true and no existing board for this type
@@ -411,11 +419,15 @@ export default function QuickCreateProposal({
 
       onClose();
 
+      console.log('[QuickCreate] ✅ SUCCESS - navigating to board:', targetBoard.board_name, targetBoard.id);
+      
       if (onSuccess) {
-        console.log('[QuickCreate] 📞 Calling onSuccess');
+        console.log('[QuickCreate] 📞 Calling onSuccess with targetBoard:', targetBoard.id);
         onSuccess(proposal, null, targetBoard);
       }
+      
       // Navigate to the pipeline with the specific board selected
+      console.log('[QuickCreate] 🚀 Navigating to Pipeline with boardId:', targetBoard.id);
       navigate(`/pipeline?boardId=${targetBoard.id}`);
 
     } catch (error) {
