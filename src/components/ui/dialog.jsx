@@ -21,63 +21,15 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => {
-  const contentRef = React.useRef(null);
-
-  // SPRINT 4: Focus management - trap focus on open
-  React.useEffect(() => {
-    if (!contentRef.current) return;
-
-    const previousFocus = document.activeElement;
-    const dialog = contentRef.current;
-    const focusableElements = dialog.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    // Auto-focus first element
-    firstElement?.focus();
-
-    const handleTabKey = (e) => {
-      if (e.key !== 'Tab') return;
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
-          lastElement?.focus();
-          e.preventDefault();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          firstElement?.focus();
-          e.preventDefault();
-        }
-      }
-    };
-
-    dialog.addEventListener('keydown', handleTabKey);
-
-    return () => {
-      dialog.removeEventListener('keydown', handleTabKey);
-      previousFocus?.focus();
-    };
-  }, []);
-
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
-        ref={(node) => {
-          contentRef.current = node;
-          if (typeof ref === 'function') ref(node);
-          else if (ref) ref.current = node;
-        }}
+        ref={ref}
         className={cn(
           "fixed z-50 grid w-full gap-4 border bg-white shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-          // Mobile: Full screen with no rounded corners
           "inset-0 p-4 max-h-screen overflow-y-auto",
-          // Desktop: Centered modal with rounded corners
           "md:left-[50%] md:top-[50%] md:max-w-lg md:translate-x-[-50%] md:translate-y-[-50%] md:p-6 md:rounded-lg md:inset-auto md:max-h-[85vh] md:border-slate-200",
-          // Animation for desktop only
           "md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:slide-out-to-left-1/2 md:data-[state=closed]:slide-out-to-top-[48%] md:data-[state=open]:slide-in-from-left-1/2 md:data-[state=open]:slide-in-from-top-[48%]",
           className
         )}
