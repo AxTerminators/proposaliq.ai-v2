@@ -50,6 +50,8 @@ import { cn } from "@/lib/utils";
 import { OrganizationProvider, useOrganization } from "./components/layout/OrganizationContext";
 import OrganizationSwitcher from "./components/layout/OrganizationSwitcher";
 import { useNavigationItems, useAdminItems, useIsPageAccessible, WORKSPACE_ITEMS, TOOLS_ITEMS, SETTINGS_ITEMS } from "./components/layout/useNavigationItems";
+import { useErrorMonitoring } from "./components/monitoring/ErrorMonitor";
+import { usePageTracking } from "./components/analytics/AnalyticsTracker";
 import {
   Select,
   SelectContent,
@@ -71,6 +73,10 @@ function LayoutContent({ children, currentPageName }) {
   
   const { user, organization, subscription, refetch } = useOrganization();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  
+  // SPRINT 5: Initialize error monitoring and analytics
+  useErrorMonitoring(user, organization);
+  usePageTracking(currentPageName);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [toolsOpen, setToolsOpen] = React.useState(false);

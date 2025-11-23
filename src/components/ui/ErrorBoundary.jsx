@@ -17,6 +17,14 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     this.setState({ error, errorInfo });
     console.error("Error caught by boundary:", error, errorInfo);
+    
+    // SPRINT 5: Report error to monitoring system
+    if (typeof window !== 'undefined' && window.errorMonitor) {
+      window.errorMonitor.captureError(error, {
+        type: 'react_error_boundary',
+        componentStack: errorInfo.componentStack
+      });
+    }
   }
 
   render() {
