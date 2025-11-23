@@ -62,6 +62,7 @@ import ProductRoadmap from './pages/ProductRoadmap';
 import FeatureManagement from './pages/FeatureManagement';
 import Phase5Consolidation from './pages/Phase5Consolidation';
 import Phase6Performance from './pages/Phase6Performance';
+import Phase7MobileOptimization from './pages/Phase7MobileOptimization';
 import __Layout from './Layout.jsx';
 
 
@@ -130,6 +131,7 @@ export const PAGES = {
     "FeatureManagement": FeatureManagement,
     "Phase5Consolidation": Phase5Consolidation,
     "Phase6Performance": Phase6Performance,
+    "Phase7MobileOptimization": Phase7MobileOptimization,
 }
 
 export const pagesConfig = {
