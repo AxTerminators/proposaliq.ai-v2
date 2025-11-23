@@ -6,13 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+// Lazy load dashboard widgets for better performance
+const ProposalPipeline = React.lazy(() => import("../components/dashboard/ProposalPipeline"));
+const AIInsightsCard = React.lazy(() => import("../components/dashboard/AIInsightsCard"));
+const ActivityTimeline = React.lazy(() => import("../components/dashboard/ActivityTimeline"));
+const RevenueChart = React.lazy(() => import("../components/dashboard/RevenueChart"));
+const DataCallSummaryWidget = React.lazy(() => import("../components/dashboard/DataCallSummaryWidget"));
+const MobileDashboard = React.lazy(() => import("../components/mobile/MobileDashboard"));
+
+// Keep these non-lazy as they're lightweight
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
-import ProposalPipeline from "../components/dashboard/ProposalPipeline";
-import AIInsightsCard from "../components/dashboard/AIInsightsCard";
-import ActivityTimeline from "../components/dashboard/ActivityTimeline";
-import RevenueChart from "../components/dashboard/RevenueChart";
-import MobileDashboard from "../components/mobile/MobileDashboard";
-import DataCallSummaryWidget from "../components/dashboard/DataCallSummaryWidget";
+import LoadingState from "../components/ui/LoadingState";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import { Badge } from "@/components/ui/badge";
@@ -153,7 +157,11 @@ export default function Dashboard() {
 
   // Mobile-optimized dashboard
   if (isMobile) {
-    return <MobileDashboard organization={organization} user={user} />;
+    return (
+      <React.Suspense fallback={<LoadingState message="Loading dashboard..." />}>
+        <MobileDashboard organization={organization} user={user} />
+      </React.Suspense>
+    );
   }
 
   return (
@@ -276,18 +284,20 @@ export default function Dashboard() {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <ProposalPipeline proposals={proposals} organization={organization} />
-            <RevenueChart proposals={proposals} />
-          </div>
+        <React.Suspense fallback={<LoadingState message="Loading dashboard widgets..." />}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <ProposalPipeline proposals={proposals} organization={organization} />
+              <RevenueChart proposals={proposals} />
+            </div>
 
-          <div className="space-y-6">
-            <AIInsightsCard proposals={proposals} organization={organization} />
-            <DataCallSummaryWidget organization={organization} />
-            <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
+            <div className="space-y-6">
+              <AIInsightsCard proposals={proposals} organization={organization} />
+              <DataCallSummaryWidget organization={organization} />
+              <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
+            </div>
           </div>
-        </div>
+        </React.Suspense>
       </div>
 
       <SampleDataGuard

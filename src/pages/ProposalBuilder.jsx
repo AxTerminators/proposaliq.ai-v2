@@ -20,23 +20,27 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
 
-import Phase1 from "../components/builder/Phase1";
-import Phase2 from "../components/builder/Phase2";
-import Phase3 from "../components/builder/Phase3";
-import Phase4 from "../components/builder/Phase4";
-import Phase5 from "../components/builder/Phase5";
-import Phase6 from "../components/builder/Phase6";
-import Phase7 from "../components/builder/Phase7";
-import Phase7Pricing from "../components/builder/Phase7Pricing";
-import TaskManager from "../components/tasks/TaskManager";
-import ProposalDiscussion from "../components/collaboration/ProposalDiscussion";
-import ProposalFiles from "../components/collaboration/ProposalFiles";
-import AutomationHub from "../components/workflows/AutomationHub";
+// Lazy load heavy phase components
+const Phase1 = React.lazy(() => import("../components/builder/Phase1"));
+const Phase2 = React.lazy(() => import("../components/builder/Phase2"));
+const Phase3 = React.lazy(() => import("../components/builder/Phase3"));
+const Phase4 = React.lazy(() => import("../components/builder/Phase4"));
+const Phase5 = React.lazy(() => import("../components/builder/Phase5"));
+const Phase6 = React.lazy(() => import("../components/builder/Phase6"));
+const Phase7 = React.lazy(() => import("../components/builder/Phase7"));
+const Phase7Pricing = React.lazy(() => import("../components/builder/Phase7Pricing"));
+const TaskManager = React.lazy(() => import("../components/tasks/TaskManager"));
+const ProposalDiscussion = React.lazy(() => import("../components/collaboration/ProposalDiscussion"));
+const ProposalFiles = React.lazy(() => import("../components/collaboration/ProposalFiles"));
+const AutomationHub = React.lazy(() => import("../components/workflows/AutomationHub"));
+const ClientSharingPanel = React.lazy(() => import("../components/builder/ClientSharingPanel"));
+const ProposalAssistant = React.lazy(() => import("../components/assistant/ProposalAssistant"));
+
+// Keep these non-lazy as they're small
 import FloatingChatButton from "../components/collaboration/FloatingChatButton";
-import ClientSharingPanel from "../components/builder/ClientSharingPanel";
-import ProposalAssistant from "../components/assistant/ProposalAssistant";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import UniversalAlert from "../components/ui/UniversalAlert";
+import LoadingState from "../components/ui/LoadingState";
 
 const PHASES = [
   { id: "phase1", label: "Prime Contractor" },
@@ -545,75 +549,77 @@ export default function ProposalBuilder() {
           </TabsList>
 
           <TabsContent value="builder" className="space-y-6">
-            <div className="mb-6">
-              {currentPhase === "phase1" && (
-                <Phase1 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase2" && (
-                <Phase2 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase3" && (
-                <Phase3 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase4" && (
-                <Phase4 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase5" && (
-                <Phase5 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase6" && (
-                <Phase6 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase7" && (
-                <Phase7Pricing 
-                  proposalData={proposalData} 
-                  setProposalData={setProposalData} 
-                  proposalId={proposalId}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-              {currentPhase === "phase8" && (
-                <Phase7
-                  proposal={{ id: proposalId, ...proposalData }}
-                  user={user}
-                  organization={organization}
-                  teamMembers={[]}
-                  onMarkAsSubmitted={markAsSubmitted}
-                  onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
-                />
-              )}
-            </div>
+            <React.Suspense fallback={<LoadingState message="Loading phase..." />}>
+              <div className="mb-6">
+                {currentPhase === "phase1" && (
+                  <Phase1 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase2" && (
+                  <Phase2 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase3" && (
+                  <Phase3 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase4" && (
+                  <Phase4 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase5" && (
+                  <Phase5 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase6" && (
+                  <Phase6 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onNavigateToPhase={(phaseId) => setCurrentPhase(phaseId)}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase7" && (
+                  <Phase7Pricing 
+                    proposalData={proposalData} 
+                    setProposalData={setProposalData} 
+                    proposalId={proposalId}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+                {currentPhase === "phase8" && (
+                  <Phase7
+                    proposal={{ id: proposalId, ...proposalData }}
+                    user={user}
+                    organization={organization}
+                    teamMembers={[]}
+                    onMarkAsSubmitted={markAsSubmitted}
+                    onSaveAndGoToPipeline={handleSaveAndGoToPipeline}
+                  />
+                )}
+              </div>
+            </React.Suspense>
 
             {currentPhaseIndex !== PHASES.length - 1 && (
               <div className="flex justify-between max-w-4xl">
@@ -664,60 +670,64 @@ export default function ProposalBuilder() {
             )}
           </TabsContent>
 
-          {hasClientPortal && (
-            <TabsContent value="client-sharing">
-              <ClientSharingPanel 
+          <React.Suspense fallback={<LoadingState message="Loading..." />}>
+            {hasClientPortal && (
+              <TabsContent value="client-sharing">
+                <ClientSharingPanel 
+                  proposal={{ id: proposalId, ...proposalData }}
+                  organization={organization}
+                />
+              </TabsContent>
+            )}
+
+            <TabsContent value="tasks">
+              <TaskManager 
                 proposal={{ id: proposalId, ...proposalData }}
+                user={user}
                 organization={organization}
               />
             </TabsContent>
-          )}
 
-          <TabsContent value="tasks">
-            <TaskManager 
-              proposal={{ id: proposalId, ...proposalData }}
-              user={user}
-              organization={organization}
-            />
-          </TabsContent>
+            <TabsContent value="discussions">
+              <ProposalDiscussion
+                proposal={{ id: proposalId, ...proposalData }}
+                user={user}
+                organization={organization}
+              />
+            </TabsContent>
 
-          <TabsContent value="discussions">
-            <ProposalDiscussion
-              proposal={{ id: proposalId, ...proposalData }}
-              user={user}
-              organization={organization}
-            />
-          </TabsContent>
+            <TabsContent value="files">
+              <ProposalFiles
+                proposal={{ id: proposalId, ...proposalData }}
+                user={user}
+                organization={organization}
+              />
+            </TabsContent>
 
-          <TabsContent value="files">
-            <ProposalFiles
-              proposal={{ id: proposalId, ...proposalData }}
-              user={user}
-              organization={organization}
-            />
-          </TabsContent>
-
-          <TabsContent value="automation">
-            <AutomationHub
-              proposal={{ id: proposalId, ...proposalData }}
-              organization={organization}
-              user={user}
-            />
-          </TabsContent>
+            <TabsContent value="automation">
+              <AutomationHub
+                proposal={{ id: proposalId, ...proposalData }}
+                organization={organization}
+                user={user}
+              />
+            </TabsContent>
+          </React.Suspense>
         </Tabs>
       </div>
 
       {showAssistant && proposalId && (
-        <ProposalAssistant
-          proposal={{ id: proposalId, ...proposalData }}
-          currentPhase={currentPhase}
-          onClose={() => {
-            setShowAssistant(false);
-            setAssistantMinimized(false);
-          }}
-          isMinimized={assistantMinimized}
-          onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
-        />
+        <React.Suspense fallback={null}>
+          <ProposalAssistant
+            proposal={{ id: proposalId, ...proposalData }}
+            currentPhase={currentPhase}
+            onClose={() => {
+              setShowAssistant(false);
+              setAssistantMinimized(false);
+            }}
+            isMinimized={assistantMinimized}
+            onToggleMinimize={() => setAssistantMinimized(!assistantMinimized)}
+          />
+        </React.Suspense>
       )}
 
       {proposalId && <FloatingChatButton proposalId={proposalId} />}

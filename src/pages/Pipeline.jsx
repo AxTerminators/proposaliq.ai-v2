@@ -40,25 +40,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import ProposalsKanban from "@/components/proposals/ProposalsKanban";
-import ProposalsList from "@/components/proposals/ProposalsList";
-import ProposalsTable from "@/components/proposals/ProposalsTable";
-import PipelineAnalytics from "@/components/analytics/PipelineAnalytics";
-import SnapshotGenerator from "@/components/analytics/SnapshotGenerator";
-import SmartAutomationEngine from "@/components/automation/SmartAutomationEngine";
-import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions";
+// Lazy load heavy components for better performance
+const ProposalsKanban = React.lazy(() => import("@/components/proposals/ProposalsKanban"));
+const ProposalsList = React.lazy(() => import("@/components/proposals/ProposalsList"));
+const ProposalsTable = React.lazy(() => import("@/components/proposals/ProposalsTable"));
+const PipelineAnalytics = React.lazy(() => import("@/components/analytics/PipelineAnalytics"));
+const SnapshotGenerator = React.lazy(() => import("@/components/analytics/SnapshotGenerator"));
+const SmartAutomationEngine = React.lazy(() => import("@/components/automation/SmartAutomationEngine"));
+const AIWorkflowSuggestions = React.lazy(() => import("@/components/automation/AIWorkflowSuggestions"));
+const MobileKanbanView = React.lazy(() => import("@/components/mobile/MobileKanbanView"));
+const PredictiveHealthDashboard = React.lazy(() => import("@/components/proposals/PredictiveHealthDashboard"));
+const QuickCreateProposal = React.lazy(() => import("@/components/proposals/QuickCreateProposal"));
+const QuickBoardCreation = React.lazy(() => import("@/components/proposals/QuickBoardCreation"));
+const BoardAnalytics = React.lazy(() => import("@/components/proposals/BoardAnalytics"));
+const SavedViews = React.lazy(() => import("@/components/proposals/SavedViews"));
+const BoardActivityFeed = React.lazy(() => import("@/components/proposals/BoardActivityFeed"));
+const GlobalSearch = React.lazy(() => import("@/components/proposals/GlobalSearch"));
+const MultiBoardAnalytics = React.lazy(() => import("@/components/analytics/MultiBoardAnalytics"));
+
+// Keep these non-lazy as they're small and frequently used
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
-import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
-import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
-import QuickCreateProposal from "@/components/proposals/QuickCreateProposal";
-import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
-import BoardAnalytics from "@/components/proposals/BoardAnalytics";
-import SavedViews from "@/components/proposals/SavedViews";
-import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
-import GlobalSearch from "@/components/proposals/GlobalSearch";
-import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
+import LoadingState from "@/components/ui/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 import { toast } from "sonner";
@@ -1070,10 +1074,12 @@ export default function Pipeline() {
       {/* Saved Views Panel */}
       {showSavedViews && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <SavedViews
-            organization={organization}
-            onApplyView={handleApplySavedView}
-          />
+          <React.Suspense fallback={<LoadingState message="Loading saved views..." />}>
+            <SavedViews
+              organization={organization}
+              onApplyView={handleApplySavedView}
+            />
+          </React.Suspense>
         </div>
       )}
 
@@ -1095,40 +1101,48 @@ export default function Pipeline() {
             </div>
           </CardHeader>
           <CardContent>
-            <PredictiveHealthDashboard
-              proposal={showHealthDashboard}
-              organization={organization}
-            />
+            <React.Suspense fallback={<LoadingState message="Loading health analysis..." />}>
+              <PredictiveHealthDashboard
+                proposal={showHealthDashboard}
+                organization={organization}
+              />
+            </React.Suspense>
           </CardContent>
         </Card>
       )}
 
       {showBoardAnalytics && selectedBoard && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <BoardAnalytics
-            board={selectedBoard}
-            proposals={proposals}
-            organization={organization}
-          />
+          <React.Suspense fallback={<LoadingState message="Loading board analytics..." />}>
+            <BoardAnalytics
+              board={selectedBoard}
+              proposals={proposals}
+              organization={organization}
+            />
+          </React.Suspense>
         </div>
       )}
 
       {showMultiBoardAnalytics && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <MultiBoardAnalytics
-            proposals={proposals}
-            allBoardConfigs={allBoards}
-            organization={organization}
-          />
+          <React.Suspense fallback={<LoadingState message="Loading multi-board analytics..." />}>
+            <MultiBoardAnalytics
+              proposals={proposals}
+              allBoardConfigs={allBoards}
+              organization={organization}
+            />
+          </React.Suspense>
         </div>
       )}
 
       {showActivityFeed && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <BoardActivityFeed
-            organization={organization}
-            boardId={selectedBoardId}
-          />
+          <React.Suspense fallback={<LoadingState message="Loading activity feed..." />}>
+            <BoardActivityFeed
+              organization={organization}
+              boardId={selectedBoardId}
+            />
+          </React.Suspense>
         </div>
       )}
 
@@ -1148,115 +1162,123 @@ export default function Pipeline() {
         ) : (
           <>
             {!isMobile && showAutomation && (
-              <div className="p-6 space-y-6 h-full overflow-y-auto">
-                <AIWorkflowSuggestions
-                  organization={organization}
-                  proposals={effectiveProposals}
-                  automationRules={automationRules}
-                />
-                <SmartAutomationEngine organization={organization} />
-              </div>
+              <React.Suspense fallback={<LoadingState message="Loading automation tools..." />}>
+                <div className="p-6 space-y-6 h-full overflow-y-auto">
+                  <AIWorkflowSuggestions
+                    organization={organization}
+                    proposals={effectiveProposals}
+                    automationRules={automationRules}
+                  />
+                  <SmartAutomationEngine organization={organization} />
+                </div>
+              </React.Suspense>
             )}
 
             {!isMobile && showAnalytics && (
-              <div className="p-6 space-y-6 h-full overflow-y-auto">
-                <SnapshotGenerator organization={organization} proposals={effectiveProposals} />
-                <PipelineAnalytics organization={organization} proposals={effectiveProposals} />
-              </div>
+              <React.Suspense fallback={<LoadingState message="Loading analytics..." />}>
+                <div className="p-6 space-y-6 h-full overflow-y-auto">
+                  <SnapshotGenerator organization={organization} proposals={effectiveProposals} />
+                  <PipelineAnalytics organization={organization} proposals={effectiveProposals} />
+                </div>
+              </React.Suspense>
             )}
 
             {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && !showMultiBoardAnalytics && !showSavedViews && (
               <>
-                {isMobile ? (
-                  <div className="p-4 h-full overflow-y-auto">
-                    <MobileKanbanView proposals={effectiveProposals} columns={selectedBoard?.columns || []} />
-                  </div>
-                ) : (
-                  <div className="h-full">
-                    {viewMode === "kanban" && (
-                      <ProposalsKanban
-                        proposals={effectiveProposals}
-                        organization={organization}
-                        user={user}
-                        kanbanConfig={selectedBoard}
-                        onRefresh={() => {
-                          refetchProposals();
-                        }}
-                        showQuickFilters={showQuickFilters}
-                        showHelp={showHelp}
-                      />
-                    )}
-                    {viewMode === "list" && (
-                      <div className="p-6 h-full overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-xl font-bold text-slate-900">List View</h2>
-                          <Select value={listGroupBy} onValueChange={setListGroupBy}>
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Group by..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">No Grouping</SelectItem>
-                              <SelectItem value="proposal_type_category">Group by Type</SelectItem>
-                              <SelectItem value="status">Group by Status</SelectItem>
-                              <SelectItem value="agency">Group by Agency</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <ProposalsList
+                <React.Suspense fallback={<LoadingState message={isMobile ? "Loading mobile view..." : "Loading proposals..."} />}>
+                  {isMobile ? (
+                    <div className="p-4 h-full overflow-y-auto">
+                      <MobileKanbanView proposals={effectiveProposals} columns={selectedBoard?.columns || []} />
+                    </div>
+                  ) : (
+                    <div className="h-full">
+                      {viewMode === "kanban" && (
+                        <ProposalsKanban
                           proposals={effectiveProposals}
                           organization={organization}
-                          groupBy={listGroupBy}
+                          user={user}
+                          kanbanConfig={selectedBoard}
+                          onRefresh={() => {
+                            refetchProposals();
+                          }}
+                          showQuickFilters={showQuickFilters}
+                          showHelp={showHelp}
                         />
-                      </div>
-                    )}
-                    {viewMode === "table" && (
-                      <div className="p-6 h-full overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-xl font-bold text-slate-900">Table View</h2>
-                          <Select value={tableGroupBy} onValueChange={setTableGroupBy}>
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Group by..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">No Grouping</SelectItem>
-                              <SelectItem value="proposal_type_category">Group by Type</SelectItem>
-                              <SelectItem value="status">Group by Status</SelectItem>
-                              <SelectItem value="agency">Group by Agency</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      )}
+                      {viewMode === "list" && (
+                        <div className="p-6 h-full overflow-y-auto">
+                          <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-slate-900">List View</h2>
+                            <Select value={listGroupBy} onValueChange={setListGroupBy}>
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Group by..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Grouping</SelectItem>
+                                <SelectItem value="proposal_type_category">Group by Type</SelectItem>
+                                <SelectItem value="status">Group by Status</SelectItem>
+                                <SelectItem value="agency">Group by Agency</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <ProposalsList
+                            proposals={effectiveProposals}
+                            organization={organization}
+                            groupBy={listGroupBy}
+                          />
                         </div>
-                        <ProposalsTable
-                          proposals={effectiveProposals}
-                          organization={organization}
-                          groupBy={tableGroupBy}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                      {viewMode === "table" && (
+                        <div className="p-6 h-full overflow-y-auto">
+                          <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-slate-900">Table View</h2>
+                            <Select value={tableGroupBy} onValueChange={setTableGroupBy}>
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Group by..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Grouping</SelectItem>
+                                <SelectItem value="proposal_type_category">Group by Type</SelectItem>
+                                <SelectItem value="status">Group by Status</SelectItem>
+                                <SelectItem value="agency">Group by Agency</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <ProposalsTable
+                            proposals={effectiveProposals}
+                            organization={organization}
+                            groupBy={tableGroupBy}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </React.Suspense>
               </>
             )}
           </>
         )}
       </div>
 
-      <QuickCreateProposal
-        isOpen={showNewProposalDialog}
-        onClose={() => {
-          console.log('[Pipeline] 🚪 Closing QuickCreate dialog');
-          setShowNewProposalDialog(false);
-        }}
-        organization={organization}
-        preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
-        onSuccess={(proposal, modal, board) => {
-          console.log('[Pipeline] 📞 onSuccess CALLBACK INVOKED!', {
-            proposal: proposal?.proposal_name,
-            modal,
-            board: board?.board_name
-          });
-          handleProposalCreated(proposal, modal, board);
-        }}
-      />
+      <React.Suspense fallback={null}>
+        <QuickCreateProposal
+          isOpen={showNewProposalDialog}
+          onClose={() => {
+            console.log('[Pipeline] 🚪 Closing QuickCreate dialog');
+            setShowNewProposalDialog(false);
+          }}
+          organization={organization}
+          preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
+          onSuccess={(proposal, modal, board) => {
+            console.log('[Pipeline] 📞 onSuccess CALLBACK INVOKED!', {
+              proposal: proposal?.proposal_name,
+              modal,
+              board: board?.board_name
+            });
+            handleProposalCreated(proposal, modal, board);
+          }}
+        />
+      </React.Suspense>
 
       {showProposalModal && selectedProposalToOpen && (
         <ProposalCardModal
@@ -1274,12 +1296,14 @@ export default function Pipeline() {
         />
       )}
 
-      <QuickBoardCreation
-        isOpen={showQuickBoardCreate}
-        onClose={() => setShowQuickBoardCreate(false)}
-        organization={organization}
-        onBoardCreated={handleQuickBoardCreated}
-      />
+      <React.Suspense fallback={null}>
+        <QuickBoardCreation
+          isOpen={showQuickBoardCreate}
+          onClose={() => setShowQuickBoardCreate(false)}
+          organization={organization}
+          onBoardCreated={handleQuickBoardCreated}
+        />
+      </React.Suspense>
 
       <Dialog open={showCreateBoardDialog} onOpenChange={setShowCreateBoardDialog}>
         <DialogContent className="max-w-2xl">
@@ -1478,11 +1502,13 @@ export default function Pipeline() {
         </div>
       </ConfirmDialog>
 
-      <GlobalSearch
-        organization={organization}
-        isOpen={showGlobalSearch}
-        onClose={() => setShowGlobalSearch(false)}
-      />
+      <React.Suspense fallback={null}>
+        <GlobalSearch
+          organization={organization}
+          isOpen={showGlobalSearch}
+          onClose={() => setShowGlobalSearch(false)}
+        />
+      </React.Suspense>
 
       <SampleDataGuard
         isOpen={showSampleDataGuard}
