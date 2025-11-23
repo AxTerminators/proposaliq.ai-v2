@@ -60,6 +60,7 @@ import OverhaulProgress from './pages/OverhaulProgress';
 import SystemInventory from './pages/SystemInventory';
 import ProductRoadmap from './pages/ProductRoadmap';
 import FeatureManagement from './pages/FeatureManagement';
+import Phase5Consolidation from './pages/Phase5Consolidation';
 import __Layout from './Layout.jsx';
 
 
@@ -126,6 +127,7 @@ export const PAGES = {
     "SystemInventory": SystemInventory,
     "ProductRoadmap": ProductRoadmap,
     "FeatureManagement": FeatureManagement,
+    "Phase5Consolidation": Phase5Consolidation,
 }
 
 export const pagesConfig = {

@@ -29,7 +29,8 @@ import {
   Bug,
   Activity,
   Shield,
-  Flag
+  Flag,
+  Database
 } from "lucide-react";
 
 // Workspace sub-menu items
@@ -87,7 +88,8 @@ const ADMIN_ITEMS = [
   { title: "Admin Portal", url: createPageUrl("AdminPortal"), icon: Shield },
   { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
   { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit },
-  { title: "Feature Management", url: createPageUrl("FeatureManagement"), icon: Flag }
+  { title: "Feature Management", url: createPageUrl("FeatureManagement"), icon: Flag },
+  { title: "Phase 5: Entities", url: createPageUrl("Phase5Consolidation"), icon: Database, superAdminOnly: true }
 ];
 
 /**
