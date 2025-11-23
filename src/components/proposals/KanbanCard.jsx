@@ -42,6 +42,7 @@ import {
   calculateCompletionPercentage,
   getProgressBarColor
 } from "./proposalUtils";
+import { getStatusConfig } from "@/components/accessibility/AccessibleStatusBadges";
 
 const KanbanCard = React.memo(function KanbanCard({ 
   proposal, 
@@ -129,6 +130,8 @@ const KanbanCard = React.memo(function KanbanCard({
 
   const isOverdue = isProposalOverdue(proposal.due_date);
   const isUrgent = isProposalUrgent(proposal.due_date);
+  
+  const statusConfig = getStatusConfig(proposal.status);
 
   // Determine priority level using utility
   const priorityLevel = useMemo(() => 
@@ -357,8 +360,11 @@ const KanbanCard = React.memo(function KanbanCard({
           </Badge>
         )}
         {proposal.status && (
-          <Badge variant="outline" className="text-xs h-6 min-h-[32px]">
-            {proposal.status}
+          <Badge 
+            className={cn("text-xs h-6 min-h-[32px]", statusConfig.color)}
+            icon={statusConfig.icon}
+          >
+            {statusConfig.label}
           </Badge>
         )}
         {proposal.proposal_type_category && (
