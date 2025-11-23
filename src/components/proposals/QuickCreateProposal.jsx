@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -404,7 +403,8 @@ export default function QuickCreateProposal({
         console.log('[QuickCreate] 📞 Calling onSuccess');
         onSuccess(proposal, null, targetBoard);
       }
-      navigate(`/pipeline`); // Navigate to the pipeline after creation
+      // Navigate to the pipeline with the specific board selected
+      navigate(`/pipeline?board=${targetBoard.id}`);
 
     } catch (error) {
       console.error('[QuickCreate] ❌ Creation failed:', error.message);
