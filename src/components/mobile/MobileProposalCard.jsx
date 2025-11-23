@@ -18,17 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-
-const STATUS_CONFIG = {
-  evaluating: { label: 'Evaluating', color: 'bg-slate-500' },
-  watch_list: { label: 'Watch List', color: 'bg-amber-500' },
-  draft: { label: 'Draft', color: 'bg-blue-500' },
-  in_progress: { label: 'In Progress', color: 'bg-purple-500' },
-  submitted: { label: 'Submitted', color: 'bg-indigo-500' },
-  won: { label: 'Won', color: 'bg-green-500' },
-  lost: { label: 'Lost', color: 'bg-red-500' },
-  archived: { label: 'Archived', color: 'bg-gray-500' },
-};
+import { getStatusConfig } from "@/components/accessibility/AccessibleStatusBadges";
 
 const formatCurrency = (value) => {
   if (!value) return null;
@@ -39,7 +29,7 @@ const formatCurrency = (value) => {
 
 export default function MobileProposalCard({ proposal, showProgress = true, onDelete }) {
   const navigate = useNavigate();
-  const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-500' };
+  const statusConfig = getStatusConfig(proposal.status);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwipeActive, setIsSwipeActive] = useState(false);
   const touchStartX = useRef(0);
@@ -146,7 +136,10 @@ export default function MobileProposalCard({ proposal, showProgress = true, onDe
           <h3 className="font-bold text-slate-900 text-base flex-1 line-clamp-2">
             {proposal.proposal_name}
           </h3>
-          <Badge className={cn("text-white", statusConfig.color)}>
+          <Badge 
+            className={statusConfig.color}
+            icon={statusConfig.icon}
+          >
             {statusConfig.label}
           </Badge>
         </div>
