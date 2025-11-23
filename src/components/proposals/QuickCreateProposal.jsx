@@ -106,7 +106,7 @@ export default function QuickCreateProposal({
       if (!organization?.id) return [];
       return base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_name,board_type,applies_to_proposal_types,is_master_board,columns' // Include columns for later use
+        '-created_date'
       );
     },
     enabled: isOpen && !!organization?.id,
