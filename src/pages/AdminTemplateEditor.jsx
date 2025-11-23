@@ -517,16 +517,12 @@ export default function AdminTemplateEditor() {
               </CardContent>
             </Card>
           ) : filteredPublishedTemplates.length === 0 ? (
-            <Card className="border-2 border-dashed">
-              <CardContent className="p-8 text-center">
-                <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p className="text-slate-600 mb-3">No published system templates found</p>
-                <Button onClick={handleCreateNew} variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create First System Template
-                </Button>
-              </CardContent>
-            </Card>
+          <Card className="border-2 border-dashed">
+          <CardContent className="p-8 text-center">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p className="text-slate-600 mb-3">No published system templates found</p>
+          </CardContent>
+          </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPublishedTemplates.map(template => (
