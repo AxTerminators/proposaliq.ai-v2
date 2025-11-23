@@ -79,7 +79,7 @@ export default function BoardManagement() {
       if (!organization?.id) return [];
       return base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_type'
+        '-created_date'
       );
     },
     enabled: !!organization?.id,
@@ -103,7 +103,7 @@ export default function BoardManagement() {
     setNewBoardName(value);
     setNameError("");
 
-    if (!value.trim()) {
+    if (!value.trim() || !organization?.id) {
       return;
     }
 

@@ -329,7 +329,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     setTemplateNameError("");
     setValidatedTemplateName("");
 
-    if (!value.trim()) {
+    if (!value.trim() || !organization?.id) {
       return;
     }
 

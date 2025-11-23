@@ -177,7 +177,7 @@ export default function Pipeline() {
       console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        'board_type'
+        '-created_date'
       );
       console.log('[Pipeline] Found boards:', boards.length);
       return boards;
