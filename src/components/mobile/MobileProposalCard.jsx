@@ -236,6 +236,7 @@ export default function MobileProposalCard({ proposal, showProgress = true, onDe
           )}
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
