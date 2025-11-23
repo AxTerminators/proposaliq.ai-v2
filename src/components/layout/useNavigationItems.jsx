@@ -30,7 +30,8 @@ import {
   Activity,
   Shield,
   Flag,
-  Database
+  Database,
+  Zap
 } from "lucide-react";
 
 // Workspace sub-menu items
@@ -89,7 +90,8 @@ const ADMIN_ITEMS = [
   { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
   { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit },
   { title: "Feature Management", url: createPageUrl("FeatureManagement"), icon: Flag },
-  { title: "Phase 5: Entities", url: createPageUrl("Phase5Consolidation"), icon: Database, superAdminOnly: true }
+  { title: "Phase 5: Entities", url: createPageUrl("Phase5Consolidation"), icon: Database, superAdminOnly: true },
+  { title: "Phase 6: Performance", url: createPageUrl("Phase6Performance"), icon: Zap, superAdminOnly: true }
 ];
 
 /**
