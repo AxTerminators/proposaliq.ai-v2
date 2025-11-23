@@ -94,102 +94,48 @@ export default function StatusMigrationManager() {
 
   const activateNewBoardMutation = useMutation({
     mutationFn: async () => {
-      // Find the existing master board
-      const masterBoard = boards.find(b => b.is_master_board === true);
-
-      if (!masterBoard) {
-        throw new Error('Master board not found');
+      // Step 1: Create the new master board
+      const response = await base44.functions.invoke('createMasterBoardConfig', {
+        organization_id: organization.id
+      });
+      
+      if (!response.data.success) {
+        throw new Error('Failed to create new master board: ' + response.data.message);
       }
 
-      // Update the master board with new column structure
-      const newColumns = [
-        {
-          id: 'qualifying',
-          label: 'Qualifying',
-          color: 'bg-slate-100',
-          order: 0,
-          type: 'master_status',
-          status_mapping: ['Qualifying'],
-          is_locked: false,
-          is_terminal: false
-        },
-        {
-          id: 'planning',
-          label: 'Planning',
-          color: 'bg-blue-100',
-          order: 1,
-          type: 'master_status',
-          status_mapping: ['Planning'],
-          is_locked: false,
-          is_terminal: false
-        },
-        {
-          id: 'drafting',
-          label: 'Drafting',
-          color: 'bg-purple-100',
-          order: 2,
-          type: 'master_status',
-          status_mapping: ['Drafting'],
-          is_locked: false,
-          is_terminal: false
-        },
-        {
-          id: 'reviewing',
-          label: 'Reviewing',
-          color: 'bg-amber-100',
-          order: 3,
-          type: 'master_status',
-          status_mapping: ['Reviewing'],
-          is_locked: false,
-          is_terminal: false
-        },
-        {
-          id: 'submitted',
-          label: 'Submitted',
-          color: 'bg-indigo-100',
-          order: 4,
-          type: 'master_status',
-          status_mapping: ['Submitted'],
-          is_locked: true,
-          is_terminal: true
-        },
-        {
-          id: 'won',
-          label: 'Won',
-          color: 'bg-green-100',
-          order: 5,
-          type: 'master_status',
-          status_mapping: ['Won'],
-          is_locked: true,
-          is_terminal: true
-        },
-        {
-          id: 'lost',
-          label: 'Lost',
-          color: 'bg-red-100',
-          order: 6,
-          type: 'master_status',
-          status_mapping: ['Lost'],
-          is_locked: true,
-          is_terminal: true
-        },
-        {
-          id: 'archived',
-          label: 'Archived',
-          color: 'bg-slate-200',
-          order: 7,
-          type: 'master_status',
-          status_mapping: ['Archived'],
-          is_locked: true,
-          is_terminal: true
-        }
-      ];
-
-      // Update the master board
-      await base44.entities.KanbanConfig.update(masterBoard.id, {
-        columns: newColumns,
-        board_name: 'All Proposals'
+      // Step 2: Refetch all boards
+      await queryClient.invalidateQueries(['boards', 'all-kanban-boards']);
+      const freshBoards = await base44.entities.KanbanConfig.filter({ 
+        organization_id: organization.id 
       });
+
+      // Step 3: Find the newly created board
+      const newBoard = freshBoards.find(b => 
+        b.board_name === 'All Proposals - New Master Board'
+      );
+
+      if (!newBoard) {
+        throw new Error('New board was created but could not be found. Available boards: ' + 
+          freshBoards.map(b => b.board_name).join(', '));
+      }
+
+      // Step 4: Find the old master board
+      const oldMasterBoard = freshBoards.find(b => 
+        b.is_master_board === true && b.id !== newBoard.id
+      );
+
+      // Step 5: Activate new board and deactivate old board
+      await base44.entities.KanbanConfig.update(newBoard.id, {
+        is_master_board: true
+      });
+
+      if (oldMasterBoard) {
+        await base44.entities.KanbanConfig.update(oldMasterBoard.id, {
+          is_master_board: false
+        });
+      }
+
+      return { newBoard, oldMasterBoard };
 
       // Find old master boards
       const oldBoards = boards.filter(b => 
