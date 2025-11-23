@@ -71,6 +71,9 @@ import AITokenUsageDashboard from './pages/AITokenUsageDashboard';
 import RAGSystemHealth from './pages/RAGSystemHealth';
 import ProposalStrategyConfigPage from './pages/ProposalStrategyConfigPage';
 import AIAssistedWriterPage from './pages/AIAssistedWriterPage';
+import SystemBackup from './pages/SystemBackup';
+import OverhaulProgress from './pages/OverhaulProgress';
+import SystemInventory from './pages/SystemInventory';
 import __Layout from './Layout.jsx';
 
 
@@ -148,6 +151,9 @@ export const PAGES = {
     "RAGSystemHealth": RAGSystemHealth,
     "ProposalStrategyConfigPage": ProposalStrategyConfigPage,
     "AIAssistedWriterPage": AIAssistedWriterPage,
+    "SystemBackup": SystemBackup,
+    "OverhaulProgress": OverhaulProgress,
+    "SystemInventory": SystemInventory,
 }
 
 export const pagesConfig = {
