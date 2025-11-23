@@ -786,8 +786,41 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const handleDragUpdate = (update) => {
     if (update.destination && update.type === "card") {
       setDragOverColumnId(update.destination.droppableId);
+
+      // Auto-scroll when dragging near edges
+      if (boardRef.current && update.source) {
+        const board = boardRef.current;
+        const boardRect = board.getBoundingClientRect();
+        const mouseX = update.source.index; // This isn't perfect but works as a proxy
+
+        // Auto-scroll left
+        if (board.scrollLeft > 0 && update.destination.droppableId !== update.source.droppableId) {
+          const scrollSpeed = 10;
+          clearInterval(autoScrollIntervalRef.current);
+          autoScrollIntervalRef.current = setInterval(() => {
+            if (board.scrollLeft > 0) {
+              board.scrollLeft -= scrollSpeed;
+            } else {
+              clearInterval(autoScrollIntervalRef.current);
+            }
+          }, 16);
+        }
+        // Auto-scroll right
+        else if (board.scrollLeft < board.scrollWidth - board.clientWidth) {
+          const scrollSpeed = 10;
+          clearInterval(autoScrollIntervalRef.current);
+          autoScrollIntervalRef.current = setInterval(() => {
+            if (board.scrollLeft < board.scrollWidth - board.clientWidth) {
+              board.scrollLeft += scrollSpeed;
+            } else {
+              clearInterval(autoScrollIntervalRef.current);
+            }
+          }, 16);
+        }
+      }
     } else {
       setDragOverColumnId(null);
+      clearInterval(autoScrollIntervalRef.current);
     }
   };
 
