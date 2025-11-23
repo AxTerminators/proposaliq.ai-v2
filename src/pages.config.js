@@ -79,6 +79,7 @@ import Sprint15Accessibility from './pages/Sprint15Accessibility';
 import Sprint16QA from './pages/Sprint16QA';
 import Sprint17Documentation from './pages/Sprint17Documentation';
 import Sprint18LaunchPrep from './pages/Sprint18LaunchPrep';
+import Sprint19AdvancedDocs from './pages/Sprint19AdvancedDocs';
 import __Layout from './Layout.jsx';
 
 
@@ -164,6 +165,7 @@ export const PAGES = {
     "Sprint16QA": Sprint16QA,
     "Sprint17Documentation": Sprint17Documentation,
     "Sprint18LaunchPrep": Sprint18LaunchPrep,
+    "Sprint19AdvancedDocs": Sprint19AdvancedDocs,
 }
 
 export const pagesConfig = {

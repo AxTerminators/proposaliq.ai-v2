@@ -33,7 +33,8 @@ import {
   Database,
   Zap,
   Smartphone,
-  Rocket
+  Rocket,
+  FileCode
 } from "lucide-react";
 
 // Workspace sub-menu items
@@ -100,7 +101,8 @@ const ADMIN_ITEMS = [
   { title: "Phase 9: Documentation", url: createPageUrl("Phase9Documentation"), icon: BookOpen, superAdminOnly: true },
   { title: "Phase 10: Launch Prep", url: createPageUrl("Phase10LaunchPrep"), icon: Activity, superAdminOnly: true },
   { title: "Sprint 17: Documentation", url: createPageUrl("Sprint17Documentation"), icon: BookOpen },
-  { title: "Sprint 18: Launch Prep", url: createPageUrl("Sprint18LaunchPrep"), icon: Rocket }
+  { title: "Sprint 18: Launch Prep", url: createPageUrl("Sprint18LaunchPrep"), icon: Rocket },
+  { title: "Sprint 19: Advanced Docs", url: createPageUrl("Sprint19AdvancedDocs"), icon: FileCode }
 ];
 
 /**
