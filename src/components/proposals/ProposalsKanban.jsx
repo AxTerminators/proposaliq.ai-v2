@@ -1336,24 +1336,39 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-slate-100">
-        <div ref={boardRef} className="overflow-x-auto px-4">
-          <DragDropContext
-            onDragEnd={onDragEnd}
-            onDragUpdate={handleDragUpdate}
-            onBeforeDragStart={() => {
-              setDragInProgress(true);
-            }}
-          >
-            <Droppable droppableId="all-columns" direction="horizontal" type="column">
+      <div className="flex-1 overflow-hidden bg-slate-100">
+        <DragDropContext
+          onDragEnd={onDragEnd}
+          onDragUpdate={handleDragUpdate}
+          onBeforeDragStart={() => {
+            setDragInProgress(true);
+          }}
+        >
+          <div ref={boardRef} className="overflow-x-auto overflow-y-auto h-full px-4">
+            <Droppable droppableId="all-columns" direction="horizontal" type="column" mode="virtual" renderClone={(provided, snapshot, rubric) => {
+              const column = validColumns[rubric.source.index];
+              return (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.draggableProps}
+                  {...provided.dragHandleProps}
+                  className="w-80 opacity-80"
+                >
+                  <div className="bg-white border-2 border-blue-400 rounded-xl shadow-xl p-3">
+                    <div className="font-semibold text-slate-900">{column?.label || 'Column'}</div>
+                  </div>
+                </div>
+              );
+            }}>
               {(providedOuter) => (
                 <div
                   ref={providedOuter.innerRef}
                   {...providedOuter.droppableProps}
-                  className="flex gap-4 pt-4"
+                  className="flex gap-4 pt-4 pb-4"
                   style={{
                     minWidth: 'min-content',
-                    alignItems: 'flex-start'
+                    alignItems: 'flex-start',
+                    minHeight: '100%'
                   }}
                 >
                   {validColumns.map((column, index) => {
@@ -1440,8 +1455,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                 </div>
               )}
             </Droppable>
-          </DragDropContext>
-        </div>
+          </div>
+        </DragDropContext>
       </div>
 
       <GlobalSearch
