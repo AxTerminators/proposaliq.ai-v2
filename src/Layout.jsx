@@ -529,7 +529,7 @@ function LayoutContent({ children, currentPageName }) {
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 min-h-[44px] min-w-[44px]"
                 >
                   <LogOut className="w-4 h-4" />
                 </Button>
@@ -599,7 +599,7 @@ function LayoutContent({ children, currentPageName }) {
             </div>
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <X className="w-5 h-5 text-slate-600" />
             </button>
@@ -851,7 +851,7 @@ function LayoutContent({ children, currentPageName }) {
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowGlobalSearch(true)}
-                  className="md:hidden"
+                  className="md:hidden min-h-[44px] min-w-[44px]"
                 >
                   <Search className="w-5 h-5" />
                 </Button>

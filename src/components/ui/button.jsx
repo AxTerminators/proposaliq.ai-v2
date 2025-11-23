@@ -11,10 +11,10 @@ const buttonVariants = {
 }
 
 const buttonSizes = {
-  default: "h-10 px-4 py-2",
-  sm: "h-9 rounded-md px-3",
-  lg: "h-11 rounded-md px-8",
-  icon: "h-10 w-10"
+  default: "h-10 px-4 py-2 min-h-[44px]",
+  sm: "h-9 rounded-md px-3 min-h-[44px]",
+  lg: "h-11 rounded-md px-8 min-h-[44px]",
+  icon: "h-10 w-10 min-h-[44px] min-w-[44px]"
 }
 
 const Button = React.forwardRef(({ 
