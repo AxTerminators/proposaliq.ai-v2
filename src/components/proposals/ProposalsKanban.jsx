@@ -799,8 +799,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       if (!dragInProgress || !boardRef.current) return;
 
       const board = boardRef.current;
-      const threshold = 150; // pixels from edge to trigger scroll
-      const scrollSpeed = 3; // reduced from 10 for smoother scrolling
+      const threshold = 180; // pixels from edge to trigger scroll - increased for earlier activation
+      const maxScrollSpeed = 15; // max scroll speed
       const viewportWidth = window.innerWidth;
       const mouseX = e.clientX;
       const mouseY = e.clientY;
@@ -808,7 +808,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       // Magnetic snapping - find which column the mouse is over
       let closestColumnId = null;
       let closestDistance = Infinity;
-      const magneticThreshold = 200; // pixels to trigger magnetic effect
+      const magneticThreshold = 250; // increased threshold for wider detection
 
       Object.entries(columnRefs.current).forEach(([columnId, ref]) => {
         if (ref) {
@@ -836,8 +836,16 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         autoScrollIntervalRef.current = null;
       }
 
+      // Calculate dynamic scroll speed based on distance from edge (accelerates as you get closer)
+      const calculateScrollSpeed = (distanceFromEdge) => {
+        const speedRatio = Math.max(0, (threshold - distanceFromEdge) / threshold);
+        return Math.ceil(speedRatio * maxScrollSpeed) || 1;
+      };
+
       // Scroll left when near left edge
       if (mouseX < threshold && board.scrollLeft > 0) {
+        const distanceFromEdge = mouseX;
+        const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
         autoScrollIntervalRef.current = setInterval(() => {
           if (board.scrollLeft > 0) {
             board.scrollLeft -= scrollSpeed;
@@ -849,6 +857,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       }
       // Scroll right when near right edge
       else if (mouseX > viewportWidth - threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
+        const distanceFromEdge = viewportWidth - mouseX;
+        const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
         autoScrollIntervalRef.current = setInterval(() => {
           if (board.scrollLeft < board.scrollWidth - board.clientWidth) {
             board.scrollLeft += scrollSpeed;
@@ -1509,30 +1519,33 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                             ) : (
                               <Droppable droppableId={column.id} type="card">
                                 {(providedDroppable, snapshotDroppable) => (
-                                  <KanbanColumn
-                                    column={column}
-                                    proposals={columnProposals}
-                                    provided={providedDroppable}
-                                    snapshot={snapshotDroppable}
-                                    onCardClick={handleCardClick}
-                                    onToggleCollapse={toggleColumnCollapse}
-                                    organization={organization}
-                                    onRenameColumn={handleRenameColumn}
-                                    onConfigureColumn={handleConfigureColumn}
-                                    user={user}
-                                    dragHandleProps={providedDraggable.dragHandleProps}
-                                    onCreateProposal={handleCreateProposalInColumn}
-                                    selectedProposalIds={selectedProposalIds}
-                                    onToggleProposalSelection={handleToggleProposalSelection}
-                                    totalCount={stats.total}
-                                    visibleCount={stats.visible}
-                                    hasMore={hasMore(column.id)}
-                                    onLoadMore={() => loadMore(column.id)}
-                                    onLoadAll={() => loadAll(column.id)}
-                                    onColumnSortChange={handleColumnSortChange}
-                                    onClearColumnSort={handleClearColumnSort}
-                                    currentSort={columnSorts[column.id]}
-                                  />
+                                  <div ref={(el) => columnRefs.current[column.id] = el}>
+                                    <KanbanColumn
+                                      column={column}
+                                      proposals={columnProposals}
+                                      provided={providedDroppable}
+                                      snapshot={snapshotDroppable}
+                                      onCardClick={handleCardClick}
+                                      onToggleCollapse={toggleColumnCollapse}
+                                      organization={organization}
+                                      onRenameColumn={handleRenameColumn}
+                                      onConfigureColumn={handleConfigureColumn}
+                                      user={user}
+                                      dragHandleProps={providedDraggable.dragHandleProps}
+                                      onCreateProposal={handleCreateProposalInColumn}
+                                      selectedProposalIds={selectedProposalIds}
+                                      onToggleProposalSelection={handleToggleProposalSelection}
+                                      totalCount={stats.total}
+                                      visibleCount={stats.visible}
+                                      hasMore={hasMore(column.id)}
+                                      onLoadMore={() => loadMore(column.id)}
+                                      onLoadAll={() => loadAll(column.id)}
+                                      onColumnSortChange={handleColumnSortChange}
+                                      onClearColumnSort={handleClearColumnSort}
+                                      currentSort={columnSorts[column.id]}
+                                      isMagnetic={magneticColumnId === column.id}
+                                    />
+                                  </div>
                                 )}
                               </Droppable>
                             )}
