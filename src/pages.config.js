@@ -64,6 +64,7 @@ import Phase5Consolidation from './pages/Phase5Consolidation';
 import Phase6Performance from './pages/Phase6Performance';
 import Phase7MobileOptimization from './pages/Phase7MobileOptimization';
 import Phase8AccessibilityPolish from './pages/Phase8AccessibilityPolish';
+import Phase9Documentation from './pages/Phase9Documentation';
 import __Layout from './Layout.jsx';
 
 
@@ -134,6 +135,7 @@ export const PAGES = {
     "Phase6Performance": Phase6Performance,
     "Phase7MobileOptimization": Phase7MobileOptimization,
     "Phase8AccessibilityPolish": Phase8AccessibilityPolish,
+    "Phase9Documentation": Phase9Documentation,
 }
 
 export const pagesConfig = {
