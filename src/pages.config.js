@@ -81,6 +81,7 @@ import Sprint17Documentation from './pages/Sprint17Documentation';
 import Sprint18LaunchPrep from './pages/Sprint18LaunchPrep';
 import Sprint19AdvancedDocs from './pages/Sprint19AdvancedDocs';
 import Sprint20PostLaunch from './pages/Sprint20PostLaunch';
+import SprintTracker from './pages/SprintTracker';
 import __Layout from './Layout.jsx';
 
 
@@ -168,6 +169,7 @@ export const PAGES = {
     "Sprint18LaunchPrep": Sprint18LaunchPrep,
     "Sprint19AdvancedDocs": Sprint19AdvancedDocs,
     "Sprint20PostLaunch": Sprint20PostLaunch,
+    "SprintTracker": SprintTracker,
 }
 
 export const pagesConfig = {
