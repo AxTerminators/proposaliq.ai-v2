@@ -402,7 +402,10 @@ export default function Pipeline() {
 
     // Also check board_type for special boards like rfp_15_column
     if (selectedBoard.board_type === 'rfp_15_column') {
-      return proposals.filter(p => p.proposal_type_category === 'RFP_15_COLUMN');
+      return proposals.filter(p => 
+        p.proposal_type_category === 'RFP_15_COLUMN' || 
+        p.proposal_type_category === 'RFP'
+      );
     }
 
     if (selectedBoard.applies_to_proposal_types && selectedBoard.applies_to_proposal_types.length > 0) {
