@@ -32,8 +32,7 @@ import {
   Flag,
   Database,
   Zap,
-  Smartphone,
-  Activity
+  Smartphone
 } from "lucide-react";
 
 // Workspace sub-menu items
