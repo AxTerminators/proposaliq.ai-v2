@@ -106,7 +106,7 @@ export default function StatusMigrationManager() {
           {
             id: "qualifying",
             label: "Qualifying",
-            color: "bg-slate-100",
+            color: "from-slate-500 to-slate-700",
             order: 0,
             type: "master_status",
             status_mapping: ["Qualifying"],
@@ -117,7 +117,7 @@ export default function StatusMigrationManager() {
           {
             id: "planning",
             label: "Planning",
-            color: "bg-blue-100",
+            color: "from-blue-500 to-blue-700",
             order: 1,
             type: "master_status",
             status_mapping: ["Planning"],
@@ -128,7 +128,7 @@ export default function StatusMigrationManager() {
           {
             id: "drafting",
             label: "Drafting",
-            color: "bg-purple-100",
+            color: "from-purple-500 to-purple-700",
             order: 2,
             type: "master_status",
             status_mapping: ["Drafting"],
@@ -139,7 +139,7 @@ export default function StatusMigrationManager() {
           {
             id: "reviewing",
             label: "Reviewing",
-            color: "bg-amber-100",
+            color: "from-amber-500 to-amber-700",
             order: 3,
             type: "master_status",
             status_mapping: ["Reviewing"],
@@ -150,7 +150,7 @@ export default function StatusMigrationManager() {
           {
             id: "submitted",
             label: "Submitted",
-            color: "bg-indigo-100",
+            color: "from-indigo-500 to-indigo-700",
             order: 4,
             type: "master_status",
             status_mapping: ["Submitted"],
@@ -161,7 +161,7 @@ export default function StatusMigrationManager() {
           {
             id: "won",
             label: "Won",
-            color: "bg-green-100",
+            color: "from-green-500 to-green-700",
             order: 5,
             type: "master_status",
             status_mapping: ["Won"],
@@ -172,7 +172,7 @@ export default function StatusMigrationManager() {
           {
             id: "lost",
             label: "Lost",
-            color: "bg-red-100",
+            color: "from-red-500 to-red-700",
             order: 6,
             type: "master_status",
             status_mapping: ["Lost"],
@@ -183,7 +183,7 @@ export default function StatusMigrationManager() {
           {
             id: "archived",
             label: "Archived",
-            color: "bg-slate-200",
+            color: "from-gray-500 to-gray-700",
             order: 7,
             type: "master_status",
             status_mapping: ["Archived"],
