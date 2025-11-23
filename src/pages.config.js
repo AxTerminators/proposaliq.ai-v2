@@ -58,6 +58,7 @@ import AIAssistedWriterPage from './pages/AIAssistedWriterPage';
 import SystemBackup from './pages/SystemBackup';
 import OverhaulProgress from './pages/OverhaulProgress';
 import SystemInventory from './pages/SystemInventory';
+import ProductRoadmap from './pages/ProductRoadmap';
 import __Layout from './Layout.jsx';
 
 
@@ -122,6 +123,7 @@ export const PAGES = {
     "SystemBackup": SystemBackup,
     "OverhaulProgress": OverhaulProgress,
     "SystemInventory": SystemInventory,
+    "ProductRoadmap": ProductRoadmap,
 }
 
 export const pagesConfig = {
