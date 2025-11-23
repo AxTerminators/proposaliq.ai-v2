@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
  * and ARIA attributes. Supports input, textarea, and select components.
  */
 
-export const FormField = React.forwardRef(({
+const FormField = React.forwardRef(({
   label,
   type = "text",
   error,
