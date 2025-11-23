@@ -66,23 +66,6 @@ import Phase7MobileOptimization from './pages/Phase7MobileOptimization';
 import Phase8AccessibilityPolish from './pages/Phase8AccessibilityPolish';
 import Phase9Documentation from './pages/Phase9Documentation';
 import Phase10LaunchPrep from './pages/Phase10LaunchPrep';
-import ImplementationRoadmap from './pages/ImplementationRoadmap';
-import FormAccessibilityDemo from './pages/FormAccessibilityDemo';
-import Sprint9Performance from './pages/Sprint9Performance';
-import Sprint11Accessibility from './pages/Sprint11Accessibility';
-import SecurityAudit from './pages/SecurityAudit';
-import Sprint12Security from './pages/Sprint12Security';
-import PerformanceMonitor from './pages/PerformanceMonitor';
-import Sprint13Performance from './pages/Sprint13Performance';
-import Sprint14Mobile from './pages/Sprint14Mobile';
-import Sprint15Accessibility from './pages/Sprint15Accessibility';
-import Sprint16QA from './pages/Sprint16QA';
-import Sprint17Documentation from './pages/Sprint17Documentation';
-import Sprint18LaunchPrep from './pages/Sprint18LaunchPrep';
-import Sprint19AdvancedDocs from './pages/Sprint19AdvancedDocs';
-import Sprint20PostLaunch from './pages/Sprint20PostLaunch';
-import SprintTracker from './pages/SprintTracker';
-import StatusMigrationManager from './pages/StatusMigrationManager';
 import __Layout from './Layout.jsx';
 
 
@@ -155,23 +138,6 @@ export const PAGES = {
     "Phase8AccessibilityPolish": Phase8AccessibilityPolish,
     "Phase9Documentation": Phase9Documentation,
     "Phase10LaunchPrep": Phase10LaunchPrep,
-    "ImplementationRoadmap": ImplementationRoadmap,
-    "FormAccessibilityDemo": FormAccessibilityDemo,
-    "Sprint9Performance": Sprint9Performance,
-    "Sprint11Accessibility": Sprint11Accessibility,
-    "SecurityAudit": SecurityAudit,
-    "Sprint12Security": Sprint12Security,
-    "PerformanceMonitor": PerformanceMonitor,
-    "Sprint13Performance": Sprint13Performance,
-    "Sprint14Mobile": Sprint14Mobile,
-    "Sprint15Accessibility": Sprint15Accessibility,
-    "Sprint16QA": Sprint16QA,
-    "Sprint17Documentation": Sprint17Documentation,
-    "Sprint18LaunchPrep": Sprint18LaunchPrep,
-    "Sprint19AdvancedDocs": Sprint19AdvancedDocs,
-    "Sprint20PostLaunch": Sprint20PostLaunch,
-    "SprintTracker": SprintTracker,
-    "StatusMigrationManager": StatusMigrationManager,
 }
 
 export const pagesConfig = {

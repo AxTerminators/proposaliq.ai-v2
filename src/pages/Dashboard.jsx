@@ -6,17 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-// Lazy load dashboard widgets for better performance
-const ProposalPipeline = React.lazy(() => import("../components/dashboard/ProposalPipeline"));
-const AIInsightsCard = React.lazy(() => import("../components/dashboard/AIInsightsCard"));
-const ActivityTimeline = React.lazy(() => import("../components/dashboard/ActivityTimeline"));
-const RevenueChart = React.lazy(() => import("../components/dashboard/RevenueChart"));
-const DataCallSummaryWidget = React.lazy(() => import("../components/dashboard/DataCallSummaryWidget"));
-const MobileDashboard = React.lazy(() => import("../components/mobile/MobileDashboard"));
-
-// Keep these non-lazy as they're lightweight
 import QuickActionsPanel from "../components/dashboard/QuickActionsPanel";
-import LoadingState from "../components/ui/LoadingState";
+import ProposalPipeline from "../components/dashboard/ProposalPipeline";
+import AIInsightsCard from "../components/dashboard/AIInsightsCard";
+import ActivityTimeline from "../components/dashboard/ActivityTimeline";
+import RevenueChart from "../components/dashboard/RevenueChart";
+import MobileDashboard from "../components/mobile/MobileDashboard";
+import DataCallSummaryWidget from "../components/dashboard/DataCallSummaryWidget";
 import { useOrganization } from "../components/layout/OrganizationContext";
 import SampleDataGuard from "../components/ui/SampleDataGuard";
 import { Badge } from "@/components/ui/badge";
@@ -60,8 +56,7 @@ export default function Dashboard() {
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 60000,
   });
 
   // PERFORMANCE FIX: Removed 2-second delay, optimized to run in parallel
@@ -86,8 +81,7 @@ export default function Dashboard() {
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    cacheTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 60000,
   });
 
   // Calculate stats when proposals change
@@ -146,26 +140,22 @@ export default function Dashboard() {
   // Show loading state
   if (isLoadingOrg) { 
     return (
-      <main className="flex items-center justify-center min-h-screen" role="main">
-        <div className="text-center" role="status" aria-live="polite" aria-busy="true">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
           <p className="text-slate-600">Loading...</p>
         </div>
-      </main>
+      </div>
     );
   }
 
   // Mobile-optimized dashboard
   if (isMobile) {
-    return (
-      <React.Suspense fallback={<LoadingState message="Loading dashboard..." />}>
-        <MobileDashboard organization={organization} user={user} />
-      </React.Suspense>
-    );
+    return <MobileDashboard organization={organization} user={user} />;
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6 lg:p-8" role="main" aria-label="Dashboard">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6 lg:p-8">
       {isDemoAccount && (
         <div className="bg-gradient-to-r from-purple-100 via-pink-100 to-orange-100 border-2 border-purple-300 rounded-xl p-4 shadow-lg mb-6">
           <div className="flex items-center gap-3">
@@ -194,10 +184,10 @@ export default function Dashboard() {
       )}
 
       {/* Welcome Section */}
-      <section className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-2xl p-8 text-white mb-6" aria-labelledby="welcome-heading">
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-2xl p-8 text-white mb-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex-1">
-            <h1 id="welcome-heading" className="text-3xl md:text-4xl font-bold mb-2">
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">
               Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
             </h1>
             <p className="text-blue-100 text-lg">
@@ -209,11 +199,11 @@ export default function Dashboard() {
           </div>
           <QuickActionsPanel organization={organization} />
         </div>
-      </section>
+      </div>
 
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Stats Cards */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" aria-label="Dashboard statistics">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="border-none shadow-lg hover:shadow-xl transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">
@@ -281,23 +271,21 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
-        </section>
+        </div>
 
         {/* Main Content Grid */}
-        <React.Suspense fallback={<LoadingState message="Loading dashboard widgets..." />}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <ProposalPipeline proposals={proposals} organization={organization} />
-              <RevenueChart proposals={proposals} />
-            </div>
-
-            <div className="space-y-6">
-              <AIInsightsCard proposals={proposals} organization={organization} />
-              <DataCallSummaryWidget organization={organization} />
-              <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <ProposalPipeline proposals={proposals} organization={organization} />
+            <RevenueChart proposals={proposals} />
           </div>
-        </React.Suspense>
+
+          <div className="space-y-6">
+            <AIInsightsCard proposals={proposals} organization={organization} />
+            <DataCallSummaryWidget organization={organization} />
+            <ActivityTimeline organization={organization} activityLog={activityLog} proposals={proposals} />
+          </div>
+        </div>
       </div>
 
       <SampleDataGuard
@@ -316,6 +304,6 @@ export default function Dashboard() {
           localStorage.setItem(`rag_guide_seen_${user?.email}`, 'true');
         }}
       />
-    </main>
+    </div>
   );
 }

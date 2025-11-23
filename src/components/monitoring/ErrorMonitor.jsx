@@ -207,11 +207,6 @@ class ErrorMonitor {
 // Singleton instance
 export const errorMonitor = new ErrorMonitor();
 
-// SPRINT 5: Expose to window for ErrorBoundary access
-if (typeof window !== 'undefined') {
-  window.errorMonitor = errorMonitor;
-}
-
 // React Hook for easy integration
 export function useErrorMonitoring(user, organization) {
   useEffect(() => {

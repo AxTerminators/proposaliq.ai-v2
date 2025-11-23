@@ -40,29 +40,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-// Lazy load heavy components for better performance
-const ProposalsKanban = React.lazy(() => import("@/components/proposals/ProposalsKanban"));
-const ProposalsList = React.lazy(() => import("@/components/proposals/ProposalsList"));
-const ProposalsTable = React.lazy(() => import("@/components/proposals/ProposalsTable"));
-const PipelineAnalytics = React.lazy(() => import("@/components/analytics/PipelineAnalytics"));
-const SnapshotGenerator = React.lazy(() => import("@/components/analytics/SnapshotGenerator"));
-const SmartAutomationEngine = React.lazy(() => import("@/components/automation/SmartAutomationEngine"));
-const AIWorkflowSuggestions = React.lazy(() => import("@/components/automation/AIWorkflowSuggestions"));
-const MobileKanbanView = React.lazy(() => import("@/components/mobile/MobileKanbanView"));
-const PredictiveHealthDashboard = React.lazy(() => import("@/components/proposals/PredictiveHealthDashboard"));
-const QuickCreateProposal = React.lazy(() => import("@/components/proposals/QuickCreateProposal"));
-const QuickBoardCreation = React.lazy(() => import("@/components/proposals/QuickBoardCreation"));
-const BoardAnalytics = React.lazy(() => import("@/components/proposals/BoardAnalytics"));
-const SavedViews = React.lazy(() => import("@/components/proposals/SavedViews"));
-const BoardActivityFeed = React.lazy(() => import("@/components/proposals/BoardActivityFeed"));
-const GlobalSearch = React.lazy(() => import("@/components/proposals/GlobalSearch"));
-const MultiBoardAnalytics = React.lazy(() => import("@/components/analytics/MultiBoardAnalytics"));
-
-// Keep these non-lazy as they're small and frequently used
+import ProposalsKanban from "@/components/proposals/ProposalsKanban";
+import ProposalsList from "@/components/proposals/ProposalsList";
+import ProposalsTable from "@/components/proposals/ProposalsTable";
+import PipelineAnalytics from "@/components/analytics/PipelineAnalytics";
+import SnapshotGenerator from "@/components/analytics/SnapshotGenerator";
+import SmartAutomationEngine from "@/components/automation/SmartAutomationEngine";
+import AIWorkflowSuggestions from "@/components/automation/AIWorkflowSuggestions";
 import AutomationExecutor from "@/components/automation/AutomationExecutor";
+import MobileKanbanView from "@/components/mobile/MobileKanbanView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SampleDataGuard from "@/components/ui/SampleDataGuard";
-import LoadingState from "@/components/ui/LoadingState";
+import PredictiveHealthDashboard from "@/components/proposals/PredictiveHealthDashboard";
+import QuickCreateProposal from "@/components/proposals/QuickCreateProposal";
+import QuickBoardCreation from "@/components/proposals/QuickBoardCreation";
+import BoardAnalytics from "@/components/proposals/BoardAnalytics";
+import SavedViews from "@/components/proposals/SavedViews";
+import BoardActivityFeed from "@/components/proposals/BoardActivityFeed";
+import GlobalSearch from "@/components/proposals/GlobalSearch";
+import MultiBoardAnalytics from "@/components/analytics/MultiBoardAnalytics";
 import { Badge } from "@/components/ui/badge";
 import ProposalCardModal from "@/components/proposals/ProposalCardModal";
 import { toast } from "sonner";
@@ -177,7 +173,7 @@ export default function Pipeline() {
       console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        '-created_date'
+        'board_type'
       );
       console.log('[Pipeline] Found boards:', boards.length);
       return boards;
@@ -351,8 +347,7 @@ export default function Pipeline() {
       return results || [];
     },
     enabled: !!organization?.id,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10000,
     retry: 3,
     retryDelay: 1000,
     initialData: [],
@@ -456,8 +451,8 @@ export default function Pipeline() {
       ? `$${(totalValue / 1000).toFixed(0)}K`
       : `$${totalValue.toLocaleString()}`;
 
-    const wonCount = proposals.filter(p => p.status === 'Won').length;
-    const submittedProposals = proposals.filter(p => ['Submitted', 'Won', 'Lost'].includes(p.status)).length;
+    const wonCount = proposals.filter(p => p.status === 'won').length;
+    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
     const winRate = submittedProposals > 0 ? Math.round((wonCount / submittedProposals) * 100) : 0;
 
     const today = new Date();
@@ -475,7 +470,7 @@ export default function Pipeline() {
     };
   }, [effectiveProposals, proposals]);
 
-  const { data: automationRules = [] } = useQuery({
+  const { data: automationRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -485,8 +480,7 @@ export default function Pipeline() {
       );
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 60000,
     retry: 1,
     initialData: [],
   });
@@ -900,13 +894,13 @@ export default function Pipeline() {
 
   if (proposalsError) {
     return (
-      <main className="flex items-center justify-center min-h-screen p-6" role="main" aria-labelledby="error-title">
+      <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
-          <CardContent className="p-12 text-center" role="alert" aria-live="assertive">
+          <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-red-600" />
             </div>
-            <h2 id="error-title" className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Unable to Load Pipeline</h2>
             <p className="text-lg text-slate-600 mb-6">
               {proposalsError?.message || "An error occurred"}
             </p>
@@ -921,15 +915,15 @@ export default function Pipeline() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   if (isLoadingUser || isLoadingOrg) {
     return (
-      <main className="flex items-center justify-center min-h-screen p-6" role="main">
+      <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
-          <CardContent className="p-12 text-center" role="status" aria-live="polite" aria-busy="true">
+          <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
               <LayoutGrid className="w-10 h-10 text-white" />
             </div>
@@ -943,19 +937,19 @@ export default function Pipeline() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   if (!organization && !isLoadingOrg) {
     return (
-      <main className="flex items-center justify-center min-h-screen p-6" role="main" aria-labelledby="no-org-title">
+      <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Building2 className="w-10 h-10 text-amber-600" />
             </div>
-            <h2 id="no-org-title" className="text-2xl font-bold text-slate-900 mb-3">No Organization Found</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">No Organization Found</h2>
             <p className="text-lg text-slate-600 mb-6">
               You need to set up your organization before accessing the pipeline.
             </p>
@@ -970,19 +964,19 @@ export default function Pipeline() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   if (!isLoadingBoards && allBoards.length === 0 && organization && !isLoadingOrg) {
     return (
-      <main className="flex items-center justify-center min-h-screen p-6" role="main" aria-labelledby="setup-title">
+      <div className="flex items-center justify-center min-h-screen p-6">
         <Card className="max-w-2xl border-none shadow-xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Layers className="w-10 h-10 text-white" />
             </div>
-            <h2 id="setup-title" className="text-3xl font-bold text-slate-900 mb-3">Setup Your Proposal Board</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-3">Setup Your Proposal Board</h2>
             <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
               Get started by creating your master board to view and manage all proposals in one place.
             </p>
@@ -1005,7 +999,7 @@ export default function Pipeline() {
             </Button>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -1013,7 +1007,7 @@ export default function Pipeline() {
   const canGenerateSampleData = organization?.is_sample_data === true;
 
   return (
-    <main className="flex flex-col h-full" role="main" aria-label="Pipeline management">
+    <div className="flex flex-col h-full">
       <AutomationExecutor
         organization={organization}
         proposals={proposals}
@@ -1074,12 +1068,10 @@ export default function Pipeline() {
       {/* Saved Views Panel */}
       {showSavedViews && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <React.Suspense fallback={<LoadingState message="Loading saved views..." />}>
-            <SavedViews
-              organization={organization}
-              onApplyView={handleApplySavedView}
-            />
-          </React.Suspense>
+          <SavedViews
+            organization={organization}
+            onApplyView={handleApplySavedView}
+          />
         </div>
       )}
 
@@ -1101,54 +1093,46 @@ export default function Pipeline() {
             </div>
           </CardHeader>
           <CardContent>
-            <React.Suspense fallback={<LoadingState message="Loading health analysis..." />}>
-              <PredictiveHealthDashboard
-                proposal={showHealthDashboard}
-                organization={organization}
-              />
-            </React.Suspense>
+            <PredictiveHealthDashboard
+              proposal={showHealthDashboard}
+              organization={organization}
+            />
           </CardContent>
         </Card>
       )}
 
       {showBoardAnalytics && selectedBoard && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <React.Suspense fallback={<LoadingState message="Loading board analytics..." />}>
-            <BoardAnalytics
-              board={selectedBoard}
-              proposals={proposals}
-              organization={organization}
-            />
-          </React.Suspense>
+          <BoardAnalytics
+            board={selectedBoard}
+            proposals={proposals}
+            organization={organization}
+          />
         </div>
       )}
 
       {showMultiBoardAnalytics && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <React.Suspense fallback={<LoadingState message="Loading multi-board analytics..." />}>
-            <MultiBoardAnalytics
-              proposals={proposals}
-              allBoardConfigs={allBoards}
-              organization={organization}
-            />
-          </React.Suspense>
+          <MultiBoardAnalytics
+            proposals={proposals}
+            allBoardConfigs={allBoards}
+            organization={organization}
+          />
         </div>
       )}
 
       {showActivityFeed && (
         <div className="flex-shrink-0 mx-6 mt-6">
-          <React.Suspense fallback={<LoadingState message="Loading activity feed..." />}>
-            <BoardActivityFeed
-              organization={organization}
-              boardId={selectedBoardId}
-            />
-          </React.Suspense>
+          <BoardActivityFeed
+            organization={organization}
+            boardId={selectedBoardId}
+          />
         </div>
       )}
 
       <div className="flex-1 min-h-0">
         {isLoadingProposals || isLoadingBoards ? (
-          <div className="flex items-center justify-center h-full p-6" role="status" aria-live="polite" aria-busy="true">
+          <div className="flex items-center justify-center h-full p-6">
             <Card className="max-w-md border-none shadow-xl">
               <CardContent className="p-8 text-center">
                 <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
@@ -1162,123 +1146,115 @@ export default function Pipeline() {
         ) : (
           <>
             {!isMobile && showAutomation && (
-              <React.Suspense fallback={<LoadingState message="Loading automation tools..." />}>
-                <div className="p-6 space-y-6 h-full overflow-y-auto">
-                  <AIWorkflowSuggestions
-                    organization={organization}
-                    proposals={effectiveProposals}
-                    automationRules={automationRules}
-                  />
-                  <SmartAutomationEngine organization={organization} />
-                </div>
-              </React.Suspense>
+              <div className="p-6 space-y-6 h-full overflow-y-auto">
+                <AIWorkflowSuggestions
+                  organization={organization}
+                  proposals={effectiveProposals}
+                  automationRules={automationRules}
+                />
+                <SmartAutomationEngine organization={organization} />
+              </div>
             )}
 
             {!isMobile && showAnalytics && (
-              <React.Suspense fallback={<LoadingState message="Loading analytics..." />}>
-                <div className="p-6 space-y-6 h-full overflow-y-auto">
-                  <SnapshotGenerator organization={organization} proposals={effectiveProposals} />
-                  <PipelineAnalytics organization={organization} proposals={effectiveProposals} />
-                </div>
-              </React.Suspense>
+              <div className="p-6 space-y-6 h-full overflow-y-auto">
+                <SnapshotGenerator organization={organization} proposals={effectiveProposals} />
+                <PipelineAnalytics organization={organization} proposals={effectiveProposals} />
+              </div>
             )}
 
             {!showAutomation && !showAnalytics && !showBoardAnalytics && !showActivityFeed && !showMultiBoardAnalytics && !showSavedViews && (
               <>
-                <React.Suspense fallback={<LoadingState message={isMobile ? "Loading mobile view..." : "Loading proposals..."} />}>
-                  {isMobile ? (
-                    <div className="p-4 h-full overflow-y-auto">
-                      <MobileKanbanView proposals={effectiveProposals} columns={selectedBoard?.columns || []} />
-                    </div>
-                  ) : (
-                    <div className="h-full">
-                      {viewMode === "kanban" && (
-                        <ProposalsKanban
+                {isMobile ? (
+                  <div className="p-4 h-full overflow-y-auto">
+                    <MobileKanbanView proposals={effectiveProposals} columns={selectedBoard?.columns || []} />
+                  </div>
+                ) : (
+                  <div className="h-full">
+                    {viewMode === "kanban" && (
+                      <ProposalsKanban
+                        proposals={effectiveProposals}
+                        organization={organization}
+                        user={user}
+                        kanbanConfig={selectedBoard}
+                        onRefresh={() => {
+                          refetchProposals();
+                        }}
+                        showQuickFilters={showQuickFilters}
+                        showHelp={showHelp}
+                      />
+                    )}
+                    {viewMode === "list" && (
+                      <div className="p-6 h-full overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold text-slate-900">List View</h2>
+                          <Select value={listGroupBy} onValueChange={setListGroupBy}>
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Group by..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Grouping</SelectItem>
+                              <SelectItem value="proposal_type_category">Group by Type</SelectItem>
+                              <SelectItem value="status">Group by Status</SelectItem>
+                              <SelectItem value="agency">Group by Agency</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <ProposalsList
                           proposals={effectiveProposals}
                           organization={organization}
-                          user={user}
-                          kanbanConfig={selectedBoard}
-                          onRefresh={() => {
-                            refetchProposals();
-                          }}
-                          showQuickFilters={showQuickFilters}
-                          showHelp={showHelp}
+                          groupBy={listGroupBy}
                         />
-                      )}
-                      {viewMode === "list" && (
-                        <div className="p-6 h-full overflow-y-auto">
-                          <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-900">List View</h2>
-                            <Select value={listGroupBy} onValueChange={setListGroupBy}>
-                              <SelectTrigger className="w-48">
-                                <SelectValue placeholder="Group by..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">No Grouping</SelectItem>
-                                <SelectItem value="proposal_type_category">Group by Type</SelectItem>
-                                <SelectItem value="status">Group by Status</SelectItem>
-                                <SelectItem value="agency">Group by Agency</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <ProposalsList
-                            proposals={effectiveProposals}
-                            organization={organization}
-                            groupBy={listGroupBy}
-                          />
+                      </div>
+                    )}
+                    {viewMode === "table" && (
+                      <div className="p-6 h-full overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold text-slate-900">Table View</h2>
+                          <Select value={tableGroupBy} onValueChange={setTableGroupBy}>
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Group by..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Grouping</SelectItem>
+                              <SelectItem value="proposal_type_category">Group by Type</SelectItem>
+                              <SelectItem value="status">Group by Status</SelectItem>
+                              <SelectItem value="agency">Group by Agency</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      )}
-                      {viewMode === "table" && (
-                        <div className="p-6 h-full overflow-y-auto">
-                          <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-900">Table View</h2>
-                            <Select value={tableGroupBy} onValueChange={setTableGroupBy}>
-                              <SelectTrigger className="w-48">
-                                <SelectValue placeholder="Group by..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">No Grouping</SelectItem>
-                                <SelectItem value="proposal_type_category">Group by Type</SelectItem>
-                                <SelectItem value="status">Group by Status</SelectItem>
-                                <SelectItem value="agency">Group by Agency</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <ProposalsTable
-                            proposals={effectiveProposals}
-                            organization={organization}
-                            groupBy={tableGroupBy}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </React.Suspense>
+                        <ProposalsTable
+                          proposals={effectiveProposals}
+                          organization={organization}
+                          groupBy={tableGroupBy}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </>
         )}
       </div>
 
-      <React.Suspense fallback={null}>
-        <QuickCreateProposal
-          isOpen={showNewProposalDialog}
-          onClose={() => {
-            console.log('[Pipeline] 🚪 Closing QuickCreate dialog');
-            setShowNewProposalDialog(false);
-          }}
-          organization={organization}
-          preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
-          onSuccess={(proposal, modal, board) => {
-            console.log('[Pipeline] 📞 onSuccess CALLBACK INVOKED!', {
-              proposal: proposal?.proposal_name,
-              modal,
-              board: board?.board_name
-            });
-            handleProposalCreated(proposal, modal, board);
-          }}
-        />
-      </React.Suspense>
+      <QuickCreateProposal
+        isOpen={showNewProposalDialog}
+        onClose={() => {
+          console.log('[Pipeline] 🚪 Closing QuickCreate dialog');
+          setShowNewProposalDialog(false);
+        }}
+        organization={organization}
+        preselectedType={selectedBoard?.applies_to_proposal_types?.[0] || null}
+        onSuccess={(proposal, modal, board) => {
+          console.log('[Pipeline] 📞 onSuccess CALLBACK INVOKED!', {
+            proposal: proposal?.proposal_name,
+            modal,
+            board: board?.board_name
+          });
+          handleProposalCreated(proposal, modal, board);
+        }}
+      />
 
       {showProposalModal && selectedProposalToOpen && (
         <ProposalCardModal
@@ -1296,14 +1272,12 @@ export default function Pipeline() {
         />
       )}
 
-      <React.Suspense fallback={null}>
-        <QuickBoardCreation
-          isOpen={showQuickBoardCreate}
-          onClose={() => setShowQuickBoardCreate(false)}
-          organization={organization}
-          onBoardCreated={handleQuickBoardCreated}
-        />
-      </React.Suspense>
+      <QuickBoardCreation
+        isOpen={showQuickBoardCreate}
+        onClose={() => setShowQuickBoardCreate(false)}
+        organization={organization}
+        onBoardCreated={handleQuickBoardCreated}
+      />
 
       <Dialog open={showCreateBoardDialog} onOpenChange={setShowCreateBoardDialog}>
         <DialogContent className="max-w-2xl">
@@ -1502,19 +1476,17 @@ export default function Pipeline() {
         </div>
       </ConfirmDialog>
 
-      <React.Suspense fallback={null}>
-        <GlobalSearch
-          organization={organization}
-          isOpen={showGlobalSearch}
-          onClose={() => setShowGlobalSearch(false)}
-        />
-      </React.Suspense>
+      <GlobalSearch
+        organization={organization}
+        isOpen={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+      />
 
       <SampleDataGuard
         isOpen={showSampleDataGuard}
         onClose={() => setShowSampleDataGuard(false)}
         onProceed={proceedToProposalBuilder}
       />
-    </main>
+    </div>
   );
 }

@@ -126,12 +126,12 @@ export default function PersonnelFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="personnel-form-description">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {personnel ? 'Edit Personnel' : 'Add Key Personnel'}
           </DialogTitle>
-          <DialogDescription id="personnel-form-description">
+          <DialogDescription>
             {personnel ? 'Update personnel information and bios' : 'Add a new key personnel member to your organization'}
           </DialogDescription>
         </DialogHeader>
@@ -217,7 +217,7 @@ export default function PersonnelFormDialog({
             <div className="col-span-2 space-y-2">
               <Label htmlFor="clearance_level">Security Clearance Level</Label>
               <Select
-                value={formData.clearance_level || 'none'}
+                value={formData.clearance_level}
                 onValueChange={(value) => setFormData({...formData, clearance_level: value})}
               >
                 <SelectTrigger>

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -57,9 +58,6 @@ export default function LandingPage() {
               src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/db6095373_GovHQlogo-full-300x300-transparent.png"
               alt="GovHQ.ai Logo"
               className="w-10 h-10 object-contain"
-              loading="lazy"
-              width="40"
-              height="40"
             />
             <div>
               <h1 className="text-xl font-bold text-slate-900">GovHQ.ai</h1>
@@ -573,9 +571,6 @@ export default function LandingPage() {
                   src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6900ae5377da2d33833f22c8/db6095373_GovHQlogo-full-300x300-transparent.png"
                   alt="GovHQ.ai Logo"
                   className="w-8 h-8 object-contain"
-                  loading="lazy"
-                  width="32"
-                  height="32"
                 />
                 <span className="font-bold text-lg">GovHQ.ai</span>
               </div>

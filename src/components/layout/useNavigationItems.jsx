@@ -32,9 +32,7 @@ import {
   Flag,
   Database,
   Zap,
-  Smartphone,
-  Rocket,
-  FileCode
+  Smartphone
 } from "lucide-react";
 
 // Workspace sub-menu items
@@ -93,18 +91,12 @@ const ADMIN_ITEMS = [
   { title: "System Templates", url: createPageUrl("AdminTemplateEditor"), icon: Layers, superAdminOnly: true },
   { title: "Modal Builder", url: createPageUrl("ModalBuilder"), icon: FileEdit },
   { title: "Feature Management", url: createPageUrl("FeatureManagement"), icon: Flag },
-  { title: "Implementation Roadmap", url: createPageUrl("ImplementationRoadmap"), icon: TrendingUp, superAdminOnly: true },
-  { title: "Sprint Tracker (1-16)", url: createPageUrl("SprintTracker"), icon: BarChart3 },
   { title: "Phase 5: Entities", url: createPageUrl("Phase5Consolidation"), icon: Database, superAdminOnly: true },
   { title: "Phase 6: Performance", url: createPageUrl("Phase6Performance"), icon: Zap, superAdminOnly: true },
   { title: "Phase 7: Mobile", url: createPageUrl("Phase7MobileOptimization"), icon: Smartphone, superAdminOnly: true },
   { title: "Phase 8: Accessibility", url: createPageUrl("Phase8AccessibilityPolish"), icon: Shield, superAdminOnly: true },
   { title: "Phase 9: Documentation", url: createPageUrl("Phase9Documentation"), icon: BookOpen, superAdminOnly: true },
-  { title: "Phase 10: Launch Prep", url: createPageUrl("Phase10LaunchPrep"), icon: Activity, superAdminOnly: true },
-  { title: "Sprint 17: Documentation", url: createPageUrl("Sprint17Documentation"), icon: BookOpen },
-  { title: "Sprint 18: Launch Prep", url: createPageUrl("Sprint18LaunchPrep"), icon: Rocket },
-  { title: "Sprint 19: Advanced Docs", url: createPageUrl("Sprint19AdvancedDocs"), icon: FileCode },
-  { title: "Sprint 20: Post-Launch", url: createPageUrl("Sprint20PostLaunch"), icon: Activity }
+  { title: "Phase 10: Launch Prep", url: createPageUrl("Phase10LaunchPrep"), icon: Activity, superAdminOnly: true }
 ];
 
 /**

@@ -10,7 +10,7 @@ import { useLazyLoadProposals } from "./useLazyLoadProposals";
 import { STATUS_CONFIG, TYPE_EMOJIS } from "./proposalConstants";
 import { formatCurrency, formatDueDate, groupProposals } from "./proposalUtils";
 
-const ProposalsList = React.memo(function ProposalsList({ proposals, organization, groupBy = 'none' }) {
+export default function ProposalsList({ proposals, organization, groupBy = 'none' }) {
   const navigate = useNavigate();
 
   const groupedProposals = useMemo(() => 
@@ -18,9 +18,9 @@ const ProposalsList = React.memo(function ProposalsList({ proposals, organizatio
     [proposals, groupBy]
   );
 
-  const handleProposalClick = React.useCallback((proposal) => {
+  const handleProposalClick = (proposal) => {
     navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
-  }, [navigate]);
+  };
 
   if (proposals.length === 0) {
     return (
@@ -62,10 +62,10 @@ const ProposalsList = React.memo(function ProposalsList({ proposals, organizatio
                   return (
                     <Card
                       key={proposal.id}
-                      className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300 min-h-[80px]"
+                      className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300"
                       onClick={() => handleProposalClick(proposal)}
                     >
-                      <CardContent className="p-5 min-h-[56px]">
+                      <CardContent className="p-5">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-3 mb-3">
@@ -139,7 +139,7 @@ const ProposalsList = React.memo(function ProposalsList({ proposals, organizatio
                   <Button
                     variant="outline"
                     onClick={loadMore}
-                    className="w-full border-2 border-dashed hover:bg-blue-50 hover:border-blue-400 min-h-[44px]"
+                    className="w-full border-2 border-dashed hover:bg-blue-50 hover:border-blue-400 h-12"
                   >
                     <ChevronDown className="w-5 h-5 mr-2" />
                     Load More Proposals ({totalCount - visibleCount} remaining)
@@ -148,7 +148,7 @@ const ProposalsList = React.memo(function ProposalsList({ proposals, organizatio
                     variant="ghost"
                     size="sm"
                     onClick={loadAll}
-                    className="w-full text-slate-600 hover:text-blue-600 min-h-[44px]"
+                    className="w-full text-slate-600 hover:text-blue-600"
                   >
                     Show All {totalCount} Proposals
                   </Button>
@@ -165,6 +165,4 @@ const ProposalsList = React.memo(function ProposalsList({ proposals, organizatio
       })}
     </div>
   );
-});
-
-export default ProposalsList;
+}

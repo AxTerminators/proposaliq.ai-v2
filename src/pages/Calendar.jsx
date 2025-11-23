@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
@@ -496,8 +497,6 @@ export default function Calendar() {
       });
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
   });
 
   const isLoading = queries.some(q => q.isLoading);
@@ -645,8 +644,6 @@ export default function Calendar() {
       );
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
   });
 
   const { data: proposals = [] } = useQuery({
@@ -656,8 +653,6 @@ export default function Calendar() {
       return base44.entities.Proposal.filter({ organization_id: organization.id });
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
   });
 
   // Mutations

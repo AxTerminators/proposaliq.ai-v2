@@ -42,9 +42,8 @@ import {
   calculateCompletionPercentage,
   getProgressBarColor
 } from "./proposalUtils";
-import { getStatusConfig } from "@/components/accessibility/AccessibleStatusBadges";
 
-const KanbanCard = React.memo(function KanbanCard({ 
+export default function KanbanCard({ 
   proposal, 
   provided, 
   snapshot, 
@@ -130,8 +129,6 @@ const KanbanCard = React.memo(function KanbanCard({
 
   const isOverdue = isProposalOverdue(proposal.due_date);
   const isUrgent = isProposalUrgent(proposal.due_date);
-  
-  const statusConfig = getStatusConfig(proposal.status);
 
   // Determine priority level using utility
   const priorityLevel = useMemo(() => 
@@ -229,16 +226,17 @@ const KanbanCard = React.memo(function KanbanCard({
         }
       }}
       className={cn(
-        "bg-white rounded-lg shadow-sm border-2 p-3 md:p-4 mb-2 md:mb-3 cursor-pointer hover:shadow-md relative touch-manipulation",
-        snapshot.isDragging && "shadow-2xl border-blue-400 opacity-90",
-        !snapshot.isDragging && "transition-shadow duration-200",
+        "bg-white rounded-lg shadow-sm border-2 p-4 mb-3 cursor-pointer hover:shadow-md relative transition-all",
+        snapshot.isDragging && "shadow-2xl border-blue-400 scale-105",
         isActionRequired && "ring-2 ring-amber-400",
         isSelected && "ring-2 ring-blue-500",
         !snapshot.isDragging && !isSelected && getBorderColor()
       )}
       style={{
         ...provided.draggableProps.style,
-        minHeight: '44px',
+        // CRITICAL FIX: Force full opacity during drag - no transitions
+        opacity: snapshot.isDragging ? '1 !important' : '1',
+        visibility: 'visible',
       }}
     >
       {/* Selection Checkbox (if in selection mode) */}
@@ -251,15 +249,14 @@ const KanbanCard = React.memo(function KanbanCard({
               e?.stopPropagation?.();
               onToggleSelection?.(proposal.id);
             }}
-            className="w-7 h-7 md:w-6 md:h-6 min-h-[44px] min-w-[44px] rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600"
+            className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600"
             onClick={(e) => e?.stopPropagation?.()}
-            aria-label={`Select ${proposal.proposal_name}`}
           />
         </div>
       )}
 
       {/* Header with Context Menu */}
-      <div className="mb-2 md:mb-3">
+      <div className="mb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {isEditingName ? (
@@ -270,12 +267,12 @@ const KanbanCard = React.memo(function KanbanCard({
                 onBlur={handleNameSave}
                 onKeyDown={handleNameKeyDown}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full font-semibold text-slate-900 border border-blue-400 rounded px-2 py-1.5 text-sm md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[44px]"
+                className="w-full font-semibold text-slate-900 border border-blue-400 rounded px-1 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 autoFocus
               />
             ) : (
               <h4 
-                className="font-semibold text-slate-900 mb-1 line-clamp-2 hover:text-blue-600 cursor-text text-sm md:text-base leading-snug"
+                className="font-semibold text-slate-900 mb-1 line-clamp-2 hover:text-blue-600 cursor-text"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   setIsEditingName(true);
@@ -293,15 +290,13 @@ const KanbanCard = React.memo(function KanbanCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 md:h-8 md:w-8 min-h-[44px] min-w-[44px] -mt-1 -mr-2 flex-shrink-0"
+                className="h-6 w-6 -mt-1 -mr-2 flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowMenu(!showMenu);
                 }}
-                aria-label="Open card menu"
-                aria-expanded={showMenu}
               >
-                <MoreVertical className="w-5 h-5 md:w-4 md:h-4 text-slate-400 hover:text-slate-600" />
+                <MoreVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -344,29 +339,26 @@ const KanbanCard = React.memo(function KanbanCard({
       </div>
 
       {/* Metadata Badges & Priority Indicator */}
-      <div className="flex flex-wrap gap-1.5 mb-2 md:mb-3">
+      <div className="flex flex-wrap gap-1.5 mb-3">
         {(priorityLevel === 'critical' || priorityLevel === 'high') && (
-          <Badge className={cn(PRIORITY_CONFIG[priorityLevel].color, "text-xs h-6 min-h-[32px]")}>
+          <Badge className={cn(PRIORITY_CONFIG[priorityLevel].color, "text-xs")}>
             <Flag className="w-3 h-3 mr-1" />
             {PRIORITY_CONFIG[priorityLevel].label}
           </Badge>
         )}
         {proposal.is_blocked && (
-          <Badge className="bg-red-600 text-white text-xs h-6 min-h-[32px]">
+          <Badge className="bg-red-600 text-white text-xs">
             <Lock className="w-3 h-3 mr-1" />
             Blocked
           </Badge>
         )}
         {proposal.status && (
-          <Badge 
-            className={cn("text-xs h-6 min-h-[32px]", statusConfig.color)}
-            icon={statusConfig.icon}
-          >
-            {statusConfig.label}
+          <Badge variant="outline" className="text-xs">
+            {proposal.status}
           </Badge>
         )}
         {proposal.proposal_type_category && (
-          <Badge className="bg-purple-100 text-purple-700 text-xs h-6 min-h-[32px]">
+          <Badge className="bg-purple-100 text-purple-700 text-xs">
             {proposal.proposal_type_category}
           </Badge>
         )}
@@ -433,7 +425,7 @@ const KanbanCard = React.memo(function KanbanCard({
               <div className="flex items-center gap-2">
                 <span className="text-slate-600">Progress</span>
                 <span className="text-slate-500">
-                  {subtasks.filter(t => t.status === 'completed').length}/{subtasks.length} tasks
+                  {completedSubtasks}/{subtasks.length} tasks
                 </span>
               </div>
               <span className={cn(
@@ -537,21 +529,4 @@ const KanbanCard = React.memo(function KanbanCard({
       )}
     </div>
   );
-}, (prevProps, nextProps) => {
-  // Custom comparison function to prevent unnecessary re-renders
-  return (
-    prevProps.proposal.id === nextProps.proposal.id &&
-    prevProps.proposal.proposal_name === nextProps.proposal.proposal_name &&
-    prevProps.proposal.status === nextProps.proposal.status &&
-    prevProps.proposal.due_date === nextProps.proposal.due_date &&
-    prevProps.proposal.contract_value === nextProps.proposal.contract_value &&
-    prevProps.proposal.is_blocked === nextProps.proposal.is_blocked &&
-    prevProps.proposal.action_required === nextProps.proposal.action_required &&
-    prevProps.proposal.progress_summary?.completion_percentage === nextProps.proposal.progress_summary?.completion_percentage &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.selectionMode === nextProps.selectionMode &&
-    prevProps.snapshot?.isDragging === nextProps.snapshot?.isDragging
-  );
-});
-
-export default KanbanCard;
+}

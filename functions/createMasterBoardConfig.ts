@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
         {
           id: "master_qualifying",
           label: "Qualifying",
-          color: "from-slate-600 to-slate-800",
+          color: "from-slate-400 to-slate-600",
           order: 0,
           type: "master_status",
           status_mapping: ["evaluating"],
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
         {
           id: "master_drafting",
           label: "Drafting",
-          color: "from-blue-600 to-blue-800",
+          color: "from-blue-400 to-blue-600",
           order: 1,
           type: "master_status",
           status_mapping: ["draft"],
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
         {
           id: "master_reviewing",
           label: "Reviewing",
-          color: "from-purple-600 to-purple-800",
+          color: "from-purple-400 to-purple-600",
           order: 2,
           type: "master_status",
           status_mapping: ["in_progress", "client_review"],
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
         {
           id: "master_submitted",
           label: "Submitted",
-          color: "from-indigo-600 to-indigo-800",
+          color: "from-indigo-400 to-indigo-600",
           order: 3,
           type: "master_status",
           status_mapping: ["submitted"],
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
         {
           id: "master_won",
           label: "Won",
-          color: "from-green-600 to-green-800",
+          color: "from-green-400 to-green-600",
           order: 4,
           type: "master_status",
           status_mapping: ["won", "client_accepted"],
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         {
           id: "master_lost",
           label: "Lost",
-          color: "from-red-600 to-red-800",
+          color: "from-red-400 to-red-600",
           order: 5,
           type: "master_status",
           status_mapping: ["lost", "client_rejected"],
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         {
           id: "master_archived",
           label: "Archived",
-          color: "from-gray-600 to-gray-800",
+          color: "from-gray-400 to-gray-600",
           order: 6,
           type: "master_status",
           status_mapping: ["archived"],

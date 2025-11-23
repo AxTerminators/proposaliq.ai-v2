@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,27 +76,37 @@ export default function QuickCreateProposal({
   const queryClient = useQueryClient();
 
   const [proposalName, setProposalName] = useState('');
-  const [selectedType, setSelectedType] = useState(preselectedType || '');
-  const [isCreating, setIsCreating] = useState(false);
-  const [boardName, setBoardName] = useState("");
-  const [boardNameError, setBoardNameError] = useState("");
-  const [isValidatingBoardName, setIsValidatingBoardName] = useState(false);
-  const [needsNewBoard, setNeedsNewBoard] = useState(false);
+  const [selectedType, setSelectedType] = useState(preselectedType || null);
+  const [isCreating, setIsCreating] = useState(false); // State for overall creation loading
+  const [boardName, setBoardName] = useState(""); // State for new board name
+  const [boardNameError, setBoardNameError] = useState(""); // State for board name validation error
+  const [isValidatingBoardName, setIsValidatingBoardName] = useState(false); // State for board name validation loading
+  const [needsNewBoard, setNeedsNewBoard] = useState(false); // State to indicate if a new board is needed/will be created
+
+  // NEW: Proposal name validation state
   const [proposalNameError, setProposalNameError] = useState("");
   const [isValidatingProposalName, setIsValidatingProposalName] = useState(false);
 
-  // Simplified: Use hardcoded templates based on board types
-  const templates = [
-    { id: 'rfp', proposal_type_category: 'RFP', board_type: 'rfp', template_name: 'RFP', description: 'Request for Proposal - comprehensive workflow', icon_emoji: '📋', estimated_duration_days: 45 },
-    { id: 'rfp_15', proposal_type_category: 'RFP_15_COLUMN', board_type: 'rfp_15_column', template_name: 'RFP (15-Column)', description: 'Extended RFP workflow with 15 phases', icon_emoji: '🎯', estimated_duration_days: 60 },
-    { id: 'rfi', proposal_type_category: 'RFI', board_type: 'rfi', template_name: 'RFI', description: 'Request for Information - simplified process', icon_emoji: '📝', estimated_duration_days: 20 },
-    { id: 'sbir', proposal_type_category: 'SBIR', board_type: 'sbir', template_name: 'SBIR', description: 'Small Business Innovation Research', icon_emoji: '🔬', estimated_duration_days: 90 },
-    { id: 'gsa', proposal_type_category: 'GSA', board_type: 'gsa', template_name: 'GSA Schedule', description: 'GSA Schedule proposals', icon_emoji: '🏛️', estimated_duration_days: 35 },
-    { id: 'idiq', proposal_type_category: 'IDIQ', board_type: 'idiq', template_name: 'IDIQ', description: 'Indefinite Delivery Indefinite Quantity', icon_emoji: '📑', estimated_duration_days: 40 },
-    { id: 'state', proposal_type_category: 'STATE_LOCAL', board_type: 'state_local', template_name: 'State/Local', description: 'State and local government proposals', icon_emoji: '🏢', estimated_duration_days: 30 },
-  ];
-  
-  const isLoadingTemplates = false;
+  // Fetch available templates to determine proposal types
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
+    queryKey: ['workflow-templates-for-proposal-creation'],
+    queryFn: async () => {
+      const systemTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
+        template_type: 'system',
+        is_active: true
+      }, '-created_date');
+
+      const orgTemplates = organization?.id
+        ? await base44.entities.ProposalWorkflowTemplate.filter({
+          organization_id: organization.id,
+          is_active: true
+        }, '-created_date')
+        : [];
+
+      return [...systemTemplates, ...orgTemplates].filter(t => t != null);
+    },
+    enabled: isOpen && !!organization?.id,
+  });
 
   // Fetch existing boards to show which types have boards
   const { data: existingBoards = [] } = useQuery({
@@ -104,7 +115,7 @@ export default function QuickCreateProposal({
       if (!organization?.id) return [];
       return base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
-        '-created_date'
+        'board_name,board_type,applies_to_proposal_types,is_master_board,columns' // Include columns for later use
       );
     },
     enabled: isOpen && !!organization?.id,
@@ -114,14 +125,14 @@ export default function QuickCreateProposal({
   useEffect(() => {
     if (isOpen) {
       setProposalName('');
-      setSelectedType(preselectedType || '');
+      setSelectedType(preselectedType || null);
       setIsCreating(false);
       setBoardName('');
-      setBoardNameError('');
-      setIsValidatingBoardName(false);
-      setNeedsNewBoard(false);
-      setProposalNameError('');
-      setIsValidatingProposalName(false);
+      setBoardNameError(''); // Renamed from nameError
+      setIsValidatingBoardName(false); // Renamed from isValidatingName
+      setNeedsNewBoard(false); // Reset this too
+      setProposalNameError(''); // NEW: Reset proposal name error
+      setIsValidatingProposalName(false); // NEW: Reset proposal name validation state
 
       // If a preselectedType is given, try to determine if it needs a new board
       if (preselectedType && templates.length > 0 && existingBoards.length > 0) {
@@ -142,7 +153,7 @@ export default function QuickCreateProposal({
     setProposalName(value);
     setProposalNameError("");
 
-    if (!value.trim() || !organization?.id) {
+    if (!value.trim()) {
       return;
     }
 
@@ -156,7 +167,7 @@ export default function QuickCreateProposal({
       }
     } catch (error) {
       console.error('[QuickCreateProposal] Proposal name validation error:', error);
-      setProposalNameError('Validation service error. Please try again.');
+      setProposalNameError('Validation service error. Please try again.'); // Generic user-friendly error
     } finally {
       setIsValidatingProposalName(false);
     }
@@ -165,25 +176,25 @@ export default function QuickCreateProposal({
   // Real-time board name validation
   const handleBoardNameChange = async (value) => {
     setBoardName(value);
-    setBoardNameError("");
+    setBoardNameError(""); // Renamed from nameError
 
-    if (!value.trim() || !organization?.id) {
+    if (!value.trim()) {
       return;
     }
 
-    setIsValidatingBoardName(true);
+    setIsValidatingBoardName(true); // Renamed from isValidatingName
 
     try {
       const validation = await validateBoardName(value, organization.id);
 
       if (!validation.isValid) {
-        setBoardNameError(validation.message);
+        setBoardNameError(validation.message); // Renamed from nameError
       }
     } catch (error) {
       console.error('[QuickCreateProposal] Board name validation error:', error);
-      setBoardNameError('Validation service error. Please try again.');
+      setBoardNameError('Validation service error. Please try again.'); // Generic user-friendly error
     } finally {
-      setIsValidatingBoardName(false);
+      setIsValidatingBoardName(false); // Renamed from isValidatingName
     }
   };
 
@@ -412,26 +423,20 @@ export default function QuickCreateProposal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="quick-create-description">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-blue-600" />
             Create New Proposal
           </DialogTitle>
-          <DialogDescription id="quick-create-description">
+          <DialogDescription>
             Quick setup - just enter a name and choose the type
           </DialogDescription>
         </DialogHeader>
 
-        {!organization ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-slate-600">Loading...</p>
-          </div>
-        ) : (
-          <div className="space-y-6 py-4">
-            {/* Proposal Name Input with Validation */}
-            <div className="space-y-2">
+        <div className="space-y-6 py-4">
+          {/* Proposal Name Input with Validation */}
+          <div className="space-y-2">
             <Label htmlFor="proposal_name" className="text-base font-semibold">
               Proposal Name *
             </Label>
@@ -654,9 +659,8 @@ export default function QuickCreateProposal({
                 </>
               )}
             </Button>
-            </div>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

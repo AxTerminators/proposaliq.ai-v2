@@ -1,9 +1,8 @@
-import React, { useState, useRef } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Calendar,
   DollarSign,
@@ -12,13 +11,21 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Users,
-  Eye,
-  Trash2
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-import { getStatusConfig } from "@/components/accessibility/AccessibleStatusBadges";
+
+const STATUS_CONFIG = {
+  evaluating: { label: 'Evaluating', color: 'bg-slate-500' },
+  watch_list: { label: 'Watch List', color: 'bg-amber-500' },
+  draft: { label: 'Draft', color: 'bg-blue-500' },
+  in_progress: { label: 'In Progress', color: 'bg-purple-500' },
+  submitted: { label: 'Submitted', color: 'bg-indigo-500' },
+  won: { label: 'Won', color: 'bg-green-500' },
+  lost: { label: 'Lost', color: 'bg-red-500' },
+  archived: { label: 'Archived', color: 'bg-gray-500' },
+};
 
 const formatCurrency = (value) => {
   if (!value) return null;
@@ -27,13 +34,9 @@ const formatCurrency = (value) => {
   return `$${value.toLocaleString()}`;
 };
 
-export default function MobileProposalCard({ proposal, showProgress = true, onDelete }) {
+export default function MobileProposalCard({ proposal, showProgress = true }) {
   const navigate = useNavigate();
-  const statusConfig = getStatusConfig(proposal.status);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwipeActive, setIsSwipeActive] = useState(false);
-  const touchStartX = useRef(0);
-  const cardRef = useRef(null);
+  const statusConfig = STATUS_CONFIG[proposal.status] || { label: proposal.status, color: 'bg-gray-500' };
   
   const daysUntilDue = proposal.due_date 
     ? moment(proposal.due_date).diff(moment(), 'days')
@@ -44,102 +47,22 @@ export default function MobileProposalCard({ proposal, showProgress = true, onDe
 
   const progressPercentage = proposal.progress_summary?.completion_percentage || 0;
 
-  // Swipe handlers for actions
-  const handleSwipeStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-    setIsSwipeActive(true);
-  };
-
-  const handleSwipeMove = (e) => {
-    if (!isSwipeActive) return;
-    
-    const touchX = e.touches[0].clientX;
-    const diff = touchX - touchStartX.current;
-    
-    // Only allow left swipe (negative offset)
-    if (diff < 0 && diff > -150) {
-      setSwipeOffset(diff);
-    }
-  };
-
-  const handleSwipeEnd = () => {
-    if (swipeOffset < -80) {
-      // Show actions
-      setSwipeOffset(-140);
-    } else {
-      // Reset
-      setSwipeOffset(0);
-    }
-    setIsSwipeActive(false);
-  };
-
-  const handleClick = (e) => {
-    if (Math.abs(swipeOffset) > 10) {
-      e.stopPropagation();
-      setSwipeOffset(0);
-      return;
-    }
+  const handleClick = () => {
     navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
-  };
-
-  const handleViewClick = (e) => {
-    e.stopPropagation();
-    navigate(createPageUrl("ProposalBuilder") + `?proposal_id=${proposal.id}`);
-    setSwipeOffset(0);
-  };
-
-  const handleDeleteClick = (e) => {
-    e.stopPropagation();
-    if (onDelete) {
-      onDelete(proposal);
-    }
-    setSwipeOffset(0);
   };
 
   return (
-    <div className="relative overflow-hidden">
-      {/* Action Buttons (revealed on swipe) */}
-      <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
-        <Button
-          variant="ghost"
-          className="h-full px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-none"
-          onClick={handleViewClick}
-        >
-          <Eye className="w-5 h-5" />
-        </Button>
-        {onDelete && (
-          <Button
-            variant="ghost"
-            className="h-full px-6 bg-red-600 hover:bg-red-700 text-white rounded-none"
-            onClick={handleDeleteClick}
-          >
-            <Trash2 className="w-5 h-5" />
-          </Button>
-        )}
-      </div>
-
-      <Card 
-        ref={cardRef}
-        className="border-2 border-slate-200 cursor-pointer active:scale-98 transition-all relative"
-        onClick={handleClick}
-        onTouchStart={handleSwipeStart}
-        onTouchMove={handleSwipeMove}
-        onTouchEnd={handleSwipeEnd}
-        style={{
-          transform: `translateX(${swipeOffset}px)`,
-          transition: isSwipeActive ? 'none' : 'transform 0.3s ease-out'
-        }}
-      >
+    <Card 
+      className="border-2 border-slate-200 cursor-pointer active:scale-98 transition-transform"
+      onClick={handleClick}
+    >
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <h3 className="font-bold text-slate-900 text-base flex-1 line-clamp-2">
             {proposal.proposal_name}
           </h3>
-          <Badge 
-            className={statusConfig.color}
-            icon={statusConfig.icon}
-          >
+          <Badge className={cn("text-white", statusConfig.color)}>
             {statusConfig.label}
           </Badge>
         </div>
@@ -236,7 +159,6 @@ export default function MobileProposalCard({ proposal, showProgress = true, onDe
           )}
         </div>
       </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }

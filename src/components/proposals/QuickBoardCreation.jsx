@@ -42,11 +42,6 @@ const BOARD_TYPE_ICONS = {
 };
 
 export default function QuickBoardCreation({ isOpen, onClose, organization, onBoardCreated }) {
-  // CRITICAL: Early return MUST happen before ALL hooks to avoid "more hooks" error
-  if (!organization) {
-    return null;
-  }
-
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [boardName, setBoardName] = useState("");
@@ -54,58 +49,39 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
   const [nameError, setNameError] = useState("");
   const [isValidatingName, setIsValidatingName] = useState(false);
 
-  // Simplified: Use hardcoded templates
-  const templates = [
-    { 
-      id: 'rfp', 
-      proposal_type_category: 'RFP', 
-      board_type: 'rfp', 
-      template_name: 'RFP', 
-      description: 'Request for Proposal - comprehensive workflow', 
-      icon_emoji: '📋', 
-      estimated_duration_days: 45,
-      workflow_config: { columns: [] }
+  // Fetch available templates
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
+    queryKey: ['workflow-templates-quick-create'],
+    queryFn: async () => {
+      const systemTemplates = await base44.entities.ProposalWorkflowTemplate.filter({
+        template_type: 'system',
+        is_active: true
+      }, '-created_date');
+      
+      const orgTemplates = organization?.id 
+        ? await base44.entities.ProposalWorkflowTemplate.filter({
+            organization_id: organization.id,
+            is_active: true
+          }, '-created_date')
+        : [];
+      
+      // CRITICAL: Filter out null/undefined records AND ensure required fields exist
+      return [...systemTemplates, ...orgTemplates].filter(t => 
+        t && 
+        t.id && 
+        t.template_name && 
+        typeof t === 'object'
+      );
     },
-    { 
-      id: 'rfp_15', 
-      proposal_type_category: 'RFP_15_COLUMN', 
-      board_type: 'rfp_15_column', 
-      template_name: 'RFP (15-Column)', 
-      description: 'Extended RFP workflow with 15 phases', 
-      icon_emoji: '🎯', 
-      estimated_duration_days: 60,
-      workflow_config: { columns: [] }
-    },
-    { 
-      id: 'rfi', 
-      proposal_type_category: 'RFI', 
-      board_type: 'rfi', 
-      template_name: 'RFI', 
-      description: 'Request for Information - simplified process', 
-      icon_emoji: '📝', 
-      estimated_duration_days: 20,
-      workflow_config: { columns: [] }
-    },
-    { 
-      id: 'sbir', 
-      proposal_type_category: 'SBIR', 
-      board_type: 'sbir', 
-      template_name: 'SBIR', 
-      description: 'Small Business Innovation Research', 
-      icon_emoji: '🔬', 
-      estimated_duration_days: 90,
-      workflow_config: { columns: [] }
-    },
-  ];
-  
-  const isLoadingTemplates = false;
+    enabled: isOpen && !!organization?.id,
+  });
 
   // Real-time board name validation
   const handleBoardNameChange = async (value) => {
     setBoardName(value);
     setNameError("");
 
-    if (!value.trim() || !organization?.id) {
+    if (!value.trim()) {
       return;
     }
 
@@ -254,28 +230,21 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="quick-board-description">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-blue-600" />
             Quick Board Creation
           </DialogTitle>
-          <DialogDescription id="quick-board-description">
+          <DialogDescription>
             {step === 1 
               ? "Choose a workflow template to create a new board" 
               : "Review and create your new board"}
           </DialogDescription>
         </DialogHeader>
 
-        {!organization ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-slate-600">Loading...</p>
-          </div>
-        ) : (
-          <>
-            {step === 1 && (
-              <div className="space-y-6 py-4">
+        {step === 1 && (
+          <div className="space-y-6 py-4">
             {isLoadingTemplates ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
@@ -342,10 +311,10 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                 })}
               </div>
             )}
-              </div>
-            )}
+          </div>
+        )}
 
-            {step === 2 && selectedTemplate && (
+        {step === 2 && selectedTemplate && (
           <div className="space-y-6 py-4">
             {/* Selected Template Info */}
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
@@ -449,11 +418,9 @@ export default function QuickBoardCreation({ isOpen, onClose, organization, onBo
                   </ul>
                 </div>
               </div>
-              </div>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
 
         <DialogFooter className="flex items-center justify-between">
           {step === 2 && (

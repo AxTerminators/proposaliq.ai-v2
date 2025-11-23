@@ -36,7 +36,7 @@ function getUserRole(user) {
   return user.organization_app_role || user.role || 'viewer';
 }
 
-const KanbanColumn = React.memo(function KanbanColumn({
+export default function KanbanColumn({
   column,
   proposals,
   provided,
@@ -118,42 +118,41 @@ const KanbanColumn = React.memo(function KanbanColumn({
     setIsEditingName(false);
   };
 
-  const handleKeyDown = React.useCallback((e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       handleNameSave();
     } else if (e.key === 'Escape') {
       handleNameCancel();
     }
-  }, [handleNameSave, handleNameCancel]);
+  };
 
-  const handleSort = React.useCallback((sortBy, direction) => {
+  const handleSort = (sortBy, direction) => {
     onColumnSortChange?.(column.id, sortBy, direction);
-  }, [onColumnSortChange, column.id]);
+  };
 
-  const handleClearSort = React.useCallback(() => {
+  const handleClearSort = () => {
     onClearColumnSort?.(column.id);
-  }, [onClearColumnSort, column.id]);
+  };
 
   return (
     <div
       className={cn(
-        "w-full md:w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm flex flex-col",
-        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.01]",
-        !snapshot.isDraggingOver && "transition-all duration-200"
+        "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
       )}
     >
       {/* Column Header */}
       <div
         {...(dragHandleProps || {})}
         className={cn(
-          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[56px] md:min-h-[60px]",
-          column.color || "from-slate-600 to-slate-800",
-          !column.is_locked && "md:cursor-grab md:active:cursor-grabbing"
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[60px] transition-all duration-200",
+          column.color || "from-slate-400 to-slate-600",
+          !column.is_locked && "cursor-grab active:cursor-grabbing"
         )}
       >
-        <div className="p-2.5 md:p-3 h-full flex items-center">
+        <div className="p-3 h-full flex items-center">
           <div className="flex items-center gap-2 w-full">
-            {/* Collapse Button - Hidden on mobile */}
+            {/* Collapse Button */}
             <Button
               variant="ghost"
               size="icon"
@@ -161,11 +160,10 @@ const KanbanColumn = React.memo(function KanbanColumn({
                 e?.stopPropagation?.();
                 onToggleCollapse?.(column.id);
               }}
-              className="hidden md:flex h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95 min-h-[44px] min-w-[44px]"
+              className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
               title="Collapse column"
-              aria-label="Collapse column"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" title="Collapse" />
             </Button>
 
             {/* Column Name */}
@@ -177,21 +175,20 @@ const KanbanColumn = React.memo(function KanbanColumn({
                   onChange={(e) => setEditedName(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onBlur={handleNameSave}
-                  className="h-8 md:h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2 min-h-[44px]"
+                  className="h-8 bg-white text-slate-900 font-semibold border-2 border-white/30 text-sm px-2"
                   placeholder="Column name..."
                 />
               ) : (
                 <button
                   onClick={handleNameClick}
                   className={cn(
-                    "text-left w-full min-h-[44px] flex items-center",
-                    !column.is_locked && "md:cursor-pointer hover:opacity-90 transition-opacity"
+                    "text-left w-full",
+                    !column.is_locked && "cursor-pointer hover:opacity-90 transition-opacity"
                   )}
                   disabled={column.is_locked}
                   title={column.label}
-                  aria-label={`Column: ${column.label}`}
                 >
-                  <h3 className="font-bold text-white text-sm md:text-base truncate leading-tight">
+                  <h3 className="font-bold text-white text-base truncate leading-tight">
                     {column.label}
                   </h3>
                 </button>
@@ -277,11 +274,10 @@ const KanbanColumn = React.memo(function KanbanColumn({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 md:h-7 md:w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1 min-h-[44px] min-w-[44px]"
+                    className="h-7 w-7 hover:bg-white/20 text-white flex-shrink-0 ml-1"
                     title="Column options"
-                    aria-label="Column options"
                   >
-                    <MoreVertical className="w-5 h-5 md:w-4 md:h-4" />
+                    <MoreVertical className="w-4 h-4" title="Options" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -353,8 +349,8 @@ const KanbanColumn = React.memo(function KanbanColumn({
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2 min-h-[120px]",
-          snapshot.isDraggingOver && "bg-blue-50/50 transition-colors duration-150"
+          "flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] transition-all duration-200",
+          snapshot.isDraggingOver && "bg-blue-50/50"
         )}
       >
         {!canDragToHere && totalCount > 0 && (
@@ -444,22 +440,4 @@ const KanbanColumn = React.memo(function KanbanColumn({
       </div>
     </div>
   );
-}, (prevProps, nextProps) => {
-  // Custom comparison to prevent unnecessary re-renders
-  return (
-    prevProps.column.id === nextProps.column.id &&
-    prevProps.column.label === nextProps.column.label &&
-    prevProps.column.wip_limit === nextProps.column.wip_limit &&
-    prevProps.proposals.length === nextProps.proposals.length &&
-    prevProps.totalCount === nextProps.totalCount &&
-    prevProps.visibleCount === nextProps.visibleCount &&
-    prevProps.hasMore === nextProps.hasMore &&
-    prevProps.selectedProposalIds.length === nextProps.selectedProposalIds.length &&
-    prevProps.currentSort === nextProps.currentSort &&
-    prevProps.snapshot?.isDraggingOver === nextProps.snapshot?.isDraggingOver &&
-    // Check if proposal IDs changed (shallow comparison)
-    prevProps.proposals.every((p, i) => p.id === nextProps.proposals[i]?.id)
-  );
-});
-
-export default KanbanColumn;
+}

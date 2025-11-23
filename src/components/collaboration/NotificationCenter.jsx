@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -117,7 +118,7 @@ export default function NotificationCenter({ user }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative min-h-[44px] min-w-[44px]">
+        <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
             <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs">
@@ -126,12 +127,12 @@ export default function NotificationCenter({ user }) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="end" role="region" aria-label="Notifications panel">
+      <PopoverContent className="w-96 p-0" align="end">
         <div className="border-b p-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">Notifications</h3>
             {unreadCount > 0 && (
-              <Badge variant="secondary" aria-live="polite">{unreadCount} new</Badge>
+              <Badge variant="secondary">{unreadCount} new</Badge>
             )}
           </div>
           {unreadCount > 0 && (
@@ -140,7 +141,7 @@ export default function NotificationCenter({ user }) {
               size="sm"
               onClick={handleMarkAllRead}
               disabled={markAllAsReadMutation.isPending}
-              className="mt-2 text-xs min-h-[44px]"
+              className="mt-2 h-7 text-xs"
             >
               Mark all as read
             </Button>
@@ -148,7 +149,7 @@ export default function NotificationCenter({ user }) {
         </div>
         
         {isLoading ? (
-          <div className="p-8 text-center" role="status" aria-live="polite" aria-busy="true">
+          <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mx-auto mb-3"></div>
             <p className="text-sm text-slate-600">Loading notifications...</p>
           </div>
@@ -162,20 +163,16 @@ export default function NotificationCenter({ user }) {
           <div
             ref={containerRef}
             className="max-h-[400px] overflow-y-auto"
-            role="list"
-            aria-label="Notification list"
           >
-            <div className="divide-y" role="presentation">
+            <div className="divide-y">
               {visibleNotifications.map((notification) => (
-                <button
+                <div
                   key={notification.id}
                   className={cn(
-                    "w-full p-4 hover:bg-slate-50 transition-colors min-h-[56px] text-left",
+                    "p-4 hover:bg-slate-50 transition-colors cursor-pointer",
                     !notification.is_read && "bg-blue-50"
                   )}
                   onClick={() => handleNotificationClick(notification)}
-                  role="listitem"
-                  aria-label={`${notification.is_read ? 'Read' : 'Unread'} notification: ${notification.title}`}
                 >
                   <div className="flex items-start gap-3">
                     <Bell className={cn(
@@ -200,23 +197,23 @@ export default function NotificationCenter({ user }) {
                       <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-2" />
                     )}
                   </div>
-                </button>
+                </div>
               ))}
 
               {/* NEW: Infinite Scroll Loading */}
               {hasMore && (
-                <div ref={loadingRef} className="p-4" role="status" aria-live="polite" aria-busy={isLoadingMore}>
+                <div ref={loadingRef} className="p-4">
                   {isLoadingMore ? (
                     <div className="flex items-center justify-center gap-2 text-slate-500">
-                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      <span className="text-sm">Loading more notifications...</span>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Loading...</span>
                     </div>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={loadMore}
-                      className="w-full border-dashed min-h-[44px]"
+                      className="w-full border-dashed"
                     >
                       Load More
                     </Button>

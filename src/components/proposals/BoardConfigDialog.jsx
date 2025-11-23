@@ -256,11 +256,7 @@ const COLOR_OPTIONS = [
 ];
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
-  // CRITICAL: Early return MUST happen before ALL hooks to avoid "more hooks" error
-  if (!organization) {
-    return null;
-  }
-
+  const organizationId = organization?.id;
   const queryClient = useQueryClient();
 
   const defaultColumns = [
@@ -276,16 +272,16 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
 
   const [config, setConfig] = useState({
     columns: currentConfig?.columns || defaultColumns,
-    swimlane_config: {
-      enabled: currentConfig?.swimlane_config?.enabled || false,
-      group_by: currentConfig?.swimlane_config?.group_by || 'none',
-      custom_field_name: currentConfig?.swimlane_config?.custom_field_name || '',
-      show_empty_swimlanes: currentConfig?.swimlane_config?.show_empty_swimlanes || false
+    swimlane_config: currentConfig?.swimlane_config || {
+      enabled: false,
+      group_by: 'none',
+      custom_field_name: '',
+      show_empty_swimlanes: false
     },
-    view_settings: {
-      default_view: currentConfig?.view_settings?.default_view || 'kanban',
-      show_card_details: currentConfig?.view_settings?.show_card_details || ['assignees', 'due_date', 'progress', 'value'],
-      compact_mode: currentConfig?.view_settings?.compact_mode || false
+    view_settings: currentConfig?.view_settings || {
+      default_view: 'kanban',
+      show_card_details: ['assignees', 'due_date', 'progress', 'value'],
+      compact_mode: false
     }
   });
 
@@ -309,16 +305,16 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     if (currentConfig) {
       setConfig({
         columns: currentConfig.columns || defaultColumns,
-        swimlane_config: {
-          enabled: currentConfig.swimlane_config?.enabled || false,
-          group_by: currentConfig.swimlane_config?.group_by || 'none',
-          custom_field_name: currentConfig.swimlane_config?.custom_field_name || '',
-          show_empty_swimlanes: currentConfig.swimlane_config?.show_empty_swimlanes || false
+        swimlane_config: currentConfig.swimlane_config || {
+          enabled: false,
+          group_by: 'none',
+          custom_field_name: '',
+          show_empty_swimlanes: false
         },
-        view_settings: {
-          default_view: currentConfig.view_settings?.default_view || 'kanban',
-          show_card_details: currentConfig.view_settings?.show_card_details || ['assignees', 'due_date', 'progress', 'value'],
-          compact_mode: currentConfig.view_settings?.compact_mode || false
+        view_settings: currentConfig.view_settings || {
+          default_view: 'kanban',
+          show_card_details: ['assignees', 'due_date', 'progress', 'value'],
+          compact_mode: false
         }
       });
     }
@@ -330,7 +326,7 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
     setTemplateNameError("");
     setValidatedTemplateName("");
 
-    if (!value.trim() || !organization?.id) {
+    if (!value.trim()) {
       return;
     }
 
@@ -707,13 +703,13 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" aria-describedby="board-config-description">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="w-5 h-5" />
               Board Configuration
             </DialogTitle>
-            <DialogDescription id="board-config-description">
+            <DialogDescription>
               Configure columns, swimlanes, view settings, and display preferences for your Kanban board.
             </DialogDescription>
           </DialogHeader>
@@ -896,23 +892,23 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                   {config.swimlane_config?.enabled && (
                     <>
                       <div className="space-y-3">
-                       <Label className="text-base font-semibold">Group Proposals By</Label>
-                       <Select
-                         value={config.swimlane_config?.group_by || 'none'}
-                         onValueChange={handleGroupByChange}
-                       >
-                         <SelectTrigger>
-                           <SelectValue />
-                         </SelectTrigger>
-                         <SelectContent>
-                           <SelectItem value="none">No Grouping</SelectItem>
-                           <SelectItem value="lead_writer">Lead Writer</SelectItem>
-                           <SelectItem value="project_type">Project Type (RFP, RFI, etc.)</SelectItem>
-                           <SelectItem value="agency">Agency</SelectItem>
-                           <SelectItem value="contract_value_range">Contract Value Range</SelectItem>
-                           <SelectItem value="custom_field">Custom Field</SelectItem>
-                         </SelectContent>
-                       </Select>
+                        <Label className="text-base font-semibold">Group Proposals By</Label>
+                        <Select
+                          value={config.swimlane_config?.group_by || 'none'}
+                          onValueChange={handleGroupByChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select grouping" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No Grouping</SelectItem>
+                            <SelectItem value="lead_writer">Lead Writer</SelectItem>
+                            <SelectItem value="project_type">Project Type (RFP, RFI, etc.)</SelectItem>
+                            <SelectItem value="agency">Agency</SelectItem>
+                            <SelectItem value="contract_value_range">Contract Value Range</SelectItem>
+                            <SelectItem value="custom_field">Custom Field</SelectItem>
+                          </SelectContent>
+                        </Select>
 
                         {config.swimlane_config?.group_by === 'custom_field' && (
                           <div className="space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -1169,13 +1165,13 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
         }
         setShowSaveAsTemplateDialog(open);
       }}>
-        <DialogContent className="max-w-md" aria-describedby="save-template-description">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-600" />
               Save as Workflow Template
             </DialogTitle>
-            <DialogDescription id="save-template-description">
+            <DialogDescription>
               Create a reusable template from your current board configuration
             </DialogDescription>
           </DialogHeader>
