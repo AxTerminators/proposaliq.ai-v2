@@ -687,13 +687,13 @@ function LayoutContent({ children, currentPageName }) {
               </nav>
             </div>
 
-            {userIsAdmin && (
+            {adminItems.length > 0 && (
               <div>
                 <h3 className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 py-2">
                   Admin
                 </h3>
                 <nav className="space-y-1">
-                  {adminItems.filter(item => !item.superAdminOnly || userIsSuperAdmin).map((item) => (
+                  {adminItems.map((item) => (
                     <Link
                       key={item.title}
                       to={item.url}
