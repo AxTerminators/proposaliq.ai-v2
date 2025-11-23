@@ -73,7 +73,7 @@ export default function MobileNavigation({ user, organization }) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-      <div className="flex items-center justify-around px-2 py-2">
+        <div className="flex items-center justify-around px-2 py-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.url;
@@ -94,7 +94,8 @@ export default function MobileNavigation({ user, organization }) {
             </Link>
           );
         })}
-      </div>
-    </nav>
+        </div>
+      </nav>
+    </>
   );
 }
