@@ -256,11 +256,12 @@ const COLOR_OPTIONS = [
 ];
 
 export default function BoardConfigDialog({ isOpen, onClose, organization, currentConfig }) {
-  const queryClient = useQueryClient();
-
+  // CRITICAL: Early return MUST happen before ALL hooks to avoid "more hooks" error
   if (!organization) {
     return null;
   }
+
+  const queryClient = useQueryClient();
 
   const defaultColumns = [
     { id: 'evaluating', label: 'Evaluating', color: 'from-slate-400 to-slate-600', type: 'default_status', default_status_mapping: 'evaluating', order: 0 },

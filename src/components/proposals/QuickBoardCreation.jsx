@@ -42,17 +42,17 @@ const BOARD_TYPE_ICONS = {
 };
 
 export default function QuickBoardCreation({ isOpen, onClose, organization, onBoardCreated }) {
+  // CRITICAL: Early return MUST happen before ALL hooks to avoid "more hooks" error
+  if (!organization) {
+    return null;
+  }
+
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [boardName, setBoardName] = useState("");
   const [step, setStep] = useState(1);
   const [nameError, setNameError] = useState("");
   const [isValidatingName, setIsValidatingName] = useState(false);
-
-  // Early return if no organization
-  if (!organization) {
-    return null;
-  }
 
   // Simplified: Use hardcoded templates
   const templates = [
