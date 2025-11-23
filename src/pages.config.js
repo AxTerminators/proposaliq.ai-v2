@@ -72,6 +72,8 @@ import Sprint9Performance from './pages/Sprint9Performance';
 import Sprint11Accessibility from './pages/Sprint11Accessibility';
 import SecurityAudit from './pages/SecurityAudit';
 import Sprint12Security from './pages/Sprint12Security';
+import PerformanceMonitor from './pages/PerformanceMonitor';
+import Sprint13Performance from './pages/Sprint13Performance';
 import __Layout from './Layout.jsx';
 
 
@@ -150,6 +152,8 @@ export const PAGES = {
     "Sprint11Accessibility": Sprint11Accessibility,
     "SecurityAudit": SecurityAudit,
     "Sprint12Security": Sprint12Security,
+    "PerformanceMonitor": PerformanceMonitor,
+    "Sprint13Performance": Sprint13Performance,
 }
 
 export const pagesConfig = {
