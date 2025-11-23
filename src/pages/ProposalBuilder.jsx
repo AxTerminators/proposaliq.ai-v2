@@ -5,7 +5,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare, Shield } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, MessageCircle, Paperclip, Zap, Trash2, AlertTriangle, Users, MessageSquare, Shield, Menu, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -89,6 +89,7 @@ export default function ProposalBuilder() {
   const [showAssistant, setShowAssistant] = useState(false);
   const [assistantMinimized, setAssistantMinimized] = useState(false);
   const [showSampleDataGuard, setShowSampleDataGuard] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
@@ -419,9 +420,99 @@ export default function ProposalBuilder() {
   const hasClientPortal = subscription?.features_enabled?.client_portal === true;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 pb-32">
-      <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAssistant && !assistantMinimized ? 'mr-96' : ''}`}>
-        <div className="mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 md:p-6 pb-20 md:pb-32">
+      <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAssistant && !assistantMinimized ? 'md:mr-96' : ''}`}>
+        {/* Mobile Header - Sticky */}
+        <div className="md:hidden sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              className="min-h-[44px] min-w-[44px]"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileNavOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
+            <h1 className="text-base font-bold text-slate-900 truncate flex-1 mx-3">
+              {proposalData.proposal_name || "New Proposal"}
+            </h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(createPageUrl("Pipeline"))}
+              className="min-h-[44px] min-w-[44px]"
+              aria-label="Back to pipeline"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Phase Navigation Sidebar */}
+        {mobileNavOpen && (
+          <div className="md:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileNavOpen(false)}>
+            <div 
+              className="fixed inset-y-0 left-0 w-80 bg-white shadow-xl overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">Proposal Phases</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="min-h-[44px] min-w-[44px]"
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="p-4 space-y-2">
+                {PHASES.map((phase, index) => (
+                  <button
+                    key={phase.id}
+                    onClick={() => {
+                      setCurrentPhase(phase.id);
+                      setMobileNavOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all min-h-[56px] text-left ${
+                      currentPhase === phase.id
+                        ? "bg-blue-50 border-2 border-blue-600"
+                        : index < currentPhaseIndex
+                        ? "bg-green-50 border border-green-200"
+                        : "bg-slate-50 border border-slate-200"
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        index < currentPhaseIndex
+                          ? "bg-green-600 text-white"
+                          : currentPhase === phase.id
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-300 text-slate-600"
+                      }`}
+                    >
+                      {index < currentPhaseIndex ? <Check className="w-5 h-5" /> : index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-slate-900">{phase.label}</div>
+                      {index < currentPhaseIndex && (
+                        <div className="text-xs text-green-600 mt-1">✓ Completed</div>
+                      )}
+                      {currentPhase === phase.id && (
+                        <div className="text-xs text-blue-600 mt-1">Current Phase</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop Header */}
+        <div className="hidden md:block mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Button
@@ -462,10 +553,10 @@ export default function ProposalBuilder() {
               )}
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
             {proposalData.proposal_name || "New Proposal"}
           </h1>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <p className="text-slate-600">Follow the steps to build your proposal</p>
             {isSaving && (
               <span className="text-sm text-blue-600 flex items-center gap-2">
@@ -487,7 +578,8 @@ export default function ProposalBuilder() {
           </div>
         </div>
 
-        <Card className="border-none shadow-xl mb-6">
+        {/* Desktop Progress Card */}
+        <Card className="border-none shadow-xl mb-6 hidden md:block">
           <CardHeader>
             <div className="text-lg font-semibold mb-2">Progress</div>
           </CardHeader>
@@ -520,31 +612,47 @@ export default function ProposalBuilder() {
           </CardContent>
         </Card>
 
-        {/* REMOVED isDataLoaded condition - now always shows tabs */}
-        <Tabs defaultValue="builder" className="mb-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="builder">Builder</TabsTrigger>
+        {/* Mobile Progress Bar - Sticky */}
+        <div className="md:hidden sticky top-[60px] z-30 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-semibold text-slate-900">
+              Phase {currentPhaseIndex + 1} of {PHASES.length}
+            </span>
+            <span className="text-xs text-slate-600 flex-1 truncate">
+              {PHASES[currentPhaseIndex].label}
+            </span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="builder" className="mb-6 px-4 md:px-0">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 gap-1">
+            <TabsTrigger value="builder" className="min-h-[44px] text-sm md:text-base">
+              <span className="hidden md:inline">Builder</span>
+              <span className="md:hidden">Build</span>
+            </TabsTrigger>
             {hasClientPortal && (
-              <TabsTrigger value="client-sharing">
-                <Users className="w-4 h-4 mr-2" />
-                Client Sharing
+              <TabsTrigger value="client-sharing" className="min-h-[44px] text-sm md:text-base">
+                <Users className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Client Sharing</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="tasks">
-              <CheckSquare className="w-4 h-4 mr-2" />
-              Tasks
+            <TabsTrigger value="tasks" className="min-h-[44px] text-sm md:text-base">
+              <CheckSquare className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Tasks</span>
             </TabsTrigger>
-            <TabsTrigger value="discussions">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Discussions
+            <TabsTrigger value="discussions" className="min-h-[44px] text-sm md:text-base">
+              <MessageCircle className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Discussions</span>
             </TabsTrigger>
-            <TabsTrigger value="files">
-              <Paperclip className="w-4 h-4 mr-2" />
-              Files
+            <TabsTrigger value="files" className="min-h-[44px] text-sm md:text-base">
+              <Paperclip className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Files</span>
             </TabsTrigger>
-            <TabsTrigger value="automation">
-              <Zap className="w-4 h-4 mr-2" />
-              Automation
+            <TabsTrigger value="automation" className="min-h-[44px] text-sm md:text-base">
+              <Zap className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Automation</span>
             </TabsTrigger>
           </TabsList>
 
@@ -621,12 +729,14 @@ export default function ProposalBuilder() {
               </div>
             </React.Suspense>
 
+            {/* Desktop Navigation */}
             {currentPhaseIndex !== PHASES.length - 1 && (
-              <div className="flex justify-between max-w-4xl">
+              <div className="hidden md:flex justify-between max-w-4xl">
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={currentPhaseIndex === 0}
+                  className="min-h-[44px]"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Previous
@@ -634,14 +744,14 @@ export default function ProposalBuilder() {
                 <Button
                   variant="outline"
                   onClick={handleSaveAndGoToPipeline}
-                  className="bg-white hover:bg-slate-50"
+                  className="bg-white hover:bg-slate-50 min-h-[44px]"
                 >
                   Save and Go to Pipeline
                 </Button>
                 <Button
                   onClick={handleNext}
                   disabled={currentPhaseIndex === PHASES.length - 1}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700 min-h-[44px]"
                 >
                   Next
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -649,12 +759,14 @@ export default function ProposalBuilder() {
               </div>
             )}
 
+            {/* Desktop Final Phase Navigation */}
             {currentPhaseIndex === PHASES.length - 1 && (
-              <div className="flex justify-end max-w-4xl">
+              <div className="hidden md:flex justify-end max-w-4xl">
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={currentPhaseIndex === 0}
+                  className="min-h-[44px]"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Previous
@@ -662,7 +774,7 @@ export default function ProposalBuilder() {
                 <Button
                   variant="outline"
                   onClick={handleSaveAndGoToPipeline}
-                  className="ml-auto bg-white hover:bg-slate-50"
+                  className="ml-auto bg-white hover:bg-slate-50 min-h-[44px]"
                 >
                   Save and Go to Pipeline
                 </Button>
@@ -713,6 +825,39 @@ export default function ProposalBuilder() {
             </TabsContent>
           </React.Suspense>
         </Tabs>
+
+        {/* Mobile Bottom Action Bar - Sticky */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-3 shadow-lg">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentPhaseIndex === 0}
+              className="flex-1 min-h-[48px]"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Previous
+            </Button>
+            {currentPhaseIndex !== PHASES.length - 1 ? (
+              <Button
+                onClick={handleNext}
+                disabled={currentPhaseIndex === PHASES.length - 1}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 min-h-[48px]"
+              >
+                Next
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handleSaveAndGoToPipeline}
+                className="flex-1 bg-green-50 hover:bg-green-100 border-green-300 text-green-700 min-h-[48px]"
+              >
+                Save & Go to Pipeline
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {showAssistant && proposalId && (
