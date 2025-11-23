@@ -59,6 +59,7 @@ export default function KanbanColumn({
   onColumnSortChange,
   onClearColumnSort,
   currentSort,
+  isMagnetic = false,
 }) {
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
@@ -138,7 +139,8 @@ export default function KanbanColumn({
     <div
       className={cn(
         "w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
-        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]"
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]",
+        isMagnetic && !snapshot.isDraggingOver && canDragToHere && "border-blue-300 border-dashed bg-blue-25 shadow-md scale-[1.01]"
       )}
     >
       {/* Column Header */}
@@ -350,7 +352,8 @@ export default function KanbanColumn({
         {...provided.droppableProps}
         className={cn(
           "flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] transition-all duration-200",
-          snapshot.isDraggingOver && "bg-blue-50/50"
+          snapshot.isDraggingOver && "bg-blue-50/50",
+          isMagnetic && !snapshot.isDraggingOver && canDragToHere && "bg-blue-25/30"
         )}
       >
         {!canDragToHere && totalCount > 0 && (
