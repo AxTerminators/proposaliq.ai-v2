@@ -530,6 +530,7 @@ function LayoutContent({ children, currentPageName }) {
                   size="icon"
                   onClick={handleLogout}
                   className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 min-h-[44px] min-w-[44px]"
+                  aria-label="Logout"
                 >
                   <LogOut className="w-4 h-4" />
                 </Button>
@@ -556,6 +557,7 @@ function LayoutContent({ children, currentPageName }) {
                       size="icon"
                       onClick={handleLogout}
                       className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 w-10 h-10"
+                      aria-label="Logout"
                     >
                       <LogOut className="w-5 h-5" />
                     </Button>
@@ -600,6 +602,7 @@ function LayoutContent({ children, currentPageName }) {
             <button
               onClick={() => setMobileMenuOpen(false)}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Close navigation menu"
             >
               <X className="w-5 h-5 text-slate-600" />
             </button>
@@ -780,6 +783,7 @@ function LayoutContent({ children, currentPageName }) {
                 size="icon"
                 onClick={handleLogout}
                 className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 min-h-[44px] min-w-[44px]"
+                aria-label="Logout"
               >
                 <LogOut className="w-5 h-5" />
               </Button>
@@ -794,6 +798,7 @@ function LayoutContent({ children, currentPageName }) {
                 <button
                   onClick={() => setMobileMenuOpen(true)}
                   className="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Open navigation menu"
                 >
                   <Menu className="w-6 h-6 text-slate-600" />
                 </button>
@@ -830,6 +835,7 @@ function LayoutContent({ children, currentPageName }) {
                   variant="outline"
                   onClick={() => setShowGlobalSearch(true)}
                   className="w-full max-w-md h-10 justify-start text-slate-500 hover:text-slate-900 hover:border-blue-300"
+                  aria-label="Search proposals, tasks, and files"
                 >
                   <Search className="w-4 h-4 mr-2" />
                   Search proposals, tasks, files...
@@ -852,6 +858,7 @@ function LayoutContent({ children, currentPageName }) {
                   size="icon"
                   onClick={() => setShowGlobalSearch(true)}
                   className="md:hidden min-h-[44px] min-w-[44px]"
+                  aria-label="Search proposals, tasks, and files"
                 >
                   <Search className="w-5 h-5" />
                 </Button>

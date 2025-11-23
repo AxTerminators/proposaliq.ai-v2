@@ -214,7 +214,8 @@ export default function OrganizationSwitcher({ user, currentOrganization, onSwit
         variant="outline"
         size="sm"
         onClick={() => setShowSwitcher(true)}
-        className="h-9 gap-2 border-slate-300 hover:border-blue-400 transition-colors max-w-[200px]"
+        className="h-9 gap-2 border-slate-300 hover:border-blue-400 transition-colors max-w-[200px] min-h-[44px]"
+        aria-label={`Switch workspace (current: ${currentOrganization?.organization_name})`}
       >
         {getOrgTypeIcon(currentOrganization)}
         <span className="hidden sm:inline font-medium text-slate-700 truncate flex-1">
@@ -493,7 +494,8 @@ function OrganizationCard({
               variant="ghost"
               size="icon"
               onClick={(e) => onToggleFavorite(org, e)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px]"
+              aria-label={org.is_favorite ? "Remove from favorites" : "Add to favorites"}
             >
               <Star className={cn(
                 "w-4 h-4",

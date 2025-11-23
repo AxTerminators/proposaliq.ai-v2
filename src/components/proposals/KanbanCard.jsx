@@ -295,6 +295,8 @@ export default function KanbanCard({
                   e.stopPropagation();
                   setShowMenu(!showMenu);
                 }}
+                aria-label="Open card menu"
+                aria-expanded={showMenu}
               >
                 <MoreVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
               </Button>
