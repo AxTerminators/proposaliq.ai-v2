@@ -1,21 +1,18 @@
+
 /**
  * Shared constants and configurations for proposal components
  * Consolidates duplicate code from KanbanCard, ProposalsList, ProposalsTable
  */
 
 export const STATUS_CONFIG = {
-  evaluating: { label: 'Evaluating', color: 'bg-slate-100 text-slate-700' },
-  watch_list: { label: 'Watch List', color: 'bg-amber-100 text-amber-700' },
-  draft: { label: 'Draft', color: 'bg-blue-100 text-blue-700' },
-  in_progress: { label: 'In Progress', color: 'bg-purple-100 text-purple-700' },
-  on_hold: { label: 'On Hold', color: 'bg-slate-100 text-slate-700' },
-  submitted: { label: 'Submitted', color: 'bg-indigo-100 text-indigo-700' },
-  won: { label: 'Won', color: 'bg-green-100 text-green-700' },
-  lost: { label: 'Lost', color: 'bg-red-100 text-red-700' },
-  archived: { label: 'Archived', color: 'bg-gray-100 text-gray-700' },
-  client_review: { label: 'Client Review', color: 'bg-cyan-100 text-cyan-700' },
-  client_accepted: { label: 'Client Accepted', color: 'bg-emerald-100 text-emerald-700' },
-  client_rejected: { label: 'Client Rejected', color: 'bg-rose-100 text-rose-700' },
+  Qualifying: { label: 'Qualifying', color: 'bg-slate-100 text-slate-700' },
+  Planning: { label: 'Planning', color: 'bg-blue-100 text-blue-700' },
+  Drafting: { label: 'Drafting', color: 'bg-purple-100 text-purple-700' },
+  Reviewing: { label: 'Reviewing', color: 'bg-amber-100 text-amber-700' },
+  Submitted: { label: 'Submitted', color: 'bg-indigo-100 text-indigo-700' },
+  Won: { label: 'Won', color: 'bg-green-100 text-green-700' },
+  Lost: { label: 'Lost', color: 'bg-red-100 text-red-700' },
+  Archived: { label: 'Archived', color: 'bg-gray-100 text-gray-700' },
 };
 
 export const TYPE_EMOJIS = {

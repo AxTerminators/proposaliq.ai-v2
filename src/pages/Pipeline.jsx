@@ -456,8 +456,8 @@ export default function Pipeline() {
       ? `$${(totalValue / 1000).toFixed(0)}K`
       : `$${totalValue.toLocaleString()}`;
 
-    const wonCount = proposals.filter(p => p.status === 'won').length;
-    const submittedProposals = proposals.filter(p => ['submitted', 'won', 'lost'].includes(p.status)).length;
+    const wonCount = proposals.filter(p => p.status === 'Won').length;
+    const submittedProposals = proposals.filter(p => ['Submitted', 'Won', 'Lost'].includes(p.status)).length;
     const winRate = submittedProposals > 0 ? Math.round((wonCount / submittedProposals) * 100) : 0;
 
     const today = new Date();
