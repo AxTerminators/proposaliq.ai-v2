@@ -229,8 +229,9 @@ const KanbanCard = React.memo(function KanbanCard({
         }
       }}
       className={cn(
-        "bg-white rounded-lg shadow-sm border-2 p-3 md:p-4 mb-2 md:mb-3 cursor-pointer hover:shadow-md relative transition-all touch-manipulation",
-        snapshot.isDragging && "shadow-2xl border-blue-400 md:scale-105",
+        "bg-white rounded-lg shadow-sm border-2 p-3 md:p-4 mb-2 md:mb-3 cursor-pointer hover:shadow-md relative touch-manipulation",
+        snapshot.isDragging && "shadow-2xl border-blue-400 opacity-90",
+        !snapshot.isDragging && "transition-shadow duration-200",
         isActionRequired && "ring-2 ring-amber-400",
         isSelected && "ring-2 ring-blue-500",
         !snapshot.isDragging && !isSelected && getBorderColor()
