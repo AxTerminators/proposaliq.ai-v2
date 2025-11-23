@@ -144,7 +144,7 @@ export default function QuickCreateProposal({
     setProposalName(value);
     setProposalNameError("");
 
-    if (!value.trim()) {
+    if (!value.trim() || !organization?.id) {
       return;
     }
 
@@ -158,7 +158,7 @@ export default function QuickCreateProposal({
       }
     } catch (error) {
       console.error('[QuickCreateProposal] Proposal name validation error:', error);
-      setProposalNameError('Validation service error. Please try again.'); // Generic user-friendly error
+      setProposalNameError('Validation service error. Please try again.');
     } finally {
       setIsValidatingProposalName(false);
     }
@@ -167,25 +167,25 @@ export default function QuickCreateProposal({
   // Real-time board name validation
   const handleBoardNameChange = async (value) => {
     setBoardName(value);
-    setBoardNameError(""); // Renamed from nameError
+    setBoardNameError("");
 
-    if (!value.trim()) {
+    if (!value.trim() || !organization?.id) {
       return;
     }
 
-    setIsValidatingBoardName(true); // Renamed from isValidatingName
+    setIsValidatingBoardName(true);
 
     try {
       const validation = await validateBoardName(value, organization.id);
 
       if (!validation.isValid) {
-        setBoardNameError(validation.message); // Renamed from nameError
+        setBoardNameError(validation.message);
       }
     } catch (error) {
       console.error('[QuickCreateProposal] Board name validation error:', error);
-      setBoardNameError('Validation service error. Please try again.'); // Generic user-friendly error
+      setBoardNameError('Validation service error. Please try again.');
     } finally {
-      setIsValidatingBoardName(false); // Renamed from isValidatingName
+      setIsValidatingBoardName(false);
     }
   };
 
@@ -411,6 +411,10 @@ export default function QuickCreateProposal({
 
   const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
 
+
+  if (!organization) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
