@@ -288,7 +288,9 @@ export default function StatusMigrationManager() {
   };
 
   const oldMasterBoards = boards.filter(b => 
-    b.is_master_board && !b.columns?.some(col => col.status_mapping?.includes('Qualifying'))
+    b.board_name === "All Proposals" && 
+    b.is_master_board === false &&
+    !b.columns?.some(col => col.status_mapping?.includes('Qualifying'))
   );
 
   if (isLoadingUser || isLoadingOrg) {
