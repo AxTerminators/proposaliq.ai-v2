@@ -895,23 +895,23 @@ export default function BoardConfigDialog({ isOpen, onClose, organization, curre
                   {config.swimlane_config?.enabled && (
                     <>
                       <div className="space-y-3">
-                        <Label className="text-base font-semibold">Group Proposals By</Label>
-                        <Select
-                          value={config.swimlane_config?.group_by || 'none'}
-                          onValueChange={handleGroupByChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select grouping" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No Grouping</SelectItem>
-                            <SelectItem value="lead_writer">Lead Writer</SelectItem>
-                            <SelectItem value="project_type">Project Type (RFP, RFI, etc.)</SelectItem>
-                            <SelectItem value="agency">Agency</SelectItem>
-                            <SelectItem value="contract_value_range">Contract Value Range</SelectItem>
-                            <SelectItem value="custom_field">Custom Field</SelectItem>
-                          </SelectContent>
-                        </Select>
+                       <Label className="text-base font-semibold">Group Proposals By</Label>
+                       <Select
+                         value={config.swimlane_config?.group_by || 'none'}
+                         onValueChange={handleGroupByChange}
+                       >
+                         <SelectTrigger>
+                           <SelectValue />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="none">No Grouping</SelectItem>
+                           <SelectItem value="lead_writer">Lead Writer</SelectItem>
+                           <SelectItem value="project_type">Project Type (RFP, RFI, etc.)</SelectItem>
+                           <SelectItem value="agency">Agency</SelectItem>
+                           <SelectItem value="contract_value_range">Contract Value Range</SelectItem>
+                           <SelectItem value="custom_field">Custom Field</SelectItem>
+                         </SelectContent>
+                       </Select>
 
                         {config.swimlane_config?.group_by === 'custom_field' && (
                           <div className="space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">

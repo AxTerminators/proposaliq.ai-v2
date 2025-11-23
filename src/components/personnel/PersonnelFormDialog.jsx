@@ -217,7 +217,7 @@ export default function PersonnelFormDialog({
             <div className="col-span-2 space-y-2">
               <Label htmlFor="clearance_level">Security Clearance Level</Label>
               <Select
-                value={formData.clearance_level}
+                value={formData.clearance_level || 'none'}
                 onValueChange={(value) => setFormData({...formData, clearance_level: value})}
               >
                 <SelectTrigger>
