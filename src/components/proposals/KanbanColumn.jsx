@@ -137,16 +137,17 @@ const KanbanColumn = React.memo(function KanbanColumn({
   return (
     <div
       className={cn(
-        "w-full md:w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm transition-all duration-200 ease-out flex flex-col",
-        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg md:scale-[1.02]"
+        "w-full md:w-80 flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl shadow-sm flex flex-col",
+        snapshot.isDraggingOver && "border-blue-400 bg-blue-50 shadow-lg scale-[1.01]",
+        !snapshot.isDraggingOver && "transition-all duration-200"
       )}
     >
       {/* Column Header */}
       <div
         {...(dragHandleProps || {})}
         className={cn(
-          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[56px] md:min-h-[60px] transition-all duration-200",
-          column.color || "from-slate-400 to-slate-600",
+          "relative bg-gradient-to-r rounded-t-xl flex-shrink-0 min-h-[56px] md:min-h-[60px]",
+          column.color || "from-slate-600 to-slate-800",
           !column.is_locked && "md:cursor-grab md:active:cursor-grabbing"
         )}
       >
@@ -352,8 +353,8 @@ const KanbanColumn = React.memo(function KanbanColumn({
         ref={provided.innerRef}
         {...provided.droppableProps}
         className={cn(
-          "flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2 min-h-[120px] transition-all duration-200",
-          snapshot.isDraggingOver && "bg-blue-50/50"
+          "flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-2 min-h-[120px]",
+          snapshot.isDraggingOver && "bg-blue-50/50 transition-colors duration-150"
         )}
       >
         {!canDragToHere && totalCount > 0 && (
