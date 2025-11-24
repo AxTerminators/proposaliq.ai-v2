@@ -651,13 +651,18 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        // CRITICAL FIX: Don't clear custom_workflow_stage_id for terminal columns
+        // This preserves the board association so proposals stay on their type-specific boards
+        if (!destinationColumn.is_terminal && !['submitted', 'won', 'lost', 'archived'].includes(destinationColumn.default_status_mapping)) {
+          updatesForMovedProposal.custom_workflow_stage_id = null;
+        }
+        // For terminal columns, keep the existing custom_workflow_stage_id to maintain board association
       } else if (destinationColumn.type === 'master_status') {
         if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
           updatesForMovedProposal.status = destinationColumn.status_mapping[0];
         }
         updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.custom_workflow_stage_id = null;
+        // Don't clear custom_workflow_stage_id on master board either
       }
 
       if (sourceColumn.id !== destinationColumn.id) {
