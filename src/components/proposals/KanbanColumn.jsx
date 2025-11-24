@@ -29,6 +29,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import KanbanCard from "./KanbanCard";
+import { base44 } from "@/api/base44Client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 function getUserRole(user) {
   if (!user) return 'viewer';
