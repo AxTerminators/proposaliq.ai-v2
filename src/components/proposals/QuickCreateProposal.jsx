@@ -690,15 +690,8 @@ export default function QuickCreateProposal({
                 proposalNameError ||
                 isValidatingProposalName ||
                 !selectedType ||
-                (needsNewBoard && (!boardName.trim() || boardNameError || isValidatingBoardName)) ||
-                (!needsNewBoard && (() => {
-                  const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
-                  const matchingBoards = existingBoards.filter(b =>
-                    b.board_type === selectedTemplate?.board_type ||
-                    b.applies_to_proposal_types?.includes(selectedType)
-                  );
-                  return matchingBoards.length > 1 && !selectedBoardId;
-                })())
+                !selectedBoardId ||
+                (selectedBoardId === "create_new" && (!boardName.trim() || boardNameError || isValidatingBoardName))
               }
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
