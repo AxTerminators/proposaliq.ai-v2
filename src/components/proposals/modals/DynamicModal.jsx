@@ -707,40 +707,40 @@ export default function DynamicModal({ isOpen, onClose, config }) {
       case 'file':
       case 'file_upload':
         // Normalize accepted file types
-        const acceptTypes = field.accept || 
-          (field.accepted_file_types ? field.accepted_file_types.join(',') : null);
+        const acceptTypes = normalizedField.accept || 
+          (normalizedField.accepted_file_types ? normalizedField.accepted_file_types.join(',') : null);
         
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+          <div key={fieldName} className="space-y-2">
+            <Label htmlFor={fieldName}>
+              {normalizedField.label}
+              {normalizedField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {(field.description || field.help_text) && (
-              <p className="text-sm text-slate-500">{field.description || field.help_text}</p>
+            {(normalizedField.description || normalizedField.help_text) && (
+              <p className="text-sm text-slate-500">{normalizedField.description || normalizedField.help_text}</p>
             )}
             
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
               <input
-                id={field.name}
+                id={fieldName}
                 type="file"
                 accept={acceptTypes}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleFileUpload(field.name, file, field);
+                  if (file) handleFileUpload(fieldName, file, normalizedField);
                 }}
                 className="hidden"
-                disabled={field.disabled || uploadState?.status === 'uploading'}
+                disabled={normalizedField.disabled || uploadState?.status === 'uploading'}
               />
               
               {!uploadState || uploadState.status === 'idle' ? (
-                <label htmlFor={field.name} className="cursor-pointer">
+                <label htmlFor={fieldName} className="cursor-pointer">
                   <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                   <p className="text-sm text-slate-600">
-                    Click to upload {field.accept && `(${field.accept})`}
+                    Click to upload {acceptTypes && `(${acceptTypes})`}
                   </p>
-                  {field.maxSize && (
-                    <p className="text-xs text-slate-400 mt-1">Max size: {field.maxSize}MB</p>
+                  {normalizedField.maxSize && (
+                    <p className="text-xs text-slate-400 mt-1">Max size: {normalizedField.maxSize}MB</p>
                   )}
                 </label>
               ) : uploadState.status === 'uploading' ? (
@@ -758,9 +758,9 @@ export default function DynamicModal({ isOpen, onClose, config }) {
                   <CheckCircle2 className="w-8 h-8 text-green-500" />
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-slate-500" />
-                    <p className="text-sm text-slate-600">{formData[field.name]?.file_name}</p>
+                    <p className="text-sm text-slate-600">{formData[fieldName]?.file_name}</p>
                   </div>
-                  {formData[field.name]?.rag_ready && (
+                  {formData[fieldName]?.rag_ready && (
                     <p className="text-xs text-green-600">✓ Indexed for AI</p>
                   )}
                   <Button
@@ -768,10 +768,10 @@ export default function DynamicModal({ isOpen, onClose, config }) {
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      handleChange(field.name, null);
+                      handleChange(fieldName, null);
                       setUploadStates(prev => {
                         const newState = { ...prev };
-                        delete newState[field.name];
+                        delete newState[fieldName];
                         return newState;
                       });
                     }}
@@ -790,7 +790,7 @@ export default function DynamicModal({ isOpen, onClose, config }) {
                     onClick={() => {
                       setUploadStates(prev => {
                         const newState = { ...prev };
-                        delete newState[field.name];
+                        delete newState[fieldName];
                         return newState;
                       });
                     }}
