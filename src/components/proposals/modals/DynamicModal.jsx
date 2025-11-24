@@ -809,13 +809,14 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     }
   };
 
-  if (!config) return null;
-
+  // CRITICAL: All hooks must be called before any conditional returns
   // Determine fields to render
   // Handle both formats:
   // 1. config.steps[].fields - array of fields per step
   // 2. config.fields with field.step - fields have step assignment
   const fieldsToRender = React.useMemo(() => {
+    if (!config) return [];
+    
     if (config.steps && config.steps.length > 0) {
       const currentStepConfig = config.steps[currentStep];
       
@@ -836,10 +837,13 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     
     // No steps or fallback - return all fields
     return config.fields || [];
-  }, [config.steps, config.fields, currentStep]);
+  }, [config, currentStep]);
 
-  const isMultiStep = config.steps && config.steps.length > 1;
-  const isLastStep = currentStep === (config.steps?.length || 1) - 1;
+  const isMultiStep = config?.steps && config.steps.length > 1;
+  const isLastStep = currentStep === (config?.steps?.length || 1) - 1;
+
+  // Early return AFTER all hooks
+  if (!config) return null;
 
   return (
     <>
