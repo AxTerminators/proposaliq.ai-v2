@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -32,19 +32,30 @@ const setCachedOrgId = (userEmail, orgId) => {
   }
 };
 
+// Cache user data in memory to prevent re-fetching
+let cachedUser = null;
+let cachedOrg = null;
+
 export function OrganizationProvider({ children }) {
   const queryClient = useQueryClient();
   const [orgId, setOrgId] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const hasLoadedOnce = useRef(false);
 
   const { data: user, isLoading: isLoadingUser, error: userError } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
+      // Use cached user if available to prevent re-fetch
+      if (cachedUser && hasLoadedOnce.current) {
+        return cachedUser;
+      }
       const currentUser = await base44.auth.me();
+      cachedUser = currentUser;
+      hasLoadedOnce.current = true;
       return currentUser;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: Infinity, // Never consider stale
+    gcTime: Infinity, // Never garbage collect
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
