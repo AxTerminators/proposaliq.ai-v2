@@ -297,15 +297,11 @@ export default function QuickCreateProposal({
         };
         targetBoard = await base44.entities.KanbanConfig.create(newBoardData);
         toast.success(`New board "${boardName}" created successfully!`);
-      } else if (existingBoardForType) {
-        // Use the existing board if one is found
-        targetBoard = existingBoardForType;
-        toast.info(`Using existing board "${targetBoard.board_name}" for this proposal type.`);
       } else {
-        // Fallback to master board if no specific board and needsNewBoard was false (or no input given)
-        targetBoard = existingBoards.find(b => b.is_master_board);
+        // User selected an existing board
+        targetBoard = existingBoards.find(b => b.id === selectedBoardId);
         if (targetBoard) {
-          toast.info(`No specific board found for type ${selectedType}, falling back to master board "${targetBoard.board_name}".`);
+          toast.info(`Using existing board "${targetBoard.board_name}".`);
         }
       }
 
