@@ -376,8 +376,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     });
   }, [kanbanConfig?.columns, kanbanConfig?.is_master_board, proposal?.status, proposal?.custom_workflow_stage_id, proposal?.current_phase]);
 
-  const checklistItems = currentColumn?.checklist_items || [];
-  const checklistStatus = proposal.current_stage_checklist_status?.[currentColumn?.id] || {};
+  const checklistItems = React.useMemo(() => {
+    if (!currentColumn?.checklist_items) return [];
+    // Filter out any null/undefined items and ensure proper structure
+    return currentColumn.checklist_items.filter(item => item && item.id);
+  }, [currentColumn?.checklist_items]);
+  
+  const checklistStatus = React.useMemo(() => {
+    if (!proposal?.current_stage_checklist_status || !currentColumn?.id) return {};
+    return proposal.current_stage_checklist_status[currentColumn.id] || {};
+  }, [proposal?.current_stage_checklist_status, currentColumn?.id]);
 
   // **UPDATED: Enhanced system check to include timeline status**
   const systemCheckStatus = (item) => {
