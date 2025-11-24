@@ -573,14 +573,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       case 'phase2':
       case 'phase3':
       case 'phase4':
-        return 'evaluating';
+        return 'qualifying';
       case 'phase5':
       case 'phase6':
-        return 'draft';
+        return 'drafting';
       case 'phase7':
-        return 'in_progress';
+        return 'reviewing';
       default:
-        return 'evaluating';
+        return 'qualifying';
     }
   };
 
@@ -597,7 +597,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
         updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.status = 'in_progress';
+        updatesForMovedProposal.status = 'reviewing';
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;

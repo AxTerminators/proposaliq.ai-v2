@@ -545,17 +545,17 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       if (firstColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = firstColumn.id;
         updates.current_phase = null;
-        updates.status = 'in_progress';
+        updates.status = 'reviewing';
       } else if (firstColumn.type === 'locked_phase') {
         updates.custom_workflow_stage_id = firstColumn.id;
         updates.current_phase = firstColumn.phase_mapping;
-        updates.status = firstColumn.default_status_mapping || 'evaluating';
+        updates.status = firstColumn.default_status_mapping || 'qualifying';
       } else if (firstColumn.type === 'default_status') {
         updates.status = firstColumn.default_status_mapping;
         updates.current_phase = null;
         updates.custom_workflow_stage_id = null;
       } else if (firstColumn.type === 'master_status') {
-        updates.status = firstColumn.status_mapping?.[0] || 'evaluating';
+        updates.status = firstColumn.status_mapping?.[0] || 'qualifying';
         updates.current_phase = null;
         updates.custom_workflow_stage_id = null;
       }
@@ -673,7 +673,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       } else if (targetColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = targetColumn.id;
         updates.current_phase = null;
-        updates.status = 'in_progress';
+        updates.status = 'reviewing';
       } else if (targetColumn.type === 'default_status') {
         updates.status = targetColumn.default_status_mapping;
         updates.current_phase = null;
@@ -728,14 +728,14 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       case 'phase2':
       case 'phase3':
       case 'phase4':
-        return 'evaluating';
+        return 'qualifying';
       case 'phase5':
       case 'phase6':
-        return 'draft';
+        return 'drafting';
       case 'phase7':
-        return 'in_progress';
+        return 'reviewing';
       default:
-        return 'evaluating';
+        return 'qualifying';
     }
   };
 
