@@ -49,7 +49,13 @@ export default function BulkActionsPanel({
         updates: {
           custom_workflow_stage_id: targetColumn.type === 'custom_stage' ? columnId : null,
           current_phase: targetColumn.type === 'locked_phase' ? targetColumn.phase_mapping : null,
-          status: targetColumn.type === 'default_status' ? targetColumn.default_status_mapping : proposal.status
+          status: targetColumn.type === 'default_status' 
+            ? targetColumn.default_status_mapping 
+            : targetColumn.type === 'custom_stage'
+              ? (targetColumn.status_mapping?.[0] || 'qualifying')
+              : targetColumn.type === 'master_status'
+                ? (targetColumn.status_mapping?.[0] || 'qualifying')
+                : proposal.status
         }
       }));
 
