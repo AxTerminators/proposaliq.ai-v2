@@ -423,9 +423,9 @@ export default function QuickCreateProposal({
     } catch (error) {
       console.error('[QuickCreate] ❌ Creation failed:', error.message);
       toast.error('Failed to create proposal: ' + error.message);
-      // If the error was specifically related to board creation, potentially update boardNameError
-      if (needsNewBoard && error.message.includes('board configuration')) {
-        setBoardNameError(error.message); // Renamed from nameError
+      // If the error was specifically related to board creation, update boardNameError
+      if (selectedBoardId === "create_new" && error.message.includes('board')) {
+        setBoardNameError(error.message);
       }
     } finally {
       setIsCreating(false);
