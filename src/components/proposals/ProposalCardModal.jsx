@@ -256,7 +256,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
         { organization_id: organization.id },
         'board_type'
       );
-      return boards.filter(b => !b.is_master_board);
+      // Include ALL boards (including master board) for reassignment
+      return boards;
     },
     enabled: !!organization?.id && isOpen,
   });
@@ -341,16 +342,16 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
     
     // TYPE-SPECIFIC BOARD LOGIC
-    // Priority 1: Custom workflow stage
-    if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
-      return col.id === proposal.custom_workflow_stage_id;
+    // Priority 1: Terminal status columns ALWAYS take priority (won, lost, archived, submitted)
+    if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status) && 
+        col.type === 'default_status' &&
+        col.default_status_mapping === proposal.status) {
+      return true;
     }
     
-    // Priority 2: Terminal status columns (won, lost, archived, submitted)
-    if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status) && 
-        col.is_terminal && 
-        col.type === 'default_status') {
-      return col.default_status_mapping === proposal.status;
+    // Priority 2: Custom workflow stage
+    if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
+      return col.id === proposal.custom_workflow_stage_id;
     }
     
     // Priority 3: Locked phase columns
@@ -358,7 +359,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       return col.phase_mapping === proposal.current_phase;
     }
     
-    // Priority 4: Default status mapping
+    // Priority 4: Default status mapping (fallback)
     if (col.type === 'default_status') {
       return col.default_status_mapping === proposal.status;
     }

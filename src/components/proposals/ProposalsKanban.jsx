@@ -412,19 +412,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       } 
       // TYPE-SPECIFIC BOARD LOGIC
       else {
-        // Priority 1: Check if in custom workflow stage
-        if (proposal.custom_workflow_stage_id) {
-          assignments[proposal.id] = {
-            columnId: proposal.custom_workflow_stage_id,
-            columnType: 'custom_stage'
-          };
-        } 
-        // Priority 2: Check for terminal status columns (Won, Lost, Archived, Submitted)
-        else if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
+        // Priority 1: Check for terminal status columns FIRST (Won, Lost, Archived, Submitted)
+        // Terminal columns should ALWAYS take priority regardless of other fields
+        if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
           const matchingTerminalColumn = columns.find(
             col => col.type === 'default_status' && 
-                   col.default_status_mapping === proposal.status &&
-                   col.is_terminal === true
+                   col.default_status_mapping === proposal.status
           );
           if (matchingTerminalColumn) {
             assignments[proposal.id] = {
@@ -433,6 +426,13 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
             };
           }
         }
+        // Priority 2: Check if in custom workflow stage
+        else if (proposal.custom_workflow_stage_id) {
+          assignments[proposal.id] = {
+            columnId: proposal.custom_workflow_stage_id,
+            columnType: 'custom_stage'
+          };
+        } 
         // Priority 3: Check for locked phase columns
         else if (proposal.current_phase) {
           const matchingLockedPhaseColumn = columns.find(
