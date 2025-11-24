@@ -357,7 +357,11 @@ export default function Pipeline() {
       return results || [];
     },
     enabled: !!organization?.id,
-    staleTime: 10000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 3,
     retryDelay: 1000,
     initialData: [],
