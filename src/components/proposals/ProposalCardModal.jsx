@@ -335,13 +335,34 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const currentColumn = kanbanConfig?.columns?.find(col => {
-    if (col.type === 'locked_phase') {
-      return col.phase_mapping === proposal.current_phase;
-    } else if (col.type === 'custom_stage') {
+    // MASTER BOARD LOGIC
+    if (kanbanConfig?.is_master_board && col.type === 'master_status') {
+      return col.status_mapping?.includes(proposal.status);
+    }
+    
+    // TYPE-SPECIFIC BOARD LOGIC
+    // Priority 1: Custom workflow stage
+    if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
       return col.id === proposal.custom_workflow_stage_id;
-    } else if (col.type === 'default_status') {
+    }
+    
+    // Priority 2: Terminal status columns (won, lost, archived, submitted)
+    if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status) && 
+        col.is_terminal && 
+        col.type === 'default_status') {
       return col.default_status_mapping === proposal.status;
     }
+    
+    // Priority 3: Locked phase columns
+    if (proposal.current_phase && col.type === 'locked_phase') {
+      return col.phase_mapping === proposal.current_phase;
+    }
+    
+    // Priority 4: Default status mapping
+    if (col.type === 'default_status') {
+      return col.default_status_mapping === proposal.status;
+    }
+    
     return false;
   });
 
