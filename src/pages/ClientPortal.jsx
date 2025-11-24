@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -395,10 +394,14 @@ function ProposalsView({ client, currentMember }) {
     <div className="space-y-4">
       {proposals.map((proposal) => {
         const statusColors = {
-          client_review: "bg-amber-100 text-amber-700",
-          client_accepted: "bg-green-100 text-green-700",
-          client_rejected: "bg-red-100 text-red-700",
-          in_progress: "bg-blue-100 text-blue-700"
+          qualifying: "bg-slate-100 text-slate-700",
+          planning: "bg-cyan-100 text-cyan-700",
+          drafting: "bg-blue-100 text-blue-700",
+          reviewing: "bg-purple-100 text-purple-700",
+          submitted: "bg-indigo-100 text-indigo-700",
+          won: "bg-green-100 text-green-700",
+          lost: "bg-red-100 text-red-700",
+          archived: "bg-gray-100 text-gray-700"
         };
 
         return (

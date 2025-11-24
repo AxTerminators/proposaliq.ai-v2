@@ -427,7 +427,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
 
   // NEW: Watermark status logic for export
   const willHaveWatermark = React.useMemo(() => {
-    return !['approved', 'submitted', 'won', 'client_accepted'].includes(proposal.status);
+    return !['submitted', 'won'].includes(proposal.status);
   }, [proposal.status]);
 
   const exportStatusMessage = React.useMemo(() => {

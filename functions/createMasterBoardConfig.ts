@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
           color: "from-green-400 to-green-600",
           order: 5,
           type: "master_status",
-          status_mapping: ["won", "client_accepted"],
+          status_mapping: ["won"],
           is_locked: true,
           is_terminal: true,
           checklist_items: []

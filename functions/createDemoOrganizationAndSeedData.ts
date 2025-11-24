@@ -662,8 +662,7 @@ Deno.serve(async (req) => {
           const clientIds = mapping.clients.map(c => c.id);
           await base44.asServiceRole.entities.Proposal.update(mapping.proposal.id, {
             shared_with_client_ids: clientIds,
-            client_view_enabled: true,
-            status: mapping.proposal.status === 'in_progress' ? 'client_review' : mapping.proposal.status
+            client_view_enabled: true
           });
         }
       }
