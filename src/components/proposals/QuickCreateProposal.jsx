@@ -284,7 +284,7 @@ export default function QuickCreateProposal({
     let targetBoard = null;
 
     try {
-      console.log('[QuickCreate] 🚀 Creating proposal:', { name: proposalName, type: selectedType, selectedBoardId });
+      console.log('[QuickCreate] 🚀 Creating proposal:', { name: proposalName, type: finalType, selectedBoardId });
 
       // Use the board the user explicitly selected
       let existingBoardForType = null;
