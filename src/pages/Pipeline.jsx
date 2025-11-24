@@ -188,7 +188,7 @@ export default function Pipeline() {
       if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
         console.log('[Pipeline] No boards found, auto-creating master board');
         try {
-          const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
+          const response = await base44.functions.invoke('createMasterBoardConfig', {
             organization_id: organization.id
           });
 
@@ -534,7 +534,7 @@ export default function Pipeline() {
 
     setIsCreatingMasterBoard(true);
     try {
-      const response = await base44.functions.invoke('ensureMasterBoardOnFirstLoad', {
+      const response = await base44.functions.invoke('createMasterBoardConfig', {
         organization_id: organization.id
       });
 
