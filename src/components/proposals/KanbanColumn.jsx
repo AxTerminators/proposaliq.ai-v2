@@ -61,6 +61,7 @@ export default function KanbanColumn({
   currentSort,
   isMagnetic = false,
 }) {
+  const queryClient = useQueryClient();
   const proposalCount = proposals.length;
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(column.label);
@@ -404,6 +405,19 @@ export default function KanbanColumn({
                     isSelected={selectedProposalIds.includes(proposal.id)}
                     onToggleSelection={onToggleProposalSelection}
                     selectionMode={selectionMode}
+                    onDelete={async (proposalToDelete) => {
+                      const confirmed = window.confirm(`Delete "${proposalToDelete.proposal_name}"?\n\nThis action cannot be undone. All associated data will be permanently deleted.`);
+                      if (confirmed) {
+                        try {
+                          await base44.entities.Proposal.delete(proposalToDelete.id);
+                          queryClient.invalidateQueries({ queryKey: ['proposals'] });
+                          toast.success('Proposal deleted successfully');
+                        } catch (error) {
+                          console.error('Delete error:', error);
+                          toast.error('Failed to delete proposal: ' + error.message);
+                        }
+                      }
+                    }}
                   />
                 )}
               </Draggable>
