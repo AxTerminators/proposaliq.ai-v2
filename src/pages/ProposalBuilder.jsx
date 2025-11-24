@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
@@ -56,16 +55,16 @@ const getKanbanStatusFromPhase = (phaseId) => {
     case "phase2":
     case "phase3":
     case "phase4":
-      return "evaluating";
+      return "qualifying";
     case "phase5":
     case "phase6":
-      return "draft";
+      return "drafting";
     case "phase7":
-      return "in_progress";
+      return "reviewing";
     case "phase8":
-      return "in_progress";
+      return "reviewing";
     default:
-      return "evaluating";
+      return "qualifying";
   }
 };
 
@@ -116,7 +115,7 @@ export default function ProposalBuilder() {
     contract_value: "",
     teaming_partner_ids: [],
     current_phase: "phase1",
-    status: "evaluating",
+    status: "qualifying",
     proposal_type_category: boardTypeFromUrl || "",
   });
 

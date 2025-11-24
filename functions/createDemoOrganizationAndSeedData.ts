@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
         due_date: '2025-03-15',
         contract_value: 25000000,
         contract_value_type: 'ceiling',
-        status: 'in_progress',
+        status: 'drafting',
         current_phase: 'phase6',
         match_score: 92,
         is_sample_data: true
@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
         project_title: 'Comprehensive Cybersecurity Assessment and Enhancement',
         due_date: '2025-02-28',
         contract_value: 12000000,
-        status: 'draft',
+        status: 'qualifying',
         current_phase: 'phase4',
         match_score: 88,
         is_sample_data: true
@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
         project_title: 'Advanced Data Analytics and Visualization Platform',
         due_date: '2025-04-20',
         contract_value: 18000000,
-        status: 'evaluating',
+        status: 'qualifying',
         current_phase: 'phase2',
         match_score: 85,
         is_sample_data: true
@@ -1081,8 +1081,8 @@ Deno.serve(async (req) => {
 
     console.log('[CreateDemoOrg] ✅ Mock resources created');
 
-    // 12. Create Sample Tasks for In-Progress Proposal
-    const inProgressProposal = createdProposals.find(p => p.status === 'in_progress' || p.status === 'client_review'); // Check for updated status
+    // 12. Create Sample Tasks for Drafting Proposal
+    const inProgressProposal = createdProposals.find(p => p.status === 'drafting' || p.status === 'reviewing');
     if (inProgressProposal) {
       const sampleTasks = [
         {
