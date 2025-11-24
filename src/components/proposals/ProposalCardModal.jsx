@@ -87,6 +87,20 @@ import {
 import { Label } from "@/components/ui/label";
 
 export default function ProposalCardModal({ proposal: proposalProp, isOpen, onClose, organization, kanbanConfig, initialModalToOpen = null }) {
+  // DEBUG: Log incoming props
+  console.log('[ProposalCardModal] MOUNT/UPDATE - kanbanConfig:', {
+    hasConfig: !!kanbanConfig,
+    boardName: kanbanConfig?.board_name,
+    boardType: kanbanConfig?.board_type,
+    columnsCount: kanbanConfig?.columns?.length,
+    isMaster: kanbanConfig?.is_master_board
+  });
+  console.log('[ProposalCardModal] MOUNT/UPDATE - proposal:', {
+    id: proposalProp?.id,
+    name: proposalProp?.proposal_name,
+    status: proposalProp?.status,
+    customStageId: proposalProp?.custom_workflow_stage_id
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("checklist");
