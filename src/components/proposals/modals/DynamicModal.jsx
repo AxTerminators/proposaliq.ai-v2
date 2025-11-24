@@ -615,21 +615,21 @@ export default function DynamicModal({ isOpen, onClose, config }) {
       case 'number':
       case 'date':
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+          <div key={fieldName} className="space-y-2">
+            <Label htmlFor={fieldName}>
+              {normalizedField.label}
+              {normalizedField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-sm text-slate-500">{field.description}</p>
+            {(normalizedField.description || normalizedField.help_text) && (
+              <p className="text-sm text-slate-500">{normalizedField.description || normalizedField.help_text}</p>
             )}
             <Input
-              id={field.name}
-              type={field.type}
+              id={fieldName}
+              type={normalizedField.type}
               value={value}
-              onChange={(e) => handleChange(field.name, e.target.value)}
-              placeholder={field.placeholder}
-              disabled={field.disabled}
+              onChange={(e) => handleChange(fieldName, e.target.value)}
+              placeholder={normalizedField.placeholder}
+              disabled={normalizedField.disabled}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
@@ -637,21 +637,21 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
       case 'textarea':
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+          <div key={fieldName} className="space-y-2">
+            <Label htmlFor={fieldName}>
+              {normalizedField.label}
+              {normalizedField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-sm text-slate-500">{field.description}</p>
+            {(normalizedField.description || normalizedField.help_text) && (
+              <p className="text-sm text-slate-500">{normalizedField.description || normalizedField.help_text}</p>
             )}
             <Textarea
-              id={field.name}
+              id={fieldName}
               value={value}
-              onChange={(e) => handleChange(field.name, e.target.value)}
-              placeholder={field.placeholder}
-              disabled={field.disabled}
-              rows={field.rows || 4}
+              onChange={(e) => handleChange(fieldName, e.target.value)}
+              placeholder={normalizedField.placeholder}
+              disabled={normalizedField.disabled}
+              rows={normalizedField.rows || 4}
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
@@ -659,24 +659,24 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
       case 'select':
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+          <div key={fieldName} className="space-y-2">
+            <Label htmlFor={fieldName}>
+              {normalizedField.label}
+              {normalizedField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-sm text-slate-500">{field.description}</p>
+            {(normalizedField.description || normalizedField.help_text) && (
+              <p className="text-sm text-slate-500">{normalizedField.description || normalizedField.help_text}</p>
             )}
             <Select
               value={value}
-              onValueChange={(val) => handleChange(field.name, val)}
-              disabled={field.disabled}
+              onValueChange={(val) => handleChange(fieldName, val)}
+              disabled={normalizedField.disabled}
             >
               <SelectTrigger>
-                <SelectValue placeholder={field.placeholder || 'Select an option'} />
+                <SelectValue placeholder={normalizedField.placeholder || 'Select an option'} />
               </SelectTrigger>
               <SelectContent>
-                {field.options?.map(option => (
+                {normalizedField.options?.map(option => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -689,16 +689,16 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
       case 'checkbox':
         return (
-          <div key={field.name} className="flex items-center space-x-2">
+          <div key={fieldName} className="flex items-center space-x-2">
             <Checkbox
-              id={field.name}
+              id={fieldName}
               checked={!!value}
-              onCheckedChange={(checked) => handleChange(field.name, checked)}
-              disabled={field.disabled}
+              onCheckedChange={(checked) => handleChange(fieldName, checked)}
+              disabled={normalizedField.disabled}
             />
-            <Label htmlFor={field.name} className="font-normal">
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+            <Label htmlFor={fieldName} className="font-normal">
+              {normalizedField.label}
+              {normalizedField.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             {error && <p className="text-sm text-red-500 ml-6">{error}</p>}
           </div>
