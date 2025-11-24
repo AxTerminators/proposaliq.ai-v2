@@ -302,7 +302,7 @@ export default function QuickCreateProposal({
           created_by: 'system_quick_create',
           created_date: new Date().toISOString(),
           is_active: true,
-          default_proposal_type: selectedType
+          default_proposal_type: finalType
         };
         targetBoard = await base44.entities.KanbanConfig.create(newBoardData);
         toast.success(`New board "${boardName}" created successfully!`);
