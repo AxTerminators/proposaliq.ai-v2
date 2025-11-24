@@ -38,7 +38,6 @@ import ProposalCardModal from "./ProposalCardModal";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import ApprovalGate from "./ApprovalGate";
-import KanbanSetupWizard from "./KanbanSetupWizard";
 import { Card, CardContent } from "@/components/ui/card";
 import KanbanOnboardingTour from "./KanbanOnboardingTour";
 import KanbanHelpPanel from "./KanbanHelpPanel";
@@ -92,7 +91,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [showApprovalGate, setShowApprovalGate] = useState(false);
   const [approvalGateData, setApprovalGateData] = useState(null);
   const [dragInProgress, setDragInProgress] = useState(false);
-  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showOnboardingTour, setShowOnboardingTour] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -1313,69 +1311,51 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   if (isLegacyConfig && !isLoadingConfig) {
     return (
-      <>
-        <div className="flex items-center justify-center min-h-[600px] p-6">
-          <Card className="max-w-2xl border-none shadow-xl">
-            <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-10 h-10 text-white" />
-              </div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-3">Update Your Kanban Board Configuration</h2>
-              <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
-                It looks like your Kanban board is using an outdated configuration.
-                Choose a new workflow template to get access to the latest features.
-              </p>
-              <Button
-                onClick={() => setShowSetupWizard(true)}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Setup Workflow
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <KanbanSetupWizard
-          isOpen={showSetupWizard}
-          onClose={() => setShowSetupWizard(false)}
-          organization={organization}
-        />
-      </>
+      <div className="flex items-center justify-center min-h-[600px] p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-3">Update Your Kanban Board Configuration</h2>
+            <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
+              Your Kanban board is using an outdated configuration. Please create a new board from the Pipeline page using the "Create Board" option.
+            </p>
+            <Button
+              onClick={() => setShowBoardConfig(true)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+            >
+              <Settings className="w-5 h-5 mr-2" />
+              Configure Board
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   if (!hasKanbanConfig && !isLoadingConfig) {
     return (
-      <>
-        <div className="flex items-center justify-center min-h-[600px] p-6">
-          <Card className="max-w-2xl border-none shadow-xl">
-            <CardContent className="p-12 text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <LayoutGrid className="w-10 h-10 text-white" />
-              </div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-3">Setup Your Kanban Board</h2>
-              <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
-                Get started by choosing a workflow template that matches your proposal process.
-                You can customize it later to fit your exact needs.
-              </p>
-              <Button
-                onClick={() => setShowSetupWizard(true)}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Setup Workflow
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <KanbanSetupWizard
-          isOpen={showSetupWizard}
-          onClose={() => setShowSetupWizard(false)}
-          organization={organization}
-        />
-      </>
+      <div className="flex items-center justify-center min-h-[600px] p-6">
+        <Card className="max-w-2xl border-none shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <LayoutGrid className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-3">No Board Configuration Found</h2>
+            <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto">
+              This board doesn't have a configuration yet. The master board should have been created automatically. Please return to the Pipeline page.
+            </p>
+            <Button
+              onClick={() => navigate(createPageUrl("Pipeline"))}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-6"
+            >
+              <LayoutGrid className="w-5 h-5 mr-2" />
+              Go to Pipeline
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
