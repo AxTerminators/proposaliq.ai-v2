@@ -281,7 +281,7 @@ export default function QuickCreateProposal({
       let existingBoardForType = null;
       
       if (selectedBoardId === "create_new") {
-        // Create a new board if needsNewBoard is true and no existing board for this type
+        // Create a new board
         const newBoardData = {
           organization_id: organization.id,
           board_name: boardName.trim(),
