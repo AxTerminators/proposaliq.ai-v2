@@ -124,7 +124,11 @@ export default function Pipeline() {
       const currentUser = await base44.auth.me();
       return currentUser;
     },
-    staleTime: 300000,
+    staleTime: Infinity, // Never consider stale
+    gcTime: Infinity, // Never garbage collect
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1
   });
 
@@ -160,7 +164,11 @@ export default function Pipeline() {
       return null;
     },
     enabled: !!user,
-    staleTime: 300000,
+    staleTime: Infinity, // Never consider stale
+    gcTime: Infinity, // Never garbage collect
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1
   });
 
@@ -177,7 +185,11 @@ export default function Pipeline() {
       return boards;
     },
     enabled: !!organization?.id,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
@@ -345,7 +357,11 @@ export default function Pipeline() {
       return results || [];
     },
     enabled: !!organization?.id,
-    staleTime: 10000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 3,
     retryDelay: 1000,
     initialData: [],
@@ -481,7 +497,11 @@ export default function Pipeline() {
       );
     },
     enabled: !!organization?.id,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     retry: 1,
     initialData: [],
   });
