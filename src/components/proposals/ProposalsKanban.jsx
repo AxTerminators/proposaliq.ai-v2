@@ -805,23 +805,44 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       const mouseX = e.clientX;
       const mouseY = e.clientY;
 
-      // Magnetic snapping - find which column the mouse is over
+      // Magnetic snapping - find which column the mouse is over or scrolling towards
       let closestColumnId = null;
       let closestDistance = Infinity;
-      const magneticThreshold = 250; // increased threshold for wider detection
+      const magneticThreshold = 300; // increased threshold for wider detection
+      
+      // Get scroll position to account for off-screen columns
+      const scrollLeft = board.scrollLeft;
 
       Object.entries(columnRefs.current).forEach(([columnId, ref]) => {
         if (ref) {
           const rect = ref.getBoundingClientRect();
+          
+          // Calculate column position relative to the scrollable container
+          const columnLeftInContainer = rect.left + scrollLeft;
+          const columnRightInContainer = rect.right + scrollLeft;
+          const mouseXInContainer = mouseX + scrollLeft;
+          
+          // Check if column is near the mouse position (accounting for scroll)
+          const isNearHorizontally = 
+            mouseXInContainer >= columnLeftInContainer - magneticThreshold && 
+            mouseXInContainer <= columnRightInContainer + magneticThreshold;
+          
+          // Check if column is visible or partially visible in viewport
+          const isVisible = rect.right > 0 && rect.left < viewportWidth;
+          
+          // Calculate distance from mouse to column center
           const columnCenterX = rect.left + rect.width / 2;
           const distance = Math.abs(mouseX - columnCenterX);
           
-          // Check if mouse is within column bounds (horizontally) and distance is reasonable
-          if (mouseX >= rect.left - magneticThreshold && 
-              mouseX <= rect.right + magneticThreshold && 
+          // Column is magnetic if:
+          // 1. Mouse is near it horizontally (in container coordinates)
+          // 2. Mouse is vertically aligned with column
+          // 3. It's the closest column so far
+          if (isNearHorizontally && 
               mouseY >= rect.top && 
-              mouseY <= rect.bottom + 100 && // allow some vertical tolerance
-              distance < closestDistance) {
+              mouseY <= rect.bottom + 100 && 
+              distance < closestDistance &&
+              (isVisible || Math.abs(mouseX - (rect.left < 0 ? 0 : viewportWidth)) < threshold * 2)) {
             closestDistance = distance;
             closestColumnId = columnId;
           }
