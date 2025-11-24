@@ -335,37 +335,46 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
     }
   };
 
-  const currentColumn = kanbanConfig?.columns?.find(col => {
-    // MASTER BOARD LOGIC
-    if (kanbanConfig?.is_master_board && col.type === 'master_status') {
-      return col.status_mapping?.includes(proposal.status);
-    }
+  const currentColumn = React.useMemo(() => {
+    if (!kanbanConfig?.columns || !proposal) return null;
     
-    // TYPE-SPECIFIC BOARD LOGIC
-    // Priority 1: Terminal status columns ALWAYS take priority (won, lost, archived, submitted)
-    if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status) && 
-        col.type === 'default_status' &&
-        col.default_status_mapping === proposal.status) {
-      return true;
-    }
-    
-    // Priority 2: Custom workflow stage
-    if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
-      return col.id === proposal.custom_workflow_stage_id;
-    }
-    
-    // Priority 3: Locked phase columns
-    if (proposal.current_phase && col.type === 'locked_phase') {
-      return col.phase_mapping === proposal.current_phase;
-    }
-    
-    // Priority 4: Default status mapping (fallback)
-    if (col.type === 'default_status') {
-      return col.default_status_mapping === proposal.status;
-    }
-    
-    return false;
-  });
+    return kanbanConfig.columns.find(col => {
+      // MASTER BOARD LOGIC
+      if (kanbanConfig?.is_master_board && col.type === 'master_status') {
+        return col.status_mapping?.includes(proposal.status);
+      }
+      
+      // TYPE-SPECIFIC BOARD LOGIC
+      // Priority 1: Terminal status columns ALWAYS take priority (won, lost, archived, submitted)
+      if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
+        // Check master_status type (terminal columns)
+        if (col.type === 'master_status' && col.status_mapping?.includes(proposal.status)) {
+          return true;
+        }
+        // Also check default_status type
+        if (col.type === 'default_status' && col.default_status_mapping === proposal.status) {
+          return true;
+        }
+      }
+      
+      // Priority 2: Custom workflow stage
+      if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
+        return col.id === proposal.custom_workflow_stage_id;
+      }
+      
+      // Priority 3: Locked phase columns
+      if (proposal.current_phase && col.type === 'locked_phase') {
+        return col.phase_mapping === proposal.current_phase;
+      }
+      
+      // Priority 4: Default status mapping (fallback)
+      if (col.type === 'default_status') {
+        return col.default_status_mapping === proposal.status;
+      }
+      
+      return false;
+    });
+  }, [kanbanConfig?.columns, kanbanConfig?.is_master_board, proposal?.status, proposal?.custom_workflow_stage_id, proposal?.current_phase]);
 
   const checklistItems = currentColumn?.checklist_items || [];
   const checklistStatus = proposal.current_stage_checklist_status?.[currentColumn?.id] || {};
