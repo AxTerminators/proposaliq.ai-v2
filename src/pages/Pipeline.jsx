@@ -791,6 +791,25 @@ export default function Pipeline() {
     if (!selectedProposalToOpen) return selectedBoard;
     
     const proposalType = selectedProposalToOpen.proposal_type_category;
+    const customStageId = selectedProposalToOpen.custom_workflow_stage_id;
+    
+    console.log('[Pipeline] getModalBoardConfig:', {
+      proposalType,
+      customStageId,
+      selectedBoardId: selectedBoard?.id,
+      selectedBoardName: selectedBoard?.board_name
+    });
+    
+    // CRITICAL: If proposal has a custom_workflow_stage_id, find the board that contains that column
+    if (customStageId) {
+      const boardWithColumn = allBoards.find(board => 
+        board.columns?.some(col => col.id === customStageId)
+      );
+      if (boardWithColumn) {
+        console.log('[Pipeline] Found board with matching column:', boardWithColumn.board_name);
+        return boardWithColumn;
+      }
+    }
     
     // For 15-column proposals, explicitly find that board
     if (proposalType === 'RFP_15_COLUMN') {
@@ -801,10 +820,16 @@ export default function Pipeline() {
     
     // For other types, find by applies_to_proposal_types
     const typeBoard = allBoards.find(board =>
-      board.applies_to_proposal_types?.includes(proposalType)
+      !board.is_master_board && board.applies_to_proposal_types?.includes(proposalType)
     );
     
-    return typeBoard || selectedBoard;
+    if (typeBoard) {
+      console.log('[Pipeline] Found type-specific board:', typeBoard.board_name);
+      return typeBoard;
+    }
+    
+    console.log('[Pipeline] Falling back to selected board:', selectedBoard?.board_name);
+    return selectedBoard;
   };
 
   // Debug logging for modal state
