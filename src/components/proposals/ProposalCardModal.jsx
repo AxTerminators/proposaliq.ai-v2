@@ -487,7 +487,14 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const confirmDelete = async () => {
-    await deleteProposalMutation.mutateAsync();
+    try {
+      console.log('[ProposalCardModal] 🗑️ Deleting proposal:', proposal.id);
+      await deleteProposalMutation.mutateAsync();
+      toast.success('Proposal deleted successfully');
+    } catch (error) {
+      console.error('[ProposalCardModal] ❌ Delete failed:', error);
+      toast.error('Failed to delete proposal: ' + error.message);
+    }
   };
 
   const getCurrentBoardId = () => {
