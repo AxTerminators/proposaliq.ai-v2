@@ -336,12 +336,31 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   };
 
   const currentColumn = React.useMemo(() => {
-    if (!kanbanConfig?.columns || !proposal) return null;
+    if (!kanbanConfig?.columns || !proposal) {
+      console.log('[ProposalCardModal] ❌ Missing kanbanConfig or proposal', { 
+        hasKanbanConfig: !!kanbanConfig, 
+        hasColumns: !!kanbanConfig?.columns,
+        columnsCount: kanbanConfig?.columns?.length,
+        hasProposal: !!proposal 
+      });
+      return null;
+    }
     
-    return kanbanConfig.columns.find(col => {
+    console.log('[ProposalCardModal] 🔍 Finding current column for proposal:', {
+      proposalName: proposal.proposal_name,
+      status: proposal.status,
+      customStageId: proposal.custom_workflow_stage_id,
+      currentPhase: proposal.current_phase,
+      isMasterBoard: kanbanConfig.is_master_board,
+      totalColumns: kanbanConfig.columns.length
+    });
+    
+    const foundColumn = kanbanConfig.columns.find(col => {
       // MASTER BOARD LOGIC
       if (kanbanConfig?.is_master_board && col.type === 'master_status') {
-        return col.status_mapping?.includes(proposal.status);
+        const match = col.status_mapping?.includes(proposal.status);
+        if (match) console.log('[ProposalCardModal] ✅ Found via master_status:', col.label);
+        return match;
       }
       
       // TYPE-SPECIFIC BOARD LOGIC
@@ -349,32 +368,48 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
         // Check master_status type (terminal columns)
         if (col.type === 'master_status' && col.status_mapping?.includes(proposal.status)) {
+          console.log('[ProposalCardModal] ✅ Found via terminal master_status:', col.label);
           return true;
         }
         // Also check default_status type
         if (col.type === 'default_status' && col.default_status_mapping === proposal.status) {
+          console.log('[ProposalCardModal] ✅ Found via terminal default_status:', col.label);
           return true;
         }
       }
       
       // Priority 2: Custom workflow stage
       if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
-        return col.id === proposal.custom_workflow_stage_id;
+        const match = col.id === proposal.custom_workflow_stage_id;
+        if (match) console.log('[ProposalCardModal] ✅ Found via custom_stage:', col.label);
+        return match;
       }
       
       // Priority 3: Locked phase columns
       if (proposal.current_phase && col.type === 'locked_phase') {
-        return col.phase_mapping === proposal.current_phase;
+        const match = col.phase_mapping === proposal.current_phase;
+        if (match) console.log('[ProposalCardModal] ✅ Found via locked_phase:', col.label);
+        return match;
       }
       
       // Priority 4: Default status mapping (fallback)
       if (col.type === 'default_status') {
-        return col.default_status_mapping === proposal.status;
+        const match = col.default_status_mapping === proposal.status;
+        if (match) console.log('[ProposalCardModal] ✅ Found via default_status:', col.label);
+        return match;
       }
       
       return false;
     });
-  }, [kanbanConfig?.columns, kanbanConfig?.is_master_board, proposal?.status, proposal?.custom_workflow_stage_id, proposal?.current_phase]);
+    
+    if (foundColumn) {
+      console.log('[ProposalCardModal] 📋 Current column:', foundColumn.label, 'with', foundColumn.checklist_items?.length || 0, 'checklist items');
+    } else {
+      console.log('[ProposalCardModal] ⚠️ No matching column found! Columns:', kanbanConfig.columns.map(c => ({ id: c.id, label: c.label, type: c.type })));
+    }
+    
+    return foundColumn;
+  }, [kanbanConfig?.columns, kanbanConfig?.is_master_board, proposal?.status, proposal?.custom_workflow_stage_id, proposal?.current_phase, proposal?.proposal_name]);
 
   const checklistItems = React.useMemo(() => {
     if (!currentColumn?.checklist_items) return [];
