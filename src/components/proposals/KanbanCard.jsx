@@ -10,6 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
@@ -31,7 +34,8 @@ import {
   Flag,
   Lock,
   Unlock,
-  Eye
+  Eye,
+  ArrowRightCircle
 } from "lucide-react";
 import moment from "moment";
 import { toast } from "sonner";
@@ -47,7 +51,8 @@ export default function KanbanCard({
   selectionMode = false,
   onDuplicate,
   onArchive,
-  onDelete
+  onDelete,
+  kanbanConfig
 }) {
   const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
@@ -170,6 +175,54 @@ export default function KanbanCard({
     }
   });
 
+  // Move to column mutation
+  const moveToColumnMutation = useMutation({
+    mutationFn: async (destinationColumn) => {
+      const updates = {};
+
+      if (destinationColumn.type === 'locked_phase') {
+        updates.current_phase = destinationColumn.phase_mapping;
+        updates.custom_workflow_stage_id = destinationColumn.id;
+        // Map phase to status
+        const statusMap = {
+          'phase1': 'evaluating',
+          'phase2': 'evaluating',
+          'phase3': 'evaluating',
+          'phase4': 'evaluating',
+          'phase5': 'draft',
+          'phase6': 'draft',
+          'phase7': 'in_progress'
+        };
+        updates.status = statusMap[destinationColumn.phase_mapping] || 'evaluating';
+      } else if (destinationColumn.type === 'custom_stage') {
+        updates.custom_workflow_stage_id = destinationColumn.id;
+        updates.current_phase = null;
+        updates.status = 'in_progress';
+      } else if (destinationColumn.type === 'default_status') {
+        updates.status = destinationColumn.default_status_mapping;
+        updates.current_phase = null;
+        // Don't clear custom_workflow_stage_id for terminal columns
+        if (!destinationColumn.is_terminal && !['submitted', 'won', 'lost', 'archived'].includes(destinationColumn.default_status_mapping)) {
+          updates.custom_workflow_stage_id = null;
+        }
+      } else if (destinationColumn.type === 'master_status') {
+        if (destinationColumn.status_mapping && destinationColumn.status_mapping.length > 0) {
+          updates.status = destinationColumn.status_mapping[0];
+        }
+        updates.current_phase = null;
+      }
+
+      return base44.entities.Proposal.update(proposal.id, updates);
+    },
+    onSuccess: (_, destinationColumn) => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      toast.success(`Moved to ${destinationColumn.label}`);
+    },
+    onError: (error) => {
+      toast.error('Failed to move proposal: ' + error.message);
+    }
+  });
+
   const handleNameSave = () => {
     if (editedName.trim() && editedName !== proposal.proposal_name) {
       updateNameMutation.mutate(editedName.trim());
@@ -210,6 +263,12 @@ export default function KanbanCard({
         onClick?.(proposal);
         break;
     }
+  };
+
+  const handleMoveToColumn = (column, e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    moveToColumnMutation.mutate(column);
   };
 
   // Border color based on priority
@@ -331,10 +390,30 @@ export default function KanbanCard({
                 )}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={(e) => handleContextAction('archive', e)}>
-                <Archive className="w-4 h-4 mr-2" />
-                Archive
-              </DropdownMenuItem>
+              {kanbanConfig?.columns?.length > 0 ? (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowRightCircle className="w-4 h-4 mr-2" />
+                    Move to Column...
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+                    {kanbanConfig.columns.map((column) => (
+                      <DropdownMenuItem 
+                        key={column.id}
+                        onClick={(e) => handleMoveToColumn(column, e)}
+                      >
+                        {column.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ) : (
+                <DropdownMenuItem onClick={(e) => handleContextAction('archive', e)}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archive
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={(e) => handleContextAction('delete', e)}
                 className="text-red-600 focus:text-red-600"

@@ -1645,6 +1645,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
                                       onClearColumnSort={handleClearColumnSort}
                                       currentSort={columnSorts[column.id]}
                                       isMagnetic={magneticColumnId === column.id}
+                                      kanbanConfig={kanbanConfig}
                                     />
                                   </div>
                                 )}
