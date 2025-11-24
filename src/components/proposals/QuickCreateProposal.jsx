@@ -219,17 +219,26 @@ export default function QuickCreateProposal({
       return;
     }
 
-    if (proposalNameError) { // NEW: Check proposal name error
+    if (proposalNameError) {
       toast.error(proposalNameError);
       return;
     }
 
-    if (!selectedType) {
-      toast.error("Please select a proposal type");
+    // Infer type from board if not explicitly selected
+    let finalType = selectedType;
+    if (!finalType && selectedBoardId && selectedBoardId !== "create_new") {
+      const selectedBoard = existingBoards.find(b => b.id === selectedBoardId);
+      if (selectedBoard?.applies_to_proposal_types?.length > 0) {
+        finalType = selectedBoard.applies_to_proposal_types[0];
+      }
+    }
+
+    if (!finalType) {
+      toast.error("Please select a proposal type or board");
       return;
     }
 
-    const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
+    const selectedTemplate = templates.find(t => t.proposal_type_category === finalType);
     if (!selectedTemplate) {
       toast.error("Selected proposal type template not found. Please try again.");
       return;
