@@ -280,20 +280,7 @@ export default function QuickCreateProposal({
       // Use the board the user explicitly selected
       let existingBoardForType = null;
       
-      if (selectedBoardId) {
-        // User explicitly selected a board from the dropdown
-        existingBoardForType = existingBoards.find(b => b.id === selectedBoardId);
-        console.log('[QuickCreate] 🎯 Using user-selected board:', existingBoardForType?.board_name);
-      } else {
-        // Auto-find a matching board
-        existingBoardForType = existingBoards.find(b =>
-          b.board_type === selectedTemplate.board_type ||
-          b.applies_to_proposal_types?.includes(selectedType)
-        );
-        console.log('[QuickCreate] 🔍 Auto-found board:', existingBoardForType?.board_name);
-      }
-
-      if (needsNewBoard && !existingBoardForType) {
+      if (selectedBoardId === "create_new") {
         // Create a new board if needsNewBoard is true and no existing board for this type
         const newBoardData = {
           organization_id: organization.id,
