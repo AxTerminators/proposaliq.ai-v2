@@ -196,17 +196,21 @@ export default function QuickCreateProposal({
   const handleTypeSelect = (template) => {
     setSelectedType(template.proposal_type_category);
     const matchingBoards = existingBoards.filter(b =>
-      b.board_type === template.board_type ||
-      b.applies_to_proposal_types?.includes(template.proposal_type_category)
+      !b.is_master_board && (
+        b.board_type === template.board_type ||
+        b.applies_to_proposal_types?.includes(template.proposal_type_category)
+      )
     );
     
-    // Auto-select board if only one exists, otherwise require explicit selection
+    // Auto-select board - priority: single match > first available > create new
     if (matchingBoards.length === 1) {
       setSelectedBoardId(matchingBoards[0].id);
-    } else if (matchingBoards.length === 0) {
-      setSelectedBoardId("create_new"); // Default to creating new board
+    } else if (matchingBoards.length > 1) {
+      // If multiple boards exist, auto-select the first one
+      setSelectedBoardId(matchingBoards[0].id);
     } else {
-      setSelectedBoardId(null); // Multiple boards - require selection
+      // No boards exist for this type - default to creating new board
+      setSelectedBoardId("create_new");
     }
     
     setBoardName('');
