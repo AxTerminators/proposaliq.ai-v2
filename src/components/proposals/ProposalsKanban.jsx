@@ -1,3 +1,12 @@
+/**
+ * MIGRATION BACKUP: hello-pangea/dnd → dnd-kit
+ * Original library: @hello-pangea/dnd
+ * Migration date: 2025-11-24
+ * Reason: Enable off-screen column drops
+ * 
+ * ROLLBACK: If issues occur, revert this commit and refresh browser
+ */
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
