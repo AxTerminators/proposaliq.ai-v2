@@ -350,7 +350,7 @@ export default function QuickCreateProposal({
       if (firstColumn.type === 'custom_stage') {
         proposalCreateData.custom_workflow_stage_id = firstColumn.id;
         proposalCreateData.current_phase = null;
-        proposalCreateData.status = 'in_progress';
+        proposalCreateData.status = firstColumn.status_mapping?.[0] || 'qualifying';
       } else if (firstColumn.type === 'locked_phase') {
         proposalCreateData.custom_workflow_stage_id = firstColumn.id;
         proposalCreateData.current_phase = firstColumn.phase_mapping;
