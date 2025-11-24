@@ -348,50 +348,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       
       // MASTER BOARD LOGIC - map by status_mapping array
       if (kanbanConfig?.is_master_board) {
-        let masterBoardStatus = proposal.status;
-
-        // Special mapping for RFP_15_COLUMN proposals when viewed on Master Board
-        if (proposal.proposal_type_category === 'RFP_15_COLUMN' && proposal.custom_workflow_stage_id) {
-          switch (proposal.custom_workflow_stage_id) {
-            case 'col_initiate':
-            case 'col_team':
-            case 'col_resources':
-            case 'col_solicitation':
-            case 'col_evaluation':
-            case 'col_strategy':
-              masterBoardStatus = 'evaluating'; // Maps to Qualifying
-              break;
-            case 'col_planning':
-            case 'col_writing':
-            case 'col_pricing':
-              masterBoardStatus = 'draft'; // Maps to Drafting
-              break;
-            case 'col_review':
-            case 'col_final':
-            case 'col_compliance':
-              masterBoardStatus = 'in_progress'; // Maps to Reviewing
-              break;
-            case 'col_submitted':
-              masterBoardStatus = 'submitted'; // Maps to Submitted
-              break;
-            case 'col_won':
-              masterBoardStatus = 'won'; // Maps to Won
-              break;
-            case 'col_lost':
-              masterBoardStatus = 'lost'; // Maps to Lost
-              break;
-            case 'col_archived':
-              masterBoardStatus = 'archived'; // Maps to Archived
-              break;
-            default:
-              masterBoardStatus = 'evaluating'; // Fallback for any unmapped 15-column stages
-          }
-        }
-
-        // Find the master column that includes this proposal's determined status
+        // Find the master column that includes this proposal's status
         const matchingColumn = columns.find(col => 
           col.type === 'master_status' && 
-          col.status_mapping?.includes(masterBoardStatus)
+          col.status_mapping?.includes(proposal.status)
         );
         
         if (matchingColumn) {
@@ -401,7 +361,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           };
         } else {
           // Fallback to first column if no match
-          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', masterBoardStatus, 'assigned to first column.');
+          console.warn('[Kanban] No master column match for proposal:', proposal.proposal_name, 'status:', proposal.status, 'assigned to first column.');
           if (columns.length > 0) {
             assignments[proposal.id] = {
               columnId: columns[0].id,
@@ -410,50 +370,40 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           }
         }
       } 
-      // TYPE-SPECIFIC BOARD LOGIC
+      // CUSTOM BOARD LOGIC - Updated hierarchy
       else {
-        // Priority 1: Check for terminal status columns FIRST (Won, Lost, Archived, Submitted)
-        // Terminal columns should ALWAYS take priority regardless of other fields
-        if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
+        // Priority 1: Terminal status columns ALWAYS take priority (submitted, won, lost, archived)
+        if (['submitted', 'won', 'lost', 'archived'].includes(proposal.status)) {
           const matchingTerminalColumn = columns.find(
-            col => col.type === 'default_status' && 
+            col => col.status_mapping?.includes(proposal.status) || 
                    col.default_status_mapping === proposal.status
           );
           if (matchingTerminalColumn) {
             assignments[proposal.id] = {
               columnId: matchingTerminalColumn.id,
-              columnType: 'default_status'
+              columnType: matchingTerminalColumn.type
             };
           }
         }
-        // Priority 2: Check if in custom workflow stage
+        // Priority 2: Custom workflow stage ID (for proposals in custom boards)
         else if (proposal.custom_workflow_stage_id) {
-          assignments[proposal.id] = {
-            columnId: proposal.custom_workflow_stage_id,
-            columnType: 'custom_stage'
-          };
-        } 
-        // Priority 3: Check for locked phase columns
-        else if (proposal.current_phase) {
-          const matchingLockedPhaseColumn = columns.find(
-            col => col.type === 'locked_phase' && col.phase_mapping === proposal.current_phase
-          );
-          if (matchingLockedPhaseColumn) {
+          const matchingCustomColumn = columns.find(col => col.id === proposal.custom_workflow_stage_id);
+          if (matchingCustomColumn) {
             assignments[proposal.id] = {
-              columnId: matchingLockedPhaseColumn.id,
-              columnType: 'locked_phase'
+              columnId: proposal.custom_workflow_stage_id,
+              columnType: 'custom_stage'
             };
           }
-        }
-        // Priority 4: Fallback to default status mapping
+        } 
+        // Priority 3: Fallback to Master Board status_mapping arrays
         else {
-          const matchingDefaultStatusColumn = columns.find(
-            col => col.type === 'default_status' && col.default_status_mapping === proposal.status
+          const matchingColumn = columns.find(col => 
+            col.status_mapping?.includes(proposal.status)
           );
-          if (matchingDefaultStatusColumn) {
+          if (matchingColumn) {
             assignments[proposal.id] = {
-              columnId: matchingDefaultStatusColumn.id,
-              columnType: 'default_status'
+              columnId: matchingColumn.id,
+              columnType: col.type || 'custom_stage'
             };
           }
         }
