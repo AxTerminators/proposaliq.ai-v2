@@ -787,6 +787,9 @@ export default function Pipeline() {
     }
   };
 
+  // ==================== EARLY RETURNS START HERE ====================
+  // All hooks must be defined above this point
+
   // IMPORTANT: These useCallback hooks must be defined BEFORE any conditional returns
   // to ensure hooks are always called in the same order
   const getModalBoardConfig = useCallback(() => {
@@ -863,9 +866,6 @@ export default function Pipeline() {
       setShowProposalModal(true);
     }
   }, [allBoards, selectedBoardId]);
-
-  // ==================== EARLY RETURNS START HERE ====================
-  // All hooks must be defined above this point
 
   if (proposalsError) {
     return (
