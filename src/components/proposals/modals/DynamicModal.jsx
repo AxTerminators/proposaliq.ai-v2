@@ -797,9 +797,31 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   if (!config) return null;
 
   // Determine fields to render
-  const fieldsToRender = config.steps 
-    ? config.steps[currentStep]?.fields || []
-    : config.fields || [];
+  // Handle both formats:
+  // 1. config.steps[].fields - array of fields per step
+  // 2. config.fields with field.step - fields have step assignment
+  const fieldsToRender = React.useMemo(() => {
+    if (config.steps && config.steps.length > 0) {
+      const currentStepConfig = config.steps[currentStep];
+      
+      // Format 1: Steps have their own fields array
+      if (currentStepConfig?.fields && currentStepConfig.fields.length > 0) {
+        return currentStepConfig.fields;
+      }
+      
+      // Format 2: Fields have step property (step ID matches)
+      if (config.fields && config.fields.length > 0) {
+        const stepId = currentStepConfig?.id;
+        const stepFields = config.fields.filter(f => f.step === stepId);
+        if (stepFields.length > 0) {
+          return stepFields;
+        }
+      }
+    }
+    
+    // No steps or fallback - return all fields
+    return config.fields || [];
+  }, [config.steps, config.fields, currentStep]);
 
   const isMultiStep = config.steps && config.steps.length > 1;
   const isLastStep = currentStep === (config.steps?.length || 1) - 1;
