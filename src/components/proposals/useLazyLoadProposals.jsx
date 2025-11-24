@@ -58,16 +58,6 @@ export function useLazyLoadProposals(proposals, initialPageSize = 20, pageSize =
 export function useLazyLoadColumns(proposalsByColumn, initialCardCount = 10, cardsPerLoad = 10) {
   const [loadedCounts, setLoadedCounts] = useState({});
 
-  // Memoize getStats to maintain consistent hook call order
-  const getStats = useCallback((columnId) => {
-    const proposals = proposalsByColumn[columnId] || [];
-    const loadedCount = loadedCounts[columnId] || initialCardCount;
-    return {
-      total: proposals.length,
-      visible: Math.min(proposals.length, loadedCount)
-    };
-  }, [proposalsByColumn, loadedCounts, initialCardCount]);
-
   const getVisibleProposals = useCallback((columnId) => {
     const proposals = proposalsByColumn[columnId] || [];
     const loadedCount = loadedCounts[columnId] || initialCardCount;
@@ -105,6 +95,13 @@ export function useLazyLoadColumns(proposalsByColumn, initialCardCount = 10, car
     loadMore,
     loadAll,
     reset,
-    getStats
+    getStats: (columnId) => {
+      const proposals = proposalsByColumn[columnId] || [];
+      const loadedCount = loadedCounts[columnId] || initialCardCount;
+      return {
+        total: proposals.length,
+        visible: Math.min(proposals.length, loadedCount)
+      };
+    }
   };
 }

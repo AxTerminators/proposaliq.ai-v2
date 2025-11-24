@@ -71,7 +71,7 @@ const LEGACY_DEFAULT_COLUMNS = [
   }
 ];
 
-export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh, showQuickFilters, showHelp, onOpenProposal }) {
+export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh, showQuickFilters, showHelp }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -401,7 +401,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           if (matchingColumn) {
             assignments[proposal.id] = {
               columnId: matchingColumn.id,
-              columnType: matchingColumn.type || 'custom_stage'
+              columnType: col.type || 'custom_stage'
             };
           }
         }
@@ -485,7 +485,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  // **MOVED UP: Lazy loading for columns - must be before any conditional returns**
+  // **NEW: Lazy loading for columns**
   const proposalsByColumn = useMemo(() => {
     const byColumn = {};
     
@@ -496,7 +496,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return byColumn;
   }, [validColumns, getProposalsForColumn]);
 
-  // CRITICAL: All hooks must be called before any conditional returns
   const {
     getVisibleProposals,
     hasMore,
@@ -1112,14 +1111,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setApprovalGateData(null);
   };
 
-  const handleCardClick = (proposal, initialModal = null) => {
-    // If on master board and onOpenProposal is provided, delegate to parent
-    if (kanbanConfig?.is_master_board && onOpenProposal) {
-      onOpenProposal(proposal, initialModal);
-    } else {
-      setSelectedProposal(proposal);
-      setShowProposalModal(true);
-    }
+  const handleCardClick = (proposal) => {
+    setSelectedProposal(proposal);
+    setShowProposalModal(true);
   };
 
   const handleCreateProposal = () => {
@@ -1274,9 +1268,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     if (advancedFilteredProposals !== null) count++;
     return count;
   }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
-
-  // ==================== ALL HOOKS MUST BE ABOVE THIS LINE ====================
-  // No more useState, useEffect, useMemo, useCallback, useQuery, or custom hooks below!
 
   if (isLoadingConfig && !propKanbanConfig) {
     return (

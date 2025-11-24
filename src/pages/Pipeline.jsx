@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -787,13 +787,18 @@ export default function Pipeline() {
     }
   };
 
-  // IMPORTANT: These useCallback hooks must be defined BEFORE any conditional returns
-  // to ensure hooks are always called in the same order
-  const getModalBoardConfig = useCallback(() => {
+  const getModalBoardConfig = () => {
     if (!selectedProposalToOpen) return selectedBoard;
     
     const proposalType = selectedProposalToOpen.proposal_type_category;
     const customStageId = selectedProposalToOpen.custom_workflow_stage_id;
+    
+    console.log('[Pipeline] getModalBoardConfig:', {
+      proposalType,
+      customStageId,
+      selectedBoardId: selectedBoard?.id,
+      selectedBoardName: selectedBoard?.board_name
+    });
     
     // CRITICAL: If proposal has a custom_workflow_stage_id, find the board that contains that column
     if (customStageId) {
@@ -801,6 +806,7 @@ export default function Pipeline() {
         board.columns?.some(col => col.id === customStageId)
       );
       if (boardWithColumn) {
+        console.log('[Pipeline] Found board with matching column:', boardWithColumn.board_name);
         return boardWithColumn;
       }
     }
@@ -808,6 +814,7 @@ export default function Pipeline() {
     // For 15-column proposals, explicitly find that board
     if (proposalType === 'RFP_15_COLUMN') {
       const rfp15Board = allBoards.find(board => board.board_type === 'rfp_15_column');
+      console.log('[Pipeline] Modal board config for 15-column:', rfp15Board ? 'FOUND' : 'FALLBACK TO SELECTED');
       return rfp15Board || selectedBoard;
     }
     
@@ -817,55 +824,32 @@ export default function Pipeline() {
     );
     
     if (typeBoard) {
+      console.log('[Pipeline] Found type-specific board:', typeBoard.board_name);
       return typeBoard;
     }
     
+    console.log('[Pipeline] Falling back to selected board:', selectedBoard?.board_name);
     return selectedBoard;
-  }, [selectedProposalToOpen, selectedBoard, allBoards]);
+  };
 
-  // Handler for opening proposals from the master board - redirects to the working board first
-  const handleOpenProposalFromMaster = useCallback((proposal, initialModal = null) => {
-    const proposalType = proposal.proposal_type_category;
-    const customStageId = proposal.custom_workflow_stage_id;
-    let targetBoard = null;
+  // Debug logging for modal state
+  useEffect(() => {
+    console.log('[Pipeline] 🎬 Modal State Update:', {
+      showProposalModal,
+      hasSelectedProposal: !!selectedProposalToOpen,
+      proposalName: selectedProposalToOpen?.proposal_name,
+      initialModal: initialModalToOpen,
+      hasPending: !!pendingProposalModal
+    });
+  }, [showProposalModal, selectedProposalToOpen, initialModalToOpen, pendingProposalModal]);
 
-    // Find the target board for this proposal
-    if (customStageId) {
-      targetBoard = allBoards.find(board => 
-        board.columns?.some(col => col.id === customStageId)
-      );
-    }
-    
-    if (!targetBoard && proposalType === 'RFP_15_COLUMN') {
-      targetBoard = allBoards.find(board => board.board_type === 'rfp_15_column');
-    }
-
-    if (!targetBoard) {
-      targetBoard = allBoards.find(board => 
-        !board.is_master_board && board.applies_to_proposal_types?.includes(proposalType)
-      );
-    }
-
-    // If we found a different board, switch to it first
-    if (targetBoard && targetBoard.id !== selectedBoardId) {
-      setPendingProposalModal({
-        proposal: proposal,
-        initialModal: initialModal,
-        targetBoardId: targetBoard.id,
-        targetBoardType: targetBoard.board_type
-      });
-      setSelectedBoardId(targetBoard.id);
-      toast.info(`Switching to ${targetBoard.board_name}...`);
-    } else {
-      // Same board or no specific board found - open modal directly
-      setSelectedProposalToOpen(proposal);
-      setInitialModalToOpen(initialModal);
-      setShowProposalModal(true);
-    }
-  }, [allBoards, selectedBoardId]);
-
-  // ==================== ALL HOOKS MUST BE ABOVE THIS LINE ====================
-  // No more useState, useEffect, useMemo, useCallback, useQuery, useMutation, or custom hooks below!
+  // DEBUG: Log when showNewProposalDialog changes
+  useEffect(() => {
+    console.log('[Pipeline] 🎭 QuickCreate Dialog State:', {
+      isOpen: showNewProposalDialog,
+      hasHandleProposalCreated: typeof handleProposalCreated === 'function'
+    });
+  }, [showNewProposalDialog]);
 
   if (proposalsError) {
     return (
@@ -1156,7 +1140,6 @@ export default function Pipeline() {
                         }}
                         showQuickFilters={showQuickFilters}
                         showHelp={showHelp}
-                        onOpenProposal={handleOpenProposalFromMaster}
                       />
                     )}
                     {viewMode === "list" && (
