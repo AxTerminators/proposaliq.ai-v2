@@ -246,26 +246,29 @@ export default function QuickCreateProposal({
     }
 
     // If creating new board, validate board name
-    if (needsNewBoard) {
+    if (selectedBoardId === "create_new") {
       if (!boardName.trim()) {
         toast.error("Please enter a board name");
         return;
       }
 
-      if (boardNameError) { // Renamed from nameError
-        toast.error(boardNameError); // Renamed from nameError
+      if (boardNameError) {
+        toast.error(boardNameError);
         return;
       }
 
       // Final validation before creation
-      setIsValidatingBoardName(true); // Renamed from isValidatingName
+      setIsValidatingBoardName(true);
       const boardValidation = await validateBoardName(boardName, organization.id);
-      setIsValidatingBoardName(false); // Renamed from isValidatingName
+      setIsValidatingBoardName(false);
       if (!boardValidation.isValid) {
         toast.error(boardValidation.message);
-        setBoardNameError(boardValidation.message); // Renamed from nameError
+        setBoardNameError(boardValidation.message);
         return;
       }
+    } else if (!selectedBoardId) {
+      toast.error("Please select a board");
+      return;
     }
 
     setIsCreating(true);
