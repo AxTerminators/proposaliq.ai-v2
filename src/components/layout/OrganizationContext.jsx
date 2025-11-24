@@ -32,26 +32,15 @@ const setCachedOrgId = (userEmail, orgId) => {
   }
 };
 
-// Cache user data in memory to prevent re-fetching
-let cachedUser = null;
-let cachedOrg = null;
-
 export function OrganizationProvider({ children }) {
   const queryClient = useQueryClient();
   const [orgId, setOrgId] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const hasLoadedOnce = useRef(false);
 
   const { data: user, isLoading: isLoadingUser, error: userError } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
-      // Use cached user if available to prevent re-fetch
-      if (cachedUser && hasLoadedOnce.current) {
-        return cachedUser;
-      }
       const currentUser = await base44.auth.me();
-      cachedUser = currentUser;
-      hasLoadedOnce.current = true;
       return currentUser;
     },
     staleTime: Infinity, // Never consider stale
