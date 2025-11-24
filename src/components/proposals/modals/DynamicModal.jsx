@@ -605,11 +605,11 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     const uploadState = uploadStates[fieldName];
 
     // Array field
-    if (field.type === 'array') {
-      return renderArrayField(field);
+    if (normalizedField.type === 'array') {
+      return renderArrayField(normalizedField);
     }
 
-    switch (field.type) {
+    switch (normalizedField.type) {
       case 'text':
       case 'email':
       case 'number':
