@@ -44,7 +44,7 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // PERFORMANCE FIX: Removed 2-second delay
+  // PERFORMANCE FIX: Added refetchOnWindowFocus: false to prevent refetching on tab switch
   const { data: proposals = [], refetch: refetchProposals } = useQuery({
     queryKey: ['dashboard-proposals', organization?.id],
     queryFn: async () => {
@@ -56,10 +56,14 @@ export default function Dashboard() {
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes  
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
-  // PERFORMANCE FIX: Removed 2-second delay, optimized to run in parallel
+  // PERFORMANCE FIX: Added refetchOnWindowFocus: false and optimized
   const { data: activityLog = [] } = useQuery({
     queryKey: ['dashboard-activity', organization?.id],
     queryFn: async () => {
@@ -81,7 +85,11 @@ export default function Dashboard() {
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Calculate stats when proposals change
