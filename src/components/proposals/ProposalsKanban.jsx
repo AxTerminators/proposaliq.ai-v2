@@ -1275,6 +1275,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return count;
   }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
+  // ==================== EARLY RETURNS START HERE ====================
+  // All hooks must be defined above this point to ensure consistent hook ordering
+
   if (isLoadingConfig && !propKanbanConfig) {
     return (
       <div className="flex items-center justify-center min-h-[600px] p-6">
