@@ -71,7 +71,7 @@ const LEGACY_DEFAULT_COLUMNS = [
   }
 ];
 
-export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh, showQuickFilters, showHelp }) {
+export default function ProposalsKanban({ proposals, organization, user, kanbanConfig: propKanbanConfig, onRefresh, showQuickFilters, showHelp, onOpenProposal }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -401,7 +401,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           if (matchingColumn) {
             assignments[proposal.id] = {
               columnId: matchingColumn.id,
-              columnType: col.type || 'custom_stage'
+              columnType: matchingColumn.type || 'custom_stage'
             };
           }
         }
@@ -1111,9 +1111,14 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     setApprovalGateData(null);
   };
 
-  const handleCardClick = (proposal) => {
-    setSelectedProposal(proposal);
-    setShowProposalModal(true);
+  const handleCardClick = (proposal, initialModal = null) => {
+    // If on master board and onOpenProposal is provided, delegate to parent
+    if (kanbanConfig?.is_master_board && onOpenProposal) {
+      onOpenProposal(proposal, initialModal);
+    } else {
+      setSelectedProposal(proposal);
+      setShowProposalModal(true);
+    }
   };
 
   const handleCreateProposal = () => {
