@@ -151,11 +151,17 @@ export function useChecklistModal(proposalId, organizationId) {
         const parsedConfig = JSON.parse(customModal.config_json);
         
         // Build full config for DynamicModal
+        // Parse fields - handle both id and name property for field identification
+        const fields = (parsedConfig.fields || []).map(f => ({
+          ...f,
+          name: f.name || f.id, // Normalize: use 'name' as the primary key
+        }));
+        
         const config = {
           title: parsedConfig.title || customModal.name || 'Form',
           description: parsedConfig.description || customModal.description || '',
           icon_emoji: customModal.icon_emoji || '📋',
-          fields: parsedConfig.fields || [],
+          fields: fields,
           steps: parsedConfig.steps || null,
           proposalId,
           organizationId,
