@@ -694,22 +694,27 @@ export default function DynamicModal({ isOpen, onClose, config }) {
           </div>
         );
 
+      case 'file':
       case 'file_upload':
+        // Normalize accepted file types
+        const acceptTypes = field.accept || 
+          (field.accepted_file_types ? field.accepted_file_types.join(',') : null);
+        
         return (
           <div key={field.name} className="space-y-2">
             <Label htmlFor={field.name}>
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-sm text-slate-500">{field.description}</p>
+            {(field.description || field.help_text) && (
+              <p className="text-sm text-slate-500">{field.description || field.help_text}</p>
             )}
             
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
               <input
                 id={field.name}
                 type="file"
-                accept={field.accept}
+                accept={acceptTypes}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFileUpload(field.name, file, field);
