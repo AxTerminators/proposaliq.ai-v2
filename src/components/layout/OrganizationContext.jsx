@@ -99,22 +99,26 @@ export function OrganizationProvider({ children }) {
     queryFn: async () => {
       if (!user?.email || !orgId) return null;
       
+      // Use cached org if available and matches
+      if (cachedOrg && cachedOrg.id === orgId && hasLoadedOnce.current) {
+        return cachedOrg;
+      }
+      
       console.log('[OrgContext] Fetching organization:', orgId);
       const orgs = await base44.entities.Organization.filter({ id: orgId });
       
       if (orgs.length > 0) {
         console.log('[OrgContext] ✅ Organization found:', orgs[0].organization_name);
+        cachedOrg = orgs[0];
         return orgs[0];
       }
       
       console.warn('[OrgContext] ⚠️ Organization not found with ID:', orgId);
-      // Don't fallback to created_by - this causes switching issues
-      // If the org doesn't exist, keep orgId null and let user manually select
       return null;
     },
     enabled: !!user?.email && !!orgId && isInitialized,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: Infinity, // Never consider stale
+    gcTime: Infinity, // Never garbage collect
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -135,8 +139,8 @@ export function OrganizationProvider({ children }) {
       return subs.length > 0 ? subs[0] : null;
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: Infinity, // Never consider stale
+    gcTime: Infinity, // Never garbage collect
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
