@@ -599,14 +599,16 @@ export default function QuickCreateProposal({
                 <SelectValue placeholder="Choose where to add this proposal" />
               </SelectTrigger>
               <SelectContent>
-                {existingBoards.map(board => (
-                  <SelectItem key={board.id} value={board.id}>
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4" />
-                      {board.board_name}
-                    </div>
-                  </SelectItem>
-                ))}
+                {existingBoards
+                  .filter(board => !board.is_master_board)
+                  .map(board => (
+                    <SelectItem key={board.id} value={board.id}>
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4" />
+                        {board.board_name}
+                      </div>
+                    </SelectItem>
+                  ))}
                 <SelectItem value="create_new">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-blue-600" />
