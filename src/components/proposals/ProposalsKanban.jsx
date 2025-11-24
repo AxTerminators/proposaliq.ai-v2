@@ -851,6 +851,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
       setMagneticColumnId(closestColumnId);
 
+      // If we have a magnetic column, ensure it's visible by scrolling it into view
+      if (closestColumnId && columnRefs.current[closestColumnId]) {
+        const magneticColumnRect = columnRefs.current[closestColumnId].getBoundingClientRect();
+        const isFullyVisible = magneticColumnRect.left >= 0 && magneticColumnRect.right <= viewportWidth;
+        
+        if (!isFullyVisible) {
+          // Column is not fully visible, scroll it into view smoothly
+          const scrollOffset = 100; // padding from edge
+          
+          if (magneticColumnRect.left < scrollOffset) {
+            // Column is off-screen to the left, scroll left to reveal it
+            const targetScrollLeft = board.scrollLeft + magneticColumnRect.left - scrollOffset;
+            board.scrollLeft = Math.max(0, targetScrollLeft);
+          } else if (magneticColumnRect.right > viewportWidth - scrollOffset) {
+            // Column is off-screen to the right, scroll right to reveal it
+            const targetScrollLeft = board.scrollLeft + (magneticColumnRect.right - viewportWidth) + scrollOffset;
+            board.scrollLeft = Math.min(board.scrollWidth - board.clientWidth, targetScrollLeft);
+          }
+        }
+      }
+
       // Clear existing interval
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current);
