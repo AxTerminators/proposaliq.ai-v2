@@ -402,9 +402,15 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   }, [kanbanConfig?.columns, kanbanConfig?.is_master_board, proposal?.status, proposal?.custom_workflow_stage_id, proposal?.current_phase]);
 
   const checklistItems = React.useMemo(() => {
-    if (!currentColumn?.checklist_items) return [];
+    console.log('[ProposalCardModal] checklistItems calc - currentColumn:', currentColumn?.label, 'items:', currentColumn?.checklist_items?.length);
+    if (!currentColumn?.checklist_items) {
+      console.log('[ProposalCardModal] No checklist_items on column');
+      return [];
+    }
     // Filter out any null/undefined items and ensure proper structure
-    return currentColumn.checklist_items.filter(item => item && item.id);
+    const items = currentColumn.checklist_items.filter(item => item && item.id);
+    console.log('[ProposalCardModal] Filtered checklistItems:', items.length, items.map(i => i.label));
+    return items;
   }, [currentColumn?.checklist_items]);
   
   const checklistStatus = React.useMemo(() => {
