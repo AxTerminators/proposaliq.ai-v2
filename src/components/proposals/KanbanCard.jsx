@@ -185,15 +185,15 @@ export default function KanbanCard({
         updates.custom_workflow_stage_id = destinationColumn.id;
         // Map phase to status
         const statusMap = {
-          'phase1': 'evaluating',
-          'phase2': 'evaluating',
-          'phase3': 'evaluating',
-          'phase4': 'evaluating',
-          'phase5': 'draft',
-          'phase6': 'draft',
-          'phase7': 'in_progress'
+          'phase1': 'qualifying',
+          'phase2': 'qualifying',
+          'phase3': 'qualifying',
+          'phase4': 'qualifying',
+          'phase5': 'drafting',
+          'phase6': 'drafting',
+          'phase7': 'reviewing'
         };
-        updates.status = statusMap[destinationColumn.phase_mapping] || 'evaluating';
+        updates.status = statusMap[destinationColumn.phase_mapping] || 'qualifying';
       } else if (destinationColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = destinationColumn.id;
         updates.current_phase = null;
