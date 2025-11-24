@@ -137,6 +137,84 @@ export function useChecklistModal(proposalId, organizationId) {
       return;
     }
     
+    // Check if it's a modal config by ID (format: open_modal_{id})
+    if (typeof actionId === 'string' && actionId.startsWith('open_modal_')) {
+      const modalId = actionId.replace('open_modal_', '');
+      const customModal = customModals.find(m => m.id === modalId);
+      
+      if (!customModal || !customModal.is_active) {
+        console.warn(`[ChecklistIntegration] Modal config not found or inactive: ${modalId}`);
+        return;
+      }
+
+      try {
+        const parsedConfig = JSON.parse(customModal.config_json);
+        
+        // Build full config for DynamicModal
+        const config = {
+          title: parsedConfig.title || customModal.name || 'Form',
+          description: parsedConfig.description || customModal.description || '',
+          icon_emoji: customModal.icon_emoji || '📋',
+          fields: parsedConfig.fields || [],
+          steps: parsedConfig.steps || null,
+          proposalId,
+          organizationId,
+          modalId: customModal.id,
+          entityOperations: parsedConfig.entity_operations || parsedConfig.entityOperations || [],
+          onSubmit: async (formData) => {
+            console.log('[ModalConfig] Submitting:', formData);
+            
+            // Handle entity operations if configured
+            const entityOps = parsedConfig.entity_operations || parsedConfig.entityOperations || [];
+            if (entityOps.length > 0) {
+              for (const op of entityOps) {
+                const opType = op.operation_type || op.operationType || op.type;
+                const targetEntity = op.target_entity || op.targetEntity || op.entity;
+                
+                if (opType === 'update' && targetEntity === 'Proposal' && proposalId) {
+                  const updateData = {};
+                  const mappings = op.field_mappings || op.fieldMappings || [];
+                  
+                  mappings.forEach(mapping => {
+                    const formField = mapping.form_field || mapping.formField;
+                    const entityAttr = mapping.entity_attribute || mapping.entityAttribute;
+                    const value = formData[formField];
+                    if (value !== undefined && value !== null && value !== '') {
+                      updateData[entityAttr] = value;
+                    }
+                  });
+                  
+                  if (Object.keys(updateData).length > 0) {
+                    await base44.entities.Proposal.update(proposalId, updateData);
+                  }
+                } else if (opType === 'create' && targetEntity) {
+                  const entityData = { organization_id: organizationId };
+                  const mappings = op.field_mappings || op.fieldMappings || [];
+                  
+                  mappings.forEach(mapping => {
+                    const formField = mapping.form_field || mapping.formField;
+                    const entityAttr = mapping.entity_attribute || mapping.entityAttribute;
+                    const value = formData[formField];
+                    if (value !== undefined && value !== null && value !== '') {
+                      entityData[entityAttr] = value;
+                    }
+                  });
+                  
+                  await base44.entities[targetEntity].create(entityData);
+                }
+              }
+            }
+          }
+        };
+
+        setCurrentConfig(config);
+        setIsOpen(true);
+      } catch (error) {
+        console.error('[ChecklistIntegration] Error parsing modal config:', error);
+      }
+      return;
+    }
+    
     // Check if it's a custom modal (format: CUSTOM_{id})
     if (typeof actionId === 'string' && actionId.startsWith('CUSTOM_')) {
       const modalId = actionId.replace('CUSTOM_', '');
