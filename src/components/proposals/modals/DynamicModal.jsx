@@ -587,12 +587,22 @@ export default function DynamicModal({ isOpen, onClose, config }) {
 
   // Render field based on type
   const renderField = (field) => {
+    // Normalize field - use 'name' or 'id' as key
+    const fieldName = field.name || field.id;
+    if (!fieldName) {
+      console.warn('[DynamicModal] Field missing name/id:', field);
+      return null;
+    }
+    
+    // Create normalized field object
+    const normalizedField = { ...field, name: fieldName };
+    
     // Check conditional visibility
-    if (!isFieldVisible(field)) return null;
+    if (!isFieldVisible(normalizedField)) return null;
 
-    const value = formData[field.name] || '';
-    const error = errors[field.name];
-    const uploadState = uploadStates[field.name];
+    const value = formData[fieldName] || '';
+    const error = errors[fieldName];
+    const uploadState = uploadStates[fieldName];
 
     // Array field
     if (field.type === 'array') {
