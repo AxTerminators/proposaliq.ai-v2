@@ -95,16 +95,12 @@ Deno.serve(async (req) => {
 
     console.log('[CreateDemoOrg] ✅ Content Library folders created');
 
-    // 4. Create Master Board and 15-Column Board
+    // 4. Create Master Board
     await base44.asServiceRole.functions.invoke('createMasterBoardConfig', {
       organization_id: demoOrg.id
     });
 
-    await base44.asServiceRole.functions.invoke('create15ColumnRFPBoard', {
-      organization_id: demoOrg.id
-    });
-
-    console.log('[CreateDemoOrg] ✅ Kanban boards created');
+    console.log('[CreateDemoOrg] ✅ Kanban board created');
 
     // 5. Create Mock Teaming Partners
     const partners = [
@@ -1173,7 +1169,7 @@ Deno.serve(async (req) => {
         clients: createdClients.length,
         client_team_members: createdClients.slice(0, 3).reduce((acc, _, i) => acc + (teamMembersData[i] || []).length, 0), // Calculate based on new logic
         resources: mockResources.length,
-        boards: 2
+        boards: 1
       }
     });
 
