@@ -485,7 +485,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   const validColumns = Array.isArray(columns) ? columns : [];
 
-  // **NEW: Lazy loading for columns**
+  // **MOVED UP: Lazy loading for columns - must be before any conditional returns**
   const proposalsByColumn = useMemo(() => {
     const byColumn = {};
     
@@ -496,6 +496,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return byColumn;
   }, [validColumns, getProposalsForColumn]);
 
+  // CRITICAL: All hooks must be called before any conditional returns
   const {
     getVisibleProposals,
     hasMore,
