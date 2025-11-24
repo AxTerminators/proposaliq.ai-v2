@@ -296,7 +296,7 @@ export default function QuickCreateProposal({
           board_name: boardName.trim(),
           description: `Kanban board for ${selectedTemplate.template_name} proposals.`,
           board_type: selectedTemplate.board_type,
-          applies_to_proposal_types: [selectedType],
+          applies_to_proposal_types: [finalType],
           is_master_board: false, // Newly created type-specific boards are not master boards by default
           columns: selectedTemplate.workflow_stages || [], // Use template's stages
           created_by: 'system_quick_create',
