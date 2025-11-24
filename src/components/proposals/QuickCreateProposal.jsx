@@ -526,20 +526,12 @@ export default function QuickCreateProposal({
                       )}
                       onClick={() => handleTypeSelect(template)}
                     >
-                      {hasBoardForType ? (
+                      {selectedType === proposalType && (
                         <div className="absolute -top-2 -right-2">
-                          <Badge className="bg-green-500 text-white text-xs">
-                            ✓ Board Ready
+                          <Badge className="bg-blue-500 text-white text-xs">
+                            ✓ Selected
                           </Badge>
                         </div>
-                      ) : (
-                        selectedType === proposalType && ( // Only show if selected and needs new board
-                          <div className="absolute -top-2 -right-2">
-                            <Badge className="bg-orange-500 text-white text-xs">
-                              Needs New Board
-                            </Badge>
-                          </div>
-                        )
                       )}
                       <CardContent className="p-3">
                         <div className="text-2xl mb-2">{icon}</div>
