@@ -185,8 +185,8 @@ export default function Pipeline() {
       return boards;
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: Infinity, // Never consider stale
+    gcTime: 30 * 60 * 1000, // 30 minutes cache
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
