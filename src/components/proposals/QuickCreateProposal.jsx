@@ -620,7 +620,7 @@ export default function QuickCreateProposal({
           })()}
 
           {/* Board Name Input - if creating new board */}
-          {needsNewBoard && selectedType && (
+          {selectedBoardId === "create_new" && selectedType && (
             <div className="space-y-2 mt-4">
               <Label htmlFor="new-board-name" className="text-sm font-semibold">
                 New Board Name <span className="text-red-500">*</span>
