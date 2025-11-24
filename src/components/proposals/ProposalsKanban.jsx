@@ -1275,8 +1275,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     return count;
   }, [searchQuery, filterAgency, filterAssignee, advancedFilteredProposals]);
 
-  // ==================== EARLY RETURNS START HERE ====================
-  // All hooks must be defined above this point to ensure consistent hook ordering
+  // ==================== ALL HOOKS MUST BE ABOVE THIS LINE ====================
+  // No more useState, useEffect, useMemo, useCallback, useQuery, or custom hooks below!
 
   if (isLoadingConfig && !propKanbanConfig) {
     return (
