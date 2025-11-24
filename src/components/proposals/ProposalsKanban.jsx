@@ -1016,15 +1016,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     const { source, destination, draggableId, type } = result;
 
-    // Store dragged proposal info for potential column jump
-    const proposal = proposals.find(p => p.id === draggableId);
-    const sourceColumn = columns.find(col => col.id === source.droppableId);
-    
-    if (proposal && sourceColumn && type === 'card') {
-      setDraggedProposalForJump(proposal);
-      setSourceColumnForJump(sourceColumn);
-    }
-
     if (type === "column") {
       if (source.index === destination.index) return;
 
@@ -1067,6 +1058,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     const destinationColumn = columns.find(col => col.id === destination.droppableId);
 
     if (!sourceColumn || !destinationColumn) return;
+
+    // Store for potential column jump menu usage
+    setDraggedProposalForJump(proposal);
+    setSourceColumnForJump(sourceColumn);
 
     const userRole = getUserRole();
 
