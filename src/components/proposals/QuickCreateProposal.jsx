@@ -199,8 +199,16 @@ export default function QuickCreateProposal({
       b.board_type === template.board_type ||
       b.applies_to_proposal_types?.includes(template.proposal_type_category)
     );
-    setNeedsNewBoard(matchingBoards.length === 0);
-    setSelectedBoardId(matchingBoards.length === 1 ? matchingBoards[0].id : null); // Auto-select if only one board
+    
+    // Auto-select board if only one exists, otherwise require explicit selection
+    if (matchingBoards.length === 1) {
+      setSelectedBoardId(matchingBoards[0].id);
+    } else if (matchingBoards.length === 0) {
+      setSelectedBoardId("create_new"); // Default to creating new board
+    } else {
+      setSelectedBoardId(null); // Multiple boards - require selection
+    }
+    
     setBoardName('');
     setBoardNameError('');
   };
