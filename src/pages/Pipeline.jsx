@@ -864,6 +864,9 @@ export default function Pipeline() {
     }
   }, [allBoards, selectedBoardId]);
 
+  // ==================== ALL HOOKS MUST BE ABOVE THIS LINE ====================
+  // No more useState, useEffect, useMemo, useCallback, useQuery, useMutation, or custom hooks below!
+
   if (proposalsError) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
