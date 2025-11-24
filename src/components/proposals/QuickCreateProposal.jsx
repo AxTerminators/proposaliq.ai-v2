@@ -88,8 +88,7 @@ export default function QuickCreateProposal({
   const [boardName, setBoardName] = useState(""); // State for new board name
   const [boardNameError, setBoardNameError] = useState(""); // State for board name validation error
   const [isValidatingBoardName, setIsValidatingBoardName] = useState(false); // State for board name validation loading
-  const [needsNewBoard, setNeedsNewBoard] = useState(false); // State to indicate if a new board is needed/will be created
-  const [selectedBoardId, setSelectedBoardId] = useState(null); // NEW: State for manually selected board
+  const [selectedBoardId, setSelectedBoardId] = useState(null); // State for manually selected board (null, board ID, or "create_new")
 
   // NEW: Proposal name validation state
   const [proposalNameError, setProposalNameError] = useState("");
