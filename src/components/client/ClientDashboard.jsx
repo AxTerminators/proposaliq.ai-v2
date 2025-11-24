@@ -1,4 +1,3 @@
-
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -73,8 +72,8 @@ export default function ClientDashboard({ client, currentMember }) {
 
   // Calculate stats
   const totalProposals = proposals.length;
-  const inReviewProposals = proposals.filter(p => p.status === 'client_review').length;
-  const acceptedProposals = proposals.filter(p => p.status === 'client_accepted').length;
+  const draftingProposals = proposals.filter(p => ['qualifying', 'planning', 'drafting'].includes(p.status)).length;
+  const wonProposals = proposals.filter(p => p.status === 'won').length;
   const pendingApprovals = approvalRequests.filter(r => 
     r.overall_status === 'pending' || r.overall_status === 'in_progress'
   ).length;
@@ -139,8 +138,8 @@ export default function ClientDashboard({ client, currentMember }) {
             <div className="flex items-center justify-between mb-2">
               <Clock className="w-8 h-8 text-amber-500" />
             </div>
-            <p className="text-3xl font-bold text-amber-600">{inReviewProposals}</p>
-            <p className="text-sm text-slate-600">In Review</p>
+            <p className="text-3xl font-bold text-amber-600">{draftingProposals}</p>
+            <p className="text-sm text-slate-600">In Progress</p>
           </CardContent>
         </Card>
 
@@ -159,8 +158,8 @@ export default function ClientDashboard({ client, currentMember }) {
             <div className="flex items-center justify-between mb-2">
               <CheckCircle2 className="w-8 h-8 text-green-500" />
             </div>
-            <p className="text-3xl font-bold text-green-600">{acceptedProposals}</p>
-            <p className="text-sm text-slate-600">Accepted</p>
+            <p className="text-3xl font-bold text-green-600">{wonProposals}</p>
+            <p className="text-sm text-slate-600">Won</p>
           </CardContent>
         </Card>
       </div>
@@ -333,10 +332,14 @@ function ProposalsView({ client, currentMember }) {
     <div className="space-y-4">
       {proposals.map((proposal) => {
         const statusColors = {
-          client_review: "bg-amber-100 text-amber-700",
-          client_accepted: "bg-green-100 text-green-700",
-          client_rejected: "bg-red-100 text-red-700",
-          in_progress: "bg-blue-100 text-blue-700"
+          qualifying: "bg-slate-100 text-slate-700",
+          planning: "bg-cyan-100 text-cyan-700",
+          drafting: "bg-blue-100 text-blue-700",
+          reviewing: "bg-purple-100 text-purple-700",
+          submitted: "bg-indigo-100 text-indigo-700",
+          won: "bg-green-100 text-green-700",
+          lost: "bg-red-100 text-red-700",
+          archived: "bg-gray-100 text-gray-700"
         };
 
         return (

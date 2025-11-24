@@ -25,32 +25,32 @@ export default function ProposalStatusTimeline({ proposal }) {
       color: "blue"
     },
     {
-      id: "in_progress",
-      label: "In Development",
+      id: "qualifying",
+      label: "Qualifying",
       icon: Clock,
-      description: "Consultant is working on the proposal",
-      color: "amber"
+      description: "Evaluating opportunity",
+      color: "slate"
     },
     {
-      id: "client_review",
-      label: "Your Review",
-      icon: Eye,
-      description: "Awaiting your feedback",
-      color: "purple"
-    },
-    {
-      id: "revisions",
-      label: "Revisions",
+      id: "drafting",
+      label: "Drafting",
       icon: MessageSquare,
-      description: "Addressing your feedback",
-      color: "indigo"
+      description: "Developing proposal content",
+      color: "blue"
+    },
+    {
+      id: "reviewing",
+      label: "Review",
+      icon: Eye,
+      description: "Internal review in progress",
+      color: "purple"
     },
     {
       id: "submitted",
       label: "Submitted",
       icon: Send,
       description: "Submitted to agency",
-      color: "blue"
+      color: "indigo"
     },
     {
       id: "decision",
@@ -64,15 +64,14 @@ export default function ProposalStatusTimeline({ proposal }) {
   // Determine current stage based on proposal status
   const getCurrentStageIndex = () => {
     const statusMap = {
-      "draft": 0,
-      "evaluating": 0,
-      "in_progress": 1,
-      "client_review": 2,
+      "qualifying": 1,
+      "planning": 1,
+      "drafting": 2,
+      "reviewing": 3,
       "submitted": 4,
-      "client_accepted": 2,
-      "client_rejected": 2,
       "won": 5,
-      "lost": 5
+      "lost": 5,
+      "archived": 5
     };
     
     return statusMap[proposal.status] ?? 0;
@@ -80,8 +79,8 @@ export default function ProposalStatusTimeline({ proposal }) {
 
   const currentStageIndex = getCurrentStageIndex();
   const hasClientFeedback = proposal.client_feedback_count > 0;
-  const isRejected = proposal.status === "client_rejected" || proposal.status === "lost";
-  const isAccepted = proposal.status === "client_accepted" || proposal.status === "won";
+  const isRejected = proposal.status === "lost";
+  const isAccepted = proposal.status === "won";
 
   return (
     <Card className="border-none shadow-lg">
@@ -162,18 +161,12 @@ export default function ProposalStatusTimeline({ proposal }) {
                           </p>
                         )}
                         
-                        {stage.id === "client_review" && isCurrent && (
+                        {stage.id === "reviewing" && isCurrent && (
                           <div className="mt-2">
                             <Badge className="bg-purple-100 text-purple-700">
-                              Action Required
+                              Under Review
                             </Badge>
                           </div>
-                        )}
-                        
-                        {stage.id === "client_review" && proposal.client_last_viewed && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Last viewed: {moment(proposal.client_last_viewed).fromNow()}
-                          </p>
                         )}
                         
                         {stage.id === "revisions" && hasClientFeedback && (

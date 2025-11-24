@@ -17,21 +17,6 @@ export default function ClientActionItems({ proposals, clientToken }) {
   const actionItems = [];
 
   proposals.forEach(proposal => {
-    // Proposals needing review
-    if (proposal.status === "client_review") {
-      actionItems.push({
-        id: `review-${proposal.id}`,
-        type: "review_needed",
-        priority: "high",
-        title: "Review Needed",
-        description: proposal.proposal_name,
-        dueDate: proposal.due_date,
-        proposalId: proposal.id,
-        icon: Eye,
-        color: "purple"
-      });
-    }
-
     // Proposals with unread consultant replies
     if (proposal.client_feedback_count > 0 && !proposal.client_last_viewed) {
       actionItems.push({
@@ -43,20 +28,6 @@ export default function ClientActionItems({ proposals, clientToken }) {
         proposalId: proposal.id,
         icon: MessageSquare,
         color: "blue"
-      });
-    }
-
-    // Proposals accepted/rejected awaiting consultant action
-    if (proposal.status === "client_accepted" && !proposal.submitted) {
-      actionItems.push({
-        id: `accepted-${proposal.id}`,
-        type: "accepted_pending",
-        priority: "low",
-        title: "Accepted - Awaiting Submission",
-        description: proposal.proposal_name,
-        proposalId: proposal.id,
-        icon: CheckCircle2,
-        color: "green"
       });
     }
 

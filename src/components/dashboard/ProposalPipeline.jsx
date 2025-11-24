@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -21,7 +20,7 @@ export default function ProposalPipeline({ proposals = [], organization }) {
   const navigate = useNavigate();
 
   const activeProposals = proposals.filter(p =>
-    ['evaluating', 'draft', 'in_progress'].includes(p.status)
+    ['qualifying', 'planning', 'drafting', 'reviewing'].includes(p.status)
   ).slice(0, 5);
 
   const urgentProposals = activeProposals.filter(p =>
@@ -30,22 +29,24 @@ export default function ProposalPipeline({ proposals = [], organization }) {
 
   const getStatusColor = (status) => {
     const colors = {
-      evaluating: 'bg-blue-500',
-      draft: 'bg-yellow-500',
-      in_progress: 'bg-purple-500',
+      qualifying: 'bg-slate-500',
+      planning: 'bg-cyan-500',
+      drafting: 'bg-blue-500',
+      reviewing: 'bg-purple-500',
       submitted: 'bg-indigo-500',
       won: 'bg-green-500',
       lost: 'bg-red-500',
-      archived: 'bg-slate-500'
+      archived: 'bg-gray-500'
     };
     return colors[status] || 'bg-slate-500';
   };
 
   const getStatusLabel = (status) => {
     const labels = {
-      evaluating: 'Evaluating',
-      draft: 'Draft',
-      in_progress: 'In Progress',
+      qualifying: 'Qualifying',
+      planning: 'Planning',
+      drafting: 'Drafting',
+      reviewing: 'Reviewing',
       submitted: 'Submitted',
       won: 'Won',
       lost: 'Lost',
