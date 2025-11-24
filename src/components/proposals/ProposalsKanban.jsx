@@ -732,21 +732,15 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         updates: updatesForMovedProposal
       });
 
-      // PERFORMANCE FIX: Optimistic update - instantly update UI before server response
-      queryClient.setQueryData(['proposals', organization?.id], (oldProposals) => {
-        if (!oldProposals) return oldProposals;
-        return oldProposals.map(p => 
-          p.id === proposal.id 
-            ? { ...p, ...updatesForMovedProposal }
-            : p
-        );
-      });
+      console.log('[Drag] 💾 Updating proposal in database...');
 
-      // Update in background without blocking UI
+      // Update in database first - no optimistic update to avoid disappearing cards
       await updateProposalMutation.mutateAsync({
         proposalId: proposal.id,
         updates: updatesForMovedProposal
       });
+
+      console.log('[Drag] ✅ Proposal updated successfully');
 
       const otherUpdatesInDestColumn = batchOrderUpdates.filter(u => u.proposalId !== proposal.id);
       if (otherUpdatesInDestColumn.length > 0) {
@@ -774,13 +768,12 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           }
       }
     } catch (error) {
-      console.error("Error moving proposal:", error);
+      console.error("[Drag] ❌ Error moving proposal:", error);
       toast.error("Failed to move proposal. Please try again.");
-      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     } finally {
       setDragInProgress(false);
-      // Only invalidate after success to get fresh data from server
+      console.log('[Drag] 🔄 Refreshing proposals from server...');
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
     }
   };
@@ -795,15 +788,25 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
   // Mouse position-based auto-scroll and magnetic snapping during drag
   useEffect(() => {
+    let rafId = null;
+    
     const handleMouseMove = (e) => {
       if (!dragInProgress || !boardRef.current) return;
 
-      const board = boardRef.current;
-      const threshold = 180; // pixels from edge to trigger scroll - increased for earlier activation
-      const maxScrollSpeed = 15; // max scroll speed
-      const viewportWidth = window.innerWidth;
-      const mouseX = e.clientX;
-      const mouseY = e.clientY;
+      // Use requestAnimationFrame to throttle updates and prevent render thrashing
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+
+      rafId = requestAnimationFrame(() => {
+        const board = boardRef.current;
+        if (!board) return;
+        
+        const threshold = 180; // pixels from edge to trigger scroll - increased for earlier activation
+        const maxScrollSpeed = 15; // max scroll speed
+        const viewportWidth = window.innerWidth;
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
 
       // Magnetic snapping - find which column the mouse is over or scrolling towards
       let closestColumnId = null;
@@ -849,67 +852,70 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         }
       });
 
-      setMagneticColumnId(closestColumnId);
+        setMagneticColumnId(closestColumnId);
 
-      // If we have a magnetic column, ensure it's visible by scrolling it into view
-      if (closestColumnId && columnRefs.current[closestColumnId]) {
-        const magneticColumnRect = columnRefs.current[closestColumnId].getBoundingClientRect();
-        const isFullyVisible = magneticColumnRect.left >= 0 && magneticColumnRect.right <= viewportWidth;
-        
-        if (!isFullyVisible) {
-          // Column is not fully visible, scroll it into view smoothly
-          const scrollOffset = 100; // padding from edge
+        // If we have a magnetic column, ensure it's visible by scrolling it into view
+        if (closestColumnId && columnRefs.current[closestColumnId]) {
+          const magneticColumnRect = columnRefs.current[closestColumnId].getBoundingClientRect();
+          const isFullyVisible = magneticColumnRect.left >= 0 && magneticColumnRect.right <= viewportWidth;
           
-          if (magneticColumnRect.left < scrollOffset) {
-            // Column is off-screen to the left, scroll left to reveal it
-            const targetScrollLeft = board.scrollLeft + magneticColumnRect.left - scrollOffset;
-            board.scrollLeft = Math.max(0, targetScrollLeft);
-          } else if (magneticColumnRect.right > viewportWidth - scrollOffset) {
-            // Column is off-screen to the right, scroll right to reveal it
-            const targetScrollLeft = board.scrollLeft + (magneticColumnRect.right - viewportWidth) + scrollOffset;
-            board.scrollLeft = Math.min(board.scrollWidth - board.clientWidth, targetScrollLeft);
+          if (!isFullyVisible) {
+            // Column is not fully visible, scroll it into view smoothly
+            const scrollOffset = 100; // padding from edge
+            
+            if (magneticColumnRect.left < scrollOffset) {
+              // Column is off-screen to the left, scroll left to reveal it
+              const targetScrollLeft = board.scrollLeft + magneticColumnRect.left - scrollOffset;
+              board.scrollLeft = Math.max(0, targetScrollLeft);
+            } else if (magneticColumnRect.right > viewportWidth - scrollOffset) {
+              // Column is off-screen to the right, scroll right to reveal it
+              const targetScrollLeft = board.scrollLeft + (magneticColumnRect.right - viewportWidth) + scrollOffset;
+              board.scrollLeft = Math.min(board.scrollWidth - board.clientWidth, targetScrollLeft);
+            }
           }
         }
-      }
 
-      // Clear existing interval
-      if (autoScrollIntervalRef.current) {
-        clearInterval(autoScrollIntervalRef.current);
-        autoScrollIntervalRef.current = null;
-      }
+        // Clear existing interval
+        if (autoScrollIntervalRef.current) {
+          clearInterval(autoScrollIntervalRef.current);
+          autoScrollIntervalRef.current = null;
+        }
 
-      // Calculate dynamic scroll speed based on distance from edge (accelerates as you get closer)
-      const calculateScrollSpeed = (distanceFromEdge) => {
-        const speedRatio = Math.max(0, (threshold - distanceFromEdge) / threshold);
-        return Math.ceil(speedRatio * maxScrollSpeed) || 1;
-      };
+        // Calculate dynamic scroll speed based on distance from edge (accelerates as you get closer)
+        const calculateScrollSpeed = (distanceFromEdge) => {
+          const speedRatio = Math.max(0, (threshold - distanceFromEdge) / threshold);
+          return Math.ceil(speedRatio * maxScrollSpeed) || 1;
+        };
 
-      // Scroll left when near left edge
-      if (mouseX < threshold && board.scrollLeft > 0) {
-        const distanceFromEdge = mouseX;
-        const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
-        autoScrollIntervalRef.current = setInterval(() => {
-          if (board.scrollLeft > 0) {
-            board.scrollLeft -= scrollSpeed;
-          } else {
-            clearInterval(autoScrollIntervalRef.current);
-            autoScrollIntervalRef.current = null;
-          }
-        }, 16); // ~60fps
-      }
-      // Scroll right when near right edge
-      else if (mouseX > viewportWidth - threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
-        const distanceFromEdge = viewportWidth - mouseX;
-        const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
-        autoScrollIntervalRef.current = setInterval(() => {
-          if (board.scrollLeft < board.scrollWidth - board.clientWidth) {
-            board.scrollLeft += scrollSpeed;
-          } else {
-            clearInterval(autoScrollIntervalRef.current);
-            autoScrollIntervalRef.current = null;
-          }
-        }, 16); // ~60fps
-      }
+        // Scroll left when near left edge
+        if (mouseX < threshold && board.scrollLeft > 0) {
+          const distanceFromEdge = mouseX;
+          const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
+          autoScrollIntervalRef.current = setInterval(() => {
+            const currentBoard = boardRef.current;
+            if (currentBoard && currentBoard.scrollLeft > 0) {
+              currentBoard.scrollLeft -= scrollSpeed;
+            } else {
+              clearInterval(autoScrollIntervalRef.current);
+              autoScrollIntervalRef.current = null;
+            }
+          }, 16); // ~60fps
+        }
+        // Scroll right when near right edge
+        else if (mouseX > viewportWidth - threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
+          const distanceFromEdge = viewportWidth - mouseX;
+          const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
+          autoScrollIntervalRef.current = setInterval(() => {
+            const currentBoard = boardRef.current;
+            if (currentBoard && currentBoard.scrollLeft < currentBoard.scrollWidth - currentBoard.clientWidth) {
+              currentBoard.scrollLeft += scrollSpeed;
+            } else {
+              clearInterval(autoScrollIntervalRef.current);
+              autoScrollIntervalRef.current = null;
+            }
+          }, 16); // ~60fps
+        }
+      });
     };
 
     if (dragInProgress) {
@@ -918,6 +924,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current);
         autoScrollIntervalRef.current = null;
@@ -926,6 +935,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   }, [dragInProgress]);
 
   const onDragEnd = async (result) => {
+    console.log('[Drag] 🎯 onDragEnd called', { result, hasDestination: !!result.destination });
+    
     setDragOverColumnId(null);
     setDragInProgress(false);
     setMagneticColumnId(null);
@@ -936,7 +947,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       autoScrollIntervalRef.current = null;
     }
 
-    if (!result.destination) return;
+    if (!result.destination) {
+      console.log('[Drag] ⚠️ No destination - drag cancelled or dropped outside');
+      return;
+    }
 
     const { source, destination, draggableId, type } = result;
 
