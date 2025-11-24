@@ -795,6 +795,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   useEffect(() => {
     let rafId = null;
     let scrollAnimationId = null;
+    let continuousScrollInterval = null;
     
     const smoothScroll = (targetScroll) => {
       const board = boardRef.current;
@@ -825,8 +826,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         const board = boardRef.current;
         if (!board) return;
         
-        const threshold = 250; // Larger threshold for easier triggering
-        const maxScrollSpeed = 25; // Increased scroll speed
+        const threshold = 350; // INCREASED: Larger trigger zone (was 250)
+        const maxScrollSpeed = 50; // DOUBLED: Much faster scrolling (was 25)
         const viewportWidth = window.innerWidth;
         const mouseX = e.clientX;
         const mouseY = e.clientY;
@@ -877,7 +878,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
 
         setMagneticColumnId(closestColumnId);
 
-        // Auto-scroll logic - continuous smooth scrolling
+        // ENHANCED: Aggressive auto-scroll - continuous even when mouse is still
         const scrollEdgeThreshold = threshold;
         let shouldScroll = false;
         let scrollDirection = 0;
@@ -887,9 +888,22 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           shouldScroll = true;
           scrollDirection = -1;
           const distanceFromEdge = mouseX;
-          const speedMultiplier = Math.max(0, (scrollEdgeThreshold - distanceFromEdge) / scrollEdgeThreshold);
-          const scrollSpeed = Math.ceil(speedMultiplier * maxScrollSpeed) || 3;
+          const speedMultiplier = Math.max(0.3, (scrollEdgeThreshold - distanceFromEdge) / scrollEdgeThreshold); // Min 30% speed
+          const scrollSpeed = Math.ceil(speedMultiplier * maxScrollSpeed) || 5; // Minimum 5px scroll
           board.scrollLeft -= scrollSpeed;
+          
+          // CONTINUOUS SCROLL: Start interval if not already running
+          if (!continuousScrollInterval) {
+            continuousScrollInterval = setInterval(() => {
+              const board = boardRef.current;
+              if (board && board.scrollLeft > 0) {
+                board.scrollLeft -= scrollSpeed;
+              } else {
+                clearInterval(continuousScrollInterval);
+                continuousScrollInterval = null;
+              }
+            }, 16); // ~60fps
+          }
         }
         // Check if near right edge
         else if (mouseX > viewportWidth - scrollEdgeThreshold && 
@@ -897,9 +911,27 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           shouldScroll = true;
           scrollDirection = 1;
           const distanceFromEdge = viewportWidth - mouseX;
-          const speedMultiplier = Math.max(0, (scrollEdgeThreshold - distanceFromEdge) / scrollEdgeThreshold);
-          const scrollSpeed = Math.ceil(speedMultiplier * maxScrollSpeed) || 3;
+          const speedMultiplier = Math.max(0.3, (scrollEdgeThreshold - distanceFromEdge) / scrollEdgeThreshold); // Min 30% speed
+          const scrollSpeed = Math.ceil(speedMultiplier * maxScrollSpeed) || 5; // Minimum 5px scroll
           board.scrollLeft += scrollSpeed;
+          
+          // CONTINUOUS SCROLL: Start interval if not already running
+          if (!continuousScrollInterval) {
+            continuousScrollInterval = setInterval(() => {
+              const board = boardRef.current;
+              if (board && board.scrollLeft < board.scrollWidth - board.clientWidth) {
+                board.scrollLeft += scrollSpeed;
+              } else {
+                clearInterval(continuousScrollInterval);
+                continuousScrollInterval = null;
+              }
+            }, 16); // ~60fps
+          }
+        }
+        // Stop continuous scroll if mouse moves away from edges
+        else if (continuousScrollInterval) {
+          clearInterval(continuousScrollInterval);
+          continuousScrollInterval = null;
         }
 
         // If we have a magnetic column that's partially off-screen, scroll to reveal it
@@ -939,6 +971,10 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current);
         autoScrollIntervalRef.current = null;
+      }
+      if (continuousScrollInterval) {
+        clearInterval(continuousScrollInterval);
+        continuousScrollInterval = null;
       }
     };
   }, [dragInProgress]);
