@@ -135,23 +135,11 @@ export default function QuickCreateProposal({
       setSelectedType(preselectedType || null);
       setIsCreating(false);
       setBoardName('');
-      setBoardNameError(''); // Renamed from nameError
-      setIsValidatingBoardName(false); // Renamed from isValidatingName
-      setNeedsNewBoard(false); // Reset this too
-      setProposalNameError(''); // NEW: Reset proposal name error
-      setIsValidatingProposalName(false); // NEW: Reset proposal name validation state
-
-      // If a preselectedType is given, try to determine if it needs a new board
-      if (preselectedType && templates.length > 0 && existingBoards.length > 0) {
-        const templateForPreselected = templates.find(t => t.proposal_type_category === preselectedType);
-        if (templateForPreselected) {
-          const existingBoardFound = existingBoards.some(b =>
-            b.board_type === templateForPreselected.board_type ||
-            b.applies_to_proposal_types?.includes(preselectedType)
-          );
-          setNeedsNewBoard(!existingBoardFound);
-        }
-      }
+      setBoardNameError('');
+      setIsValidatingBoardName(false);
+      setSelectedBoardId(null);
+      setProposalNameError('');
+      setIsValidatingProposalName(false);
     }
   }, [isOpen, preselectedType, templates, existingBoards]);
 
