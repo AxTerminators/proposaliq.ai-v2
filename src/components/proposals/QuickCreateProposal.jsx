@@ -576,42 +576,47 @@ export default function QuickCreateProposal({
             )}
           </div>
 
-          {/* Board Selector - if multiple boards exist for this type */}
-          {!needsNewBoard && selectedType && (() => {
+          {/* Board Selector - always shown when type is selected */}
+          {selectedType && (() => {
             const selectedTemplate = templates.find(t => t.proposal_type_category === selectedType);
             const matchingBoards = existingBoards.filter(b =>
               b.board_type === selectedTemplate?.board_type ||
               b.applies_to_proposal_types?.includes(selectedType)
             );
             
-            if (matchingBoards.length > 1) {
-              return (
-                <div className="space-y-2">
-                  <Label htmlFor="board-selector" className="text-sm font-semibold">
-                    Select Board <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose which board to add this proposal to" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {matchingBoards.map(board => (
-                        <SelectItem key={board.id} value={board.id}>
-                          <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4" />
-                            {board.board_name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-600">
-                    Multiple boards support this proposal type - choose where to create it
-                  </p>
-                </div>
-              );
-            }
-            return null;
+            return (
+              <div className="space-y-2">
+                <Label htmlFor="board-selector" className="text-sm font-semibold">
+                  Select Board <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedBoardId || ""} onValueChange={setSelectedBoardId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose where to add this proposal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {matchingBoards.map(board => (
+                      <SelectItem key={board.id} value={board.id}>
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4" />
+                          {board.board_name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="create_new">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-blue-600" />
+                        <span className="font-semibold text-blue-600">Create New Board</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-600">
+                  {matchingBoards.length > 0 
+                    ? "Select an existing board or create a new one"
+                    : "No existing boards for this type - create a new one"}
+                </p>
+              </div>
+            );
           })()}
 
           {/* Board Name Input - if creating new board */}
