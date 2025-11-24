@@ -595,7 +595,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       } else if (destinationColumn.type === 'custom_stage') {
         updatesForMovedProposal.custom_workflow_stage_id = destinationColumn.id;
         updatesForMovedProposal.current_phase = null;
-        updatesForMovedProposal.status = 'reviewing';
+        updatesForMovedProposal.status = destinationColumn.status_mapping?.[0] || 'qualifying';
       } else if (destinationColumn.type === 'default_status') {
         updatesForMovedProposal.status = destinationColumn.default_status_mapping;
         updatesForMovedProposal.current_phase = null;

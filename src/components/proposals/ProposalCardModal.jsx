@@ -545,7 +545,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       if (firstColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = firstColumn.id;
         updates.current_phase = null;
-        updates.status = 'reviewing';
+        updates.status = firstColumn.status_mapping?.[0] || 'qualifying';
       } else if (firstColumn.type === 'locked_phase') {
         updates.custom_workflow_stage_id = firstColumn.id;
         updates.current_phase = firstColumn.phase_mapping;
@@ -673,7 +673,7 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       } else if (targetColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = targetColumn.id;
         updates.current_phase = null;
-        updates.status = 'reviewing';
+        updates.status = targetColumn.status_mapping?.[0] || 'qualifying';
       } else if (targetColumn.type === 'default_status') {
         updates.status = targetColumn.default_status_mapping;
         updates.current_phase = null;

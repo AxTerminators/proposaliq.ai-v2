@@ -197,7 +197,7 @@ export default function KanbanCard({
       } else if (destinationColumn.type === 'custom_stage') {
         updates.custom_workflow_stage_id = destinationColumn.id;
         updates.current_phase = null;
-        updates.status = 'reviewing';
+        updates.status = destinationColumn.status_mapping?.[0] || 'qualifying';
       } else if (destinationColumn.type === 'default_status') {
         updates.status = destinationColumn.default_status_mapping;
         updates.current_phase = null;
