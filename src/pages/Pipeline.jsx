@@ -788,13 +788,9 @@ export default function Pipeline() {
   };
 
   const getModalBoardConfig = () => {
-    if (!selectedProposalToOpen) {
-      console.log('[Pipeline] getModalBoardConfig: No selectedProposalToOpen, returning selectedBoard');
-      return selectedBoard;
-    }
+    if (!selectedProposalToOpen) return selectedBoard;
     
     const proposalType = selectedProposalToOpen.proposal_type_category;
-    console.log('[Pipeline] getModalBoardConfig: proposalType =', proposalType);
     
     // For 15-column proposals, explicitly find that board
     if (proposalType === 'RFP_15_COLUMN') {
@@ -808,13 +804,7 @@ export default function Pipeline() {
       board.applies_to_proposal_types?.includes(proposalType)
     );
     
-    if (typeBoard) {
-      console.log('[Pipeline] getModalBoardConfig: Found type-specific board:', typeBoard.board_name);
-      return typeBoard;
-    }
-    
-    console.log('[Pipeline] getModalBoardConfig: Falling back to selectedBoard:', selectedBoard?.board_name);
-    return selectedBoard;
+    return typeBoard || selectedBoard;
   };
 
   // Debug logging for modal state
