@@ -794,6 +794,24 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   // Mouse position-based auto-scroll and magnetic snapping during drag
   useEffect(() => {
     let rafId = null;
+    let scrollAnimationId = null;
+    
+    const smoothScroll = (targetScroll) => {
+      const board = boardRef.current;
+      if (!board) return;
+
+      const currentScroll = board.scrollLeft;
+      const distance = targetScroll - currentScroll;
+      const speed = Math.abs(distance) > 100 ? 25 : 15; // Faster for larger distances
+      
+      if (Math.abs(distance) > 1) {
+        board.scrollLeft += Math.sign(distance) * speed;
+        scrollAnimationId = requestAnimationFrame(() => smoothScroll(targetScroll));
+      } else {
+        board.scrollLeft = targetScroll;
+        scrollAnimationId = null;
+      }
+    };
     
     const handleMouseMove = (e) => {
       if (!dragInProgress || !boardRef.current) return;
@@ -807,118 +825,101 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
         const board = boardRef.current;
         if (!board) return;
         
-        const threshold = 180; // pixels from edge to trigger scroll - increased for earlier activation
-        const maxScrollSpeed = 15; // max scroll speed
+        const threshold = 250; // Larger threshold for easier triggering
+        const maxScrollSpeed = 25; // Increased scroll speed
         const viewportWidth = window.innerWidth;
         const mouseX = e.clientX;
         const mouseY = e.clientY;
 
-      // Magnetic snapping - find which column the mouse is over or scrolling towards
-      let closestColumnId = null;
-      let closestDistance = Infinity;
-      const magneticThreshold = 300; // increased threshold for wider detection
-      
-      // Get scroll position to account for off-screen columns
-      const scrollLeft = board.scrollLeft;
+        // Magnetic snapping - find which column the mouse is over or scrolling towards
+        let closestColumnId = null;
+        let closestDistance = Infinity;
+        const magneticThreshold = 400; // Increased threshold for wider detection
+        
+        // Get scroll position to account for off-screen columns
+        const scrollLeft = board.scrollLeft;
 
-      Object.entries(columnRefs.current).forEach(([columnId, ref]) => {
-        if (ref) {
-          const rect = ref.getBoundingClientRect();
-          
-          // Calculate column position relative to the scrollable container
-          const columnLeftInContainer = rect.left + scrollLeft;
-          const columnRightInContainer = rect.right + scrollLeft;
-          const mouseXInContainer = mouseX + scrollLeft;
-          
-          // Check if column is near the mouse position (accounting for scroll)
-          const isNearHorizontally = 
-            mouseXInContainer >= columnLeftInContainer - magneticThreshold && 
-            mouseXInContainer <= columnRightInContainer + magneticThreshold;
-          
-          // Check if column is visible or partially visible in viewport
-          const isVisible = rect.right > 0 && rect.left < viewportWidth;
-          
-          // Calculate distance from mouse to column center
-          const columnCenterX = rect.left + rect.width / 2;
-          const distance = Math.abs(mouseX - columnCenterX);
-          
-          // Column is magnetic if:
-          // 1. Mouse is near it horizontally (in container coordinates)
-          // 2. Mouse is vertically aligned with column
-          // 3. It's the closest column so far
-          if (isNearHorizontally && 
-              mouseY >= rect.top && 
-              mouseY <= rect.bottom + 100 && 
-              distance < closestDistance &&
-              (isVisible || Math.abs(mouseX - (rect.left < 0 ? 0 : viewportWidth)) < threshold * 2)) {
-            closestDistance = distance;
-            closestColumnId = columnId;
+        Object.entries(columnRefs.current).forEach(([columnId, ref]) => {
+          if (ref) {
+            const rect = ref.getBoundingClientRect();
+            
+            // Calculate column position relative to the scrollable container
+            const columnLeftInContainer = rect.left + scrollLeft;
+            const columnRightInContainer = rect.right + scrollLeft;
+            const mouseXInContainer = mouseX + scrollLeft;
+            
+            // Check if column is near the mouse position (accounting for scroll)
+            const isNearHorizontally = 
+              mouseXInContainer >= columnLeftInContainer - magneticThreshold && 
+              mouseXInContainer <= columnRightInContainer + magneticThreshold;
+            
+            // Check if column is visible or partially visible in viewport
+            const isVisible = rect.right > 0 && rect.left < viewportWidth;
+            
+            // Calculate distance from mouse to column center
+            const columnCenterX = rect.left + rect.width / 2;
+            const distance = Math.abs(mouseX - columnCenterX);
+            
+            // Column is magnetic if:
+            // 1. Mouse is near it horizontally (in container coordinates)
+            // 2. Mouse is vertically aligned with column
+            // 3. It's the closest column so far
+            if (isNearHorizontally && 
+                mouseY >= rect.top && 
+                mouseY <= rect.bottom + 100 && 
+                distance < closestDistance &&
+                (isVisible || Math.abs(mouseX - (rect.left < 0 ? 0 : viewportWidth)) < threshold * 2)) {
+              closestDistance = distance;
+              closestColumnId = columnId;
+            }
           }
-        }
-      });
+        });
 
         setMagneticColumnId(closestColumnId);
 
-        // If we have a magnetic column, ensure it's visible by scrolling it into view
-        if (closestColumnId && columnRefs.current[closestColumnId]) {
-          const magneticColumnRect = columnRefs.current[closestColumnId].getBoundingClientRect();
-          const isFullyVisible = magneticColumnRect.left >= 0 && magneticColumnRect.right <= viewportWidth;
-          
-          if (!isFullyVisible) {
-            // Column is not fully visible, scroll it into view smoothly
-            const scrollOffset = 100; // padding from edge
-            
-            if (magneticColumnRect.left < scrollOffset) {
-              // Column is off-screen to the left, scroll left to reveal it
-              const targetScrollLeft = board.scrollLeft + magneticColumnRect.left - scrollOffset;
-              board.scrollLeft = Math.max(0, targetScrollLeft);
-            } else if (magneticColumnRect.right > viewportWidth - scrollOffset) {
-              // Column is off-screen to the right, scroll right to reveal it
-              const targetScrollLeft = board.scrollLeft + (magneticColumnRect.right - viewportWidth) + scrollOffset;
-              board.scrollLeft = Math.min(board.scrollWidth - board.clientWidth, targetScrollLeft);
-            }
-          }
-        }
+        // Auto-scroll logic - continuous smooth scrolling
+        const scrollEdgeThreshold = threshold;
+        let shouldScroll = false;
+        let scrollDirection = 0;
 
-        // Clear existing interval
-        if (autoScrollIntervalRef.current) {
-          clearInterval(autoScrollIntervalRef.current);
-          autoScrollIntervalRef.current = null;
-        }
-
-        // Calculate dynamic scroll speed based on distance from edge (accelerates as you get closer)
-        const calculateScrollSpeed = (distanceFromEdge) => {
-          const speedRatio = Math.max(0, (threshold - distanceFromEdge) / threshold);
-          return Math.ceil(speedRatio * maxScrollSpeed) || 1;
-        };
-
-        // Scroll left when near left edge
-        if (mouseX < threshold && board.scrollLeft > 0) {
+        // Check if near left edge
+        if (mouseX < scrollEdgeThreshold && board.scrollLeft > 0) {
+          shouldScroll = true;
+          scrollDirection = -1;
           const distanceFromEdge = mouseX;
-          const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
-          autoScrollIntervalRef.current = setInterval(() => {
-            const currentBoard = boardRef.current;
-            if (currentBoard && currentBoard.scrollLeft > 0) {
-              currentBoard.scrollLeft -= scrollSpeed;
-            } else {
-              clearInterval(autoScrollIntervalRef.current);
-              autoScrollIntervalRef.current = null;
-            }
-          }, 16); // ~60fps
+          const speedMultiplier = Math.max(0, (scrollEdgeThreshold - distanceFromEdge) / scrollEdgeThreshold);
+          const scrollSpeed = Math.ceil(speedMultiplier * maxScrollSpeed) || 3;
+          board.scrollLeft -= scrollSpeed;
         }
-        // Scroll right when near right edge
-        else if (mouseX > viewportWidth - threshold && board.scrollLeft < board.scrollWidth - board.clientWidth) {
+        // Check if near right edge
+        else if (mouseX > viewportWidth - scrollEdgeThreshold && 
+                 board.scrollLeft < board.scrollWidth - board.clientWidth) {
+          shouldScroll = true;
+          scrollDirection = 1;
           const distanceFromEdge = viewportWidth - mouseX;
-          const scrollSpeed = calculateScrollSpeed(distanceFromEdge);
-          autoScrollIntervalRef.current = setInterval(() => {
-            const currentBoard = boardRef.current;
-            if (currentBoard && currentBoard.scrollLeft < currentBoard.scrollWidth - currentBoard.clientWidth) {
-              currentBoard.scrollLeft += scrollSpeed;
-            } else {
-              clearInterval(autoScrollIntervalRef.current);
-              autoScrollIntervalRef.current = null;
-            }
-          }, 16); // ~60fps
+          const speedMultiplier = Math.max(0, (scrollEdgeThreshold - distanceFromEdge) / scrollEdgeThreshold);
+          const scrollSpeed = Math.ceil(speedMultiplier * maxScrollSpeed) || 3;
+          board.scrollLeft += scrollSpeed;
+        }
+
+        // If we have a magnetic column that's partially off-screen, scroll to reveal it
+        if (closestColumnId && columnRefs.current[closestColumnId] && !shouldScroll) {
+          const magneticColumnRect = columnRefs.current[closestColumnId].getBoundingClientRect();
+          const scrollOffset = 150; // Padding from edge
+          
+          if (magneticColumnRect.left < scrollOffset && board.scrollLeft > 0) {
+            // Column is off-screen to the left, scroll left to reveal it
+            const targetScrollLeft = Math.max(0, board.scrollLeft + magneticColumnRect.left - scrollOffset);
+            board.scrollLeft = targetScrollLeft;
+          } else if (magneticColumnRect.right > viewportWidth - scrollOffset && 
+                     board.scrollLeft < board.scrollWidth - board.clientWidth) {
+            // Column is off-screen to the right, scroll right to reveal it
+            const targetScrollLeft = Math.min(
+              board.scrollWidth - board.clientWidth, 
+              board.scrollLeft + (magneticColumnRect.right - viewportWidth) + scrollOffset
+            );
+            board.scrollLeft = targetScrollLeft;
+          }
         }
       });
     };
@@ -931,6 +932,9 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       window.removeEventListener('mousemove', handleMouseMove);
       if (rafId) {
         cancelAnimationFrame(rafId);
+      }
+      if (scrollAnimationId) {
+        cancelAnimationFrame(scrollAnimationId);
       }
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current);
