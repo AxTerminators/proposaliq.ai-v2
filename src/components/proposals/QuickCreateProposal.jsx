@@ -331,7 +331,7 @@ export default function QuickCreateProposal({
       let proposalCreateData = {
         proposal_name: proposalName.trim(),
         organization_id: organization.id,
-        proposal_type_category: selectedType,
+        proposal_type_category: finalType,
         manual_order: 0,
         is_sample_data: false,
         current_phase: 'phase1', // Default, will be overridden by firstColumn if applicable
