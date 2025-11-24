@@ -339,7 +339,7 @@ export default function QuickCreateProposal({
         manual_order: 0,
         is_sample_data: false,
         current_phase: 'phase1', // Default, will be overridden by firstColumn if applicable
-        status: 'evaluating', // Default, will be overridden by firstColumn if applicable
+        status: 'qualifying', // Default, will be overridden by firstColumn if applicable
         custom_workflow_stage_id: null,
         current_stage_checklist_status: {},
         action_required: false,
