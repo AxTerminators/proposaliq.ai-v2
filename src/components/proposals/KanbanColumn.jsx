@@ -63,6 +63,7 @@ export default function KanbanColumn({
   onClearColumnSort,
   currentSort,
   isMagnetic = false,
+  kanbanConfig,
 }) {
   const queryClient = useQueryClient();
   const proposalCount = proposals.length;
@@ -408,6 +409,7 @@ export default function KanbanColumn({
                     isSelected={selectedProposalIds.includes(proposal.id)}
                     onToggleSelection={onToggleProposalSelection}
                     selectionMode={selectionMode}
+                    kanbanConfig={kanbanConfig}
                     onDelete={async (proposalToDelete) => {
                       const confirmed = window.confirm(`Delete "${proposalToDelete.proposal_name}"?\n\nThis action cannot be undone. All associated data will be permanently deleted.`);
                       if (confirmed) {
