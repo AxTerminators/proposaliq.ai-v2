@@ -697,7 +697,7 @@ export default function QuickCreateProposal({
                 proposalNameError ||
                 isValidatingProposalName ||
                 !selectedBoardId ||
-                (selectedBoardId === "create_new" && (!selectedType || !boardName.trim() || boardNameError || isValidatingBoardName))
+                (selectedBoardId === "create_new" && (!boardName.trim() || boardNameError || isValidatingBoardName))
               }
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
