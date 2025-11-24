@@ -57,7 +57,6 @@ import WinToPromoteDialog from "./WinToPromoteDialog";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { toast } from 'sonner';
 import { useLazyLoadColumns } from "./useLazyLoadProposals";
-import ColumnJumpMenu from "./ColumnJumpMenu";
 
 
 const LEGACY_DEFAULT_COLUMNS = [
@@ -105,9 +104,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
   const [winningProposal, setWinningProposal] = useState(null);
   const [showDeleteColumnConfirm, setShowDeleteColumnConfirm] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState(null);
-  const [showColumnJumpMenu, setShowColumnJumpMenu] = useState(false);
-  const [draggedProposalForJump, setDraggedProposalForJump] = useState(null);
-  const [sourceColumnForJump, setSourceColumnForJump] = useState(null);
 
   // Sync external props to internal state
   useEffect(() => {
@@ -947,47 +943,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     };
   }, [dragInProgress]);
 
-  // Handle keyboard shortcuts during drag
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (dragInProgress && (e.key === 'j' || e.key === 'J')) {
-        e.preventDefault();
-        setShowColumnJumpMenu(true);
-      }
-    };
-
-    if (dragInProgress) {
-      window.addEventListener('keydown', handleKeyPress);
-    }
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [dragInProgress]);
-
-  const handleColumnJumpSelect = async (destinationColumn) => {
-    if (!draggedProposalForJump || !sourceColumnForJump) return;
-
-    // Find the destination index (add to end of column)
-    const destColumnProposals = getProposalsForColumn(destinationColumn);
-    const destinationIndex = destColumnProposals.length;
-
-    await performProposalMove(
-      draggedProposalForJump,
-      sourceColumnForJump,
-      destinationColumn,
-      destinationIndex
-    );
-
-    // Cleanup
-    setShowColumnJumpMenu(false);
-    setDraggedProposalForJump(null);
-    setSourceColumnForJump(null);
-    setDragInProgress(false);
-    setDragOverColumnId(null);
-    setMagneticColumnId(null);
-  };
-
   const onDragEnd = async (result) => {
     console.log('[Drag] 🎯 onDragEnd called', { result, hasDestination: !!result.destination });
     
@@ -1001,16 +956,8 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
       autoScrollIntervalRef.current = null;
     }
 
-    // If column jump menu is open, don't process normal drag end
-    if (showColumnJumpMenu) {
-      return;
-    }
-
     if (!result.destination) {
       console.log('[Drag] ⚠️ No destination - drag cancelled or dropped outside');
-      // Clear jump menu state
-      setDraggedProposalForJump(null);
-      setSourceColumnForJump(null);
       return;
     }
 
@@ -1058,10 +1005,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
     const destinationColumn = columns.find(col => col.id === destination.droppableId);
 
     if (!sourceColumn || !destinationColumn) return;
-
-    // Store for potential column jump menu usage
-    setDraggedProposalForJump(proposal);
-    setSourceColumnForJump(sourceColumn);
 
     const userRole = getUserRole();
 
@@ -1805,21 +1748,6 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           This action cannot be undone.
         </p>
       </ConfirmDialog>
-
-      <ColumnJumpMenu
-        isOpen={showColumnJumpMenu}
-        onClose={() => {
-          setShowColumnJumpMenu(false);
-          setDraggedProposalForJump(null);
-          setSourceColumnForJump(null);
-          setDragInProgress(false);
-        }}
-        columns={validColumns}
-        currentColumnId={sourceColumnForJump?.id}
-        onSelectColumn={handleColumnJumpSelect}
-        userRole={getUserRole()}
-        draggedProposal={draggedProposalForJump}
-      />
-      </div>
-      );
-      }
+    </div>
+  );
+}
