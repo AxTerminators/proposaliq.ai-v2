@@ -364,11 +364,11 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       columnsCount: kanbanConfig.columns.length
     });
     
-    const found = kanbanConfig.columns.find(col => {
+    const found = kanbanConfig.columns.find(column => {
       // MASTER BOARD LOGIC
-      if (kanbanConfig?.is_master_board && col.type === 'master_status') {
-        const match = col.status_mapping?.includes(proposal.status);
-        if (match) console.log('[ProposalCardModal] Matched master_status column:', col.label);
+      if (kanbanConfig?.is_master_board && column.type === 'master_status') {
+        const match = column.status_mapping?.includes(proposal.status);
+        if (match) console.log('[ProposalCardModal] Matched master_status column:', column.label);
         return match;
       }
       
@@ -376,35 +376,35 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
       // Priority 1: Terminal status columns ALWAYS take priority (won, lost, archived, submitted)
       if (['won', 'lost', 'archived', 'submitted'].includes(proposal.status)) {
         // Check master_status type (terminal columns)
-        if (col.type === 'master_status' && col.status_mapping?.includes(proposal.status)) {
-          console.log('[ProposalCardModal] Matched terminal master_status column:', col.label);
+        if (column.type === 'master_status' && column.status_mapping?.includes(proposal.status)) {
+          console.log('[ProposalCardModal] Matched terminal master_status column:', column.label);
           return true;
         }
         // Also check default_status type
-        if (col.type === 'default_status' && col.default_status_mapping === proposal.status) {
-          console.log('[ProposalCardModal] Matched terminal default_status column:', col.label);
+        if (column.type === 'default_status' && column.default_status_mapping === proposal.status) {
+          console.log('[ProposalCardModal] Matched terminal default_status column:', column.label);
           return true;
         }
       }
       
       // Priority 2: Custom workflow stage
-      if (proposal.custom_workflow_stage_id && col.type === 'custom_stage') {
-        const match = col.id === proposal.custom_workflow_stage_id;
-        if (match) console.log('[ProposalCardModal] Matched custom_stage column:', col.label, col.id);
+      if (proposal.custom_workflow_stage_id && column.type === 'custom_stage') {
+        const match = column.id === proposal.custom_workflow_stage_id;
+        if (match) console.log('[ProposalCardModal] Matched custom_stage column:', column.label, column.id);
         return match;
       }
       
       // Priority 3: Locked phase columns
-      if (proposal.current_phase && col.type === 'locked_phase') {
-        const match = col.phase_mapping === proposal.current_phase;
-        if (match) console.log('[ProposalCardModal] Matched locked_phase column:', col.label);
+      if (proposal.current_phase && column.type === 'locked_phase') {
+        const match = column.phase_mapping === proposal.current_phase;
+        if (match) console.log('[ProposalCardModal] Matched locked_phase column:', column.label);
         return match;
       }
       
       // Priority 4: Default status mapping (fallback)
-      if (col.type === 'default_status') {
-        const match = col.default_status_mapping === proposal.status;
-        if (match) console.log('[ProposalCardModal] Matched default_status column:', col.label);
+      if (column.type === 'default_status') {
+        const match = column.default_status_mapping === proposal.status;
+        if (match) console.log('[ProposalCardModal] Matched default_status column:', column.label);
         return match;
       }
       
