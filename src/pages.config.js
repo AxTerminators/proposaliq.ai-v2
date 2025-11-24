@@ -71,6 +71,7 @@ import AITokenUsageDashboard from './pages/AITokenUsageDashboard';
 import RAGSystemHealth from './pages/RAGSystemHealth';
 import ProposalStrategyConfigPage from './pages/ProposalStrategyConfigPage';
 import AIAssistedWriterPage from './pages/AIAssistedWriterPage';
+import ForceDeleteProposals from './pages/ForceDeleteProposals';
 import __Layout from './Layout.jsx';
 
 
@@ -148,6 +149,7 @@ export const PAGES = {
     "RAGSystemHealth": RAGSystemHealth,
     "ProposalStrategyConfigPage": ProposalStrategyConfigPage,
     "AIAssistedWriterPage": AIAssistedWriterPage,
+    "ForceDeleteProposals": ForceDeleteProposals,
 }
 
 export const pagesConfig = {
