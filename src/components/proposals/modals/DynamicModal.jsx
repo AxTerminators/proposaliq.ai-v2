@@ -71,11 +71,14 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   const [currentStep, setCurrentStep] = useState(0); // For multi-step forms
   const [showDraftDialog, setShowDraftDialog] = useState(false); // Show draft recovery dialog
 
-  // Phase 5: Track modal interactions
-  const tracking = useModalTracking(config, isOpen, organization?.id, config?.proposalId, user);
+  // CRITICAL: Generate modalId unconditionally BEFORE using it in hooks
+  // This ensures hooks are always called in the same order
+  const modalId = config?.modalId || `${config?.proposalId || 'unknown'}_${config?.title?.replace(/\s+/g, '_') || 'modal'}`;
 
-  // Phase 2.3: Autosave functionality
-  const modalId = config?.modalId || `${config?.proposalId}_${config?.title?.replace(/\s+/g, '_')}`;
+  // Phase 5: Track modal interactions - ALWAYS call hooks unconditionally
+  const tracking = useModalTracking(config || {}, isOpen, organization?.id || '', config?.proposalId || '', user);
+
+  // Phase 2.3: Autosave functionality - ALWAYS call hooks unconditionally
   const autosave = useAutosave(modalId, formData, isOpen);
 
   // Helper to get context value from proposal/organization/user
