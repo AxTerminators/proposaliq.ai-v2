@@ -97,31 +97,48 @@ export default function DynamicModal({ isOpen, onClose, config }) {
   };
 
   // Initialize form data from field defaults, context pre-fill, or load draft
+  // Use a ref to track if we've already initialized to prevent re-initialization
+  const hasInitializedRef = React.useRef(false);
+  const prevConfigFieldsRef = React.useRef(null);
+  
   useEffect(() => {
     if (!config?.fields) return;
     
-    // Check if draft exists
-    if (autosave.hasDraft()) {
+    // Only re-initialize if config.fields actually changed (not just reference)
+    const configFieldsKey = JSON.stringify(config.fields.map(f => f.name || f.id));
+    if (hasInitializedRef.current && prevConfigFieldsRef.current === configFieldsKey) {
+      return;
+    }
+    
+    prevConfigFieldsRef.current = configFieldsKey;
+    
+    // Check if draft exists (only on first initialization)
+    if (!hasInitializedRef.current && autosave.hasDraft()) {
       setShowDraftDialog(true);
-    } else {
+      hasInitializedRef.current = true;
+    } else if (!hasInitializedRef.current) {
       // Initialize with defaults and context pre-fill
       const initialData = {};
       config.fields.forEach(field => {
+        const fieldName = field.name || field.id;
+        if (!fieldName) return;
+        
         // Context pre-fill takes precedence over defaults
         if (field.prefillFromContext && field.prefillSource && field.prefillPath) {
           const contextValue = getContextValue(field.prefillSource, field.prefillPath);
           if (contextValue !== undefined) {
-            initialData[field.name] = contextValue;
+            initialData[fieldName] = contextValue;
           } else if (field.default !== undefined) {
-            initialData[field.name] = field.default;
+            initialData[fieldName] = field.default;
           }
         } else if (field.default !== undefined) {
-          initialData[field.name] = field.default;
+          initialData[fieldName] = field.default;
         }
       });
       setFormData(initialData);
+      hasInitializedRef.current = true;
     }
-  }, [config?.fields, autosave]);
+  }, [config?.fields]);
 
   // Handle draft recovery
   const handleLoadDraft = () => {
