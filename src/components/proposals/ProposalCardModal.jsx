@@ -125,7 +125,8 @@ export default function ProposalCardModal({ proposal: proposalProp, isOpen, onCl
   const [isValidatingName, setIsValidatingName] = useState(false);
 
   // Phase 5: DynamicModal integration
-  const { openModal, modalProps } = useChecklistModal(proposalProp?.id, organization?.id);
+  // CRITICAL: Always call hooks unconditionally - pass empty strings if IDs are undefined
+  const { openModal, modalProps } = useChecklistModal(proposalProp?.id || '', organization?.id || '');
 
   // Fetch organization users for timeline editor
   const { data: organizationUsers = [] } = useQuery({
