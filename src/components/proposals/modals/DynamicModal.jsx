@@ -812,8 +812,6 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     }
   };
 
-  if (!config) return null;
-
   // Determine fields to render
   // Handle both formats:
   // 1. config.steps[].fields - array of fields per step
