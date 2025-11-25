@@ -401,7 +401,7 @@ export default function ProposalsKanban({ proposals, organization, user, kanbanC
           if (matchingColumn) {
             assignments[proposal.id] = {
               columnId: matchingColumn.id,
-              columnType: col.type || 'custom_stage'
+              columnType: matchingColumn.type || 'custom_stage'
             };
           }
         }
