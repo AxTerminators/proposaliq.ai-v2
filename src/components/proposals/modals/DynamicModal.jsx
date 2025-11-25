@@ -165,19 +165,28 @@ export default function DynamicModal({ isOpen, onClose, config }) {
     toast.info('Draft discarded');
   };
 
+  // Reset initialization flag when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      prevConfigFieldsRef.current = null;
+    }
+  }, [isOpen]);
+
   // Handle input change
-  const handleChange = (fieldName, value) => {
+  const handleChange = React.useCallback((fieldName, value) => {
     setFormData(prev => ({ ...prev, [fieldName]: value }));
     
     // Clear error for this field
-    if (errors[fieldName]) {
-      setErrors(prev => {
+    setErrors(prev => {
+      if (prev[fieldName]) {
         const newErrors = { ...prev };
         delete newErrors[fieldName];
         return newErrors;
-      });
-    }
-  };
+      }
+      return prev;
+    });
+  }, []);
 
   // Handle file upload with automatic RAG ingestion
   const handleFileUpload = async (fieldName, file, fieldConfig) => {
