@@ -226,7 +226,6 @@ function LayoutContent({ children, currentPageName }) {
         );
 
       if (!hasAccess) {
-        console.log('[Layout] ⚠️ Page not accessible for current user/organization settings, redirecting to Dashboard');
         navigate(createPageUrl("Dashboard"));
       }
     }
@@ -257,9 +256,8 @@ function LayoutContent({ children, currentPageName }) {
   };
 
   // Handle organization switch
-  const handleOrganizationSwitch = async (newOrgId) => {
-    console.log('[Layout] Organization switched to:', newOrgId);
-    await refetch(); // Refetch organization data
+  const handleOrganizationSwitch = async () => {
+    await refetch();
   };
 
   const tokenPercentage = subscription
