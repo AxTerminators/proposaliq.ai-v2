@@ -123,21 +123,20 @@ export default function Pipeline() {
   const { user, organization, isLoading: isLoadingOrg } = useOrganization();
   const isLoadingUser = isLoadingOrg; // For backward compatibility with existing checks
 
+  // PHASE 2 FIX: Fetch boards and proposals in PARALLEL (both only need organization.id)
   const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      console.log('[Pipeline] Fetching all boards for org:', organization.id);
       const boards = await base44.entities.KanbanConfig.filter(
         { organization_id: organization.id },
         'board_type'
       );
-      console.log('[Pipeline] Found boards:', boards.length);
       return boards;
     },
-    enabled: !!organization?.id,
-    staleTime: Infinity, // Never consider stale
-    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    enabled: !!organization?.id, // Runs as soon as org is available
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -147,14 +146,12 @@ export default function Pipeline() {
   useEffect(() => {
     const ensureMasterBoard = async () => {
       if (organization?.id && allBoards.length === 0 && !isLoadingBoards) {
-        console.log('[Pipeline] No boards found, auto-creating master board');
         try {
           const response = await base44.functions.invoke('createMasterBoardConfig', {
             organization_id: organization.id
           });
 
           if (response.data.success && response.data.was_created) {
-            console.log('[Pipeline] Master board auto-created');
             await refetchBoards();
           }
         } catch (error) {
