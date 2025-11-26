@@ -289,24 +289,20 @@ export default function Pipeline() {
     }
   }, [selectedBoard, pendingProposalModal]);
 
+  // PHASE 2 FIX: Proposals query runs in PARALLEL with boards (same trigger: organization.id)
   const { data: proposals = [], isLoading: isLoadingProposals, error: proposalsError, refetch: refetchProposals } = useQuery({
     queryKey: ['proposals', organization?.id],
     queryFn: async () => {
-      if (!organization?.id) {
-        console.log('[Pipeline] No organization ID, skipping proposal fetch');
-        return [];
-      }
-      console.log('[Pipeline] Fetching proposals for org:', organization.id);
+      if (!organization?.id) return [];
       const results = await base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
       );
-      console.log('[Pipeline] Fetched proposals:', results.length);
       return results || [];
     },
-    enabled: !!organization?.id,
-    staleTime: Infinity, // Never consider stale - only manual refetch
-    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    enabled: !!organization?.id, // Runs as soon as org is available (parallel with boards)
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
