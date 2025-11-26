@@ -44,49 +44,40 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // PERFORMANCE FIX: Use Infinity staleTime to prevent any automatic refetching
-  const { data: proposals = [], refetch: refetchProposals } = useQuery({
-    queryKey: ['dashboard-proposals', organization?.id],
+  // PHASE 4: Reuse shared proposals query key for cross-page caching
+  const { data: proposals = [] } = useQuery({
+    queryKey: ['proposals', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
-      
       return base44.entities.Proposal.filter(
         { organization_id: organization.id },
         '-created_date'
       );
     },
     enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: Infinity, // Never consider stale - only manual refetch
-    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
   });
 
-  // PERFORMANCE FIX: Use Infinity staleTime
+  // Activity log - depends on proposals, fetched only when needed
   const { data: activityLog = [] } = useQuery({
     queryKey: ['dashboard-activity', organization?.id],
     queryFn: async () => {
-      if (!organization?.id) return [];
+      if (!organization?.id || !proposals?.length) return [];
       
-      // Get all proposals first to filter activity
-      const allProposals = await base44.entities.Proposal.filter(
-        { organization_id: organization.id }
-      );
-      
-      if (allProposals.length === 0) return [];
-      
-      const proposalIds = allProposals.map(p => p.id);
-      
+      const proposalIds = proposals.map(p => p.id);
       return base44.entities.ActivityLog.filter(
         { proposal_id: { $in: proposalIds } },
         '-created_date',
         20
       );
     },
-    enabled: !!organization?.id && !isLoadingOrg,
-    staleTime: Infinity, // Never consider stale - only manual refetch
-    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    enabled: !!organization?.id && !isLoadingOrg && proposals.length > 0,
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,

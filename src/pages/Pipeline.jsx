@@ -393,7 +393,8 @@ export default function Pipeline() {
     };
   }, [effectiveProposals, proposals]);
 
-  const { data: automationRules = [], refetch: refetchRules } = useQuery({
+  // PHASE 4: Automation rules - less critical, can stay as-is with longer staleTime
+  const { data: automationRules = [] } = useQuery({
     queryKey: ['automation-rules', organization?.id],
     queryFn: async () => {
       if (!organization?.id) return [];
@@ -403,8 +404,8 @@ export default function Pipeline() {
       );
     },
     enabled: !!organization?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -446,13 +447,7 @@ export default function Pipeline() {
     }
   };
 
-  useEffect(() => {
-    if (organization?.id) {
-      console.log('[Pipeline] Organization changed, refetching data');
-      refetchProposals();
-      refetchBoards();
-    }
-  }, [organization?.id, refetchProposals, refetchBoards]);
+  // Removed: Manual refetch on org change is unnecessary - queries already depend on organization.id
 
   const handleCreateProposal = () => {
     if (user?.using_sample_data === true) {
