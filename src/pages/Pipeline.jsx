@@ -118,59 +118,9 @@ export default function Pipeline() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const { data: user, isLoading: isLoadingUser } = useQuery({
-    queryKey: ['current-user'],
-    queryFn: async () => {
-      const currentUser = await base44.auth.me();
-      return currentUser;
-    },
-    staleTime: Infinity, // Never consider stale
-    gcTime: Infinity, // Never garbage collect
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    retry: 1
-  });
-
-  const { data: organization, isLoading: isLoadingOrg } = useQuery({
-    queryKey: ['current-organization', user?.email],
-    queryFn: async () => {
-      if (!user) return null;
-
-      let orgId = user.active_client_id;
-
-      if (!orgId && user.client_accesses?.length > 0) {
-        orgId = user.client_accesses[0].organization_id;
-      }
-
-      if (!orgId) {
-        const orgs = await base44.entities.Organization.filter(
-          { created_by: user.email },
-          '-created_date',
-          1
-        );
-        if (orgs.length > 0) {
-          orgId = orgs[0].id;
-        }
-      }
-
-      if (orgId) {
-        const orgs = await base44.entities.Organization.filter({ id: orgId });
-        if (orgs.length > 0) {
-          return orgs[0];
-        }
-      }
-
-      return null;
-    },
-    enabled: !!user,
-    staleTime: Infinity, // Never consider stale
-    gcTime: Infinity, // Never garbage collect
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    retry: 1
-  });
+  // PHASE 1 FIX: Use shared OrganizationContext instead of duplicate queries
+  const { user, organization, isLoading: isLoadingOrg } = useOrganization();
+  const isLoadingUser = isLoadingOrg; // For backward compatibility with existing checks
 
   const { data: allBoards = [], isLoading: isLoadingBoards, refetch: refetchBoards } = useQuery({
     queryKey: ['all-kanban-boards', organization?.id],
