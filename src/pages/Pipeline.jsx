@@ -171,21 +171,14 @@ export default function Pipeline() {
     const boardIdFromUrl = urlParams.get('boardId');
     const boardIdFromStorage = localStorage.getItem('selectedBoardId');
 
-    console.log('[Pipeline] 🔍 Initializing board selection');
-    console.log('[Pipeline] URL boardId:', boardIdFromUrl);
-    console.log('[Pipeline] LocalStorage boardId:', boardIdFromStorage);
-    console.log('[Pipeline] Available boards:', allBoards.map(b => ({ id: b.id, name: b.board_name })));
-
     // Priority 1: Try to restore from localStorage
     if (boardIdFromStorage) {
       const boardExists = allBoards.find(b => b.id === boardIdFromStorage);
       if (boardExists) {
-        console.log('[Pipeline] ✅ Restored board from localStorage:', boardExists.board_name);
         setSelectedBoardId(boardIdFromStorage);
         hasInitialized.current = true;
         return;
       } else {
-        console.warn('[Pipeline] ⚠️ Board from localStorage not found, clearing...');
         localStorage.removeItem('selectedBoardId');
       }
     }
@@ -194,20 +187,16 @@ export default function Pipeline() {
     if (boardIdFromUrl) {
       const boardExists = allBoards.find(b => b.id === boardIdFromUrl);
       if (boardExists) {
-        console.log('[Pipeline] ✅ Restored board from URL:', boardExists.board_name);
         setSelectedBoardId(boardIdFromUrl);
         localStorage.setItem('selectedBoardId', boardIdFromUrl);
         hasInitialized.current = true;
         return;
-      } else {
-        console.warn('[Pipeline] ⚠️ Board from URL not found, falling back to default');
       }
     }
 
     // Priority 3: Auto-select default board
     const masterBoard = allBoards.find(b => b.is_master_board === true);
     const boardToSelect = masterBoard || allBoards[0];
-    console.log('[Pipeline] 🎯 Auto-selecting default board:', boardToSelect?.board_name);
     setSelectedBoardId(boardToSelect?.id);
     if (boardToSelect?.id) {
       localStorage.setItem('selectedBoardId', boardToSelect.id);
@@ -219,7 +208,6 @@ export default function Pipeline() {
   useEffect(() => {
     if (!selectedBoardId || !hasInitialized.current) return;
 
-    console.log('[Pipeline] 💾 Saving board selection to localStorage:', selectedBoardId);
     localStorage.setItem('selectedBoardId', selectedBoardId);
 
     // Also update URL for sharing
@@ -228,11 +216,8 @@ export default function Pipeline() {
 
     if (currentBoardIdInUrl !== selectedBoardId) {
       urlParams.set('boardId', selectedBoardId);
-      
       const newUrl = `${createPageUrl("Pipeline")}?${urlParams.toString()}`;
       window.history.replaceState({}, '', newUrl);
-      
-      console.log('[Pipeline] 📝 Updated URL with boardId:', selectedBoardId);
     }
   }, [selectedBoardId]);
 
@@ -244,48 +229,25 @@ export default function Pipeline() {
     
     const { proposal, initialModal, targetBoardType, targetBoardId } = pendingProposalModal;
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[Pipeline] 🔍 CHECKING MODAL READINESS');
-    console.log('[Pipeline] Pending proposal:', proposal.proposal_name);
-    console.log('[Pipeline] Target board type:', targetBoardType);
-    console.log('[Pipeline] Target board ID:', targetBoardId);
-    console.log('[Pipeline] Current board ID:', selectedBoard?.id);
-    console.log('[Pipeline] Current board type:', selectedBoard?.board_type);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
     // Check if the currently selected board matches the target
     let isCorrectBoard = false;
     
     if (targetBoardId) {
       isCorrectBoard = selectedBoard?.id === targetBoardId;
-      console.log('[Pipeline] 🎯 Matching by board ID:', isCorrectBoard ? 'MATCH ✅' : 'NO MATCH ❌');
     } else if (targetBoardType === 'rfp_15_column') {
       isCorrectBoard = selectedBoard?.board_type === 'rfp_15_column';
-      console.log('[Pipeline] 🎯 Matching by board type:', isCorrectBoard ? 'MATCH ✅' : 'NO MATCH ❌');
     } else {
       isCorrectBoard = selectedBoard?.applies_to_proposal_types?.includes(proposal.proposal_type_category) || false;
-      console.log('[Pipeline] 🎯 Matching by proposal type:', isCorrectBoard ? 'MATCH ✅' : 'NO MATCH ❌');
     }
     
     if (isCorrectBoard && selectedBoard) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[Pipeline] ✅ OPENING MODAL NOW!');
-      console.log('[Pipeline] Board name:', selectedBoard.board_name);
-      console.log('[Pipeline] Modal to open:', initialModal);
-      console.log('[Pipeline] Setting state...');
-      
       // CRITICAL: Use setTimeout to ensure state updates don't conflict
       setTimeout(() => {
-        console.log('[Pipeline] 🎭 Setting modal state...');
         setSelectedProposalToOpen(proposal);
         setInitialModalToOpen(initialModal);
         setShowProposalModal(true);
         setPendingProposalModal(null);
-        console.log('[Pipeline] ✅ Modal state set!');
       }, 100);
-    } else {
-      console.log('[Pipeline] ⏳ Waiting for correct board...');
-      console.log('[Pipeline] Reason:', !selectedBoard ? 'No selected board' : 'Board mismatch');
     }
   }, [selectedBoard, pendingProposalModal]);
 
@@ -505,79 +467,36 @@ export default function Pipeline() {
   };
 
   const handleProposalCreated = async (createdProposal, openModal = null, boardConfig = null) => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[Pipeline] 📝 HANDLE PROPOSAL CREATED CALLED');
-    console.log('[Pipeline] Proposal:', createdProposal.proposal_name);
-    console.log('[Pipeline] Type:', createdProposal.proposal_type_category);
-    console.log('[Pipeline] ID:', createdProposal.id);
-    console.log('[Pipeline] Modal to open:', openModal);
-    console.log('[Pipeline] Board config provided:', !!boardConfig);
-    if (boardConfig) {
-      console.log('[Pipeline] Board config details:', {
-        id: boardConfig.id,
-        name: boardConfig.board_name,
-        type: boardConfig.board_type
-      });
-    }
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    // Refetch proposals
-    console.log('[Pipeline] 🔄 Refetching proposals...');
-    await refetchProposals();
-    console.log('[Pipeline] ✅ Proposals refetched');
-    
-    // CRITICAL: Refetch boards to ensure we have the latest
-    console.log('[Pipeline] 🔄 Refetching boards...');
-    const boardsRefetchResult = await refetchBoards();
-    console.log('[Pipeline] ✅ Boards refetched, count:', boardsRefetchResult?.data?.length || 'unknown');
+    // Refetch proposals and boards in parallel
+    await Promise.all([refetchProposals(), refetchBoards()]);
 
     const proposalType = createdProposal.proposal_type_category;
-
-    if (!proposalType) {
-      console.warn('[Pipeline] ⚠️ No proposal type category, aborting');
-      return;
-    }
+    if (!proposalType) return;
 
     // PERFORMANCE FIX: Reduced wait time from 500ms to 100ms
     await new Promise(resolve => setTimeout(resolve, 100));
     
     // Get fresh boards from query cache
     const freshBoards = queryClient.getQueryData(['all-kanban-boards', organization?.id]) || [];
-    console.log('[Pipeline] 📋 Fresh boards from cache:', freshBoards.map(b => ({ id: b.id, type: b.board_type, name: b.board_name })));
 
     // Find the correct board - Prioritize boardConfig if provided
     let matchingBoard = null;
     
     if (boardConfig) {
-      console.log('[Pipeline] 🎯 Using provided board config:', boardConfig.board_name);
       matchingBoard = freshBoards.find(b => b.id === boardConfig.id);
-      if (!matchingBoard) {
-        console.error('[Pipeline] ❌ Provided board not found in fresh boards! ID:', boardConfig.id);
-      } else {
-        console.log('[Pipeline] ✅ Successfully found provided board in fresh data');
-      }
     }
     
     if (!matchingBoard) {
       if (proposalType === 'RFP_15_COLUMN') {
         matchingBoard = freshBoards.find(board => board.board_type === 'rfp_15_column');
-        console.log('[Pipeline] 🎯 Searched for 15-column board:', matchingBoard ? 'FOUND ✅' : 'NOT FOUND ❌');
       } else {
         matchingBoard = freshBoards.find(board =>
           board.applies_to_proposal_types?.includes(proposalType)
         );
-        console.log('[Pipeline] 🔍 Searched for type-specific board:', matchingBoard ? 'FOUND ✅' : 'NOT FOUND ❌');
       }
     }
 
     if (matchingBoard) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[Pipeline] ✅ SWITCHING TO BOARD');
-      console.log('[Pipeline] Board name:', matchingBoard.board_name);
-      console.log('[Pipeline] Board ID:', matchingBoard.id);
-      console.log('[Pipeline] Board type:', matchingBoard.board_type);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
       // CRITICAL FIX: Force board selection immediately
       setSelectedBoardId(matchingBoard.id);
       
@@ -586,22 +505,12 @@ export default function Pipeline() {
         setSelectedProposalToOpen(createdProposal);
         setInitialModalToOpen(openModal);
         setShowProposalModal(true);
-        setPendingProposalModal(null); // Clear pending state if it was set elsewhere, ensures clean slate.
+        setPendingProposalModal(null);
       }
       
       // PERFORMANCE FIX: Reduced wait time from 300ms to 50ms
       await new Promise(resolve => setTimeout(resolve, 50));
-      
-      console.log('[Pipeline] ✅ Board switch initiated, view should now show:', matchingBoard.board_name);
     } else {
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.error('[Pipeline] ❌ NO MATCHING BOARD FOUND!');
-      console.error('[Pipeline] This is a critical error');
-      console.error('[Pipeline] Proposal type:', proposalType);
-      console.error('[Pipeline] Available boards:', freshBoards.length);
-      console.error('[Pipeline] Board types available:', freshBoards.map(b => b.board_type));
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
       // Show helpful error message
       alert(
         `⚠️ Board Not Found\n\n` +
@@ -757,28 +666,17 @@ export default function Pipeline() {
     const proposalType = selectedProposalToOpen.proposal_type_category;
     const customStageId = selectedProposalToOpen.custom_workflow_stage_id;
     
-    console.log('[Pipeline] getModalBoardConfig:', {
-      proposalType,
-      customStageId,
-      selectedBoardId: selectedBoard?.id,
-      selectedBoardName: selectedBoard?.board_name
-    });
-    
     // CRITICAL: If proposal has a custom_workflow_stage_id, find the board that contains that column
     if (customStageId) {
       const boardWithColumn = allBoards.find(board => 
         board.columns?.some(col => col.id === customStageId)
       );
-      if (boardWithColumn) {
-        console.log('[Pipeline] Found board with matching column:', boardWithColumn.board_name);
-        return boardWithColumn;
-      }
+      if (boardWithColumn) return boardWithColumn;
     }
     
     // For 15-column proposals, explicitly find that board
     if (proposalType === 'RFP_15_COLUMN') {
       const rfp15Board = allBoards.find(board => board.board_type === 'rfp_15_column');
-      console.log('[Pipeline] Modal board config for 15-column:', rfp15Board ? 'FOUND' : 'FALLBACK TO SELECTED');
       return rfp15Board || selectedBoard;
     }
     
@@ -787,33 +685,10 @@ export default function Pipeline() {
       !board.is_master_board && board.applies_to_proposal_types?.includes(proposalType)
     );
     
-    if (typeBoard) {
-      console.log('[Pipeline] Found type-specific board:', typeBoard.board_name);
-      return typeBoard;
-    }
-    
-    console.log('[Pipeline] Falling back to selected board:', selectedBoard?.board_name);
-    return selectedBoard;
+    return typeBoard || selectedBoard;
   };
 
-  // Debug logging for modal state
-  useEffect(() => {
-    console.log('[Pipeline] 🎬 Modal State Update:', {
-      showProposalModal,
-      hasSelectedProposal: !!selectedProposalToOpen,
-      proposalName: selectedProposalToOpen?.proposal_name,
-      initialModal: initialModalToOpen,
-      hasPending: !!pendingProposalModal
-    });
-  }, [showProposalModal, selectedProposalToOpen, initialModalToOpen, pendingProposalModal]);
 
-  // DEBUG: Log when showNewProposalDialog changes
-  useEffect(() => {
-    console.log('[Pipeline] 🎭 QuickCreate Dialog State:', {
-      isOpen: showNewProposalDialog,
-      hasHandleProposalCreated: typeof handleProposalCreated === 'function'
-    });
-  }, [showNewProposalDialog]);
 
   if (proposalsError) {
     return (
