@@ -617,8 +617,8 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
       </Dialog>
 
       {/* Edit Folder Dialog */}
-      <Dialog open={showEdit} onOpenChange={(open) => { // Changed to showEdit
-        setShowEdit(open); // Changed to showEdit
+      <Dialog open={showEditDialog} onOpenChange={(open) => {
+        setShowEditDialog(open);
         if (!open) {
           setEditingFolder(null);
           setEditNameError(""); // NEW: Clear error on close
