@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -62,7 +61,7 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
   const queryClient = useQueryClient();
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showEditDialog, setShowEdit] = useState(false); // Renamed to avoid conflict with showEditDialog in handleEditFolder
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingFolder, setEditingFolder] = useState(null);
   const [deletingFolder, setDeletingFolder] = useState(null);
