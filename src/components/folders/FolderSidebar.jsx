@@ -721,7 +721,7 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
             <Button
               variant="outline"
               onClick={() => {
-                setShowEdit(false); // Changed to showEdit
+                setShowEditDialog(false);
                 setEditingFolder(null);
                 setEditNameError(""); // NEW: Clear error on cancel
                 setIsValidatingEdit(false); // NEW: Clear validating state on cancel
