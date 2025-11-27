@@ -22,9 +22,6 @@ import RAGOnboardingGuide from "../components/content/RAGOnboardingGuide";
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, organization, isLoading: isLoadingOrg } = useOrganization();
-  
-  // Defensive: ensure no stale variable references
-  const showEdit = false; // Legacy compatibility - variable no longer used
   const [stats, setStats] = useState({
     total_proposals: 0,
     active_proposals: 0,
