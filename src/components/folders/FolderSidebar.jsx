@@ -290,7 +290,7 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
       parent_folder_id: folder.parent_folder_id
     });
     setEditNameError(""); // NEW: Clear error when opening edit dialog
-    setShowEdit(true); // Changed from setShowEditDialog
+    setShowEditDialog(true);
   };
 
   const handleSaveEdit = async () => {
