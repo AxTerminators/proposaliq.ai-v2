@@ -219,7 +219,7 @@ export default function FolderSidebar({ organization, selectedFolderId, onSelect
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['folders'] });
-      setShowEdit(false); // Changed from setShowEditDialog
+      setShowEditDialog(false);
       setEditingFolder(null);
       setEditNameError(""); // NEW: Clear error on success
       alert('✅ Folder updated successfully!');
