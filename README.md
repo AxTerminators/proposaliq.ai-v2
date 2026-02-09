@@ -1,9 +1,12 @@
-# Base44 Preview Template for MicroVM sandbox
+# Proposal IQ
+This is another project I built to help government contractors generate proposals. 
+I got pretty close to launching it, but decided to go a different direction.
 
-This template is used by the server to preview user-apps.
+It was built on Base44. 
+I'm making it available to the public for anyone who wants to work with it, improve on it, fork it or pull it for your own use.
 
-## user files
-server creates the user-app files in the __components__, __pages__ folders
+Give me your thougths on this proposal generating app. 
 
-## server injected data
-server injects app related data to __app.config.js__, which is used by App.jsx to render the components in the files.
+If you do use it, let me know how it goes with your version or improvements to the app.
+
+
