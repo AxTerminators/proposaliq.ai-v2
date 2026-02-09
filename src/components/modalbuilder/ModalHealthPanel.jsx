@@ -88,48 +88,48 @@ export default function ModalHealthPanel({ validation, onJumpToSection }) {
           {sectionDetails.map((detail) => (
             <div
               key={detail.key}
-              className="flex items-start justify-between p-2 bg-white rounded border border-slate-200"
+              className="flex items-start gap-2 p-2 bg-white rounded border border-slate-200 overflow-hidden"
             >
-              <div className="flex items-start gap-2 flex-1">
+              <div className="flex-shrink-0 mt-0.5">
                 {getSectionIcon(detail.section)}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className={cn('text-sm font-medium', getSectionColor(detail.section))}>
-                      {detail.label}
-                    </p>
-                    {detail.optional && (
-                      <Badge variant="outline" className="text-xs">Optional</Badge>
-                    )}
-                  </div>
-                  {detail.section?.issues && detail.section.issues.length > 0 && (
-                    <ul className="text-xs text-slate-600 mt-1 space-y-1">
-                      {detail.section.issues.map((issue, idx) => (
-                        <li key={idx}>• {issue}</li>
-                      ))}
-                    </ul>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center flex-wrap gap-1">
+                  <p className={cn('text-sm font-medium break-words', getSectionColor(detail.section))}>
+                    {detail.label}
+                  </p>
+                  {detail.optional && (
+                    <Badge variant="outline" className="text-xs flex-shrink-0">Optional</Badge>
                   )}
-                  {detail.section?.fieldIssues && Object.keys(detail.section.fieldIssues).length > 0 && (
-                    <p className="text-xs text-slate-600 mt-1">
-                      {Object.keys(detail.section.fieldIssues).length} field(s) have issues
-                    </p>
-                  )}
-                  {detail.section?.operationIssues && Object.keys(detail.section.operationIssues).length > 0 && (
-                    <p className="text-xs text-slate-600 mt-1">
-                      {Object.keys(detail.section.operationIssues).length} operation(s) have issues
-                    </p>
+                  {detail.section && !detail.section.isValid && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onJumpToSection?.(detail.tab)}
+                      className="text-xs h-6 px-2 ml-auto flex-shrink-0"
+                    >
+                      Fix
+                    </Button>
                   )}
                 </div>
+                {detail.section?.issues && detail.section.issues.length > 0 && (
+                  <ul className="text-xs text-slate-600 mt-1 space-y-1">
+                    {detail.section.issues.map((issue, idx) => (
+                      <li key={idx} className="break-words">• {issue}</li>
+                    ))}
+                  </ul>
+                )}
+                {detail.section?.fieldIssues && Object.keys(detail.section.fieldIssues).length > 0 && (
+                  <p className="text-xs text-slate-600 mt-1">
+                    {Object.keys(detail.section.fieldIssues).length} field(s) have issues
+                  </p>
+                )}
+                {detail.section?.operationIssues && Object.keys(detail.section.operationIssues).length > 0 && (
+                  <p className="text-xs text-slate-600 mt-1">
+                    {Object.keys(detail.section.operationIssues).length} operation(s) have issues
+                  </p>
+                )}
               </div>
-              {detail.section && !detail.section.isValid && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onJumpToSection?.(detail.tab)}
-                  className="text-xs h-7"
-                >
-                  Fix
-                </Button>
-              )}
             </div>
           ))}
         </CardContent>
