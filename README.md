@@ -1,6 +1,8 @@
-# Proposal IQ
+# Proposal IQ / GovHQ
 This is another project I built to help government contractors generate proposals. 
 I got pretty close to launching it, but decided to go a different direction.
+
+<img width="1073" height="769" alt="Screenshot 2026-02-14 at 10 21 37 AM" src="https://github.com/user-attachments/assets/96d992eb-6111-46c7-8df2-2acf10ca7be6" />
 
 It was built on Base44. 
 At the time that I was using B44, it was not mature enough for me, so I moved on to use more mature tools.
